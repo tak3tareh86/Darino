@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -28,10 +27,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.R
 import com.example.data.database.NotificationLogEntity
-import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.theme.EmeraldPrimaryLight
-import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusXL
@@ -41,87 +38,150 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationCenterScreen(
     onBackClick: () -> Unit,
     viewModel: NotificationCenterViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
-    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-    val logs by viewModel.notifications.collectAsState()
     val unreadCount by viewModel.unreadCount.collectAsState()
+    val logs by viewModel.notifications.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
 
-    val backgroundBrush = remember(isDark) {
-        if (isDark) {
-            Brush.verticalGradient(
-                colors = listOf(Color(0xFF090D16), Color(0xFF0C1322), Color(0xFF090D16))
-            )
-        } else {
-            Brush.verticalGradient(
-                colors = listOf(Color(0xFFF8FAFC), Color(0xFFF1F5F9), Color(0xFFE2E8F0))
-            )
-        }
-    }
-
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        topBar = {
-            NotificationCenterHeader(
-                onBackClick = onBackClick,
-                isRefreshing = uiState.isRefreshing,
-                onRefresh = viewModel::refresh
-            )
-        }
-    ) { paddingValues ->
-        Box(
+    // Semi-transparent backdrop for centered popup dialog
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.55f))
+            .clickable { onBackClick() }
+            .testTag("notification_popup_backdrop"),
+        contentAlignment = Alignment.Center
+    ) {
+        // Centered Popup Card
+        Surface(
             modifier = Modifier
-                .fillMaxSize()
-                .background(backgroundBrush)
-                .padding(paddingValues)
+                .fillMaxWidth(0.92f)
+                .fillMaxHeight(0.78f)
+                .shadow(16.dp, RoundedCornerShape(RadiusXL))
+                .clickable(enabled = false) { /* consume click */ }
+                .testTag("notification_popup_dialog"),
+            shape = RoundedCornerShape(RadiusXL),
+            color = MaterialTheme.colorScheme.surface
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Popup Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Notifications,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "صندوق پیام‌ها و نوتیفیکیشن‌ها",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "هشدارهای اقساط و سرویس‌ها",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(
+                            onClick = viewModel::refresh,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            if (uiState.isRefreshing) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Rounded.Refresh,
+                                    contentDescription = "تازه‌سازی",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = onBackClick,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.ArrowForward,
+                                contentDescription = "بستن",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Mark all as read bar
                 if (unreadCount > 0) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "${IranianPhoneUtils.convertDigitsToPersian(unreadCount.toString())} پیام خوانده نشده",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "${IranianPhoneUtils.convertDigitsToPersian(unreadCount.toString())} خوانده نشده",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         TextButton(
                             onClick = { viewModel.markAllAsRead() },
-                            colors = ButtonDefaults.textButtonColors(
-                                contentColor = MaterialTheme.colorScheme.primary
-                            )
+                            contentPadding = PaddingValues(4.dp)
                         ) {
-                            Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("علامت‌گذاری همه به عنوان خوانده‌شده", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                            Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("علامت‌گذاری همه", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                         }
                     }
-                } else {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
 
+                // List of compact notification items
                 LazyColumn(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 24.dp)
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp)
                 ) {
                     items(logs, key = { it.id }) { log ->
-                        NotificationLogItem(
+                        CompactNotificationItem(
                             log = log,
                             onClick = {
                                 if (!log.isRead) {
@@ -133,7 +193,7 @@ fun NotificationCenterScreen(
 
                     if (logs.isEmpty()) {
                         item {
-                            EmptyNotificationState()
+                            CompactEmptyState()
                         }
                     }
                 }
@@ -143,106 +203,7 @@ fun NotificationCenterScreen(
 }
 
 @Composable
-fun NotificationCenterHeader(
-    onBackClick: () -> Unit,
-    isRefreshing: Boolean = false,
-    onRefresh: () -> Unit = {}
-) {
-    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-    val gradient = if (isDark) {
-        Brush.verticalGradient(listOf(Color(0xFF0F172A), Color(0xFF131B2E)))
-    } else {
-        Brush.verticalGradient(listOf(Color(0xFF0F172A), Color(0xFF134E4A)))
-    }
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(10.dp, RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL)),
-        shape = RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL),
-        color = Color.Transparent
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(gradient)
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    // Back Button
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .shadow(4.dp, CircleShape)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.12f))
-                            .clickable { onBackClick() }
-                            .testTag("notification_center_back_btn"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.ArrowForward,
-                            contentDescription = "بازگشت",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = "صندوق پیام‌ها و نوتیفیکیشن‌ها",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            ),
-                            color = Color.White
-                        )
-                        Text(
-                            text = "تاریخچه هشدارهای اقساط، چک‌ها و سرویس‌های خودرو",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-
-                IconButton(
-                    onClick = onRefresh,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.12f))
-                ) {
-                    if (isRefreshing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = Color.White
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Rounded.Refresh,
-                            contentDescription = "تازه‌سازی",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun NotificationLogItem(
+fun CompactNotificationItem(
     log: NotificationLogEntity,
     onClick: () -> Unit
 ) {
@@ -254,37 +215,33 @@ fun NotificationLogItem(
     }
 
     val typeLabel = when (log.type.uppercase(Locale.ROOT)) {
-        "INSTALLMENT" -> "یادآوری قسط"
-        "INSURANCE" -> "سررسید بیمه"
-        "VEHICLE", "MAINTENANCE" -> "سرویس دوره‌ای"
-        else -> "اعلان عمومی"
+        "INSTALLMENT" -> "قسط"
+        "INSURANCE" -> "بیمه"
+        "VEHICLE", "MAINTENANCE" -> "سرویس"
+        else -> "اعلان"
     }
 
     val dateFormatted = remember(log.timestamp) {
-        val sdf = SimpleDateFormat("yyyy/MM/dd - HH:mm", Locale.US)
+        val sdf = SimpleDateFormat("MM/dd - HH:mm", Locale.US)
         IranianPhoneUtils.convertDigitsToPersian(sdf.format(Date(log.timestamp)))
     }
 
-    Layered3DCard(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
             .testTag("notification_item_${log.id}"),
-        elevation = if (log.isRead) 1.dp else 4.dp,
-        backgroundColor = if (log.isRead) {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
-        } else {
-            MaterialTheme.colorScheme.surface
-        }
+        shape = RoundedCornerShape(RadiusMD),
+        color = if (log.isRead) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Icon
             Soft3DIcon(
                 imageRes = when (log.type.uppercase(Locale.ROOT)) {
                     "INSTALLMENT" -> R.drawable.img_3d_installment
@@ -294,7 +251,7 @@ fun NotificationLogItem(
                 },
                 contentDescription = typeLabel,
                 accentColor = accentColor,
-                size = 42.dp
+                size = 32.dp
             )
 
             Column(modifier = Modifier.weight(1f)) {
@@ -306,31 +263,32 @@ fun NotificationLogItem(
                     Text(
                         text = log.title,
                         style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = if (log.isRead) FontWeight.Medium else FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp
                         ),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
                     )
 
                     if (!log.isRead) {
                         Surface(
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(8.dp)
+                            modifier = Modifier.size(6.dp)
                         ) {}
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
                     text = log.message,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 18.sp
+                    maxLines = 2
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -339,13 +297,13 @@ fun NotificationLogItem(
                 ) {
                     Text(
                         text = typeLabel,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                         color = accentColor
                     )
 
                     Text(
                         text = dateFormatted,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
@@ -355,28 +313,23 @@ fun NotificationLogItem(
 }
 
 @Composable
-fun EmptyNotificationState() {
+fun CompactEmptyState() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 60.dp),
+            .padding(vertical = 30.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Soft3DIcon(
             imageRes = R.drawable.img_3d_bell_notification,
             contentDescription = "صندوق پیام خالی",
-            size = 80.dp
+            size = 50.dp
         )
         Text(
             text = "صندوق پیام‌ها خالی است",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-        )
-        Text(
-            text = "هنگام سررسید یادآورها، نوتیفیکیشن‌ها در اینجا ثبت می‌شوند.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
         )
     }
 }

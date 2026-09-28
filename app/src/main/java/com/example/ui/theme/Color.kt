@@ -36,13 +36,13 @@ val EmeraldOnPrimaryDark = Color(0xFF042F2E)
 val EmeraldContainerDark = Color(0xFF134E4A)
 val EmeraldOnContainerDark = Color(0xFF5EEAD4)
 
-val SlateSecondaryDark = Color(0xFF334155)
+val SlateSecondaryDark = Color(0xFF1E293B)
 val SlateOnSecondaryDark = Color(0xFFF8FAFC)
 
-val BackgroundDark = Color(0xFF090D16)
-val SurfaceDark = Color(0xFF131B2E)
-val SurfaceElevatedDark = Color(0xFF1E293B)
-val SurfaceVariantDark = Color(0xFF1F293D)
+val BackgroundDark = Color(0xFF000000)
+val SurfaceDark = Color(0xFF0A0D14)
+val SurfaceElevatedDark = Color(0xFF121824)
+val SurfaceVariantDark = Color(0xFF161E2E)
 
 val TextPrimaryDark = Color(0xFFF8FAFC)
 val TextSecondaryDark = Color(0xFF94A3B8)

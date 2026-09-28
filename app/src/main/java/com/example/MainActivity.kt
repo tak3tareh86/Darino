@@ -6,9 +6,21 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,6 +61,7 @@ import com.example.ui.screens.reports.ReportsScreen
 import com.example.ui.screens.settings.SettingsScreen
 import com.example.financial_health.presentation.FinancialHealthScreen
 import com.example.ui.screens.settings.model.AppThemeMode
+import com.example.ui.screens.settings.model.NavigationTransitionAnimation
 import com.example.ui.screens.splash.SplashScreen
 import com.example.ui.screens.vehicle.VehicleServicesScreen
 import com.example.ui.screens.subscription.SubscriptionGate
@@ -113,6 +126,13 @@ fun AppNavigationContainer(
     var isFinancialHealthOpen by remember { mutableStateOf(false) }
     var isSubscriptionOpen by remember { mutableStateOf(false) }
     var showAuthSheet by remember { mutableStateOf(false) }
+    var showExitDialog by remember { mutableStateOf(false) }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = remember(context) { context as? android.app.Activity }
+
+    val prefsRepo = remember(context) { com.example.data.preferences.AppPreferencesRepository.getInstance(context) }
+    val currentNavTransition by prefsRepo.navTransition.collectAsState()
 
     val authViewModel: AuthViewModel = viewModel()
     val authUiState by authViewModel.uiState.collectAsState()
@@ -148,6 +168,16 @@ fun AppNavigationContainer(
         return
     }
 
+    // Request notification permission for Android 13+ (API 33+) once app launches/unlocks
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+        val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+            contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+        ) { /* no-op or handle state if needed */ }
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     // 2. Unauthenticated user -> Login Screen (Phone + OTP)
     if (!authUiState.isAuthenticated || lockUiState.appLockState is AppLockState.Unauthenticated) {
         LoginScreen(
@@ -173,6 +203,21 @@ fun AppNavigationContainer(
 
     // 4. Authenticated and Unlocked -> Main Application
     SubscriptionGate(subscriptionViewModel = subscriptionViewModel) {
+        // Back navigation interceptors
+        BackHandler(enabled = isSubscriptionOpen || isSettingsOpen || isNotificationsOpen || isFinancialHealthOpen || currentTab != BottomNavItem.HOME) {
+            when {
+                isSubscriptionOpen -> isSubscriptionOpen = false
+                isSettingsOpen -> isSettingsOpen = false
+                isNotificationsOpen -> isNotificationsOpen = false
+                isFinancialHealthOpen -> isFinancialHealthOpen = false
+                currentTab != BottomNavItem.HOME -> currentTab = BottomNavItem.HOME
+            }
+        }
+
+        BackHandler(enabled = !isSubscriptionOpen && !isSettingsOpen && !isNotificationsOpen && !isFinancialHealthOpen && currentTab == BottomNavItem.HOME) {
+            showExitDialog = true
+        }
+
         val showBottomBar = !isSubscriptionOpen && !isSettingsOpen && !isNotificationsOpen && !isFinancialHealthOpen
 
         Scaffold(
@@ -225,10 +270,97 @@ fun AppNavigationContainer(
                             onBackClick = { isFinancialHealthOpen = false }
                         )
                     } else {
-                        Crossfade(
+                        AnimatedContent(
                             targetState = currentTab,
-                            animationSpec = tween(durationMillis = 200),
-                            label = "MainTabCrossfade"
+                            transitionSpec = {
+                                val initialIndex = initialState.ordinal
+                                val targetIndex = targetState.ordinal
+                                val isForward = targetIndex >= initialIndex
+
+                                when (currentNavTransition) {
+                                    NavigationTransitionAnimation.SLIDE -> {
+                                        slideInHorizontally(
+                                            initialOffsetX = { fullWidth -> if (isForward) fullWidth else -fullWidth },
+                                            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                                        ) togetherWith slideOutHorizontally(
+                                            targetOffsetX = { fullWidth -> if (isForward) -fullWidth else fullWidth },
+                                            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                                        )
+                                    }
+                                    NavigationTransitionAnimation.FADE -> {
+                                        fadeIn(
+                                            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing)
+                                        ) togetherWith fadeOut(
+                                            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                                        )
+                                    }
+                                    NavigationTransitionAnimation.SCALE -> {
+                                        (scaleIn(
+                                            initialScale = 0.88f,
+                                            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                                        ) + fadeIn(
+                                            animationSpec = tween(durationMillis = 250)
+                                        )) togetherWith (scaleOut(
+                                            targetScale = 1.08f,
+                                            animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing)
+                                        ) + fadeOut(
+                                            animationSpec = tween(durationMillis = 200)
+                                        ))
+                                    }
+                                    NavigationTransitionAnimation.ZOOM -> {
+                                        (scaleIn(
+                                            initialScale = 0.72f,
+                                            animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing)
+                                        ) + fadeIn(
+                                            animationSpec = tween(durationMillis = 280)
+                                        )) togetherWith (scaleOut(
+                                            targetScale = 1.25f,
+                                            animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+                                        ) + fadeOut(
+                                            animationSpec = tween(durationMillis = 240)
+                                        ))
+                                    }
+                                    NavigationTransitionAnimation.SLIDE_FADE -> {
+                                        (slideInHorizontally(
+                                            initialOffsetX = { fullWidth -> if (isForward) (fullWidth * 0.45f).toInt() else (-fullWidth * 0.45f).toInt() },
+                                            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                                        ) + fadeIn(
+                                            animationSpec = tween(durationMillis = 300)
+                                        )) togetherWith (slideOutHorizontally(
+                                            targetOffsetX = { fullWidth -> if (isForward) (-fullWidth * 0.45f).toInt() else (fullWidth * 0.45f).toInt() },
+                                            animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+                                        ) + fadeOut(
+                                            animationSpec = tween(durationMillis = 240)
+                                        ))
+                                    }
+                                    NavigationTransitionAnimation.DYNAMIC -> {
+                                        (slideInHorizontally(
+                                            initialOffsetX = { fullWidth -> if (isForward) (fullWidth * 0.5f).toInt() else (-fullWidth * 0.5f).toInt() },
+                                            animationSpec = spring(
+                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                stiffness = Spring.StiffnessMediumLow
+                                            )
+                                        ) + scaleIn(
+                                            initialScale = 0.90f,
+                                            animationSpec = spring(
+                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                stiffness = Spring.StiffnessMediumLow
+                                            )
+                                        ) + fadeIn(
+                                            animationSpec = tween(durationMillis = 220)
+                                        )) togetherWith (slideOutHorizontally(
+                                            targetOffsetX = { fullWidth -> if (isForward) (-fullWidth * 0.35f).toInt() else (fullWidth * 0.35f).toInt() },
+                                            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing)
+                                        ) + scaleOut(
+                                            targetScale = 0.96f,
+                                            animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing)
+                                        ) + fadeOut(
+                                            animationSpec = tween(durationMillis = 200)
+                                        ))
+                                    }
+                                }
+                            },
+                            label = "MainTabAnimatedContent"
                         ) { targetTab ->
                             when (targetTab) {
                                 BottomNavItem.HOME -> {
@@ -333,6 +465,45 @@ fun AppNavigationContainer(
                     AuthBottomSheet(
                         authViewModel = authViewModel,
                         onDismissRequest = { showAuthSheet = false }
+                    )
+                }
+
+                // Exit Confirmation Dialog
+                if (showExitDialog) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { showExitDialog = false },
+                        title = {
+                            androidx.compose.material3.Text(
+                                text = "خروج از برنامه",
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                        },
+                        text = {
+                            androidx.compose.material3.Text(
+                                text = "آیا می‌خواهید از اپلیکیشن دارینو خارج شوید؟"
+                            )
+                        },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = {
+                                    showExitDialog = false
+                                    activity?.finish()
+                                }
+                            ) {
+                                androidx.compose.material3.Text(
+                                    text = "تایید",
+                                    color = com.example.ui.theme.ExpenseRoseLight,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                )
+                            }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = { showExitDialog = false }
+                            ) {
+                                androidx.compose.material3.Text(text = "انصراف")
+                            }
+                        }
                     )
                 }
             }

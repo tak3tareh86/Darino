@@ -111,6 +111,10 @@ fun SettingsScreen(
     var currentAccent by remember { mutableStateOf(AccentColorOption.TEAL) }
     var currentDeliveryMode by remember { mutableStateOf(AlertDeliveryPreference.BOTH) }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefsRepo = remember(context) { com.example.data.preferences.AppPreferencesRepository.getInstance(context) }
+    val currentNavTransition by prefsRepo.navTransition.collectAsState()
+
     val lockViewModel: AppLockViewModel = viewModel()
     val lockUiState by lockViewModel.uiState.collectAsState()
     val securitySettings = lockUiState.securitySettings
@@ -204,6 +208,8 @@ fun SettingsScreen(
                     onThemeChanged = onThemeChanged,
                     currentDeliveryMode = currentDeliveryMode,
                     onDeliveryModeChanged = { currentDeliveryMode = it },
+                    currentNavTransition = currentNavTransition,
+                    onNavTransitionChanged = { prefsRepo.setNavTransition(it) },
                     onBackClick = { currentDestination = SettingsDestination.MAIN }
                 )
             }
@@ -469,7 +475,7 @@ private fun SettingsMainView(
                         SettingsSectionCard(title = "تنظیمات و امکانات") {
                             SettingsItem(
                                 title = "تنظیمات عمومی",
-                                subtitle = "زبان (${currentLanguage.title})، واحد پول (${currentCurrency.title})، حالت شب و روز (${currentTheme.title})، روش ارسال هشدارها",
+                                subtitle = "زبان (${currentLanguage.title})، واحد پول (${currentCurrency.title})، حالت شب و روز (${currentTheme.title})",
                                 vectorIcon = Icons.Rounded.Tune,
                                 iconAccentColor = Color(0xFF0EA5E9),
                                 onClick = { onNavigate(SettingsDestination.GENERAL) }
@@ -481,6 +487,15 @@ private fun SettingsMainView(
                                 iconRes = R.drawable.img_3d_cloud_backup,
                                 iconAccentColor = EmeraldPrimaryLight,
                                 onClick = { onNavigate(SettingsDestination.SUPPORT_BACKUP) }
+                            )
+
+                            SettingsItem(
+                                title = "مدیریت داده‌ها و پاکسازی",
+                                subtitle = "خام‌سازی برنامه، حذف داده‌های فرضی تستی یا بازنشانی کارخانه",
+                                vectorIcon = Icons.Rounded.DeleteSweep,
+                                iconAccentColor = Color(0xFFEF4444),
+                                isDanger = true,
+                                onClick = { onNavigate(SettingsDestination.DATA_MANAGEMENT) }
                             )
                         }
                     }

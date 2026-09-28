@@ -25,14 +25,13 @@ class HomeDashboardRepository(
     private val context: Context? = null,
     private val vehicleRepository: VehicleRepository = VehicleRepository()
 ) {
-    private val reminderRepo = context?.let { com.example.reminder.data.LocalReminderRepository(it) }
 
     fun getUserFullName(): String {
         val user = SessionManager.currentUser
         return when {
-            !user?.fullName.isNullOrBlank() -> user?.fullName ?: "علی"
+            !user?.fullName.isNullOrBlank() -> user?.fullName ?: "کاربر گرامی"
             !user?.phoneNumber.isNullOrBlank() -> "کاربر ${user?.phoneNumber?.takeLast(4)}"
-            else -> "علی"
+            else -> "کاربر گرامی"
         }
     }
 

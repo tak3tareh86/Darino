@@ -24,6 +24,18 @@ object HomeInsightEngine {
         upcomingObligationsCount: Int
     ): HomeFinancialInsight {
         return when {
+            // Rule 0: Clean Slate / Brand New App State
+            monthlyIncome == 0L && monthlyExpense == 0L && activeInstallmentsCount == 0 && upcomingObligationsCount == 0 -> {
+                HomeFinancialInsight(
+                    id = "ins_welcome",
+                    title = "خوش‌آمدید به دارینو",
+                    message = "برنامه آماده ورود اطلاعات واقعی شماست. با دکمه‌های ثبت هزینه، درآمد، قسط یا خودرو شروع کنید.",
+                    subMessage = "حساب‌ها و تعهدات شما با دقت بالا پایش خواهند شد.",
+                    iconRes = R.drawable.img_3d_analytics,
+                    accentColor = EmeraldPrimaryLight
+                )
+            }
+
             // Rule 1: Overdue Warning
             hasOverdueInstallments -> {
                 HomeFinancialInsight(

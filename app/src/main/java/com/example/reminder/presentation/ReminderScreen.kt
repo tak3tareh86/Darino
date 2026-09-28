@@ -1,5 +1,10 @@
 package com.example.reminder.presentation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -39,6 +44,7 @@ import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.ui.theme.WarningAmberLight
+import com.example.util.IranianPhoneUtils
 
 private enum class ReminderSubScreen {
     LIST,
@@ -114,6 +120,9 @@ fun ReminderScreen(
         }
 
         ReminderSubScreen.LIST -> {
+            var isSuggestionsExpanded by remember { mutableStateOf(false) }
+            var isCompletedExpanded by remember { mutableStateOf(false) }
+
             Scaffold(
                 modifier = modifier.fillMaxSize(),
                 bottomBar = bottomBar,
@@ -271,72 +280,115 @@ fun ReminderScreen(
                         }
                     }
 
-                    // Smart Suggestions Section (If available)
+                    // Smart Suggestions Section (Collapsible)
                     if (uiState.smartSuggestions.isNotEmpty()) {
                         item {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Icon(
-                                        Icons.Rounded.AutoAwesome,
-                                        contentDescription = null,
-                                        tint = WarningAmberLight,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text(
-                                        text = "پیشنهادات هوشمند دارینو",
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                                    )
-                                }
-
-                                uiState.smartSuggestions.forEach { suggestion ->
-                                    Surface(
-                                        shape = RoundedCornerShape(RadiusMD),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            1.dp,
-                                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                                        ),
-                                        modifier = Modifier.fillMaxWidth()
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { isSuggestionsExpanded = !isSuggestionsExpanded }
+                                            .padding(horizontal = 6.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(12.dp),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
-                                            Soft3DIcon(
-                                                imageRes = suggestion.type.iconRes,
-                                                contentDescription = suggestion.title,
-                                                size = 36.dp,
-                                                accentColor = suggestion.type.accentColor
+                                            Icon(
+                                                imageVector = Icons.Rounded.AutoAwesome,
+                                                contentDescription = null,
+                                                tint = WarningAmberLight,
+                                                modifier = Modifier.size(20.dp)
                                             )
-                                            Column(modifier = Modifier.weight(1f)) {
+                                            Column {
                                                 Text(
-                                                    text = suggestion.title,
-                                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                                        fontWeight = FontWeight.Bold
-                                                    )
+                                                    text = "پیشنهادات هوشمند دارینو",
+                                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                                    color = MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Text(
-                                                    text = suggestion.message,
-                                                    style = MaterialTheme.typography.bodySmall.copy(
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        fontSize = 11.sp
-                                                    )
+                                                    text = "${IranianPhoneUtils.convertDigitsToPersian(uiState.smartSuggestions.size.toString())} پیشنهاد خودکار برای تنظیم یادآور",
+                                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
+                                        }
+                                        Icon(
+                                            imageVector = if (isSuggestionsExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                                            contentDescription = null,
+                                            tint = WarningAmberLight,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
 
-                                            Button(
-                                                onClick = { viewModel.acceptSuggestion(suggestion) },
-                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                                shape = RoundedCornerShape(RadiusSM),
-                                                colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimaryLight)
-                                            ) {
-                                                Text("فعال‌سازی", fontSize = 11.sp)
+                                    AnimatedVisibility(
+                                        visible = isSuggestionsExpanded,
+                                        enter = expandVertically() + fadeIn(),
+                                        exit = shrinkVertically() + fadeOut()
+                                    ) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            uiState.smartSuggestions.forEach { suggestion ->
+                                                Surface(
+                                                    shape = RoundedCornerShape(RadiusMD),
+                                                    color = MaterialTheme.colorScheme.surface,
+                                                    border = androidx.compose.foundation.BorderStroke(
+                                                        1.dp,
+                                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                                    ),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(12.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                    ) {
+                                                        Soft3DIcon(
+                                                            imageRes = suggestion.type.iconRes,
+                                                            contentDescription = suggestion.title,
+                                                            size = 36.dp,
+                                                            accentColor = suggestion.type.accentColor
+                                                        )
+                                                        Column(modifier = Modifier.weight(1f)) {
+                                                            Text(
+                                                                text = suggestion.title,
+                                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                                    fontWeight = FontWeight.Bold
+                                                                )
+                                                            )
+                                                            Text(
+                                                                text = suggestion.message,
+                                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                    fontSize = 11.sp
+                                                                )
+                                                            )
+                                                        }
+
+                                                        Button(
+                                                            onClick = { viewModel.acceptSuggestion(suggestion) },
+                                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                                            shape = RoundedCornerShape(RadiusSM),
+                                                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimaryLight)
+                                                        ) {
+                                                            Text("فعال‌سازی", fontSize = 11.sp)
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -427,24 +479,106 @@ fun ReminderScreen(
                             }
                         }
                     } else {
-                        items(uiState.reminders, key = { it.id }) { reminder ->
-                            ReminderCard(
-                                reminder = reminder,
-                                onClick = {
-                                    selectedReminderForDetail = reminder
-                                    currentSubScreen = ReminderSubScreen.DETAIL
-                                },
-                                onToggleCompleted = {
-                                    if (reminder.status == "COMPLETED") {
-                                        viewModel.toggleReminderEnabled(reminder.id, true)
-                                    } else {
+                        val activeReminders = uiState.reminders.filter { it.status != "COMPLETED" }
+                        val completedReminders = uiState.reminders.filter { it.status == "COMPLETED" }
+
+                        // Active Reminders
+                        if (activeReminders.isNotEmpty()) {
+                            items(activeReminders, key = { it.id }) { reminder ->
+                                ReminderCard(
+                                    reminder = reminder,
+                                    onClick = {
+                                        selectedReminderForDetail = reminder
+                                        currentSubScreen = ReminderSubScreen.DETAIL
+                                    },
+                                    onToggleCompleted = {
                                         viewModel.completeReminder(reminder.id)
+                                    },
+                                    onSnoozeClick = {
+                                        showSnoozeSheetForReminder = reminder
                                     }
-                                },
-                                onSnoozeClick = {
-                                    showSnoozeSheetForReminder = reminder
+                                )
+                            }
+                        }
+
+                        // Collapsible Completed Reminders Section (If any exist)
+                        if (completedReminders.isNotEmpty()) {
+                            if (activeReminders.isNotEmpty()) {
+                                item {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { isCompletedExpanded = !isCompletedExpanded }
+                                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.CheckCircle,
+                                                contentDescription = null,
+                                                tint = EmeraldPrimaryLight,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                text = "یادآورهای تکمیل‌شده",
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = "(${IranianPhoneUtils.convertDigitsToPersian(completedReminders.size.toString())})",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Icon(
+                                            imageVector = if (isCompletedExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                 }
-                            )
+
+                                if (isCompletedExpanded) {
+                                    items(completedReminders, key = { it.id }) { reminder ->
+                                        ReminderCard(
+                                            reminder = reminder,
+                                            onClick = {
+                                                selectedReminderForDetail = reminder
+                                                currentSubScreen = ReminderSubScreen.DETAIL
+                                            },
+                                            onToggleCompleted = {
+                                                viewModel.toggleReminderEnabled(reminder.id, true)
+                                            },
+                                            onSnoozeClick = {
+                                                showSnoozeSheetForReminder = reminder
+                                            }
+                                        )
+                                    }
+                                }
+                            } else {
+                                // If viewing only completed reminders (e.g. Completed Tab)
+                                items(completedReminders, key = { it.id }) { reminder ->
+                                    ReminderCard(
+                                        reminder = reminder,
+                                        onClick = {
+                                            selectedReminderForDetail = reminder
+                                            currentSubScreen = ReminderSubScreen.DETAIL
+                                        },
+                                        onToggleCompleted = {
+                                            viewModel.toggleReminderEnabled(reminder.id, true)
+                                        },
+                                        onSnoozeClick = {
+                                            showSnoozeSheetForReminder = reminder
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
 

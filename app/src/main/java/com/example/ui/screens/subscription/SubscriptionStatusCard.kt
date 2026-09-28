@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,7 +21,6 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -49,153 +49,246 @@ fun SubscriptionStatusCard(
     modifier: Modifier = Modifier
 ) {
     val info = state.info
-    val isWarning = state.isWarningTrial
     val isExpired = info.subscriptionStatus == SubscriptionStatus.EXPIRED || info.subscriptionStatus == SubscriptionStatus.LOCKED
     val isActive = info.subscriptionStatus == SubscriptionStatus.ACTIVE
+    val isTrial = info.subscriptionStatus == SubscriptionStatus.TRIAL
+
+    val remainingDays = if (isActive) state.subscriptionDaysRemaining else state.trialDaysRemaining
+    val isWarningRemaining = (isTrial && state.trialDaysRemaining in 1..7) || (isActive && state.subscriptionDaysRemaining in 1..7)
+
+    // Purchase date and time from startAt
+    val startAt = info.subscriptionStartAt ?: info.trialStartAt
+    val startDateTime = com.example.util.PersianCalendarHelper.fromEpochMillis(startAt)
+    val purchaseDate = startDateTime.toFormattedDate()
+    val purchaseTime = startDateTime.toFormattedTime()
 
     val cardBgGradient = when {
-        isExpired -> Brush.horizontalGradient(
-            listOf(Color(0xFF8C1D1D), Color(0xFFD32F2F))
-        )
-        isWarning -> Brush.horizontalGradient(
-            listOf(Color(0xFFE65100), Color(0xFFF57C00))
+        isExpired || isWarningRemaining -> Brush.horizontalGradient(
+            listOf(Color(0xFF8C1D1D), Color(0xFFD32F2F)) // Red warning / expired
         )
         isActive -> Brush.horizontalGradient(
-            listOf(Color(0xFF1B5E20), Color(0xFF2E7D32))
+            listOf(Color(0xFF1B5E20), Color(0xFF2E7D32)) // Elegant active green
         )
         else -> Brush.horizontalGradient(
-            listOf(Color(0xFF0D47A1), Color(0xFF1976D2))
+            listOf(Color(0xFF0D47A1), Color(0xFF1976D2)) // Premium blue
         )
     }
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .clickable { onOpenSubscription() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Box(
-            modifier = Modifier
+    if (isActive) {
+        // Compact & low-height Active Subscription Card
+        Card(
+            modifier = modifier
                 .fillMaxWidth()
-                .background(cardBgGradient)
-                .padding(18.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { onOpenSubscription() },
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(cardBgGradient)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
-                // Top Header Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Right Info
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Surface(
                             shape = CircleShape,
                             color = Color.White.copy(alpha = 0.2f),
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(28.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = when {
-                                        isExpired -> Icons.Default.Lock
-                                        isActive -> Icons.Default.Star
-                                        else -> Icons.Default.AutoAwesome
-                                    },
+                                    imageVector = if (isWarningRemaining) Icons.Default.Lock else Icons.Default.Star,
                                     contentDescription = null,
                                     tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
+
+                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(
-                                text = when {
-                                    isExpired -> "دوره رایگان شما به پایان رسیده است"
-                                    isActive -> "اشتراک دارینو فعال است"
-                                    else -> "دوره رایگان دارینو (۳۰ روزه)"
-                                },
+                                text = if (isWarningRemaining) "اشتراک دارینو (رو به اتمام)" else "اشتراک دارینو فعال است",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
+                                fontSize = 12.sp
                             )
                             Text(
-                                text = when {
-                                    isExpired -> "برای ادامه استفاده از دارینو، اشتراک سالیانه را فعال کنید."
-                                    isActive -> "${state.subscriptionDaysRemaining} روز باقی مانده تا ${state.subscriptionEndJalaliDate}"
-                                    else -> "${state.trialDaysRemaining} روز تا پایان مهلت استفاده رایگان"
-                                },
+                                text = "خرید: $purchaseDate ساعت $purchaseTime | باقی‌مانده: ${com.example.util.IranianPhoneUtils.convertDigitsToPersian(remainingDays.toString())} روز",
                                 color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 12.sp
+                                fontSize = 10.sp
                             )
                         }
                     }
 
-                    if (isWarning) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color.White,
-                            contentColor = Color(0xFFD32F2F)
+                    // Left action button (very compact)
+                    Surface(
+                        onClick = onOpenSubscription,
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.White,
+                        contentColor = if (isWarningRemaining) Color(0xFFD32F2F) else Color(0xFF1B5E20),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(horizontal = 8.dp)
                         ) {
-                            Text(
-                                text = "هشدار مهلت",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = "جزئیات",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ChevronLeft,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Price and Action Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            }
+        }
+    } else {
+        // Standard full card for Trial / Unsubscribed / Expired states
+        Card(
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .clickable { onOpenSubscription() },
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(cardBgGradient)
+                    .padding(14.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column {
-                        Text(
-                            text = "اشتراک ۳۶۵ روزه",
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontSize = 11.sp
-                        )
-                        Text(
-                            text = MoneyFormatter.formatToman(MarketConfig.DISPLAY_PRICE_TOMAN),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
+                    // Top Header Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White.copy(alpha = 0.2f),
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = when {
+                                            isExpired || isWarningRemaining -> Icons.Default.Lock
+                                            else -> Icons.Default.AutoAwesome
+                                        },
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = when {
+                                        isExpired -> "دوره رایگان شما به پایان رسیده است"
+                                        isWarningRemaining -> "دوره رایگان (رو به اتمام)"
+                                        else -> "دوره رایگان دارینو (۳۰ روزه)"
+                                    },
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = when {
+                                        isExpired -> "برای ادامه استفاده از دارینو، اشتراک سالیانه را فعال کنید."
+                                        else -> "${com.example.util.IranianPhoneUtils.convertDigitsToPersian(remainingDays.toString())} روز تا پایان مهلت استفاده رایگان"
+                                    },
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+
+                        if (isWarningRemaining) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color.White,
+                                contentColor = Color(0xFFD32F2F)
+                            ) {
+                                Text(
+                                    text = "هشدار مهلت",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
                     }
 
-                    Button(
-                        onClick = onOpenSubscription,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White,
-                            contentColor = when {
-                                isExpired -> Color(0xFFD32F2F)
-                                isWarning -> Color(0xFFE65100)
-                                isActive -> Color(0xFF1B5E20)
-                                else -> Color(0xFF0D47A1)
-                            }
-                        ),
-                        shape = RoundedCornerShape(12.dp)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Price and Action Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = if (isActive) "مشاهده اشتراک" else "فعالسازی اشتراک",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.ChevronLeft,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Column {
+                            Text(
+                                text = "اشتراک ۳۶۵ روزه",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 10.sp
+                            )
+                            Text(
+                                text = MoneyFormatter.formatToman(MarketConfig.DISPLAY_PRICE_TOMAN),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = onOpenSubscription,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White,
+                                contentColor = if (isExpired || isWarningRemaining) Color(0xFFD32F2F) else Color(0xFF0D47A1)
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text(
+                                text = "فعالسازی اشتراک",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Icon(
+                                imageVector = Icons.Default.ChevronLeft,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
                 }
             }

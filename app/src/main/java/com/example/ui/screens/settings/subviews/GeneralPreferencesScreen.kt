@@ -1,5 +1,10 @@
 package com.example.ui.screens.settings.subviews
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,19 +19,24 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Brightness4
 import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.MonetizationOn
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.RadioButtonChecked
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -55,6 +65,7 @@ import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.ui.screens.settings.model.AppLanguage
 import com.example.ui.screens.settings.model.AppThemeMode
+import com.example.ui.screens.settings.model.NavigationTransitionAnimation
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
@@ -70,6 +81,8 @@ fun GeneralPreferencesScreen(
     onThemeChanged: (AppThemeMode) -> Unit,
     currentDeliveryMode: AlertDeliveryPreference = AlertDeliveryPreference.BOTH,
     onDeliveryModeChanged: (AlertDeliveryPreference) -> Unit = {},
+    currentNavTransition: NavigationTransitionAnimation = NavigationTransitionAnimation.DYNAMIC,
+    onNavTransitionChanged: (NavigationTransitionAnimation) -> Unit = {},
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -84,20 +97,21 @@ fun GeneralPreferencesScreen(
             topBar = {
                 SettingsHeader(
                     title = if (isEn) "General Settings" else "تنظیمات عمومی",
-                    subtitle = if (isEn) "Language, currency, theme, and alert delivery" else "زبان، واحد پول، تم شب و روز، روش ارسال هشدارها",
+                    subtitle = if (isEn) "Language, currency, theme, and animation" else "زبان، واحد پول، تم شب و انیمیشن",
                     showBack = true,
                     showSearch = false,
                     onBackClick = onBackClick
                 )
             }
         ) { paddingValues ->
-            // Compact layout fitting comfortably without awkward cutoffs
+            // Clean scrollable layout fitting comfortably without clutter
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.SpaceEvenly
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // 1. Language Setting (تنظیمات زبان برنامه)
                 GeneralCompactCard(
@@ -231,61 +245,247 @@ fun GeneralPreferencesScreen(
                     }
                 }
 
-                // 4. Alert Delivery Mode (تنظیمات ارسال پیامک یا نوتیفیکیشن یا هر دو)
-                GeneralCompactCard(
-                    title = if (isEn) "Alert & Reminder Delivery" else "روش ارسال یادآورها و هشدارها",
-                    subtitle = if (isEn) "Choose how to receive installment & service alerts" else "انتخاب نحوه دریافت یادآوری اقساط و سرویس‌ها",
-                    icon = Icons.Rounded.NotificationsActive,
-                    iconColor = EmeraldPrimaryLight
+                // 4. Navigation Transition Animation (انیمیشن جابجایی بین منوها - کشویی و جمع‌وجور)
+                NavigationTransitionCard(
+                    isEn = isEn,
+                    currentTransition = currentNavTransition,
+                    onTransitionChanged = onNavTransitionChanged
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NavigationTransitionCard(
+    isEn: Boolean,
+    currentTransition: NavigationTransitionAnimation,
+    onTransitionChanged: (NavigationTransitionAnimation) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var isExpanded by remember { mutableStateOf(false) }
+    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+    val iconColor = Color(0xFF6366F1) // Indigo / Violet
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(RadiusLG),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+        border = BorderStroke(
+            width = if (isExpanded) 1.5.dp else 1.dp,
+            color = if (isExpanded) iconColor.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Header Row (Clickable to toggle drawer expand/collapse)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(RadiusMD))
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(RadiusSM))
+                            .background(iconColor.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        DeliveryModeCompactItem(
-                            title = if (isEn) "Both (SMS & Notification)" else "هر دو (پیامک و نوتیفیکیشن)",
-                            subtitle = if (isEn) "SMS text message with smart notification" else "پیامک متنی همراه با اعلان هوشمند",
-                            emoji = "🔔📲",
-                            isSelected = currentDeliveryMode == AlertDeliveryPreference.BOTH,
-                            onClick = {
-                                onDeliveryModeChanged(AlertDeliveryPreference.BOTH)
-                                Toast.makeText(
-                                    context,
-                                    if (isEn) "Alert method: Both (SMS & Notification)" else "روش ارسال به پیامک و نوتیفیکیشن تنظیم شد",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
+                        Icon(
+                            imageVector = Icons.Rounded.SwapHoriz,
+                            contentDescription = null,
+                            tint = iconColor,
+                            modifier = Modifier.size(20.dp)
                         )
+                    }
 
-                        DeliveryModeCompactItem(
-                            title = if (isEn) "Notification Only" else "فقط نوتیفیکیشن",
-                            subtitle = if (isEn) "Display alert on screen only" else "تنها نمایش اعلان روی صفحه گوشی",
-                            emoji = "🔔",
-                            isSelected = currentDeliveryMode == AlertDeliveryPreference.NOTIFICATION_ONLY,
-                            onClick = {
-                                onDeliveryModeChanged(AlertDeliveryPreference.NOTIFICATION_ONLY)
-                                Toast.makeText(
-                                    context,
-                                    if (isEn) "Alert method: Notification Only" else "روش ارسال به فقط نوتیفیکیشن تنظیم شد",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = if (isEn) "Tab Transition Animation" else "انیمیشن جابجایی بین منوها",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            // Compact badge showing current selection
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = iconColor.copy(alpha = 0.12f)
+                            ) {
+                                Text(
+                                    text = "${currentTransition.iconEmoji} ${if (isEn) currentTransition.titleEn else currentTransition.title}",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = iconColor,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
                             }
-                        )
+                        }
 
-                        DeliveryModeCompactItem(
-                            title = if (isEn) "SMS Only" else "فقط پیامک (SMS)",
-                            subtitle = if (isEn) "Send text SMS without app notification" else "ارسال پیامک متنی بدون اعلان برنامه",
-                            emoji = "💬",
-                            isSelected = currentDeliveryMode == AlertDeliveryPreference.SMS_ONLY,
-                            onClick = {
-                                onDeliveryModeChanged(AlertDeliveryPreference.SMS_ONLY)
-                                Toast.makeText(
-                                    context,
-                                    if (isEn) "Alert method: SMS Only" else "روش ارسال به فقط پیامک (SMS) تنظیم شد",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
+                        Text(
+                            text = if (isExpanded) {
+                                if (isEn) "Select your preferred transition style (Collapsible)" else "سبک حرکتی مورد نظر خود را انتخاب کنید (کشویی)"
+                            } else {
+                                if (isEn) "Active: ${currentTransition.titleEn} (Tap to expand/change)" else "حالت فعال: ${currentTransition.title} (برای تغییر لمس کنید)"
+                            },
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+
+                // Collapsible drawer toggle arrow
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = iconColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            // Collapsible drawer content
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val transitions = NavigationTransitionAnimation.entries
+                    transitions.chunked(2).forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowItems.forEach { option ->
+                                val isSelected = currentTransition == option
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(RadiusMD))
+                                        .clickable {
+                                            onTransitionChanged(option)
+                                            Toast.makeText(
+                                                context,
+                                                if (isEn) "Transition set to ${option.titleEn}" else "انیمیشن منوها به «${option.title}» تنظیم شد",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                    shape = RoundedCornerShape(RadiusMD),
+                                    color = if (isSelected) {
+                                        iconColor.copy(alpha = if (isDark) 0.25f else 0.12f)
+                                    } else {
+                                        if (isDark) Color(0xFF1E2536) else Color(0xFFF8FAFC)
+                                    },
+                                    border = BorderStroke(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) iconColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = option.iconEmoji,
+                                            fontSize = 14.sp
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = if (isEn) option.titleEn else option.title,
+                                                style = MaterialTheme.typography.labelMedium.copy(
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    fontSize = 11.5.sp
+                                                ),
+                                                color = if (isSelected) iconColor else MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = option.description,
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    fontSize = 9.sp,
+                                                    lineHeight = 12.sp
+                                                ),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                                maxLines = 1
+                                            )
+                                        }
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.CheckCircle,
+                                                contentDescription = null,
+                                                tint = iconColor,
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Explanatory footnote
+                    Surface(
+                        shape = RoundedCornerShape(RadiusSM),
+                        color = iconColor.copy(alpha = 0.08f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(text = "⚡", fontSize = 12.sp)
+                            Text(
+                                text = if (isEn) {
+                                    "When switching between Home, Vehicle, Installments, Reminders and Reports, this transition animation will play smoothly."
+                                } else {
+                                    "هنگام لمس هر یک از دکمه‌های نوار پایینی و جابجایی بین منوهای اصلی، این سبک حرکتی اجرا می‌شود."
+                                },
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 10.sp,
+                                    lineHeight = 14.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }

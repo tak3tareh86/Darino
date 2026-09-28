@@ -6,6 +6,7 @@ import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.ui.screens.settings.model.AppLanguage
 import com.example.ui.screens.settings.model.AppThemeMode
+import com.example.ui.screens.settings.model.NavigationTransitionAnimation
 import com.example.util.MoneyFormatter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +37,9 @@ class AppPreferencesRepository private constructor(context: Context) {
 
     private val _alertDelivery = MutableStateFlow(loadAlertDelivery())
     val alertDelivery: StateFlow<AlertDeliveryPreference> = _alertDelivery.asStateFlow()
+
+    private val _navTransition = MutableStateFlow(loadNavTransition())
+    val navTransition: StateFlow<NavigationTransitionAnimation> = _navTransition.asStateFlow()
 
     init {
         // Synchronize MoneyFormatter with persisted preferences
@@ -79,6 +83,15 @@ class AppPreferencesRepository private constructor(context: Context) {
         }
     }
 
+    private fun loadNavTransition(): NavigationTransitionAnimation {
+        val name = prefs.getString(KEY_NAV_TRANSITION, NavigationTransitionAnimation.DYNAMIC.name) ?: NavigationTransitionAnimation.DYNAMIC.name
+        return try {
+            NavigationTransitionAnimation.valueOf(name)
+        } catch (e: Exception) {
+            NavigationTransitionAnimation.DYNAMIC
+        }
+    }
+
     fun setThemeMode(mode: AppThemeMode) {
         prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
         _themeMode.value = mode
@@ -101,12 +114,18 @@ class AppPreferencesRepository private constructor(context: Context) {
         _alertDelivery.value = delivery
     }
 
+    fun setNavTransition(transition: NavigationTransitionAnimation) {
+        prefs.edit().putString(KEY_NAV_TRANSITION, transition.name).apply()
+        _navTransition.value = transition
+    }
+
     companion object {
         private const val PREFS_NAME = "darino_general_preferences"
         private const val KEY_THEME_MODE = "pref_theme_mode"
         private const val KEY_LANGUAGE = "pref_language"
         private const val KEY_CURRENCY = "pref_currency"
         private const val KEY_ALERT_DELIVERY = "pref_alert_delivery"
+        private const val KEY_NAV_TRANSITION = "pref_nav_transition_animation"
 
         @Volatile
         private var instance: AppPreferencesRepository? = null

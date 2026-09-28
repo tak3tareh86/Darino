@@ -29,9 +29,11 @@ import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,11 +42,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,13 +63,18 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.R
+import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
 import com.example.data.security.AuthSessionManager
+import com.example.util.PasswordHasher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import com.example.ui.theme.EmeraldPrimaryDark
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
@@ -90,9 +99,16 @@ fun UserAccountCard(
     val activeSession = sessionManager.getActiveSession()
     val rawUsername = activeSession?.username ?: "username"
 
-    val initialName = currentUser?.fullName?.takeIf { it.isNotBlank() } ?: "کاربر گرامی"
+    val initialName = currentUser?.fullName?.takeIf { it.isNotBlank() } ?: ""
     var userNameInput by remember { mutableStateOf(initialName) }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    val scope = rememberCoroutineScope()
+    var showChangePasswordDialog by remember { mutableStateOf(false) }
+    var currentPasswordInput by remember { mutableStateOf("") }
+    var newPasswordInput by remember { mutableStateOf("") }
+    var confirmPasswordInput by remember { mutableStateOf("") }
+    var passwordErrorMessage by remember { mutableStateOf<String?>(null) }
+    var passwordSuccessMessage by remember { mutableStateOf<String?>(null) }
 
     // Android zero-permission Photo Picker
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -310,26 +326,35 @@ fun UserAccountCard(
                         )
                 )
 
-                // Actions row: Security note & Logout
+                // Actions row: Change Password & Logout
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    OutlinedButton(
+                        onClick = { showChangePasswordDialog = true },
+                        shape = RoundedCornerShape(RadiusMD),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = EmeraldPrimaryLight
+                        ),
+                        border = BorderStroke(1.dp, EmeraldPrimaryLight.copy(alpha = 0.5f)),
+                        modifier = Modifier
+                            .height(36.dp)
+                            .testTag("change_password_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Shield,
-                            contentDescription = null,
-                            tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                            modifier = Modifier.size(16.dp)
+                            imageVector = Icons.Rounded.Lock,
+                            contentDescription = "تغییر رمز",
+                            modifier = Modifier.size(15.dp),
+                            tint = EmeraldPrimaryLight
                         )
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "امنیت داده‌ها: محلی و رمزنگاری‌شده",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                            text = "تغییر رمز کاربری",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) Color.White else Color(0xFF0F172A)
                         )
                     }
 
@@ -361,5 +386,122 @@ fun UserAccountCard(
                 }
             }
         }
+    }
+
+    // Change Password Dialog
+    if (showChangePasswordDialog) {
+        AlertDialog(
+            onDismissRequest = { showChangePasswordDialog = false },
+            title = {
+                Text(text = "تغییر رمز عبور کاربری", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (passwordErrorMessage != null) {
+                        Text(
+                            text = passwordErrorMessage!!,
+                            color = ExpenseRoseLight,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    if (passwordSuccessMessage != null) {
+                        Text(
+                            text = passwordSuccessMessage!!,
+                            color = EmeraldPrimaryLight,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = currentPasswordInput,
+                        onValueChange = { currentPasswordInput = it },
+                        label = { Text("رمز عبور فعلی") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = newPasswordInput,
+                        onValueChange = { newPasswordInput = it },
+                        label = { Text("رمز عبور جدید (حداقل ۸ کاراکتر)") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = confirmPasswordInput,
+                        onValueChange = { confirmPasswordInput = it },
+                        label = { Text("تکرار رمز عبور جدید") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newPasswordInput.length < 8) {
+                            passwordErrorMessage = "رمز عبور جدید باید حداقل ۸ کاراکتر باشد."
+                            return@TextButton
+                        }
+                        if (newPasswordInput != confirmPasswordInput) {
+                            passwordErrorMessage = "رمز عبور جدید و تکرار آن مطابقت ندارند."
+                            return@TextButton
+                        }
+
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                val db = AppDatabase.getDatabase(context)
+                                val userDao = db.userDao()
+                                val user = userDao.getFirstUser()
+                                if (user != null) {
+                                    if (!user.passwordHash.isNullOrBlank() && !user.salt.isNullOrBlank()) {
+                                        val isValid = PasswordHasher.verifyPassword(currentPasswordInput, user.salt, user.passwordHash)
+                                        if (!isValid) {
+                                            passwordErrorMessage = "رمز عبور فعلی اشتباه است."
+                                            return@launch
+                                        }
+                                    }
+                                    val newSalt = PasswordHasher.generateSalt()
+                                    val newHash = PasswordHasher.hashPassword(newPasswordInput, newSalt)
+                                    userDao.updatePassword(user.id, newHash, newSalt)
+                                    passwordSuccessMessage = "رمز عبور با موفقیت تغییر یافت."
+                                    kotlinx.coroutines.delay(1200)
+                                    showChangePasswordDialog = false
+                                    currentPasswordInput = ""
+                                    newPasswordInput = ""
+                                    confirmPasswordInput = ""
+                                    passwordErrorMessage = null
+                                    passwordSuccessMessage = null
+                                } else {
+                                    passwordErrorMessage = "کاربری یافت نشد."
+                                }
+                            } catch (e: Exception) {
+                                passwordErrorMessage = "خطا در تغییر رمز: ${e.localizedMessage}"
+                            }
+                        }
+                    }
+                ) {
+                    Text("تایید و تغییر رمز", fontWeight = FontWeight.Bold, color = EmeraldPrimaryLight)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showChangePasswordDialog = false
+                        passwordErrorMessage = null
+                        passwordSuccessMessage = null
+                    }
+                ) {
+                    Text("انصراف")
+                }
+            }
+        )
     }
 }

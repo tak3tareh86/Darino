@@ -42,6 +42,7 @@ import com.example.ui.screens.home.components.FinancialInsightCard
 import com.example.ui.screens.home.components.FinancialSummaryCard
 import com.example.ui.screens.home.components.HomeBottomNavigation
 import com.example.ui.screens.home.components.HomeEmptyState
+import com.example.ui.screens.home.components.BankSmsAssistantCard
 import com.example.ui.screens.home.components.HomeHeader
 import com.example.ui.screens.home.components.OverdueAlertCard
 import com.example.ui.screens.home.components.QuickActions
@@ -74,6 +75,7 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val subState by subscriptionViewModel.uiState.collectAsState()
+    val pendingSms by viewModel.pendingSmsQueue.collectAsState()
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -97,9 +99,9 @@ fun HomeScreen(
         if (isDark) {
             Brush.verticalGradient(
                 colors = listOf(
-                    Color(0xFF090D16),
-                    Color(0xFF0C1322),
-                    Color(0xFF090D16)
+                    Color(0xFF000000),
+                    Color(0xFF050A14),
+                    Color(0xFF000000)
                 )
             )
         } else {
@@ -199,6 +201,25 @@ fun HomeScreen(
                                         scope.launch {
                                             snackbarHostState.showSnackbar("هشدار موقتاً بسته شد.")
                                         }
+                                    }
+                                )
+                            }
+
+                            // 2.5 Bank SMS Assistant Card (Smart suggestions queue)
+                            if (pendingSms.isNotEmpty()) {
+                                BankSmsAssistantCard(
+                                    queue = pendingSms,
+                                    onAccept = { id ->
+                                        viewModel.acceptSmsSuggestion(id)
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("تراکنش با موفقیت ثبت و تایید گردید.")
+                                        }
+                                    },
+                                    onDismiss = { id ->
+                                        viewModel.dismissSmsSuggestion(id)
+                                    },
+                                    onSimulateClick = {
+                                        viewModel.simulateIncomingSms()
                                     }
                                 )
                             }

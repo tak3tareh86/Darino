@@ -114,7 +114,12 @@ object SessionManager {
     }
 
     fun updateFullName(newFullName: String) {
-        val user = currentUser ?: return
+        val user = currentUser ?: NetworkUserDto(
+            id = userId ?: "user_${System.currentTimeMillis()}",
+            fullName = newFullName,
+            phoneNumber = "09121234567",
+            phoneVerified = true
+        )
         val updatedUser = user.copy(fullName = newFullName)
         tokenManager?.saveUser(updatedUser)
         
@@ -126,7 +131,7 @@ object SessionManager {
                 _sessionState.value = SessionState.PhoneVerificationRequired(updatedUser)
             }
             else -> {
-                // Do nothing
+                _sessionState.value = SessionState.Authenticated(updatedUser)
             }
         }
         Log.i(TAG, "Updated user full name to: $newFullName")

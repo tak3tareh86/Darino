@@ -62,6 +62,20 @@ enum class AlertDeliveryPreference(
     DISABLED("غیرفعال", "غیرفعال‌سازی موقت ارسال هشدارها", "🔕")
 }
 
+enum class NavigationTransitionAnimation(
+    val title: String,
+    val titleEn: String,
+    val description: String,
+    val iconEmoji: String
+) {
+    SLIDE("اسلاید", "Slide", "جابجایی کشویی افقی روان بین منوها", "↔️"),
+    FADE("محو شدن", "Fade", "پدیدار و محو شدن ملایم و نرم", "🌫️"),
+    SCALE("بزرگ‌نمایی (Scale)", "Scale", "تغییر مقیاس و بزرگ‌نمایی ملایم", "🔍"),
+    ZOOM("زوم (Zoom)", "Zoom", "افکت زوم عمیق و سه‌بعدی", "🔎"),
+    SLIDE_FADE("اسلاید + فید", "Slide + Fade", "ترکیب حرکت کشویی همراه با محوشدگی", "💨"),
+    DYNAMIC("پویا و فنری", "Dynamic (Spring)", "حرکت ارتجاعی و فنری زنده و شاداب", "⚡")
+}
+
 enum class SettingsDestination {
     MAIN,
     GENERAL,
@@ -251,6 +265,9 @@ object SettingsMockDataSource {
         SettingsSearchItem("s_lang", "زبان برنامه", "فارسی یا انگلیسی", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "🌐"),
         SettingsSearchItem("s_currency", "واحد پول (ریال و تومان)", "تغییر واحد پول به ریال یا تومان", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "🪙"),
         SettingsSearchItem("s_night_mode", "حالت شب و روز", "تم روشن، تاریک و هماهنگ با سیستم", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "🌓"),
+        SettingsSearchItem("s_transition", "انیمیشن جابجایی بین منوها", "اسلاید، محو شدن (fade)، بزرگ‌نمایی (scale)، زوم و حالت پویا و فنری", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "⚡"),
+        SettingsSearchItem("s_clean_slate", "خام‌سازی برنامه و حذف داده‌های تستی", "پاکسازی اطلاعات فرضی، خودروها، تراکنش‌ها و اقساط تستی جهت ورود اطلاعات واقعی", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "🧹"),
+        SettingsSearchItem("s_data_mgmt", "مدیریت داده‌ها و بازنشانی", "پاکسازی تراکنش‌ها، خودروها، اقساط یا بازنشانی کامل به حالت اولیه", "تنظیمات", SettingsDestination.DATA_MANAGEMENT, null, "🗑️"),
         SettingsSearchItem("s_alerts", "ارسال پیامک و نوتیفیکیشن", "تنظیم نحوه ارسال هشدارها: هر دو، فقط نوتیفیکیشن، فقط پیامک", "تنظیمات عمومی", SettingsDestination.GENERAL, R.drawable.img_3d_bell_notification),
         SettingsSearchItem("s_backup_sup", "پشتیبانی و بک‌آپ‌گیری", "تهیه نسخه پشتیبان، بازیابی فایل، راهنما و ارتباط با کارشناسان", "پشتیبانی و بک‌آپ", SettingsDestination.SUPPORT_BACKUP, R.drawable.img_3d_cloud_backup),
         SettingsSearchItem("s_sec", "امنیت و قفل ورود", "قفل با اثر انگشت، رمز عبور و حریم خصوصی", "امنیت", SettingsDestination.SECURITY, R.drawable.img_3d_shield_security),
