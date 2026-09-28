@@ -1,0 +1,9 @@
+spring:
+  config:
+    activate:
+      on-profile: staging
+
+logging:
+  level:
+    root: INFO
+    com.financemanager: INFO

@@ -1,0 +1,6 @@
+{
+  "name": "دارینو",
+  "description": "سامانه مدیریت هوشمند مالی شخصی، اقساط، چک‌ها و خودرو دارینو (Darino)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
