@@ -44,6 +44,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import com.example.ui.components.PersianAmountInputField
+import com.example.util.IranianAmountUtils
+import com.example.util.IranianPhoneUtils
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -570,14 +573,12 @@ fun AddEditAccountSheet(
                 shape = RoundedCornerShape(RadiusMD)
             )
 
-            OutlinedTextField(
+            PersianAmountInputField(
                 value = balance,
                 onValueChange = { balance = it },
-                label = { Text("موجودی اولیه (تومان)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                shape = RoundedCornerShape(RadiusMD)
+                label = "موجودی اولیه (تومان)",
+                placeholder = "مثال: ۵,۰۰۰,۰۰۰",
+                modifier = Modifier.fillMaxWidth()
             )
 
             OutlinedTextField(

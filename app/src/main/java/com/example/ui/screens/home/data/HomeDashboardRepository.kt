@@ -11,6 +11,8 @@ import com.example.ui.screens.home.domain.UpcomingObligationItem
 import com.example.ui.screens.home.domain.UpcomingReminderItem
 import com.example.ui.screens.home.domain.VehicleSummaryData
 import com.example.ui.screens.installments.model.InstallmentMockDataSource
+import com.example.ui.screens.finance.data.LocalFinanceRepository
+import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.WarningAmberLight
@@ -23,7 +25,8 @@ import com.example.vehicle.data.VehicleRepository
  */
 class HomeDashboardRepository(
     private val context: Context? = null,
-    private val vehicleRepository: VehicleRepository = VehicleRepository()
+    private val vehicleRepository: VehicleRepository = VehicleRepository.instance,
+    private val financeRepository: LocalFinanceRepository = LocalFinanceRepository.instance
 ) {
 
     fun getUserFullName(): String {
@@ -36,8 +39,21 @@ class HomeDashboardRepository(
     }
 
     fun getMonthlyFinancials(): Triple<Long, Long, Long> {
-        val income = 18_000_000L
-        val expense = 9_500_000L
+        val transactions = financeRepository.getTransactions()
+        // If repo has transactions, compute real sum, otherwise return 0 for clean state
+        val currentTxs = transactions.let {
+            if (it is kotlinx.coroutines.flow.StateFlow) it.value else emptyList()
+        }
+        
+        var income = 0L
+        var expense = 0L
+        for (tx in currentTxs) {
+            if (tx.type == TransactionType.INCOME) {
+                income += tx.amount
+            } else if (tx.type == TransactionType.EXPENSE) {
+                expense += tx.amount
+            }
+        }
         val balance = income - expense
         return Triple(income, expense, balance)
     }
@@ -49,90 +65,80 @@ class HomeDashboardRepository(
     }
 
     fun getUpcomingObligations(): List<UpcomingObligationItem> {
-        // Collect top 3 obligations from installments & vehicle insurance
         val list = mutableListOf<UpcomingObligationItem>()
 
-        // 1. Installment: Bank Loan
-        list.add(
-            UpcomingObligationItem(
-                id = "ob_loan_1",
-                title = "قسط بانک مهر",
-                amount = 3_000_000L,
-                formattedAmount = IranianPhoneUtils.convertDigitsToPersian("۳,۰۰۰,۰۰۰") + " تومان",
-                relativeDaysText = "۳ روز دیگر",
-                dueDatePersian = "۱۴۰۵/۰۷/۰۳",
-                type = ObligationType.INSTALLMENT,
-                destinationTab = BottomNavItem.INSTALLMENTS,
-                iconRes = R.drawable.img_3d_bank,
-                accentColor = ColorUtils.blueAccent
+        val bankLoans = InstallmentMockDataSource.bankLoans
+        val firstLoan = bankLoans.firstOrNull { it.remainingInstallments > 0 }
+        if (firstLoan != null) {
+            list.add(
+                UpcomingObligationItem(
+                    id = "ob_loan_${firstLoan.id}",
+                    title = firstLoan.title,
+                    amount = firstLoan.totalAmount / firstLoan.totalInstallments.coerceAtLeast(1),
+                    formattedAmount = firstLoan.monthlyPaymentFormatted,
+                    relativeDaysText = firstLoan.nextDueDaysText,
+                    dueDatePersian = firstLoan.nextPaymentDate,
+                    type = ObligationType.INSTALLMENT,
+                    destinationTab = BottomNavItem.INSTALLMENTS,
+                    iconRes = R.drawable.img_3d_bank,
+                    accentColor = ColorUtils.blueAccent
+                )
             )
-        )
+        }
 
-        // 2. Vehicle Insurance: Car Insurance
-        list.add(
-            UpcomingObligationItem(
-                id = "ob_insurance_1",
-                title = "بیمه پژو ۲۰۷",
-                amount = 2_500_000L,
-                formattedAmount = IranianPhoneUtils.convertDigitsToPersian("۲,۵۰۰,۰۰۰") + " تومان",
-                relativeDaysText = "۷ روز دیگر",
-                dueDatePersian = "۱۴۰۵/۰۷/۰۷",
-                type = ObligationType.VEHICLE_INSURANCE,
-                destinationTab = BottomNavItem.VEHICLE,
-                iconRes = R.drawable.img_3d_insurance,
-                accentColor = InfoIndigoLight
+        val primaryVehicle = vehicleRepository.vehicles.value.firstOrNull()
+        if (primaryVehicle != null) {
+            list.add(
+                UpcomingObligationItem(
+                    id = "ob_ins_${primaryVehicle.id}",
+                    title = "بیمه ${primaryVehicle.brand} ${primaryVehicle.model}",
+                    amount = 2_500_000L,
+                    formattedAmount = IranianPhoneUtils.convertDigitsToPersian("۲,۵۰۰,۰۰۰") + " تومان",
+                    relativeDaysText = "۷ روز دیگر",
+                    dueDatePersian = "۱۴۰۵/۰۷/۰۷",
+                    type = ObligationType.VEHICLE_INSURANCE,
+                    destinationTab = BottomNavItem.VEHICLE,
+                    iconRes = R.drawable.img_3d_insurance,
+                    accentColor = InfoIndigoLight
+                )
             )
-        )
-
-        // 3. Bill Payment
-        list.add(
-            UpcomingObligationItem(
-                id = "ob_bill_1",
-                title = "پرداخت قبض برق و گاز",
-                amount = 850_000L,
-                formattedAmount = IranianPhoneUtils.convertDigitsToPersian("۸۵۰,۰۰۰") + " تومان",
-                relativeDaysText = "فردا",
-                dueDatePersian = "۱۴۰۵/۰۷/۰۱",
-                type = ObligationType.BILL,
-                destinationTab = BottomNavItem.CALENDAR,
-                iconRes = R.drawable.img_3d_card,
-                accentColor = WarningAmberLight
-            )
-        )
+        }
 
         return list.take(3)
     }
 
     fun getUpcomingReminders(): List<UpcomingReminderItem> {
-        return listOf(
-            UpcomingReminderItem(
-                id = "rem_1",
-                title = "تماس با تعمیرگاه و سرویس دوره‌ای",
-                relativeDaysText = "فردا",
-                timePersian = "۱۰:۰۰",
-                typeTitle = "سرویس خودرو",
-                iconRes = R.drawable.img_3d_oil,
-                accentColor = ExpenseRoseLight
-            ),
-            UpcomingReminderItem(
-                id = "rem_2",
-                title = "پرداخت قسط وام قرض‌الحسنه",
-                relativeDaysText = "۳ روز دیگر",
-                timePersian = "۰۹:۰۰",
-                typeTitle = "قسط بانک",
-                iconRes = R.drawable.img_3d_bank,
-                accentColor = ColorUtils.blueAccent
-            ),
-            UpcomingReminderItem(
-                id = "rem_3",
-                title = "تمدید بیمه‌نامه شخص ثالث",
-                relativeDaysText = "۷ روز دیگر",
-                timePersian = "۱۱:۳۰",
-                typeTitle = "بیمه خودرو",
-                iconRes = R.drawable.img_3d_insurance,
-                accentColor = InfoIndigoLight
+        val list = mutableListOf<UpcomingReminderItem>()
+        val hasVehicles = vehicleRepository.vehicles.value.isNotEmpty()
+        val hasInstallments = InstallmentMockDataSource.allInstallments.isNotEmpty()
+
+        if (hasVehicles) {
+            list.add(
+                UpcomingReminderItem(
+                    id = "rem_1",
+                    title = "تماس با تعمیرگاه و سرویس دوره‌ای",
+                    relativeDaysText = "فردا",
+                    timePersian = "۱۰:۰۰",
+                    typeTitle = "سرویس خودرو",
+                    iconRes = R.drawable.img_3d_oil,
+                    accentColor = ExpenseRoseLight
+                )
             )
-        )
+        }
+        if (hasInstallments) {
+            list.add(
+                UpcomingReminderItem(
+                    id = "rem_2",
+                    title = "پرداخت قسط وام قرض‌الحسنه",
+                    relativeDaysText = "۳ روز دیگر",
+                    timePersian = "۰۹:۰۰",
+                    typeTitle = "قسط بانک",
+                    iconRes = R.drawable.img_3d_bank,
+                    accentColor = ColorUtils.blueAccent
+                )
+            )
+        }
+        return list
     }
 
     fun getOverdueItems(): List<OverdueItem> {
@@ -178,7 +184,7 @@ class HomeDashboardRepository(
     }
 
     fun getUnreadNotificationCount(): Int {
-        return 3
+        return com.example.reminder.domain.NotificationStore.getUnreadCount()
     }
 }
 

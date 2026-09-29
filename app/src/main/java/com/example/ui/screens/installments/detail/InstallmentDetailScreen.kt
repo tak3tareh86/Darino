@@ -1,5 +1,6 @@
 package com.example.ui.screens.installments.detail
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -49,6 +51,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.Layered3DCard
@@ -59,8 +62,10 @@ import com.example.ui.screens.installments.model.InstallmentItem
 import com.example.ui.screens.installments.model.InstallmentStatus
 import com.example.ui.screens.installments.model.PaymentHistoryItem
 import com.example.ui.theme.EmeraldPrimaryLight
+import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
+import com.example.ui.theme.RadiusSM
 
 @Composable
 fun InstallmentDetailScreen(
@@ -458,7 +463,8 @@ private fun PaymentHistoryRow(item: PaymentHistoryItem) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(RadiusMD),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        border = if (item.isPaidLate) BorderStroke(1.dp, ExpenseRoseLight.copy(alpha = 0.45f)) else null
     ) {
         Row(
             modifier = Modifier
@@ -473,12 +479,15 @@ private fun PaymentHistoryRow(item: PaymentHistoryItem) {
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = item.status.color.copy(alpha = 0.15f)
+                    color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.2f) else item.status.color.copy(alpha = 0.15f)
                 ) {
                     Text(
-                        text = "قسط ${item.installmentNumber}",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                        color = item.status.color,
+                        text = if (item.isPaidLate) "قسط ${item.installmentNumber} (با تاخیر)" else "قسط ${item.installmentNumber}",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.5.sp,
+                            fontWeight = if (item.isPaidLate) FontWeight.Bold else FontWeight.Normal
+                        ),
+                        color = if (item.isPaidLate) ExpenseRoseLight else item.status.color,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
@@ -486,18 +495,50 @@ private fun PaymentHistoryRow(item: PaymentHistoryItem) {
                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     Text(
                         text = item.amountFormatted,
-                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 12.5.sp),
-                        color = MaterialTheme.colorScheme.onSurface
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = if (item.isPaidLate) ExpenseRoseLight else MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "سررسید: ${item.dueDate}" + (item.paidDate?.let { " • پرداخت: $it" } ?: ""),
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            InstallmentStatusBadge(status = item.status, compact = true)
+            if (item.isPaidLate) {
+                Surface(
+                    shape = RoundedCornerShape(RadiusSM),
+                    color = ExpenseRoseLight.copy(alpha = 0.18f),
+                    border = BorderStroke(0.8.dp, ExpenseRoseLight.copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Warning,
+                            contentDescription = null,
+                            tint = ExpenseRoseLight,
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Text(
+                            text = "پرداخت بعد از موعد",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = ExpenseRoseLight
+                        )
+                    }
+                }
+            } else {
+                InstallmentStatusBadge(status = item.status, compact = true)
+            }
         }
     }
 }

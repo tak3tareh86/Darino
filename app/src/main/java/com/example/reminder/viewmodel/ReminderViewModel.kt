@@ -104,7 +104,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             selectedTab = filters.tab,
             selectedFilterChip = filters.filterChip,
             searchQuery = filters.searchQuery,
-            notificationCount = activeList.size,
+            notificationCount = com.example.reminder.domain.NotificationStore.getUnreadCount(),
             todayCount = todayReminders.size.coerceAtLeast(1),
             thisWeekCount = activeList.size.coerceAtLeast(3),
             nearestReminder = nearest,

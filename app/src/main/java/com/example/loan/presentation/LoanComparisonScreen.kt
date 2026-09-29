@@ -52,12 +52,14 @@ import androidx.compose.ui.unit.sp
 import com.example.loan.domain.CalculationResult
 import com.example.loan.domain.ComparisonLoanInput
 import com.example.loan.domain.ComparisonResult
+import com.example.ui.components.PersianAmountInputField
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.WarningAmberLight
+import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import kotlin.math.abs
 
@@ -408,12 +410,13 @@ private fun LoanComparisonCard(
 
             AnimatedVisibility(visible = isEditing) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(
+                    PersianAmountInputField(
                         value = editAmount,
                         onValueChange = { editAmount = it },
-                        label = { Text("مبلغ وام", fontSize = 10.sp) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        label = "مبلغ وام",
+                        unitLabel = "تومان",
+                        placeholder = "مثال: ۱۰۰,۰۰۰,۰۰۰",
+                        showWordsPreview = false
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         OutlinedTextField(
@@ -435,10 +438,10 @@ private fun LoanComparisonCard(
                     }
                     Button(
                         onClick = {
-                            val a = editAmount.toLongOrNull() ?: amount
-                            val r = editInterest.toDoubleOrNull() ?: interestRate
-                            val d = editDuration.toIntOrNull() ?: durationMonths
-                            onSaveEdit(title, a, r, d)
+                            val a = IranianAmountUtils.parseAmountToLong(editAmount)
+                            val r = IranianPhoneUtils.convertDigitsToEnglish(editInterest).replace(',', '.').toDoubleOrNull() ?: interestRate
+                            val d = IranianPhoneUtils.convertDigitsToEnglish(editDuration).filter { ch -> ch.isDigit() }.toIntOrNull() ?: durationMonths
+                            onSaveEdit(title, if (a > 0L) a else amount, r, d)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(RadiusMD)

@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class VehicleViewModel(
-    private val repository: VehicleRepository = VehicleRepository()
+    private val repository: VehicleRepository = VehicleRepository.instance
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(VehicleState(isLoading = true))

@@ -31,6 +31,9 @@ import com.example.reminder.domain.Priority
 import com.example.reminder.domain.ReminderType
 import com.example.reminder.domain.RepeatType
 import com.example.ui.components.Layered3DCard
+import com.example.ui.components.PersianAmountInputField
+import com.example.ui.components.PersianDateInputField
+import com.example.util.MoneyFormatter
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
@@ -39,6 +42,7 @@ import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.ui.theme.WarningAmberLight
+import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.PersianCalendarHelper
 import java.util.UUID
@@ -190,16 +194,14 @@ fun AddReminderScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
+                PersianDateInputField(
                     value = date,
                     onValueChange = { date = it },
-                    label = { Text("تاریخ سررسید (شمسی)") },
+                    label = "تاریخ سررسید (شمسی)",
+                    placeholder = "۱۴۰۴/۰۱/۰۱",
                     modifier = Modifier
                         .weight(1f)
-                        .testTag("input_reminder_date"),
-                    shape = RoundedCornerShape(RadiusMD),
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Rounded.CalendarToday, contentDescription = null, tint = InfoIndigoLight) }
+                        .testTag("input_reminder_date")
                 )
 
                 OutlinedTextField(
@@ -217,22 +219,19 @@ fun AddReminderScreen(
 
             // 4. Amount / Target Kilometer depending on type
             if (selectedType == ReminderType.INSTALLMENT || selectedType == ReminderType.FINANCE || selectedType == ReminderType.INSURANCE) {
-                OutlinedTextField(
+                PersianAmountInputField(
                     value = amountText,
-                    onValueChange = { amountText = it.filter { ch -> ch.isDigit() } },
-                    label = { Text("مبلغ به تومان (اختیاری)") },
+                    onValueChange = { amountText = it },
+                    label = "مبلغ به ${MoneyFormatter.getUnitLabel()} (اختیاری)",
+                    placeholder = "مثال: ۲,۵۰۰,۰۰۰",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("input_reminder_amount"),
-                    shape = RoundedCornerShape(RadiusMD),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Rounded.AttachMoney, contentDescription = null, tint = EmeraldPrimaryLight) }
+                        .testTag("input_reminder_amount")
                 )
             } else if (selectedType == ReminderType.VEHICLE || selectedType == ReminderType.MAINTENANCE) {
                 OutlinedTextField(
                     value = targetKmText,
-                    onValueChange = { targetKmText = it.filter { ch -> ch.isDigit() } },
+                    onValueChange = { targetKmText = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch.isDigit() } },
                     label = { Text("کیلومتر هدف سرویس (اختیاری)") },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -389,7 +388,7 @@ fun AddReminderScreen(
             Button(
                 onClick = {
                     if (title.isBlank()) return@Button
-                    val parsedAmount = amountText.toLongOrNull()
+                    val parsedAmount = IranianAmountUtils.parseAmountToLong(amountText)
                     val parsedKm = targetKmText.toLongOrNull()
 
                     val reminder = ReminderEntity(

@@ -76,15 +76,15 @@ fun HomeHeader(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                elevation = 8.dp,
+                elevation = 4.dp,
                 shape = RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL),
-                ambientColor = Color(0xFF0D9488).copy(alpha = 0.2f),
-                spotColor = Color(0xFF0F172A).copy(alpha = 0.3f)
+                ambientColor = Color(0xFF0D9488).copy(alpha = 0.1f),
+                spotColor = Color(0xFF0F172A).copy(alpha = 0.15f)
             )
             .clip(RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL))
             .background(headerGradient)
             .statusBarsPadding()
-            .padding(horizontal = 18.dp, vertical = 14.dp)
+            .padding(horizontal = 14.dp, vertical = 5.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -94,52 +94,52 @@ fun HomeHeader(
             // Right Side (RTL): App 3D Avatar/Logo + Greeting + Persian Date
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 // 3D App Icon
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(26.dp)
                         .shadow(
-                            elevation = 6.dp,
-                            shape = RoundedCornerShape(12.dp),
-                            ambientColor = Color(0xFF14B8A6).copy(alpha = 0.3f),
-                            spotColor = Color(0xFF14B8A6).copy(alpha = 0.5f)
+                            elevation = 2.dp,
+                            shape = RoundedCornerShape(6.dp),
+                            ambientColor = Color(0xFF14B8A6).copy(alpha = 0.15f),
+                            spotColor = Color(0xFF14B8A6).copy(alpha = 0.3f)
                         )
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(6.dp))
                         .background(Color.White.copy(alpha = 0.12f))
-                        .padding(2.dp),
+                        .padding(1.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.img_darino_logo),
                         contentDescription = "لوگوی دارینو",
                         modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(10.dp)),
+                            .size(20.dp)
+                            .clip(RoundedCornerShape(4.dp)),
                         contentScale = ContentScale.Crop
                     )
                 }
 
                 // Greeting Texts
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     Text(
                         text = "سلام $userName 👋",
-                        style = MaterialTheme.typography.titleMedium.copy(
+                        style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            fontSize = 11.5.sp
                         ),
                         color = Color.White
                     )
                     Text(
                         text = todayDateText,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 11.sp,
+                            fontSize = 8.sp,
                             fontWeight = FontWeight.Normal
                         ),
-                        color = Color(0xFFE2E8F0).copy(alpha = 0.85f)
+                        color = Color(0xFFE2E8F0).copy(alpha = 0.8f)
                     )
                 }
             }
@@ -147,7 +147,7 @@ fun HomeHeader(
             // Left Side (RTL): Notification Button with Badge and Settings Button
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 NotificationButton(
                     badgeCount = unreadNotificationsCount,
@@ -169,12 +169,12 @@ fun SettingsButton(
     Box(
         modifier = modifier
             .testTag("settings_button")
-            .size(44.dp)
+            .size(26.dp)
             .shadow(
-                elevation = 6.dp,
+                elevation = 2.dp,
                 shape = CircleShape,
-                ambientColor = Color.Black.copy(alpha = 0.3f),
-                spotColor = Color(0xFF14B8A6).copy(alpha = 0.4f)
+                ambientColor = Color.Black.copy(alpha = 0.15f),
+                spotColor = Color(0xFF14B8A6).copy(alpha = 0.2f)
             )
             .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.15f))
@@ -185,7 +185,7 @@ fun SettingsButton(
             imageVector = Icons.Rounded.Settings,
             contentDescription = "تنظیمات برنامه",
             tint = Color.White,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(13.dp)
         )
     }
 }
@@ -199,12 +199,12 @@ fun NotificationButton(
     Box(
         modifier = modifier
             .testTag("notification_button")
-            .size(44.dp)
+            .size(26.dp)
             .shadow(
-                elevation = 6.dp,
+                elevation = 2.dp,
                 shape = CircleShape,
-                ambientColor = Color.Black.copy(alpha = 0.3f),
-                spotColor = Color(0xFF14B8A6).copy(alpha = 0.4f)
+                ambientColor = Color.Black.copy(alpha = 0.15f),
+                spotColor = Color(0xFF14B8A6).copy(alpha = 0.2f)
             )
             .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.15f))
@@ -215,7 +215,7 @@ fun NotificationButton(
             imageVector = Icons.Rounded.Notifications,
             contentDescription = "مرکز اعلان‌ها",
             tint = Color.White,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(13.dp)
         )
 
         // Notification Badge Indicator
@@ -225,19 +225,19 @@ fun NotificationButton(
                 enter = fadeIn(tween(300)) + scaleIn(tween(300)),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 4.dp, end = 4.dp)
+                    .padding(top = 0.5.dp, end = 0.5.dp)
             ) {
                 Surface(
                     shape = CircleShape,
                     color = ExpenseRoseLight,
-                    border = BorderStroke(1.5.dp, Color.White),
-                    modifier = Modifier.size(18.dp)
+                    border = BorderStroke(0.5.dp, Color.White),
+                    modifier = Modifier.size(11.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = IranianPhoneUtils.convertDigitsToPersian(badgeCount.toString()),
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 9.sp,
+                                fontSize = 7.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )

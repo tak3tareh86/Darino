@@ -25,7 +25,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.components.PersianAmountInputField
+import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
+import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.ServiceType
 import com.example.vehicle.data.VehicleEntity
@@ -165,34 +168,46 @@ fun AddServiceSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
+                PersianAmountInputField(
                     value = costText,
                     onValueChange = { costText = it },
-                    label = { Text("هزینه سرویس (تومان)") },
-                    placeholder = { Text("850000") },
+                    label = "هزینه سرویس",
+                    unitLabel = "تومان",
+                    placeholder = "مثال: ۸۵۰,۰۰۰",
+                    showWordsPreview = false,
                     modifier = Modifier.weight(1.2f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
+                    testTag = "service_cost_input"
                 )
 
-                OutlinedTextField(
-                    value = mileageText,
-                    onValueChange = { mileageText = it },
-                    label = { Text("کیلومتر خودرو") },
-                    placeholder = { Text("45000") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
+                Column(modifier = Modifier.weight(0.9f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "کیلومتر خودرو",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = IranianPhoneUtils.convertDigitsToPersian(mileageText),
+                        onValueChange = {
+                            val digits = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
+                            mileageText = digits
+                        },
+                        placeholder = { Text("45000") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+                }
             }
 
             // Date & Description
-            OutlinedTextField(
+            PersianDateInputField(
                 value = date,
                 onValueChange = { date = it },
-                label = { Text("تاریخ انجام (شمسی)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                label = "تاریخ انجام سرویس (شمسی)",
+                placeholder = "۱۴۰۴/۰۷/۱۵",
+                dialogTitle = "انتخاب تاریخ انجام سرویس",
+                testTag = "service_date_input"
             )
 
             OutlinedTextField(
@@ -258,8 +273,8 @@ fun AddServiceSheet(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        val cost = costText.toLongOrNull() ?: 0L
-                        val mileage = mileageText.toIntOrNull() ?: vehicle.currentMileage
+                        val cost = IranianAmountUtils.parseAmountToLong(costText)
+                        val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                         onAddService(
                             title,
                             selectedType,

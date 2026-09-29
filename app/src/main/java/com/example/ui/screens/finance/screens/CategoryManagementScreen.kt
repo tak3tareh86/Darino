@@ -52,9 +52,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -186,7 +189,7 @@ fun CategoryManagementScreen(
 
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
+                contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 items(displayedCategories, key = { it.id }) { cat ->
                     CategoryItemCard(
@@ -250,18 +253,22 @@ fun CategoryItemCard(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
-    Layered3DCard(
+    Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(RadiusLG),
-        backgroundColor = MaterialTheme.colorScheme.surface,
-        elevation = 2.dp,
-        contentPadding = PaddingValues(14.dp),
-        testTag = "category_card_${category.id}",
-        onClick = onEdit
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDark) Color(0xFF0F172A) else Color(0xFFFFFFFF)
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
+        )
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -274,16 +281,16 @@ fun CategoryItemCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(category.accentColor.copy(alpha = if (isDark) 0.25f else 0.12f)),
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(category.accentColor.copy(alpha = if (isDark) 0.2f else 0.1f)),
                         contentAlignment = Alignment.Center
                     ) {
                         if (category.iconRes != null) {
                             Image(
                                 painter = painterResource(id = category.iconRes),
                                 contentDescription = category.title,
-                                modifier = Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)),
+                                modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)),
                                 contentScale = ContentScale.Crop
                             )
                         } else {
@@ -291,64 +298,127 @@ fun CategoryItemCard(
                         }
                     }
 
-                    Column {
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = category.title,
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.5.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            
+                            // Compact Premium Badge
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (category.isCustom) {
+                                    if (isDark) Color(0xFF1E1B4B) else Color(0xFFEEF2FF)
+                                } else {
+                                    if (isDark) Color(0xFF065F46).copy(alpha = 0.3f) else Color(0xFFECFDF5)
+                                },
+                                modifier = Modifier.padding(2.dp)
+                            ) {
+                                Text(
+                                    text = if (category.isCustom) "شخصی" else "پیش‌فرض",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = if (category.isCustom) Color(0xFF6366F1) else EmeraldPrimaryLight
+                                )
+                            }
+                        }
+                        
                         Text(
-                            text = category.title,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.5.sp
+                            text = if (category.isActive) "فعال و در دسترس" else "غیرفعال شده",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium
                             ),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = if (category.isCustom) "شخصی‌سازی‌شده" else "پیش‌فرض دارینو",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (category.isActive) EmeraldPrimaryLight else Color(0xFF94A3B8)
                         )
                     }
                 }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Switch(
                         checked = category.isActive,
                         onCheckedChange = onToggleActive,
+                        modifier = Modifier.scale(0.8f),
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = category.accentColor
+                            checkedTrackColor = category.accentColor,
+                            uncheckedThumbColor = Color(0xFF94A3B8),
+                            uncheckedTrackColor = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
                         )
                     )
 
-                    IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Rounded.Edit, contentDescription = "ویرایش", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    IconButton(
+                        onClick = onEdit,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(
+                                if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+                                CircleShape
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Edit,
+                            contentDescription = "ویرایش",
+                            modifier = Modifier.size(13.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
 
                     if (category.isCustom) {
-                        IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                            Icon(Icons.Rounded.Delete, contentDescription = "حذف", modifier = Modifier.size(16.dp), tint = Color(0xFFEF4444).copy(alpha = 0.8f))
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .background(
+                                    if (isDark) Color(0xFF451A20) else Color(0xFFFEE2E2),
+                                    CircleShape
+                                )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Delete,
+                                contentDescription = "حذف",
+                                modifier = Modifier.size(13.dp),
+                                tint = Color(0xFFEF4444)
+                            )
                         }
                     }
                 }
             }
 
             // Subcategories chips
-            if (category.subCategories.isNotEmpty()) {
+            if (category.subCategories.isNotEmpty() && category.isActive) {
                 FlowRow(
                     modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     category.subCategories.forEach { sub ->
                         Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.5f) else Color(0xFFF8FAFC),
+                            border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0))
                         ) {
                             Text(
                                 text = sub,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.5.dp),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }

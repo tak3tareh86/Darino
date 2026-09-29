@@ -55,7 +55,7 @@ fun VehicleReportTab(
         modifier = modifier
             .fillMaxSize()
             .testTag("vehicle_report_tab"),
-        contentPadding = PaddingValues(bottom = 96.dp),
+        contentPadding = PaddingValues(bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // 1. KPI Summary Cards Grid

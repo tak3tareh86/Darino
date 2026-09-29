@@ -53,9 +53,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.PersianAmountInputField
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.WarningAmberLight
+import com.example.util.IranianAmountUtils
+import com.example.util.IranianPhoneUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -188,68 +191,16 @@ fun MaintenanceEntrySheet(
                 }
             }
 
-            // Cost Input Card
-            Surface(
+            // Cost Input Field with Live Toman Formatter & Persian Words
+            PersianAmountInputField(
+                value = costInput,
+                onValueChange = { costInput = it },
+                label = "هزینه کل سرویس / فاکتور (تومان)",
+                placeholder = "۸۵۰,۰۰۰",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .shadow(
-                        elevation = 4.dp,
-                        shape = RoundedCornerShape(RadiusLG),
-                        ambientColor = WarningAmberLight.copy(alpha = 0.2f),
-                        spotColor = WarningAmberLight.copy(alpha = 0.35f)
-                    ),
-                shape = RoundedCornerShape(RadiusLG),
-                color = if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
-                border = BorderStroke(1.5.dp, WarningAmberLight.copy(alpha = 0.4f))
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "هزینه کل سرویس / فاکتور",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        OutlinedTextField(
-                            value = costInput,
-                            onValueChange = { costInput = it },
-                            textStyle = MaterialTheme.typography.displayLarge.copy(
-                                fontSize = 30.sp,
-                                color = WarningAmberLight,
-                                textAlign = TextAlign.Center,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent,
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent
-                            ),
-                            modifier = Modifier
-                                .weight(1f, fill = false)
-                                .testTag("maint_cost_input")
-                        )
-
-                        Text(
-                            text = "تومان",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 6.dp)
-                        )
-                    }
-                }
-            }
+                    .testTag("maint_cost_input")
+            )
 
             // Odometer & Service Center Row
             Row(
@@ -258,7 +209,7 @@ fun MaintenanceEntrySheet(
             ) {
                 OutlinedTextField(
                     value = odometerInput,
-                    onValueChange = { odometerInput = it },
+                    onValueChange = { odometerInput = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch.isDigit() } },
                     label = { Text("کیلومتر خودرو") },
                     modifier = Modifier
                         .weight(1f)

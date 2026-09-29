@@ -137,7 +137,7 @@ fun RecurringTransactionsScreen(
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     items(recurringList, key = { it.id }) { item ->
                         RecurringCard(

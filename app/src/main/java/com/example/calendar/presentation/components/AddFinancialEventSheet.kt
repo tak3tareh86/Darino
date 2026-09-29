@@ -30,9 +30,12 @@ import com.example.calendar.domain.model.FinancialEvent
 import com.example.calendar.domain.model.FinancialEventStatus
 import com.example.calendar.domain.model.FinancialEventType
 import com.example.calendar.domain.model.ReminderBeforeOption
+import com.example.ui.components.PersianAmountInputField
+import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusXL
+import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -167,31 +170,14 @@ fun AddFinancialEventSheet(
 
             // 3. Amount Field
             if (selectedType != FinancialEventType.REMINDER) {
-                OutlinedTextField(
+                PersianAmountInputField(
                     value = amountText,
-                    onValueChange = { input ->
-                        val digits = IranianPhoneUtils.convertDigitsToEnglish(input).filter { it.isDigit() }
-                        amountText = digits
-                    },
-                    label = { Text("مبلغ به تومان") },
-                    placeholder = { Text("مثال: ۳,۰۰۰,۰۰۰") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    onValueChange = { amountText = it },
+                    label = "مبلغ به تومان",
+                    placeholder = "مثال: ۳,۰۰۰,۰۰۰",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("event_amount_input"),
-                    shape = RoundedCornerShape(RadiusMD),
-                    singleLine = true,
-                    supportingText = {
-                        val num = amountText.toLongOrNull()
-                        if (num != null && num > 0) {
-                            val formatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(num)
-                            Text(
-                                text = "${IranianPhoneUtils.convertDigitsToPersian(formatted)} تومان",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                        .testTag("event_amount_input")
                 )
             }
 
@@ -200,23 +186,14 @@ fun AddFinancialEventSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
+                PersianDateInputField(
                     value = dateText,
                     onValueChange = { dateText = it },
-                    label = { Text("تاریخ سررسید (شمسی)") },
-                    placeholder = { Text("۱۴۰۵/۰۶/۱۵") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Rounded.CalendarToday,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    },
+                    label = "تاریخ سررسید (شمسی)",
+                    placeholder = "۱۴۰۴/۰۱/۰۱",
                     modifier = Modifier
                         .weight(1.2f)
-                        .testTag("event_date_input"),
-                    shape = RoundedCornerShape(RadiusMD),
-                    singleLine = true
+                        .testTag("event_date_input")
                 )
 
                 OutlinedTextField(
@@ -302,7 +279,7 @@ fun AddFinancialEventSheet(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        val amountLong = amountText.toLongOrNull()
+                        val amountLong = IranianAmountUtils.parseAmountToLong(amountText)
                         val newEvent = FinancialEvent(
                             id = "user_ev_${System.currentTimeMillis()}",
                             title = title.trim(),

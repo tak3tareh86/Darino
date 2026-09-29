@@ -85,6 +85,7 @@ fun ReminderScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets(0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = bottomBar,
         floatingActionButton = {
@@ -94,7 +95,7 @@ fun ReminderScreen(
                 contentColor = Color.White,
                 shape = CircleShape,
                 modifier = Modifier
-                    .padding(bottom = 80.dp)
+                    .padding(bottom = 16.dp)
                     .shadow(12.dp, CircleShape, spotColor = MaterialTheme.colorScheme.primary)
                     .testTag("add_reminder_fab")
             ) {
@@ -179,7 +180,7 @@ fun ReminderScreen(
                         .fillMaxSize()
                         .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp)
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
                 ) {
                     if (filteredReminders.isNotEmpty()) {
                         items(filteredReminders, key = { it.id }) { reminder ->
@@ -274,12 +275,12 @@ fun ReminderHeaderSection(
     Layered3DCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 14.dp, vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -287,14 +288,14 @@ fun ReminderHeaderSection(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "مرکز یادآوری هوشمند",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
 
                     // Sync Status Badge
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(6.dp),
                         color = when (syncStatus) {
                             SyncStatus.SYNCING -> InfoIndigoLight.copy(alpha = 0.15f)
                             SyncStatus.SUCCESS -> EmeraldPrimaryLight.copy(alpha = 0.15f)
@@ -309,42 +310,46 @@ fun ReminderHeaderSection(
                                 SyncStatus.OFFLINE -> "حالت آفلاین"
                                 else -> if (sessionState is SessionState.Authenticated) "آنلاین" else "محلی"
                             },
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
                             color = when (syncStatus) {
                                 SyncStatus.SYNCING -> InfoIndigoLight
                                 SyncStatus.SUCCESS -> EmeraldPrimaryLight
                                 SyncStatus.OFFLINE -> WarningAmberLight
                                 else -> MaterialTheme.colorScheme.onSurfaceVariant
                             },
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "مدیریت سررسید اقساط، موعد بیمه خودرو و یادآورهای شخصی با پیامک",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 IconButton(
                     onClick = onSyncClick,
-                    modifier = Modifier.testTag("reminder_sync_button")
+                    modifier = Modifier.size(24.dp).testTag("reminder_sync_button")
                 ) {
                     if (isRefreshing) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 1.5.dp,
                             color = EmeraldPrimaryLight
                         )
                     } else {
                         Icon(
                             imageVector = Icons.Rounded.Sync,
                             contentDescription = "همگام‌سازی",
-                            tint = if (sessionState is SessionState.Authenticated) EmeraldPrimaryLight else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = if (sessionState is SessionState.Authenticated) EmeraldPrimaryLight else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
@@ -352,11 +357,11 @@ fun ReminderHeaderSection(
                 if (sessionState !is SessionState.Authenticated) {
                     FilledTonalButton(
                         onClick = onAuthClick,
-                        shape = RoundedCornerShape(RadiusMD),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        modifier = Modifier.height(34.dp)
+                        shape = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                        modifier = Modifier.height(24.dp)
                     ) {
-                        Text("ورود", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("ورود", fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -775,22 +780,111 @@ fun SnoozeDialog(
     onDismiss: () -> Unit,
     onSnooze: (minutes: Long) -> Unit
 ) {
+    var showCustomPicker by remember { mutableStateOf(false) }
+
+    val currentMillis = remember { System.currentTimeMillis() }
+    val initialPdt = remember {
+        val defaultTarget = reminder.scheduledDateTime.coerceAtLeast(currentMillis) + 24 * 3600 * 1000L
+        PersianCalendarHelper.fromEpochMillis(defaultTarget)
+    }
+
+    var selectedYear by remember { mutableStateOf(initialPdt.year) }
+    var selectedMonth by remember { mutableStateOf(initialPdt.month) }
+    var selectedDay by remember { mutableStateOf(initialPdt.day) }
+    var selectedHour by remember { mutableStateOf(initialPdt.hour) }
+    var selectedMinute by remember { mutableStateOf(initialPdt.minute) }
+
+    val customScheduledTime = remember(selectedYear, selectedMonth, selectedDay, selectedHour, selectedMinute) {
+        PersianCalendarHelper.jalaliToEpochMillis(selectedYear, selectedMonth, selectedDay, selectedHour, selectedMinute)
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("به تعویق انداختن یادآور") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("یادآوری «${reminder.title}» چه مدت دیگر یادآوری شود؟")
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(15L to "۱۵ دقیقه", 60L to "۱ ساعت", 1440L to "فردا").forEach { (m, label) ->
-                        OutlinedButton(
-                            onClick = { onSnooze(m) },
-                            modifier = Modifier.weight(1f)
+
+                if (!showCustomPicker) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(label, fontSize = 11.sp)
+                            OutlinedButton(
+                                onClick = { onSnooze(15L) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("۱۵ دقیقه دیگر", fontSize = 11.sp)
+                            }
+                            OutlinedButton(
+                                onClick = { onSnooze(60L) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("۱ ساعت دیگر", fontSize = 11.sp)
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { onSnooze(1440L) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("فردا همین موقع", fontSize = 11.sp)
+                            }
+                            OutlinedButton(
+                                onClick = { onSnooze(3L * 1440L) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("۳ روز دیگر", fontSize = 11.sp)
+                            }
+                        }
+                        Button(
+                            onClick = { showCustomPicker = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("زمان دلخواه...", fontSize = 12.sp)
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("انتخاب زمان سفارشی:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                        ReminderDateTimeSection(
+                            year = selectedYear,
+                            month = selectedMonth,
+                            day = selectedDay,
+                            hour = selectedHour,
+                            minute = selectedMinute,
+                            onDateTimeChanged = { y, m, d, h, min ->
+                                selectedYear = y
+                                selectedMonth = m
+                                selectedDay = d
+                                selectedHour = h
+                                selectedMinute = min
+                            }
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            TextButton(
+                                onClick = { showCustomPicker = false },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("بازگشت")
+                            }
+                            Button(
+                                onClick = {
+                                    val diffMs = customScheduledTime - System.currentTimeMillis()
+                                    val diffMinutes = (diffMs / (60 * 1000L)).coerceAtLeast(1L)
+                                    onSnooze(diffMinutes)
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("تایید تعویق")
+                            }
                         }
                     }
                 }
@@ -798,8 +892,10 @@ fun SnoozeDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("انصراف")
+            if (!showCustomPicker) {
+                TextButton(onClick = onDismiss) {
+                    Text("انصراف")
+                }
             }
         }
     )

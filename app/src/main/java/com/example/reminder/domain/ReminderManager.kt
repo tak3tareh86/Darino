@@ -6,6 +6,7 @@ import com.example.reminder.data.LocalReminderRepository
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.data.ReminderRepository
 import com.example.reminder.data.ReminderScheduleEntity
+import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -191,7 +192,7 @@ class ReminderManager(
         ) ?: ReminderEntity(
             id = "rem_inst_$installmentId",
             title = "سررسید قسط: $title",
-            description = "مبلغ قسط: $amount تومان",
+            description = "مبلغ قسط: ${MoneyFormatter.formatToman(amount)}",
             type = "INSTALLMENT",
             sourceType = "INSTALLMENT",
             sourceId = installmentId,

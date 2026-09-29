@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.RadiusXL
@@ -59,15 +60,15 @@ fun VehicleHeader(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                elevation = 12.dp,
+                elevation = 4.dp,
                 shape = RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL),
-                ambientColor = Color(0xFF3B82F6).copy(alpha = 0.2f),
-                spotColor = Color(0xFF0F172A).copy(alpha = 0.4f)
+                ambientColor = Color(0xFF3B82F6).copy(alpha = 0.1f),
+                spotColor = Color(0xFF0F172A).copy(alpha = 0.15f)
             )
             .clip(RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL))
             .background(headerGradient)
             .statusBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 20.dp)
+            .padding(horizontal = 14.dp, vertical = 5.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -76,17 +77,20 @@ fun VehicleHeader(
         ) {
             // Right Side (RTL): Title & Subtitle
             Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 Text(
                     text = "خدمات خودرویی",
-                    style = MaterialTheme.typography.displayMedium.copy(fontSize = 24.sp),
+                    style = MaterialTheme.typography.displayMedium.copy(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
                     color = Color.White
                 )
                 Text(
                     text = "خودروها و هزینه‌هایشان را مدیریت کنید",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFCBD5E1).copy(alpha = 0.85f)
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.sp),
+                    color = Color(0xFFCBD5E1).copy(alpha = 0.8f)
                 )
             }
 
@@ -95,32 +99,32 @@ fun VehicleHeader(
                 modifier = Modifier
                     .testTag("vehicle_header_add_btn")
                     .shadow(
-                        elevation = 6.dp,
-                        shape = RoundedCornerShape(16.dp),
-                        ambientColor = Color(0xFF3B82F6).copy(alpha = 0.35f),
-                        spotColor = Color(0xFF2563EB).copy(alpha = 0.5f)
+                        elevation = 2.dp,
+                        shape = RoundedCornerShape(8.dp),
+                        ambientColor = Color(0xFF3B82F6).copy(alpha = 0.15f),
+                        spotColor = Color(0xFF2563EB).copy(alpha = 0.2f)
                     )
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .clickable(onClick = onAddVehicleClick),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(8.dp),
                 color = Color(0xFF2563EB),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f))
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Add,
                         contentDescription = "افزودن خودرو",
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(11.dp)
                     )
 
                     Text(
                         text = "افزودن خودرو",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
                         color = Color.White
                     )
                 }

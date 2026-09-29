@@ -23,13 +23,17 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.calendar.presentation.FinancialCalendarScreen
@@ -68,6 +73,9 @@ import com.example.ui.screens.subscription.SubscriptionGate
 import com.example.ui.screens.subscription.SubscriptionScreen
 import com.example.ui.screens.subscription.SubscriptionViewModel
 import com.example.ui.theme.FinanceManagerTheme
+import com.example.util.LocalAppCurrency
+import com.example.util.LocalAppLanguage
+import com.example.util.MoneyFormatter
 
 class MainActivity : FragmentActivity() {
 
@@ -133,6 +141,13 @@ fun AppNavigationContainer(
 
     val prefsRepo = remember(context) { com.example.data.preferences.AppPreferencesRepository.getInstance(context) }
     val currentNavTransition by prefsRepo.navTransition.collectAsState()
+    val currentCurrency by prefsRepo.currency.collectAsState()
+    val currentLanguage by prefsRepo.language.collectAsState()
+
+    LaunchedEffect(currentCurrency, currentLanguage) {
+        MoneyFormatter.activeCurrency = currentCurrency
+        MoneyFormatter.activeLanguage = currentLanguage
+    }
 
     val authViewModel: AuthViewModel = viewModel()
     val authUiState by authViewModel.uiState.collectAsState()
@@ -202,8 +217,12 @@ fun AppNavigationContainer(
     }
 
     // 4. Authenticated and Unlocked -> Main Application
-    SubscriptionGate(subscriptionViewModel = subscriptionViewModel) {
-        // Back navigation interceptors
+    CompositionLocalProvider(
+        LocalAppCurrency provides currentCurrency,
+        LocalAppLanguage provides currentLanguage
+    ) {
+        SubscriptionGate(subscriptionViewModel = subscriptionViewModel) {
+            // Back navigation interceptors
         BackHandler(enabled = isSubscriptionOpen || isSettingsOpen || isNotificationsOpen || isFinancialHealthOpen || currentTab != BottomNavItem.HOME) {
             when {
                 isSubscriptionOpen -> isSubscriptionOpen = false
@@ -222,6 +241,7 @@ fun AppNavigationContainer(
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
+            contentWindowInsets = WindowInsets.statusBars,
             bottomBar = {
                 if (showBottomBar) {
                     HomeBottomNavigation(
@@ -236,7 +256,11 @@ fun AppNavigationContainer(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(
+                        top = innerPadding.calculateTopPadding(),
+                        bottom = innerPadding.calculateBottomPadding()
+                    )
+                    .clipToBounds(),
                 contentAlignment = Alignment.TopCenter
             ) {
                 Box(
@@ -263,7 +287,19 @@ fun AppNavigationContainer(
                         )
                     } else if (isNotificationsOpen) {
                         NotificationCenterScreen(
-                            onBackClick = { isNotificationsOpen = false }
+                            onBackClick = { isNotificationsOpen = false },
+                            onNavigateToInstallments = {
+                                isNotificationsOpen = false
+                                currentTab = BottomNavItem.INSTALLMENTS
+                            },
+                            onNavigateToVehicles = {
+                                isNotificationsOpen = false
+                                currentTab = BottomNavItem.VEHICLE
+                            },
+                            onNavigateToFinance = {
+                                isNotificationsOpen = false
+                                currentTab = BottomNavItem.FINANCE
+                            }
                         )
                     } else if (isFinancialHealthOpen) {
                         FinancialHealthScreen(
@@ -510,3 +546,5 @@ fun AppNavigationContainer(
         }
     }
 }
+}
+

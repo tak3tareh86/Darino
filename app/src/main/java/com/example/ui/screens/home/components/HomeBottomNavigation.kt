@@ -79,38 +79,33 @@ fun HomeBottomNavigation(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
-    Box(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(
-                    elevation = 12.dp,
-                    shape = RoundedCornerShape(RadiusXL),
-                    ambientColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color(0xFF0F172A).copy(alpha = 0.1f),
-                    spotColor = if (isDark) Color.Black.copy(alpha = 0.7f) else Color(0xFF0F172A).copy(alpha = 0.15f)
-                ),
-            shape = RoundedCornerShape(RadiusXL),
-            color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(
-                width = 1.dp,
-                brush = Brush.verticalGradient(
-                    listOf(
-                        if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.9f),
-                        if (isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.03f)
-                    )
+            .shadow(
+                elevation = 8.dp,
+                spotColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color(0xFF0F172A).copy(alpha = 0.12f)
+            ),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp,
+        border = BorderStroke(
+            width = 1.dp,
+            brush = Brush.verticalGradient(
+                listOf(
+                    if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f),
+                    if (isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.02f)
                 )
             )
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 4.dp, vertical = 4.dp)
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 2.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {

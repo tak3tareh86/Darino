@@ -41,10 +41,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.PersianAmountInputField
+import com.example.ui.components.PersianDateInputField
 import com.example.ui.screens.finance.model.SavingsGoal
 import com.example.ui.screens.finance.model.SavingsGoalStatus
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
+import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
 import java.util.UUID
 
@@ -68,8 +71,8 @@ fun AddSavingsGoalSheet(
 
     val emojis = listOf("🎯", "💻", "🛡️", "🚗", "🏠", "✈️", "💍", "📚", "🎁")
 
-    val parsedTarget = targetAmountRaw.filter { it.isDigit() }.toLongOrNull() ?: 0L
-    val parsedCurrent = currentAmountRaw.filter { it.isDigit() }.toLongOrNull() ?: 0L
+    val parsedTarget = IranianAmountUtils.parseAmountToLong(targetAmountRaw)
+    val parsedCurrent = IranianAmountUtils.parseAmountToLong(currentAmountRaw)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -155,66 +158,38 @@ fun AddSavingsGoalSheet(
             }
 
             // Target Amount
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "مبلغ کل هدف (تومان)",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = targetAmountRaw,
-                    onValueChange = { targetAmountRaw = it.filter { ch -> ch.isDigit() } },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("مثال: ۶۰,۰۰۰,۰۰۰", style = MaterialTheme.typography.bodyMedium) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(RadiusMD)
-                )
-
-                if (parsedTarget > 0L) {
-                    Text(
-                        text = "= ${MoneyFormatter.formatToman(parsedTarget)}",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        ),
-                        color = Color(0xFF10B981)
-                    )
-                }
-            }
+            PersianAmountInputField(
+                value = targetAmountRaw,
+                onValueChange = { targetAmountRaw = it },
+                onRawAmountChange = { rawDigits, _ -> targetAmountRaw = rawDigits },
+                label = "مبلغ کل هدف (تومان)",
+                placeholder = "مثال: ۶۰,۰۰۰,۰۰۰",
+                unitLabel = "تومان",
+                showWordsPreview = true,
+                testTag = "goal_target_amount_input"
+            )
 
             // Current / Initial Amount
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "مبلغ پس‌اندازشده فعلی (تومان)",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = currentAmountRaw,
-                    onValueChange = { currentAmountRaw = it.filter { ch -> ch.isDigit() } },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(RadiusMD)
-                )
-            }
+            PersianAmountInputField(
+                value = currentAmountRaw,
+                onValueChange = { currentAmountRaw = it },
+                onRawAmountChange = { rawDigits, _ -> currentAmountRaw = rawDigits },
+                label = "مبلغ پس‌اندازشده فعلی (تومان)",
+                placeholder = "۰",
+                unitLabel = "تومان",
+                showWordsPreview = false,
+                testTag = "goal_current_amount_input"
+            )
 
             // Target Date
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "تاریخ موعد هدف (شمسی)",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = targetDate,
-                    onValueChange = { targetDate = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(RadiusMD)
-                )
-            }
+            PersianDateInputField(
+                value = targetDate,
+                onValueChange = { targetDate = it },
+                label = "تاریخ موعد هدف (شمسی)",
+                placeholder = "۱۴۰۵/۱۲/۲۹",
+                dialogTitle = "انتخاب تاریخ موعد هدف",
+                testTag = "goal_target_date_input"
+            )
 
             // Description
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -339,33 +314,16 @@ fun DepositGoalSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "مبلغ واریز (تومان)",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = rawAmount,
-                    onValueChange = { rawAmount = it.filter { ch -> ch.isDigit() } },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("مثال: ۱,۰۰۰,۰۰۰", style = MaterialTheme.typography.bodyMedium) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(RadiusMD)
-                )
-
-                if (parsedAmount > 0L) {
-                    Text(
-                        text = "= ${MoneyFormatter.formatToman(parsedAmount)}",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        ),
-                        color = Color(0xFF10B981)
-                    )
-                }
-            }
+            PersianAmountInputField(
+                value = rawAmount,
+                onValueChange = { rawAmount = it },
+                onRawAmountChange = { rawDigits, _ -> rawAmount = rawDigits },
+                label = "مبلغ واریز (تومان)",
+                placeholder = "مثال: ۱,۰۰۰,۰۰۰",
+                unitLabel = "تومان",
+                showWordsPreview = true,
+                testTag = "deposit_amount_input"
+            )
 
             errorMessage?.let {
                 Text(text = it, style = MaterialTheme.typography.labelSmall, color = Color(0xFFEF4444))

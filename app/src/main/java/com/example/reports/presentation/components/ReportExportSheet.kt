@@ -25,6 +25,7 @@ import com.example.reports.domain.ReportSummary
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -106,12 +107,12 @@ fun ReportExportSheet(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "مجموع درآمد: ${IranianPhoneUtils.convertDigitsToPersian(NumberFormat.getNumberInstance(Locale.US).format(summary.totalIncome))} تومان",
+                                text = "مجموع درآمد: ${MoneyFormatter.formatToman(summary.totalIncome)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFF10B981)
                             )
                             Text(
-                                text = "مجموع هزینه: ${IranianPhoneUtils.convertDigitsToPersian(NumberFormat.getNumberInstance(Locale.US).format(summary.totalExpense))} تومان",
+                                text = "مجموع هزینه: ${MoneyFormatter.formatToman(summary.totalExpense)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFFEF4444)
                             )

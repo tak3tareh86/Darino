@@ -21,7 +21,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.Soft3DIcon
+import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 
 /**
@@ -236,22 +238,22 @@ fun AddVehicleSheet(
                 singleLine = true
             )
 
-            OutlinedTextField(
+            PersianAmountInputField(
                 value = estimatedValueText,
                 onValueChange = { estimatedValueText = it },
-                label = { Text("ارزش تقریبی خودرو (تومان - اختیاری)") },
-                placeholder = { Text("مثلاً: 850000000") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true
+                label = "ارزش تقریبی خودرو (اختیاری)",
+                unitLabel = "تومان",
+                placeholder = "مثال: ۸۵۰,۰۰۰,۰۰۰",
+                showWordsPreview = true,
+                testTag = "vehicle_estimated_value_input"
             )
 
             // Submit Button
             Button(
                 onClick = {
                     if (model.isNotBlank()) {
-                        val mileage = mileageText.toIntOrNull() ?: 0
-                        val estVal = estimatedValueText.toLongOrNull() ?: 0L
+                        val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: 0
+                        val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
                         val plate = "ایران $plateIranCode - $platePart2 $plateLetter $platePart1"
                         onAddVehicle(brand, model, year, color, plate, vin, mileage, estVal)
                     }

@@ -55,7 +55,7 @@ fun VehicleReportScreen(
         modifier = modifier
             .fillMaxSize()
             .testTag("vehicle_report_screen"),
-        contentPadding = PaddingValues(bottom = 96.dp),
+        contentPadding = PaddingValues(bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // 1. Vehicle Overview Summary Card

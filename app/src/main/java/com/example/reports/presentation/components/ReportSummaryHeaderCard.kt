@@ -27,6 +27,7 @@ import com.example.reports.domain.ReportSummary
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -126,7 +127,7 @@ fun ReportSummaryHeaderCard(
                 MetricPillar(
                     title = "مجموع درآمد",
                     amount = incomeFormatted,
-                    unit = "تومان",
+                    unit = MoneyFormatter.getUnitLabel(),
                     accentColor = Color(0xFF10B981),
                     icon = Icons.Rounded.ArrowDownward,
                     modifier = Modifier.weight(1f)
@@ -136,7 +137,7 @@ fun ReportSummaryHeaderCard(
                 MetricPillar(
                     title = "مجموع هزینه",
                     amount = expenseFormatted,
-                    unit = "تومان",
+                    unit = MoneyFormatter.getUnitLabel(),
                     accentColor = Color(0xFFEF4444),
                     icon = Icons.Rounded.ArrowUpward,
                     modifier = Modifier.weight(1f)
@@ -146,7 +147,7 @@ fun ReportSummaryHeaderCard(
                 MetricPillar(
                     title = "میزان پس‌انداز",
                     amount = savingFormatted,
-                    unit = "تومان",
+                    unit = MoneyFormatter.getUnitLabel(),
                     accentColor = Color(0xFF3B82F6),
                     icon = null,
                     modifier = Modifier.weight(1f)

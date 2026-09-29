@@ -73,7 +73,7 @@ fun ReportsDashboardScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = bottomBar,
         containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets.systemBars
+        contentWindowInsets = WindowInsets(0)
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -301,7 +301,7 @@ private fun DarinoInsightsTabContent(
         modifier = modifier
             .fillMaxSize()
             .testTag("darino_insights_tab"),
-        contentPadding = PaddingValues(bottom = 96.dp),
+        contentPadding = PaddingValues(bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {

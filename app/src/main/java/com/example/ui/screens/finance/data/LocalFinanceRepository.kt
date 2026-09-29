@@ -80,8 +80,10 @@ class LocalFinanceRepository : FinanceRepository {
         val index = current.indexOfFirst { it.id == category.id }
         if (index != -1) {
             current[index] = category
-            _categories.value = current
+        } else {
+            current.add(category)
         }
+        _categories.value = current
     }
 
     override fun deleteCategory(id: String) {
@@ -202,6 +204,21 @@ class LocalFinanceRepository : FinanceRepository {
             current[index] = item.copy(enabled = !item.enabled)
             _recurringTransactions.value = current
         }
+    }
+
+    override fun clearAllTransactionsData() {
+        _transactions.value = emptyList()
+        _recurringTransactions.value = emptyList()
+        _budgets.value = emptyList()
+        _savingsGoals.value = emptyList()
+    }
+
+    override fun restoreSampleTransactions() {
+        _transactions.value = FinanceMockDataSource.initialTransactions
+        _recurringTransactions.value = FinanceMockDataSource.initialRecurring
+        _budgets.value = FinanceMockDataSource.initialBudgets
+        _savingsGoals.value = FinanceMockDataSource.initialSavingsGoals
+        recalculateBudgets()
     }
 
     private fun recalculateBudgets() {

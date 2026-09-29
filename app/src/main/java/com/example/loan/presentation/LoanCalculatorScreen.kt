@@ -80,6 +80,7 @@ import com.example.loan.domain.LoanType
 import com.example.loan.viewmodel.LoanCalculatorState
 import com.example.loan.viewmodel.LoanCalculatorViewModel
 import com.example.loan.viewmodel.LoanScreenTab
+import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.installments.model.InstallmentCategory
 import com.example.ui.theme.EmeraldPrimaryLight
@@ -416,27 +417,14 @@ private fun CalculatorMainTab(
                         )
                     }
 
-                    OutlinedTextField(
+                    PersianAmountInputField(
                         value = state.amountInput,
                         onValueChange = { viewModel.onAmountInputChanged(it) },
-                        placeholder = { Text("مثلاً ۱۰۰۰۰۰۰۰۰") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("loan_amount_input"),
-                        shape = RoundedCornerShape(RadiusMD),
-                        singleLine = true,
-                        trailingIcon = {
-                            Text(
-                                text = "تومان",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
-                                ),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(end = 12.dp)
-                            )
-                        }
+                        label = null,
+                        unitLabel = "تومان",
+                        placeholder = "مثال: ۱۰۰,۰۰۰,۰۰۰",
+                        showWordsPreview = false,
+                        testTag = "loan_amount_input"
                     )
 
                     // Quick Preset Chips for Amount

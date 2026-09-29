@@ -67,7 +67,7 @@ fun VehicleTimelineScreen(
             modifier = modifier
                 .fillMaxSize()
                 .testTag("vehicle_timeline_screen"),
-            contentPadding = PaddingValues(bottom = 96.dp),
+            contentPadding = PaddingValues(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             itemsIndexed(events, key = { _, item -> item.id }) { index, event ->

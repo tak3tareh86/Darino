@@ -2,6 +2,7 @@ package com.example.ui.screens.home.domain
 
 import com.example.ui.screens.home.data.HomeDashboardRepository
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 
 /**
@@ -42,11 +43,11 @@ class HomeDashboardAggregator(
             userName = userName,
             todayDate = todayPersian,
             monthlyIncome = income,
-            formattedIncome = IranianPhoneUtils.convertDigitsToPersian(String.format("%,d", income)) + " تومان",
+            formattedIncome = MoneyFormatter.formatSignedToman(income, isExpense = false),
             monthlyExpense = expense,
-            formattedExpense = IranianPhoneUtils.convertDigitsToPersian(String.format("%,d", expense)) + " تومان",
+            formattedExpense = MoneyFormatter.formatSignedToman(expense, isExpense = true),
             monthlyBalance = balance,
-            formattedBalance = IranianPhoneUtils.convertDigitsToPersian(String.format("%,d", balance)) + " تومان",
+            formattedBalance = MoneyFormatter.formatToman(balance),
             savingsRate = savingsRate,
             upcomingObligations = upcomingObligations,
             upcomingReminders = upcomingReminders,

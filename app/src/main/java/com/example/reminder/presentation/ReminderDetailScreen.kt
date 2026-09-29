@@ -34,6 +34,7 @@ import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -213,7 +214,7 @@ fun ReminderDetailScreen(
                         DetailRow(
                             icon = Icons.Rounded.AttachMoney,
                             label = "مبلغ تعهد",
-                            value = "${IranianPhoneUtils.convertDigitsToPersian("%,d".format(reminder.amount))} تومان"
+                            value = MoneyFormatter.formatToman(reminder.amount)
                         )
                     }
 

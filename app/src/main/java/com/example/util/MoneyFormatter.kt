@@ -1,10 +1,14 @@
 package com.example.util
 
+import androidx.compose.runtime.compositionLocalOf
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.ui.screens.settings.model.AppLanguage
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
+
+val LocalAppCurrency = compositionLocalOf { AppCurrency.TOMAN }
+val LocalAppLanguage = compositionLocalOf { AppLanguage.PERSIAN }
 
 /**
  * Central Money Formatter for Darino

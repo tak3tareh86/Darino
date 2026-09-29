@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,12 +36,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.Layered3DCard
 import com.example.ui.screens.installments.components.InstallmentStatusBadge
 import com.example.ui.screens.installments.model.InstallmentItem
 import com.example.ui.screens.installments.model.PaymentHistoryItem
+import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusMD
 
 @Composable
@@ -155,26 +158,26 @@ private fun ScheduleTimelineItem(item: PaymentHistoryItem) {
                     modifier = Modifier
                         .size(34.dp)
                         .clip(CircleShape)
-                        .background(item.status.color.copy(alpha = 0.15f)),
+                        .background(if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.2f) else item.status.color.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "${item.installmentNumber}",
-                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
-                        color = item.status.color
+                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp, fontWeight = if (item.isPaidLate) FontWeight.Bold else FontWeight.Normal),
+                        color = if (item.isPaidLate) ExpenseRoseLight else item.status.color
                     )
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = "قسط شماره ${item.installmentNumber}",
-                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = if (item.isPaidLate) "قسط شماره ${item.installmentNumber} (با تاخیر)" else "قسط شماره ${item.installmentNumber}",
+                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp, fontWeight = if (item.isPaidLate) FontWeight.Bold else FontWeight.Medium),
+                        color = if (item.isPaidLate) ExpenseRoseLight else MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "سررسید: ${item.dueDate}" + (item.paidDate?.let { " • پرداخت: $it" } ?: ""),
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -185,10 +188,24 @@ private fun ScheduleTimelineItem(item: PaymentHistoryItem) {
             ) {
                 Text(
                     text = item.amountFormatted,
-                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
-                    color = MaterialTheme.colorScheme.onSurface
+                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold),
+                    color = if (item.isPaidLate) ExpenseRoseLight else MaterialTheme.colorScheme.onSurface
                 )
-                InstallmentStatusBadge(status = item.status, compact = true)
+                if (item.isPaidLate) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = ExpenseRoseLight.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "پرداخت بعد از موعد",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
+                            color = ExpenseRoseLight,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                } else {
+                    InstallmentStatusBadge(status = item.status, compact = true)
+                }
             }
         }
     }

@@ -206,7 +206,7 @@ fun SavingsGoalsScreen(
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     items(goals, key = { it.id }) { goal ->
                         SavingsGoalCard(

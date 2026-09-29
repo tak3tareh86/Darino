@@ -23,7 +23,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.components.PersianAmountInputField
+import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
+import com.example.util.IranianAmountUtils
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleExpenseCategory
 
@@ -153,22 +156,25 @@ fun AddVehicleExpenseSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
+                PersianAmountInputField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = { Text("مبلغ هزینه (تومان)") },
-                    placeholder = { Text("500000") },
+                    label = "مبلغ هزینه",
+                    unitLabel = "تومان",
+                    placeholder = "مثال: ۵۰۰,۰۰۰",
+                    showWordsPreview = false,
                     modifier = Modifier.weight(1.2f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
+                    testTag = "expense_amount_input"
                 )
 
-                OutlinedTextField(
+                PersianDateInputField(
                     value = date,
                     onValueChange = { date = it },
-                    label = { Text("تاریخ (شمسی)") },
+                    label = "تاریخ (شمسی)",
+                    placeholder = "۱۴۰۵/۰۶/۲۰",
+                    dialogTitle = "انتخاب تاریخ هزینه خودرو",
                     modifier = Modifier.weight(1f),
-                    singleLine = true
+                    testTag = "expense_date_input"
                 )
             }
 
@@ -221,7 +227,7 @@ fun AddVehicleExpenseSheet(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        val amount = amountText.toLongOrNull() ?: 0L
+                        val amount = IranianAmountUtils.parseAmountToLong(amountText)
                         onAddExpense(title, selectedCategory, amount, date, description)
                     }
                 },

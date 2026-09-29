@@ -41,6 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.PersianAmountInputField
+import com.example.ui.components.PersianDateInputField
 import com.example.ui.screens.finance.model.FinanceDefaultCategories
 import com.example.ui.screens.finance.model.PaymentMethod
 import com.example.ui.screens.finance.model.RecurringFrequency
@@ -51,6 +53,7 @@ import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
+import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
 import java.util.UUID
 
@@ -86,7 +89,7 @@ fun AddRecurringTransactionSheet(
         )
     }
 
-    val parsedAmount = rawAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L
+    val parsedAmount = IranianAmountUtils.parseAmountToLong(rawAmount)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -276,49 +279,26 @@ fun AddRecurringTransactionSheet(
             }
 
             // Amount
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "مبلغ هر دوره (تومان)",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = rawAmount,
-                    onValueChange = { rawAmount = it.filter { ch -> ch.isDigit() } },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("مثال: ۴۵۰,۰۰۰", style = MaterialTheme.typography.bodyMedium) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(RadiusMD)
-                )
-
-                if (parsedAmount > 0L) {
-                    Text(
-                        text = "= ${MoneyFormatter.formatToman(parsedAmount)}",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        ),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
+            PersianAmountInputField(
+                value = rawAmount,
+                onValueChange = { rawAmount = it },
+                onRawAmountChange = { rawDigits, _ -> rawAmount = rawDigits },
+                label = "مبلغ هر دوره (تومان)",
+                placeholder = "مثال: ۴۵۰,۰۰۰",
+                unitLabel = "تومان",
+                showWordsPreview = true,
+                testTag = "recurring_amount_input"
+            )
 
             // Next Execution Date
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "تاریخ اجرای بعدی (شمسی)",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = nextDate,
-                    onValueChange = { nextDate = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(RadiusMD)
-                )
-            }
+            PersianDateInputField(
+                value = nextDate,
+                onValueChange = { nextDate = it },
+                label = "تاریخ اجرای بعدی (شمسی)",
+                placeholder = "۱۴۰۵/۰۷/۰۱",
+                dialogTitle = "انتخاب تاریخ اجرای بعدی",
+                testTag = "recurring_next_date_input"
+            )
 
             errorMessage?.let {
                 Text(text = it, style = MaterialTheme.typography.labelSmall, color = Color(0xFFEF4444))

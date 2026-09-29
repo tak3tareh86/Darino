@@ -10,6 +10,7 @@ import com.example.ui.screens.home.domain.BankSmsSuggestion
 import com.example.ui.screens.home.domain.HomeDashboardAggregator
 import com.example.ui.screens.home.domain.HomeDashboardState
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +36,21 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 loadDashboardData()
             }
         }
+        viewModelScope.launch {
+            com.example.ui.screens.finance.data.LocalFinanceRepository.instance.getTransactions().collect {
+                loadDashboardData()
+            }
+        }
+        viewModelScope.launch {
+            com.example.vehicle.data.VehicleRepository.instance.vehicles.collect {
+                loadDashboardData()
+            }
+        }
+        viewModelScope.launch {
+            com.example.data.preferences.AppPreferencesRepository.getInstance(application).currency.collect {
+                loadDashboardData()
+            }
+        }
         // Pre-populate with typical bank SMS messages in Iran to show the queue pattern
         prepopulateSmsQueue()
     }
@@ -45,30 +61,33 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 id = "sms_1",
                 bankName = "بانک ملت",
                 amount = 180_000L,
-                formattedAmount = IranianPhoneUtils.convertDigitsToPersian("۱۸۰,۰۰۰") + " تومان",
+                formattedAmount = MoneyFormatter.formatSignedToman(180_000L, isExpense = true),
                 isExpense = true,
-                smsText = "بانک ملت\nبرداشت از حساب: ۱۸۰,۰۰۰ تومان\nخرید فروشگاهی افق کوروش\nمانده: ۲,۴۵۰,۰۰۰ تومان",
-                dateText = "۰۵ مهر",
+                smsText = "بانک ملت\nبرداشت از حساب: ${MoneyFormatter.formatToman(180_000L)}\nخرید فروشگاهی افق کوروش\nمانده: ${MoneyFormatter.formatToman(2_450_000L)}",
+                dateText = "۰۵ مهر ۱۴۰۳",
+                timeText = "۱۶:۲۰",
                 category = "سوپرمارکت"
             ),
             BankSmsSuggestion(
                 id = "sms_2",
                 bankName = "بانک ملی",
                 amount = 2_400_000L,
-                formattedAmount = IranianPhoneUtils.convertDigitsToPersian("۲,۴۰۰,۰۰۰") + " تومان",
+                formattedAmount = MoneyFormatter.formatSignedToman(2_400_000L, isExpense = false),
                 isExpense = false,
-                smsText = "بانک ملی ایران\nواریز به حساب: ۲,۴۰۰,۰۰۰ تومان\nکارت به کارت علی احمدی\nمانده: ۴,۸۵۰,۰۰۰ تومان",
-                dateText = "۰۶ مهر",
+                smsText = "بانک ملی ایران\nواریز به حساب: ${MoneyFormatter.formatToman(2_400_000L)}\nکارت به کارت علی احمدی\nمانده: ${MoneyFormatter.formatToman(4_850_000L)}",
+                dateText = "۰۶ مهر ۱۴۰۳",
+                timeText = "۱۱:۴۵",
                 category = "درآمد"
             ),
             BankSmsSuggestion(
                 id = "sms_3",
                 bankName = "بانک سامان",
                 amount = 450_000L,
-                formattedAmount = IranianPhoneUtils.convertDigitsToPersian("۴۵۰,۰۰۰") + " تومان",
+                formattedAmount = MoneyFormatter.formatSignedToman(450_000L, isExpense = true),
                 isExpense = true,
-                smsText = "بانک سامان\nبرداشت: ۴۵۰,۰۰۰ تومان\nخرید بنزین جایگاه کاج\nمانده: ۱,۲۰۰,۰۰۰ تومان",
-                dateText = "۰۶ مهر",
+                smsText = "بانک سامان\nبرداشت: ${MoneyFormatter.formatToman(450_000L)}\nخرید بنزین جایگاه کاج\nمانده: ${MoneyFormatter.formatToman(1_200_000L)}",
+                dateText = "۰۶ مهر ۱۴۰۳",
+                timeText = "۲۰:۱۰",
                 category = "خودرو و بنزین"
             )
         )
@@ -91,26 +110,54 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    fun acceptSmsSuggestion(id: String) {
+    fun acceptSmsSuggestion(id: String, customCategory: String? = null, customAccount: String? = null) {
         viewModelScope.launch {
             val item = _pendingSmsQueue.value.find { it.id == id } ?: return@launch
             try {
                 val db = AppDatabase.getDatabase(getApplication())
                 val userId = com.example.data.security.SessionManager.currentUser?.id ?: "default_user"
                 
+                val finalCategory = customCategory?.trim()?.ifEmpty { null } ?: item.category
+                val finalAccount = customAccount?.trim()?.ifEmpty { null } ?: item.bankName
+
                 // Add to Room transactions database
                 db.transactionDao().insertTransaction(
                     TransactionEntity(
                         userId = userId,
                         amount = item.amount,
                         type = if (item.isExpense) "EXPENSE" else "INCOME",
-                        category = item.category,
-                        accountName = item.bankName,
-                        description = "ثبت هوشمند از پیامک " + item.bankName,
+                        category = finalCategory,
+                        accountName = finalAccount,
+                        description = "ثبت هوشمند از پیامک $finalAccount",
                         timestamp = System.currentTimeMillis(),
-                        timeFormatted = "۱۰:۴۵"
+                        timeFormatted = item.timeText
                     )
                 )
+
+                // Add to LocalFinanceRepository so FinancialScreen and TransactionsScreen update immediately!
+                val catObj = com.example.ui.screens.finance.model.FinanceDefaultCategories.allDefaultCategories.find { 
+                    it.title.contains(finalCategory, ignoreCase = true) 
+                } ?: com.example.ui.screens.finance.model.TransactionCategory(
+                    id = "cat_gen_${System.currentTimeMillis()}",
+                    title = finalCategory,
+                    iconEmoji = if (item.isExpense) "🛍️" else "💰",
+                    accentColor = if (item.isExpense) androidx.compose.ui.graphics.Color(0xFFEF4444) else androidx.compose.ui.graphics.Color(0xFF10B981),
+                    type = if (item.isExpense) com.example.ui.screens.finance.model.TransactionType.EXPENSE else com.example.ui.screens.finance.model.TransactionType.INCOME
+                )
+
+                val finTx = com.example.ui.screens.finance.model.TransactionItemData(
+                    id = "tx_sms_${System.currentTimeMillis()}",
+                    title = if (item.isExpense) "برداشت: $finalCategory" else "واریز: $finalCategory",
+                    amount = item.amount,
+                    type = if (item.isExpense) com.example.ui.screens.finance.model.TransactionType.EXPENSE else com.example.ui.screens.finance.model.TransactionType.INCOME,
+                    category = catObj,
+                    datePersian = item.dateText,
+                    timePersian = item.timeText,
+                    accountName = finalAccount,
+                    description = "ثبت هوشمند پیامک $finalAccount"
+                )
+
+                com.example.ui.screens.finance.data.LocalFinanceRepository.instance.addTransaction(finTx)
 
                 // Remove from local queue
                 _pendingSmsQueue.update { list -> list.filter { it.id != id } }
@@ -133,8 +180,8 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         val randomBank = banks.random()
         val randomCategory = categories.random()
         val amount = Random.nextLong(20_000, 950_000)
-        val formattedAmount = IranianPhoneUtils.convertDigitsToPersian(String.format("%,d", amount)) + " تومان"
         val isExpense = Random.nextBoolean()
+        val formattedAmount = MoneyFormatter.formatSignedToman(amount, isExpense = isExpense)
         
         val typeText = if (isExpense) "برداشت (خرید)" else "واریز (کارت به کارت)"
         val randomId = "sim_${System.currentTimeMillis()}"
@@ -145,8 +192,9 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
             amount = amount,
             formattedAmount = formattedAmount,
             isExpense = isExpense,
-            smsText = "بانک $randomBank\n$typeText: $formattedAmount\nتراکنش شبیه‌سازی‌شده\nمانده: ۳,۵۰۰,۰۰۰ تومان",
+            smsText = "بانک $randomBank\n$typeText: $formattedAmount\nتراکنش شبیه‌سازی‌شده\nمانده: ${MoneyFormatter.formatToman(3_500_000L)}",
             dateText = "امروز",
+            timeText = "۱۴:۳۰",
             category = if (isExpense) randomCategory else "درآمد"
         )
 

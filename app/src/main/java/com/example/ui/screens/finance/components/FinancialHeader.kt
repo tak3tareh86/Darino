@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.EmeraldPrimaryLight
@@ -63,68 +64,72 @@ fun FinancialHeader(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                elevation = 8.dp,
+                elevation = 4.dp,
                 shape = RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL),
-                ambientColor = Color(0xFF0D9488).copy(alpha = 0.25f),
-                spotColor = Color(0xFF0F172A).copy(alpha = 0.4f)
+                ambientColor = Color(0xFF0D9488).copy(alpha = 0.1f),
+                spotColor = Color(0xFF0F172A).copy(alpha = 0.15f)
             )
             .clip(RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL))
             .background(headerGradient)
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 14.dp, vertical = 4.dp)
     ) {
-        Row(
+        Box(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            contentAlignment = Alignment.Center
         ) {
-            // Right Side (RTL): Title & Subtitle
+            // Centered Title & Subtitle
             Column(
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 Text(
                     text = "مالی",
-                    style = MaterialTheme.typography.displayMedium.copy(fontSize = 20.sp),
+                    style = MaterialTheme.typography.displayMedium.copy(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
                     color = Color.White
                 )
                 Text(
                     text = "مدیریت درآمد و هزینه",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                    color = Color(0xFFE2E8F0).copy(alpha = 0.85f)
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.sp),
+                    color = Color(0xFFE2E8F0).copy(alpha = 0.8f)
                 )
             }
 
-            // Left Side (RTL): 3D Filter Button with Active Period Pill
+            // Left Aligned: Filter Button
             Surface(
                 modifier = Modifier
+                    .align(Alignment.CenterStart)
                     .testTag("finance_filter_button")
                     .shadow(
-                        elevation = 4.dp,
-                        shape = RoundedCornerShape(12.dp),
-                        ambientColor = Color.Black.copy(alpha = 0.3f),
-                        spotColor = Color(0xFF14B8A6).copy(alpha = 0.4f)
+                        elevation = 2.dp,
+                        shape = RoundedCornerShape(8.dp),
+                        ambientColor = Color.Black.copy(alpha = 0.15f),
+                        spotColor = Color(0xFF14B8A6).copy(alpha = 0.2f)
                     )
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .clickable(onClick = onFilterClick),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(8.dp),
                 color = Color.White.copy(alpha = 0.15f),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f))
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.FilterList,
                         contentDescription = "فیلتر بازه زمانی",
                         tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(11.dp)
                     )
 
                     Text(
                         text = currentFilterText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
                         color = Color.White
                     )
                 }

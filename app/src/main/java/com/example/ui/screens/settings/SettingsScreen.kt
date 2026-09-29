@@ -103,17 +103,17 @@ fun SettingsScreen(
 ) {
     var currentDestination by remember { mutableStateOf(SettingsDestination.MAIN) }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefsRepo = remember(context) { com.example.data.preferences.AppPreferencesRepository.getInstance(context) }
+    val currentNavTransition by prefsRepo.navTransition.collectAsState()
+    val currentCurrency by prefsRepo.currency.collectAsState()
+    val currentLanguage by prefsRepo.language.collectAsState()
+
     // Settings States
-    var currentLanguage by remember { mutableStateOf(AppLanguage.PERSIAN) }
-    var currentCurrency by remember { mutableStateOf(AppCurrency.TOMAN) }
     var currentCalendar by remember { mutableStateOf(AppCalendar.SHAMSI) }
     var currentWeekStart by remember { mutableStateOf(WeekStartDay.SATURDAY) }
     var currentAccent by remember { mutableStateOf(AccentColorOption.TEAL) }
     var currentDeliveryMode by remember { mutableStateOf(AlertDeliveryPreference.BOTH) }
-
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val prefsRepo = remember(context) { com.example.data.preferences.AppPreferencesRepository.getInstance(context) }
-    val currentNavTransition by prefsRepo.navTransition.collectAsState()
 
     val lockViewModel: AppLockViewModel = viewModel()
     val lockUiState by lockViewModel.uiState.collectAsState()
@@ -201,9 +201,9 @@ fun SettingsScreen(
             SettingsDestination.GENERAL -> {
                 GeneralPreferencesScreen(
                     currentLanguage = currentLanguage,
-                    onLanguageSelected = { currentLanguage = it },
+                    onLanguageSelected = { prefsRepo.setLanguage(it) },
                     currentCurrency = currentCurrency,
-                    onCurrencySelected = { currentCurrency = it },
+                    onCurrencySelected = { prefsRepo.setCurrency(it) },
                     currentTheme = currentTheme,
                     onThemeChanged = onThemeChanged,
                     currentDeliveryMode = currentDeliveryMode,
@@ -308,14 +308,14 @@ fun SettingsScreen(
     LanguageSelectionSheet(
         isOpen = showLanguageSheet,
         currentLanguage = currentLanguage,
-        onLanguageSelected = { currentLanguage = it },
+        onLanguageSelected = { prefsRepo.setLanguage(it) },
         onDismiss = { showLanguageSheet = false }
     )
 
     CurrencySelectionSheet(
         isOpen = showCurrencySheet,
         currentCurrency = currentCurrency,
-        onCurrencySelected = { currentCurrency = it },
+        onCurrencySelected = { prefsRepo.setCurrency(it) },
         onDismiss = { showCurrencySheet = false }
     )
 

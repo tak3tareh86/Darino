@@ -99,32 +99,32 @@ fun VehicleDashboardScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp),
+                    .padding(top = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Soft3DIcon(
                         imageRes = R.drawable.img_3d_car,
                         contentDescription = "دستیار خودرو دارینو",
-                        size = 38.dp,
+                        size = 22.dp,
                         accentColor = MaterialTheme.colorScheme.primary
                     )
                     Column {
                         Text(
                             text = "خودروهای من",
                             style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 18.sp
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.5.sp
                             ),
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
                             text = "دستیار هوشمند نگهداری، سرویس و هزینه‌ها",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -132,19 +132,19 @@ fun VehicleDashboardScreen(
 
                 FilledTonalButton(
                     onClick = { viewModel.openAddVehicle() },
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                    modifier = Modifier.testTag("top_add_vehicle_btn")
+                    shape = RoundedCornerShape(6.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                    modifier = Modifier.testTag("top_add_vehicle_btn").height(24.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Add,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(12.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "ثبت خودرو",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 8.5.sp)
                     )
                 }
             }
@@ -406,7 +406,7 @@ private fun VehicleServicesTabContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 96.dp),
+        contentPadding = PaddingValues(bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // 1. Vehicle Summary Hero Card
@@ -707,7 +707,7 @@ private fun VehicleInsuranceDocumentsTabContent(
         modifier = Modifier
             .fillMaxSize()
             .testTag("vehicle_insurance_tab"),
-        contentPadding = PaddingValues(bottom = 96.dp),
+        contentPadding = PaddingValues(bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {

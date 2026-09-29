@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -126,6 +127,67 @@ fun ReminderScreen(
             Scaffold(
                 modifier = modifier.fillMaxSize(),
                 bottomBar = bottomBar,
+                topBar = {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().shadow(4.dp),
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .statusBarsPadding()
+                                .padding(horizontal = 14.dp, vertical = 7.dp)
+                                .fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = "یادآورها و سررسیدها",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
+                                )
+                                Text(
+                                    text = "مدیریت سررسید اقساط، بیمه و سرویس خودرو",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 9.sp
+                                    )
+                                )
+                            }
+
+                            IconButton(
+                                onClick = { currentSubScreen = ReminderSubScreen.NOTIFICATION_CENTER },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                                    .testTag("btn_notification_center")
+                            ) {
+                                BadgedBox(
+                                    badge = {
+                                        if (uiState.notificationCount > 0) {
+                                            Badge(
+                                                containerColor = ExpenseRoseLight,
+                                                contentColor = Color.White
+                                            ) {
+                                                Text("${uiState.notificationCount}", fontSize = 8.sp)
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.NotificationsNone,
+                                        contentDescription = "مرکز اعلان‌ها",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
                 floatingActionButton = {
                     FloatingActionButton(
                         onClick = { currentSubScreen = ReminderSubScreen.ADD },
@@ -151,58 +213,6 @@ fun ReminderScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Header with title and Notification Center button
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text(
-                                    text = "یادآورها و سررسیدها",
-                                    style = MaterialTheme.typography.headlineMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 22.sp
-                                    )
-                                )
-                                Text(
-                                    text = "مدیریت سررسید اقساط، بیمه، سرویس خودرو و چک‌ها",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
-                            }
-
-                            IconButton(
-                                onClick = { currentSubScreen = ReminderSubScreen.NOTIFICATION_CENTER },
-                                modifier = Modifier
-                                    .size(42.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                                    .testTag("btn_notification_center")
-                            ) {
-                                BadgedBox(
-                                    badge = {
-                                        if (uiState.notificationCount > 0) {
-                                            Badge(
-                                                containerColor = ExpenseRoseLight,
-                                                contentColor = Color.White
-                                            ) {
-                                                Text("${uiState.notificationCount}")
-                                            }
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.NotificationsNone,
-                                        contentDescription = "مرکز اعلان‌ها",
-                                        tint = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
-                        }
-                    }
 
                     // Summary Stats Card (امروز / این هفته / نزدیک‌ترین سررسید)
                     item {

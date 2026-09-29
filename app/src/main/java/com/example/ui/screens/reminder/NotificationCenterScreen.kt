@@ -48,6 +48,10 @@ fun NotificationCenterScreen(
     val logs by viewModel.notifications.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
 
+    LaunchedEffect(Unit) {
+        com.example.reminder.domain.NotificationStore.markAsViewed()
+    }
+
     // Semi-transparent backdrop for centered popup dialog
     Box(
         modifier = Modifier

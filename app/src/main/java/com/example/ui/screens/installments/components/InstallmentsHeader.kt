@@ -55,44 +55,44 @@ fun InstallmentsHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Soft3DIcon(
                     imageRes = R.drawable.img_3d_installment,
                     contentDescription = "اقساط",
-                    size = 44.dp,
+                    size = 20.dp,
                     accentColor = Color(0xFF0EA5E9),
-                    containerShape = RoundedCornerShape(14.dp)
+                    containerShape = RoundedCornerShape(8.dp)
                 )
 
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                     Text(
                         text = "اقساط",
-                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 19.sp),
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 11.5.sp),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "مدیریت و پیگیری تعهدات مالی",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 7.5.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
                     onClick = onSearchClick,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(24.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                         .testTag("installments_search_btn")
@@ -101,14 +101,14 @@ fun InstallmentsHeader(
                         imageVector = Icons.Rounded.Search,
                         contentDescription = "جستجو",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(11.dp)
                     )
                 }
 
                 IconButton(
                     onClick = onFilterClick,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(24.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                         .testTag("installments_filter_btn")
@@ -117,7 +117,7 @@ fun InstallmentsHeader(
                         imageVector = Icons.Rounded.FilterList,
                         contentDescription = "فیلتر",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(11.dp)
                     )
                 }
             }

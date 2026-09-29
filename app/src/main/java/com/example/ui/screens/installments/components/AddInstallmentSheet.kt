@@ -21,6 +21,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Done
+import androidx.compose.material.icons.rounded.Schedule
+import com.example.ui.screens.reminder.components.PersianTimePickerDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,16 +48,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.PersianAmountInputField
+import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.installments.model.InstallmentCategory
 import com.example.ui.theme.RadiusMD
+import com.example.util.IranianAmountUtils
+import com.example.util.IranianDateUtils
+import com.example.util.IranianPhoneUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddInstallmentSheet(
     sheetState: SheetState,
     onDismiss: () -> Unit,
-    onAddConfirm: (InstallmentCategory, String, String, String, String, Boolean, String) -> Unit,
+    onAddConfirm: (InstallmentCategory, String, String, String, String, Boolean, String, String) -> Unit,
     initialCategory: InstallmentCategory = InstallmentCategory.BANK_LOANS,
     initialTitle: String = "",
     initialTotalAmount: String = "",
@@ -74,6 +81,8 @@ fun AddInstallmentSheet(
     var notes by remember { mutableStateOf("") }
     var reminderEnabled by remember { mutableStateOf(false) }
     var reminderDaysBefore by remember { mutableStateOf("۱") }
+    var reminderTime by remember { mutableStateOf("۰۹:۰۰") }
+    var showTimePicker by remember { mutableStateOf(false) }
 
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
@@ -258,24 +267,26 @@ fun AddInstallmentSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
+                PersianAmountInputField(
                     value = totalAmount,
                     onValueChange = { totalAmount = it },
-                    label = { Text("مبلغ کل (تومان)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = "مبلغ کل",
+                    unitLabel = "تومان",
+                    placeholder = "مثال: ۵۰,۰۰۰,۰۰۰",
+                    showWordsPreview = false,
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(RadiusMD),
-                    singleLine = true
+                    testTag = "installment_total_amount_input"
                 )
 
-                OutlinedTextField(
+                PersianAmountInputField(
                     value = installmentAmount,
                     onValueChange = { installmentAmount = it },
-                    label = { Text("مبلغ هر قسط") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = "مبلغ هر قسط",
+                    unitLabel = "تومان",
+                    placeholder = "مثال: ۴,۵۰۰,۰۰۰",
+                    showWordsPreview = false,
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(RadiusMD),
-                    singleLine = true
+                    testTag = "installment_monthly_amount_input"
                 )
             }
 
@@ -283,23 +294,34 @@ fun AddInstallmentSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
-                    value = installmentsCount,
-                    onValueChange = { installmentsCount = it },
-                    label = { Text("تعداد کل اقساط") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(RadiusMD),
-                    singleLine = true
-                )
+                Column(modifier = Modifier.weight(0.9f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "تعداد کل اقساط",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = IranianPhoneUtils.convertDigitsToPersian(installmentsCount),
+                        onValueChange = {
+                            val digits = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
+                            installmentsCount = digits
+                        },
+                        placeholder = { Text("مثال: ۱۲") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(RadiusMD),
+                        singleLine = true
+                    )
+                }
 
-                OutlinedTextField(
+                PersianDateInputField(
                     value = dueDate,
                     onValueChange = { dueDate = it },
-                    label = { Text("اولین سررسید") },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(RadiusMD),
-                    singleLine = true
+                    label = "اولین سررسید",
+                    placeholder = "۱۴۰۴/۰۷/۱۵",
+                    dialogTitle = "انتخاب تاریخ سررسید قسط",
+                    modifier = Modifier.weight(1.1f),
+                    testTag = "installment_due_date_input"
                 )
             }
 
@@ -379,12 +401,42 @@ fun AddInstallmentSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             OutlinedTextField(
-                                value = "۰۹:۰۰",
-                                onValueChange = {},
+                                value = reminderTime,
+                                onValueChange = { input ->
+                                    reminderTime = IranianPhoneUtils.convertDigitsToPersian(input)
+                                },
                                 label = { Text("ساعت یادآوری") },
-                                modifier = Modifier.fillMaxWidth(),
+                                trailingIcon = {
+                                    IconButton(onClick = { showTimePicker = true }) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Schedule,
+                                            contentDescription = "انتخاب ساعت",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showTimePicker = true },
                                 shape = RoundedCornerShape(RadiusMD),
                                 singleLine = true
+                            )
+                        }
+
+                        if (showTimePicker) {
+                            val parts = reminderTime.split(":")
+                            val hourEng = parts.getOrNull(0)?.let { IranianPhoneUtils.convertDigitsToEnglish(it).trim().toIntOrNull() } ?: 9
+                            val minEng = parts.getOrNull(1)?.let { IranianPhoneUtils.convertDigitsToEnglish(it).trim().toIntOrNull() } ?: 0
+
+                            PersianTimePickerDialog(
+                                initialHour = hourEng,
+                                initialMinute = minEng,
+                                onDismiss = { showTimePicker = false },
+                                onConfirm = { h, m ->
+                                    val formattedTime = String.format(java.util.Locale.US, "%02d:%02d", h, m)
+                                    reminderTime = IranianPhoneUtils.convertDigitsToPersian(formattedTime)
+                                    showTimePicker = false
+                                }
                             )
                         }
                     }
@@ -398,7 +450,16 @@ fun AddInstallmentSheet(
                     val finalTotal = totalAmount.ifEmpty { "۱۰,۰۰۰,۰۰۰" }
                     val finalMonthly = installmentAmount.ifEmpty { "۱,۰۰۰,۰۰۰" }
                     val finalProvider = providerOrPerson.ifEmpty { "طرف حساب پیش‌فرض" }
-                    onAddConfirm(selectedCategory, finalTitle, finalTotal, finalMonthly, finalProvider, reminderEnabled, reminderDaysBefore)
+                    onAddConfirm(
+                        selectedCategory,
+                        finalTitle,
+                        finalTotal,
+                        finalMonthly,
+                        finalProvider,
+                        reminderEnabled,
+                        reminderDaysBefore,
+                        reminderTime
+                    )
                     onDismiss()
                 },
                 modifier = Modifier

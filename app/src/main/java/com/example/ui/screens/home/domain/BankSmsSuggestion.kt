@@ -8,5 +8,6 @@ data class BankSmsSuggestion(
     val isExpense: Boolean, // true = برداشت (خرید), false = واریز
     val smsText: String,
     val dateText: String,
+    val timeText: String = "۱۴:۳۰",
     val category: String = "سایر"
 )

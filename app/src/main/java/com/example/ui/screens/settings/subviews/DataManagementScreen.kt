@@ -1,5 +1,6 @@
 package com.example.ui.screens.settings.subviews
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.SettingsBackupRestore
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,92 +31,105 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.backup.LocalBackupRepository
+import com.example.data.database.AppDatabase
+import com.example.ui.screens.finance.data.LocalFinanceRepository
+import com.example.ui.screens.installments.model.InstallmentMockDataSource
 import com.example.ui.screens.settings.components.SettingsConfirmationDialog
 import com.example.ui.screens.settings.components.SettingsHeader
 import com.example.ui.screens.settings.components.SettingsItem
 import com.example.ui.screens.settings.components.SettingsSectionCard
+import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
+import com.example.ui.theme.RadiusSM
+import com.example.vehicle.data.VehicleRepository
+import kotlinx.coroutines.launch
 
 @Composable
 fun DataManagementScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
     var activeDialogAction by remember { mutableStateOf<String?>(null) }
     var dialogTitle by remember { mutableStateOf("") }
     var dialogMessage by remember { mutableStateOf("") }
 
+    val financeRepo = LocalFinanceRepository.instance
+    val vehicleRepo = VehicleRepository.instance
+    val db = AppDatabase.getDatabase(context)
+    val backupRepo = LocalBackupRepository(context)
+
     Scaffold(
-        modifier = modifier.fillMaxSize(),
         topBar = {
             SettingsHeader(
-                title = "مدیریت داده‌ها و بازنشانی",
-                subtitle = "حذف هدفمند داده‌ها و بازنشانی تنظیمات",
+                title = "مدیریت داده‌ها و پاکسازی",
                 showBack = true,
-                showSearch = false,
                 onBackClick = onBackClick
             )
-        }
-    ) { paddingValues ->
+        },
+        containerColor = MaterialTheme.colorScheme.background,
+        modifier = modifier
+    ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Warning Banner
             item {
                 Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(
-                            elevation = if (isDark) 4.dp else 2.dp,
-                            shape = RoundedCornerShape(RadiusLG)
-                        ),
-                    shape = RoundedCornerShape(RadiusLG),
-                    color = ExpenseRoseLight.copy(alpha = if (isDark) 0.12f else 0.08f),
-                    border = BorderStroke(1.dp, ExpenseRoseLight.copy(alpha = 0.25f))
+                    shape = RoundedCornerShape(RadiusMD),
+                    color = ExpenseRoseLight.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, ExpenseRoseLight.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                        modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
-                                .clip(RoundedCornerShape(RadiusMD))
-                                .background(ExpenseRoseLight.copy(alpha = 0.2f)),
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(RadiusSM))
+                                .background(ExpenseRoseLight.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Warning,
-                                contentDescription = null,
+                                contentDescription = "هشدار",
                                 tint = ExpenseRoseLight,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
                             Text(
-                                text = "منطقه حساس و بدون بازگشت",
+                                text = "هشدار پاکسازی اطلاعات",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.5.sp
@@ -122,7 +137,7 @@ fun DataManagementScreen(
                                 color = ExpenseRoseLight
                             )
                             Text(
-                                text = "عملیات‌های این بخش داده‌های انتخابی را به صورت غیرقابل بازگشت پاکسازی می‌کنند.",
+                                text = "عملیات‌های این بخش داده‌های انتخابی را پاکسازی می‌کنند تا بتوانید اطلاعات واقعی خود را وارد نمایید.",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 11.5.sp,
                                     lineHeight = 16.sp
@@ -134,18 +149,48 @@ fun DataManagementScreen(
                 }
             }
 
+            // Quick Clean Slate (خام‌سازی کل برنامه و حذف داده‌های ماک تستی)
+            item {
+                SettingsSectionCard(title = "خام‌سازی برنامه و حذف داده‌های تستی") {
+                    SettingsItem(
+                        title = "پاکسازی کلیه داده‌های تستی (حالت خام و صفر)",
+                        subtitle = "حذف تمامی تراکنش‌ها، خودروها و اقساط تستی جهت ورود اطلاعات واقعی",
+                        vectorIcon = Icons.Rounded.DeleteForever,
+                        iconAccentColor = ExpenseRoseLight,
+                        isDanger = true,
+                        onClick = {
+                            activeDialogAction = "clean_slate"
+                            dialogTitle = "خام‌سازی برنامه و حذف داده‌های تستی"
+                            dialogMessage = "تمامی داده‌های نمونه و فرضی (تراکنش‌ها، خودروها، اقساط، بودجه‌ها و اهداف) پاک خواهند شد و برنامه آماده ثبت اطلاعات واقعی شما می‌شود. آیا ادامه می‌دهید؟"
+                        }
+                    )
+
+                    SettingsItem(
+                        title = "بازیابی داده‌های تستی و نمونه (جهت بررسی و دمو)",
+                        subtitle = "بازگرداندن مجدد تراکنش‌ها، خودروها و اقساط نمونه به برنامه",
+                        vectorIcon = Icons.Rounded.SettingsBackupRestore,
+                        iconAccentColor = EmeraldPrimaryLight,
+                        onClick = {
+                            activeDialogAction = "restore_samples"
+                            dialogTitle = "بازیابی داده‌های نمونه و تستی"
+                            dialogMessage = "آیا مایلید داده‌های تستی و پیش‌فرض برنامه جهت بررسی و دمو مجدداً بارگذاری شوند؟"
+                        }
+                    )
+                }
+            }
+
             // Selective Data Clear
             item {
                 SettingsSectionCard(title = "پاکسازی دسته‌ای اطلاعات") {
                     SettingsItem(
-                        title = "پاک کردن تاریخچه تراکنش‌ها",
-                        subtitle = "حذف تمامی دریافتی‌ها و پرداختی‌های ثبت‌شده",
+                        title = "پاک کردن تاریخچه تراکنش‌ها و بودجه‌ها",
+                        subtitle = "حذف تمامی دریافتی‌ها، پرداختی‌ها، بودجه‌ها و اهداف پس‌انداز",
                         vectorIcon = Icons.Rounded.DeleteOutline,
                         isDanger = true,
                         onClick = {
                             activeDialogAction = "clear_transactions"
                             dialogTitle = "حذف تمامی تراکنش‌ها"
-                            dialogMessage = "آیا مطمئن هستید؟ تمامی سوابق هزینه‌ها و درآمدهای ثبت‌شده حذف خواهند شد و قابل بازیابی نخواهند بود."
+                            dialogMessage = "آیا مطمئن هستید؟ تمامی سوابق هزینه‌ها و درآمدهای ثبت‌شده حذف خواهند شد."
                         }
                     )
 
@@ -177,16 +222,16 @@ fun DataManagementScreen(
 
             // Full Factory Reset
             item {
-                SettingsSectionCard(title = "بازنشانی کلی به حالت اولیه (Factory Reset)") {
+                SettingsSectionCard(title = "بازنشانی کلی به حالت کارخانه (Factory Reset)") {
                     SettingsItem(
-                        title = "بازنشانی کامل تمام اطلاعات و تنظیمات",
-                        subtitle = "حذف کامل کلیه داده‌های حساب‌ها، دسته‌بندی‌ها و تنظیمات به حالت روز اول",
+                        title = "بازنشانی کامل تمام اطلاعات و دیتابیس",
+                        subtitle = "حذف کامل کلیه داده‌های دیتابیس، حساب‌ها و تنظیمات به حالت اولیه",
                         vectorIcon = Icons.Rounded.RestartAlt,
                         isDanger = true,
                         onClick = {
                             activeDialogAction = "reset_all"
                             dialogTitle = "بازنشانی کامل برنامه"
-                            dialogMessage = "آیا از بازنشانی کامل مطمئن هستید؟ تمامی اطلاعات شما حذف و برنامه به حالت پیش‌فرض اولیه برمی‌گردد."
+                            dialogMessage = "آیا از بازنشانی کامل مطمئن هستید؟ تمامی اطلاعات دیتابیس و حافظه پاک شده و برنامه صفر خواهد شد."
                         }
                     )
                 }
@@ -203,9 +248,50 @@ fun DataManagementScreen(
         isOpen = activeDialogAction != null,
         title = dialogTitle,
         message = dialogMessage,
-        confirmButtonText = "تأیید و پاکسازی",
+        confirmButtonText = if (activeDialogAction == "restore_samples") "تأیید و بازیابی" else "تأیید و پاکسازی",
         onConfirm = {
+            val action = activeDialogAction
             activeDialogAction = null
+            scope.launch {
+                when (action) {
+                    "clean_slate" -> {
+                        financeRepo.clearAllTransactionsData()
+                        vehicleRepo.clearAllVehiclesData()
+                        InstallmentMockDataSource.clearAllInstallments()
+                        backupRepo.deleteAllData()
+                        Toast.makeText(context, "برنامه با موفقیت خام‌سازی شد و داده‌های تستی پاک شدند.", Toast.LENGTH_LONG).show()
+                    }
+                    "restore_samples" -> {
+                        financeRepo.restoreSampleTransactions()
+                        vehicleRepo.restoreSampleVehicles()
+                        InstallmentMockDataSource.restoreSampleInstallments()
+                        Toast.makeText(context, "داده‌های تستی و نمونه با موفقیت بازیابی شدند.", Toast.LENGTH_SHORT).show()
+                    }
+                    "clear_transactions" -> {
+                        financeRepo.clearAllTransactionsData()
+                        db.transactionDao().clearAllTransactions()
+                        Toast.makeText(context, "تراکنش‌ها و بودجه‌ها با موفقیت پاکسازی شدند.", Toast.LENGTH_SHORT).show()
+                    }
+                    "clear_vehicles" -> {
+                        vehicleRepo.clearAllVehiclesData()
+                        db.vehicleDao().clearAllVehicles()
+                        db.vehicleDao().clearAllServices()
+                        Toast.makeText(context, "خودروها و سوابق سرویس با موفقیت پاک شدند.", Toast.LENGTH_SHORT).show()
+                    }
+                    "clear_installments" -> {
+                        InstallmentMockDataSource.clearAllInstallments()
+                        db.installmentDao().clearAllInstallments()
+                        Toast.makeText(context, "اقساط و بدهی‌ها با موفقیت پاک شدند.", Toast.LENGTH_SHORT).show()
+                    }
+                    "reset_all" -> {
+                        financeRepo.clearAllTransactionsData()
+                        vehicleRepo.clearAllVehiclesData()
+                        InstallmentMockDataSource.clearAllInstallments()
+                        backupRepo.deleteAllData()
+                        Toast.makeText(context, "برنامه به حالت صفر کارخانه بازنشانی گردید.", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
         },
         onDismiss = { activeDialogAction = null }
     )

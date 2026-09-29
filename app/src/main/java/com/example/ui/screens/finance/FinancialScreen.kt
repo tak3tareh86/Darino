@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -115,6 +116,7 @@ fun FinancialScreen(
                     modifier = modifier
                         .fillMaxSize()
                         .testTag("financial_screen"),
+                    contentWindowInsets = WindowInsets(0),
                     snackbarHost = { SnackbarHost(snackbarHostState) },
                     topBar = {
                         FinancialHeader(
@@ -123,14 +125,7 @@ fun FinancialScreen(
                         )
                     },
                     bottomBar = {
-                        if (bottomBar != null) {
-                            bottomBar()
-                        } else {
-                            HomeBottomNavigation(
-                                selectedItem = currentNavTab,
-                                onItemSelected = onNavigateToTab
-                            )
-                        }
+                        bottomBar?.invoke()
                     }
                 ) { innerPadding ->
                     Column(

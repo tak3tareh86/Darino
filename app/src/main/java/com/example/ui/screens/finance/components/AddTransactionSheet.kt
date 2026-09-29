@@ -59,6 +59,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.PersianAmountInputField
+import com.example.ui.components.PersianDateInputField
 import com.example.ui.screens.finance.model.FinanceDefaultCategories
 import com.example.ui.screens.finance.model.PaymentMethod
 import com.example.ui.screens.finance.model.RecurringFrequency
@@ -71,7 +73,9 @@ import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
+import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
+import com.example.util.PersianCalendarHelper
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -85,6 +89,10 @@ fun AddTransactionSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+
+    val todayPersian = remember {
+        PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+    }
 
     var selectedType by remember { mutableStateOf(initialTransaction?.type ?: initialType) }
     var rawAmount by remember { mutableStateOf(initialTransaction?.amount?.toString() ?: "") }
@@ -106,7 +114,7 @@ fun AddTransactionSheet(
 
     var selectedSubCategory by remember { mutableStateOf(initialTransaction?.subCategory) }
     var paymentMethod by remember { mutableStateOf(initialTransaction?.paymentMethod ?: PaymentMethod.BANK_CARD) }
-    var datePersian by remember { mutableStateOf(initialTransaction?.datePersian ?: "امروز") }
+    var datePersian by remember { mutableStateOf(initialTransaction?.datePersian ?: todayPersian) }
     var timePersian by remember { mutableStateOf(initialTransaction?.timePersian ?: "۱۲:۰۰") }
     var description by remember { mutableStateOf(initialTransaction?.description ?: "") }
     var tagsText by remember { mutableStateOf(initialTransaction?.tags?.joinToString("، ") ?: "") }
@@ -116,7 +124,7 @@ fun AddTransactionSheet(
     var isAdvancedExpanded by remember { mutableStateOf(initialTransaction != null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val parsedAmount = rawAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L
+    val parsedAmount = IranianAmountUtils.parseAmountToLong(rawAmount)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -206,47 +214,23 @@ fun AddTransactionSheet(
                 }
             }
 
-            // 2. Amount Input Field with Live Toman Formatter
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "مبلغ (تومان)",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                OutlinedTextField(
-                    value = rawAmount,
-                    onValueChange = { input ->
-                        val digitsOnly = input.filter { it.isDigit() }
-                        if (digitsOnly.length <= 13) {
-                            rawAmount = digitsOnly
-                            errorMessage = null
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("tx_amount_input"),
-                    placeholder = { Text("مثال: ۴۵۰,۰۰۰", style = MaterialTheme.typography.bodyMedium) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    shape = RoundedCornerShape(RadiusMD),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.1f)
-                    )
-                )
-
-                if (parsedAmount > 0L) {
-                    Text(
-                        text = "= ${MoneyFormatter.formatToman(parsedAmount)}",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        ),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
+            // 2. Amount Input Field with Live Toman Formatter & Persian Words
+            PersianAmountInputField(
+                value = rawAmount,
+                onValueChange = { formatted ->
+                    rawAmount = formatted
+                    errorMessage = null
+                },
+                onRawAmountChange = { rawDigits, _ ->
+                    rawAmount = rawDigits
+                    errorMessage = null
+                },
+                label = "مبلغ (تومان)",
+                placeholder = "مثال: ۴۵۰,۰۰۰",
+                unitLabel = "تومان",
+                showWordsPreview = true,
+                testTag = "tx_amount_input"
+            )
 
             // 3. Category Selection (Horizontal Chips)
             if (selectedType != TransactionType.TRANSFER) {
@@ -453,22 +437,16 @@ fun AddTransactionSheet(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "تاریخ",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OutlinedTextField(
-                                value = datePersian,
-                                onValueChange = { datePersian = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                shape = RoundedCornerShape(RadiusMD)
-                            )
-                        }
+                        PersianDateInputField(
+                            value = datePersian,
+                            onValueChange = { datePersian = it },
+                            modifier = Modifier.weight(1.3f),
+                            label = "تاریخ",
+                            placeholder = "۱۴۰۴/۰۷/۱۵",
+                            dialogTitle = "انتخاب تاریخ تراکنش"
+                        )
 
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(modifier = Modifier.weight(0.7f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
                                 text = "ساعت",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),

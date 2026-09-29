@@ -21,7 +21,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.components.PersianAmountInputField
+import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
+import com.example.util.IranianAmountUtils
 import com.example.vehicle.data.VehicleEntity
 
 /**
@@ -184,19 +187,23 @@ fun VehicleInsuranceSheet(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    OutlinedTextField(
+                    PersianDateInputField(
                         value = startDate,
                         onValueChange = { startDate = it },
-                        label = { Text("تاریخ شروع") },
+                        label = "تاریخ شروع",
+                        placeholder = "۱۴۰۴/۰۱/۰۱",
+                        dialogTitle = "انتخاب تاریخ شروع بیمه‌نامه",
                         modifier = Modifier.weight(1f),
-                        singleLine = true
+                        testTag = "insurance_start_date_input"
                     )
-                    OutlinedTextField(
+                    PersianDateInputField(
                         value = endDate,
                         onValueChange = { endDate = it },
-                        label = { Text("تاریخ انقضا") },
+                        label = "تاریخ انقضا",
+                        placeholder = "۱۴۰۵/۰۱/۰۱",
+                        dialogTitle = "انتخاب تاریخ انقضای بیمه‌نامه",
                         modifier = Modifier.weight(1f),
-                        singleLine = true
+                        testTag = "insurance_end_date_input"
                     )
                 }
 
@@ -204,13 +211,15 @@ fun VehicleInsuranceSheet(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    OutlinedTextField(
+                    PersianAmountInputField(
                         value = insuranceAmountText,
                         onValueChange = { insuranceAmountText = it },
-                        label = { Text("حق بیمه پرداختی (تومان)") },
+                        label = "حق بیمه پرداختی",
+                        unitLabel = "تومان",
+                        placeholder = "مثال: ۲,۵۰۰,۰۰۰",
+                        showWordsPreview = false,
                         modifier = Modifier.weight(1.2f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        testTag = "insurance_cost_input"
                     )
                     OutlinedTextField(
                         value = policyNumber,
@@ -235,7 +244,7 @@ fun VehicleInsuranceSheet(
 
                 Button(
                     onClick = {
-                        val amount = insuranceAmountText.toLongOrNull() ?: 0L
+                        val amount = IranianAmountUtils.parseAmountToLong(insuranceAmountText)
                         onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, amount, policyNumber)
                     },
                     modifier = Modifier
@@ -254,19 +263,23 @@ fun VehicleInsuranceSheet(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    OutlinedTextField(
+                    PersianDateInputField(
                         value = lastInspectionDate,
                         onValueChange = { lastInspectionDate = it },
-                        label = { Text("تاریخ آخرین معاینه") },
+                        label = "تاریخ آخرین معاینه",
+                        placeholder = "۱۴۰۴/۰۱/۰۱",
+                        dialogTitle = "انتخاب تاریخ آخرین معاینه فنی",
                         modifier = Modifier.weight(1f),
-                        singleLine = true
+                        testTag = "inspection_last_date_input"
                     )
-                    OutlinedTextField(
+                    PersianDateInputField(
                         value = inspectionExpiryDate,
                         onValueChange = { inspectionExpiryDate = it },
-                        label = { Text("تاریخ انقضا") },
+                        label = "تاریخ انقضا",
+                        placeholder = "۱۴۰۵/۰۱/۰۱",
+                        dialogTitle = "انتخاب تاریخ انقضای معاینه فنی",
                         modifier = Modifier.weight(1f),
-                        singleLine = true
+                        testTag = "inspection_expiry_date_input"
                     )
                 }
 
@@ -274,13 +287,15 @@ fun VehicleInsuranceSheet(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    OutlinedTextField(
+                    PersianAmountInputField(
                         value = inspectionCostText,
                         onValueChange = { inspectionCostText = it },
-                        label = { Text("هزینه (تومان)") },
+                        label = "هزینه معاینه فنی",
+                        unitLabel = "تومان",
+                        placeholder = "مثال: ۱۸۰,۰۰۰",
+                        showWordsPreview = false,
                         modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        testTag = "inspection_cost_input"
                     )
                     OutlinedTextField(
                         value = centerName,
@@ -301,7 +316,7 @@ fun VehicleInsuranceSheet(
 
                 Button(
                     onClick = {
-                        val cost = inspectionCostText.toLongOrNull() ?: 0L
+                        val cost = IranianAmountUtils.parseAmountToLong(inspectionCostText)
                         onSaveInspection(lastInspectionDate, inspectionExpiryDate, cost, inspectionStatus, centerName)
                     },
                     modifier = Modifier

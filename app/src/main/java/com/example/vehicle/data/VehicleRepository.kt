@@ -401,5 +401,23 @@ class VehicleRepository {
                 )
             )
         }
+
+        val instance: VehicleRepository by lazy { VehicleRepository() }
+    }
+
+    fun clearAllVehiclesData() {
+        _vehicles.value = emptyList()
+        _services.value = emptyList()
+        _expenses.value = emptyList()
+        _insurances.value = emptyList()
+        _inspections.value = emptyList()
+    }
+
+    fun restoreSampleVehicles() {
+        _vehicles.value = createInitialVehicles()
+        _services.value = createInitialServices()
+        _expenses.value = createInitialExpenses()
+        _insurances.value = createInitialInsurances()
+        _inspections.value = createInitialInspections()
     }
 }

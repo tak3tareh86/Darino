@@ -1,5 +1,6 @@
 package com.example.ui.screens.installments
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.expandVertically
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,12 +31,16 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.loan.presentation.LoanCalculatorScreen
 import com.example.loan.presentation.components.LoanCalculatorCard
+import com.example.ui.screens.installments.OverdueInstallmentsScreen
 import com.example.ui.screens.installments.category.BankLoansScreen
 import com.example.ui.screens.installments.category.CarInsuranceInstallmentsScreen
 import com.example.ui.screens.installments.category.HomeLoansScreen
@@ -79,6 +86,7 @@ private sealed class InstallmentNavigationState {
     data object Dashboard : InstallmentNavigationState()
     data object LoanCalculator : InstallmentNavigationState()
     data object FinancialHealth : InstallmentNavigationState()
+    data object OverdueView : InstallmentNavigationState()
     data class CategoryView(val category: InstallmentCategory) : InstallmentNavigationState()
     data class DetailView(val item: InstallmentItem) : InstallmentNavigationState()
     data class ScheduleView(val item: InstallmentItem) : InstallmentNavigationState()
@@ -92,13 +100,40 @@ fun InstallmentsScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
-    var navigationState by remember { mutableStateOf<InstallmentNavigationState>(InstallmentNavigationState.Dashboard) }
+    val navBackStack = remember { mutableStateListOf<InstallmentNavigationState>(InstallmentNavigationState.Dashboard) }
+    val currentNavState = navBackStack.lastOrNull() ?: InstallmentNavigationState.Dashboard
+
+    fun navigateTo(destination: InstallmentNavigationState) {
+        navBackStack.add(destination)
+    }
+
+    fun navigateBack() {
+        if (navBackStack.size > 1) {
+            navBackStack.removeAt(navBackStack.lastIndex)
+        }
+    }
+
+    BackHandler(enabled = navBackStack.size > 1) {
+        navigateBack()
+    }
 
     // Dynamic mock state that supports additions
     var bankLoansList by remember { mutableStateOf(InstallmentMockDataSource.bankLoans) }
     var homeLoansList by remember { mutableStateOf(InstallmentMockDataSource.homeLoans) }
     var carInsuranceList by remember { mutableStateOf(InstallmentMockDataSource.carInsurance) }
     var miscInstallmentsList by remember { mutableStateOf(InstallmentMockDataSource.miscInstallments) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    fun refreshData() {
+        bankLoansList = InstallmentMockDataSource.bankLoans
+        homeLoansList = InstallmentMockDataSource.homeLoans
+        carInsuranceList = InstallmentMockDataSource.carInsurance
+        miscInstallmentsList = InstallmentMockDataSource.miscInstallments
+    }
+
+    LaunchedEffect(Unit) {
+        refreshData()
+    }
 
     val allInstallments = remember(bankLoansList, homeLoansList, carInsuranceList, miscInstallmentsList) {
         bankLoansList + homeLoansList + carInsuranceList + miscInstallmentsList
@@ -132,7 +167,7 @@ fun InstallmentsScreen(
     val healthViewModel: FinancialHealthViewModel = viewModel()
     val healthState by healthViewModel.uiState.collectAsState()
 
-    Crossfade(targetState = navigationState, label = "InstallmentNavCrossfade") { state ->
+    Crossfade(targetState = currentNavState, label = "InstallmentNavCrossfade") { state ->
         when (state) {
             is InstallmentNavigationState.Dashboard -> {
                 var isToolsExpanded by remember { mutableStateOf(false) }
@@ -141,6 +176,8 @@ fun InstallmentsScreen(
 
                 Scaffold(
                     modifier = modifier.fillMaxSize(),
+                    contentWindowInsets = WindowInsets(0),
+                    snackbarHost = { SnackbarHost(snackbarHostState) },
                     topBar = {
                         InstallmentsHeader(
                             onSearchClick = { showSearchSheet = true },
@@ -180,7 +217,7 @@ fun InstallmentsScreen(
                                     },
                                     onViewScheduleClick = {
                                         allInstallments.firstOrNull()?.let {
-                                            navigationState = InstallmentNavigationState.ScheduleView(it)
+                                            navigateTo(InstallmentNavigationState.ScheduleView(it))
                                         }
                                     },
                                     onSearchFilterClick = {
@@ -195,7 +232,7 @@ fun InstallmentsScreen(
                                     summary = InstallmentMockDataSource.summary,
                                     onClick = {
                                         allInstallments.firstOrNull()?.let {
-                                            navigationState = InstallmentNavigationState.ScheduleView(it)
+                                            navigateTo(InstallmentNavigationState.ScheduleView(it))
                                         }
                                     }
                                 )
@@ -262,7 +299,7 @@ fun InstallmentsScreen(
                                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                                 LoanCalculatorCard(
                                                     onClick = {
-                                                        navigationState = InstallmentNavigationState.LoanCalculator
+                                                        navigateTo(InstallmentNavigationState.LoanCalculator)
                                                     }
                                                 )
                                                 FinancialHealthCard(
@@ -271,7 +308,7 @@ fun InstallmentsScreen(
                                                     monthlyIncome = healthState.monthlyIncome,
                                                     totalCommitments = healthState.totalCommitments,
                                                     onClick = {
-                                                        navigationState = InstallmentNavigationState.FinancialHealth
+                                                        navigateTo(InstallmentNavigationState.FinancialHealth)
                                                     }
                                                 )
                                             }
@@ -285,11 +322,8 @@ fun InstallmentsScreen(
                                 item {
                                     OverdueInstallmentsSection(
                                         items = overdueList,
-                                        onItemClick = { item ->
-                                            navigationState = InstallmentNavigationState.DetailView(item)
-                                        },
-                                        onSeeAllOverdueClick = {
-                                            navigationState = InstallmentNavigationState.CategoryView(InstallmentCategory.BANK_LOANS)
+                                        onShowOverdueClick = {
+                                            navigateTo(InstallmentNavigationState.OverdueView)
                                         }
                                     )
                                 }
@@ -342,7 +376,7 @@ fun InstallmentsScreen(
                                         InstallmentCategoryGrid(
                                             categories = InstallmentMockDataSource.categorySummaries,
                                             onCategoryClick = { category ->
-                                                navigationState = InstallmentNavigationState.CategoryView(category)
+                                                navigateTo(InstallmentNavigationState.CategoryView(category))
                                             }
                                         )
                                     }
@@ -396,11 +430,11 @@ fun InstallmentsScreen(
                                         UpcomingInstallmentsSection(
                                             items = upcomingList,
                                             onItemClick = { item ->
-                                                navigationState = InstallmentNavigationState.DetailView(item)
+                                                navigateTo(InstallmentNavigationState.DetailView(item))
                                             },
                                             onSeeAllClick = {
                                                 allInstallments.firstOrNull()?.let {
-                                                    navigationState = InstallmentNavigationState.ScheduleView(it)
+                                                    navigateTo(InstallmentNavigationState.ScheduleView(it))
                                                 }
                                             }
                                         )
@@ -421,9 +455,9 @@ fun InstallmentsScreen(
                     InstallmentCategory.BANK_LOANS -> {
                         BankLoansScreen(
                             loans = bankLoansList,
-                            onBackClick = { navigationState = InstallmentNavigationState.Dashboard },
+                            onBackClick = { navigateBack() },
                             onLoanClick = { loan ->
-                                navigationState = InstallmentNavigationState.DetailView(loan)
+                                navigateTo(InstallmentNavigationState.DetailView(loan))
                             },
                             onAddLoanClick = {
                                 addInitialCategory = InstallmentCategory.BANK_LOANS
@@ -434,9 +468,9 @@ fun InstallmentsScreen(
                     InstallmentCategory.HOME_LOANS -> {
                         HomeLoansScreen(
                             loans = homeLoansList,
-                            onBackClick = { navigationState = InstallmentNavigationState.Dashboard },
+                            onBackClick = { navigateBack() },
                             onLoanClick = { loan ->
-                                navigationState = InstallmentNavigationState.DetailView(loan)
+                                navigateTo(InstallmentNavigationState.DetailView(loan))
                             },
                             onAddLoanClick = {
                                 addInitialCategory = InstallmentCategory.HOME_LOANS
@@ -447,9 +481,9 @@ fun InstallmentsScreen(
                     InstallmentCategory.CAR_INSURANCE -> {
                         CarInsuranceInstallmentsScreen(
                             installments = carInsuranceList,
-                            onBackClick = { navigationState = InstallmentNavigationState.Dashboard },
+                            onBackClick = { navigateBack() },
                             onItemClick = { item ->
-                                navigationState = InstallmentNavigationState.DetailView(item)
+                                navigateTo(InstallmentNavigationState.DetailView(item))
                             },
                             onAddClick = {
                                 addInitialCategory = InstallmentCategory.CAR_INSURANCE
@@ -460,9 +494,9 @@ fun InstallmentsScreen(
                     InstallmentCategory.MISC -> {
                         MiscInstallmentsScreen(
                             installments = miscInstallmentsList,
-                            onBackClick = { navigationState = InstallmentNavigationState.Dashboard },
+                            onBackClick = { navigateBack() },
                             onItemClick = { item ->
-                                navigationState = InstallmentNavigationState.DetailView(item)
+                                navigateTo(InstallmentNavigationState.DetailView(item))
                             },
                             onAddClick = {
                                 addInitialCategory = InstallmentCategory.MISC
@@ -477,10 +511,10 @@ fun InstallmentsScreen(
                 InstallmentDetailScreen(
                     item = state.item,
                     onBackClick = {
-                        navigationState = InstallmentNavigationState.Dashboard
+                        navigateBack()
                     },
                     onViewScheduleClick = { item ->
-                        navigationState = InstallmentNavigationState.ScheduleView(item)
+                        navigateTo(InstallmentNavigationState.ScheduleView(item))
                     }
                 )
             }
@@ -489,7 +523,27 @@ fun InstallmentsScreen(
                 InstallmentScheduleScreen(
                     installment = state.item,
                     onBackClick = {
-                        navigationState = InstallmentNavigationState.Dashboard
+                        navigateBack()
+                    }
+                )
+            }
+
+            is InstallmentNavigationState.OverdueView -> {
+                OverdueInstallmentsScreen(
+                    overdueItems = overdueList,
+                    onBackClick = {
+                        navigateBack()
+                        refreshData()
+                    },
+                    onItemClick = { item ->
+                        navigateTo(InstallmentNavigationState.DetailView(item))
+                    },
+                    onMarkAsPaid = { installmentId, paymentDate ->
+                        InstallmentMockDataSource.markOverdueAsPaid(installmentId, paymentDate)
+                        refreshData()
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("قسط با موفقیت در تاریخ $paymentDate به عنوان پرداخت شده ثبت شد.")
+                        }
                     }
                 )
             }
@@ -497,7 +551,7 @@ fun InstallmentsScreen(
             is InstallmentNavigationState.LoanCalculator -> {
                 LoanCalculatorScreen(
                     onBackClick = {
-                        navigationState = InstallmentNavigationState.Dashboard
+                        navigateBack()
                     },
                     onCreateInstallment = { cat, title, total, monthly, count ->
                         addInitialCategory = cat
@@ -512,7 +566,7 @@ fun InstallmentsScreen(
             is InstallmentNavigationState.FinancialHealth -> {
                 FinancialHealthScreen(
                     onBackClick = {
-                        navigationState = InstallmentNavigationState.Dashboard
+                        navigateBack()
                     }
                 )
             }
@@ -535,7 +589,7 @@ fun InstallmentsScreen(
                 prefillMonthly = ""
                 prefillCount = ""
             },
-            onAddConfirm = { cat, title, total, monthly, provider, reminderEnabled, reminderDays ->
+            onAddConfirm = { cat, title, total, monthly, provider, reminderEnabled, reminderDays, reminderTime ->
                 prefillTitle = ""
                 prefillTotal = ""
                 prefillMonthly = ""
@@ -546,12 +600,12 @@ fun InstallmentsScreen(
                     category = cat,
                     providerOrPerson = provider,
                     totalAmount = 12_000_000,
-                    totalAmountFormatted = "$total تومان",
+                    totalAmountFormatted = com.example.util.MoneyFormatter.formatToman(12_000_000),
                     paidAmount = 2_000_000,
-                    paidAmountFormatted = "۲,۰۰۰,۰۰۰ تومان",
+                    paidAmountFormatted = com.example.util.MoneyFormatter.formatToman(2_000_000),
                     remainingAmount = 10_000_000,
-                    remainingAmountFormatted = "۱۰,۰۰۰,۰۰۰ تومان",
-                    monthlyPaymentFormatted = "$monthly تومان",
+                    remainingAmountFormatted = com.example.util.MoneyFormatter.formatToman(10_000_000),
+                    monthlyPaymentFormatted = "$monthly ${com.example.util.MoneyFormatter.getUnitLabel()}",
                     totalInstallments = 12,
                     remainingInstallments = 10,
                     nextPaymentDate = "۱۴۰۴/۰۸/۱۵",
@@ -559,7 +613,7 @@ fun InstallmentsScreen(
                     startDate = "۱۴۰۴/۰۷/۱۵",
                     endDate = "۱۴۰۵/۰۷/۱۵",
                     status = InstallmentStatus.PENDING,
-                    notes = "یادآور فعال: $reminderEnabled، $reminderDays روز قبل"
+                    notes = "یادآور فعال: $reminderEnabled، $reminderDays روز قبل در ساعت $reminderTime"
                 )
                 when (cat) {
                     InstallmentCategory.BANK_LOANS -> bankLoansList = listOf(newItem) + bankLoansList
@@ -576,7 +630,8 @@ fun InstallmentsScreen(
                                 installmentId = newItem.id,
                                 title = newItem.title,
                                 amount = cleanAmount,
-                                dueDatePersian = newItem.nextPaymentDate
+                                dueDatePersian = newItem.nextPaymentDate,
+                                dueTimePersian = reminderTime
                             )
                         } catch (e: Exception) {
                             e.printStackTrace()
@@ -593,7 +648,7 @@ fun InstallmentsScreen(
             onDismiss = { showFilterSheet = false },
             onApplyFilter = { category, status, period ->
                 if (category != null) {
-                    navigationState = InstallmentNavigationState.CategoryView(category)
+                    navigateTo(InstallmentNavigationState.CategoryView(category))
                 }
             }
         )
@@ -605,7 +660,7 @@ fun InstallmentsScreen(
             allItems = allInstallments,
             onDismiss = { showSearchSheet = false },
             onSelectItem = { selectedItem ->
-                navigationState = InstallmentNavigationState.DetailView(selectedItem)
+                navigateTo(InstallmentNavigationState.DetailView(selectedItem))
             }
         )
     }

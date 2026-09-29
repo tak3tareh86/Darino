@@ -106,32 +106,43 @@ fun ReportsScreen(
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Scaffold(
             bottomBar = bottomBar,
+            contentWindowInsets = WindowInsets(0),
             containerColor = Color(0xFF090E17),
             modifier = modifier.fillMaxSize()
         ) { innerPadding ->
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(innerPadding)
             ) {
-                // ۱. نوار بالای صفحه با دکمه خروجی
-                item {
+                // ۱. نوار بالای صفحه با دکمه خروجی (فریز شده)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
                     ReportsHeader(
                         onExportClick = { showExportSheet = true }
                     )
                 }
 
-                // ۲. کارت خلاصه وضعیت مالی
-                item {
-                    FinancialOverviewCard(
-                        selectedPeriod = selectedPeriod,
-                        startDate = startDate,
-                        endDate = endDate,
-                        onEditCustomRange = { showCustomDateSheet = true }
-                    )
-                }
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // ۲. کارت خلاصه وضعیت مالی
+                    item {
+                        FinancialOverviewCard(
+                            selectedPeriod = selectedPeriod,
+                            startDate = startDate,
+                            endDate = endDate,
+                            onEditCustomRange = { showCustomDateSheet = true }
+                        )
+                    }
 
                 // ۳. تب‌های دسته‌بندی گزارشات
                 item {
@@ -180,6 +191,7 @@ fun ReportsScreen(
                 }
             }
         }
+    }
 
         // باتم‌شیت انتخاب تاریخ شمسی دلخواه
         if (showCustomDateSheet) {

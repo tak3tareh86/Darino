@@ -13,7 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 class CalendarManager(private val context: Context) {
@@ -162,7 +162,10 @@ class CalendarManager(private val context: Context) {
      * items from Installments and Vehicle services to guarantee complete cross-app sync.
      */
     fun getAllEvents(): Flow<List<FinancialEvent>> {
-        return repository.getAllEvents().map { dbEvents ->
+        val database = com.example.data.database.AppDatabase.getDatabase(context)
+        val remindersFlow = database.smartReminderDao().getAllReminders()
+
+        return repository.getAllEvents().combine(remindersFlow) { dbEvents, reminders ->
             val allEvents = mutableListOf<FinancialEvent>()
             val seenIds = mutableSetOf<String>()
 
@@ -172,7 +175,39 @@ class CalendarManager(private val context: Context) {
                 allEvents.add(ev)
             }
 
-            // 2. Cross-integrate from Installments module
+            // 2. Cross-integrate from Reminders Module
+            reminders.forEach { rem ->
+                val eventId = "auto_rem_${rem.id}"
+                if (!seenIds.contains(eventId)) {
+                    val normDate = CalendarDateUtils.normalizeDate(rem.date)
+                    val normTime = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(rem.time)
+
+                    val status = when (rem.status) {
+                        "COMPLETED" -> FinancialEventStatus.PAID
+                        "CANCELLED" -> FinancialEventStatus.PAID
+                        else -> FinancialEventStatus.PENDING
+                    }
+
+                    allEvents.add(
+                        FinancialEvent(
+                            id = eventId,
+                            title = rem.title,
+                            description = rem.description,
+                            type = FinancialEventType.REMINDER,
+                            amount = rem.amount,
+                            date = normDate,
+                            time = normTime,
+                            repeatType = "NONE",
+                            reminderBefore = ReminderBeforeOption.ONE_DAY,
+                            sourceId = rem.id,
+                            status = status
+                        )
+                    )
+                    seenIds.add(eventId)
+                }
+            }
+
+            // 3. Cross-integrate from Installments module
             val (currentYear, currentMonth, _) = CalendarDateUtils.getCurrentJalaliDate()
             val monthStr = currentMonth.toString().padStart(2, '0')
 
@@ -220,7 +255,7 @@ class CalendarManager(private val context: Context) {
                 }
             }
 
-            // 3. Cross-integrate from Vehicle module
+            // 4. Cross-integrate from Vehicle module
             VehicleMockDataSource.sampleVehicles.forEach { vehicle ->
                 val insuranceEventId = "auto_veh_ins_${vehicle.id}"
                 if (!seenIds.contains(insuranceEventId)) {

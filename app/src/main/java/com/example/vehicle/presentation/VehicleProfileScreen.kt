@@ -27,7 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.ui.components.Layered3DCard
+import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.Soft3DIcon
+import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.presentation.components.IranianLicensePlate
@@ -220,29 +222,40 @@ fun VehicleProfileScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        OutlinedTextField(
-                            value = currentMileageText,
-                            onValueChange = { currentMileageText = it },
-                            label = { Text("کیلومتر فعلی") },
-                            modifier = Modifier.weight(1f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true
-                        )
+                        Column(modifier = Modifier.weight(0.9f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "کیلومتر فعلی",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedTextField(
+                                value = IranianPhoneUtils.convertDigitsToPersian(currentMileageText),
+                                onValueChange = {
+                                    currentMileageText = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                shape = RoundedCornerShape(12.dp),
+                                singleLine = true
+                            )
+                        }
 
-                        OutlinedTextField(
+                        PersianAmountInputField(
                             value = estimatedValueText,
                             onValueChange = { estimatedValueText = it },
-                            label = { Text("ارزش تقریبی (تومان)") },
-                            modifier = Modifier.weight(1.2f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true
+                            label = "ارزش تقریبی",
+                            unitLabel = "تومان",
+                            placeholder = "مثال: ۸۵۰,۰۰۰,۰۰۰",
+                            showWordsPreview = false,
+                            modifier = Modifier.weight(1.3f),
+                            testTag = "edit_vehicle_estimated_value_input"
                         )
                     }
 
                     Button(
                         onClick = {
-                            val estVal = estimatedValueText.toLongOrNull() ?: 0L
-                            val km = currentMileageText.toIntOrNull() ?: vehicle.currentMileage
+                            val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
+                            val km = IranianPhoneUtils.convertDigitsToEnglish(currentMileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onUpdateMileage(km)
                             onSaveSpecs(brand, model, year, color, plate, vin, estVal)
                             onBack()

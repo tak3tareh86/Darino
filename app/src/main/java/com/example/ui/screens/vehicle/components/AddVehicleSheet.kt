@@ -191,7 +191,7 @@ fun AddVehicleSheet(
             ) {
                 OutlinedTextField(
                     value = modelYear,
-                    onValueChange = { modelYear = it },
+                    onValueChange = { modelYear = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch.isDigit() } },
                     label = { Text("سال ساخت (شمسی)") },
                     modifier = Modifier
                         .weight(1f)
@@ -203,7 +203,7 @@ fun AddVehicleSheet(
 
                 OutlinedTextField(
                     value = odometer,
-                    onValueChange = { odometer = it },
+                    onValueChange = { odometer = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch.isDigit() } },
                     label = { Text("کیلومتر فعلی") },
                     modifier = Modifier
                         .weight(1.2f)

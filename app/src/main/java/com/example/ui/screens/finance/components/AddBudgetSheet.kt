@@ -41,11 +41,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.PersianAmountInputField
 import com.example.ui.screens.finance.model.Budget
 import com.example.ui.screens.finance.model.FinanceDefaultCategories
 import com.example.ui.screens.finance.model.TransactionCategory
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
+import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
 import java.util.UUID
 
@@ -66,7 +68,7 @@ fun AddBudgetSheet(
     var period by remember { mutableStateOf(initialBudget?.period ?: "این ماه") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val parsedAmount = rawAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L
+    val parsedAmount = IranianAmountUtils.parseAmountToLong(rawAmount)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -198,33 +200,16 @@ fun AddBudgetSheet(
             }
 
             // Amount Input
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "مبلغ سقف بودجه (تومان)",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = rawAmount,
-                    onValueChange = { rawAmount = it.filter { ch -> ch.isDigit() } },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("مثال: ۳,۰۰۰,۰۰۰", style = MaterialTheme.typography.bodyMedium) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(RadiusMD)
-                )
-
-                if (parsedAmount > 0L) {
-                    Text(
-                        text = "= ${MoneyFormatter.formatToman(parsedAmount)}",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        ),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
+            PersianAmountInputField(
+                value = rawAmount,
+                onValueChange = { rawAmount = it },
+                onRawAmountChange = { rawDigits, _ -> rawAmount = rawDigits },
+                label = "مبلغ سقف بودجه (تومان)",
+                placeholder = "مثال: ۳,۰۰۰,۰۰۰",
+                unitLabel = "تومان",
+                showWordsPreview = true,
+                testTag = "budget_amount_input"
+            )
 
             errorMessage?.let {
                 Text(text = it, style = MaterialTheme.typography.labelSmall, color = Color(0xFFEF4444))

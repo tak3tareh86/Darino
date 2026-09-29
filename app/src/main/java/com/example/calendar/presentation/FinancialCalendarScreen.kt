@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -98,85 +99,105 @@ fun FinancialCalendarScreen(
         modifier = modifier
             .fillMaxSize()
             .testTag("financial_calendar_screen"),
+        contentWindowInsets = WindowInsets(0),
         topBar = {
-            TopAppBar(
-                title = {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(
+                        elevation = 3.dp,
+                        shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
+                        ambientColor = Color.Black.copy(alpha = 0.05f),
+                        spotColor = Color.Black.copy(alpha = 0.08f)
+                    ),
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
                     ) {
+                        if (onBack != null) {
+                            IconButton(
+                                onClick = onBack,
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .testTag("calendar_back_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                    contentDescription = "بازگشت",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+
                         Soft3DIcon(
                             imageRes = R.drawable.img_3d_calendar,
                             contentDescription = "تقویم مالی",
-                            size = 36.dp,
+                            size = 20.dp,
                             accentColor = MaterialTheme.colorScheme.primary
                         )
-                        Column {
+
+                        Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                             Text(
                                 text = "تقویم مالی من",
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 19.sp
+                                    fontSize = 11.5.sp
                                 )
                             )
                             Text(
                                 text = "مدیریت یکپارچه اقساط، یادآورها و خدمات خودرو",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 7.5.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-                },
-                navigationIcon = {
-                    if (onBack != null) {
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         IconButton(
-                            onClick = onBack,
-                            modifier = Modifier.testTag("calendar_back_button")
+                            onClick = { showSearchBar = !showSearchBar },
+                            modifier = Modifier
+                                .size(26.dp)
+                                .testTag("calendar_search_toggle_button")
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                contentDescription = "بازگشت"
+                                imageVector = if (showSearchBar) Icons.Rounded.Close else Icons.Rounded.Search,
+                                contentDescription = "جستجو",
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+
+                        // Jump to Today
+                        IconButton(
+                            onClick = { viewModel.jumpToToday() },
+                            modifier = Modifier
+                                .size(26.dp)
+                                .testTag("calendar_today_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Today,
+                                contentDescription = "امروز",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp)
                             )
                         }
                     }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { showSearchBar = !showSearchBar },
-                        modifier = Modifier.testTag("calendar_search_toggle_button")
-                    ) {
-                        Icon(
-                            imageVector = if (showSearchBar) Icons.Rounded.Close else Icons.Rounded.Search,
-                            contentDescription = "جستجو"
-                        )
-                    }
-
-                    // Jump to Today
-                    IconButton(
-                        onClick = { viewModel.jumpToToday() },
-                        modifier = Modifier.testTag("calendar_today_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Today,
-                            contentDescription = "امروز",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showAddSheet = true },
-                icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
-                text = { Text("افزودن رویداد", fontWeight = FontWeight.Bold) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.testTag("calendar_fab_add")
-            )
+                }
+            }
         }
     ) { innerPadding ->
         LazyColumn(
@@ -185,7 +206,7 @@ fun FinancialCalendarScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(top = 4.dp, bottom = 88.dp)
+            contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp)
         ) {
             // Optional Search Bar
             if (showSearchBar) {

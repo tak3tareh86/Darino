@@ -38,4 +38,7 @@ interface FinanceRepository {
     fun updateRecurringTransaction(recurring: RecurringTransaction)
     fun deleteRecurringTransaction(id: String)
     fun toggleRecurringEnabled(id: String)
+
+    fun clearAllTransactionsData()
+    fun restoreSampleTransactions()
 }

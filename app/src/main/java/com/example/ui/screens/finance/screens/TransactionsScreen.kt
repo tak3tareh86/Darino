@@ -17,7 +17,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -25,30 +28,45 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.ArrowDropUp
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Calculate
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.rounded.SwapHoriz
+import androidx.compose.material.icons.rounded.TrendingDown
+import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -64,7 +82,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.Layered3DCard
 import com.example.ui.screens.finance.model.FinanceDefaultCategories
-import com.example.ui.screens.finance.model.FinanceFilterPeriod
 import com.example.ui.screens.finance.model.TransactionCategory
 import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionType
@@ -72,6 +89,8 @@ import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.RadiusMD
+import com.example.ui.theme.RadiusSM
+import com.example.util.MoneyFormatter
 
 enum class TransactionSortOption(val title: String) {
     NEWEST("جدیدترین"),
@@ -87,51 +106,101 @@ fun TransactionsScreen(
     categories: List<TransactionCategory> = FinanceDefaultCategories.allDefaultCategories,
     onBackClick: () -> Unit,
     onTransactionClick: (TransactionItemData) -> Unit,
-    onAddNewTransaction: () -> Unit,
+    onAddNewTransaction: () -> Unit = {},
     onDuplicateTransaction: (String) -> Unit,
     onDeleteTransaction: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedTypeFilter by remember { mutableStateOf<TransactionType?>(null) }
-    var selectedCategoryFilter by remember { mutableStateOf<String?>(null) }
-    var selectedPeriodFilter by remember { mutableStateOf(FinanceFilterPeriod.ALL) }
+    // Selected Tab Index: 0 = همه تراکنش‌ها, 1 = هزینه‌ها, 2 = درآمدها, 3 = انتقال وجه
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
+
+    // Search queries per tab
+    var allSearchQuery by remember { mutableStateOf("") }
+    var incomeSearchQuery by remember { mutableStateOf("") }
+    var transferSearchQuery by remember { mutableStateOf("") }
+
+    // Expense Dropdown Category Selector
+    var selectedExpenseCategory by remember { mutableStateOf<String>("همه دسته‌بندی‌ها") }
+    var showExpenseCategoryDropdown by remember { mutableStateOf(false) }
+
     var selectedSortOption by remember { mutableStateOf(TransactionSortOption.NEWEST) }
     var showSortMenu by remember { mutableStateOf(false) }
-
     var transactionToDelete by remember { mutableStateOf<TransactionItemData?>(null) }
 
-    // Filter & Sort Logic
-    val filteredTransactions = remember(
+    val tabTitles = listOf("همه تراکنش‌ها", "هزینه‌ها", "درآمدها", "انتقال وجه")
+
+    // Calculations for All Transactions Summary Box
+    val totalExpenseAmount = remember(transactions) {
+        transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+    }
+    val totalIncomeAmount = remember(transactions) {
+        transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
+    }
+    val netBalance = totalIncomeAmount - totalExpenseAmount
+
+    // All Expense Categories list for Dropdown
+    val expenseCategories = remember(categories, transactions) {
+        val catNamesFromList = categories.filter { it.type == TransactionType.EXPENSE }.map { it.title }
+        val catNamesFromTx = transactions.filter { it.type == TransactionType.EXPENSE }.map { it.category.title }
+        (listOf("همه دسته‌بندی‌ها") + (catNamesFromList + catNamesFromTx)).distinct()
+    }
+
+    // Filter transactions per selected tab
+    val displayedTransactions = remember(
         transactions,
-        searchQuery,
-        selectedTypeFilter,
-        selectedCategoryFilter,
-        selectedPeriodFilter,
+        selectedTabIndex,
+        allSearchQuery,
+        selectedExpenseCategory,
+        incomeSearchQuery,
+        transferSearchQuery,
         selectedSortOption
     ) {
-        transactions
-            .filter { tx ->
-                val matchesSearch = searchQuery.isBlank() ||
-                        tx.title.contains(searchQuery, ignoreCase = true) ||
-                        tx.category.title.contains(searchQuery, ignoreCase = true) ||
-                        tx.tags.any { it.contains(searchQuery, ignoreCase = true) }
-
-                val matchesType = selectedTypeFilter == null || tx.type == selectedTypeFilter
-                val matchesCategory = selectedCategoryFilter == null || tx.categoryId == selectedCategoryFilter
-
-                matchesSearch && matchesType && matchesCategory
-            }
-            .let { list ->
-                when (selectedSortOption) {
-                    TransactionSortOption.NEWEST -> list.sortedByDescending { it.dateMillis }
-                    TransactionSortOption.OLDEST -> list.sortedBy { it.dateMillis }
-                    TransactionSortOption.HIGHEST_AMOUNT -> list.sortedByDescending { it.amount }
-                    TransactionSortOption.LOWEST_AMOUNT -> list.sortedBy { it.amount }
+        val filtered = when (selectedTabIndex) {
+            0 -> { // همه تراکنش‌ها
+                transactions.filter { tx ->
+                    allSearchQuery.isBlank() ||
+                            tx.title.contains(allSearchQuery, ignoreCase = true) ||
+                            tx.category.title.contains(allSearchQuery, ignoreCase = true) ||
+                            tx.description.contains(allSearchQuery, ignoreCase = true) ||
+                            tx.accountName.contains(allSearchQuery, ignoreCase = true)
                 }
             }
+            1 -> { // هزینه‌ها
+                transactions.filter { tx ->
+                    tx.type == TransactionType.EXPENSE &&
+                            (selectedExpenseCategory == "همه دسته‌بندی‌ها" || tx.category.title.contains(selectedExpenseCategory, ignoreCase = true))
+                }
+            }
+            2 -> { // درآمدها
+                transactions.filter { tx ->
+                    tx.type == TransactionType.INCOME &&
+                            (incomeSearchQuery.isBlank() ||
+                                    tx.title.contains(incomeSearchQuery, ignoreCase = true) ||
+                                    tx.category.title.contains(incomeSearchQuery, ignoreCase = true) ||
+                                    tx.description.contains(incomeSearchQuery, ignoreCase = true) ||
+                                    tx.accountName.contains(incomeSearchQuery, ignoreCase = true))
+                }
+            }
+            3 -> { // انتقال وجه
+                transactions.filter { tx ->
+                    tx.type == TransactionType.TRANSFER &&
+                            (transferSearchQuery.isBlank() ||
+                                    tx.title.contains(transferSearchQuery, ignoreCase = true) ||
+                                    tx.description.contains(transferSearchQuery, ignoreCase = true) ||
+                                    tx.accountName.contains(transferSearchQuery, ignoreCase = true))
+                }
+            }
+            else -> transactions
+        }
+
+        when (selectedSortOption) {
+            TransactionSortOption.NEWEST -> filtered.sortedByDescending { it.dateMillis }
+            TransactionSortOption.OLDEST -> filtered.sortedBy { it.dateMillis }
+            TransactionSortOption.HIGHEST_AMOUNT -> filtered.sortedByDescending { it.amount }
+            TransactionSortOption.LOWEST_AMOUNT -> filtered.sortedBy { it.amount }
+        }
     }
 
     Scaffold(
@@ -140,7 +209,7 @@ fun TransactionsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "همه تراکنش‌ها",
+                        text = "مدیریت تراکنش‌ها",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onBackground
                     )
@@ -191,142 +260,552 @@ fun TransactionsScreen(
                     containerColor = MaterialTheme.colorScheme.background
                 )
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddNewTransaction,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White,
-                shape = CircleShape,
-                modifier = Modifier.testTag("fab_add_tx_list")
-            ) {
-                Icon(Icons.Rounded.Add, contentDescription = "ثبت تراکنش")
-            }
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // 1. Search Bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
+            // 4 Tabs Row Header
+            ScrollableTabRow(
+                selectedTabIndex = selectedTabIndex,
+                edgePadding = 16.dp,
+                containerColor = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                tabTitles.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        text = {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
+                                    fontSize = 13.sp
+                                )
+                            )
+                        }
+                    )
+                }
+            }
+
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("search_tx_input"),
-                placeholder = { Text("جستجو در عنوان، دسته یا برچسب...", style = MaterialTheme.typography.bodySmall) },
-                leadingIcon = {
-                    Icon(Icons.Rounded.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Rounded.Clear, contentDescription = "پاک کردن", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Content based on selected tab:
+                when (selectedTabIndex) {
+                    0 -> {
+                        // ================= TAB 0: همه تراکنش‌ها =================
+                        // Summary Card (کارت جمع هزینه‌ها و درآمدها)
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(RadiusMD),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isDark) Color(0xFF161E2E) else Color(0xFFF8FAFC)
+                            ),
+                            border = BorderStroke(1.dp, if (isDark) Color(0xFF232D42) else Color(0xFFE2E8F0))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Calculate,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = "خلاصه کل هزینه‌ها و درآمدها",
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                    )
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    // Total Income Box
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .background(
+                                                if (isDark) Color(0xFF0F3A22) else Color(0xFFE6F9EE),
+                                                RoundedCornerShape(RadiusSM)
+                                            )
+                                            .padding(10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.TrendingUp,
+                                                contentDescription = null,
+                                                tint = EmeraldPrimaryLight,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(
+                                                text = "جمع درآمدها",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 10.sp
+                                                ),
+                                                color = EmeraldPrimaryLight
+                                            )
+                                        }
+                                        Text(
+                                            text = MoneyFormatter.formatToman(totalIncomeAmount),
+                                            style = MaterialTheme.typography.titleSmall.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            ),
+                                            color = EmeraldPrimaryLight
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    // Total Expense Box
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .background(
+                                                if (isDark) Color(0xFF3F161C) else Color(0xFFFFECEE),
+                                                RoundedCornerShape(RadiusSM)
+                                            )
+                                            .padding(10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.TrendingDown,
+                                                contentDescription = null,
+                                                tint = ExpenseRoseLight,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(
+                                                text = "جمع هزینه‌ها",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 10.sp
+                                                ),
+                                                color = ExpenseRoseLight
+                                            )
+                                        }
+                                        Text(
+                                            text = MoneyFormatter.formatToman(totalExpenseAmount),
+                                            style = MaterialTheme.typography.titleSmall.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            ),
+                                            color = ExpenseRoseLight
+                                        )
+                                    }
+                                }
+
+                                // Net Balance Row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "خالص عملکرد (مانده):",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 11.5.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = MoneyFormatter.formatSignedToman(netBalance, isExpense = netBalance < 0),
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        ),
+                                        color = if (netBalance >= 0) EmeraldPrimaryLight else ExpenseRoseLight
+                                    )
+                                }
+                            }
+                        }
+
+                        // Search Box for All Transactions
+                        OutlinedTextField(
+                            value = allSearchQuery,
+                            onValueChange = { allSearchQuery = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("جستجو در همه تراکنش‌ها...", style = MaterialTheme.typography.bodySmall) },
+                            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            trailingIcon = {
+                                if (allSearchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { allSearchQuery = "" }) {
+                                        Icon(Icons.Rounded.Clear, contentDescription = "پاک کردن", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+
+                    1 -> {
+                        // ================= TAB 1: هزینه‌ها =================
+                        // Modern Category Selector Bar & Chip Selector
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { showExpenseCategoryDropdown = true },
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                border = BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.08f))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.FilterList,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = "دسته‌بندی: $selectedExpenseCategory",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 12.5.sp),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            Text(
+                                                text = "تغییر دسته‌بندی",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.5.sp),
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Rounded.ArrowDropDown,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Horizontal Chip Bar for quick switching top categories
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(expenseCategories) { categoryName ->
+                                    val isSelected = categoryName == selectedExpenseCategory
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { selectedExpenseCategory = categoryName },
+                                        label = { Text(categoryName, fontSize = 11.sp) }
+                                    )
+                                }
+                            }
+                        }
+
+                        // Bottom Sheet for full category picker
+                        if (showExpenseCategoryDropdown) {
+                            ModalBottomSheet(
+                                onDismissRequest = { showExpenseCategoryDropdown = false },
+                                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text(
+                                        text = "انتخاب دسته‌بندی هزینه",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+
+                                    LazyColumn(
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(max = 380.dp)
+                                    ) {
+                                        items(expenseCategories) { categoryName ->
+                                            val isSelected = categoryName == selectedExpenseCategory
+                                            Surface(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(RadiusMD))
+                                                    .clickable {
+                                                        selectedExpenseCategory = categoryName
+                                                        showExpenseCategoryDropdown = false
+                                                    },
+                                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent,
+                                                shape = RoundedCornerShape(RadiusMD)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = categoryName,
+                                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                        ),
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    if (isSelected) {
+                                                        Icon(
+                                                            imageVector = Icons.Rounded.Check,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
+                            }
+                        }
+
+                        // Total sum card for selected expense category
+                        val selectedCategoryTotal = remember(displayedTransactions) {
+                            displayedTransactions.sumOf { it.amount }
+                        }
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(RadiusSM),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isDark) Color(0xFF3F161C) else Color(0xFFFFECEE)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "مجموع هزینه‌های «$selectedExpenseCategory»:",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
+                                    color = ExpenseRoseLight
+                                )
+                                Text(
+                                    text = MoneyFormatter.formatToman(selectedCategoryTotal),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
+                                    color = ExpenseRoseLight
+                                )
+                            }
                         }
                     }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.08f)
-                )
-            )
 
-            // 2. Filter Chips Row (Type: همه، هزینه، درآمد، انتقال)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // All Filter
-                FilterChipItem(
-                    title = "همه انواع",
-                    isSelected = selectedTypeFilter == null,
-                    onClick = { selectedTypeFilter = null }
-                )
-
-                TransactionType.entries.forEach { type ->
-                    FilterChipItem(
-                        title = type.title,
-                        isSelected = selectedTypeFilter == type,
-                        onClick = { selectedTypeFilter = if (selectedTypeFilter == type) null else type }
-                    )
-                }
-
-                // Separator / Category Filters
-                categories.take(6).forEach { cat ->
-                    val isCatSelected = selectedCategoryFilter == cat.id
-                    FilterChipItem(
-                        title = "${cat.iconEmoji} ${cat.title}",
-                        isSelected = isCatSelected,
-                        onClick = { selectedCategoryFilter = if (isCatSelected) null else cat.id }
-                    )
-                }
-            }
-
-            // 3. Transactions Count & Active Sort Label
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${filteredTransactions.size} تراکنش یافت شد",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Text(
-                    text = "مرتب‌سازی: ${selectedSortOption.title}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            // 4. Lazy List of Transactions
-            if (filteredTransactions.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(text = "🔎", fontSize = 36.sp)
-                        Text(
-                            text = "تراکنشی با این مشخصات پیدا نشد",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
+                    2 -> {
+                        // ================= TAB 2: درآمدها =================
+                        // Search Box for Incomes
+                        OutlinedTextField(
+                            value = incomeSearchQuery,
+                            onValueChange = { incomeSearchQuery = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("جستجو در درآمدها (عنوان، حساب، توضیحات)...", style = MaterialTheme.typography.bodySmall) },
+                            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            trailingIcon = {
+                                if (incomeSearchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { incomeSearchQuery = "" }) {
+                                        Icon(Icons.Rounded.Clear, contentDescription = "پاک کردن", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
                         )
-                        Text(
-                            text = "فیلترها یا عبارت جستجو را تغییر دهید",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+
+                        val totalFilteredIncome = remember(displayedTransactions) {
+                            displayedTransactions.sumOf { it.amount }
+                        }
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(RadiusSM),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isDark) Color(0xFF0F3A22) else Color(0xFFE6F9EE)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "مجموع درآمدهای یافت‌شده:",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
+                                    color = EmeraldPrimaryLight
+                                )
+                                Text(
+                                    text = MoneyFormatter.formatToman(totalFilteredIncome),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
+                                    color = EmeraldPrimaryLight
+                                )
+                            }
+                        }
+                    }
+
+                    3 -> {
+                        // ================= TAB 3: انتقال وجه =================
+                        // Search Box for Transfers
+                        OutlinedTextField(
+                            value = transferSearchQuery,
+                            onValueChange = { transferSearchQuery = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("جستجو در انتقال وجه (حساب مبدأ/مقصد)...", style = MaterialTheme.typography.bodySmall) },
+                            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            trailingIcon = {
+                                if (transferSearchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { transferSearchQuery = "" }) {
+                                        Icon(Icons.Rounded.Clear, contentDescription = "پاک کردن", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
                         )
+
+                        val totalFilteredTransfer = remember(displayedTransactions) {
+                            displayedTransactions.sumOf { it.amount }
+                        }
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(RadiusSM),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isDark) Color(0xFF1E1B4B) else Color(0xFFEEF2FF)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "مجموع انتقال وجه‌ها:",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
+                                    color = InfoIndigoLight
+                                )
+                                Text(
+                                    text = MoneyFormatter.formatToman(totalFilteredTransfer),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
+                                    color = InfoIndigoLight
+                                )
+                            }
+                        }
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+
+                // Header info row: count + active sort
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items(filteredTransactions, key = { it.id }) { tx ->
-                        TransactionCard(
-                            transaction = tx,
-                            onClick = { onTransactionClick(tx) },
-                            onDuplicate = { onDuplicateTransaction(tx.id) },
-                            onDelete = { transactionToDelete = tx }
-                        )
+                    Text(
+                        text = "${displayedTransactions.size} تراکنش یافت شد",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Text(
+                        text = "مرتب‌سازی: ${selectedSortOption.title}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                // Lazy List of Transactions
+                if (displayedTransactions.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(text = "🔎", fontSize = 36.sp)
+                            Text(
+                                text = "تراکنشی یافت نشد",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "فیلترها یا عبارت جستجو را تغییر دهید",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        items(displayedTransactions, key = { it.id }) { tx ->
+                            TransactionCard(
+                                transaction = tx,
+                                onClick = { onTransactionClick(tx) },
+                                onDuplicate = { onDuplicateTransaction(tx.id) },
+                                onDelete = { transactionToDelete = tx }
+                            )
+                        }
                     }
                 }
             }
@@ -354,33 +833,6 @@ fun TransactionsScreen(
                     Text("انصراف")
                 }
             }
-        )
-    }
-}
-
-@Composable
-private fun FilterChipItem(
-    title: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.primary else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
-        border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent),
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-    ) {
-        Text(
-            text = title,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                fontSize = 11.sp
-            ),
-            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
         )
     }
 }

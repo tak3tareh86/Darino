@@ -21,6 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.PersianAmountInputField
+import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import java.text.DecimalFormat
 
@@ -142,29 +144,14 @@ fun EditIncomeBottomSheet(
                     )
                 }
 
-                OutlinedTextField(
+                PersianAmountInputField(
                     value = rawIncomeText,
-                    onValueChange = { input ->
-                        val digits = IranianPhoneUtils.convertDigitsToEnglish(input).filter { it.isDigit() }
-                        if (digits.length <= 12) {
-                            rawIncomeText = digits
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("input_monthly_income"),
-                    placeholder = { Text("مثال: ۳۰,۰۰۰,۰۰۰ تومان") },
-                    trailingIcon = {
-                        Text(
-                            text = "تومان",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 12.dp)
-                        )
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
+                    onValueChange = { rawIncomeText = it },
+                    label = null,
+                    unitLabel = "تومان",
+                    placeholder = "مثال: ۳۰,۰۰۰,۰۰۰ تومان",
+                    showWordsPreview = false,
+                    testTag = "input_monthly_income"
                 )
 
                 // Quick presets for Income
@@ -229,37 +216,22 @@ fun EditIncomeBottomSheet(
                     )
                 }
 
-                OutlinedTextField(
+                PersianAmountInputField(
                     value = rawFixedText,
-                    onValueChange = { input ->
-                        val digits = IranianPhoneUtils.convertDigitsToEnglish(input).filter { it.isDigit() }
-                        if (digits.length <= 12) {
-                            rawFixedText = digits
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("input_fixed_expenses"),
-                    placeholder = { Text("مثال: ۴,۰۰۰,۰۰۰ تومان") },
-                    trailingIcon = {
-                        Text(
-                            text = "تومان",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 12.dp)
-                        )
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
+                    onValueChange = { rawFixedText = it },
+                    label = null,
+                    unitLabel = "تومان",
+                    placeholder = "مثال: ۴,۰۰۰,۰۰۰ تومان",
+                    showWordsPreview = false,
+                    testTag = "input_fixed_expenses"
                 )
             }
 
             // Save Action Button
             Button(
                 onClick = {
-                    val incomeVal = rawIncomeText.toLongOrNull() ?: 30_000_000L
-                    val fixedVal = rawFixedText.toLongOrNull() ?: 4_000_000L
+                    val incomeVal = IranianAmountUtils.parseAmountToLong(rawIncomeText).let { if (it > 0L) it else 30_000_000L }
+                    val fixedVal = IranianAmountUtils.parseAmountToLong(rawFixedText).let { if (it > 0L) it else 4_000_000L }
                     onSave(incomeVal, fixedVal)
                 },
                 modifier = Modifier
