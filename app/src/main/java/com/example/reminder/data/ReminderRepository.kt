@@ -3,6 +3,7 @@ package com.example.reminder.data
 import android.content.Context
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
+import com.example.data.security.SessionState
 import com.example.reminder.domain.ReminderManager
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.CoroutineScope
@@ -40,6 +41,12 @@ interface ReminderRepository {
     fun getDeliveryLogs(reminderId: String): Flow<List<ReminderDeliveryLogEntity>>
     fun getAllDeliveryLogs(): Flow<List<ReminderDeliveryLogEntity>>
     suspend fun insertDeliveryLog(log: ReminderDeliveryLogEntity)
+}
+
+private fun SessionState.userIdOrNull(): String? = when (this) {
+    is SessionState.Authenticated -> user.id
+    is SessionState.PhoneVerificationRequired -> user.id
+    else -> null
 }
 
 class LocalReminderRepository(context: Context) : ReminderRepository {
