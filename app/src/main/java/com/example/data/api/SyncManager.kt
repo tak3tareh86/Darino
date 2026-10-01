@@ -43,12 +43,13 @@ class SyncManager(
         }
 
         try {
-            Log.i(TAG, "Starting full two-way synchronization...")
+            Log.i(TAG, "Starting authenticated synchronization...")
+            val txStatus = syncTransactions()
             val remStatus = syncReminders()
             val notifStatus = syncNotifications()
             syncPhoneStatus()
 
-            if (remStatus == SyncStatus.SUCCESS || notifStatus == SyncStatus.SUCCESS) {
+            if (txStatus == SyncStatus.SUCCESS || remStatus == SyncStatus.SUCCESS || notifStatus == SyncStatus.SUCCESS) {
                 SyncStatus.SUCCESS
             } else {
                 remStatus
@@ -59,6 +60,44 @@ class SyncManager(
         }
     }
 
+    suspend fun syncTransactions(): SyncStatus = withContext(Dispatchers.IO) {
+        val userId = SessionManager.userId ?: return@withContext SyncStatus.IDLE
+        try {
+            val dao = database.transactionDao()
+            val pending = dao.getPendingSyncTransactions(userId)
+            for (local in pending) {
+                val clientId = local.stringId.ifBlank { "android-local-" + local.id }
+                val request = NetworkTransactionRequest(clientId, local.amount, local.type, local.category, local.accountName, local.description, java.time.Instant.ofEpochMilli(local.timestamp).toString(), local.timeFormatted, local.title, local.subCategory, local.datePersian, local.paymentMethod, local.sourceType, local.sourceId, local.isRecurring)
+                if (local.syncState == "PENDING_DELETE") {
+                    val remote = ApiClient.transactionApi.listTransactions().body()?.data?.firstOrNull { it.clientId == clientId }
+                    if (remote != null) ApiClient.transactionApi.deleteTransaction(remote.id)
+                    dao.markTransactionSynced(userId, clientId, local.updatedAt, local.deletedAt)
+                } else {
+                    val remote = ApiClient.transactionApi.listTransactions().body()?.data?.firstOrNull { it.clientId == clientId }
+                    val response = if (remote == null) ApiClient.transactionApi.upsertTransaction(request) else ApiClient.transactionApi.updateTransaction(remote.id, request)
+                    if (response.isSuccessful && response.body()?.success == true) {
+                        val server = response.body()?.data
+                        val serverUpdated = server?.updatedAt?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() } ?: local.updatedAt
+                        dao.markTransactionSynced(userId, clientId, serverUpdated, null)
+                    }
+                }
+            }
+            val remoteResponse = ApiClient.transactionApi.listTransactions()
+            if (!remoteResponse.isSuccessful || remoteResponse.body()?.success != true) return@withContext SyncStatus.OFFLINE
+            for (remote in remoteResponse.body()?.data.orEmpty()) {
+                val timestamp = runCatching { java.time.Instant.parse(remote.occurredAt).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
+                val updatedAt = remote.updatedAt?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() } ?: timestamp
+                val existing = dao.getTransactionIncludingDeleted(userId, remote.clientId)
+                if (existing == null || existing.syncState == "SYNCED" || existing.syncState.isBlank()) {
+                    dao.insertTransaction(TransactionEntity(existing?.id ?: 0, userId, remote.amount, remote.type, remote.category, remote.accountName, remote.description, timestamp, remote.timeFormatted, remote.clientId, remote.title, remote.subCategory, remote.datePersian, remote.paymentMethod, remote.sourceType, remote.sourceId, remote.isRecurring, "SYNCED", updatedAt, null))
+                }
+            }
+            SyncStatus.SUCCESS
+        } catch (e: Exception) {
+            Log.e(TAG, "Transaction sync failed", e)
+            SyncStatus.ERROR
+        }
+    }
     suspend fun syncReminders(): SyncStatus = withContext(Dispatchers.IO) {
         if (SessionManager.accessToken == null) return@withContext SyncStatus.IDLE
 
