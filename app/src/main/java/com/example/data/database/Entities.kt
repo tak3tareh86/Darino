@@ -95,6 +95,7 @@ data class VehicleServiceEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val serverId: String? = null,
     val syncState: String = "SYNCED",
+    val userId: String = "",
     val vehicleId: Int,
     val type: String, // "INSURANCE", "INSPECTION", "OIL", "SERVICE", "TIRES", "BATTERY", "MAINTENANCE", "TAX", "CUSTOM"
     val title: String,
@@ -109,6 +110,7 @@ data class VehicleServiceEntity(
 @Entity(tableName = "vehicle_expenses")
 data class VehicleExpenseRoomEntity(
     @PrimaryKey val id: String,
+    val userId: String = "",
     val vehicleId: String,
     val title: String,
     val category: String,
@@ -121,6 +123,7 @@ data class VehicleExpenseRoomEntity(
 @Entity(tableName = "vehicle_insurances")
 data class VehicleInsuranceRoomEntity(
     @PrimaryKey val id: String,
+    val userId: String = "",
     val vehicleId: String,
     val company: String,
     val type: String,
@@ -134,6 +137,7 @@ data class VehicleInsuranceRoomEntity(
 @Entity(tableName = "vehicle_inspections")
 data class VehicleInspectionRoomEntity(
     @PrimaryKey val id: String,
+    val userId: String = "",
     val vehicleId: String,
     val lastInspectionDate: String,
     val expiryDate: String,
