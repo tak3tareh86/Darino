@@ -33,7 +33,7 @@ interface TransactionDao {
     fun getAllTransactions(userId: String): Flow<List<TransactionEntity>>
 
     @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY timestamp DESC")
-    suspend fun getAllTransactionsList(userId: String)
+    suspend fun getAllTransactionsList(userId: String): List<TransactionEntity>
 
     @Query("DELETE FROM transactions WHERE userId = :userId")
     suspend fun clearAllTransactions(userId: String)
