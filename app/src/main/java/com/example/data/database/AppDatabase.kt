@@ -29,7 +29,7 @@ import androidx.room.RoomDatabase
         VehicleInspectionRoomEntity::class,
         VehicleStoreEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -60,6 +60,16 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE transactions ADD COLUMN sourceType TEXT NOT NULL DEFAULT 'MANUAL'")
                 db.execSQL("ALTER TABLE transactions ADD COLUMN sourceId TEXT DEFAULT NULL")
                 db.execSQL("ALTER TABLE transactions ADD COLUMN isRecurring INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_13_14 = object : androidx.room.migration.Migration(13, 14) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE notification_logs ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE sms_logs ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                // Legacy notification/SMS rows were not owner-bound. Clear them rather than risk cross-account exposure.
+                db.execSQL("DELETE FROM notification_logs")
+                db.execSQL("DELETE FROM sms_logs")
             }
         }
 
@@ -132,7 +142,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "finance_app_database"
                 )
-                    .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                     .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                     .build()
                 INSTANCE = instance
                 instance
