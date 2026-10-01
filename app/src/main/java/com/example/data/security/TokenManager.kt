@@ -84,8 +84,8 @@ class TokenManager(private val context: Context) {
             val cipherBase64 = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
             "$ivBase64:$cipherBase64"
         } catch (e: Exception) {
-            Log.e(TAG, "Encryption error, fallback to obfuscation", e)
-            Base64.encodeToString(plainText.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+            Log.e(TAG, "Cryptographic failure: unable to encrypt with Android KeyStore AES-GCM", e)
+            null
         }
     }
 
@@ -103,12 +103,11 @@ class TokenManager(private val context: Context) {
                 val decryptedBytes = cipher.doFinal(cipherBytes)
                 String(decryptedBytes, Charsets.UTF_8)
             } else {
-                // Fallback decode
-                val decoded = Base64.decode(encryptedCombined, Base64.NO_WRAP)
-                String(decoded, Charsets.UTF_8)
+                Log.w(TAG, "Rejecting insecure unencrypted or legacy token representation")
+                null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Decryption error", e)
+            Log.e(TAG, "Decryption error: authentication tag mismatch or corrupted ciphertext", e)
             null
         }
     }

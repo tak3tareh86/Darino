@@ -42,7 +42,7 @@ class SecurityConfig(
                 auth
                     // Public Endpoints
                     .requestMatchers("/api/v1/auth/**").permitAll()
-                    .requestMatchers("/api/v1/phone/**").permitAll()
+                    .requestMatchers("/api/v1/phone/send-otp", "/api/v1/phone/verify-otp").permitAll()
                     .requestMatchers("/api/v1/webhooks/**").permitAll()
                     .requestMatchers("/actuator/**", "/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

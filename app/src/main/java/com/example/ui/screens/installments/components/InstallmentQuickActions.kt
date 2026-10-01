@@ -9,9 +9,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.FilterList
-import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Assessment
+import androidx.compose.material.icons.rounded.Calculate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,8 +28,8 @@ import com.example.ui.theme.RadiusMD
 @Composable
 fun InstallmentQuickActions(
     onAddInstallmentClick: () -> Unit,
-    onViewScheduleClick: () -> Unit,
-    onSearchFilterClick: () -> Unit,
+    onLoanCalculatorClick: () -> Unit,
+    onFinancialHealthClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -47,20 +46,20 @@ fun InstallmentQuickActions(
         )
 
         QuickActionButton(
-            title = "برنامه پرداخت",
-            icon = Icons.Rounded.CalendarMonth,
+            title = "محاسبه‌گر اقساط",
+            icon = Icons.Rounded.Calculate,
             accentColor = Color(0xFF0EA5E9),
-            onClick = onViewScheduleClick,
-            testTag = "quick_action_view_schedule",
+            onClick = onLoanCalculatorClick,
+            testTag = "quick_action_loan_calculator",
             modifier = Modifier.weight(1f)
         )
 
         QuickActionButton(
-            title = "جستجو و فیلتر",
-            icon = Icons.Rounded.FilterList,
+            title = "وضعیت مالی من",
+            icon = Icons.Rounded.Assessment,
             accentColor = Color(0xFF8B5CF6),
-            onClick = onSearchFilterClick,
-            testTag = "quick_action_search_filter",
+            onClick = onFinancialHealthClick,
+            testTag = "quick_action_financial_health",
             modifier = Modifier.weight(1f)
         )
     }
@@ -80,7 +79,7 @@ private fun QuickActionButton(
         shape = RoundedCornerShape(RadiusMD),
         backgroundColor = MaterialTheme.colorScheme.surface,
         elevation = 2.dp,
-        contentPadding = PaddingValues(vertical = 10.dp, horizontal = 6.dp),
+        contentPadding = PaddingValues(vertical = 10.dp, horizontal = 4.dp),
         testTag = testTag,
         onClick = onClick
     ) {
@@ -93,11 +92,11 @@ private fun QuickActionButton(
                 imageVector = icon,
                 contentDescription = null,
                 tint = accentColor,
-                modifier = Modifier.padding(end = 6.dp)
+                modifier = Modifier.padding(end = 4.dp).size(16.dp)
             )
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1
             )

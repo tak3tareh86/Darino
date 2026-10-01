@@ -260,4 +260,44 @@ object PersianCalendarHelper {
             "$text پیش (گذشته)"
         }
     }
+
+    /**
+     * Calculates the next Jalali date after adding a given number of months.
+     * Safely wraps years, handles variable month days, and leap years.
+     */
+    fun addMonthsToPersianDate(persianDate: String, monthsToAdd: Int): String {
+        val cleanDate = IranianPhoneUtils.convertDigitsToEnglish(persianDate)
+        val parts = cleanDate.split("/")
+        if (parts.size != 3) return persianDate
+
+        var y = parts[0].toIntOrNull() ?: 1404
+        var m = parts[1].toIntOrNull() ?: 1
+        var d = parts[2].toIntOrNull() ?: 1
+
+        m += monthsToAdd
+        while (m > 12) {
+            y += 1
+            m -= 12
+        }
+        while (m < 1) {
+            y -= 1
+            m += 12
+        }
+
+        val maxDays = when {
+            m in 1..6 -> 31
+            m in 7..11 -> 30
+            m == 12 -> if (isLeapJalaliYear(y)) 30 else 29
+            else -> 30
+        }
+        if (d > maxDays) {
+            d = maxDays
+        }
+
+        val yStr = y.toString()
+        val mStr = m.toString().padStart(2, '0')
+        val dStr = d.toString().padStart(2, '0')
+
+        return IranianPhoneUtils.convertDigitsToPersian("$yStr/$mStr/$dStr")
+    }
 }

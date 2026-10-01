@@ -62,6 +62,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun DataManagementScreen(
     onBackClick: () -> Unit,
+    prefsRepo: com.example.data.preferences.AppPreferencesRepository,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -255,16 +256,15 @@ fun DataManagementScreen(
             scope.launch {
                 when (action) {
                     "clean_slate" -> {
-                        financeRepo.clearAllTransactionsData()
-                        vehicleRepo.clearAllVehiclesData()
-                        InstallmentMockDataSource.clearAllInstallments()
-                        backupRepo.deleteAllData()
-                        Toast.makeText(context, "برنامه با موفقیت خام‌سازی شد و داده‌های تستی پاک شدند.", Toast.LENGTH_LONG).show()
+                        db.clearAllTables()
+                        prefsRepo.setCleanSlatePerformed(true)
+                        Toast.makeText(context, "برنامه با موفقیت خام‌سازی شد و تمامی داده‌ها پاک شدند.", Toast.LENGTH_LONG).show()
                     }
                     "restore_samples" -> {
+                        prefsRepo.setCleanSlatePerformed(false)
                         financeRepo.restoreSampleTransactions()
                         vehicleRepo.restoreSampleVehicles()
-                        InstallmentMockDataSource.restoreSampleInstallments()
+                        InstallmentMockDataSource.restoreSampleInstallments(context)
                         Toast.makeText(context, "داده‌های تستی و نمونه با موفقیت بازیابی شدند.", Toast.LENGTH_SHORT).show()
                     }
                     "clear_transactions" -> {
@@ -279,14 +279,14 @@ fun DataManagementScreen(
                         Toast.makeText(context, "خودروها و سوابق سرویس با موفقیت پاک شدند.", Toast.LENGTH_SHORT).show()
                     }
                     "clear_installments" -> {
-                        InstallmentMockDataSource.clearAllInstallments()
+                        InstallmentMockDataSource.clearAllInstallments(context)
                         db.installmentDao().clearAllInstallments()
                         Toast.makeText(context, "اقساط و بدهی‌ها با موفقیت پاک شدند.", Toast.LENGTH_SHORT).show()
                     }
                     "reset_all" -> {
                         financeRepo.clearAllTransactionsData()
                         vehicleRepo.clearAllVehiclesData()
-                        InstallmentMockDataSource.clearAllInstallments()
+                        InstallmentMockDataSource.clearAllInstallments(context)
                         backupRepo.deleteAllData()
                         Toast.makeText(context, "برنامه به حالت صفر کارخانه بازنشانی گردید.", Toast.LENGTH_LONG).show()
                     }

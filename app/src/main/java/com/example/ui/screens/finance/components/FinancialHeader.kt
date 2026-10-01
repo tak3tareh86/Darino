@@ -81,27 +81,27 @@ fun FinancialHeader(
             // Centered Title & Subtitle
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(0.dp)
+                verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
                 Text(
                     text = "مالی",
                     style = MaterialTheme.typography.displayMedium.copy(
-                        fontSize = 12.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     ),
                     color = Color.White
                 )
                 Text(
                     text = "مدیریت درآمد و هزینه",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.sp),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                     color = Color(0xFFE2E8F0).copy(alpha = 0.8f)
                 )
             }
 
-            // Left Aligned: Filter Button
+            // Top-Left Aligned: Filter Button
             Surface(
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
+                    .align(Alignment.TopStart)
                     .testTag("finance_filter_button")
                     .shadow(
                         elevation = 2.dp,
@@ -116,20 +116,20 @@ fun FinancialHeader(
                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.FilterList,
                         contentDescription = "فیلتر بازه زمانی",
                         tint = Color.White,
-                        modifier = Modifier.size(11.dp)
+                        modifier = Modifier.size(16.dp)
                     )
 
                     Text(
                         text = currentFilterText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                         color = Color.White
                     )
                 }

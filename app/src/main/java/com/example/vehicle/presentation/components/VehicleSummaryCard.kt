@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.vehicle.data.VehicleEntity
+import com.example.ui.components.IranianLicensePlate
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
@@ -113,7 +114,7 @@ fun VehicleSummaryCard(
             // Persian License Plate Graphic Representation
             IranianLicensePlate(
                 plate = vehicle.plate,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.align(Alignment.CenterHorizontally)
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
@@ -189,78 +190,6 @@ fun VehicleSummaryCard(
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-/**
- * Realistic Iranian License Plate Component
- */
-@Composable
-fun IranianLicensePlate(
-    plate: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .height(42.dp),
-        shape = RoundedCornerShape(6.dp),
-        color = Color(0xFFF9FAFB),
-        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF111827))
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Blue Flag & I.R. IRAN Strip
-            Box(
-                modifier = Modifier
-                    .width(32.dp)
-                    .fillMaxHeight()
-                    .background(Color(0xFF1D4ED8)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "I.R.",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = Color.White
-                    )
-                    Text(
-                        text = "IRAN",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 7.sp,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = Color.White
-                    )
-                }
-            }
-
-            // Plate Text Display
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .padding(horizontal = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = IranianPhoneUtils.convertDigitsToPersian(plate),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 14.sp,
-                        letterSpacing = 1.sp
-                    ),
-                    color = Color(0xFF111827)
-                )
             }
         }
     }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,9 +24,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -69,6 +72,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.ui.components.Layered3DCard
+import com.example.ui.components.SharedPersianDatePickerDialog
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.installments.model.InstallmentCategory
 import com.example.ui.screens.installments.model.InstallmentItem
@@ -79,6 +83,7 @@ import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.util.IranianAmountUtils
+import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 
@@ -298,6 +303,27 @@ fun OverdueInstallmentsScreen(
     }
 }
 
+private fun calculateAccurateOverdueText(nextPaymentDate: String): String {
+    try {
+        val cleanDate = IranianPhoneUtils.convertDigitsToEnglish(nextPaymentDate)
+        val parts = cleanDate.split("/")
+        if (parts.size == 3) {
+            val y = parts[0].toIntOrNull() ?: 1404
+            val m = parts[1].toIntOrNull() ?: 1
+            val d = parts[2].toIntOrNull() ?: 1
+            val dueMillis = PersianCalendarHelper.jalaliToEpochMillis(y, m, d, 0, 0)
+            val nowMillis = System.currentTimeMillis()
+            val diffDays = (nowMillis - dueMillis) / (1000L * 60 * 60 * 24)
+            if (diffDays > 0) {
+                return "${IranianPhoneUtils.convertDigitsToPersian(diffDays.toString())} روز گذشته"
+            } else if (diffDays == 0L) {
+                return "امروز سررسید شده"
+            }
+        }
+    } catch (_: Exception) {}
+    return "معوق"
+}
+
 @Composable
 private fun OverdueInstallmentCard(
     item: InstallmentItem,
@@ -305,6 +331,9 @@ private fun OverdueInstallmentCard(
     onPaidClick: () -> Unit
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+    val accurateOverdueText = remember(item.nextPaymentDate) {
+        calculateAccurateOverdueText(item.nextPaymentDate)
+    }
 
     Layered3DCard(
         modifier = Modifier.fillMaxWidth(),
@@ -374,7 +403,7 @@ private fun OverdueInstallmentCard(
                             modifier = Modifier.size(11.dp)
                         )
                         Text(
-                            text = item.nextDueDaysText,
+                            text = accurateOverdueText,
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Bold
@@ -481,7 +510,9 @@ private fun ManualPaymentDateDialog(
     }
     var paymentDate by remember { mutableStateOf(todayPersian) }
     var penaltyInput by remember { mutableStateOf("") }
+    var showCalendarDialog by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+    val scrollState = rememberScrollState()
 
     val baseMonthlyAmount = remember(item) {
         item.totalAmount / item.totalInstallments.coerceAtLeast(1)
@@ -502,18 +533,51 @@ private fun ManualPaymentDateDialog(
     val totalPayableToman = baseMonthlyAmount + penaltyInToman
     val totalPayableFormatted = MoneyFormatter.formatToman(totalPayableToman)
 
+    val parsedDateParts = remember(paymentDate) {
+        try {
+            val clean = IranianPhoneUtils.convertDigitsToEnglish(paymentDate)
+            val parts = clean.split("/")
+            if (parts.size == 3) {
+                Triple(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
+            } else {
+                val now = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+                Triple(now.year, now.month, now.day)
+            }
+        } catch (_: Exception) {
+            val now = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+            Triple(now.year, now.month, now.day)
+        }
+    }
+
+    if (showCalendarDialog) {
+        SharedPersianDatePickerDialog(
+            initialYear = parsedDateParts.first,
+            initialMonth = parsedDateParts.second,
+            initialDay = parsedDateParts.third,
+            title = "انتخاب تاریخ پرداخت",
+            onDismiss = { showCalendarDialog = false },
+            onConfirm = { y, m, d ->
+                paymentDate = PersianCalendarHelper.PersianDateTime(y, m, d).toFormattedDate()
+                showCalendarDialog = false
+            }
+        )
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Card(
                 modifier = Modifier
                     .widthIn(max = 340.dp)
-                    .padding(horizontal = 18.dp)
                     .testTag("manual_payment_date_dialog"),
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
@@ -524,6 +588,7 @@ private fun ManualPaymentDateDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .verticalScroll(scrollState)
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -592,7 +657,7 @@ private fun ManualPaymentDateDialog(
                                 )
                             }
                             Text(
-                                text = "سررسید اصلی: ${item.nextPaymentDate} (${item.nextDueDaysText})",
+                                text = "سررسید اصلی: ${item.nextPaymentDate} (${calculateAccurateOverdueText(item.nextPaymentDate)})",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontSize = 10.sp,
                                     color = ExpenseRoseLight
@@ -693,7 +758,7 @@ private fun ManualPaymentDateDialog(
                     // 3. Manual Payment Date Input
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
-                            text = "تاریخ پرداخت دستی:",
+                            text = "تاریخ پرداخت:",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
@@ -711,12 +776,17 @@ private fun ManualPaymentDateDialog(
                             shape = RoundedCornerShape(RadiusSM),
                             textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp),
                             trailingIcon = {
-                                Icon(
-                                    imageVector = Icons.Rounded.CalendarMonth,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                IconButton(
+                                    onClick = { showCalendarDialog = true },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CalendarMonth,
+                                        contentDescription = "انتخاب از تقویم",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         )
 

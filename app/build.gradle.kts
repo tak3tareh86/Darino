@@ -20,6 +20,10 @@ android {
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    buildConfigField("String", "SMS_API_KEY", "\"\"")
+    buildConfigField("String", "SMS_API_SECRET", "\"\"")
+    buildConfigField("String", "SMS_PASSWORD", "\"\"")
+    buildConfigField("String", "SMS_USERNAME", "\"\"")
   }
 
   signingConfigs {

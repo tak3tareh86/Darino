@@ -91,7 +91,7 @@ data class SmsLog(
     val templateId: String,
 
     @Column(nullable = false, length = 50)
-    val provider: String,
+    var provider: String,
 
     @Column(name = "provider_message_id", length = 100)
     var providerMessageId: String? = null,

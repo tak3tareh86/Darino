@@ -37,6 +37,7 @@ fun PersianAmountInputField(
     placeholder: String = "مثال: ۴۵۰,۰۰۰",
     unitLabel: String = MoneyFormatter.getUnitLabel(),
     showWordsPreview: Boolean = true,
+    useOuterHeader: Boolean = false,
     isError: Boolean = false,
     errorMessage: String? = null,
     leadingIcon: (@Composable () -> Unit)? = null,
@@ -46,7 +47,7 @@ fun PersianAmountInputField(
     testTag: String = "amount_input_field",
     colors: TextFieldColors = OutlinedTextFieldDefaults.colors()
 ) {
-    val effectiveLabel = label ?: "مبلغ ($unitLabel)"
+    val effectiveLabel = label ?: if (unitLabel.isNotBlank()) "مبلغ ($unitLabel)" else "مبلغ"
     val cleanDigits = remember(value) { IranianAmountUtils.cleanAmountDigits(value) }
     val displayFormatted = remember(value) { IranianAmountUtils.formatWithCommas(value, inPersian = true) }
     val parsedAmount = remember(cleanDigits) { cleanDigits.toLongOrNull() ?: 0L }
@@ -55,7 +56,7 @@ fun PersianAmountInputField(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        if (effectiveLabel.isNotBlank()) {
+        if (useOuterHeader && effectiveLabel.isNotBlank()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -87,6 +88,9 @@ fun PersianAmountInputField(
                 onValueChange(newFormatted)
                 onRawAmountChange?.invoke(newClean, newClean.toLongOrNull() ?: 0L)
             },
+            label = if (!useOuterHeader && effectiveLabel.isNotBlank()) {
+                { Text(text = effectiveLabel) }
+            } else null,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(testTag),
@@ -107,7 +111,7 @@ fun PersianAmountInputField(
                             fontWeight = FontWeight.Bold
                         ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(end = 12.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp)
                     )
                 }
             } else null,

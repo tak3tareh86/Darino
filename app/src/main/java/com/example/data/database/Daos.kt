@@ -41,8 +41,20 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: TransactionEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTransactions(transactions: List<TransactionEntity>)
+
+    @Update
+    suspend fun updateTransaction(transaction: TransactionEntity)
+
     @Delete
     suspend fun deleteTransaction(transaction: TransactionEntity)
+
+    @Query("DELETE FROM transactions WHERE stringId = :stringId OR CAST(id AS TEXT) = :stringId")
+    suspend fun deleteByStringId(stringId: String)
+
+    @Query("SELECT * FROM transactions WHERE stringId = :stringId OR CAST(id AS TEXT) = :stringId LIMIT 1")
+    suspend fun getTransactionByStringId(stringId: String): TransactionEntity?
 }
 
 @Dao
@@ -79,8 +91,17 @@ interface InstallmentDao {
     @Query("SELECT * FROM installment_payments WHERE installmentId = :installmentId ORDER BY dueDate ASC")
     fun getPaymentsForInstallment(installmentId: Int): Flow<List<InstallmentPaymentEntity>>
 
+    @Query("SELECT * FROM installment_payments")
+    suspend fun getAllPaymentsList(): List<InstallmentPaymentEntity>
+
+    @Query("DELETE FROM installment_payments")
+    suspend fun clearAllPayments()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPayment(payment: InstallmentPaymentEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPayments(payments: List<InstallmentPaymentEntity>)
 }
 
 @Dao
@@ -94,11 +115,50 @@ interface VehicleDao {
     @Query("SELECT * FROM vehicle_services")
     suspend fun getAllServicesList(): List<VehicleServiceEntity>
 
+    @Query("SELECT * FROM vehicle_expenses")
+    suspend fun getAllExpensesList(): List<VehicleExpenseRoomEntity>
+
+    @Query("SELECT * FROM vehicle_insurances")
+    suspend fun getAllInsurancesList(): List<VehicleInsuranceRoomEntity>
+
+    @Query("SELECT * FROM vehicle_inspections")
+    suspend fun getAllInspectionsList(): List<VehicleInspectionRoomEntity>
+
     @Query("DELETE FROM vehicles")
     suspend fun clearAllVehicles()
 
     @Query("DELETE FROM vehicle_services")
     suspend fun clearAllServices()
+
+    @Query("DELETE FROM vehicle_expenses")
+    suspend fun clearAllExpenses()
+
+    @Query("DELETE FROM vehicle_insurances")
+    suspend fun clearAllInsurances()
+
+    @Query("DELETE FROM vehicle_inspections")
+    suspend fun clearAllInspections()
+
+    @Query("DELETE FROM vehicle_expenses WHERE id = :id")
+    suspend fun deleteExpenseById(id: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExpenses(expenses: List<VehicleExpenseRoomEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExpense(expense: VehicleExpenseRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertInsurances(insurances: List<VehicleInsuranceRoomEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertInsurance(insurance: VehicleInsuranceRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertInspections(inspections: List<VehicleInspectionRoomEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertInspection(inspection: VehicleInspectionRoomEntity)
 
     @Query("SELECT * FROM vehicles WHERE id = :id AND deletedAt IS NULL LIMIT 1")
     suspend fun getVehicleById(id: Int): VehicleEntity?
@@ -124,6 +184,12 @@ interface VehicleDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertService(service: VehicleServiceEntity)
+
+    @Query("SELECT * FROM vehicle_store WHERE `key` = :key LIMIT 1")
+    suspend fun getVehicleStore(key: String = "vehicle_data"): VehicleStoreEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertVehicleStore(store: VehicleStoreEntity)
 }
 
 @Dao
@@ -246,3 +312,13 @@ interface SmsLogDao {
     @Query("UPDATE sms_logs SET status = :status, deliveredAt = :deliveredAt WHERE providerMessageId = :providerId")
     suspend fun updateStatusByProviderId(providerId: String, status: String, deliveredAt: Long?)
 }
+
+@Entity(tableName = "vehicle_store")
+data class VehicleStoreEntity(
+    @PrimaryKey val key: String = "vehicle_data",
+    val vehiclesJson: String = "",
+    val servicesJson: String = "",
+    val expensesJson: String = "",
+    val insurancesJson: String = "",
+    val inspectionsJson: String = ""
+)

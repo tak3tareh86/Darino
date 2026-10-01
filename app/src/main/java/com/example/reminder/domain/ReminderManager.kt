@@ -180,7 +180,8 @@ class ReminderManager(
         title: String,
         amount: Long,
         dueDatePersian: String,
-        dueTimePersian: String = "۰۹:۰۰"
+        dueTimePersian: String = "۰۹:۰۰",
+        selectedOffsets: List<PredefinedOffset>? = null
     ) = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(installmentId)
         val reminder = existing?.copy(
@@ -205,7 +206,7 @@ class ReminderManager(
             smsEnabled = false
         )
 
-        val offsets = listOf(
+        val offsets = selectedOffsets?.takeIf { it.isNotEmpty() } ?: listOf(
             PredefinedOffset.BEFORE_7_DAYS,
             PredefinedOffset.BEFORE_3_DAYS,
             PredefinedOffset.BEFORE_1_DAY,

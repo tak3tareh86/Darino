@@ -21,6 +21,10 @@ class VehicleViewModel(
     private val _uiState = MutableStateFlow(VehicleState(isLoading = true))
     val uiState: StateFlow<VehicleState> = _uiState.asStateFlow()
 
+    fun initRepository(context: android.content.Context) {
+        repository.initDatabase(context)
+    }
+
     init {
         observeData()
     }

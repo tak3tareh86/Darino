@@ -20,14 +20,17 @@ class LocalBackupRepository(private val context: Context) : BackupRepository {
     override suspend fun createBackup(): DarinoBackup = withContext(Dispatchers.IO) {
         val txs = db.transactionDao().getAllTransactionsList()
         val installments = db.installmentDao().getAllInstallmentsList()
-        val payments = emptyList<InstallmentPaymentEntity>() // or db queries if available
+        val payments = db.installmentDao().getAllPaymentsList()
         val vehicles = db.vehicleDao().getAllVehiclesList()
         val services = db.vehicleDao().getAllServicesList()
+        val expenses = db.vehicleDao().getAllExpensesList()
+        val insurances = db.vehicleDao().getAllInsurancesList()
+        val inspections = db.vehicleDao().getAllInspectionsList()
         val reminders = db.smartReminderDao().getAllRemindersList()
         val schedules = db.smartReminderDao().getAllSchedulesList()
         val events = db.financialEventDao().getAllEventsList()
 
-        val totalRecords = txs.size + installments.size + vehicles.size + services.size + reminders.size + events.size
+        val totalRecords = txs.size + installments.size + payments.size + vehicles.size + services.size + expenses.size + insurances.size + inspections.size + reminders.size + events.size
 
         val metadata = BackupMetadata(
             backupVersion = 1,
@@ -46,6 +49,9 @@ class LocalBackupRepository(private val context: Context) : BackupRepository {
             installmentPayments = payments,
             vehicles = vehicles,
             vehicleServices = services,
+            vehicleExpenses = expenses,
+            vehicleInsurances = insurances,
+            vehicleInspections = inspections,
             reminders = reminders,
             reminderSchedules = schedules,
             financialEvents = events
@@ -58,8 +64,12 @@ class LocalBackupRepository(private val context: Context) : BackupRepository {
                 // Clear existing tables
                 db.transactionDao().clearAllTransactions()
                 db.installmentDao().clearAllInstallments()
+                db.installmentDao().clearAllPayments()
                 db.vehicleDao().clearAllVehicles()
                 db.vehicleDao().clearAllServices()
+                db.vehicleDao().clearAllExpenses()
+                db.vehicleDao().clearAllInsurances()
+                db.vehicleDao().clearAllInspections()
                 db.smartReminderDao().clearAllReminders()
                 db.financialEventDao().clearAllEvents()
             }
@@ -75,11 +85,23 @@ class LocalBackupRepository(private val context: Context) : BackupRepository {
             for (inst in backup.installments) {
                 db.installmentDao().insertInstallment(inst)
             }
+            for (payment in backup.installmentPayments) {
+                db.installmentDao().insertPayment(payment)
+            }
             for (v in backup.vehicles) {
                 db.vehicleDao().insertVehicle(v)
             }
             for (s in backup.vehicleServices) {
                 db.vehicleDao().insertService(s)
+            }
+            if (backup.vehicleExpenses.isNotEmpty()) {
+                db.vehicleDao().insertExpenses(backup.vehicleExpenses)
+            }
+            if (backup.vehicleInsurances.isNotEmpty()) {
+                db.vehicleDao().insertInsurances(backup.vehicleInsurances)
+            }
+            if (backup.vehicleInspections.isNotEmpty()) {
+                db.vehicleDao().insertInspections(backup.vehicleInspections)
             }
             for (r in backup.reminders) {
                 db.smartReminderDao().insertReminder(r)
@@ -90,6 +112,14 @@ class LocalBackupRepository(private val context: Context) : BackupRepository {
             for (ev in backup.financialEvents) {
                 db.financialEventDao().insertEvent(ev)
             }
+        }
+
+        // Notify active repositories to reload state from newly restored database
+        try {
+            com.example.vehicle.data.VehicleRepository.instance.reloadFromDatabase(context)
+            com.example.ui.screens.installments.model.InstallmentMockDataSource.init(context)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -136,6 +166,9 @@ class LocalBackupRepository(private val context: Context) : BackupRepository {
             db.installmentDao().clearAllInstallments()
             db.vehicleDao().clearAllVehicles()
             db.vehicleDao().clearAllServices()
+            db.vehicleDao().clearAllExpenses()
+            db.vehicleDao().clearAllInsurances()
+            db.vehicleDao().clearAllInspections()
             db.smartReminderDao().clearAllReminders()
             db.financialEventDao().clearAllEvents()
         }

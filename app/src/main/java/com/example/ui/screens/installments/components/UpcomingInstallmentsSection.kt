@@ -1,159 +1,151 @@
 package com.example.ui.screens.installments.components
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material3.Icon
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.rounded.EventRepeat
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.components.Layered3DCard
-import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.installments.model.InstallmentItem
+import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.RadiusMD
 
 @Composable
 fun UpcomingInstallmentsSection(
     items: List<InstallmentItem>,
-    onItemClick: (InstallmentItem) -> Unit,
-    onSeeAllClick: () -> Unit,
+    onShowUpcomingClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
+    if (items.isEmpty()) return
 
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+    val accentColor = EmeraldPrimaryLight
+
+    val cardBgGradient = if (isDark) {
+        Brush.linearGradient(
+            colors = listOf(
+                Color(0xFF062318),
+                Color(0xFF041811)
+            )
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(
+                Color(0xFFECFDF5),
+                Color(0xFFD1FAE5)
+            )
+        )
+    }
+
+    val alertBorderColor = accentColor.copy(alpha = if (isDark) 0.4f else 0.3f)
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 3.dp,
+                shape = RoundedCornerShape(RadiusMD),
+                ambientColor = accentColor.copy(alpha = 0.25f),
+                spotColor = accentColor.copy(alpha = 0.15f)
+            ),
+        shape = RoundedCornerShape(RadiusMD),
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, alertBorderColor)
     ) {
-        Surface(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(RadiusMD))
-                .clickable { isExpanded = !isExpanded },
-            shape = RoundedCornerShape(RadiusMD),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                .background(cardBgGradient)
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .testTag("upcoming_installments_section")
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                        contentDescription = "تغییر وضعیت نمایش",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = "اقساط نزدیک (${items.size} مورد)",
-                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-
-                TextButton(
-                    onClick = onSeeAllClick,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                    modifier = Modifier.testTag("upcoming_installments_see_all")
-                ) {
-                    Text(
-                        text = "مشاهده همه",
-                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-
-        if (isExpanded) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items.take(3).forEach { item ->
-                    Layered3DCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(RadiusMD),
-                        backgroundColor = MaterialTheme.colorScheme.surface,
-                        elevation = 2.dp,
-                        contentPadding = PaddingValues(12.dp),
-                        testTag = "upcoming_installment_${item.id}",
-                        onClick = { onItemClick(item) }
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(accentColor.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Soft3DIcon(
-                                    imageRes = item.category.iconRes,
-                                    contentDescription = item.title,
-                                    size = 38.dp,
-                                    accentColor = item.category.accentColor,
-                                    containerShape = RoundedCornerShape(10.dp)
-                                )
+                        Icon(
+                            imageVector = Icons.Rounded.EventRepeat,
+                            contentDescription = null,
+                            tint = accentColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
 
-                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Text(
-                                        text = item.title,
-                                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = "${item.nextPaymentDate} • ${item.nextDueDaysText}",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "برنامه پرداخت اقساط",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.5.sp
+                            ),
+                            color = if (isDark) Color(0xFFA7F3D0) else Color(0xFF065F46)
+                        )
+                        Text(
+                            text = "تعداد: ${items.size} قسط فعال",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = if (isDark) Color(0xFF6EE7B7) else Color(0xFF047857)
+                        )
+                    }
+                }
 
-                            Column(
-                                horizontalAlignment = Alignment.End,
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = item.monthlyPaymentFormatted,
-                                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                InstallmentStatusBadge(
-                                    status = item.status,
-                                    compact = true
-                                )
-                            }
-                        }
+                Button(
+                    onClick = onShowUpcomingClick,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = accentColor,
+                        contentColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier
+                        .height(34.dp)
+                        .testTag("btn_show_upcoming_installments")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Visibility,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "مشاهده اقساط",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        )
                     }
                 }
             }

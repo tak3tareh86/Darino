@@ -24,14 +24,20 @@ class FinancialHealthRepository(context: Context) {
 
     val profileFlow: Flow<FinancialHealthProfile> = dao.getProfile(DEFAULT_PROFILE_ID).map { entity ->
         if (entity == null) {
-            // Provide acceptance test baseline
-            val commitments = DEFAULT_INSTALLMENTS + DEFAULT_FIXED_EXPENSES
-            val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(commitments, DEFAULT_INCOME)
+            val transactions = try { db.transactionDao().getAllTransactionsList() } catch (e: Exception) { emptyList() }
+            val installmentsList = try { db.installmentDao().getAllInstallmentsList() } catch (e: Exception) { emptyList() }
+
+            val computedIncome = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }.let { if (it > 0) it else DEFAULT_INCOME }
+            val computedInstallments = installmentsList.filter { it.status == "ACTIVE" || it.status == "PENDING" || it.status == "OVERDUE" }
+                .sumOf { it.amount / it.totalInstallments.coerceAtLeast(1) }.let { if (it > 0) it else DEFAULT_INSTALLMENTS }
+
+            val commitments = computedInstallments + DEFAULT_FIXED_EXPENSES
+            val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(commitments, computedIncome)
             val status = FinancialAnalyzerEngine.calculateHealthStatus(pressure)
             FinancialHealthProfile(
                 id = DEFAULT_PROFILE_ID,
-                monthlyIncome = DEFAULT_INCOME,
-                monthlyInstallments = DEFAULT_INSTALLMENTS,
+                monthlyIncome = computedIncome,
+                monthlyInstallments = computedInstallments,
                 fixedExpenses = DEFAULT_FIXED_EXPENSES,
                 financialPressure = pressure,
                 healthStatus = status

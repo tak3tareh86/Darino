@@ -1,12 +1,18 @@
 package com.example.vehicle.data
 
+import android.content.Context
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.UUID
 
 /**
- * Repository providing vehicle dossier data and in-memory persistence
+ * Repository providing vehicle dossier data and Room SQLite Database persistence
  */
 class VehicleRepository {
 
@@ -24,6 +30,338 @@ class VehicleRepository {
 
     private val _inspections = MutableStateFlow<List<VehicleInspectionEntity>>(createInitialInspections())
     val inspections: StateFlow<List<VehicleInspectionEntity>> = _inspections.asStateFlow()
+
+    private var dbContext: Context? = null
+
+    /**
+     * Initializes the Room SQLite database and loads any persisted vehicle store.
+     */
+    fun initDatabase(context: Context) {
+        val appCtx = context.applicationContext
+        dbContext = appCtx
+        
+        val prefs = appCtx.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
+        val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
+        
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val db = com.example.data.database.AppDatabase.getDatabase(appCtx)
+                val vDao = db.vehicleDao()
+
+                // 1. One-time Legacy JSON Migration to Room tables if legacy store exists
+                val store = vDao.getVehicleStore()
+                if (store != null && store.vehiclesJson.isNotBlank()) {
+                    val migratedVehicles = jsonToVehicles(store.vehiclesJson)
+                    val migratedServices = jsonToServices(store.servicesJson)
+                    val migratedExpenses = jsonToExpenses(store.expensesJson)
+                    val migratedInsurances = jsonToInsurances(store.insurancesJson)
+                    val migratedInspections = jsonToInspections(store.inspectionsJson)
+
+                    migratedVehicles.forEach { v ->
+                        vDao.insertVehicle(
+                            com.example.data.database.VehicleEntity(
+                                serverId = v.id,
+                                userId = "default_user",
+                                brand = v.brand,
+                                model = v.model,
+                                year = v.year,
+                                plate = v.plate,
+                                currentMileage = v.currentMileage,
+                                notes = v.color
+                            )
+                        )
+                    }
+
+                    migratedServices.forEach { s ->
+                        vDao.insertService(
+                            com.example.data.database.VehicleServiceEntity(
+                                serverId = s.id,
+                                vehicleId = 1,
+                                type = s.serviceType.name,
+                                title = s.title,
+                                dueDate = null,
+                                dueMileage = s.mileage,
+                                status = "PENDING",
+                                notes = s.description
+                            )
+                        )
+                    }
+
+                    vDao.insertExpenses(migratedExpenses.map { e ->
+                        com.example.data.database.VehicleExpenseRoomEntity(
+                            id = e.id,
+                            vehicleId = e.vehicleId,
+                            title = e.title,
+                            category = e.category.name,
+                            amount = e.amount,
+                            date = e.date,
+                            description = e.description,
+                            receiptImageUri = e.receiptImageUri
+                        )
+                    })
+
+                    vDao.insertInsurances(migratedInsurances.map { ins ->
+                        com.example.data.database.VehicleInsuranceRoomEntity(
+                            id = ins.id,
+                            vehicleId = ins.vehicleId,
+                            company = ins.company,
+                            type = ins.type,
+                            startDate = ins.startDate,
+                            endDate = ins.endDate,
+                            amount = ins.amount,
+                            policyNumber = ins.policyNumber,
+                            reminderDays = ins.reminderDays.joinToString(",")
+                        )
+                    })
+
+                    vDao.insertInspections(migratedInspections.map { insp ->
+                        com.example.data.database.VehicleInspectionRoomEntity(
+                            id = insp.id,
+                            vehicleId = insp.vehicleId,
+                            lastInspectionDate = insp.lastInspectionDate,
+                            expiryDate = insp.expiryDate,
+                            cost = insp.cost,
+                            status = insp.status,
+                            centerName = insp.centerName
+                        )
+                    })
+
+                    // Clear legacy JSON store to prevent dual-authority
+                    vDao.insertVehicleStore(com.example.data.database.VehicleStoreEntity(vehiclesJson = ""))
+                }
+
+                // 2. Authoritative Load from Room DAOs
+                loadFromRoom(db, isCleanSlate)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private suspend fun loadFromRoom(db: com.example.data.database.AppDatabase, isCleanSlate: Boolean) {
+        val vDao = db.vehicleDao()
+        val dbVehicles = vDao.getAllVehiclesList()
+        if (dbVehicles.isNotEmpty()) {
+            _vehicles.value = dbVehicles.map { v ->
+                VehicleEntity(
+                    id = v.serverId ?: v.id.toString(),
+                    brand = v.brand,
+                    model = v.model,
+                    year = v.year,
+                    color = v.notes ?: "سفید",
+                    plate = v.plate,
+                    currentMileage = v.currentMileage
+                )
+            }
+            val dbServices = vDao.getAllServicesList()
+            _services.value = dbServices.map { s ->
+                VehicleServiceEntity(
+                    id = s.serverId ?: s.id.toString(),
+                    vehicleId = _vehicles.value.firstOrNull()?.id ?: "v-1",
+                    title = s.title,
+                    serviceType = try { ServiceType.valueOf(s.type) } catch (e: Exception) { ServiceType.OIL_CHANGE },
+                    date = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
+                    mileage = s.dueMileage ?: 0,
+                    cost = 0L,
+                    description = s.notes ?: ""
+                )
+            }
+            val dbExpenses = vDao.getAllExpensesList()
+            if (dbExpenses.isNotEmpty()) {
+                _expenses.value = dbExpenses.map { e ->
+                    VehicleExpenseEntity(
+                        id = e.id,
+                        vehicleId = e.vehicleId,
+                        title = e.title,
+                        category = try { VehicleExpenseCategory.valueOf(e.category) } catch (ex: Exception) { VehicleExpenseCategory.OTHER },
+                        amount = e.amount,
+                        date = e.date,
+                        description = e.description,
+                        receiptImageUri = e.receiptImageUri
+                    )
+                }
+            }
+            val dbInsurances = vDao.getAllInsurancesList()
+            if (dbInsurances.isNotEmpty()) {
+                _insurances.value = dbInsurances.map { ins ->
+                    VehicleInsuranceEntity(
+                        id = ins.id,
+                        vehicleId = ins.vehicleId,
+                        company = ins.company,
+                        type = ins.type,
+                        startDate = ins.startDate,
+                        endDate = ins.endDate,
+                        amount = ins.amount,
+                        policyNumber = ins.policyNumber,
+                        reminderDays = ins.reminderDays.split(",").mapNotNull { it.toIntOrNull() }
+                    )
+                }
+            }
+            val dbInspections = vDao.getAllInspectionsList()
+            if (dbInspections.isNotEmpty()) {
+                _inspections.value = dbInspections.map { insp ->
+                    VehicleInspectionEntity(
+                        id = insp.id,
+                        vehicleId = insp.vehicleId,
+                        lastInspectionDate = insp.lastInspectionDate,
+                        expiryDate = insp.expiryDate,
+                        cost = insp.cost,
+                        status = insp.status,
+                        centerName = insp.centerName
+                    )
+                }
+            }
+        } else if (!isCleanSlate) {
+            // Seed initial vehicles to Room
+            val initialV = createInitialVehicles()
+            val initialS = createInitialServices()
+            val initialE = createInitialExpenses()
+            val initialIns = createInitialInsurances()
+            val initialInsp = createInitialInspections()
+
+            _vehicles.value = initialV
+            _services.value = initialS
+            _expenses.value = initialE
+            _insurances.value = initialIns
+            _inspections.value = initialInsp
+
+            saveToDb()
+        }
+    }
+
+    private fun saveToDb() {
+        val context = dbContext ?: return
+        saveToDbInternal(context)
+    }
+
+    private fun saveToDbInternal(context: Context) {
+        val appCtx = context.applicationContext
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val db = com.example.data.database.AppDatabase.getDatabase(appCtx)
+                val vDao = db.vehicleDao()
+
+                // Save strictly to Room relational DAOs
+                vDao.clearAllVehicles()
+                _vehicles.value.forEach { v ->
+                    vDao.insertVehicle(
+                        com.example.data.database.VehicleEntity(
+                            serverId = v.id,
+                            userId = "default_user",
+                            brand = v.brand,
+                            model = v.model,
+                            year = v.year,
+                            plate = v.plate,
+                            currentMileage = v.currentMileage,
+                            notes = v.color
+                        )
+                    )
+                }
+
+                vDao.clearAllServices()
+                _services.value.forEach { s ->
+                    vDao.insertService(
+                        com.example.data.database.VehicleServiceEntity(
+                            serverId = s.id,
+                            vehicleId = 1,
+                            type = s.serviceType.name,
+                            title = s.title,
+                            dueDate = null,
+                            dueMileage = s.mileage,
+                            status = "PENDING",
+                            notes = s.description
+                        )
+                    )
+                }
+
+                vDao.clearAllExpenses()
+                vDao.insertExpenses(_expenses.value.map { e ->
+                    com.example.data.database.VehicleExpenseRoomEntity(
+                        id = e.id,
+                        vehicleId = e.vehicleId,
+                        title = e.title,
+                        category = e.category.name,
+                        amount = e.amount,
+                        date = e.date,
+                        description = e.description,
+                        receiptImageUri = e.receiptImageUri
+                    )
+                })
+
+                vDao.clearAllInsurances()
+                vDao.insertInsurances(_insurances.value.map { ins ->
+                    com.example.data.database.VehicleInsuranceRoomEntity(
+                        id = ins.id,
+                        vehicleId = ins.vehicleId,
+                        company = ins.company,
+                        type = ins.type,
+                        startDate = ins.startDate,
+                        endDate = ins.endDate,
+                        amount = ins.amount,
+                        policyNumber = ins.policyNumber,
+                        reminderDays = ins.reminderDays.joinToString(",")
+                    )
+                })
+
+                vDao.clearAllInspections()
+                vDao.insertInspections(_inspections.value.map { insp ->
+                    com.example.data.database.VehicleInspectionRoomEntity(
+                        id = insp.id,
+                        vehicleId = insp.vehicleId,
+                        lastInspectionDate = insp.lastInspectionDate,
+                        expiryDate = insp.expiryDate,
+                        cost = insp.cost,
+                        status = insp.status,
+                        centerName = insp.centerName
+                    )
+                })
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun reloadFromDatabase(context: Context) {
+        val appCtx = context.applicationContext
+        dbContext = appCtx
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val db = com.example.data.database.AppDatabase.getDatabase(appCtx)
+                loadFromRoom(db, isCleanSlate = false)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun syncReminder(
+        id: String,
+        title: String,
+        description: String,
+        date: String,
+        type: String = "VEHICLE"
+    ) {
+        val context = dbContext ?: return
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val manager = com.example.reminder.domain.ReminderManager(context)
+                val persianDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(date)
+                val reminder = com.example.reminder.data.ReminderEntity(
+                    id = id,
+                    title = title,
+                    description = description,
+                    type = type,
+                    sourceType = "VEHICLE",
+                    sourceId = id,
+                    date = persianDate,
+                    time = "۰۹:۰۰"
+                )
+                manager.createReminder(reminder)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     // Add Vehicle
     fun addVehicle(
@@ -48,12 +386,14 @@ class VehicleRepository {
             estimatedValue = estimatedValue
         )
         _vehicles.value = _vehicles.value + newVehicle
+        saveToDb()
         return newVehicle
     }
 
     // Update Vehicle
     fun updateVehicle(updated: VehicleEntity) {
         _vehicles.value = _vehicles.value.map { if (it.id == updated.id) updated else it }
+        saveToDb()
     }
 
     // Update Mileage
@@ -61,6 +401,7 @@ class VehicleRepository {
         _vehicles.value = _vehicles.value.map {
             if (it.id == vehicleId) it.copy(currentMileage = newMileage) else it
         }
+        saveToDb()
     }
 
     // Add Service
@@ -107,6 +448,18 @@ class VehicleRepository {
             description = "سرویس دوره‌ای خودرو: $description"
         )
 
+        // Schedule notification alarm if reminder is enabled and next date is set
+        if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+            syncReminder(
+                id = newService.id,
+                title = "یادآور سرویس: ${currentCar?.brand ?: ""} ${currentCar?.model ?: ""}",
+                description = "موعد تعویض و سرویس دوره‌ای: $title ($description)",
+                date = nextReminderDate,
+                type = "VEHICLE"
+            )
+        }
+
+        saveToDb()
         return newService
     }
 
@@ -129,6 +482,7 @@ class VehicleRepository {
             description = description
         )
         _expenses.value = listOf(newExpense) + _expenses.value
+        saveToDb()
         return newExpense
     }
 
@@ -164,6 +518,17 @@ class VehicleRepository {
             description = "شماره بیمه‌نامه: $policyNumber"
         )
 
+        // Schedule Alarm Notification Reminder for Insurance expiry date
+        val currentCar = _vehicles.value.find { it.id == vehicleId }
+        syncReminder(
+            id = newInsurance.id,
+            title = "تمدید $type خودرو",
+            description = "سررسید انقضای بیمه‌نامه برای خودرو ${currentCar?.brand ?: ""} ${currentCar?.model ?: ""}. شماره بیمه‌نامه: $policyNumber",
+            date = endDate,
+            type = "INSURANCE"
+        )
+
+        saveToDb()
         return newInsurance
     }
 
@@ -186,7 +551,226 @@ class VehicleRepository {
             centerName = centerName
         )
         _inspections.value = listOf(newInspection) + _inspections.value.filter { it.vehicleId != vehicleId }
+
+        // Schedule Alarm Notification Reminder for Technical Inspection expiry date
+        val currentCar = _vehicles.value.find { it.id == vehicleId }
+        syncReminder(
+            id = newInspection.id,
+            title = "معاینه فنی خودرو",
+            description = "موعد سررسید معاینه فنی برای خودرو ${currentCar?.brand ?: ""} ${currentCar?.model ?: ""}. مرکز $centerName",
+            date = expiryDate,
+            type = "VEHICLE"
+        )
+
+        saveToDb()
         return newInspection
+    }
+
+    private fun vehiclesToJson(list: List<VehicleEntity>): String {
+        val arr = JSONArray()
+        list.forEach { item ->
+            val obj = JSONObject()
+            obj.put("id", item.id)
+            obj.put("brand", item.brand)
+            obj.put("model", item.model)
+            obj.put("year", item.year)
+            obj.put("color", item.color)
+            obj.put("plate", item.plate)
+            obj.put("vin", item.vin)
+            obj.put("currentMileage", item.currentMileage)
+            obj.put("estimatedValue", item.estimatedValue)
+            obj.put("createdAt", item.createdAt)
+            arr.put(obj)
+        }
+        return arr.toString()
+    }
+
+    private fun jsonToVehicles(json: String): List<VehicleEntity> {
+        val list = mutableListOf<VehicleEntity>()
+        if (json.isBlank()) return list
+        val arr = JSONArray(json)
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            list.add(
+                VehicleEntity(
+                    id = obj.getString("id"),
+                    brand = obj.getString("brand"),
+                    model = obj.getString("model"),
+                    year = obj.getString("year"),
+                    color = obj.getString("color"),
+                    plate = obj.getString("plate"),
+                    vin = obj.optString("vin", ""),
+                    currentMileage = obj.getInt("currentMileage"),
+                    estimatedValue = obj.optLong("estimatedValue", 0L),
+                    createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                )
+            )
+        }
+        return list
+    }
+
+    private fun servicesToJson(list: List<VehicleServiceEntity>): String {
+        val arr = JSONArray()
+        list.forEach { item ->
+            val obj = JSONObject()
+            obj.put("id", item.id)
+            obj.put("vehicleId", item.vehicleId)
+            obj.put("title", item.title)
+            obj.put("serviceType", item.serviceType.name)
+            obj.put("date", item.date)
+            obj.put("mileage", item.mileage)
+            obj.put("cost", item.cost)
+            obj.put("description", item.description)
+            obj.put("nextReminderDate", item.nextReminderDate ?: "")
+            obj.put("nextReminderMileage", item.nextReminderMileage ?: 0)
+            obj.put("isReminderEnabled", item.isReminderEnabled)
+            arr.put(obj)
+        }
+        return arr.toString()
+    }
+
+    private fun jsonToServices(json: String): List<VehicleServiceEntity> {
+        val list = mutableListOf<VehicleServiceEntity>()
+        if (json.isBlank()) return list
+        val arr = JSONArray(json)
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            val stName = obj.optString("serviceType", ServiceType.OIL_CHANGE.name)
+            val serviceType = try { ServiceType.valueOf(stName) } catch(e: Exception) { ServiceType.OIL_CHANGE }
+            list.add(
+                VehicleServiceEntity(
+                    id = obj.getString("id"),
+                    vehicleId = obj.getString("vehicleId"),
+                    title = obj.getString("title"),
+                    serviceType = serviceType,
+                    date = obj.getString("date"),
+                    mileage = obj.getInt("mileage"),
+                    cost = obj.getLong("cost"),
+                    description = obj.optString("description", ""),
+                    nextReminderDate = obj.optString("nextReminderDate", "").let { if (it.isBlank()) null else it },
+                    nextReminderMileage = obj.optInt("nextReminderMileage", 0).let { if (it == 0) null else it },
+                    isReminderEnabled = obj.optBoolean("isReminderEnabled", true)
+                )
+            )
+        }
+        return list
+    }
+
+    private fun expensesToJson(list: List<VehicleExpenseEntity>): String {
+        val arr = JSONArray()
+        list.forEach { item ->
+            val obj = JSONObject()
+            obj.put("id", item.id)
+            obj.put("vehicleId", item.vehicleId)
+            obj.put("title", item.title)
+            obj.put("category", item.category.name)
+            obj.put("amount", item.amount)
+            obj.put("date", item.date)
+            obj.put("description", item.description)
+            obj.put("receiptImageUri", item.receiptImageUri ?: "")
+            arr.put(obj)
+        }
+        return arr.toString()
+    }
+
+    private fun jsonToExpenses(json: String): List<VehicleExpenseEntity> {
+        val list = mutableListOf<VehicleExpenseEntity>()
+        if (json.isBlank()) return list
+        val arr = JSONArray(json)
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            val catName = obj.optString("category", VehicleExpenseCategory.OTHER.name)
+            val category = try { VehicleExpenseCategory.valueOf(catName) } catch(e: Exception) { VehicleExpenseCategory.OTHER }
+            list.add(
+                VehicleExpenseEntity(
+                    id = obj.getString("id"),
+                    vehicleId = obj.getString("vehicleId"),
+                    title = obj.getString("title"),
+                    category = category,
+                    amount = obj.getLong("amount"),
+                    date = obj.getString("date"),
+                    description = obj.optString("description", ""),
+                    receiptImageUri = obj.optString("receiptImageUri", "").let { if (it.isBlank()) null else it }
+                )
+            )
+        }
+        return list
+    }
+
+    private fun insurancesToJson(list: List<VehicleInsuranceEntity>): String {
+        val arr = JSONArray()
+        list.forEach { item ->
+            val obj = JSONObject()
+            obj.put("id", item.id)
+            obj.put("vehicleId", item.vehicleId)
+            obj.put("company", item.company)
+            obj.put("type", item.type)
+            obj.put("startDate", item.startDate)
+            obj.put("endDate", item.endDate)
+            obj.put("amount", item.amount)
+            obj.put("policyNumber", item.policyNumber)
+            arr.put(obj)
+        }
+        return arr.toString()
+    }
+
+    private fun jsonToInsurances(json: String): List<VehicleInsuranceEntity> {
+        val list = mutableListOf<VehicleInsuranceEntity>()
+        if (json.isBlank()) return list
+        val arr = JSONArray(json)
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            list.add(
+                VehicleInsuranceEntity(
+                    id = obj.getString("id"),
+                    vehicleId = obj.getString("vehicleId"),
+                    company = obj.getString("company"),
+                    type = obj.getString("type"),
+                    startDate = obj.getString("startDate"),
+                    endDate = obj.getString("endDate"),
+                    amount = obj.getLong("amount"),
+                    policyNumber = obj.optString("policyNumber", "")
+                )
+            )
+        }
+        return list
+    }
+
+    private fun inspectionsToJson(list: List<VehicleInspectionEntity>): String {
+        val arr = JSONArray()
+        list.forEach { item ->
+            val obj = JSONObject()
+            obj.put("id", item.id)
+            obj.put("vehicleId", item.vehicleId)
+            obj.put("lastInspectionDate", item.lastInspectionDate)
+            obj.put("expiryDate", item.expiryDate)
+            obj.put("cost", item.cost)
+            obj.put("status", item.status)
+            obj.put("centerName", item.centerName)
+            arr.put(obj)
+        }
+        return arr.toString()
+    }
+
+    private fun jsonToInspections(json: String): List<VehicleInspectionEntity> {
+        val list = mutableListOf<VehicleInspectionEntity>()
+        if (json.isBlank()) return list
+        val arr = JSONArray(json)
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            list.add(
+                VehicleInspectionEntity(
+                    id = obj.getString("id"),
+                    vehicleId = obj.getString("vehicleId"),
+                    lastInspectionDate = obj.getString("lastInspectionDate"),
+                    expiryDate = obj.getString("expiryDate"),
+                    cost = obj.getLong("cost"),
+                    status = obj.optString("status", "معتبر"),
+                    centerName = obj.optString("centerName", "")
+                )
+            )
+        }
+        return list
     }
 
     companion object {

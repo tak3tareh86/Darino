@@ -32,7 +32,7 @@ import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.VehicleEntity
-import com.example.vehicle.presentation.components.IranianLicensePlate
+import com.example.ui.components.IranianLicensePlate
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -138,7 +138,7 @@ fun VehicleProfileScreen(
 
                     IranianLicensePlate(
                         plate = plate,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
                 }
             }

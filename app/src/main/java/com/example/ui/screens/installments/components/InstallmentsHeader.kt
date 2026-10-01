@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -74,25 +75,28 @@ fun InstallmentsHeader(
                 Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                     Text(
                         text = "اقساط",
-                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 11.5.sp),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "مدیریت و پیگیری تعهدات مالی",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 7.5.sp),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
                     onClick = onSearchClick,
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                         .testTag("installments_search_btn")
@@ -101,14 +105,14 @@ fun InstallmentsHeader(
                         imageVector = Icons.Rounded.Search,
                         contentDescription = "جستجو",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(11.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
                 IconButton(
                     onClick = onFilterClick,
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                         .testTag("installments_filter_btn")
@@ -117,7 +121,7 @@ fun InstallmentsHeader(
                         imageVector = Icons.Rounded.FilterList,
                         contentDescription = "فیلتر",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(11.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }

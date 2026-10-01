@@ -28,7 +28,10 @@ class CalendarManager(private val context: Context) {
     }
 
     private suspend fun seedInitialEventsIfEmpty() {
-        if (repository.getCount() == 0) {
+        val prefs = context.applicationContext.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
+        val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
+        
+        if (!isCleanSlate && repository.getCount() == 0) {
             val (currentYear, currentMonth, _) = CalendarDateUtils.getCurrentJalaliDate()
             val initialList = mutableListOf<FinancialEvent>()
 

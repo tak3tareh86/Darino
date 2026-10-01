@@ -111,8 +111,13 @@ class PhoneVerificationController(
 
     @GetMapping("/status")
     @Operation(summary = "دریافت وضعیت احراز هویت شماره همراه کاربر جاری")
-    fun getStatus(@AuthenticationPrincipal principal: UserPrincipal): ResponseEntity<ApiResponse<PhoneStatusDto>> {
-        val status = phoneVerificationService.getStatus(principal.id)
+    fun getStatus(@AuthenticationPrincipal principal: UserPrincipal?): ResponseEntity<ApiResponse<PhoneStatusDto>> {
+        val user = principal ?: throw com.financemanager.backend.common.AppException(
+            com.financemanager.backend.common.ErrorCode.UNAUTHORIZED,
+            "احراز هویت جهت دریافت وضعیت شماره همراه الزامی است",
+            org.springframework.http.HttpStatus.UNAUTHORIZED
+        )
+        val status = phoneVerificationService.getStatus(user.id)
         return ResponseEntity.ok(ApiResponse.success(status))
     }
 }

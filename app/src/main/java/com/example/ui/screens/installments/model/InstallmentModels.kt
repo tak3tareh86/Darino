@@ -1,5 +1,6 @@
 package com.example.ui.screens.installments.model
 
+import android.content.Context
 import androidx.annotation.DrawableRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccessTime
@@ -10,6 +11,8 @@ import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.R
+import com.example.data.database.AppDatabase
+import com.example.data.database.InstallmentEntity
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
@@ -142,7 +145,14 @@ data class CategorySummaryStat(
     val remainingFormatted: String
 )
 
+/**
+ * Facade delegating directly to [com.example.ui.screens.installments.data.LocalInstallmentRepository]
+ */
 object InstallmentMockDataSource {
+
+    fun getSampleInitialInstallments(): List<InstallmentItem> {
+        return initialBankLoans + initialHomeLoans + initialCarInsurance + initialMiscInstallments
+    }
 
     private val initialBankLoans = listOf(
         InstallmentItem(
@@ -242,103 +252,47 @@ object InstallmentMockDataSource {
             monthlyPaymentFormatted = "۱,۴۰۰,۰۰۰ تومان",
             totalInstallments = 10,
             remainingInstallments = 3,
-            nextPaymentDate = "۱۴۰۴/۰۸/۰۲",
-            nextDueDaysText = "۲۱ روز دیگر",
-            startDate = "۱۴۰۳/۱۰/۰۲",
-            endDate = "۱۴۰۴/۰۸/۰۲",
+            nextPaymentDate = "۱۴۰۴/۰۷/۲۰",
+            nextDueDaysText = "۸ روز دیگر",
+            startDate = "۱۴۰۳/۱۰/۲۰",
+            endDate = "۱۴۰۴/۰۹/۲۰",
             status = InstallmentStatus.PENDING,
-            notes = "واریز به کارت صندوق فامیلی بانک سپه",
+            notes = "قرعه‌کشی ماهانه فامیلی",
             paymentHistory = listOf(
-                PaymentHistoryItem("h1_1", 5, "۱۴۰۴/۰۵/۰۲", "۱۴۰۴/۰۵/۰۲", "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("h1_2", 6, "۱۴۰۴/۰۶/۰۲", "۱۴۰۴/۰۶/۰۲", "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("h1_3", 7, "۱۴۰۴/۰۷/۰۲", "۱۴۰۴/۰۷/۰۲", "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("h1_4", 8, "۱۴۰۴/۰۸/۰۲", null, "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PENDING)
-            )
-        ),
-        InstallmentItem(
-            id = "home_2",
-            title = "بدهی شخصی تجهیز کارگاه",
-            category = InstallmentCategory.HOME_LOANS,
-            providerOrPerson = "حاج احمد حسینی",
-            totalAmount = 7_000_000,
-            totalAmountFormatted = "۷,۰۰۰,۰۰۰ تومان",
-            paidAmount = 4_200_000,
-            paidAmountFormatted = "۴,۲۰۰,۰۰۰ تومان",
-            remainingAmount = 2_800_000,
-            remainingAmountFormatted = "۲,۸۰۰,۰۰۰ تومان",
-            monthlyPaymentFormatted = "۱,۴۰۰,۰۰۰ تومان",
-            totalInstallments = 5,
-            remainingInstallments = 2,
-            nextPaymentDate = "۱۴۰۴/۰۶/۳۰",
-            nextDueDaysText = "۸ روز گذشته",
-            startDate = "۱۴۰۴/۰۳/۱۰",
-            endDate = "۱۴۰۴/۰۸/۱۰",
-            status = InstallmentStatus.OVERDUE,
-            notes = "تسويه اقساطی خرید ابزارآلات و ملزومات",
-            paymentHistory = listOf(
-                PaymentHistoryItem("h2_1", 2, "۱۴۰۴/۰۵/۱۰", "۱۴۰۴/۰۵/۱۰", "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("h2_2", 3, "۱۴۰۴/۰۶/۱۰", "۱۴۰۴/۰۶/۱۰", "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("h2_3", 4, "۱۴۰۴/۰۶/۳۰", null, "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.OVERDUE, "سررسید گذشته")
+                PaymentHistoryItem("h1_1", 5, "۱۴۰۴/۰۵/۲۰", "۱۴۰۴/۰۵/۲۰", "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
+                PaymentHistoryItem("h1_2", 6, "۱۴۰۴/۰۶/۲۰", "۱۴۰۴/۰۶/۲۰", "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
+                PaymentHistoryItem("h1_3", 7, "۱۴۰۴/۰۷/۲۰", null, "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PENDING)
             )
         )
     )
 
     private val initialCarInsurance = listOf(
         InstallmentItem(
-            id = "car_ins_1",
-            title = "بیمه شخص ثالث پژو ۲۰۶",
+            id = "car_1",
+            title = "بیمه شخص ثالث ایران (خودرو)",
             category = InstallmentCategory.CAR_INSURANCE,
-            providerOrPerson = "بیمه دانا",
+            providerOrPerson = "بیمه ایران نمایندگی حسینی",
             vehicleName = "پژو ۲۰۶ تیپ ۵",
-            insuranceType = "شخص ثالث با تخفیف ۷۰٪",
+            insuranceType = "شخص ثالث ۱۲ ماهه",
             totalAmount = 12_000_000,
             totalAmountFormatted = "۱۲,۰۰۰,۰۰۰ تومان",
-            paidAmount = 6_000_000,
-            paidAmountFormatted = "۶,۰۰۰,۰۰۰ تومان",
-            remainingAmount = 6_000_000,
-            remainingAmountFormatted = "۶,۰۰۰,۰۰۰ تومان",
+            paidAmount = 8_000_000,
+            paidAmountFormatted = "۸,۰۰۰,۰۰۰ تومان",
+            remainingAmount = 4_000_000,
+            remainingAmountFormatted = "۴,۰۰۰,۰۰۰ تومان",
             monthlyPaymentFormatted = "۲,۰۰۰,۰۰۰ تومان",
             totalInstallments = 6,
-            remainingInstallments = 3,
-            nextPaymentDate = "۱۴۰۴/۰۷/۲۴",
-            nextDueDaysText = "۱۲ روز دیگر",
-            startDate = "۱۴۰۴/۰۴/۲۴",
-            endDate = "۱۴۰۴/۱۰/۲۴",
-            status = InstallmentStatus.PENDING,
-            notes = "نمایندگی کد ۵۴۳ دانا، صدور آنلاین",
-            paymentHistory = listOf(
-                PaymentHistoryItem("ci1_1", 1, "۱۴۰۴/۰۴/۲۴", "۱۴۰۴/۰۴/۲۴", "۲,۰۰۰,۰۰۰ تومان", InstallmentStatus.PAID, "پیش پرداخت"),
-                PaymentHistoryItem("ci1_2", 2, "۱۴۰۴/۰۵/۲۴", "۱۴۰۴/۰۵/۲۴", "۲,۰۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("ci1_3", 3, "۱۴۰۴/۰۶/۲۴", "۱۴۰۴/۰۶/۲۴", "۲,۰۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("ci1_4", 4, "۱۴۰۴/۰۷/۲۴", null, "۲,۰۰۰,۰۰۰ تومان", InstallmentStatus.PENDING)
-            )
-        ),
-        InstallmentItem(
-            id = "car_ins_2",
-            title = "بیمه بدنه طلایی دنا پلاس",
-            category = InstallmentCategory.CAR_INSURANCE,
-            providerOrPerson = "بیمه ایران",
-            vehicleName = "دنا پلاس توربو اتوماتیک",
-            insuranceType = "بدنه کامل با پوشش سرقت درجا و بلایا",
-            totalAmount = 7_600_000,
-            totalAmountFormatted = "۷,۶۰۰,۰۰۰ تومان",
-            paidAmount = 3_800_000,
-            paidAmountFormatted = "۳,۸۰۰,۰۰۰ تومان",
-            remainingAmount = 3_800_000,
-            remainingAmountFormatted = "۳,۸۰۰,۰۰۰ تومان",
-            monthlyPaymentFormatted = "۱,۹۰۰,۰۰۰ تومان",
-            totalInstallments = 4,
             remainingInstallments = 2,
-            nextPaymentDate = "۱۴۰۴/۰۶/۲۵",
-            nextDueDaysText = "۱۳ روز گذشته",
-            startDate = "۱۴۰۴/۰۶/۰۵",
-            endDate = "۱۴۰۴/۰۹/۰۵",
-            status = InstallmentStatus.OVERDUE,
-            notes = "بیمه ایران شعبه مطهری",
+            nextPaymentDate = "۱۴۰۴/۰۷/۱۴",
+            nextDueDaysText = "۲ روز دیگر",
+            startDate = "۱۴۰۴/۰۱/۱۴",
+            endDate = "۱۴۰۴/۰۹/۱۴",
+            status = InstallmentStatus.DUE_SOON,
+            notes = "شماره بیمه‌نامه: ۱۲/۹۹/۴۸۱۷",
             paymentHistory = listOf(
-                PaymentHistoryItem("ci2_1", 1, "۱۴۰۴/۰۶/۰۵", "۱۴۰۴/۰۶/۰۵", "۱,۹۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("ci2_2", 2, "۱۴۰۴/۰۷/۰۵", "۱۴۰۴/۰۷/۰۵", "۱,۹۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("ci2_3", 3, "۱۴۰۴/۰۶/۲۵", null, "۱,۹۰۰,۰۰۰ تومان", InstallmentStatus.OVERDUE, "سررسید گذشته")
+                PaymentHistoryItem("c1_1", 3, "۱۴۰۴/۰۵/۱۴", "۱۴۰۴/۰۵/۱۴", "۲,۰۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
+                PaymentHistoryItem("c1_2", 4, "۱۴۰۴/۰۶/۱۴", "۱۴۰۴/۰۶/۱۴", "۲,۰۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
+                PaymentHistoryItem("c1_3", 5, "۱۴۰۴/۰۷/۱۴", null, "۲,۰۰۰,۰۰۰ تومان", InstallmentStatus.DUE_SOON)
             )
         )
     )
@@ -346,227 +300,102 @@ object InstallmentMockDataSource {
     private val initialMiscInstallments = listOf(
         InstallmentItem(
             id = "misc_1",
-            title = "خرید لپ‌تاپ ایسوس زن‌بوک",
+            title = "خرید لپ‌تاپ ایسوس از دیجی‌کالا",
             category = InstallmentCategory.MISC,
-            providerOrPerson = "دیجی‌پی / فروشگاه پایتخت",
-            totalAmount = 17_000_000,
-            totalAmountFormatted = "۱۷,۰۰۰,۰۰۰ تومان",
-            paidAmount = 8_500_000,
-            paidAmountFormatted = "۸,۵۰۰,۰۰۰ تومان",
-            remainingAmount = 8_500_000,
-            remainingAmountFormatted = "۸,۵۰۰,۰۰۰ تومان",
-            monthlyPaymentFormatted = "۱,۷۰۰,۰۰۰ تومان",
-            totalInstallments = 10,
-            remainingInstallments = 5,
-            nextPaymentDate = "۱۴۰۴/۰۶/۲۲",
-            nextDueDaysText = "۱۶ روز گذشته",
-            startDate = "۱۴۰۳/۱۲/۲۰",
-            endDate = "۱۴۰۴/۰۹/۲۰",
-            status = InstallmentStatus.OVERDUE,
-            notes = "پرداخت از طریق کیف پول دیجی‌پی با تضامین بانکی",
-            paymentHistory = listOf(
-                PaymentHistoryItem("m1_1", 3, "۱۴۰۴/۰۴/۲۰", "۱۴۰۴/۰۴/۲۰", "۱,۷۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("m1_2", 4, "۱۴۰۴/۰۵/۲۰", "۱۴۰۴/۰۵/۲۰", "۱,۷۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("m1_3", 5, "۱۴۰۴/۰۶/۲۰", "۱۴۰۴/۰۶/۲۰", "۱,۷۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("m1_4", 6, "۱۴۰۴/۰۶/۲۲", null, "۱,۷۰۰,۰۰۰ تومان", InstallmentStatus.OVERDUE, "سررسید گذشته")
-            )
-        ),
-        InstallmentItem(
-            id = "misc_2",
-            title = "خرید لوازم منزل و آشپزخانه",
-            category = InstallmentCategory.MISC,
-            providerOrPerson = "اسنپ‌پی / شهروند",
-            totalAmount = 8_400_000,
-            totalAmountFormatted = "۸,۴۰۰,۰۰۰ تومان",
-            paidAmount = 4_200_000,
-            paidAmountFormatted = "۴,۲۰۰,۰۰۰ تومان",
-            remainingAmount = 4_200_000,
-            remainingAmountFormatted = "۴,۲۰۰,۰۰۰ تومان",
-            monthlyPaymentFormatted = "۱,۴۰۰,۰۰۰ تومان",
-            totalInstallments = 6,
+            providerOrPerson = "دیجی‌پی / ازکی‌وام",
+            totalAmount = 24_000_000,
+            totalAmountFormatted = "۲۴,۰۰۰,۰۰۰ تومان",
+            paidAmount = 18_000_000,
+            paidAmountFormatted = "۱۸,۰۰۰,۰۰۰ تومان",
+            remainingAmount = 6_000_000,
+            remainingAmountFormatted = "۶,۰۰۰,۰۰۰ تومان",
+            monthlyPaymentFormatted = "۲,۰۰۰,۰۰۰ تومان",
+            totalInstallments = 12,
             remainingInstallments = 3,
-            nextPaymentDate = "۱۴۰۴/۰۸/۰۱",
-            nextDueDaysText = "۲۰ روز دیگر",
-            startDate = "۱۴۰۴/۰۴/۰۱",
-            endDate = "۱۴۰۴/۰۹/۰۱",
+            nextPaymentDate = "۱۴۰۴/۰۷/۲۵",
+            nextDueDaysText = "۱۳ روز دیگر",
+            startDate = "۱۴۰۳/۰۸/۲۵",
+            endDate = "۱۴۰۴/۰۸/۲۵",
             status = InstallmentStatus.PENDING,
-            notes = "خرید اقساطی ۴ قسطه اسنپ‌پی بدون کارمزد",
+            notes = "کسر مستقیم از کیف پول دیجی‌پی",
             paymentHistory = listOf(
-                PaymentHistoryItem("m2_1", 1, "۱۴۰۴/۰۵/۰۱", "۱۴۰۴/۰۵/۰۱", "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("m2_2", 2, "۱۴۰۴/۰۶/۰۱", "۱۴۰۴/۰۶/۰۱", "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("m2_3", 3, "۱۴۰۴/۰۷/۰۱", "۱۴۰۴/۰۷/۰۱", "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("m2_4", 4, "۱۴۰۴/۰۸/۰۱", null, "۱,۴۰۰,۰۰۰ تومان", InstallmentStatus.PENDING)
-            )
-        ),
-        InstallmentItem(
-            id = "misc_3",
-            title = "بیمه درمان تکمیلی انفرادی",
-            category = InstallmentCategory.MISC,
-            providerOrPerson = "بیمه سامان",
-            totalAmount = 4_800_000,
-            totalAmountFormatted = "۴,۸۰۰,۰۰۰ تومان",
-            paidAmount = 3_600_000,
-            paidAmountFormatted = "۳,۶۰۰,۰۰۰ تومان",
-            remainingAmount = 1_200_000,
-            remainingAmountFormatted = "۱,۲۰۰,۰۰۰ تومان",
-            monthlyPaymentFormatted = "۱,۲۰۰,۰۰۰ تومان",
-            totalInstallments = 4,
-            remainingInstallments = 1,
-            nextPaymentDate = "۱۴۰۴/۰۸/۱۵",
-            nextDueDaysText = "۳۴ روز دیگر",
-            startDate = "۱۴۰۴/۰۴/۱۵",
-            endDate = "۱۴۰۴/۰۸/۱۵",
-            status = InstallmentStatus.PENDING,
-            notes = "طرح آرامش خانواده سامان",
-            paymentHistory = listOf(
-                PaymentHistoryItem("m3_1", 1, "۱۴۰۴/۰۵/۱۵", "۱۴۰۴/۰۵/۱۵", "۱,۲۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("m3_2", 2, "۱۴۰۴/۰۶/۱۵", "۱۴۰۴/۰۶/۱۵", "۱,۲۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
-                PaymentHistoryItem("m3_3", 3, "۱۴۰۴/۰۷/۱۵", "۱۴۰۴/۰۷/۱۵", "۱,۲۰۰,۰۰۰ تومان", InstallmentStatus.PAID)
+                PaymentHistoryItem("m1_1", 8, "۱۴۰۴/۰۵/۲۵", "۱۴۰۴/۰۵/۲۵", "۲,۰۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
+                PaymentHistoryItem("m1_2", 9, "۱۴۰۴/۰۶/۲۵", "۱۴۰۴/۰۶/۲۵", "۲,۰۰۰,۰۰۰ تومان", InstallmentStatus.PAID),
+                PaymentHistoryItem("m1_3", 10, "۱۴۰۴/۰۷/۲۵", null, "۲,۰۰۰,۰۰۰ تومان", InstallmentStatus.PENDING)
             )
         )
     )
 
-    private var _bankLoans = initialBankLoans.toMutableList()
-    private var _homeLoans = initialHomeLoans.toMutableList()
-    private var _carInsurance = initialCarInsurance.toMutableList()
-    private var _miscInstallments = initialMiscInstallments.toMutableList()
+    private val repository: com.example.ui.screens.installments.data.LocalInstallmentRepository
+        get() = com.example.ui.screens.installments.data.LocalInstallmentRepository.instance
+
+    fun init(context: Context) {
+        repository.init(context)
+    }
 
     val summary: InstallmentSummaryData
         get() {
-            val all = allInstallments
-            if (all.isEmpty()) {
-                return InstallmentSummaryData(
-                    activeCount = 0,
-                    paidAmountFormatted = "۰",
-                    remainingAmountFormatted = "۰",
-                    nextDueText = "بدون سررسید",
-                    nextDueTitle = "تعهد فعالی ثبت نشده است"
-                )
-            }
-            return InstallmentSummaryData()
+            val s = repository.summary.value
+            return InstallmentSummaryData(
+                activeCount = s.activeCount,
+                paidAmountFormatted = s.paidAmountFormatted,
+                remainingAmountFormatted = s.remainingAmountFormatted,
+                nextDueText = s.nextDueText,
+                nextDueTitle = s.nextDueTitle
+            )
         }
 
     val categorySummaries: List<CategorySummaryStat>
         get() {
-            val all = allInstallments
-            if (all.isEmpty()) return emptyList()
-            return listOf(
+            return repository.categorySummaries.value.map {
                 CategorySummaryStat(
-                    category = InstallmentCategory.BANK_LOANS,
-                    countText = "${_bankLoans.size} مورد",
-                    remainingFormatted = "${_bankLoans.sumOf { it.remainingAmount } / 1_000_000}M باقی"
-                ),
-                CategorySummaryStat(
-                    category = InstallmentCategory.HOME_LOANS,
-                    countText = "${_homeLoans.size} مورد",
-                    remainingFormatted = "${_homeLoans.sumOf { it.remainingAmount } / 1_000_000}M باقی"
-                ),
-                CategorySummaryStat(
-                    category = InstallmentCategory.CAR_INSURANCE,
-                    countText = "${_carInsurance.size} مورد",
-                    remainingFormatted = "${_carInsurance.sumOf { it.remainingAmount } / 1_000_000}M باقی"
-                ),
-                CategorySummaryStat(
-                    category = InstallmentCategory.MISC,
-                    countText = "${_miscInstallments.size} مورد",
-                    remainingFormatted = "${_miscInstallments.sumOf { it.remainingAmount } / 1_000_000}M باقی"
-                )
-            )
-        }
-
-    val bankLoans: List<InstallmentItem> get() = _bankLoans
-    val homeLoans: List<InstallmentItem> get() = _homeLoans
-    val carInsurance: List<InstallmentItem> get() = _carInsurance
-    val miscInstallments: List<InstallmentItem> get() = _miscInstallments
-
-    fun clearAllInstallments() {
-        _bankLoans = mutableListOf()
-        _homeLoans = mutableListOf()
-        _carInsurance = mutableListOf()
-        _miscInstallments = mutableListOf()
-    }
-
-    fun restoreSampleInstallments() {
-        _bankLoans = initialBankLoans.toMutableList()
-        _homeLoans = initialHomeLoans.toMutableList()
-        _carInsurance = initialCarInsurance.toMutableList()
-        _miscInstallments = initialMiscInstallments.toMutableList()
-    }
-
-    fun markOverdueAsPaid(installmentId: String, paymentDate: String): Boolean {
-        fun updateList(list: MutableList<InstallmentItem>): Boolean {
-            val index = list.indexOfFirst { it.id == installmentId }
-            if (index == -1) return false
-            val item = list[index]
-
-            // Find the overdue installment entry in paymentHistory
-            val overdueHistoryIndex = item.paymentHistory.indexOfFirst { it.status == InstallmentStatus.OVERDUE }
-            val updatedHistory = if (overdueHistoryIndex != -1) {
-                item.paymentHistory.mapIndexed { i, hist ->
-                    if (i == overdueHistoryIndex) {
-                        hist.copy(
-                            status = InstallmentStatus.PAID,
-                            paidDate = paymentDate,
-                            isPaidLate = true,
-                            note = if (hist.note.isNullOrBlank()) "پرداخت بعد از موعد سررسید (معوق)" else "${hist.note} - پرداخت بعد از موعد"
-                        )
-                    } else hist
-                }
-            } else {
-                item.paymentHistory + PaymentHistoryItem(
-                    id = "paid_late_${System.currentTimeMillis()}",
-                    installmentNumber = item.paymentHistory.size + 1,
-                    dueDate = item.nextPaymentDate,
-                    paidDate = paymentDate,
-                    amountFormatted = item.monthlyPaymentFormatted,
-                    status = InstallmentStatus.PAID,
-                    note = "پرداخت بعد از موعد سررسید (معوق)",
-                    amount = item.totalAmount / item.totalInstallments.coerceAtLeast(1),
-                    isPaidLate = true
+                    category = it.category,
+                    countText = it.countText,
+                    remainingFormatted = it.remainingFormatted
                 )
             }
-
-            val monthlyAmount = item.totalAmount / item.totalInstallments.coerceAtLeast(1)
-            val newPaidAmount = item.paidAmount + monthlyAmount
-            val newRemainingAmount = (item.remainingAmount - monthlyAmount).coerceAtLeast(0L)
-            val newRemainingInstallments = (item.remainingInstallments - 1).coerceAtLeast(0)
-
-            val hasMoreOverdue = updatedHistory.any { it.status == InstallmentStatus.OVERDUE }
-            val newStatus = if (newRemainingInstallments == 0) {
-                InstallmentStatus.COMPLETED
-            } else if (hasMoreOverdue) {
-                InstallmentStatus.OVERDUE
-            } else {
-                InstallmentStatus.PENDING
-            }
-
-            val updatedItem = item.copy(
-                status = newStatus,
-                paidAmount = newPaidAmount,
-                paidAmountFormatted = MoneyFormatter.formatToman(newPaidAmount),
-                remainingAmount = newRemainingAmount,
-                remainingAmountFormatted = MoneyFormatter.formatToman(newRemainingAmount),
-                remainingInstallments = newRemainingInstallments,
-                paymentHistory = updatedHistory,
-                nextDueDaysText = if (newStatus == InstallmentStatus.OVERDUE) item.nextDueDaysText else "قسط بعدی در انتظار سررسید"
-            )
-
-            list[index] = updatedItem
-            return true
         }
 
-        return updateList(_bankLoans) || updateList(_homeLoans) || updateList(_carInsurance) || updateList(_miscInstallments)
-    }
-
-    val allInstallments: List<InstallmentItem>
-        get() = bankLoans + homeLoans + carInsurance + miscInstallments
-
-    val overdueInstallments: List<InstallmentItem>
-        get() = allInstallments.filter { it.status == InstallmentStatus.OVERDUE }
-
+    val bankLoans: List<InstallmentItem> get() = repository.bankLoans.value
+    val homeLoans: List<InstallmentItem> get() = repository.homeLoans.value
+    val carInsurance: List<InstallmentItem> get() = repository.carInsurance.value
+    val miscInstallments: List<InstallmentItem> get() = repository.miscInstallments.value
+    val allInstallments: List<InstallmentItem> get() = repository.installments.value
+    val overdueInstallments: List<InstallmentItem> get() = repository.overdueInstallments.value
     val upcomingInstallments: List<InstallmentItem>
         get() = allInstallments
             .filter { it.status == InstallmentStatus.DUE_SOON || it.status == InstallmentStatus.PENDING }
             .sortedBy { it.remainingInstallments }
             .take(3)
+
+    fun addInstallment(item: InstallmentItem, context: Context? = null) {
+        repository.addInstallment(item, context)
+    }
+
+    fun clearAllInstallments(context: Context? = null) {
+        repository.clearAllInstallments(context)
+    }
+
+    fun restoreSampleInstallments(context: Context? = null) {
+        repository.restoreSampleInstallments(context)
+    }
+
+    fun markOverdueAsPaid(installmentId: String, paymentDate: String, context: Context? = null): Boolean {
+        repository.markOverdueAsPaid(installmentId, paymentDate, context)
+        return true
+    }
+
+    fun updateScheduleItem(
+        installmentId: String,
+        scheduleItemId: String,
+        newAmountLong: Long,
+        newDueDate: String,
+        newNote: String?,
+        context: Context? = null
+    ): Boolean {
+        val current = repository.installments.value.find { it.id == installmentId } ?: return false
+        val targetHistory = current.paymentHistory.find { it.id == scheduleItemId } ?: return false
+        val newStatus = targetHistory.status
+        return repository.updateScheduleItem(installmentId, scheduleItemId, newStatus, newNote ?: "", context)
+    }
 }

@@ -91,12 +91,16 @@ class MockLocalSecurityRepository(
 
     override fun verifyPin(pin: String): Boolean {
         val storedHash = prefs.getString(KEY_PIN_HASH, null) ?: return false
-        val incomingHash = hashString(pin)
-        return storedHash == incomingHash
+        val matched = verifyWithSalt(pin, storedHash)
+        if (matched && !storedHash.startsWith("pbkdf2:")) {
+            // Automatically upgrade legacy unsalted hash to salted PBKDF2
+            setPin(pin)
+        }
+        return matched
     }
 
     override fun setPin(pin: String) {
-        val hash = hashString(pin)
+        val hash = hashWithSalt(pin)
         prefs.edit()
             .putString(KEY_PIN_HASH, hash)
             .putBoolean(KEY_APP_LOCK_ENABLED, true)
@@ -119,12 +123,18 @@ class MockLocalSecurityRepository(
 
     override fun verifyPattern(patternPoints: List<Int>): Boolean {
         val storedHash = prefs.getString(KEY_PATTERN_HASH, null) ?: return false
-        val incomingHash = hashString(patternPoints.joinToString(","))
-        return storedHash == incomingHash
+        val input = patternPoints.joinToString(",")
+        val matched = verifyWithSalt(input, storedHash)
+        if (matched && !storedHash.startsWith("pbkdf2:")) {
+            // Automatically upgrade legacy unsalted hash to salted PBKDF2
+            setPattern(patternPoints)
+        }
+        return matched
     }
 
     override fun setPattern(patternPoints: List<Int>) {
-        val hash = hashString(patternPoints.joinToString(","))
+        val input = patternPoints.joinToString(",")
+        val hash = hashWithSalt(input)
         prefs.edit()
             .putString(KEY_PATTERN_HASH, hash)
             .putBoolean(KEY_APP_LOCK_ENABLED, true)
@@ -196,7 +206,27 @@ class MockLocalSecurityRepository(
         return current.appLockEnabled && (current.pinEnabled || current.patternEnabled || current.biometricEnabled)
     }
 
-    private fun hashString(input: String): String {
+    private fun hashWithSalt(input: String): String {
+        val salt = com.example.util.PasswordHasher.generateSalt()
+        val hash = com.example.util.PasswordHasher.hashPassword(input, salt)
+        return "pbkdf2:$salt:$hash"
+    }
+
+    private fun verifyWithSalt(input: String, stored: String): Boolean {
+        if (stored.startsWith("pbkdf2:")) {
+            val parts = stored.split(":")
+            if (parts.size == 3) {
+                val salt = parts[1]
+                val expectedHash = parts[2]
+                return com.example.util.PasswordHasher.verifyPassword(input, salt, expectedHash)
+            }
+        }
+        // Backward-compatible check for legacy unsalted SHA-256
+        val legacyHash = hashLegacySha256(input)
+        return stored.equals(legacyHash, ignoreCase = true)
+    }
+
+    private fun hashLegacySha256(input: String): String {
         val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
         return bytes.joinToString("") { "%02x".format(it) }
     }

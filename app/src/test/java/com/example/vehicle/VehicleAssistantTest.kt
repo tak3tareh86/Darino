@@ -101,6 +101,6 @@ class VehicleAssistantTest {
         )
 
         assertEquals(50000, nextKm)
-        assertEquals("1405/12/10", nextDate)
+        assertEquals("۱۴۰۵/۱۲/۱۰", nextDate)
     }
 }

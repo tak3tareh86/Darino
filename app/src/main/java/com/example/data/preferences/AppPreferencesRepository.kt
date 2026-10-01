@@ -41,6 +41,14 @@ class AppPreferencesRepository private constructor(context: Context) {
     private val _navTransition = MutableStateFlow(loadNavTransition())
     val navTransition: StateFlow<NavigationTransitionAnimation> = _navTransition.asStateFlow()
 
+    fun isCleanSlatePerformed(): Boolean {
+        return prefs.getBoolean(KEY_IS_CLEAN_SLATE, false)
+    }
+
+    fun setCleanSlatePerformed(performed: Boolean) {
+        prefs.edit().putBoolean(KEY_IS_CLEAN_SLATE, performed).apply()
+    }
+
     init {
         // Synchronize MoneyFormatter with persisted preferences
         MoneyFormatter.activeCurrency = _currency.value
@@ -126,6 +134,7 @@ class AppPreferencesRepository private constructor(context: Context) {
         private const val KEY_CURRENCY = "pref_currency"
         private const val KEY_ALERT_DELIVERY = "pref_alert_delivery"
         private const val KEY_NAV_TRANSITION = "pref_nav_transition_animation"
+        private const val KEY_IS_CLEAN_SLATE = "pref_is_clean_slate"
 
         @Volatile
         private var instance: AppPreferencesRepository? = null

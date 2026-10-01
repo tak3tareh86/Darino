@@ -251,7 +251,10 @@ fun SettingsScreen(
                 )
             }
             SettingsDestination.DATA_MANAGEMENT -> {
-                DataManagementScreen(onBackClick = { currentDestination = SettingsDestination.MAIN })
+                DataManagementScreen(
+                    onBackClick = { currentDestination = SettingsDestination.MAIN },
+                    prefsRepo = prefsRepo
+                )
             }
             SettingsDestination.SECURITY -> {
                 SecurityPrivacyScreen(

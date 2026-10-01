@@ -68,6 +68,6 @@ class HomeDashboardAggregator(
         val dayNumber = IranianPhoneUtils.convertDigitsToPersian(pdt.day.toString())
         val monthName = pdt.monthName
         val year = IranianPhoneUtils.convertDigitsToPersian(pdt.year.toString())
-        return "$dayName، $dayNumber $monthName $year"
+        return "$dayName $dayNumber $monthName $year"
     }
 }

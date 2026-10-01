@@ -63,7 +63,7 @@ object IranianPhoneNormalizer {
         val normalized = normalize(phone) ?: phone
         return if (normalized.startsWith("+989") && normalized.length == 13) {
             val localFormat = "0" + normalized.substring(3)
-            "${localFormat.substring(0, 4)}••••${localFormat.substring(8)}"
+            "${localFormat.substring(0, 4)}••••${localFormat.substring(7)}"
         } else if (phone.length >= 8) {
             "${phone.substring(0, 4)}••••${phone.substring(phone.length - 4)}"
         } else {

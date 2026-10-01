@@ -6,6 +6,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -30,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.R
+import com.example.ui.components.IranianLicensePlate
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
@@ -37,6 +40,8 @@ import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleInspectionEntity
 import com.example.vehicle.data.VehicleInsuranceEntity
 import com.example.vehicle.data.VehicleServiceEntity
+import com.example.vehicle.presentation.components.AddServiceSheet
+import com.example.vehicle.presentation.components.AddVehicleSheet
 import com.example.vehicle.presentation.components.*
 import com.example.vehicle.viewmodel.VehicleTab
 import com.example.vehicle.viewmodel.VehicleViewModel
@@ -48,7 +53,7 @@ import java.util.Locale
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VehicleDashboardScreen(
+fun DarinoVehicleMainDashboard(
     onNavigateToHome: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
@@ -57,6 +62,11 @@ fun VehicleDashboardScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(Unit) {
+        viewModel.initRepository(context)
+    }
 
     LaunchedEffect(state.snackBarMessage) {
         state.snackBarMessage?.let { msg ->
@@ -149,14 +159,99 @@ fun VehicleDashboardScreen(
                 }
             }
 
-            // 2. Multi-Vehicle Horizontal Selector (Section 2)
+            // 2. Multi-Vehicle Collapsible Selector (Modern Design)
+            var isExpanded by remember { mutableStateOf(false) }
+
             if (state.vehicles.isNotEmpty()) {
-                MultiVehicleSelectorRow(
-                    vehicles = state.vehicles,
-                    selectedVehicle = state.selectedVehicle,
-                    onSelectVehicle = { viewModel.selectVehicle(it) },
-                    onAddNew = { viewModel.openAddVehicle() }
-                )
+                val selected = state.selectedVehicle ?: state.vehicles.first()
+                val primaryColor = MaterialTheme.colorScheme.primary
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Header (Currently Selected)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = primaryColor.copy(alpha = 0.1f),
+                        border = BorderStroke(1.5.dp, primaryColor),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { isExpanded = !isExpanded }
+                            .testTag("vehicle_selector_header")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.DirectionsCar,
+                                contentDescription = null,
+                                tint = primaryColor,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "${selected.brand} ${selected.model}",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Icon(
+                                imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                                contentDescription = "Expand/Collapse",
+                                tint = primaryColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    // Expanded List
+                    AnimatedVisibility(visible = isExpanded) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            state.vehicles.filter { it.id != selected.id }.forEach { car ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            viewModel.selectVehicle(car)
+                                            isExpanded = false
+                                        }
+                                        .testTag("car_item_${car.id}")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.DirectionsCar,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "${car.brand} ${car.model}",
+                                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             if (state.isLoading) {
@@ -222,7 +317,7 @@ fun VehicleDashboardScreen(
     // Bottom Sheets & Dialogs
     if (state.showAddVehicleSheet) {
         AddVehicleSheet(
-            onAddVehicle = { b, m, y, c, p, v, km, est ->
+            onAddVehicle = { b: String, m: String, y: String, c: String, p: String, v: String, km: Int, est: Long ->
                 viewModel.addVehicle(b, m, y, c, p, v, km, est)
             },
             onDismiss = { viewModel.closeAddVehicle() }
@@ -232,7 +327,7 @@ fun VehicleDashboardScreen(
     if (state.showAddServiceSheet && state.selectedVehicle != null) {
         AddServiceSheet(
             vehicle = state.selectedVehicle!!,
-            onAddService = { t, type, d, km, c, desc, remD, remKm, en ->
+            onAddService = { t: String, type: com.example.vehicle.data.ServiceType, d: String, km: Int, c: Long, desc: String, remD: String?, remKm: Int?, en: Boolean ->
                 viewModel.addServiceRecord(t, type, d, km, c, desc, remD, remKm, en)
             },
             onDismiss = { viewModel.closeAddService() }
@@ -242,7 +337,7 @@ fun VehicleDashboardScreen(
     if (state.showAddExpenseSheet && state.selectedVehicle != null) {
         AddVehicleExpenseSheet(
             vehicle = state.selectedVehicle!!,
-            onAddExpense = { t, cat, amt, d, desc ->
+            onAddExpense = { t: String, cat: com.example.vehicle.data.VehicleExpenseCategory, amt: Long, d: String, desc: String ->
                 viewModel.addExpenseRecord(t, cat, amt, d, desc)
             },
             onDismiss = { viewModel.closeAddExpense() }
@@ -252,10 +347,10 @@ fun VehicleDashboardScreen(
     if (state.showInsuranceSheet && state.selectedVehicle != null) {
         VehicleInsuranceSheet(
             vehicle = state.selectedVehicle!!,
-            onSaveInsurance = { comp, typ, s, e, amt, num ->
+            onSaveInsurance = { comp: String, typ: String, s: String, e: String, amt: Long, num: String ->
                 viewModel.saveInsuranceRecord(comp, typ, s, e, amt, num)
             },
-            onSaveInspection = { lastD, expD, c, st, cntr ->
+            onSaveInspection = { lastD: String, expD: String, c: Long, st: String, cntr: String ->
                 viewModel.saveInspectionRecord(lastD, expD, c, st, cntr)
             },
             onDismiss = { viewModel.closeInsuranceSheet() }
@@ -276,61 +371,6 @@ fun VehicleDashboardScreen(
             onConfirm = { viewModel.confirmReminderSchedule() },
             onDismiss = { viewModel.dismissReminderConfirmation() }
         )
-    }
-}
-
-/**
- * Multi-Vehicle Horizontal Selector Chip Row
- */
-@Composable
-private fun MultiVehicleSelectorRow(
-    vehicles: List<VehicleEntity>,
-    selectedVehicle: VehicleEntity?,
-    onSelectVehicle: (VehicleEntity) -> Unit,
-    onAddNew: () -> Unit
-) {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        items(vehicles, key = { it.id }) { car ->
-            val isSelected = selectedVehicle?.id == car.id
-            val primaryColor = MaterialTheme.colorScheme.primary
-
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = if (isSelected) primaryColor else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (isSelected) primaryColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
-                ),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { onSelectVehicle(car) }
-                    .testTag("car_chip_${car.id}")
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.DirectionsCar,
-                        contentDescription = null,
-                        tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "${car.brand} ${car.model}",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = 11.sp
-                        ),
-                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        }
     }
 }
 

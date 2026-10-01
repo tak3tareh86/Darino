@@ -21,7 +21,34 @@ class HomeDashboardTest {
     @Test
     fun `test HomeDashboardAggregator produces complete dashboard state`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val repository = HomeDashboardRepository(context)
+        val financeRepo = com.example.ui.screens.finance.data.LocalFinanceRepository.instance
+        financeRepo.init(context)
+        val categoryInc = com.example.ui.screens.finance.model.FinanceDefaultCategories.defaultIncomeCategories.first()
+        val categoryExp = com.example.ui.screens.finance.model.FinanceDefaultCategories.defaultExpenseCategories.first()
+        financeRepo.addTransaction(
+            com.example.ui.screens.finance.model.TransactionItemData(
+                id = "test-inc",
+                title = "حقوق",
+                amount = 18_000_000L,
+                type = com.example.ui.screens.finance.model.TransactionType.INCOME,
+                category = categoryInc,
+                datePersian = "1403/01/01",
+                timePersian = "10:00"
+            )
+        )
+        financeRepo.addTransaction(
+            com.example.ui.screens.finance.model.TransactionItemData(
+                id = "test-exp",
+                title = "هزینه جاری",
+                amount = 9_500_000L,
+                type = com.example.ui.screens.finance.model.TransactionType.EXPENSE,
+                category = categoryExp,
+                datePersian = "1403/01/02",
+                timePersian = "11:00"
+            )
+        )
+
+        val repository = HomeDashboardRepository(context, financeRepository = financeRepo)
         val aggregator = HomeDashboardAggregator(repository)
 
         val state = aggregator.aggregate()
@@ -36,7 +63,7 @@ class HomeDashboardTest {
         assertTrue(state.upcomingObligations.size in 1..3)
         val loanObligation = state.upcomingObligations.find { it.type == ObligationType.INSTALLMENT }
         assertNotNull(loanObligation)
-        assertEquals("قسط بانک مهر", loanObligation?.title)
+        assertEquals("وام مسکن بانک ملت", loanObligation?.title)
 
         // 3. Verify Upcoming Reminders (max 3)
         assertTrue(state.upcomingReminders.size in 1..3)

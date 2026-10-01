@@ -47,13 +47,37 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
     private val dao = db.smartReminderDao()
 
     init {
-        // Prepopulate with initial smart reminders if empty
+        // Prepopulate or migrate reminders
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val prefs = context.applicationContext.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
+                val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
+                
                 val current = dao.getAllReminders().first()
                 if (current.isEmpty()) {
-                    val initial = ReminderManager.getInitialSmartReminders()
-                    dao.insertReminders(initial)
+                    val legacyList = db.reminderDao().getActiveRemindersSnapshot()
+                    if (legacyList.isNotEmpty()) {
+                        val migrated = legacyList.map { leg ->
+                            ReminderEntity(
+                                id = if (leg.serverId.isNullOrBlank()) leg.id.toString() else leg.serverId,
+                                title = leg.title,
+                                description = leg.description,
+                                type = leg.type,
+                                sourceType = leg.sourceType ?: "MANUAL",
+                                sourceId = leg.sourceId?.toString(),
+                                status = if (leg.completedAt != null) "COMPLETED" else if (leg.enabled) "ACTIVE" else "DISABLED",
+                                date = PersianCalendarHelper.fromEpochMillis(leg.scheduledDateTime).toFormattedDate(),
+                                time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(leg.scheduledDateTime)),
+                                notificationEnabled = leg.notificationEnabled,
+                                smsEnabled = leg.smsEnabled,
+                                phoneNumber = leg.phoneNumber
+                            )
+                        }
+                        dao.insertReminders(migrated)
+                    } else if (!isCleanSlate) {
+                        val initial = ReminderManager.getInitialSmartReminders()
+                        dao.insertReminders(initial)
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

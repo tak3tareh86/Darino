@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.Layered3DCard
@@ -38,7 +39,7 @@ fun InstallmentCategoryGrid(
         ) {
             Text(
                 text = "دسته‌بندی تعهدات و اقساط",
-                style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
@@ -86,21 +87,19 @@ private fun CategoryGridCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-
     Layered3DCard(
         modifier = modifier,
         shape = RoundedCornerShape(RadiusMD),
         backgroundColor = MaterialTheme.colorScheme.surface,
         elevation = 2.dp,
-        contentPadding = PaddingValues(10.dp),
+        contentPadding = PaddingValues(12.dp),
         testTag = "category_card_${item.category.id}",
         onClick = onClick
     ) {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Soft3DIcon(
                 imageRes = item.category.iconRes,
@@ -110,34 +109,34 @@ private fun CategoryGridCard(
                 containerShape = RoundedCornerShape(10.dp)
             )
 
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = item.category.title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 12.5.sp),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1
-                )
+            Text(
+                text = item.category.title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.5.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = item.countText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = item.remainingFormatted,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                        color = item.category.accentColor
-                    )
-                }
-            }
+            Text(
+                text = item.countText,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 10.5.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                text = item.remainingFormatted,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp
+                ),
+                color = item.category.accentColor,
+                maxLines = 1
+            )
         }
     }
 }

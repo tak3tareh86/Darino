@@ -99,14 +99,14 @@ fun HomeHeader(
                 // 3D App Icon
                 Box(
                     modifier = Modifier
-                        .size(26.dp)
+                        .size(34.dp)
                         .shadow(
                             elevation = 2.dp,
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(8.dp),
                             ambientColor = Color(0xFF14B8A6).copy(alpha = 0.15f),
                             spotColor = Color(0xFF14B8A6).copy(alpha = 0.3f)
                         )
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(RoundedCornerShape(8.dp))
                         .background(Color.White.copy(alpha = 0.12f))
                         .padding(1.dp),
                     contentAlignment = Alignment.Center
@@ -115,8 +115,8 @@ fun HomeHeader(
                         painter = painterResource(id = R.drawable.img_darino_logo),
                         contentDescription = "لوگوی دارینو",
                         modifier = Modifier
-                            .size(20.dp)
-                            .clip(RoundedCornerShape(4.dp)),
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp)),
                         contentScale = ContentScale.Crop
                     )
                 }
@@ -129,14 +129,14 @@ fun HomeHeader(
                         text = "سلام $userName 👋",
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.5.sp
+                            fontSize = 14.sp
                         ),
                         color = Color.White
                     )
                     Text(
                         text = todayDateText,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 8.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Normal
                         ),
                         color = Color(0xFFE2E8F0).copy(alpha = 0.8f)
@@ -147,7 +147,7 @@ fun HomeHeader(
             // Left Side (RTL): Notification Button with Badge and Settings Button
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 NotificationButton(
                     badgeCount = unreadNotificationsCount,
@@ -169,7 +169,7 @@ fun SettingsButton(
     Box(
         modifier = modifier
             .testTag("settings_button")
-            .size(26.dp)
+            .size(34.dp)
             .shadow(
                 elevation = 2.dp,
                 shape = CircleShape,
@@ -185,7 +185,7 @@ fun SettingsButton(
             imageVector = Icons.Rounded.Settings,
             contentDescription = "تنظیمات برنامه",
             tint = Color.White,
-            modifier = Modifier.size(13.dp)
+            modifier = Modifier.size(18.dp)
         )
     }
 }
@@ -199,7 +199,7 @@ fun NotificationButton(
     Box(
         modifier = modifier
             .testTag("notification_button")
-            .size(26.dp)
+            .size(34.dp)
             .shadow(
                 elevation = 2.dp,
                 shape = CircleShape,
@@ -215,7 +215,7 @@ fun NotificationButton(
             imageVector = Icons.Rounded.Notifications,
             contentDescription = "مرکز اعلان‌ها",
             tint = Color.White,
-            modifier = Modifier.size(13.dp)
+            modifier = Modifier.size(18.dp)
         )
 
         // Notification Badge Indicator
@@ -225,19 +225,19 @@ fun NotificationButton(
                 enter = fadeIn(tween(300)) + scaleIn(tween(300)),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 0.5.dp, end = 0.5.dp)
+                    .padding(top = 1.dp, end = 1.dp)
             ) {
                 Surface(
                     shape = CircleShape,
                     color = ExpenseRoseLight,
                     border = BorderStroke(0.5.dp, Color.White),
-                    modifier = Modifier.size(11.dp)
+                    modifier = Modifier.size(14.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = IranianPhoneUtils.convertDigitsToPersian(badgeCount.toString()),
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 7.sp,
+                                fontSize = 8.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )

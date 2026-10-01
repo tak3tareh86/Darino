@@ -74,6 +74,8 @@ import com.example.ui.screens.installments.model.InstallmentCategory
 import com.example.ui.screens.installments.model.InstallmentItem
 import com.example.ui.screens.installments.model.InstallmentMockDataSource
 import com.example.ui.screens.installments.model.InstallmentStatus
+import com.example.ui.screens.installments.model.PaymentHistoryItem
+import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.launch
 
 import com.example.financial_health.presentation.components.FinancialHealthCard
@@ -87,6 +89,7 @@ private sealed class InstallmentNavigationState {
     data object LoanCalculator : InstallmentNavigationState()
     data object FinancialHealth : InstallmentNavigationState()
     data object OverdueView : InstallmentNavigationState()
+    data object GroupedLoansView : InstallmentNavigationState()
     data class CategoryView(val category: InstallmentCategory) : InstallmentNavigationState()
     data class DetailView(val item: InstallmentItem) : InstallmentNavigationState()
     data class ScheduleView(val item: InstallmentItem) : InstallmentNavigationState()
@@ -179,272 +182,124 @@ fun InstallmentsScreen(
                     contentWindowInsets = WindowInsets(0),
                     snackbarHost = { SnackbarHost(snackbarHostState) },
                     topBar = {
-                        InstallmentsHeader(
-                            onSearchClick = { showSearchSheet = true },
-                            onFilterClick = { showFilterSheet = true }
-                        )
-                    },
-                    bottomBar = { bottomBar?.invoke() }
-                ) { innerPadding ->
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                            .padding(horizontal = 16.dp),
-                        contentPadding = PaddingValues(vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        if (allInstallments.isEmpty()) {
-                            item {
-                                InstallmentsEmptyState(
-                                    onAddClick = {
-                                        addInitialCategory = InstallmentCategory.BANK_LOANS
-                                        showAddSheet = true
-                                    }
-                                )
-                            }
-                        } else {
-                            // 1. Quick Actions at the very top (Add Installment & Payment Schedule)
-                            item {
-                                InstallmentQuickActions(
-                                    onAddInstallmentClick = {
-                                        addInitialCategory = InstallmentCategory.BANK_LOANS
-                                        prefillTitle = ""
-                                        prefillTotal = ""
-                                        prefillMonthly = ""
-                                        prefillCount = ""
-                                        showAddSheet = true
-                                    },
-                                    onViewScheduleClick = {
-                                        allInstallments.firstOrNull()?.let {
-                                            navigateTo(InstallmentNavigationState.ScheduleView(it))
-                                        }
-                                    },
-                                    onSearchFilterClick = {
-                                        showSearchSheet = true
-                                    }
-                                )
-                            }
-
-                            // 2. Summary Card
-                            item {
-                                InstallmentsSummaryCard(
-                                    summary = InstallmentMockDataSource.summary,
-                                    onClick = {
-                                        allInstallments.firstOrNull()?.let {
-                                            navigateTo(InstallmentNavigationState.ScheduleView(it))
-                                        }
-                                    }
-                                )
-                            }
-
-                            // 3. Collapsible Smart Tools & Financial Health Section
-                            item {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            InstallmentsHeader(
+                                onSearchClick = { showSearchSheet = true },
+                                onFilterClick = { showFilterSheet = true }
+                            )
+                            if (allInstallments.isNotEmpty()) {
                                 Surface(
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    color = MaterialTheme.colorScheme.background
                                 ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(10.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .clickable { isToolsExpanded = !isToolsExpanded }
-                                                .padding(horizontal = 6.dp, vertical = 6.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.BuildCircle,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                                Column {
-                                                    Text(
-                                                        text = "ابزارهای هوشمند و سلامت مالی",
-                                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                                        color = MaterialTheme.colorScheme.onSurface
-                                                    )
-                                                    Text(
-                                                        text = "محاسبه‌گر وام و پایش فشار اقساط ماهانه",
-                                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
-                                                }
-                                            }
-                                            Icon(
-                                                imageVector = if (isToolsExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(22.dp)
-                                            )
-                                        }
-
-                                        AnimatedVisibility(
-                                            visible = isToolsExpanded,
-                                            enter = expandVertically() + fadeIn(),
-                                            exit = shrinkVertically() + fadeOut()
-                                        ) {
-                                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                                LoanCalculatorCard(
-                                                    onClick = {
-                                                        navigateTo(InstallmentNavigationState.LoanCalculator)
-                                                    }
-                                                )
-                                                FinancialHealthCard(
-                                                    pressurePercentage = healthState.pressurePercentage,
-                                                    healthStatus = healthState.healthStatus,
-                                                    monthlyIncome = healthState.monthlyIncome,
-                                                    totalCommitments = healthState.totalCommitments,
-                                                    onClick = {
-                                                        navigateTo(InstallmentNavigationState.FinancialHealth)
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 4. Compact Overdue Section (Alert if overdue exist)
-                            if (overdueList.isNotEmpty()) {
-                                item {
-                                    OverdueInstallmentsSection(
-                                        items = overdueList,
-                                        onShowOverdueClick = {
-                                            navigateTo(InstallmentNavigationState.OverdueView)
+                                    InstallmentQuickActions(
+                                        onAddInstallmentClick = {
+                                            addInitialCategory = InstallmentCategory.BANK_LOANS
+                                            prefillTitle = ""
+                                            prefillTotal = ""
+                                            prefillMonthly = ""
+                                            prefillCount = ""
+                                            showAddSheet = true
+                                        },
+                                        onLoanCalculatorClick = {
+                                            navigateTo(InstallmentNavigationState.LoanCalculator)
+                                        },
+                                        onFinancialHealthClick = {
+                                            navigateTo(InstallmentNavigationState.FinancialHealth)
                                         }
                                     )
                                 }
                             }
-
-                            // 5. Collapsible Categories Grid
-                            item {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable { isCategoriesExpanded = !isCategoriesExpanded }
-                                            .padding(vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Category,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Text(
-                                                text = "دسته‌بندی‌های تسهیلات و اقساط",
-                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                        }
-                                        Icon(
-                                            imageVector = if (isCategoriesExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-
-                                    AnimatedVisibility(
-                                        visible = isCategoriesExpanded,
-                                        enter = expandVertically() + fadeIn(),
-                                        exit = shrinkVertically() + fadeOut()
-                                    ) {
-                                        InstallmentCategoryGrid(
-                                            categories = InstallmentMockDataSource.categorySummaries,
-                                            onCategoryClick = { category ->
-                                                navigateTo(InstallmentNavigationState.CategoryView(category))
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-
-                            // 6. Collapsible Upcoming Payments Section (Max 3)
-                            item {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable { isUpcomingExpanded = !isUpcomingExpanded }
-                                            .padding(vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.EventRepeat,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Text(
-                                                text = "اقساط و موعدهای نزدیک",
-                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                        }
-                                        Icon(
-                                            imageVector = if (isUpcomingExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-
-                                    AnimatedVisibility(
-                                        visible = isUpcomingExpanded,
-                                        enter = expandVertically() + fadeIn(),
-                                        exit = shrinkVertically() + fadeOut()
-                                    ) {
-                                        UpcomingInstallmentsSection(
-                                            items = upcomingList,
-                                            onItemClick = { item ->
-                                                navigateTo(InstallmentNavigationState.DetailView(item))
-                                            },
-                                            onSeeAllClick = {
-                                                allInstallments.firstOrNull()?.let {
-                                                    navigateTo(InstallmentNavigationState.ScheduleView(it))
-                                                }
-                                            }
-                                        )
-                                    }
-                                }
-                            }
                         }
+                    },
+                    bottomBar = { bottomBar?.invoke() }
+                ) { innerPadding ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        if (allInstallments.isEmpty()) {
+                            InstallmentsEmptyState(
+                                onAddClick = {
+                                    addInitialCategory = InstallmentCategory.BANK_LOANS
+                                    showAddSheet = true
+                                }
+                            )
+                        } else {
+                            // 1. Summary Card
+                            InstallmentsSummaryCard(
+                                summary = InstallmentMockDataSource.summary,
+                                onClick = {
+                                    navigateTo(InstallmentNavigationState.GroupedLoansView)
+                                }
+                            )
 
-                        item {
-                            Spacer(modifier = Modifier.height(16.dp))
+                            // 2. Compact Overdue Section (Alert if overdue exist)
+                            if (overdueList.isNotEmpty()) {
+                                OverdueInstallmentsSection(
+                                    items = overdueList,
+                                    onShowOverdueClick = {
+                                        navigateTo(InstallmentNavigationState.OverdueView)
+                                    }
+                                )
+                            }
+
+                            // 3. Collapsible Categories Grid
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { isCategoriesExpanded = !isCategoriesExpanded }
+                                        .padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Category,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = "دسته‌بندی‌های تسهیلات و اقساط",
+                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = if (isCategoriesExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                AnimatedVisibility(
+                                    visible = isCategoriesExpanded,
+                                    enter = expandVertically() + fadeIn(),
+                                    exit = shrinkVertically() + fadeOut()
+                                ) {
+                                    InstallmentCategoryGrid(
+                                        categories = InstallmentMockDataSource.categorySummaries,
+                                        onCategoryClick = { category ->
+                                            navigateTo(InstallmentNavigationState.CategoryView(category))
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -539,7 +394,7 @@ fun InstallmentsScreen(
                         navigateTo(InstallmentNavigationState.DetailView(item))
                     },
                     onMarkAsPaid = { installmentId, paymentDate ->
-                        InstallmentMockDataSource.markOverdueAsPaid(installmentId, paymentDate)
+                        InstallmentMockDataSource.markOverdueAsPaid(installmentId, paymentDate, context)
                         refreshData()
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("قسط با موفقیت در تاریخ $paymentDate به عنوان پرداخت شده ثبت شد.")
@@ -560,6 +415,15 @@ fun InstallmentsScreen(
                         prefillMonthly = monthly.replace(" تومان", "").trim()
                         prefillCount = count.toString()
                         showAddSheet = true
+                    }
+                )
+            }
+            is InstallmentNavigationState.GroupedLoansView -> {
+                AllGroupedLoansScreen(
+                    allItems = allInstallments,
+                    onBackClick = { navigateBack() },
+                    onLoanClick = { loan ->
+                        navigateTo(InstallmentNavigationState.ScheduleView(loan))
                     }
                 )
             }
@@ -589,49 +453,95 @@ fun InstallmentsScreen(
                 prefillMonthly = ""
                 prefillCount = ""
             },
-            onAddConfirm = { cat, title, total, monthly, provider, reminderEnabled, reminderDays, reminderTime ->
+            onAddConfirm = { cat, title, totalStr, monthlyStr, countStr, dueDateStr, provider, itemNotes, reminderEnabled, reminderDays, reminderTime, selectedOffsets, customScheduleItems ->
                 prefillTitle = ""
                 prefillTotal = ""
                 prefillMonthly = ""
                 prefillCount = ""
+
+                val parsedTotal = com.example.util.IranianAmountUtils.parseAmountToLong(totalStr).let { if (it <= 0L) 10_000_000L else it }
+                val parsedMonthly = com.example.util.IranianAmountUtils.parseAmountToLong(monthlyStr).let { if (it <= 0L) 1_000_000L else it }
+                val parsedCount = countStr.filter { it.isDigit() }.toIntOrNull().let {
+                    if (it == null || it <= 0) (parsedTotal / parsedMonthly.coerceAtLeast(1L)).toInt().coerceAtLeast(1) else it
+                }
+
+                val totalAmount = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.sumOf { it.amount } else parsedTotal
+                val totalInstallments = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.size else parsedCount
+                val remainingInstallments = totalInstallments
+                val paidAmount = 0L
+                val remainingAmount = totalAmount
+
+                val monthlyFormatted = com.example.util.MoneyFormatter.formatToman(parsedMonthly)
+                val totalFormatted = com.example.util.MoneyFormatter.formatToman(totalAmount)
+                val remainingFormatted = com.example.util.MoneyFormatter.formatToman(remainingAmount)
+                val paidFormatted = com.example.util.MoneyFormatter.formatToman(paidAmount)
+
+                val paymentHistoryList = if (!customScheduleItems.isNullOrEmpty()) {
+                    customScheduleItems
+                } else {
+                    val defaultList = mutableListOf<PaymentHistoryItem>()
+                    for (i in 1..totalInstallments) {
+                        defaultList.add(
+                            PaymentHistoryItem(
+                                id = "p_${System.currentTimeMillis()}_$i",
+                                installmentNumber = i,
+                                dueDate = com.example.util.PersianCalendarHelper.addMonthsToPersianDate(dueDateStr.ifBlank { "۱۴۰۴/۰۸/۱۵" }, i - 1),
+                                paidDate = null,
+                                amountFormatted = monthlyFormatted,
+                                status = if (i == 1) InstallmentStatus.DUE_SOON else InstallmentStatus.PENDING,
+                                note = null,
+                                amount = parsedMonthly,
+                                isPaidLate = false
+                            )
+                        )
+                    }
+                    defaultList
+                }
+
+                val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                val noteText = buildString {
+                    if (itemNotes.isNotBlank()) append(itemNotes)
+                    if (reminderEnabled) {
+                        if (isNotEmpty()) append(" | ")
+                        append("یادآور فعال: $reminderDays در ساعت $reminderTime")
+                    }
+                }
+
                 val newItem = InstallmentItem(
                     id = "inst_new_${System.currentTimeMillis()}",
                     title = title,
                     category = cat,
                     providerOrPerson = provider,
-                    totalAmount = 12_000_000,
-                    totalAmountFormatted = com.example.util.MoneyFormatter.formatToman(12_000_000),
-                    paidAmount = 2_000_000,
-                    paidAmountFormatted = com.example.util.MoneyFormatter.formatToman(2_000_000),
-                    remainingAmount = 10_000_000,
-                    remainingAmountFormatted = com.example.util.MoneyFormatter.formatToman(10_000_000),
-                    monthlyPaymentFormatted = "$monthly ${com.example.util.MoneyFormatter.getUnitLabel()}",
-                    totalInstallments = 12,
-                    remainingInstallments = 10,
-                    nextPaymentDate = "۱۴۰۴/۰۸/۱۵",
-                    nextDueDaysText = "۳۰ روز دیگر",
-                    startDate = "۱۴۰۴/۰۷/۱۵",
-                    endDate = "۱۴۰۵/۰۷/۱۵",
+                    totalAmount = totalAmount,
+                    totalAmountFormatted = totalFormatted,
+                    paidAmount = paidAmount,
+                    paidAmountFormatted = paidFormatted,
+                    remainingAmount = remainingAmount,
+                    remainingAmountFormatted = remainingFormatted,
+                    monthlyPaymentFormatted = monthlyFormatted,
+                    totalInstallments = totalInstallments,
+                    remainingInstallments = remainingInstallments,
+                    nextPaymentDate = dueDateStr.ifBlank { "۱۴۰۴/۰۸/۱۵" },
+                    nextDueDaysText = "در انتظار سررسید",
+                    startDate = todayJalali,
+                    endDate = "۱۴۰۵/۰۸/۱۵",
                     status = InstallmentStatus.PENDING,
-                    notes = "یادآور فعال: $reminderEnabled، $reminderDays روز قبل در ساعت $reminderTime"
+                    notes = noteText,
+                    paymentHistory = paymentHistoryList
                 )
-                when (cat) {
-                    InstallmentCategory.BANK_LOANS -> bankLoansList = listOf(newItem) + bankLoansList
-                    InstallmentCategory.HOME_LOANS -> homeLoansList = listOf(newItem) + homeLoansList
-                    InstallmentCategory.CAR_INSURANCE -> carInsuranceList = listOf(newItem) + carInsuranceList
-                    InstallmentCategory.MISC -> miscInstallmentsList = listOf(newItem) + miscInstallmentsList
-                }
+                InstallmentMockDataSource.addInstallment(newItem, context)
+                refreshData()
 
                 if (reminderEnabled) {
                     coroutineScope.launch {
                         try {
-                            val cleanAmount = monthly.filter { it.isDigit() }.toLongOrNull() ?: 1_000_000L
                             com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
                                 installmentId = newItem.id,
                                 title = newItem.title,
-                                amount = cleanAmount,
+                                amount = parsedMonthly,
                                 dueDatePersian = newItem.nextPaymentDate,
-                                dueTimePersian = reminderTime
+                                dueTimePersian = reminderTime,
+                                selectedOffsets = selectedOffsets
                             )
                         } catch (e: Exception) {
                             e.printStackTrace()

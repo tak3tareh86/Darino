@@ -143,6 +143,7 @@ enum class SnoozeOption(val title: String, val minutes: Int) {
 enum class PredefinedOffset(val title: String, val value: Int, val unit: OffsetUnit) {
     AT_TIME("در زمان سررسید", 0, OffsetUnit.MINUTE),
     BEFORE_1_DAY("۱ روز قبل", 1, OffsetUnit.DAY),
+    BEFORE_2_DAYS("۲ روز قبل", 2, OffsetUnit.DAY),
     BEFORE_3_DAYS("۳ روز قبل", 3, OffsetUnit.DAY),
     BEFORE_7_DAYS("۷ روز قبل (۱ هفته)", 7, OffsetUnit.DAY),
     BEFORE_14_DAYS("۱۴ روز قبل (۲ هفته)", 14, OffsetUnit.DAY),

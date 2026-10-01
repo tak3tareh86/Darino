@@ -19,14 +19,22 @@ data class UserEntity(
 @Entity(tableName = "transactions")
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val userId: String,
-    val amount: Long,
-    val type: String, // "EXPENSE", "INCOME"
-    val category: String,
-    val accountName: String,
-    val description: String,
-    val timestamp: Long,
-    val timeFormatted: String
+    val userId: String = "default_user",
+    val amount: Long = 0L,
+    val type: String = "EXPENSE", // "EXPENSE", "INCOME", "TRANSFER"
+    val category: String = "",
+    val accountName: String = "کارت بانکی",
+    val description: String = "",
+    val timestamp: Long = System.currentTimeMillis(),
+    val timeFormatted: String = "",
+    val stringId: String = "",
+    val title: String = "",
+    val subCategory: String? = null,
+    val datePersian: String = "",
+    val paymentMethod: String = "BANK_CARD",
+    val sourceType: String = "MANUAL",
+    val sourceId: String? = null,
+    val isRecurring: Boolean = false
 )
 
 @Entity(tableName = "installments")
@@ -93,6 +101,42 @@ data class VehicleServiceEntity(
     val notes: String?,
     val updatedAt: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null
+)
+
+@Entity(tableName = "vehicle_expenses")
+data class VehicleExpenseRoomEntity(
+    @PrimaryKey val id: String,
+    val vehicleId: String,
+    val title: String,
+    val category: String,
+    val amount: Long,
+    val date: String,
+    val description: String = "",
+    val receiptImageUri: String? = null
+)
+
+@Entity(tableName = "vehicle_insurances")
+data class VehicleInsuranceRoomEntity(
+    @PrimaryKey val id: String,
+    val vehicleId: String,
+    val company: String,
+    val type: String,
+    val startDate: String,
+    val endDate: String,
+    val amount: Long,
+    val policyNumber: String = "",
+    val reminderDays: String = "30,15,7"
+)
+
+@Entity(tableName = "vehicle_inspections")
+data class VehicleInspectionRoomEntity(
+    @PrimaryKey val id: String,
+    val vehicleId: String,
+    val lastInspectionDate: String,
+    val expiryDate: String,
+    val cost: Long,
+    val status: String = "معتبر",
+    val centerName: String = ""
 )
 
 @Entity(tableName = "reminders")

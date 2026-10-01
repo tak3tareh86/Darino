@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import com.example.R
 import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.Soft3DIcon
@@ -190,42 +192,44 @@ fun AddVehicleSheet(
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = plateIranCode,
-                    onValueChange = { plateIranCode = it },
-                    label = { Text("ایران") },
-                    modifier = Modifier.weight(0.9f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = platePart2,
-                    onValueChange = { platePart2 = it },
-                    label = { Text("۳ رقم") },
-                    modifier = Modifier.weight(1.1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = plateLetter,
-                    onValueChange = { plateLetter = it },
-                    label = { Text("حرف") },
-                    modifier = Modifier.weight(0.8f),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = platePart1,
-                    onValueChange = { platePart1 = it },
-                    label = { Text("۲ رقم") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = platePart1,
+                        onValueChange = { if (it.length <= 2) platePart1 = it },
+                        label = { Text("۲ رقم") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = plateLetter,
+                        onValueChange = { if (it.length <= 1) plateLetter = it },
+                        label = { Text("حرف") },
+                        modifier = Modifier.weight(0.8f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = platePart2,
+                        onValueChange = { if (it.length <= 3) platePart2 = it },
+                        label = { Text("۳ رقم") },
+                        modifier = Modifier.weight(1.1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = plateIranCode,
+                        onValueChange = { if (it.length <= 2) plateIranCode = it },
+                        label = { Text("ایران") },
+                        modifier = Modifier.weight(0.9f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                }
             }
 
             // VIN (Optional) & Estimated Value
@@ -254,7 +258,7 @@ fun AddVehicleSheet(
                     if (model.isNotBlank()) {
                         val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: 0
                         val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
-                        val plate = "ایران $plateIranCode - $platePart2 $plateLetter $platePart1"
+                        val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
                         onAddVehicle(brand, model, year, color, plate, vin, mileage, estVal)
                     }
                 },

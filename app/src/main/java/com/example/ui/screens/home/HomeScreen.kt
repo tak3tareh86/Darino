@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -74,7 +75,7 @@ import com.example.ui.screens.installments.OverdueInstallmentsScreen
 import com.example.ui.screens.installments.components.AddInstallmentSheet
 import com.example.ui.screens.installments.model.InstallmentCategory
 import com.example.ui.screens.installments.model.InstallmentMockDataSource
-import com.example.ui.screens.vehicle.components.AddVehicleSheet
+import com.example.vehicle.presentation.components.AddVehicleSheet
 import com.example.ui.screens.subscription.SubscriptionStatusCard
 import com.example.ui.screens.subscription.SubscriptionViewModel
 import com.example.ui.theme.ExpenseRoseLight
@@ -99,6 +100,7 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val subState by subscriptionViewModel.uiState.collectAsState()
     val pendingSms by viewModel.pendingSmsQueue.collectAsState()
+    val context = LocalContext.current
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -141,7 +143,7 @@ fun HomeScreen(
             },
             onItemClick = { /* detail or click */ },
             onMarkAsPaid = { installmentId, paymentDate ->
-                InstallmentMockDataSource.markOverdueAsPaid(installmentId, paymentDate)
+                InstallmentMockDataSource.markOverdueAsPaid(installmentId, paymentDate, context)
                 overdueItemsList = InstallmentMockDataSource.overdueInstallments
                 viewModel.loadDashboardData()
                 scope.launch {
@@ -428,19 +430,89 @@ fun HomeScreen(
             sheetState = addInstallmentSheetState,
             onDismiss = { showAddInstallmentSheet = false },
             initialCategory = InstallmentCategory.BANK_LOANS,
-            onAddConfirm = { category, title, total, monthly, provider, reminderEnabled, reminderDays, reminderTime ->
+            onAddConfirm = { category, title, totalStr, monthlyStr, countStr, dueDateStr, provider, itemNotes, reminderEnabled, reminderDays, reminderTime, selectedOffsets, customScheduleItems ->
                 showAddInstallmentSheet = false
+
+                val parsedTotal = com.example.util.IranianAmountUtils.parseAmountToLong(totalStr).let { if (it <= 0L) 10_000_000L else it }
+                val parsedMonthly = com.example.util.IranianAmountUtils.parseAmountToLong(monthlyStr).let { if (it <= 0L) 1_000_000L else it }
+                val parsedCount = countStr.filter { it.isDigit() }.toIntOrNull().let {
+                    if (it == null || it <= 0) (parsedTotal / parsedMonthly.coerceAtLeast(1L)).toInt().coerceAtLeast(1) else it
+                }
+
+                val finalTotal = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.sumOf { it.amount } else parsedTotal
+                val finalCount = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.size else parsedCount
+
+                val monthlyFormatted = com.example.util.MoneyFormatter.formatToman(parsedMonthly)
+                val totalFormatted = com.example.util.MoneyFormatter.formatToman(finalTotal)
+                val remainingFormatted = com.example.util.MoneyFormatter.formatToman(finalTotal)
+
+                val paymentHistoryList = if (!customScheduleItems.isNullOrEmpty()) {
+                    customScheduleItems
+                } else {
+                    val defaultList = mutableListOf<com.example.ui.screens.installments.model.PaymentHistoryItem>()
+                    for (i in 1..finalCount) {
+                        defaultList.add(
+                            com.example.ui.screens.installments.model.PaymentHistoryItem(
+                                id = "p_${System.currentTimeMillis()}_$i",
+                                installmentNumber = i,
+                                dueDate = if (i == 1) dueDateStr.ifBlank { "۱۴۰۴/۰۸/۱۵" } else "قسط شماره $i",
+                                paidDate = null,
+                                amountFormatted = monthlyFormatted,
+                                status = if (i == 1) com.example.ui.screens.installments.model.InstallmentStatus.DUE_SOON else com.example.ui.screens.installments.model.InstallmentStatus.PENDING,
+                                note = null,
+                                amount = parsedMonthly,
+                                isPaidLate = false
+                            )
+                        )
+                    }
+                    defaultList
+                }
+
+                val todayJalali = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                val noteText = buildString {
+                    if (itemNotes.isNotBlank()) append(itemNotes)
+                    if (reminderEnabled) {
+                        if (isNotEmpty()) append(" | ")
+                        append("یادآور فعال: $reminderDays در ساعت $reminderTime")
+                    }
+                }
+
+                val newItem = com.example.ui.screens.installments.model.InstallmentItem(
+                    id = "inst_new_${System.currentTimeMillis()}",
+                    title = title,
+                    category = category,
+                    providerOrPerson = provider,
+                    totalAmount = parsedTotal,
+                    totalAmountFormatted = totalFormatted,
+                    paidAmount = 0L,
+                    paidAmountFormatted = com.example.util.MoneyFormatter.formatToman(0L),
+                    remainingAmount = parsedTotal,
+                    remainingAmountFormatted = remainingFormatted,
+                    monthlyPaymentFormatted = monthlyFormatted,
+                    totalInstallments = parsedCount,
+                    remainingInstallments = parsedCount,
+                    nextPaymentDate = dueDateStr.ifBlank { "۱۴۰۴/۰۸/۱۵" },
+                    nextDueDaysText = "در انتظار سررسید",
+                    startDate = todayJalali,
+                    endDate = "۱۴۰۵/۰۸/۱۵",
+                    status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING,
+                    notes = noteText,
+                    paymentHistory = paymentHistoryList
+                )
+
+                com.example.ui.screens.installments.model.InstallmentMockDataSource.addInstallment(newItem, context)
                 viewModel.loadDashboardData()
+
                 if (reminderEnabled) {
                     scope.launch {
                         try {
-                            val cleanAmount = monthly.filter { it.isDigit() }.toLongOrNull() ?: 1_000_000L
                             com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
-                                installmentId = "inst_hs_${System.currentTimeMillis()}",
+                                installmentId = newItem.id,
                                 title = title,
-                                amount = cleanAmount,
-                                dueDatePersian = "۱۴۰۴/۰۸/۱۵",
-                                dueTimePersian = reminderTime
+                                amount = parsedMonthly,
+                                dueDatePersian = newItem.nextPaymentDate,
+                                dueTimePersian = reminderTime,
+                                selectedOffsets = selectedOffsets
                             )
                         } catch (e: Exception) {
                             e.printStackTrace()
@@ -448,7 +520,7 @@ fun HomeScreen(
                     }
                 }
                 scope.launch {
-                    snackbarHostState.showSnackbar("قسط «$title» ثبت شد. یادآور برای ساعت $reminderTime تنظیم گردید.")
+                    snackbarHostState.showSnackbar("قسط «$title» با موفقیت ثبت شد.")
                 }
             }
         )
@@ -456,15 +528,14 @@ fun HomeScreen(
 
     if (showAddVehicleSheet) {
         AddVehicleSheet(
-            sheetState = addVehicleSheetState,
-            onDismiss = { showAddVehicleSheet = false },
-            onSubmitVehicle = { name, brand, modelYear, odometer, plate, color ->
+            onAddVehicle = { brand, model, year, color, plate, vin, mileage, estVal ->
                 showAddVehicleSheet = false
                 viewModel.loadDashboardData()
                 scope.launch {
-                    snackbarHostState.showSnackbar("خودروی $brand $name با موفقیت اضافه شد.")
+                    snackbarHostState.showSnackbar("خودروی $brand $model با موفقیت اضافه شد.")
                 }
-            }
+            },
+            onDismiss = { showAddVehicleSheet = false }
         )
     }
     }

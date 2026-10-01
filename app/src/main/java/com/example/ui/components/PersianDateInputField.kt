@@ -30,9 +30,11 @@ fun PersianDateInputField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    label: String? = "تاریخ (شمسی)",
+    label: String? = "تاریخ",
     placeholder: String = "۱۴۰۴/۰۷/۱۵",
     helperText: String? = null,
+    useOuterHeader: Boolean = false,
+    showSubLabel: Boolean = false,
     isError: Boolean = false,
     errorMessage: String? = null,
     enabled: Boolean = true,
@@ -55,7 +57,7 @@ fun PersianDateInputField(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        if (!label.isNullOrBlank()) {
+        if (useOuterHeader && !label.isNullOrBlank()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -66,13 +68,15 @@ fun PersianDateInputField(
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    text = "شمسی (روز/ماه/سال)",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 10.5.sp,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                if (showSubLabel) {
+                    Text(
+                        text = "شمسی (روز/ماه/سال)",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.5.sp,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                        )
                     )
-                )
+                }
             }
         }
 
@@ -82,6 +86,9 @@ fun PersianDateInputField(
                 val formatted = IranianDateUtils.formatWithSlashes(input, inPersian = true)
                 onValueChange(formatted)
             },
+            label = if (!useOuterHeader && !label.isNullOrBlank()) {
+                { Text(text = label) }
+            } else null,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(testTag),
