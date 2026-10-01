@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.ui.graphics.Color
 import com.example.data.database.AppDatabase
 import com.example.data.database.TransactionEntity
+import com.example.data.security.SessionManager
 import com.example.ui.screens.finance.domain.BudgetEngine
 import com.example.ui.screens.finance.domain.FinanceEngine
 import com.example.ui.screens.finance.model.Budget
