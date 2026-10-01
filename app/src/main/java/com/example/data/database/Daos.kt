@@ -309,8 +309,9 @@ interface SmsLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSmsLog(log: SmsLogEntity): Long
 
-    @Query("UPDATE sms_logs SET status = :status, providerMessageId = :providerId, sentAt = :sentAt, deliveredAt = :deliveredAt, failedAt = :failedAt, failureReason = :reason, retryCount = :retryCount WHERE id = :id")
+    @Query("UPDATE sms_logs SET status = :status, providerMessageId = :providerId, sentAt = :sentAt, deliveredAt = :deliveredAt, failedAt = :failedAt, failureReason = :reason, retryCount = :retryCount WHERE userId = :userId AND id = :id")
     suspend fun updateSmsLog(
+        userId: String,
         id: Int,
         status: String,
         providerId: String?,
@@ -321,8 +322,8 @@ interface SmsLogDao {
         retryCount: Int
     )
 
-    @Query("UPDATE sms_logs SET status = :status, deliveredAt = :deliveredAt WHERE providerMessageId = :providerId")
-    suspend fun updateStatusByProviderId(providerId: String, status: String, deliveredAt: Long?)
+    @Query("UPDATE sms_logs SET status = :status, deliveredAt = :deliveredAt WHERE userId = :userId AND providerMessageId = :providerId")
+    suspend fun updateStatusByProviderId(userId: String, providerId: String, status: String, deliveredAt: Long?)
 }
 
 @Entity(tableName = "vehicle_store")
