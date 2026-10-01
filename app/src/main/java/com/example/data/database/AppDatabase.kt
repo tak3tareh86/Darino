@@ -29,7 +29,7 @@ import androidx.room.RoomDatabase
         VehicleInspectionRoomEntity::class,
         VehicleStoreEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -60,6 +60,16 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE transactions ADD COLUMN sourceType TEXT NOT NULL DEFAULT 'MANUAL'")
                 db.execSQL("ALTER TABLE transactions ADD COLUMN sourceId TEXT DEFAULT NULL")
                 db.execSQL("ALTER TABLE transactions ADD COLUMN isRecurring INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_12_13 = object : androidx.room.migration.Migration(12, 13) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE smart_reminders ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                // Existing smart reminders were not owner-bound. Clear them rather than risk cross-account exposure.
+                db.execSQL("DELETE FROM smart_reminder_delivery_logs")
+                db.execSQL("DELETE FROM smart_reminder_schedules")
+                db.execSQL("DELETE FROM smart_reminders")
             }
         }
 
@@ -122,7 +132,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "finance_app_database"
                 )
-                    .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                    .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                     .build()
                 INSTANCE = instance
                 instance
