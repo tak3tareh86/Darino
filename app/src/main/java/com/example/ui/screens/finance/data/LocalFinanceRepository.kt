@@ -50,8 +50,6 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val appCtx = context.applicationContext
         appContext = appCtx
 
-        loadMetadataFromDisk(appCtx)
-
         val db = AppDatabase.getDatabase(appCtx)
         repositoryScope.launch {
             SessionManager.sessionState.collectLatest { state ->
@@ -63,9 +61,14 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
                 if (authenticatedUserId == null) {
                     _transactions.value = emptyList()
+                    _budgets.value = emptyList()
+                    _savingsGoals.value = emptyList()
+                    _recurringTransactions.value = emptyList()
                     recalculateBudgets()
                     return@collectLatest
                 }
+
+                loadMetadataFromDisk(appCtx, authenticatedUserId)
 
                 try {
                     db.transactionDao().getAllTransactions(authenticatedUserId).collectLatest { entities ->
@@ -418,12 +421,10 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         }
     }
 
-    private fun loadMetadataFromDisk(context: Context) {
+    private fun loadMetadataFromDisk(context: Context, userId: String) {
         try {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
-
-            val budgetsJson = prefs.getString(KEY_BUDGETS, null)
+            val budgetsJson = prefs.getString(userScopedKey(KEY_BUDGETS, userId), null)
             if (!budgetsJson.isNullOrBlank()) {
                 val arr = JSONArray(budgetsJson)
                 val list = mutableListOf<Budget>()
@@ -444,11 +445,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     )
                 }
                 _budgets.value = list
-            } else if (!isCleanSlate) {
-                _budgets.value = FinanceMockDataSource.initialBudgets
+            } else {
+                _budgets.value = emptyList()
             }
 
-            val savingsJson = prefs.getString(KEY_SAVINGS, null)
+            val savingsJson = prefs.getString(userScopedKey(KEY_SAVINGS, userId), null)
             if (!savingsJson.isNullOrBlank()) {
                 val arr = JSONArray(savingsJson)
                 val list = mutableListOf<SavingsGoal>()
@@ -476,11 +477,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     )
                 }
                 _savingsGoals.value = list
-            } else if (!isCleanSlate) {
-                _savingsGoals.value = FinanceMockDataSource.initialSavingsGoals
+            } else {
+                _savingsGoals.value = emptyList()
             }
 
-            val recurringJson = prefs.getString(KEY_RECURRING, null)
+            val recurringJson = prefs.getString(userScopedKey(KEY_RECURRING, userId), null)
             if (!recurringJson.isNullOrBlank()) {
                 val arr = JSONArray(recurringJson)
                 val list = mutableListOf<RecurringTransaction>()
@@ -583,6 +584,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         private const val KEY_BUDGETS = "pref_persisted_budgets"
         private const val KEY_SAVINGS = "pref_persisted_savings_goals"
         private const val KEY_RECURRING = "pref_persisted_recurring_txs"
+
+        private fun userScopedKey(base: String, userId: String?): String =
+            if (userId.isNullOrBlank()) "${base}_anonymous" else "${base}_$userId"
 
         val instance: LocalFinanceRepository by lazy { LocalFinanceRepository() }
     }
