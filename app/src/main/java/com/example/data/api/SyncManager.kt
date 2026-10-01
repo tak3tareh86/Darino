@@ -64,34 +64,102 @@ class SyncManager(
         val userId = SessionManager.userId ?: return@withContext SyncStatus.IDLE
         try {
             val dao = database.transactionDao()
-            val pending = dao.getPendingSyncTransactions(userId)
-            for (local in pending) {
-                val clientId = local.stringId.ifBlank { "android-local-" + local.id }
-                val request = NetworkTransactionRequest(clientId, local.amount, local.type, local.category, local.accountName, local.description, java.time.Instant.ofEpochMilli(local.timestamp).toString(), local.timeFormatted, local.title, local.subCategory, local.datePersian, local.paymentMethod, local.sourceType, local.sourceId, local.isRecurring)
-                if (local.syncState == "PENDING_DELETE") {
-                    val remote = ApiClient.transactionApi.listTransactions().body()?.data?.firstOrNull { it.clientId == clientId }
-                    if (remote != null) ApiClient.transactionApi.deleteTransaction(remote.id)
-                    dao.markTransactionSynced(userId, clientId, local.updatedAt, local.deletedAt)
+            val remoteResponse = ApiClient.transactionApi.listTransactions()
+            if (!remoteResponse.isSuccessful || remoteResponse.body()?.success != true) {
+                return@withContext SyncStatus.OFFLINE
+            }
+
+            val remoteByClientId = remoteResponse.body()?.data.orEmpty().associateBy { it.clientId }
+
+            fun remoteUpdatedAt(remote: NetworkTransactionDto): Long =
+                remote.updatedAt?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                    ?: runCatching { java.time.Instant.parse(remote.occurredAt).toEpochMilli() }.getOrDefault(0L)
+
+            fun remoteTimestamp(remote: NetworkTransactionDto): Long =
+                runCatching { java.time.Instant.parse(remote.occurredAt).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
+
+            suspend fun applyRemote(remote: NetworkTransactionDto, existing: TransactionEntity?) {
+                val timestamp = remoteTimestamp(remote)
+                val updatedAt = remoteUpdatedAt(remote)
+                dao.insertTransaction(
+                    TransactionEntity(
+                        id = existing?.id ?: 0,
+                        userId = userId,
+                        amount = remote.amount,
+                        type = remote.type,
+                        category = remote.category,
+                        accountName = remote.accountName,
+                        description = remote.description,
+                        timestamp = timestamp,
+                        timeFormatted = remote.timeFormatted,
+                        stringId = remote.clientId,
+                        title = remote.title,
+                        subCategory = remote.subCategory,
+                        datePersian = remote.datePersian,
+                        paymentMethod = remote.paymentMethod,
+                        sourceType = remote.sourceType,
+                        sourceId = remote.sourceId,
+                        isRecurring = remote.isRecurring,
+                        syncState = "SYNCED",
+                        updatedAt = updatedAt,
+                        deletedAt = null
+                    )
+                )
+            }
+
+            for (original in dao.getPendingSyncTransactions(userId)) {
+                val clientId = original.stringId.ifBlank { "android-local-" + original.id }
+                val local = if (original.stringId.isBlank()) {
+                    val normalized = original.copy(stringId = clientId)
+                    dao.updateTransaction(normalized)
+                    normalized
                 } else {
-                    val remote = ApiClient.transactionApi.listTransactions().body()?.data?.firstOrNull { it.clientId == clientId }
-                    val response = if (remote == null) ApiClient.transactionApi.upsertTransaction(request) else ApiClient.transactionApi.updateTransaction(remote.id, request)
+                    original
+                }
+                val remote = remoteByClientId[clientId]
+                val remoteUpdated = remote?.let(::remoteUpdatedAt) ?: Long.MIN_VALUE
+
+                if (local.syncState == "PENDING_DELETE") {
+                    if (remote == null) {
+                        dao.markTransactionSynced(userId, clientId, local.updatedAt, local.deletedAt)
+                    } else if (local.updatedAt >= remoteUpdated) {
+                        val response = ApiClient.transactionApi.deleteTransaction(remote.id)
+                        if (response.isSuccessful && response.body()?.success == true) {
+                            dao.markTransactionSynced(userId, clientId, local.updatedAt, local.deletedAt)
+                        }
+                    } else {
+                        applyRemote(remote, local)
+                    }
+                } else if (remote == null || local.updatedAt >= remoteUpdated) {
+                    val request = NetworkTransactionRequest(
+                        clientId, local.amount, local.type, local.category, local.accountName,
+                        local.description, java.time.Instant.ofEpochMilli(local.timestamp).toString(),
+                        local.timeFormatted, local.title, local.subCategory, local.datePersian,
+                        local.paymentMethod, local.sourceType, local.sourceId, local.isRecurring
+                    )
+                    val response = if (remote == null) {
+                        ApiClient.transactionApi.upsertTransaction(request)
+                    } else {
+                        ApiClient.transactionApi.updateTransaction(remote.id, request)
+                    }
                     if (response.isSuccessful && response.body()?.success == true) {
                         val server = response.body()?.data
-                        val serverUpdated = server?.updatedAt?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() } ?: local.updatedAt
+                        val serverUpdated = server?.let(::remoteUpdatedAt) ?: local.updatedAt
                         dao.markTransactionSynced(userId, clientId, serverUpdated, null)
                     }
+                } else {
+                    applyRemote(remote, local)
                 }
             }
-            val remoteResponse = ApiClient.transactionApi.listTransactions()
-            if (!remoteResponse.isSuccessful || remoteResponse.body()?.success != true) return@withContext SyncStatus.OFFLINE
-            for (remote in remoteResponse.body()?.data.orEmpty()) {
-                val timestamp = runCatching { java.time.Instant.parse(remote.occurredAt).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
-                val updatedAt = remote.updatedAt?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() } ?: timestamp
+
+            for (remote in remoteByClientId.values) {
                 val existing = dao.getTransactionIncludingDeleted(userId, remote.clientId)
-                if (existing == null || existing.syncState == "SYNCED" || existing.syncState.isBlank()) {
-                    dao.insertTransaction(TransactionEntity(existing?.id ?: 0, userId, remote.amount, remote.type, remote.category, remote.accountName, remote.description, timestamp, remote.timeFormatted, remote.clientId, remote.title, remote.subCategory, remote.datePersian, remote.paymentMethod, remote.sourceType, remote.sourceId, remote.isRecurring, "SYNCED", updatedAt, null))
+                val remoteUpdated = remoteUpdatedAt(remote)
+                if (existing == null || (existing.syncState == "SYNCED" && remoteUpdated >= existing.updatedAt)) {
+                    applyRemote(remote, existing)
                 }
             }
+
             SyncStatus.SUCCESS
         } catch (e: Exception) {
             Log.e(TAG, "Transaction sync failed", e)
