@@ -11,6 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 interface ReminderRepository {
@@ -98,10 +100,10 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
     }
 
     override fun getAllReminders(): Flow<List<ReminderEntity>> =
-        SessionManager.userId?.let { dao.getAllReminders(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
+        SessionManager.sessionState.flatMapLatest { state -> state.userIdOrNull()?.let { dao.getAllReminders(it) } ?: flowOf(emptyList()) }
 
     override fun getActiveReminders(): Flow<List<ReminderEntity>> =
-        SessionManager.userId?.let { dao.getActiveReminders(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
+        SessionManager.sessionState.flatMapLatest { state -> state.userIdOrNull()?.let { dao.getActiveReminders(it) } ?: flowOf(emptyList()) }
 
     override fun getTodayReminders(): Flow<List<ReminderEntity>> {
         val todayPersian = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
@@ -114,13 +116,13 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
     }
 
     override fun getCompletedReminders(): Flow<List<ReminderEntity>> =
-        SessionManager.userId?.let { dao.getCompletedReminders(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
+        SessionManager.sessionState.flatMapLatest { state -> state.userIdOrNull()?.let { dao.getCompletedReminders(it) } ?: flowOf(emptyList()) }
 
     override fun getMissedReminders(): Flow<List<ReminderEntity>> =
-        SessionManager.userId?.let { dao.getMissedReminders(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
+        SessionManager.sessionState.flatMapLatest { state -> state.userIdOrNull()?.let { dao.getMissedReminders(it) } ?: flowOf(emptyList()) }
 
     override fun getRemindersByType(type: String): Flow<List<ReminderEntity>> =
-        SessionManager.userId?.let { dao.getRemindersByType(it, type) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
+        SessionManager.sessionState.flatMapLatest { state -> state.userIdOrNull()?.let { dao.getRemindersByType(it, type) } ?: flowOf(emptyList()) }
 
     override suspend fun getReminderById(id: String): ReminderEntity? =
         SessionManager.userId?.let { dao.getReminderById(it, id) }
@@ -182,7 +184,7 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         dao.deleteSchedulesByReminderId(requireUserId(), reminderId)
 
     override fun getDeliveryLogs(reminderId: String): Flow<List<ReminderDeliveryLogEntity>> =
-        SessionManager.userId?.let { dao.getDeliveryLogsForReminder(it, reminderId) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
+        SessionManager.sessionState.flatMapLatest { state -> state.userIdOrNull()?.let { dao.getDeliveryLogsForReminder(it, reminderId) } ?: flowOf(emptyList()) }
 
     override fun getAllDeliveryLogs(): Flow<List<ReminderDeliveryLogEntity>> =
         SessionManager.sessionState.flatMapLatest { state -> state.userIdOrNull()?.let { dao.getAllDeliveryLogs(it) } ?: flowOf(emptyList()) }
