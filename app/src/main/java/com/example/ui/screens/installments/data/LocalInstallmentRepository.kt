@@ -356,10 +356,9 @@ class LocalInstallmentRepository private constructor() {
             dao.clearAllInstallments(userId)
             dao.clearAllPayments(userId)
 
-            items.forEachIndexed { idx, item ->
-                val instId = idx + 1
+            items.forEach { item ->
                 val entity = InstallmentEntity(
-                    id = instId,
+                    id = 0,
                     serverId = item.id,
                     syncState = "SYNCED",
                     userId = userId,
@@ -376,7 +375,7 @@ class LocalInstallmentRepository private constructor() {
                     status = item.status.name,
                     notes = item.notes
                 )
-                dao.insertInstallment(entity)
+                val instId = dao.insertInstallment(entity).toInt()
 
                 item.paymentHistory.forEach { p ->
                     val paymentEntity = InstallmentPaymentEntity(
