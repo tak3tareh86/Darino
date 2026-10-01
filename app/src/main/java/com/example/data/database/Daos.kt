@@ -38,6 +38,18 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE userId = :userId")
     suspend fun clearAllTransactions(userId: String)
 
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND syncState != 'SYNCED' ORDER BY updatedAt ASC")
+    suspend fun getPendingSyncTransactions(userId: String): List<TransactionEntity>
+
+    @Query("UPDATE transactions SET syncState = 'SYNCED', updatedAt = :updatedAt, deletedAt = :deletedAt WHERE userId = :userId AND stringId = :stringId")
+    suspend fun markTransactionSynced(userId: String, stringId: String, updatedAt: Long, deletedAt: Long?)
+
+    @Query("UPDATE transactions SET deletedAt = :deletedAt, updatedAt = :updatedAt, syncState = 'PENDING_DELETE' WHERE userId = :userId AND stringId = :stringId")
+    suspend fun softDeleteByStringId(userId: String, stringId: String, deletedAt: Long, updatedAt: Long)
+
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND stringId = :stringId LIMIT 1")
+    suspend fun getTransactionIncludingDeleted(userId: String, stringId: String): TransactionEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: TransactionEntity)
 
