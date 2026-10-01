@@ -18,6 +18,12 @@ data class NetworkApiError(
     @Json(name = "details") val details: Map<String, String>? = null
 )
 
+
+@JsonClass(generateAdapter = true)
+data class NetworkTransactionRequest(@Json(name = "clientId") val clientId: String, @Json(name = "amount") val amount: Long, @Json(name = "type") val type: String, @Json(name = "category") val category: String, @Json(name = "accountName") val accountName: String, @Json(name = "description") val description: String = "", @Json(name = "occurredAt") val occurredAt: String, @Json(name = "timeFormatted") val timeFormatted: String = "", @Json(name = "title") val title: String = "", @Json(name = "subCategory") val subCategory: String? = null, @Json(name = "datePersian") val datePersian: String = "", @Json(name = "paymentMethod") val paymentMethod: String = "BANK_CARD", @Json(name = "sourceType") val sourceType: String = "MANUAL", @Json(name = "sourceId") val sourceId: String? = null, @Json(name = "isRecurring") val isRecurring: Boolean = false)
+
+@JsonClass(generateAdapter = true)
+data class NetworkTransactionDto(@Json(name = "id") val id: String, @Json(name = "clientId") val clientId: String, @Json(name = "amount") val amount: Long, @Json(name = "type") val type: String, @Json(name = "category") val category: String, @Json(name = "accountName") val accountName: String, @Json(name = "description") val description: String = "", @Json(name = "occurredAt") val occurredAt: String, @Json(name = "timeFormatted") val timeFormatted: String = "", @Json(name = "title") val title: String = "", @Json(name = "subCategory") val subCategory: String? = null, @Json(name = "datePersian") val datePersian: String = "", @Json(name = "paymentMethod") val paymentMethod: String = "BANK_CARD", @Json(name = "sourceType") val sourceType: String = "MANUAL", @Json(name = "sourceId") val sourceId: String? = null, @Json(name = "isRecurring") val isRecurring: Boolean = false, @Json(name = "updatedAt") val updatedAt: String? = null, @Json(name = "deletedAt") val deletedAt: String? = null)
 @JsonClass(generateAdapter = true)
 data class NetworkRegisterRequest(
     @Json(name = "username") val username: String? = null,
