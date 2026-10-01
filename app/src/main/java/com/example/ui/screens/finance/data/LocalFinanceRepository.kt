@@ -377,7 +377,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     obj.put("isEnabled", b.isEnabled)
                     bArr.put(obj)
                 }
-                editor.putString(KEY_BUDGETS, bArr.toString())
+                editor.putString(userScopedKey(KEY_BUDGETS, SessionManager.userId), bArr.toString())
 
                 // Savings Goals
                 val gArr = JSONArray()
@@ -393,7 +393,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     obj.put("iconEmoji", g.iconEmoji)
                     gArr.put(obj)
                 }
-                editor.putString(KEY_SAVINGS, gArr.toString())
+                editor.putString(userScopedKey(KEY_SAVINGS, SessionManager.userId), gArr.toString())
 
                 // Recurring
                 val rArr = JSONArray()
@@ -412,7 +412,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     obj.put("enabled", r.enabled)
                     rArr.put(obj)
                 }
-                editor.putString(KEY_RECURRING, rArr.toString())
+                editor.putString(userScopedKey(KEY_RECURRING, SessionManager.userId), rArr.toString())
 
                 editor.apply()
             } catch (e: Exception) {
