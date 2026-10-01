@@ -2,6 +2,7 @@ package com.example.reminder.data
 
 import android.content.Context
 import com.example.data.database.AppDatabase
+import com.example.data.security.SessionManager
 import com.example.reminder.domain.ReminderManager
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.CoroutineScope
@@ -46,20 +47,25 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
     private val db = AppDatabase.getDatabase(context)
     private val dao = db.smartReminderDao()
 
+    private fun requireUserId(): String =
+        SessionManager.userId ?: throw IllegalStateException("Authenticated user is required for reminder access")
+
     init {
-        // Prepopulate or migrate reminders
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val userId = SessionManager.userId ?: return@launch
                 val prefs = context.applicationContext.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
                 val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
-                
-                val current = dao.getAllReminders().first()
+
+                val current = dao.getAllReminders(userId).first()
                 if (current.isEmpty()) {
                     val legacyList = db.reminderDao().getActiveRemindersSnapshot()
+                        .filter { it.userId == userId }
                     if (legacyList.isNotEmpty()) {
                         val migrated = legacyList.map { leg ->
                             ReminderEntity(
                                 id = if (leg.serverId.isNullOrBlank()) leg.id.toString() else leg.serverId,
+                                userId = userId,
                                 title = leg.title,
                                 description = leg.description,
                                 type = leg.type,
@@ -75,8 +81,7 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
                         }
                         dao.insertReminders(migrated)
                     } else if (!isCleanSlate) {
-                        val initial = ReminderManager.getInitialSmartReminders()
-                        dao.insertReminders(initial)
+                        dao.insertReminders(ReminderManager.getInitialSmartReminders().map { it.copy(userId = userId) })
                     }
                 }
             } catch (e: Exception) {
@@ -85,55 +90,74 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         }
     }
 
-    override fun getAllReminders(): Flow<List<ReminderEntity>> = dao.getAllReminders()
+    override fun getAllReminders(): Flow<List<ReminderEntity>> =
+        SessionManager.userId?.let { dao.getAllReminders(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
 
-    override fun getActiveReminders(): Flow<List<ReminderEntity>> = dao.getActiveReminders()
+    override fun getActiveReminders(): Flow<List<ReminderEntity>> =
+        SessionManager.userId?.let { dao.getActiveReminders(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
 
     override fun getTodayReminders(): Flow<List<ReminderEntity>> {
         val todayPersian = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-        return dao.getActiveReminders().map { list ->
-            list.filter { it.date == todayPersian }
-        }
+        return getActiveReminders().map { list -> list.filter { it.date == todayPersian } }
     }
 
     override fun getUpcomingReminders(): Flow<List<ReminderEntity>> {
         val todayPersian = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-        return dao.getActiveReminders().map { list ->
-            list.filter { it.date >= todayPersian }
-        }
+        return getActiveReminders().map { list -> list.filter { it.date >= todayPersian } }
     }
 
-    override fun getCompletedReminders(): Flow<List<ReminderEntity>> = dao.getCompletedReminders()
+    override fun getCompletedReminders(): Flow<List<ReminderEntity>> =
+        SessionManager.userId?.let { dao.getCompletedReminders(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
 
-    override fun getMissedReminders(): Flow<List<ReminderEntity>> = dao.getMissedReminders()
+    override fun getMissedReminders(): Flow<List<ReminderEntity>> =
+        SessionManager.userId?.let { dao.getMissedReminders(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
 
-    override fun getRemindersByType(type: String): Flow<List<ReminderEntity>> = dao.getRemindersByType(type)
+    override fun getRemindersByType(type: String): Flow<List<ReminderEntity>> =
+        SessionManager.userId?.let { dao.getRemindersByType(it, type) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
 
-    override suspend fun getReminderById(id: String): ReminderEntity? = dao.getReminderById(id)
+    override suspend fun getReminderById(id: String): ReminderEntity? =
+        SessionManager.userId?.let { dao.getReminderById(it, id) }
 
-    override suspend fun getReminderBySourceId(sourceId: String): ReminderEntity? = dao.getReminderBySourceId(sourceId)
+    override suspend fun getReminderBySourceId(sourceId: String): ReminderEntity? =
+        SessionManager.userId?.let { dao.getReminderBySourceId(it, sourceId) }
 
-    override suspend fun insertReminder(reminder: ReminderEntity) = dao.insertReminder(reminder)
+    override suspend fun insertReminder(reminder: ReminderEntity) {
+        dao.insertReminder(reminder.copy(userId = requireUserId()))
+    }
 
-    override suspend fun insertReminders(reminders: List<ReminderEntity>) = dao.insertReminders(reminders)
+    override suspend fun insertReminders(reminders: List<ReminderEntity>) {
+        val userId = requireUserId()
+        dao.insertReminders(reminders.map { it.copy(userId = userId) })
+    }
 
-    override suspend fun updateReminder(reminder: ReminderEntity) = dao.updateReminder(reminder)
+    override suspend fun updateReminder(reminder: ReminderEntity) {
+        val userId = requireUserId()
+        if (reminder.userId != userId) throw SecurityException("Reminder does not belong to current user")
+        dao.updateReminder(reminder)
+    }
 
-    override suspend fun deleteReminder(reminder: ReminderEntity) = dao.deleteReminder(reminder)
+    override suspend fun deleteReminder(reminder: ReminderEntity) {
+        val userId = requireUserId()
+        if (reminder.userId != userId) throw SecurityException("Reminder does not belong to current user")
+        dao.deleteReminder(reminder)
+    }
 
-    override suspend fun deleteReminderById(id: String) = dao.deleteReminderById(id)
+    override suspend fun deleteReminderById(id: String) {
+        dao.deleteReminderById(requireUserId(), id)
+    }
 
     override suspend fun updateStatus(id: String, status: String) {
+        val userId = requireUserId()
         val completedAt = if (status == "COMPLETED") System.currentTimeMillis() else null
         val cancelledAt = if (status == "CANCELLED") System.currentTimeMillis() else null
-        dao.updateStatus(id, status, System.currentTimeMillis(), completedAt, cancelledAt)
+        dao.updateStatus(userId, id, status, System.currentTimeMillis(), completedAt, cancelledAt)
     }
 
     override fun getSchedules(reminderId: String): Flow<List<ReminderScheduleEntity>> =
-        dao.getSchedulesForReminder(reminderId)
+        SessionManager.userId?.let { dao.getSchedulesForReminder(it, reminderId) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
 
     override suspend fun getSchedulesSync(reminderId: String): List<ReminderScheduleEntity> =
-        dao.getSchedulesForReminderSync(reminderId)
+        dao.getSchedulesForReminderSync(requireUserId(), reminderId)
 
     override suspend fun insertSchedule(schedule: ReminderScheduleEntity) =
         dao.insertSchedule(schedule)
@@ -148,13 +172,13 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         dao.deleteSchedule(schedule)
 
     override suspend fun deleteSchedulesByReminderId(reminderId: String) =
-        dao.deleteSchedulesByReminderId(reminderId)
+        dao.deleteSchedulesByReminderId(requireUserId(), reminderId)
 
     override fun getDeliveryLogs(reminderId: String): Flow<List<ReminderDeliveryLogEntity>> =
-        dao.getDeliveryLogsForReminder(reminderId)
+        SessionManager.userId?.let { dao.getDeliveryLogsForReminder(it, reminderId) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
 
     override fun getAllDeliveryLogs(): Flow<List<ReminderDeliveryLogEntity>> =
-        dao.getAllDeliveryLogs()
+        SessionManager.userId?.let { dao.getAllDeliveryLogs(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
 
     override suspend fun insertDeliveryLog(log: ReminderDeliveryLogEntity) =
         dao.insertDeliveryLog(log)
