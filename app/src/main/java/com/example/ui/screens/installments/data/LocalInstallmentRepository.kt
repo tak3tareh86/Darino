@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.data.database.AppDatabase
 import com.example.data.database.InstallmentEntity
 import com.example.data.database.InstallmentPaymentEntity
+import com.example.data.security.SessionManager
 import com.example.ui.screens.installments.model.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,8 +62,9 @@ class LocalInstallmentRepository private constructor() {
                 val db = AppDatabase.getDatabase(appCtx)
                 val dao = db.installmentDao()
 
-                val dbInsts = dao.getAllInstallmentsList()
-                val dbPayments = dao.getAllPaymentsList()
+                val userId = SessionManager.userId ?: return@launch
+                val dbInsts = dao.getAllInstallmentsList(userId)
+                val dbPayments = dao.getAllPaymentsList(userId)
 
                 if (dbInsts.isNotEmpty()) {
                     val loaded = dbInsts.map { entity ->
@@ -121,8 +123,9 @@ class LocalInstallmentRepository private constructor() {
             try {
                 val db = AppDatabase.getDatabase(appCtx)
                 val dao = db.installmentDao()
-                val dbInsts = dao.getAllInstallmentsList()
-                val dbPayments = dao.getAllPaymentsList()
+                val userId = SessionManager.userId ?: return@launch
+                val dbInsts = dao.getAllInstallmentsList(userId)
+                val dbPayments = dao.getAllPaymentsList(userId)
 
                 val loaded = dbInsts.map { entity ->
                     val payments = dbPayments.filter { it.installmentId == entity.id }.map { p ->
@@ -307,8 +310,9 @@ class LocalInstallmentRepository private constructor() {
         repositoryScope.launch {
             try {
                 val db = AppDatabase.getDatabase(targetContext)
-                db.installmentDao().clearAllInstallments()
-                db.installmentDao().clearAllPayments()
+                val userId = SessionManager.userId ?: return@launch
+                db.installmentDao().clearAllInstallments(userId)
+                db.installmentDao().clearAllPayments(userId)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -328,8 +332,9 @@ class LocalInstallmentRepository private constructor() {
         try {
             val db = AppDatabase.getDatabase(context)
             val dao = db.installmentDao()
-            dao.clearAllInstallments()
-            dao.clearAllPayments()
+            val userId = SessionManager.userId ?: return
+            dao.clearAllInstallments(userId)
+            dao.clearAllPayments(userId)
 
             items.forEachIndexed { idx, item ->
                 val instId = idx + 1
@@ -337,7 +342,7 @@ class LocalInstallmentRepository private constructor() {
                     id = instId,
                     serverId = item.id,
                     syncState = "SYNCED",
-                    userId = "user_default",
+                    userId = userId,
                     category = item.category.name,
                     providerName = item.providerOrPerson,
                     title = item.title,
