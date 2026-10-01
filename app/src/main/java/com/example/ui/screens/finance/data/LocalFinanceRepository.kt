@@ -55,7 +55,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val db = AppDatabase.getDatabase(appCtx)
         repositoryScope.launch {
             try {
-                db.transactionDao().getAllTransactions().collect { entities ->
+                val authenticatedUserId = SessionManager.userId ?: return@launch
+                db.transactionDao().getAllTransactions(authenticatedUserId).collect { entities ->
                     // Room is the production source of truth; an empty database stays empty.
                     val mapped = entities.map { toItemData(it, _categories.value) }
                     _transactions.value = mapped
@@ -117,7 +118,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val ctx = appContext ?: return
         repositoryScope.launch {
             try {
-                AppDatabase.getDatabase(ctx).transactionDao().deleteByStringId(id)
+                SessionManager.userId?.let { userId ->
+                    AppDatabase.getDatabase(ctx).transactionDao().deleteByStringId(userId, id)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -299,7 +302,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val ctx = appContext ?: return
         repositoryScope.launch {
             try {
-                AppDatabase.getDatabase(ctx).transactionDao().clearAllTransactions()
+                SessionManager.userId?.let { userId ->
+                    AppDatabase.getDatabase(ctx).transactionDao().clearAllTransactions(userId)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -316,7 +321,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         repositoryScope.launch {
             try {
                 val db = AppDatabase.getDatabase(ctx)
-                db.transactionDao().clearAllTransactions()
+                val userId = SessionManager.userId ?: return@launch
+                db.transactionDao().clearAllTransactions(userId)
                 val initialEntities = FinanceMockDataSource.initialTransactions.map { toEntity(it) }
                 db.transactionDao().insertTransactions(initialEntities)
             } catch (e: Exception) {
@@ -508,7 +514,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             paymentMethod = item.paymentMethod.name,
             sourceType = item.sourceType.name,
             sourceId = item.sourceId,
-            isRecurring = item.isRecurring
+            isRecurring = item.isRecurring,
+            userId = requireNotNull(SessionManager.userId) { "Authenticated user is required" }
         )
     }
 
