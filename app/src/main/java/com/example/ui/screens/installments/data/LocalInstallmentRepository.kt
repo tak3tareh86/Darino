@@ -46,7 +46,8 @@ class LocalInstallmentRepository private constructor() {
     private var initialized = false
 
     init {
-        updateInternalState(InstallmentMockDataSource.getSampleInitialInstallments())
+        // Room is the sole source of truth. Production state must never be seeded from mock data.
+        updateInternalState(emptyList())
     }
 
     fun init(context: Context) {
@@ -54,9 +55,6 @@ class LocalInstallmentRepository private constructor() {
         initialized = true
         val appCtx = context.applicationContext
         appContext = appCtx
-
-        val prefs = appCtx.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
-        val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
 
         repositoryScope.launch {
             try {
@@ -109,10 +107,6 @@ class LocalInstallmentRepository private constructor() {
                         )
                     }
                     updateInternalState(loaded)
-                } else if (!isCleanSlate) {
-                    val sample = InstallmentMockDataSource.getSampleInitialInstallments()
-                    updateInternalState(sample)
-                    saveToRoom(appCtx, sample)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
