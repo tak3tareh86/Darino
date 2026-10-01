@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.example.data.security.SessionManager
+import com.example.data.security.SessionState
+import kotlinx.coroutines.flow.collectLatest
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -33,6 +35,7 @@ class VehicleRepository {
     val inspections: StateFlow<List<VehicleInspectionEntity>> = _inspections.asStateFlow()
 
     private var dbContext: Context? = null
+    private var sessionObserverStarted = false
 
     /**
      * Initializes the Room SQLite database and loads any persisted vehicle store.
@@ -41,17 +44,34 @@ class VehicleRepository {
         val appCtx = context.applicationContext
         dbContext = appCtx
         
-        val userId = SessionManager.userId ?: return
+        if (!sessionObserverStarted) {
+            sessionObserverStarted = true
+            kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                SessionManager.sessionState.collectLatest { state ->
+                    val userId = when (state) {
+                        is SessionState.Authenticated -> state.user.id
+                        is SessionState.PhoneVerificationRequired -> state.user.id
+                        else -> null
+                    }
+                    if (userId == null) {
+                        clearAllVehiclesData()
+                        return@collectLatest
+                    }
+                    loadUserData(appCtx, userId)
+                }
+            }
+        }
+    }
+
+    private suspend fun loadUserData(appCtx: Context, userId: String) {
         val prefs = appCtx.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
         val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
-        
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                val db = com.example.data.database.AppDatabase.getDatabase(appCtx)
-                val vDao = db.vehicleDao()
+        try {
+            val db = com.example.data.database.AppDatabase.getDatabase(appCtx)
+            val vDao = db.vehicleDao()
 
-                // 1. One-time Legacy JSON Migration to Room tables if legacy store exists
-                val store = vDao.getVehicleStore(userId)
+            // Legacy JSON migration is owner-scoped and only runs for the authenticated user.
+            val store = vDao.getVehicleStore(userId)
                 if (store != null && store.vehiclesJson.isNotBlank()) {
                     val migratedVehicles = jsonToVehicles(store.vehiclesJson)
                     val migratedServices = jsonToServices(store.servicesJson)
@@ -137,10 +157,9 @@ class VehicleRepository {
                 }
 
                 // 2. Authoritative Load from Room DAOs
-                loadFromRoom(db, userId, isCleanSlate)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            loadFromRoom(db, userId, isCleanSlate)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
