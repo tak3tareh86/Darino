@@ -157,10 +157,11 @@ class SyncManager(
                     val smsData = statusRes.body()?.data
                     if (smsData != null) {
                         val intId = rem.id.hashCode()
-                        val existingLog = smsLogDao.getLatestLogForReminder(intId)
+                        val existingLog = smsLogDao.getLatestLogForReminder(userId, intId)
                         if (existingLog == null) {
                             smsLogDao.insertSmsLog(
                                 SmsLogEntity(
+                                    userId = userId,
                                     reminderId = intId,
                                     providerMessageId = smsData.providerMessageId,
                                     phoneNumber = rem.phoneNumber ?: "",
@@ -197,26 +198,28 @@ class SyncManager(
         if (SessionManager.accessToken == null) return@withContext SyncStatus.IDLE
 
         try {
-            val pendingNotifs = notificationLogDao.getPendingSyncNotifications()
+            val pendingNotifs = notificationLogDao.getPendingSyncNotifications(userId)
             for (notif in pendingNotifs) {
                 if (notif.isRead && notif.serverId != null) {
                     try {
                         ApiClient.notificationApi.markAsRead(notif.serverId)
-                        notificationLogDao.updateSyncStatus(notif.id, notif.serverId, "SYNCED")
+                        notificationLogDao.updateSyncStatus(userId, notif.id, notif.serverId, "SYNCED")
                     } catch (e: Exception) {
                         // Keep pending
                     }
                 }
             }
 
+            val userId = SessionManager.userId ?: return@withContext SyncStatus.IDLE
             val listResponse = ApiClient.notificationApi.listNotifications(page = 0, size = 50)
             if (listResponse.isSuccessful && listResponse.body()?.success == true) {
                 val serverNotifs = listResponse.body()?.data ?: emptyList()
                 for (sNotif in serverNotifs) {
-                    val local = notificationLogDao.getNotificationByServerId(sNotif.id)
+                    val local = notificationLogDao.getNotificationByServerId(userId, sNotif.id)
                     if (local == null) {
                         notificationLogDao.insertNotification(
                             NotificationLogEntity(
+                                userId = userId,
                                 serverId = sNotif.id,
                                 syncState = "SYNCED",
                                 reminderId = sNotif.reminderId?.toIntOrNull(),
