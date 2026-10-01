@@ -13,6 +13,11 @@ pluginManagement {
   }
 
   repositories {
+    // Use Google's canonical Maven endpoint explicitly. This avoids the
+    // dl.google.com HEAD behavior observed with the local JDK/Gradle HTTP client.
+    maven {
+      url = uri("https://maven.google.com")
+    }
     google()
     mavenCentral()
     gradlePluginPortal()
