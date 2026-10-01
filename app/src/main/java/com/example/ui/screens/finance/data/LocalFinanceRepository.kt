@@ -49,24 +49,16 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val appCtx = context.applicationContext
         appContext = appCtx
 
-        val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
-
         loadMetadataFromDisk(appCtx)
 
         val db = AppDatabase.getDatabase(appCtx)
         repositoryScope.launch {
             try {
                 db.transactionDao().getAllTransactions().collect { entities ->
-                    if (entities.isEmpty() && !isCleanSlate) {
-                        // Populate Room with initial default sample transactions
-                        val initialEntities = FinanceMockDataSource.initialTransactions.map { toEntity(it) }
-                        db.transactionDao().insertTransactions(initialEntities)
-                    } else {
-                        val mapped = entities.map { toItemData(it, _categories.value) }
-                        _transactions.value = mapped
-                        recalculateBudgets()
-                    }
+                    // Room is the production source of truth; an empty database stays empty.
+                    val mapped = entities.map { toItemData(it, _categories.value) }
+                    _transactions.value = mapped
+                    recalculateBudgets()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
