@@ -54,16 +54,29 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
         val db = AppDatabase.getDatabase(appCtx)
         repositoryScope.launch {
-            try {
-                val authenticatedUserId = SessionManager.userId ?: return@launch
-                db.transactionDao().getAllTransactions(authenticatedUserId).collect { entities ->
-                    // Room is the production source of truth; an empty database stays empty.
-                    val mapped = entities.map { toItemData(it, _categories.value) }
-                    _transactions.value = mapped
-                    recalculateBudgets()
+            SessionManager.sessionState.collectLatest { state ->
+                val authenticatedUserId = when (state) {
+                    is com.example.data.security.SessionState.Authenticated -> state.user.id
+                    is com.example.data.security.SessionState.PhoneVerificationRequired -> state.user.id
+                    else -> null
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
+
+                if (authenticatedUserId == null) {
+                    _transactions.value = emptyList()
+                    recalculateBudgets()
+                    return@collectLatest
+                }
+
+                try {
+                    db.transactionDao().getAllTransactions(authenticatedUserId).collectLatest { entities ->
+                        // Room is the production source of truth; an empty database stays empty.
+                        val mapped = entities.map { toItemData(it, _categories.value) }
+                        _transactions.value = mapped
+                        recalculateBudgets()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }
