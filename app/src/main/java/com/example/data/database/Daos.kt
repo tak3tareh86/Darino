@@ -71,10 +71,10 @@ interface TransactionDao {
 
 @Dao
 interface InstallmentDao {
-    @Query("SELECT * FROM installments WHERE userId = :userId WHERE userId = :userId AND deletedAt IS NULL ORDER BY nextDueDate ASC")
+    @Query("SELECT * FROM installments WHERE userId = :userId AND deletedAt IS NULL ORDER BY nextDueDate ASC")
     fun getAllInstallments(userId: String): Flow<List<InstallmentEntity>>
 
-    @Query("SELECT * FROM installments")
+    @Query("SELECT * FROM installments WHERE userId = :userId")
     suspend fun getAllInstallmentsList(userId: String): List<InstallmentEntity>
 
     @Query("DELETE FROM installments WHERE userId = :userId")
