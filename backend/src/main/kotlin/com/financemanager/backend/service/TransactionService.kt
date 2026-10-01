@@ -5,6 +5,7 @@ import com.financemanager.backend.repository.TransactionRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
+import java.util.UUID
 
 data class UpsertTransactionCommand(
     val clientId: String,
@@ -36,21 +37,36 @@ class TransactionService(private val repository: TransactionRepository) {
 
     @Transactional
     fun save(userId: String, c: UpsertTransactionCommand): Transaction {
-        val t = repository.findByUserIdAndClientId(userId, c.clientId).orElseGet {
-            Transaction(userId = userId, clientId = c.clientId, amount = c.amount, type = c.type, category = c.category, accountName = c.accountName, occurredAt = c.occurredAt)
-        }
-        t.amount=c.amount; t.type=c.type; t.category=c.category; t.accountName=c.accountName
-        t.description=c.description; t.occurredAt=c.occurredAt; t.timeFormatted=c.timeFormatted
-        t.title=c.title; t.subCategory=c.subCategory; t.datePersian=c.datePersian
-        t.paymentMethod=c.paymentMethod; t.sourceType=c.sourceType; t.sourceId=c.sourceId
-        t.isRecurring=c.isRecurring; t.deletedAt=null; t.updatedAt=Instant.now()
-        return repository.save(t)
+        val now = Instant.now()
+        repository.upsertAtomically(
+            id = UUID.randomUUID().toString(),
+            userId = userId,
+            clientId = c.clientId,
+            amount = c.amount,
+            type = c.type,
+            category = c.category,
+            accountName = c.accountName,
+            description = c.description,
+            occurredAt = c.occurredAt,
+            timeFormatted = c.timeFormatted,
+            title = c.title,
+            subCategory = c.subCategory,
+            datePersian = c.datePersian,
+            paymentMethod = c.paymentMethod,
+            sourceType = c.sourceType,
+            sourceId = c.sourceId,
+            isRecurring = c.isRecurring,
+            updatedAt = now
+        )
+        return repository.findByUserIdAndClientIdAndDeletedAtIsNull(userId, c.clientId)
+            .orElseThrow { IllegalStateException("Transaction upsert did not produce an active transaction") }
     }
 
     @Transactional
     fun tombstone(id: String, userId: String): Boolean {
-        val t=getById(id,userId) ?: return false
-        t.deletedAt=Instant.now(); t.updatedAt=t.deletedAt!!
+        val t = getById(id, userId) ?: return false
+        t.deletedAt = Instant.now()
+        t.updatedAt = t.deletedAt!!
         repository.save(t)
         return true
     }
