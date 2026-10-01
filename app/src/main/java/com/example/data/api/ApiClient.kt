@@ -199,6 +199,10 @@ object ApiClient {
     val reminderApi: ReminderApi
         get() = getRetrofit().create(ReminderApi::class.java)
 
+    val transactionApi: TransactionApi
+        get() = getRetrofit().create(TransactionApi::class.java)
+
+
     val notificationApi: NotificationApi
         get() = getRetrofit().create(NotificationApi::class.java)
 
