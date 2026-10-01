@@ -8,6 +8,7 @@ import com.example.data.database.ReminderEntity
 import com.example.data.database.SmsLogEntity
 import com.example.data.receiver.ReminderScheduler
 import com.example.data.security.SessionManager
+import com.example.reminder.data.ReminderEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -115,8 +116,9 @@ class SyncManager(
                         System.currentTimeMillis()
                     }
 
-                    val smartEntity = com.example.reminder.data.ReminderEntity(
+                    val smartEntity = ReminderEntity(
                         id = serverItem.id,
+                        userId = SessionManager.userId ?: continue,
                         title = serverItem.title,
                         description = serverItem.description ?: "",
                         type = serverItem.type,
@@ -147,7 +149,8 @@ class SyncManager(
     }
 
     private suspend fun syncSmsStatuses() {
-        val activeSmsReminders = smartReminderDao.getActiveRemindersList().filter { it.smsEnabled }
+        val userId = SessionManager.userId ?: return
+        val activeSmsReminders = smartReminderDao.getActiveRemindersList(userId).filter { it.smsEnabled }
         for (rem in activeSmsReminders) {
             try {
                 val statusRes = ApiClient.reminderApi.getReminderSmsStatus(rem.id)
