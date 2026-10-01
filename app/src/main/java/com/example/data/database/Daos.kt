@@ -267,44 +267,44 @@ interface ReminderDao {
 
 @Dao
 interface NotificationLogDao {
-    @Query("SELECT * FROM notification_logs WHERE deletedAt IS NULL ORDER BY timestamp DESC")
-    fun getAllNotifications(): Flow<List<NotificationLogEntity>>
+    @Query("SELECT * FROM notification_logs WHERE userId = :userId AND deletedAt IS NULL ORDER BY timestamp DESC")
+    fun getAllNotifications(userId: String): Flow<List<NotificationLogEntity>>
 
-    @Query("SELECT COUNT(*) FROM notification_logs WHERE isRead = 0 AND deletedAt IS NULL")
-    fun getUnreadCount(): Flow<Int>
+    @Query("SELECT COUNT(*) FROM notification_logs WHERE userId = :userId AND isRead = 0 AND deletedAt IS NULL")
+    fun getUnreadCount(userId: String): Flow<Int>
 
-    @Query("SELECT * FROM notification_logs WHERE syncState != 'SYNCED'")
-    suspend fun getPendingSyncNotifications(): List<NotificationLogEntity>
+    @Query("SELECT * FROM notification_logs WHERE userId = :userId AND syncState != 'SYNCED'")
+    suspend fun getPendingSyncNotifications(userId: String): List<NotificationLogEntity>
 
-    @Query("SELECT * FROM notification_logs WHERE serverId = :serverId LIMIT 1")
-    suspend fun getNotificationByServerId(serverId: String): NotificationLogEntity?
+    @Query("SELECT * FROM notification_logs WHERE userId = :userId AND serverId = :serverId LIMIT 1")
+    suspend fun getNotificationByServerId(userId: String, serverId: String): NotificationLogEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNotification(log: NotificationLogEntity): Long
 
-    @Query("UPDATE notification_logs SET isRead = 1, syncState = 'PENDING_UPDATE' WHERE id = :id")
-    suspend fun markAsRead(id: Int)
+    @Query("UPDATE notification_logs SET isRead = 1, syncState = 'PENDING_UPDATE' WHERE userId = :userId AND id = :id")
+    suspend fun markAsRead(userId: String, id: Int)
 
-    @Query("UPDATE notification_logs SET isRead = 1, syncState = 'PENDING_UPDATE'")
-    suspend fun markAllAsRead()
+    @Query("UPDATE notification_logs SET isRead = 1, syncState = 'PENDING_UPDATE' WHERE userId = :userId")
+    suspend fun markAllAsRead(userId: String)
 
-    @Query("UPDATE notification_logs SET syncState = :syncState, serverId = :serverId WHERE id = :id")
-    suspend fun updateSyncStatus(id: Int, serverId: String?, syncState: String)
+    @Query("UPDATE notification_logs SET syncState = :syncState, serverId = :serverId WHERE userId = :userId AND id = :id")
+    suspend fun updateSyncStatus(userId: String, id: Int, serverId: String?, syncState: String)
 
-    @Query("DELETE FROM notification_logs WHERE id = :id")
-    suspend fun deleteNotification(id: Int)
+    @Query("DELETE FROM notification_logs WHERE userId = :userId AND id = :id")
+    suspend fun deleteNotification(userId: String, id: Int)
 }
 
 @Dao
 interface SmsLogDao {
-    @Query("SELECT * FROM sms_logs ORDER BY id DESC")
-    fun getAllSmsLogs(): Flow<List<SmsLogEntity>>
+    @Query("SELECT * FROM sms_logs WHERE userId = :userId ORDER BY id DESC")
+    fun getAllSmsLogs(userId: String): Flow<List<SmsLogEntity>>
 
-    @Query("SELECT * FROM sms_logs WHERE providerMessageId = :providerId LIMIT 1")
-    suspend fun getLogByProviderId(providerId: String): SmsLogEntity?
+    @Query("SELECT * FROM sms_logs WHERE userId = :userId AND providerMessageId = :providerId LIMIT 1")
+    suspend fun getLogByProviderId(userId: String, providerId: String): SmsLogEntity?
 
-    @Query("SELECT * FROM sms_logs WHERE reminderId = :reminderId ORDER BY id DESC LIMIT 1")
-    suspend fun getLatestLogForReminder(reminderId: Int): SmsLogEntity?
+    @Query("SELECT * FROM sms_logs WHERE userId = :userId AND reminderId = :reminderId ORDER BY id DESC LIMIT 1")
+    suspend fun getLatestLogForReminder(userId: String, reminderId: Int): SmsLogEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSmsLog(log: SmsLogEntity): Long
