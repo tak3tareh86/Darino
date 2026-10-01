@@ -198,6 +198,7 @@ class SyncManager(
         if (SessionManager.accessToken == null) return@withContext SyncStatus.IDLE
 
         try {
+            val userId = SessionManager.userId ?: return@withContext SyncStatus.IDLE
             val pendingNotifs = notificationLogDao.getPendingSyncNotifications(userId)
             for (notif in pendingNotifs) {
                 if (notif.isRead && notif.serverId != null) {
@@ -210,7 +211,6 @@ class SyncManager(
                 }
             }
 
-            val userId = SessionManager.userId ?: return@withContext SyncStatus.IDLE
             val listResponse = ApiClient.notificationApi.listNotifications(page = 0, size = 50)
             if (listResponse.isSuccessful && listResponse.body()?.success == true) {
                 val serverNotifs = listResponse.body()?.data ?: emptyList()
