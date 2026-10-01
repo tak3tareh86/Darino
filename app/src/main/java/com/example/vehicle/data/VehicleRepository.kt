@@ -78,6 +78,7 @@ class VehicleRepository {
                         vDao.insertService(
                             com.example.data.database.VehicleServiceEntity(
                                 serverId = s.id,
+                                userId = userId,
                                 vehicleId = 1,
                                 type = s.serviceType.name,
                                 title = s.title,
@@ -106,6 +107,7 @@ class VehicleRepository {
                     vDao.insertInsurances(migratedInsurances.map { ins ->
                         com.example.data.database.VehicleInsuranceRoomEntity(
                             id = ins.id,
+                            userId = userId,
                             vehicleId = ins.vehicleId,
                             company = ins.company,
                             type = ins.type,
@@ -175,7 +177,6 @@ class VehicleRepository {
                 _expenses.value = dbExpenses.map { e ->
                     VehicleExpenseEntity(
                         id = e.id,
-                        userId = userId,
                         vehicleId = e.vehicleId,
                         title = e.title,
                         category = try { VehicleExpenseCategory.valueOf(e.category) } catch (ex: Exception) { VehicleExpenseCategory.OTHER },
@@ -191,7 +192,6 @@ class VehicleRepository {
                 _insurances.value = dbInsurances.map { ins ->
                     VehicleInsuranceEntity(
                         id = ins.id,
-                        userId = userId,
                         vehicleId = ins.vehicleId,
                         company = ins.company,
                         type = ins.type,
@@ -208,7 +208,6 @@ class VehicleRepository {
                 _inspections.value = dbInspections.map { insp ->
                     VehicleInspectionEntity(
                         id = insp.id,
-                        userId = userId,
                         vehicleId = insp.vehicleId,
                         lastInspectionDate = insp.lastInspectionDate,
                         expiryDate = insp.expiryDate,
@@ -272,6 +271,7 @@ class VehicleRepository {
                 vDao.insertExpenses(_expenses.value.map { e ->
                     com.example.data.database.VehicleExpenseRoomEntity(
                         id = e.id,
+                        userId = userId,
                         vehicleId = e.vehicleId,
                         title = e.title,
                         category = e.category.name,
@@ -286,6 +286,7 @@ class VehicleRepository {
                 vDao.insertInsurances(_insurances.value.map { ins ->
                     com.example.data.database.VehicleInsuranceRoomEntity(
                         id = ins.id,
+                        userId = userId,
                         vehicleId = ins.vehicleId,
                         company = ins.company,
                         type = ins.type,
@@ -301,6 +302,7 @@ class VehicleRepository {
                 vDao.insertInspections(_inspections.value.map { insp ->
                     com.example.data.database.VehicleInspectionRoomEntity(
                         id = insp.id,
+                        userId = userId,
                         vehicleId = insp.vehicleId,
                         lastInspectionDate = insp.lastInspectionDate,
                         expiryDate = insp.expiryDate,
