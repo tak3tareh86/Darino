@@ -29,14 +29,14 @@ interface UserDao {
 
 @Dao
 interface TransactionDao {
-    @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
-    fun getAllTransactions(): Flow<List<TransactionEntity>>
+    @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY timestamp DESC")
+    fun getAllTransactions(userId: String): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
-    suspend fun getAllTransactionsList(): List<TransactionEntity>
+    @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY timestamp DESC")
+    suspend fun getAllTransactionsList(userId: String)
 
-    @Query("DELETE FROM transactions")
-    suspend fun clearAllTransactions()
+    @Query("DELETE FROM transactions WHERE userId = :userId")
+    suspend fun clearAllTransactions(userId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: TransactionEntity)
@@ -50,11 +50,11 @@ interface TransactionDao {
     @Delete
     suspend fun deleteTransaction(transaction: TransactionEntity)
 
-    @Query("DELETE FROM transactions WHERE stringId = :stringId OR CAST(id AS TEXT) = :stringId")
-    suspend fun deleteByStringId(stringId: String)
+    @Query("DELETE FROM transactions WHERE userId = :userId AND (stringId = :stringId OR CAST(id AS TEXT) = :stringId)")
+    suspend fun deleteByStringId(userId: String, stringId: String)
 
-    @Query("SELECT * FROM transactions WHERE stringId = :stringId OR CAST(id AS TEXT) = :stringId LIMIT 1")
-    suspend fun getTransactionByStringId(stringId: String): TransactionEntity?
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND (stringId = :stringId OR CAST(id AS TEXT) = :stringId) LIMIT 1")
+    suspend fun getTransactionByStringId(userId: String, stringId: String): TransactionEntity?
 }
 
 @Dao
