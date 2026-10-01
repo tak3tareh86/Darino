@@ -118,41 +118,41 @@ interface InstallmentDao {
 
 @Dao
 interface VehicleDao {
-    @Query("SELECT * FROM vehicles WHERE deletedAt IS NULL")
-    fun getAllVehicles(): Flow<List<VehicleEntity>>
+    @Query("SELECT * FROM vehicles WHERE userId = :userId AND deletedAt IS NULL")
+    fun getAllVehicles(userId: String): Flow<List<VehicleEntity>>
 
-    @Query("SELECT * FROM vehicles")
-    suspend fun getAllVehiclesList(): List<VehicleEntity>
+    @Query("SELECT * FROM vehicles WHERE userId = :userId")
+    suspend fun getAllVehiclesList(userId: String): List<VehicleEntity>
 
-    @Query("SELECT * FROM vehicle_services")
-    suspend fun getAllServicesList(): List<VehicleServiceEntity>
+    @Query("SELECT * FROM vehicle_services WHERE userId = :userId")
+    suspend fun getAllServicesList(userId: String): List<VehicleServiceEntity>
 
-    @Query("SELECT * FROM vehicle_expenses")
-    suspend fun getAllExpensesList(): List<VehicleExpenseRoomEntity>
+    @Query("SELECT * FROM vehicle_expenses WHERE userId = :userId")
+    suspend fun getAllExpensesList(userId: String): List<VehicleExpenseRoomEntity>
 
-    @Query("SELECT * FROM vehicle_insurances")
-    suspend fun getAllInsurancesList(): List<VehicleInsuranceRoomEntity>
+    @Query("SELECT * FROM vehicle_insurances WHERE userId = :userId")
+    suspend fun getAllInsurancesList(userId: String): List<VehicleInsuranceRoomEntity>
 
-    @Query("SELECT * FROM vehicle_inspections")
-    suspend fun getAllInspectionsList(): List<VehicleInspectionRoomEntity>
+    @Query("SELECT * FROM vehicle_inspections WHERE userId = :userId")
+    suspend fun getAllInspectionsList(userId: String): List<VehicleInspectionRoomEntity>
 
-    @Query("DELETE FROM vehicles")
-    suspend fun clearAllVehicles()
+    @Query("DELETE FROM vehicles WHERE userId = :userId")
+    suspend fun clearAllVehicles(userId: String)
 
-    @Query("DELETE FROM vehicle_services")
-    suspend fun clearAllServices()
+    @Query("DELETE FROM vehicle_services WHERE userId = :userId")
+    suspend fun clearAllServices(userId: String)
 
-    @Query("DELETE FROM vehicle_expenses")
-    suspend fun clearAllExpenses()
+    @Query("DELETE FROM vehicle_expenses WHERE userId = :userId")
+    suspend fun clearAllExpenses(userId: String)
 
-    @Query("DELETE FROM vehicle_insurances")
-    suspend fun clearAllInsurances()
+    @Query("DELETE FROM vehicle_insurances WHERE userId = :userId")
+    suspend fun clearAllInsurances(userId: String)
 
-    @Query("DELETE FROM vehicle_inspections")
-    suspend fun clearAllInspections()
+    @Query("DELETE FROM vehicle_inspections WHERE userId = :userId")
+    suspend fun clearAllInspections(userId: String)
 
-    @Query("DELETE FROM vehicle_expenses WHERE id = :id")
-    suspend fun deleteExpenseById(id: String)
+    @Query("DELETE FROM vehicle_expenses WHERE userId = :userId AND id = :id")
+    suspend fun deleteExpenseById(userId: String, id: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExpenses(expenses: List<VehicleExpenseRoomEntity>)
@@ -172,11 +172,11 @@ interface VehicleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInspection(inspection: VehicleInspectionRoomEntity)
 
-    @Query("SELECT * FROM vehicles WHERE id = :id AND deletedAt IS NULL LIMIT 1")
-    suspend fun getVehicleById(id: Int): VehicleEntity?
+    @Query("SELECT * FROM vehicles WHERE userId = :userId AND id = :id AND deletedAt IS NULL LIMIT 1")
+    suspend fun getVehicleById(userId: String, id: Int): VehicleEntity?
 
-    @Query("SELECT * FROM vehicles WHERE syncState != 'SYNCED'")
-    suspend fun getPendingSyncVehicles(): List<VehicleEntity>
+    @Query("SELECT * FROM vehicles WHERE userId = :userId AND syncState != 'SYNCED'")
+    suspend fun getPendingSyncVehicles(userId: String): List<VehicleEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVehicle(vehicle: VehicleEntity): Long
@@ -184,21 +184,20 @@ interface VehicleDao {
     @Update
     suspend fun updateVehicle(vehicle: VehicleEntity)
 
-    @Query("UPDATE vehicles SET deletedAt = :deletedAt, syncState = 'PENDING_DELETE' WHERE id = :id")
-    suspend fun softDeleteVehicle(id: Int, deletedAt: Long = System.currentTimeMillis())
+    @Query("UPDATE vehicles SET deletedAt = :deletedAt, syncState = 'PENDING_DELETE' WHERE userId = :userId AND id = :id")
+    suspend fun softDeleteVehicle(userId: String, id: Int, deletedAt: Long = System.currentTimeMillis())
 
     @Delete
     suspend fun deleteVehicle(vehicle: VehicleEntity)
 
-    // Services
-    @Query("SELECT * FROM vehicle_services WHERE vehicleId = :vehicleId AND deletedAt IS NULL ORDER BY dueDate ASC")
-    fun getServicesForVehicle(vehicleId: Int): Flow<List<VehicleServiceEntity>>
+    @Query("SELECT * FROM vehicle_services WHERE userId = :userId AND vehicleId = :vehicleId AND deletedAt IS NULL ORDER BY dueDate ASC")
+    fun getServicesForVehicle(userId: String, vehicleId: Int): Flow<List<VehicleServiceEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertService(service: VehicleServiceEntity)
 
-    @Query("SELECT * FROM vehicle_store WHERE `key` = :key LIMIT 1")
-    suspend fun getVehicleStore(key: String = "vehicle_data"): VehicleStoreEntity?
+    @Query("SELECT * FROM vehicle_store WHERE userId = :userId AND key = :key LIMIT 1")
+    suspend fun getVehicleStore(userId: String, key: String = "vehicle_data"): VehicleStoreEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVehicleStore(store: VehicleStoreEntity)
