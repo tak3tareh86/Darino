@@ -168,17 +168,35 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
     override suspend fun getSchedulesSync(reminderId: String): List<ReminderScheduleEntity> =
         dao.getSchedulesForReminderSync(requireUserId(), reminderId)
 
-    override suspend fun insertSchedule(schedule: ReminderScheduleEntity) =
+    override suspend fun insertSchedule(schedule: ReminderScheduleEntity) {
+        val userId = requireUserId()
+        dao.getReminderById(userId, schedule.reminderId)
+            ?: throw SecurityException("Reminder does not belong to current user")
         dao.insertSchedule(schedule)
+    }
 
-    override suspend fun insertSchedules(schedules: List<ReminderScheduleEntity>) =
+    override suspend fun insertSchedules(schedules: List<ReminderScheduleEntity>) {
+        val userId = requireUserId()
+        schedules.forEach { schedule ->
+            dao.getReminderById(userId, schedule.reminderId)
+                ?: throw SecurityException("Reminder does not belong to current user")
+        }
         dao.insertSchedules(schedules)
+    }
 
-    override suspend fun updateSchedule(schedule: ReminderScheduleEntity) =
+    override suspend fun updateSchedule(schedule: ReminderScheduleEntity) {
+        val userId = requireUserId()
+        dao.getReminderById(userId, schedule.reminderId)
+            ?: throw SecurityException("Reminder does not belong to current user")
         dao.updateSchedule(schedule)
+    }
 
-    override suspend fun deleteSchedule(schedule: ReminderScheduleEntity) =
+    override suspend fun deleteSchedule(schedule: ReminderScheduleEntity) {
+        val userId = requireUserId()
+        dao.getReminderById(userId, schedule.reminderId)
+            ?: throw SecurityException("Reminder does not belong to current user")
         dao.deleteSchedule(schedule)
+    }
 
     override suspend fun deleteSchedulesByReminderId(reminderId: String) =
         dao.deleteSchedulesByReminderId(requireUserId(), reminderId)
@@ -189,6 +207,10 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
     override fun getAllDeliveryLogs(): Flow<List<ReminderDeliveryLogEntity>> =
         SessionManager.sessionState.flatMapLatest { state -> state.userIdOrNull()?.let { dao.getAllDeliveryLogs(it) } ?: flowOf(emptyList()) }
 
-    override suspend fun insertDeliveryLog(log: ReminderDeliveryLogEntity) =
+    override suspend fun insertDeliveryLog(log: ReminderDeliveryLogEntity) {
+        val userId = requireUserId()
+        dao.getReminderById(userId, log.reminderId)
+            ?: throw SecurityException("Reminder does not belong to current user")
         dao.insertDeliveryLog(log)
+    }
 }
