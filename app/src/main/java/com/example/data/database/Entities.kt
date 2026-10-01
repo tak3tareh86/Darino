@@ -34,7 +34,10 @@ data class TransactionEntity(
     val paymentMethod: String = "BANK_CARD",
     val sourceType: String = "MANUAL",
     val sourceId: String? = null,
-    val isRecurring: Boolean = false
+    val isRecurring: Boolean = false,
+    val syncState: String = "PENDING_UPSERT",
+    val updatedAt: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null
 )
 
 @Entity(tableName = "installments")
