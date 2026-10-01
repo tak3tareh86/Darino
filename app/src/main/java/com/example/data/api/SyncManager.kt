@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.Log
 import com.example.data.database.AppDatabase
 import com.example.data.database.NotificationLogEntity
-import com.example.data.database.ReminderEntity
 import com.example.data.database.SmsLogEntity
 import com.example.data.receiver.ReminderScheduler
 import com.example.data.security.SessionManager
