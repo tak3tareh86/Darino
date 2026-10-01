@@ -176,6 +176,7 @@ class SyncManager(
                             )
                         } else {
                             smsLogDao.updateSmsLog(
+                                userId = userId,
                                 id = existingLog.id,
                                 status = smsData.status,
                                 providerId = smsData.providerMessageId ?: existingLog.providerMessageId,
