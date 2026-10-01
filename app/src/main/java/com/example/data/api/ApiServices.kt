@@ -33,6 +33,21 @@ interface PhoneApi {
     suspend fun getStatus(): Response<NetworkApiResponse<NetworkPhoneStatusResponse>>
 }
 
+
+interface TransactionApi {
+    @GET("api/v1/transactions")
+    suspend fun listTransactions(): Response<NetworkApiResponse<List<NetworkTransactionDto>>>
+
+    @POST("api/v1/transactions")
+    suspend fun upsertTransaction(@Body request: NetworkTransactionRequest): Response<NetworkApiResponse<NetworkTransactionDto>>
+
+    @PUT("api/v1/transactions/{id}")
+    suspend fun updateTransaction(@Path("id") id: String, @Body request: NetworkTransactionRequest): Response<NetworkApiResponse<NetworkTransactionDto>>
+
+    @DELETE("api/v1/transactions/{id}")
+    suspend fun deleteTransaction(@Path("id") id: String): Response<NetworkApiResponse<Unit>>
+}
+
 interface ReminderApi {
     @GET("api/v1/reminders")
     suspend fun listReminders(@Query("status") status: String? = null): Response<NetworkApiResponse<List<NetworkReminderDto>>>
