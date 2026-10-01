@@ -29,7 +29,7 @@ import androidx.room.RoomDatabase
         VehicleInspectionRoomEntity::class,
         VehicleStoreEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -60,6 +60,23 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE transactions ADD COLUMN sourceType TEXT NOT NULL DEFAULT 'MANUAL'")
                 db.execSQL("ALTER TABLE transactions ADD COLUMN sourceId TEXT DEFAULT NULL")
                 db.execSQL("ALTER TABLE transactions ADD COLUMN isRecurring INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_14_15 = object : androidx.room.migration.Migration(14, 15) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE vehicle_services ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE vehicle_expenses ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE vehicle_insurances ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE vehicle_inspections ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE vehicle_store ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                // Legacy child records and the global legacy store were not owner-bound.
+                db.execSQL("DELETE FROM vehicle_services")
+                db.execSQL("DELETE FROM vehicle_expenses")
+                db.execSQL("DELETE FROM vehicle_insurances")
+                db.execSQL("DELETE FROM vehicle_inspections")
+                db.execSQL("DELETE FROM vehicle_store")
+                db.execSQL("DELETE FROM vehicles WHERE userId = '' OR userId = 'default_user'")
             }
         }
 
@@ -142,7 +159,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "finance_app_database"
                 )
-                     .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                     .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
                     .build()
                 INSTANCE = instance
                 instance
