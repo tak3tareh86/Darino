@@ -4,7 +4,6 @@ import android.content.Context
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
-import com.example.reminder.domain.ReminderManager
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -63,9 +62,6 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val userId = SessionManager.userId ?: return@launch
-                val prefs = context.applicationContext.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
-                val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
-
                 val current = dao.getAllReminders(userId).first()
                 if (current.isEmpty()) {
                     val legacyList = db.reminderDao().getActiveRemindersSnapshot()
@@ -89,8 +85,6 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
                             )
                         }
                         dao.insertReminders(migrated)
-                    } else if (!isCleanSlate) {
-                        dao.insertReminders(ReminderManager.getInitialSmartReminders().map { it.copy(userId = userId) })
                     }
                 }
             } catch (e: Exception) {
