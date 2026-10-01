@@ -5,6 +5,7 @@ import com.example.data.api.ApiClient
 import com.example.data.api.SyncManager
 import com.example.data.database.AppDatabase
 import com.example.data.database.NotificationLogEntity
+import com.example.data.security.SessionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -20,20 +21,20 @@ class NotificationRepository(
     private val backgroundScope = CoroutineScope(Dispatchers.IO)
 
     fun getAllNotifications(): Flow<List<NotificationLogEntity>> =
-        notificationLogDao.getAllNotifications()
+        notificationLogDao.getAllNotifications(SessionManager.userId ?: return flowOf(emptyList()))
 
     fun getUnreadCount(): Flow<Int> =
-        notificationLogDao.getUnreadCount()
+        notificationLogDao.getUnreadCount(SessionManager.userId ?: return flowOf(0))
 
     suspend fun markAsRead(id: Int) = withContext(Dispatchers.IO) {
-        notificationLogDao.markAsRead(id)
+        notificationLogDao.markAsRead(SessionManager.userId ?: return@withContext, id)
         backgroundScope.launch {
             syncManager.syncNotifications()
         }
     }
 
     suspend fun markAllAsRead() = withContext(Dispatchers.IO) {
-        notificationLogDao.markAllAsRead()
+        notificationLogDao.markAllAsRead(SessionManager.userId ?: return@withContext)
         backgroundScope.launch {
             try {
                 ApiClient.notificationApi.markAllAsRead()
