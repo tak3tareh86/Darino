@@ -24,6 +24,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -504,8 +505,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     )
                 }
                 _recurringTransactions.value = list
-            } else if (!isCleanSlate) {
-                _recurringTransactions.value = FinanceMockDataSource.initialRecurring
+            } else {
+                _recurringTransactions.value = emptyList()
             }
         } catch (e: Exception) {
             e.printStackTrace()
