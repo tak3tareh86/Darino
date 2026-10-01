@@ -18,7 +18,7 @@ jobs:
           cache: gradle
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
-      - name: Android compile
+      - name: Android verification
         run: ./gradlew :app:assembleDebug --stacktrace
 
   backend:
@@ -33,6 +33,6 @@ jobs:
       - name: Backend Gradle version
         working-directory: backend
         run: gradle --version
-      - name: Backend compile
+      - name: Backend verification
         working-directory: backend
-        run: gradle compileKotlin --stacktrace
+        run: gradle test --stacktrace
