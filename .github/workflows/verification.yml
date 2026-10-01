@@ -16,6 +16,8 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
       - name: Android compile
         run: ./gradlew :app:assembleDebug --stacktrace
 
@@ -28,6 +30,9 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: gradle
+      - name: Backend Gradle version
+        working-directory: backend
+        run: gradle --version
       - name: Backend compile
         working-directory: backend
-        run: ./gradlew compileKotlin --stacktrace
+        run: gradle compileKotlin --stacktrace
