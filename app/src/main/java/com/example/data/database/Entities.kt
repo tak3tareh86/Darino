@@ -182,6 +182,7 @@ data class ReminderScheduleEntity(
 @Entity(tableName = "notification_logs")
 data class NotificationLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val userId: String,
     val serverId: String? = null,
     val syncState: String = "SYNCED",
     val reminderId: Int? = null,
@@ -198,6 +199,7 @@ data class NotificationLogEntity(
 @Entity(tableName = "sms_logs")
 data class SmsLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val userId: String,
     val reminderId: Int?,
     val providerMessageId: String?,
     val phoneNumber: String,
