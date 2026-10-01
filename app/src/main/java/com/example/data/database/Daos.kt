@@ -71,21 +71,21 @@ interface TransactionDao {
 
 @Dao
 interface InstallmentDao {
-    @Query("SELECT * FROM installments WHERE deletedAt IS NULL ORDER BY nextDueDate ASC")
-    fun getAllInstallments(): Flow<List<InstallmentEntity>>
+    @Query("SELECT * FROM installments WHERE userId = :userId WHERE userId = :userId AND deletedAt IS NULL ORDER BY nextDueDate ASC")
+    fun getAllInstallments(userId: String): Flow<List<InstallmentEntity>>
 
     @Query("SELECT * FROM installments")
-    suspend fun getAllInstallmentsList(): List<InstallmentEntity>
+    suspend fun getAllInstallmentsList(userId: String): List<InstallmentEntity>
 
-    @Query("DELETE FROM installments")
-    suspend fun clearAllInstallments()
+    @Query("DELETE FROM installments WHERE userId = :userId")
+    suspend fun clearAllInstallments(userId: String)
 
-    @Query("SELECT * FROM installments WHERE id = :id AND deletedAt IS NULL LIMIT 1")
-    suspend fun getInstallmentById(id: Int): InstallmentEntity?
+    @Query("SELECT * FROM installments WHERE userId = :userId AND id = :id AND deletedAt IS NULL LIMIT 1")
+    suspend fun getInstallmentById(userId: String, id: Int): InstallmentEntity?
 
 
-    @Query("SELECT * FROM installments WHERE syncState != 'SYNCED'")
-    suspend fun getPendingSyncInstallments(): List<InstallmentEntity>
+    @Query("SELECT * FROM installments WHERE userId = :userId AND syncState != 'SYNCED'")
+    suspend fun getPendingSyncInstallments(userId: String): List<InstallmentEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInstallment(installment: InstallmentEntity): Long
@@ -93,21 +93,21 @@ interface InstallmentDao {
     @Update
     suspend fun updateInstallment(installment: InstallmentEntity)
 
-    @Query("UPDATE installments SET deletedAt = :deletedAt, syncState = 'PENDING_DELETE' WHERE id = :id")
-    suspend fun softDeleteInstallment(id: Int, deletedAt: Long = System.currentTimeMillis())
+    @Query("UPDATE installments SET deletedAt = :deletedAt, syncState = 'PENDING_DELETE' WHERE userId = :userId AND id = :id")
+    suspend fun softDeleteInstallment(userId: String, id: Int, deletedAt: Long = System.currentTimeMillis())
 
     @Delete
     suspend fun deleteInstallment(installment: InstallmentEntity)
 
     // Payments
-    @Query("SELECT * FROM installment_payments WHERE installmentId = :installmentId ORDER BY dueDate ASC")
-    fun getPaymentsForInstallment(installmentId: Int): Flow<List<InstallmentPaymentEntity>>
+    @Query("SELECT p.* FROM installment_payments p INNER JOIN installments i ON i.id = p.installmentId WHERE i.userId = :userId AND p.installmentId = :installmentId ORDER BY p.dueDate ASC")
+    fun getPaymentsForInstallment(userId: String, installmentId: Int): Flow<List<InstallmentPaymentEntity>>
 
-    @Query("SELECT * FROM installment_payments")
-    suspend fun getAllPaymentsList(): List<InstallmentPaymentEntity>
+    @Query("SELECT p.* FROM installment_payments p INNER JOIN installments i ON i.id = p.installmentId WHERE i.userId = :userId")
+    suspend fun getAllPaymentsList(userId: String): List<InstallmentPaymentEntity>
 
-    @Query("DELETE FROM installment_payments")
-    suspend fun clearAllPayments()
+    @Query("DELETE FROM installment_payments WHERE installmentId IN (SELECT id FROM installments WHERE userId = :userId)")
+    suspend fun clearAllPayments(userId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPayment(payment: InstallmentPaymentEntity)
