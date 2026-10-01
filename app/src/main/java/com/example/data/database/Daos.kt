@@ -29,7 +29,7 @@ interface UserDao {
 
 @Dao
 interface TransactionDao {
-    @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY timestamp DESC")
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND deletedAt IS NULL ORDER BY timestamp DESC")
     fun getAllTransactions(userId: String): Flow<List<TransactionEntity>>
 
     @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY timestamp DESC")
