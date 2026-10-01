@@ -19,7 +19,7 @@ data class UserEntity(
 @Entity(tableName = "transactions")
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val userId: String = "default_user",
+    val userId: String,
     val amount: Long = 0L,
     val type: String = "EXPENSE", // "EXPENSE", "INCOME", "TRANSFER"
     val category: String = "",
