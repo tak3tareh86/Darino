@@ -2,7 +2,7 @@ pluginManagement {
   resolutionStrategy {
     eachPlugin {
       if (requested.id.id == "com.google.gms.google-services") {
-        useModule("com.google.gms:google-services:${requested.version}")
+        useModule("com.google.gms:google-services:" + requested.version)
       }
     }
   }
@@ -10,8 +10,6 @@ pluginManagement {
     google()
     mavenCentral()
     gradlePluginPortal()
-    maven { url = uri("https://maven.aliyun.com/repository/google") }
-    maven { url = uri("https://maven.aliyun.com/repository/public") }
   }
 }
 
@@ -23,9 +21,6 @@ dependencyResolutionManagement {
   repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
 
   repositories {
-    maven { url = uri("https://maven.aliyun.com/repository/google") }
-    maven { url = uri("https://maven.aliyun.com/repository/public") }
-    maven { url = uri("https://jitpack.io") }
     google()
     mavenCentral()
   }
