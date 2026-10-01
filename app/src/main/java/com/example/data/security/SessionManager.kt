@@ -37,11 +37,11 @@ object SessionManager {
         get() = when (val state = _sessionState.value) {
             is SessionState.Authenticated -> state.user
             is SessionState.PhoneVerificationRequired -> state.user
-            else -> tokenManager?.getUser()
+            else -> null
         }
 
     val userId: String?
-        get() = currentUser?.id ?: tokenManager?.getUserId()
+        get() = currentUser?.id
 
     val isPhoneVerified: Boolean
         get() = currentUser?.phoneVerified == true
