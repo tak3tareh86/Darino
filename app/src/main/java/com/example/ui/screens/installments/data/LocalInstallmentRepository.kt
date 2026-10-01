@@ -5,11 +5,13 @@ import com.example.data.database.AppDatabase
 import com.example.data.database.InstallmentEntity
 import com.example.data.database.InstallmentPaymentEntity
 import com.example.data.security.SessionManager
+import com.example.data.security.SessionState
 import com.example.ui.screens.installments.model.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 
 /**
  * Canonical Room-backed repository for the Installments domain.
@@ -45,6 +47,7 @@ class LocalInstallmentRepository private constructor() {
 
     private var appContext: Context? = null
     private var initialized = false
+    private var sessionObserverStarted = false
 
     init {
         // Room is the sole source of truth. Production state must never be seeded from mock data.
@@ -57,17 +60,34 @@ class LocalInstallmentRepository private constructor() {
         val appCtx = context.applicationContext
         appContext = appCtx
 
-        repositoryScope.launch {
-            try {
-                val db = AppDatabase.getDatabase(appCtx)
-                val dao = db.installmentDao()
+        if (!sessionObserverStarted) {
+            sessionObserverStarted = true
+            repositoryScope.launch {
+                SessionManager.sessionState.collectLatest { state ->
+                    val userId = when (state) {
+                        is SessionState.Authenticated -> state.user.id
+                        is SessionState.PhoneVerificationRequired -> state.user.id
+                        else -> null
+                    }
+                    if (userId == null) {
+                        updateInternalState(emptyList())
+                        return@collectLatest
+                    }
+                    reloadForUser(appCtx, userId)
+                }
+            }
+        }
+    }
 
-                val userId = SessionManager.userId ?: return@launch
-                val dbInsts = dao.getAllInstallmentsList(userId)
-                val dbPayments = dao.getAllPaymentsList(userId)
+    private suspend fun reloadForUser(appCtx: Context, userId: String) {
+        try {
+            val db = AppDatabase.getDatabase(appCtx)
+            val dao = db.installmentDao()
+            val dbInsts = dao.getAllInstallmentsList(userId)
+            val dbPayments = dao.getAllPaymentsList(userId)
 
-                if (dbInsts.isNotEmpty()) {
-                    val loaded = dbInsts.map { entity ->
+            if (dbInsts.isNotEmpty()) {
+                val loaded = dbInsts.map { entity ->
                         val payments = dbPayments.filter { it.installmentId == entity.id }.map { p ->
                             PaymentHistoryItem(
                                 id = p.paymentReference ?: p.id.toString(),
@@ -110,9 +130,9 @@ class LocalInstallmentRepository private constructor() {
                     }
                     updateInternalState(loaded)
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
