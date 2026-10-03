@@ -123,6 +123,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     }
 
     override suspend fun addTransactionResult(transaction: TransactionItemData): TransactionOperationResult {
+        val userId = SessionManager.userId ?: return TransactionOperationResult.NO_AUTHENTICATED_USER
+        
         val validatedTx = if (transaction.id.isBlank()) {
             transaction.copy(id = UUID.randomUUID().toString())
         } else {
@@ -145,6 +147,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     }
 
     override suspend fun updateTransactionResult(transaction: TransactionItemData): TransactionOperationResult {
+        val userId = SessionManager.userId ?: return TransactionOperationResult.NO_AUTHENTICATED_USER
         if (!validateTransaction(transaction)) {
             return TransactionOperationResult.VALIDATION_ERROR
         }
@@ -152,13 +155,15 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val ctx = appContext ?: return TransactionOperationResult.PERSISTENCE_ERROR
         return try {
             val db = AppDatabase.getDatabase(ctx)
-            val userId = SessionManager.userId ?: "user_default"
             val existing = db.transactionDao().getTransactionByStringId(userId, transaction.id)
                 ?: db.transactionDao().getTransactionIncludingDeleted(userId, transaction.id)
             if (existing == null) {
                 return TransactionOperationResult.NOT_FOUND
             }
-            val entity = toEntity(transaction).copy(id = existing.id)
+            if (existing.deletedAt != null) {
+                return TransactionOperationResult.VALIDATION_ERROR
+            }
+            val entity = toEntity(transaction).copy(id = existing.id, userId = userId)
             db.transactionDao().insertTransaction(entity)
             TransactionOperationResult.SUCCESS
         } catch (e: Exception) {
@@ -168,16 +173,16 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     }
 
     override suspend fun deleteTransactionResult(id: String): TransactionOperationResult {
+        val userId = SessionManager.userId ?: return TransactionOperationResult.NO_AUTHENTICATED_USER
         val ctx = appContext ?: return TransactionOperationResult.PERSISTENCE_ERROR
         return try {
             val db = AppDatabase.getDatabase(ctx)
-            val userId = SessionManager.userId ?: "user_default"
             val existing = db.transactionDao().getTransactionByStringId(userId, id)
                 ?: db.transactionDao().getTransactionIncludingDeleted(userId, id)
             if (existing == null) {
                 return TransactionOperationResult.NOT_FOUND
             }
-            db.transactionDao().deleteByStringId(userId, id)
+            db.transactionDao().softDeleteByStringId(userId, id, System.currentTimeMillis(), System.currentTimeMillis())
             TransactionOperationResult.SUCCESS
         } catch (e: Exception) {
             e.printStackTrace()
@@ -186,13 +191,13 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     }
 
     override suspend fun duplicateTransactionResult(id: String): TransactionItemData? {
+        val userId = SessionManager.userId ?: return null
         val currentList = _transactions.value
         val original = currentList.find { it.id == id }
         val finalOriginal = if (original == null) {
             val ctx = appContext ?: return null
-            val userId = SessionManager.userId ?: "user_default"
             val entity = AppDatabase.getDatabase(ctx).transactionDao().getTransactionByStringId(userId, id)
-            entity?.let { toItemData(it, _categories.value) }
+            entity?.let { if (it.deletedAt != null) null else toItemData(it, _categories.value) }
         } else {
             original
         } ?: return null
@@ -361,6 +366,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     }
 
     override fun clearAllTransactionsData() {
+        val userId = SessionManager.userId ?: return
         _transactions.value = emptyList()
         _recurringTransactions.value = emptyList()
         _budgets.value = emptyList()
@@ -370,9 +376,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val ctx = appContext ?: return
         repositoryScope.launch {
             try {
-                SessionManager.userId?.let { userId ->
-                    AppDatabase.getDatabase(ctx).transactionDao().clearAllTransactions(userId)
-                }
+                AppDatabase.getDatabase(ctx).transactionDao().clearAllTransactions(userId)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -380,6 +384,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     }
 
     override fun restoreSampleTransactions() {
+        val userId = SessionManager.userId ?: return
         _recurringTransactions.value = FinanceMockDataSource.initialRecurring
         _budgets.value = FinanceMockDataSource.initialBudgets
         _savingsGoals.value = FinanceMockDataSource.initialSavingsGoals
@@ -389,7 +394,6 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         repositoryScope.launch {
             try {
                 val db = AppDatabase.getDatabase(ctx)
-                val userId = SessionManager.userId ?: return@launch
                 db.transactionDao().clearAllTransactions(userId)
                 val initialEntities = FinanceMockDataSource.initialTransactions.map { toEntity(it) }
                 db.transactionDao().insertTransactions(initialEntities)
@@ -565,6 +569,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     }
 
     private fun toEntity(item: TransactionItemData): TransactionEntity {
+        val userId = SessionManager.userId ?: throw IllegalStateException("No authenticated user")
         return TransactionEntity(
             stringId = item.id,
             title = item.title,
@@ -581,7 +586,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             sourceType = item.sourceType.name,
             sourceId = item.sourceId,
             isRecurring = item.isRecurring,
-            userId = SessionManager.userId ?: "user_default"
+            userId = userId
         )
     }
 

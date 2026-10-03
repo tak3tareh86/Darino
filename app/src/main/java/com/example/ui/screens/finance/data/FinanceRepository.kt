@@ -11,7 +11,8 @@ enum class TransactionOperationResult {
     SUCCESS,
     VALIDATION_ERROR,
     NOT_FOUND,
-    PERSISTENCE_ERROR
+    PERSISTENCE_ERROR,
+    NO_AUTHENTICATED_USER
 }
 
 interface FinanceRepository {

@@ -203,6 +203,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_17_18 = object : androidx.room.migration.Migration(17, 18) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // 1. Remove duplicates before applying the unique constraint
+                // Keep only one record per (userId, stringId), prioritized by updatedAt DESC, then id DESC
+                db.execSQL("""
+                    DELETE FROM transactions WHERE rowid NOT IN (
+                        SELECT rowid FROM (
+                            SELECT rowid, ROW_NUMBER() OVER (PARTITION BY userId, stringId ORDER BY updatedAt DESC, id DESC) as rn
+                            FROM transactions
+                        ) WHERE rn = 1
+                    )
+                """.trimIndent())
+                
+                // 2. Create the unique index
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_transactions_userId_stringId ON transactions(userId, stringId)")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -210,7 +228,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "finance_app_database"
                 )
-                     .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+                     .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
                     .build()
                 INSTANCE = instance
                 instance

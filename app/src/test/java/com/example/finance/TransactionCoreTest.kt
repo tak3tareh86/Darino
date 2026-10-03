@@ -199,28 +199,58 @@ class TransactionCoreTest {
     }
 
     @Test
-    fun `Test 8 - Invalid amount or blank title is rejected by validation`() = runBlocking {
+    fun `Test 9 - Unique Identity enforcement within user scope`() = runBlocking {
         val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
-        val invalidTx1 = TransactionItemData(
-            id = "tx_inv_1",
-            title = "تست",
-            amount = 0L,
-            type = TransactionType.EXPENSE,
-            category = cat,
-            datePersian = "۱۴۰۳/۰۷/۰۱",
-            timePersian = "16:00"
-        )
-        val invalidTx2 = TransactionItemData(
-            id = "tx_inv_2",
-            title = "   ",
-            amount = 1000L,
-            type = TransactionType.EXPENSE,
-            category = cat,
-            datePersian = "۱۴۰۳/۰۷/۰۱",
-            timePersian = "16:00"
-        )
+        val tx = TransactionItemData(id = "tx_123", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(tx))
+        // Attempt duplicate identity for same user
+        assertEquals(TransactionOperationResult.PERSISTENCE_ERROR, repository.addTransactionResult(tx))
+    }
 
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(invalidTx1))
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(invalidTx2))
+    @Test
+    fun `Test 10 - User Isolation`() = runBlocking {
+        val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
+        val txA = TransactionItemData(id = "tx_shared", title = "برای کاربر A", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        
+        // As User A
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(txA))
+        
+        // Switch to User B
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "test_user_B", fullName = "User B", email = null, phoneNumber = "09120000001", phoneVerified = true))
+        
+        // User B cannot see/update/delete/duplicate User A's tx
+        val db = AppDatabase.getDatabase(context)
+        assertEquals(null, db.transactionDao().getTransactionByStringId("test_user_B", "tx_shared"))
+        assertEquals(TransactionOperationResult.NOT_FOUND, repository.updateTransactionResult(txA))
+        assertEquals(TransactionOperationResult.NOT_FOUND, repository.deleteTransactionResult("tx_shared"))
+        assertEquals(null, repository.duplicateTransactionResult("tx_shared"))
+    }
+
+    @Test
+    fun `Test 11 - Soft Delete Verification`() = runBlocking {
+        val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
+        val tx = TransactionItemData(id = "tx_del_check", title = "تست حذف", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        repository.addTransactionResult(tx)
+        
+        repository.deleteTransactionResult("tx_del_check")
+        
+        val db = AppDatabase.getDatabase(context)
+        val entity = db.transactionDao().getTransactionIncludingDeleted("test_user_tx", "tx_del_check")
+        
+        assertNotNull(entity)
+        assertNotNull(entity!!.deletedAt)
+        assertEquals("PENDING_DELETE", entity.syncState)
+    }
+
+    @Test
+    fun `Test 12 - Operation without authentication rejected`() = runBlocking {
+        // Log out explicitly
+        SessionManager.logout()
+        
+        val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
+        val tx = TransactionItemData(id = "tx_no_auth", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        
+        assertEquals(TransactionOperationResult.NO_AUTHENTICATED_USER, repository.addTransactionResult(tx))
     }
 }

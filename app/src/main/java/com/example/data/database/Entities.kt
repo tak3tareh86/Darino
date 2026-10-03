@@ -1,6 +1,7 @@
 package com.example.data.database
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "users")
@@ -16,7 +17,10 @@ data class UserEntity(
     val verifiedAt: Long? = System.currentTimeMillis()
 )
 
-@Entity(tableName = "transactions")
+@Entity(
+    tableName = "transactions",
+    indices = [Index(value = ["userId", "stringId"], unique = true)]
+)
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val userId: String,
