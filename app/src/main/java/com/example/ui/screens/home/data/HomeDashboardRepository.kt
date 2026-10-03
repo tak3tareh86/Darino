@@ -9,18 +9,12 @@ import com.example.ui.screens.finance.data.LocalFinanceRepository
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.components.BottomNavItem
 import com.example.ui.screens.home.domain.ObligationType
-import com.example.ui.screens.home.domain.OverdueItem
-import com.example.ui.screens.home.domain.OverdueType
 import com.example.ui.screens.home.domain.UpcomingObligationItem
 import com.example.ui.screens.home.domain.UpcomingReminderItem
-import com.example.ui.screens.home.domain.VehicleSummaryData
 import com.example.ui.screens.installments.data.LocalInstallmentRepository
-import com.example.ui.screens.installments.model.InstallmentCategory
-import com.example.ui.screens.installments.model.InstallmentItem
 import com.example.ui.screens.installments.model.InstallmentStatus
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
-import com.example.ui.theme.WarningAmberLight
 import com.example.util.IranianDateUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
@@ -297,56 +291,6 @@ class HomeDashboardRepository(
                 item.timePersian
             }
         ).map { it.first }.take(3)
-    }
-
-    fun getOverdueItems(): List<OverdueItem> {
-        val realInstallments = installmentRepository.installments.value
-        return realInstallments.filter {
-            it.status == InstallmentStatus.OVERDUE || (it.remainingInstallments > 0 && calculateDaysDifference(it.nextPaymentDate) < 0)
-        }.map { item ->
-            val diff = calculateDaysDifference(item.nextPaymentDate)
-            val overdueText = if (diff < 0) {
-                "${IranianPhoneUtils.convertDigitsToPersian((-diff).toString())} روز گذشته"
-            } else {
-                "معوق"
-            }
-            OverdueItem(
-                id = item.id,
-                title = item.title,
-                amount = item.totalAmount,
-                formattedAmount = item.monthlyPaymentFormatted,
-                overdueDaysText = overdueText,
-                type = OverdueType.INSTALLMENT,
-                destinationTab = BottomNavItem.INSTALLMENTS
-            )
-        }
-    }
-
-    fun getPrimaryVehicleSummary(): VehicleSummaryData? {
-        val list = vehicleRepository.vehicles.value
-        if (list.isEmpty()) return null
-        val primary = list.first()
-
-        val isServiceDue = primary.currentMileage >= 44500
-        val kmLeft = (50000 - primary.currentMileage).coerceAtLeast(0)
-        val statusText = if (kmLeft in 1..1000) {
-            "نیاز به سرویس در ${IranianPhoneUtils.convertDigitsToPersian(kmLeft.toString())} کیلومتر آینده"
-        } else {
-            "همه چیز مرتب است."
-        }
-
-        return VehicleSummaryData(
-            id = primary.id,
-            name = "${primary.brand} ${primary.model}",
-            modelYear = "مدل ${primary.year}",
-            currentMileage = primary.currentMileage,
-            formattedMileage = IranianPhoneUtils.convertDigitsToPersian(
-                String.format("%,d", primary.currentMileage)
-            ) + " کیلومتر",
-            statusText = statusText,
-            isNeedsService = kmLeft in 1..1000,
-            plate = primary.plate
-        )
     }
 
     fun getUnreadNotificationCount(): Int {

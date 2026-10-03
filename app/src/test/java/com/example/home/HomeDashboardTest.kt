@@ -2,12 +2,17 @@ package com.example.home
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.sms.BankSmsParser
+import com.example.data.sms.BankSmsRepository
+import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.data.HomeDashboardRepository
 import com.example.ui.screens.home.domain.HomeDashboardAggregator
-import com.example.ui.screens.home.domain.HomeInsightEngine
+import com.example.ui.screens.home.domain.HomeDashboardState
 import com.example.ui.screens.home.domain.ObligationType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,7 +24,21 @@ import org.robolectric.annotation.Config
 class HomeDashboardTest {
 
     @Test
-    fun `test HomeDashboardAggregator produces complete dashboard state`() = kotlinx.coroutines.runBlocking {
+    fun `test HomeDashboardState default initial values contain no fake data`() {
+        val defaultState = HomeDashboardState()
+
+        // Verify no fake default sample amounts
+        assertEquals(0L, defaultState.monthlyIncome)
+        assertEquals(0L, defaultState.monthlyExpense)
+        assertEquals(0L, defaultState.monthlyBalance)
+        assertEquals(0, defaultState.savingsRate)
+        assertEquals(0, defaultState.notificationCount)
+        assertTrue(defaultState.upcomingObligations.isEmpty())
+        assertTrue(defaultState.upcomingReminders.isEmpty())
+    }
+
+    @Test
+    fun `test HomeDashboardAggregator produces complete dashboard state from real data`() = kotlinx.coroutines.runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         com.example.data.security.SessionManager.setAuthenticatedUser(
             com.example.data.api.NetworkUserDto(
@@ -131,20 +150,6 @@ class HomeDashboardTest {
             )
         )
 
-        // Add test vehicle if none exists
-        if (vehicleRepo.vehicles.value.isEmpty()) {
-            vehicleRepo.addVehicle(
-                brand = "ایران‌خودرو",
-                model = "پژو ۲۰۶",
-                year = "1400",
-                color = "سفید",
-                plate = "۱۲ب۳۴۵-۶۷",
-                vin = "VIN-PEUG-206-TEST",
-                currentMileage = 40000,
-                estimatedValue = 300_000_000L
-            )
-        }
-
         val repository = HomeDashboardRepository(
             context = context,
             vehicleRepository = vehicleRepo,
@@ -170,55 +175,52 @@ class HomeDashboardTest {
         // 3. Verify Upcoming Reminders (max 3)
         assertTrue(state.upcomingReminders.size in 1..3)
         assertEquals("تماس با تعمیرگاه و سرویس دوره‌ای", state.upcomingReminders[0].title)
-
-        // 4. Verify Vehicle Summary
-        assertNotNull(state.vehicleSummary)
-        assertTrue(state.vehicleSummary?.name?.contains("پژو") == true)
-
-        // 5. Verify Smart Insight Generated
-        assertNotNull(state.financialInsight)
-        assertEquals("هشدار سررسید دارینو", state.financialInsight?.title)
     }
 
     @Test
-    fun `test HomeInsightEngine rule engine logic`() {
-        // High savings rate test
-        val highSavingsInsight = HomeInsightEngine.generateInsight(
-            monthlyIncome = 20_000_000L,
-            monthlyExpense = 8_000_000L,
-            savingsRate = 60,
-            activeInstallmentsCount = 1,
-            totalInstallmentsAmount = 2_000_000L,
-            hasOverdueInstallments = false,
-            hasVehicleNeedsService = false,
-            upcomingObligationsCount = 1
-        )
-        assertTrue(highSavingsInsight.message.contains("نرخ پس‌انداز"))
+    fun `test BankSmsParser type detection and unknown fallback`() {
+        // Income detection
+        val incomeType = BankSmsParser.detectTransactionType("واریز حقوق به حساب شما")
+        assertEquals(TransactionType.INCOME, incomeType)
 
-        // Overdue warning test
-        val overdueInsight = HomeInsightEngine.generateInsight(
-            monthlyIncome = 20_000_000L,
-            monthlyExpense = 8_000_000L,
-            savingsRate = 60,
-            activeInstallmentsCount = 1,
-            totalInstallmentsAmount = 2_000_000L,
-            hasOverdueInstallments = true,
-            hasVehicleNeedsService = false,
-            upcomingObligationsCount = 1
-        )
-        assertTrue(overdueInsight.message.contains("عقب‌افتاده"))
+        // Expense detection
+        val expenseType = BankSmsParser.detectTransactionType("برداشت و خرید از پایانه فروش")
+        assertEquals(TransactionType.EXPENSE, expenseType)
 
-        // Vehicle service test
-        val vehicleInsight = HomeInsightEngine.generateInsight(
-            monthlyIncome = 20_000_000L,
-            monthlyExpense = 15_000_000L,
-            savingsRate = 25,
-            activeInstallmentsCount = 1,
-            totalInstallmentsAmount = 2_000_000L,
-            hasOverdueInstallments = false,
-            hasVehicleNeedsService = true,
-            upcomingObligationsCount = 1
+        // Transfer detection
+        val transferType = BankSmsParser.detectTransactionType("انتقال کارت به کارت موفق")
+        assertEquals(TransactionType.TRANSFER, transferType)
+
+        // Unknown SMS text should NOT auto-resolve as Expense
+        val unknownType = BankSmsParser.detectTransactionType("رمز پویای شما جهت ثبت‌نام ۱۲۳۴۵ است")
+        assertNull(unknownType)
+
+        // Parse with uncertain type sets isTypeUncertain = true
+        val parsed = BankSmsParser.parse(
+            smsId = "sms_test_uncertain",
+            sender = "بانک ملت",
+            body = "مبلغ: 50,000 تومان در حساب شما منظور شد.",
+            timestampMillis = System.currentTimeMillis()
         )
-        assertTrue(vehicleInsight.message.contains("سرویس"))
+        assertNotNull(parsed)
+        assertTrue(parsed!!.isTypeUncertain)
+    }
+
+    @Test
+    fun `test BankSmsRepository persistence and idempotency`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val smsRepo = BankSmsRepository.getInstance(context)
+
+        val testSmsId1 = "sms_unit_test_proc_1"
+        val testSmsId2 = "sms_unit_test_dism_2"
+
+        // Mark processed and dismissed
+        smsRepo.markSmsProcessed(testSmsId1)
+        smsRepo.markSmsDismissed(testSmsId2)
+
+        // Verify persistent IDs
+        assertTrue(smsRepo.getProcessedSmsIds().contains(testSmsId1))
+        assertTrue(smsRepo.getDismissedSmsIds().contains(testSmsId2))
+        assertFalse(smsRepo.getProcessedSmsIds().contains("sms_non_existent"))
     }
 }

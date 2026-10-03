@@ -672,6 +672,15 @@ private fun SmsGrantedContentView(
                         )
                     }
 
+                    if (item.isTypeUncertain) {
+                        Text(
+                            text = "⚠️ لطفاً نوع تراکنش را مشخص کنید:",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFFD97706)
+                        )
+                    }
+
                     // Interactive Transaction Type Selector: [هزینه | درآمد | انتقال]
                     Row(
                         modifier = Modifier.fillMaxWidth(),

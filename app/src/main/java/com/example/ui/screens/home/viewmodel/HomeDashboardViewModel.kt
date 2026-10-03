@@ -5,7 +5,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.database.AppDatabase
-import com.example.data.database.TransactionEntity
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
 import com.example.data.sms.BankSmsRepository
@@ -24,10 +23,13 @@ import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import com.example.vehicle.data.VehicleExpenseCategory
 import com.example.vehicle.data.VehicleRepository
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -69,7 +71,34 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     private val _pendingSmsQueue = MutableStateFlow<List<BankSmsSuggestion>>(emptyList())
     val pendingSmsQueue: StateFlow<List<BankSmsSuggestion>> = _pendingSmsQueue.asStateFlow()
 
+    // Controlled debounced refresh mechanism to prevent duplicate/conflicting parallel loads
+    private val refreshTrigger = MutableSharedFlow<Unit>(
+        replay = 1,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
     init {
+        // Debounced aggregator pipeline
+        viewModelScope.launch {
+            refreshTrigger
+                .debounce(50L)
+                .collectLatest {
+                    try {
+                        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+                        val aggregated = aggregator.aggregate()
+                        _uiState.value = aggregated
+                    } catch (e: Exception) {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = "خطا در بارگذاری اطلاعات داشبورد: ${e.localizedMessage}"
+                            )
+                        }
+                    }
+                }
+        }
+
         // Reactive observations across all data layers
         viewModelScope.launch {
             SessionManager.sessionState.collectLatest { state ->
@@ -191,6 +220,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     }
                     item.copy(
                         type = newType,
+                        isTypeUncertain = false,
                         category = defaultCat,
                         formattedAmount = MoneyFormatter.formatSignedToman(item.amount, isExpense = isExpense)
                     )
@@ -202,20 +232,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun loadDashboardData() {
-        viewModelScope.launch {
-            try {
-                _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-                val aggregated = aggregator.aggregate()
-                _uiState.value = aggregated
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "خطا در بارگذاری اطلاعات داشبورد: ${e.localizedMessage}"
-                    )
-                }
-            }
-        }
+        refreshTrigger.tryEmit(Unit)
     }
 
     fun acceptSmsSuggestion(
@@ -227,10 +244,19 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         destAccount: String? = null
     ) {
         viewModelScope.launch {
+            // Idempotency check: Ensure SMS has not already been processed or dismissed
+            if (smsRepository.getProcessedSmsIds().contains(id) || smsRepository.getDismissedSmsIds().contains(id)) {
+                _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+                return@launch
+            }
+
             val item = _pendingSmsQueue.value.find { it.id == id } ?: return@launch
             try {
-                val db = AppDatabase.getDatabase(getApplication())
-                val userId = SessionManager.userId ?: "user_default"
+                // 1. Mark SMS as processed persistently FIRST to guarantee idempotency
+                smsRepository.markSmsProcessed(id)
+
+                // 2. Remove from local queue
+                _pendingSmsQueue.update { list -> list.filter { it.id != id } }
 
                 val finalType = customType ?: item.type
                 val finalCategory = customCategory?.trim()?.ifEmpty { null } ?: item.category
@@ -243,21 +269,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     }
                 }
 
-                // Add to Room transactions database
-                db.transactionDao().insertTransaction(
-                    TransactionEntity(
-                        userId = userId,
-                        amount = item.amount,
-                        type = finalType.name,
-                        category = finalCategory,
-                        accountName = finalAccount,
-                        description = finalDesc,
-                        timestamp = System.currentTimeMillis(),
-                        timeFormatted = item.timeText
-                    )
-                )
-
-                // Add to LocalFinanceRepository so FinancialScreen and TransactionsScreen update immediately
+                // 3. Single Write: Add to LocalFinanceRepository which handles persistence and state updates
                 val catObj = com.example.ui.screens.finance.model.FinanceDefaultCategories.allDefaultCategories.find {
                     it.title.contains(finalCategory, ignoreCase = true)
                 } ?: TransactionCategory(
@@ -277,7 +289,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 )
 
                 val finTx = TransactionItemData(
-                    id = "tx_sms_${System.currentTimeMillis()}",
+                    id = "tx_sms_${id}_${System.currentTimeMillis()}",
                     title = when (finalType) {
                         TransactionType.EXPENSE -> "برداشت: $finalCategory"
                         TransactionType.INCOME -> "واریز: $finalCategory"
@@ -294,13 +306,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                 LocalFinanceRepository.instance.addTransaction(finTx)
 
-                // Mark SMS as processed persistently so it is never re-imported
-                smsRepository.markSmsProcessed(id)
-
-                // Remove from local queue
-                _pendingSmsQueue.update { list -> list.filter { it.id != id } }
-
-                // Refresh dashboard to reflect new balance & totals immediately
+                // 4. Trigger dashboard reload
                 loadDashboardData()
             } catch (e: Exception) {
                 e.printStackTrace()

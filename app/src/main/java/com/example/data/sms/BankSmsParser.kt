@@ -61,7 +61,9 @@ object BankSmsParser {
             val cleanBody = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(body)
             val bankName = detectBankName(sender, body)
 
-            val type = detectTransactionType(cleanBody)
+            val detectedType = detectTransactionType(cleanBody)
+            val type = detectedType ?: TransactionType.EXPENSE
+            val isTypeUncertain = (detectedType == null)
             val amountToman = extractAmountToman(cleanBody) ?: return null
 
             val category = suggestCategory(cleanBody, type)
@@ -76,6 +78,7 @@ object BankSmsParser {
                 amount = amountToman,
                 formattedAmount = formattedAmount,
                 type = type,
+                isTypeUncertain = isTypeUncertain,
                 smsText = body.trim(),
                 dateText = dateText,
                 timeText = timeText,
@@ -83,7 +86,7 @@ object BankSmsParser {
                 sourceAccount = sourceAcc,
                 destinationAccount = destAcc,
                 rawSender = sender,
-                parseError = null
+                parseError = if (isTypeUncertain) "نوع تراکنش به صورت خودکار تشخیص داده نشد؛ لطفاً بررسی کنید." else null
             )
         } catch (e: Exception) {
             Log.w("BankSmsParser", "Failed to parse SMS $smsId: ${e.message}")
@@ -93,6 +96,7 @@ object BankSmsParser {
                 amount = 0L,
                 formattedAmount = "۰ تومان",
                 type = TransactionType.EXPENSE,
+                isTypeUncertain = true,
                 smsText = body.trim(),
                 dateText = "امروز",
                 timeText = "نامشخص",
@@ -115,12 +119,18 @@ object BankSmsParser {
         return if (sender.isNotBlank()) "بانک ($sender)" else "پیامک بانکی"
     }
 
-    private fun detectTransactionType(text: String): TransactionType {
+    fun detectTransactionType(text: String): TransactionType? {
+        val hasExpense = text.contains("برداشت") || text.contains("خرید") || text.contains("کسر") || text.contains("بدهکار") || text.contains("پرداخت") || text.contains("پایانه")
+        val hasIncome = text.contains("واریز") || text.contains("بستانکار") || text.contains("واریز حقوق") || text.contains("سود سپرده")
+        val hasTransfer = text.contains("انتقال") || text.contains("کارت به کارت") ||
+                (text.contains("پایا") && !text.contains("پایانه")) ||
+                text.contains("ساتنا")
+
         return when {
-            text.contains("انتقال") || text.contains("کارت به کارت") || text.contains("پایا") || text.contains("ساتنا") -> TransactionType.TRANSFER
-            text.contains("واریز") || text.contains("بستانکار") || text.contains("واریز حقوق") || text.contains("سود سپرده") -> TransactionType.INCOME
-            text.contains("برداشت") || text.contains("خرید") || text.contains("کسر") || text.contains("بدهکار") || text.contains("پرداخت") -> TransactionType.EXPENSE
-            else -> TransactionType.EXPENSE
+            hasExpense -> TransactionType.EXPENSE
+            hasIncome -> TransactionType.INCOME
+            hasTransfer -> TransactionType.TRANSFER
+            else -> null
         }
     }
 

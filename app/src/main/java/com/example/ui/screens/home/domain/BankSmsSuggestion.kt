@@ -8,6 +8,7 @@ data class BankSmsSuggestion(
     val amount: Long,
     val formattedAmount: String,
     val type: TransactionType = TransactionType.EXPENSE,
+    val isTypeUncertain: Boolean = false,
     val smsText: String,
     val dateText: String,
     val timeText: String = "۱۴:۳۰",

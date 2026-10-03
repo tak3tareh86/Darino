@@ -18,30 +18,12 @@ class HomeDashboardAggregator(
         val userName = repository.getUserFullName()
         val upcomingObligations = repository.getUpcomingObligations()
         val upcomingReminders = repository.getUpcomingReminders()
-        val overdueItems = repository.getOverdueItems()
-        val vehicleSummary = repository.getPrimaryVehicleSummary()
         val notificationCount = repository.getUnreadNotificationCount()
 
         val todayPersian = getTodayPersianDateString()
 
-        // Real counts for insight engine
-        val activeInstCount = upcomingObligations.count { it.type == ObligationType.INSTALLMENT }
-        val totalInstAmount = upcomingObligations.filter { it.type == ObligationType.INSTALLMENT }.sumOf { it.amount }
-
-        // Generate dynamic rule-based insight
-        val insight = HomeInsightEngine.generateInsight(
-            monthlyIncome = income,
-            monthlyExpense = expense,
-            savingsRate = savingsRate,
-            activeInstallmentsCount = activeInstCount,
-            totalInstallmentsAmount = totalInstAmount,
-            hasOverdueInstallments = overdueItems.isNotEmpty(),
-            hasVehicleNeedsService = vehicleSummary?.isNeedsService == true,
-            upcomingObligationsCount = upcomingObligations.size
-        )
-
-        val isAllClear = overdueItems.isEmpty() && upcomingObligations.none { it.relativeDaysText == "امروز" }
-        val isEmpty = income == 0L && expense == 0L && upcomingObligations.isEmpty() && vehicleSummary == null
+        val isAllClear = upcomingObligations.none { it.relativeDaysText == "امروز" }
+        val isEmpty = income == 0L && expense == 0L && upcomingObligations.isEmpty() && upcomingReminders.isEmpty()
 
         return HomeDashboardState(
             userName = userName,
@@ -55,9 +37,6 @@ class HomeDashboardAggregator(
             savingsRate = savingsRate,
             upcomingObligations = upcomingObligations,
             upcomingReminders = upcomingReminders,
-            overdueItems = overdueItems,
-            vehicleSummary = vehicleSummary,
-            financialInsight = insight,
             notificationCount = notificationCount,
             isAllClear = isAllClear,
             isEmptyState = isEmpty,
