@@ -7,6 +7,13 @@ import com.example.ui.screens.finance.model.TransactionCategory
 import com.example.ui.screens.finance.model.TransactionItemData
 import kotlinx.coroutines.flow.Flow
 
+enum class TransactionOperationResult {
+    SUCCESS,
+    VALIDATION_ERROR,
+    NOT_FOUND,
+    PERSISTENCE_ERROR
+}
+
 interface FinanceRepository {
     fun getTransactions(): Flow<List<TransactionItemData>>
     fun getCategories(): Flow<List<TransactionCategory>>
@@ -18,6 +25,11 @@ interface FinanceRepository {
     fun updateTransaction(transaction: TransactionItemData)
     fun deleteTransaction(id: String)
     fun duplicateTransaction(id: String): TransactionItemData?
+
+    suspend fun addTransactionResult(transaction: TransactionItemData): TransactionOperationResult
+    suspend fun updateTransactionResult(transaction: TransactionItemData): TransactionOperationResult
+    suspend fun deleteTransactionResult(id: String): TransactionOperationResult
+    suspend fun duplicateTransactionResult(id: String): TransactionItemData?
 
     fun addCategory(category: TransactionCategory)
     fun updateCategory(category: TransactionCategory)

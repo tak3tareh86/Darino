@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ui.screens.finance.data.FinanceRepository
 import com.example.ui.screens.finance.data.LocalFinanceRepository
+import com.example.ui.screens.finance.data.TransactionOperationResult
 import com.example.ui.screens.finance.domain.BudgetEngine
 import com.example.ui.screens.finance.domain.FinanceEngine
 import com.example.ui.screens.finance.model.Budget
@@ -69,27 +70,31 @@ class FinancialViewModel(
         initialValue = FinancialState(isLoading = true)
     )
 
-    fun addTransaction(transaction: TransactionItemData) {
+    fun addTransaction(transaction: TransactionItemData, onResult: (TransactionOperationResult) -> Unit = {}) {
         viewModelScope.launch {
-            repository.addTransaction(transaction)
+            val res = repository.addTransactionResult(transaction)
+            onResult(res)
         }
     }
 
-    fun updateTransaction(transaction: TransactionItemData) {
+    fun updateTransaction(transaction: TransactionItemData, onResult: (TransactionOperationResult) -> Unit = {}) {
         viewModelScope.launch {
-            repository.updateTransaction(transaction)
+            val res = repository.updateTransactionResult(transaction)
+            onResult(res)
         }
     }
 
-    fun deleteTransaction(id: String) {
+    fun deleteTransaction(id: String, onResult: (TransactionOperationResult) -> Unit = {}) {
         viewModelScope.launch {
-            repository.deleteTransaction(id)
+            val res = repository.deleteTransactionResult(id)
+            onResult(res)
         }
     }
 
-    fun duplicateTransaction(id: String) {
+    fun duplicateTransaction(id: String, onResult: (TransactionItemData?) -> Unit = {}) {
         viewModelScope.launch {
-            repository.duplicateTransaction(id)
+            val dup = repository.duplicateTransactionResult(id)
+            onResult(dup)
         }
     }
 

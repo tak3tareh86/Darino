@@ -91,69 +91,120 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     override fun getSavingsGoals(): Flow<List<SavingsGoal>> = _savingsGoals.asStateFlow()
     override fun getRecurringTransactions(): Flow<List<RecurringTransaction>> = _recurringTransactions.asStateFlow()
 
-    override fun addTransaction(transaction: TransactionItemData) {
-        val current = _transactions.value.toMutableList()
-        current.add(0, transaction)
-        _transactions.value = current
-        recalculateBudgets()
+    private fun validateTransaction(transaction: TransactionItemData): Boolean {
+        if (transaction.amount <= 0L) return false
+        if (transaction.title.isBlank()) return false
+        if (transaction.type != TransactionType.EXPENSE && transaction.type != TransactionType.INCOME && transaction.type != TransactionType.TRANSFER) return false
+        return true
+    }
 
-        val ctx = appContext ?: return
-        repositoryScope.launch {
-            try {
-                AppDatabase.getDatabase(ctx).transactionDao().insertTransaction(toEntity(transaction))
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+    override fun addTransaction(transaction: TransactionItemData) {
+        kotlinx.coroutines.runBlocking {
+            addTransactionResult(transaction)
         }
     }
 
     override fun updateTransaction(transaction: TransactionItemData) {
-        val current = _transactions.value.toMutableList()
-        val index = current.indexOfFirst { it.id == transaction.id }
-        if (index != -1) {
-            current[index] = transaction
-            _transactions.value = current
-            recalculateBudgets()
-        }
-
-        val ctx = appContext ?: return
-        repositoryScope.launch {
-            try {
-                AppDatabase.getDatabase(ctx).transactionDao().insertTransaction(toEntity(transaction))
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+        kotlinx.coroutines.runBlocking {
+            updateTransactionResult(transaction)
         }
     }
 
     override fun deleteTransaction(id: String) {
-        val current = _transactions.value.toMutableList()
-        current.removeAll { it.id == id }
-        _transactions.value = current
-        recalculateBudgets()
-
-        val ctx = appContext ?: return
-        repositoryScope.launch {
-            try {
-                SessionManager.userId?.let { userId ->
-                    AppDatabase.getDatabase(ctx).transactionDao().deleteByStringId(userId, id)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+        kotlinx.coroutines.runBlocking {
+            deleteTransactionResult(id)
         }
     }
 
     override fun duplicateTransaction(id: String): TransactionItemData? {
-        val original = _transactions.value.find { it.id == id } ?: return null
-        val duplicate = original.copy(
+        return kotlinx.coroutines.runBlocking {
+            duplicateTransactionResult(id)
+        }
+    }
+
+    override suspend fun addTransactionResult(transaction: TransactionItemData): TransactionOperationResult {
+        val validatedTx = if (transaction.id.isBlank()) {
+            transaction.copy(id = UUID.randomUUID().toString())
+        } else {
+            transaction
+        }
+        if (!validateTransaction(validatedTx)) {
+            return TransactionOperationResult.VALIDATION_ERROR
+        }
+
+        val ctx = appContext ?: return TransactionOperationResult.PERSISTENCE_ERROR
+        return try {
+            val db = AppDatabase.getDatabase(ctx)
+            val entity = toEntity(validatedTx)
+            db.transactionDao().insertTransaction(entity)
+            TransactionOperationResult.SUCCESS
+        } catch (e: Exception) {
+            e.printStackTrace()
+            TransactionOperationResult.PERSISTENCE_ERROR
+        }
+    }
+
+    override suspend fun updateTransactionResult(transaction: TransactionItemData): TransactionOperationResult {
+        if (!validateTransaction(transaction)) {
+            return TransactionOperationResult.VALIDATION_ERROR
+        }
+
+        val ctx = appContext ?: return TransactionOperationResult.PERSISTENCE_ERROR
+        return try {
+            val db = AppDatabase.getDatabase(ctx)
+            val userId = SessionManager.userId ?: "user_default"
+            val existing = db.transactionDao().getTransactionByStringId(userId, transaction.id)
+                ?: db.transactionDao().getTransactionIncludingDeleted(userId, transaction.id)
+            if (existing == null) {
+                return TransactionOperationResult.NOT_FOUND
+            }
+            val entity = toEntity(transaction).copy(id = existing.id)
+            db.transactionDao().insertTransaction(entity)
+            TransactionOperationResult.SUCCESS
+        } catch (e: Exception) {
+            e.printStackTrace()
+            TransactionOperationResult.PERSISTENCE_ERROR
+        }
+    }
+
+    override suspend fun deleteTransactionResult(id: String): TransactionOperationResult {
+        val ctx = appContext ?: return TransactionOperationResult.PERSISTENCE_ERROR
+        return try {
+            val db = AppDatabase.getDatabase(ctx)
+            val userId = SessionManager.userId ?: "user_default"
+            val existing = db.transactionDao().getTransactionByStringId(userId, id)
+                ?: db.transactionDao().getTransactionIncludingDeleted(userId, id)
+            if (existing == null) {
+                return TransactionOperationResult.NOT_FOUND
+            }
+            db.transactionDao().deleteByStringId(userId, id)
+            TransactionOperationResult.SUCCESS
+        } catch (e: Exception) {
+            e.printStackTrace()
+            TransactionOperationResult.PERSISTENCE_ERROR
+        }
+    }
+
+    override suspend fun duplicateTransactionResult(id: String): TransactionItemData? {
+        val currentList = _transactions.value
+        val original = currentList.find { it.id == id }
+        val finalOriginal = if (original == null) {
+            val ctx = appContext ?: return null
+            val userId = SessionManager.userId ?: "user_default"
+            val entity = AppDatabase.getDatabase(ctx).transactionDao().getTransactionByStringId(userId, id)
+            entity?.let { toItemData(it, _categories.value) }
+        } else {
+            original
+        } ?: return null
+
+        val duplicate = finalOriginal.copy(
             id = UUID.randomUUID().toString(),
-            title = "${original.title} (کپی)",
+            title = "${finalOriginal.title} (کپی)",
             datePersian = "امروز",
             dateMillis = System.currentTimeMillis()
         )
-        addTransaction(duplicate)
-        return duplicate
+        val result = addTransactionResult(duplicate)
+        return if (result == TransactionOperationResult.SUCCESS) duplicate else null
     }
 
     override fun addCategory(category: TransactionCategory) {
