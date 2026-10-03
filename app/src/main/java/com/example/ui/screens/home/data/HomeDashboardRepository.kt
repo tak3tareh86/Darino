@@ -53,13 +53,36 @@ class HomeDashboardRepository(
             if (it is kotlinx.coroutines.flow.StateFlow) it.value else emptyList()
         }
 
+        val currentPdt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val currentYear = currentPdt.year
+        val currentMonth = currentPdt.month
+
         var income = 0L
         var expense = 0L
         for (tx in currentTxs) {
-            if (tx.type == TransactionType.INCOME) {
-                income += tx.amount
-            } else if (tx.type == TransactionType.EXPENSE) {
-                expense += tx.amount
+            val isCurrentMonth = if (tx.dateMillis > 0L) {
+                if (IranianDateUtils.isValidPersianDate(tx.datePersian)) {
+                    val (py, pm, _) = IranianDateUtils.parsePersianDate(tx.datePersian)
+                    py == currentYear && pm == currentMonth
+                } else {
+                    val txPdt = PersianCalendarHelper.fromEpochMillis(tx.dateMillis)
+                    txPdt.year == currentYear && txPdt.month == currentMonth
+                }
+            } else if (tx.datePersian.isNotBlank()) {
+                val (py, pm, _) = IranianDateUtils.parsePersianDate(tx.datePersian)
+                py == currentYear && pm == currentMonth
+            } else {
+                false
+            }
+
+            if (!isCurrentMonth) continue
+
+            when (tx.type) {
+                TransactionType.INCOME -> income += tx.amount
+                TransactionType.EXPENSE -> expense += tx.amount
+                TransactionType.TRANSFER -> {
+                    // Transfers do not count towards income or expense
+                }
             }
         }
         val balance = income - expense
