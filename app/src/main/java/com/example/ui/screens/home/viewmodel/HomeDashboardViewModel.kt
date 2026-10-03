@@ -19,6 +19,7 @@ import com.example.ui.screens.home.domain.HomeDashboardAggregator
 import com.example.ui.screens.home.domain.HomeDashboardState
 import com.example.ui.screens.home.domain.ObligationType
 import com.example.ui.screens.installments.data.LocalInstallmentRepository
+import com.example.util.IranianDateUtils
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import com.example.vehicle.data.VehicleExpenseCategory
@@ -314,11 +315,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         _pendingSmsQueue.update { list -> list.filter { it.id != id } }
     }
 
-    fun simulateIncomingSms() {
-        val simulated = smsRepository.generateSimulatedSms()
-        _pendingSmsQueue.update { it + simulated }
-    }
-
     /**
      * Real payment / completion action for an obligation.
      * Updates the underlying Room database & repositories, and records financial transaction.
@@ -327,8 +323,9 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         viewModelScope.launch {
             try {
                 val obligation = _uiState.value.upcomingObligations.find { it.id == id } ?: return@launch
-                val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-                val nowTime = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedTime()
+                val currentPdt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+                val todayJalali = currentPdt.toFormattedDate()
+                val nowTime = currentPdt.toFormattedTime()
 
                 when (obligation.type) {
                     ObligationType.INSTALLMENT -> {
@@ -366,6 +363,10 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                         val insurance = VehicleRepository.instance.insurances.value.find { it.id == insId }
                         val vehicleId = insurance?.vehicleId ?: VehicleRepository.instance.vehicles.value.firstOrNull()?.id ?: ""
 
+                        // Update underlying insurance policy to next year so it is renewed
+                        val nextYearDate = IranianDateUtils.createFormattedDate(currentPdt.year + 1, currentPdt.month, currentPdt.day)
+                        VehicleRepository.instance.renewInsurance(insId, nextYearDate)
+
                         // Record vehicle expense
                         VehicleRepository.instance.addExpense(
                             vehicleId = vehicleId,
@@ -398,7 +399,22 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     }
 
                     else -> {
-                        // Other obligations (e.g. periodic service)
+                        // Periodic vehicle service or other obligations
+                        val serviceId = obligation.rawId
+                        VehicleRepository.instance.completeService(serviceId, todayJalali)
+
+                        val vId = VehicleRepository.instance.services.value.find { it.id == serviceId }?.vehicleId
+                            ?: VehicleRepository.instance.vehicles.value.firstOrNull()?.id ?: ""
+
+                        VehicleRepository.instance.addExpense(
+                            vehicleId = vId,
+                            title = obligation.title,
+                            category = VehicleExpenseCategory.SERVICE,
+                            amount = obligation.amount,
+                            date = todayJalali,
+                            description = "انجام سرویس دوره‌ای از داشبورد خانه"
+                        )
+
                         val finTx = TransactionItemData(
                             id = "tx_ob_pay_${System.currentTimeMillis()}",
                             title = obligation.title,

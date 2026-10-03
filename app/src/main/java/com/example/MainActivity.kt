@@ -408,44 +408,6 @@ fun AppNavigationContainer(
                                         onNavigateToTab = { tab ->
                                             currentTab = tab
                                         },
-                                        onCategoryClick = { categoryId ->
-                                            when {
-                                                categoryId.contains("car", ignoreCase = true) || categoryId.contains("vehicle", ignoreCase = true) -> {
-                                                    currentTab = BottomNavItem.VEHICLE
-                                                }
-                                                categoryId.contains("installment", ignoreCase = true) || categoryId.contains("loan", ignoreCase = true) -> {
-                                                    currentTab = BottomNavItem.INSTALLMENTS
-                                                }
-                                                else -> {
-                                                    currentTab = BottomNavItem.FINANCE
-                                                }
-                                            }
-                                        },
-                                        onQuickActionClick = { actionId ->
-                                            when {
-                                                actionId.contains("car", ignoreCase = true) || actionId.contains("fuel", ignoreCase = true) || actionId.contains("service", ignoreCase = true) -> {
-                                                    currentTab = BottomNavItem.VEHICLE
-                                                }
-                                                actionId.contains("installment", ignoreCase = true) || actionId.contains("loan", ignoreCase = true) -> {
-                                                    currentTab = BottomNavItem.INSTALLMENTS
-                                                }
-                                                actionId.contains("calendar", ignoreCase = true) || actionId.contains("تقویم", ignoreCase = true) -> {
-                                                    currentTab = BottomNavItem.CALENDAR
-                                                }
-                                                actionId.contains("report", ignoreCase = true) || actionId.contains("chart", ignoreCase = true) -> {
-                                                    currentTab = BottomNavItem.REPORTS
-                                                }
-                                                actionId.contains("health", ignoreCase = true) || actionId.contains("سلامت", ignoreCase = true) -> {
-                                                    isFinancialHealthOpen = true
-                                                }
-                                                else -> {
-                                                    currentTab = BottomNavItem.FINANCE
-                                                }
-                                            }
-                                        },
-                                        onNavigateToFinancialHealth = {
-                                            isFinancialHealthOpen = true
-                                        },
                                         onNotificationClick = {
                                             isNotificationsOpen = true
                                         },

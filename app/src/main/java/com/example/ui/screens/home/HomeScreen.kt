@@ -54,12 +54,9 @@ import kotlinx.coroutines.launch
 fun HomeScreen(
     modifier: Modifier = Modifier,
     onNavigateToTab: (BottomNavItem) -> Unit = {},
-    onCategoryClick: (String) -> Unit = {},
     onNotificationClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onOpenSubscription: () -> Unit = {},
-    onQuickActionClick: (String) -> Unit = {},
-    onNavigateToFinancialHealth: () -> Unit = {},
     bottomBar: (@Composable () -> Unit)? = null,
     viewModel: HomeDashboardViewModel = viewModel(),
     subscriptionViewModel: SubscriptionViewModel = viewModel()
@@ -204,9 +201,6 @@ fun HomeScreen(
                             onPermanentDeniedGoToSettings = onGoToSettings,
                             onRefreshScan = {
                                 viewModel.scanInboxSms()
-                            },
-                            onSimulateClick = {
-                                viewModel.simulateIncomingSms()
                             }
                         )
 

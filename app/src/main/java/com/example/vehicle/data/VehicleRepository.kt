@@ -549,6 +549,31 @@ class VehicleRepository {
         return newInsurance
     }
 
+    fun renewInsurance(insuranceId: String, newEndDate: String) {
+        _insurances.value = _insurances.value.map { ins ->
+            if (ins.id == insuranceId) {
+                ins.copy(
+                    startDate = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
+                    endDate = newEndDate
+                )
+            } else ins
+        }
+        saveToDb()
+    }
+
+    fun completeService(serviceId: String, completedDate: String) {
+        _services.value = _services.value.map { svc ->
+            if (svc.id == serviceId) {
+                svc.copy(
+                    date = completedDate,
+                    nextReminderDate = null,
+                    nextReminderMileage = null
+                )
+            } else svc
+        }
+        saveToDb()
+    }
+
     // Add or Update Inspection
     fun saveInspection(
         vehicleId: String,

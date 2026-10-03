@@ -33,9 +33,7 @@ class HomeDashboardTest {
 
         // Initialize repositories
         val financeRepo = com.example.ui.screens.finance.data.LocalFinanceRepository.instance
-        financeRepo.init(context)
         val installmentRepo = com.example.ui.screens.installments.data.LocalInstallmentRepository.instance
-        installmentRepo.init(context)
         val vehicleRepo = com.example.vehicle.data.VehicleRepository.instance
 
         val categoryInc = com.example.ui.screens.finance.model.FinanceDefaultCategories.defaultIncomeCategories.first()

@@ -107,7 +107,6 @@ fun BankSmsAssistantCard(
     onRequestPermission: () -> Unit,
     onPermanentDeniedGoToSettings: () -> Unit,
     onRefreshScan: () -> Unit,
-    onSimulateClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
@@ -187,8 +186,7 @@ fun BankSmsAssistantCard(
                             editingSuggestion = suggestion
                         },
                         onDismiss = onDismiss,
-                        onRefreshScan = onRefreshScan,
-                        onSimulateClick = onSimulateClick
+                        onRefreshScan = onRefreshScan
                     )
                 }
             }
@@ -441,8 +439,7 @@ private fun SmsGrantedContentView(
     onQuickAccept: (id: String) -> Unit,
     onEditClick: (BankSmsSuggestion) -> Unit,
     onDismiss: (id: String) -> Unit,
-    onRefreshScan: () -> Unit,
-    onSimulateClick: () -> Unit
+    onRefreshScan: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -606,20 +603,6 @@ private fun SmsGrantedContentView(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    TextButton(
-                        onClick = onSimulateClick,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "+ ایجاد پیامک تستی جهت بررسی",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
                 }
             }
         } else {
