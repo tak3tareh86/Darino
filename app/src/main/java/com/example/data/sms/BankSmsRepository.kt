@@ -6,12 +6,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.domain.BankSmsSuggestion
-import com.example.util.MoneyFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.random.Random
 
 class BankSmsRepository(private val context: Context) {
 
@@ -121,56 +118,5 @@ class BankSmsRepository(private val context: Context) {
         }
 
         return@withContext results
-    }
-
-    fun generateSimulatedSms(): BankSmsSuggestion {
-        val banks = listOf("ملت", "ملی", "سامان", "پاسارگاد", "تجارت", "صادرات", "رسالت", "بلوبانک")
-        val randomBank = banks.random()
-        val randomAmount = Random.nextLong(25_000, 1_850_000)
-
-        val types = listOf(TransactionType.EXPENSE, TransactionType.INCOME, TransactionType.TRANSFER)
-        val selectedType = types.random()
-
-        val id = "sim_${System.currentTimeMillis()}_${Random.nextInt(100, 999)}"
-        val timeNow = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
-        val jalaliToday = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-
-        val typeText = when (selectedType) {
-            TransactionType.EXPENSE -> "برداشت"
-            TransactionType.INCOME -> "واریز"
-            TransactionType.TRANSFER -> "انتقال وجه"
-        }
-
-        val formattedAmount = MoneyFormatter.formatSignedToman(randomAmount, isExpense = (selectedType == TransactionType.EXPENSE))
-        val body = buildString {
-            append("بانک $randomBank\n")
-            append("$typeText: $formattedAmount\n")
-            append("کارت: *۴۵۸۲\n")
-            if (selectedType == TransactionType.TRANSFER) {
-                append("به حساب: *۸۹۱۰ (شبا)\n")
-            }
-            append("مانده: ${MoneyFormatter.formatToman(4_200_000L)}")
-        }
-
-        val category = when (selectedType) {
-            TransactionType.EXPENSE -> listOf("سوپرمارکت و خرید", "غذا و رستوران", "خودرو و سوخت", "خرید روزمره").random()
-            TransactionType.INCOME -> "درآمد و واریز"
-            TransactionType.TRANSFER -> "انتقال بین‌بانکی"
-        }
-
-        return BankSmsSuggestion(
-            id = id,
-            bankName = "بانک $randomBank",
-            amount = randomAmount,
-            formattedAmount = formattedAmount,
-            type = selectedType,
-            smsText = body,
-            dateText = jalaliToday,
-            timeText = timeNow,
-            category = category,
-            sourceAccount = "بانک $randomBank (*۴۵۸۲)",
-            destinationAccount = if (selectedType == TransactionType.TRANSFER) "کارت مقصد (*۸۹۱۰)" else null,
-            rawSender = "بانک $randomBank"
-        )
     }
 }

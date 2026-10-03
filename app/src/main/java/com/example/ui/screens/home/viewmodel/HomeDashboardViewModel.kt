@@ -23,7 +23,6 @@ import com.example.util.IranianDateUtils
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import com.example.vehicle.data.VehicleExpenseCategory
-import com.example.vehicle.data.VehicleExpenseEntity
 import com.example.vehicle.data.VehicleRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -441,16 +440,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-        }
-    }
-
-    fun dismissOverdueAlert(id: String) {
-        _uiState.update { current ->
-            val updated = current.overdueItems.filter { it.id != id }
-            current.copy(
-                overdueItems = updated,
-                isAllClear = updated.isEmpty() && current.upcomingObligations.none { it.relativeDaysText == "امروز" }
-            )
         }
     }
 
