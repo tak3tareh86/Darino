@@ -164,7 +164,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 return TransactionOperationResult.VALIDATION_ERROR
             }
             val entity = toEntity(transaction).copy(id = existing.id, userId = userId)
-            db.transactionDao().insertTransaction(entity)
+            db.transactionDao().updateTransaction(entity)
             TransactionOperationResult.SUCCESS
         } catch (e: Exception) {
             e.printStackTrace()
@@ -192,19 +192,15 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
     override suspend fun duplicateTransactionResult(id: String): TransactionItemData? {
         val userId = SessionManager.userId ?: return null
-        val currentList = _transactions.value
-        val original = currentList.find { it.id == id }
-        val finalOriginal = if (original == null) {
-            val ctx = appContext ?: return null
-            val entity = AppDatabase.getDatabase(ctx).transactionDao().getTransactionByStringId(userId, id)
-            entity?.let { if (it.deletedAt != null) null else toItemData(it, _categories.value) }
-        } else {
-            original
-        } ?: return null
+        val ctx = appContext ?: return null
+        
+        // Always check DB directly to ensure we have the latest state (especially deleted status)
+        val entity = AppDatabase.getDatabase(ctx).transactionDao().getTransactionByStringId(userId, id)
+        val original = entity?.let { toItemData(it, _categories.value) } ?: return null
 
-        val duplicate = finalOriginal.copy(
+        val duplicate = original.copy(
             id = UUID.randomUUID().toString(),
-            title = "${finalOriginal.title} (کپی)",
+            title = "${original.title} (کپی)",
             datePersian = "امروز",
             dateMillis = System.currentTimeMillis()
         )

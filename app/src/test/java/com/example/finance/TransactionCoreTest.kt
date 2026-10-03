@@ -199,6 +199,23 @@ class TransactionCoreTest {
     }
 
     @Test
+    fun `Test 8 - Validation coverage for invalid inputs`() = runBlocking {
+        val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
+        
+        // Invalid amount
+        val tx1 = TransactionItemData(id = "v_1", title = "تست", amount = 0L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(tx1))
+        
+        // Invalid title
+        val tx2 = TransactionItemData(id = "v_2", title = "", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(tx2))
+        
+        val db = AppDatabase.getDatabase(context)
+        val list = db.transactionDao().getAllTransactionsList("test_user_tx")
+        assertEquals(0, list.size) // Nothing should be in DB
+    }
+
+    @Test
     fun `Test 9 - Unique Identity enforcement within user scope`() = runBlocking {
         val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
         val tx = TransactionItemData(id = "tx_123", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
@@ -252,5 +269,44 @@ class TransactionCoreTest {
         val tx = TransactionItemData(id = "tx_no_auth", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
         
         assertEquals(TransactionOperationResult.NO_AUTHENTICATED_USER, repository.addTransactionResult(tx))
+    }
+
+    @Test
+    fun `Test 13 - Same stringId allowed for different users`() = runBlocking {
+        val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
+        val txA = TransactionItemData(id = "tx_123", title = "برای کاربر A", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        
+        // Insert for user A
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(txA))
+        
+        // Switch to User B
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "test_user_B", fullName = "User B", email = null, phoneNumber = "09120000001", phoneVerified = true))
+        
+        // Same stringId for user B should be successful
+        val txB = TransactionItemData(id = "tx_123", title = "برای کاربر B", amount = 2000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(txB))
+    }
+
+    @Test
+    fun `Test 14 - Deleted transaction cannot be updated`() = runBlocking {
+        val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
+        val tx = TransactionItemData(id = "tx_del_upd", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        repository.addTransactionResult(tx)
+        
+        repository.deleteTransactionResult("tx_del_upd")
+        
+        val updatedTx = tx.copy(amount = 2000L)
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.updateTransactionResult(updatedTx))
+    }
+
+    @Test
+    fun `Test 15 - Deleted transaction cannot be duplicated`() = runBlocking {
+        val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
+        val tx = TransactionItemData(id = "tx_del_dup", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        repository.addTransactionResult(tx)
+        
+        repository.deleteTransactionResult("tx_del_dup")
+        
+        assertEquals(null, repository.duplicateTransactionResult("tx_del_dup"))
     }
 }

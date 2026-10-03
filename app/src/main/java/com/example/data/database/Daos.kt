@@ -32,7 +32,7 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE userId = :userId AND deletedAt IS NULL ORDER BY timestamp DESC")
     fun getAllTransactions(userId: String): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY timestamp DESC")
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND deletedAt IS NULL ORDER BY timestamp DESC")
     suspend fun getAllTransactionsList(userId: String): List<TransactionEntity>
 
     @Query("DELETE FROM transactions WHERE userId = :userId")
@@ -50,10 +50,10 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE userId = :userId AND stringId = :stringId LIMIT 1")
     suspend fun getTransactionIncludingDeleted(userId: String, stringId: String): TransactionEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertTransaction(transaction: TransactionEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertTransactions(transactions: List<TransactionEntity>)
 
     @Update
@@ -65,7 +65,7 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE userId = :userId AND (stringId = :stringId OR CAST(id AS TEXT) = :stringId)")
     suspend fun deleteByStringId(userId: String, stringId: String)
 
-    @Query("SELECT * FROM transactions WHERE userId = :userId AND (stringId = :stringId OR CAST(id AS TEXT) = :stringId) LIMIT 1")
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND deletedAt IS NULL AND (stringId = :stringId OR CAST(id AS TEXT) = :stringId) LIMIT 1")
     suspend fun getTransactionByStringId(userId: String, stringId: String): TransactionEntity?
 }
 
