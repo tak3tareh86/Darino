@@ -667,6 +667,7 @@ private fun SmsGrantedContentView(
                                     TransactionType.EXPENSE -> ExpenseRoseLight
                                     TransactionType.INCOME -> EmeraldPrimaryLight
                                     TransactionType.TRANSFER -> Color(0xFF3B82F6)
+                                    null -> Color.Gray
                                 }
                             )
                         )
@@ -845,6 +846,7 @@ private fun SmsGrantedContentView(
                         // Register Transaction Button
                         Button(
                             onClick = { onQuickAccept(item.id) },
+                            enabled = (item.type != null && !item.isTypeUncertain),
                             modifier = Modifier
                                 .weight(1.3f)
                                 .height(32.dp)
@@ -855,6 +857,7 @@ private fun SmsGrantedContentView(
                                     TransactionType.EXPENSE -> ExpenseRoseLight
                                     TransactionType.INCOME -> EmeraldPrimaryLight
                                     TransactionType.TRANSFER -> Color(0xFF3B82F6)
+                                    null -> Color.Gray
                                 },
                                 contentColor = Color.White
                             ),
@@ -945,6 +948,7 @@ fun EditSmsTransactionDialog(
         TransactionType.EXPENSE -> expenseCategories
         TransactionType.INCOME -> incomeCategories
         TransactionType.TRANSFER -> transferCategories
+        null -> emptyList()
     }
 
     val defaultAccounts = listOf("بانک ملت", "بانک ملی", "بانک سامان", "بانک پاسارگاد", "بانک تجارت", "بانک صادرات", "بلوبانک", "بانک رسالت")
@@ -1004,6 +1008,7 @@ fun EditSmsTransactionDialog(
                                         TransactionType.EXPENSE -> ExpenseRoseLight
                                         TransactionType.INCOME -> EmeraldPrimaryLight
                                         TransactionType.TRANSFER -> Color(0xFF3B82F6)
+                                        null -> Color.Gray
                                     }
                                 )
                             )
@@ -1025,7 +1030,10 @@ fun EditSmsTransactionDialog(
                                 icon = Icons.Rounded.TrendingDown,
                                 isSelected = selectedType == TransactionType.EXPENSE,
                                 activeColor = ExpenseRoseLight,
-                                onClick = { selectedType = TransactionType.EXPENSE },
+                                onClick = { 
+                                    selectedType = TransactionType.EXPENSE 
+                                    category = "خرید روزمره"
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                             TransactionTypeChip(
@@ -1033,7 +1041,10 @@ fun EditSmsTransactionDialog(
                                 icon = Icons.Rounded.TrendingUp,
                                 isSelected = selectedType == TransactionType.INCOME,
                                 activeColor = EmeraldPrimaryLight,
-                                onClick = { selectedType = TransactionType.INCOME },
+                                onClick = { 
+                                    selectedType = TransactionType.INCOME 
+                                    category = "درآمد و واریز"
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                             TransactionTypeChip(
@@ -1041,7 +1052,10 @@ fun EditSmsTransactionDialog(
                                 icon = Icons.AutoMirrored.Rounded.CompareArrows,
                                 isSelected = selectedType == TransactionType.TRANSFER,
                                 activeColor = Color(0xFF3B82F6),
-                                onClick = { selectedType = TransactionType.TRANSFER },
+                                onClick = { 
+                                    selectedType = TransactionType.TRANSFER 
+                                    category = "انتقال بین‌بانکی"
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -1130,16 +1144,18 @@ fun EditSmsTransactionDialog(
 
                         Button(
                             onClick = {
+                                val sType = selectedType ?: return@Button
                                 val finalCat = category.trim().ifEmpty { suggestion.category }
                                 val finalAcc = accountName.trim().ifEmpty { suggestion.bankName }
                                 onConfirm(
-                                    selectedType,
+                                    sType,
                                     finalCat,
                                     finalAcc,
                                     description,
                                     destAccountName.trim().ifEmpty { null }
                                 )
                             },
+                            enabled = selectedType != null,
                             modifier = Modifier.weight(1.3f),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
@@ -1147,6 +1163,7 @@ fun EditSmsTransactionDialog(
                                     TransactionType.EXPENSE -> ExpenseRoseLight
                                     TransactionType.INCOME -> EmeraldPrimaryLight
                                     TransactionType.TRANSFER -> Color(0xFF3B82F6)
+                                    null -> Color.Gray
                                 }
                             )
                         ) {

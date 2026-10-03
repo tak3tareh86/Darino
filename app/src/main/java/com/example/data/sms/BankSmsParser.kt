@@ -77,7 +77,7 @@ object BankSmsParser {
                 bankName = bankName,
                 amount = amountToman,
                 formattedAmount = formattedAmount,
-                type = type,
+                type = detectedType, // Passing detectedType directly (which is null if uncertain)
                 isTypeUncertain = isTypeUncertain,
                 smsText = body.trim(),
                 dateText = dateText,
@@ -95,7 +95,7 @@ object BankSmsParser {
                 bankName = detectBankName(sender, body),
                 amount = 0L,
                 formattedAmount = "۰ تومان",
-                type = TransactionType.EXPENSE,
+                type = null, // Uncertain on failure
                 isTypeUncertain = true,
                 smsText = body.trim(),
                 dateText = "امروز",

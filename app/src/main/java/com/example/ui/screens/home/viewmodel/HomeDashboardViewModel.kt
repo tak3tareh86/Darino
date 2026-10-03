@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.database.AppDatabase
+import com.example.data.database.TransactionEntity
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
 import com.example.data.sms.BankSmsRepository
@@ -244,21 +245,29 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         destAccount: String? = null
     ) {
         viewModelScope.launch {
-            // Idempotency check: Ensure SMS has not already been processed or dismissed
+            // 1. Check if SMS has already been processed or dismissed
             if (smsRepository.getProcessedSmsIds().contains(id) || smsRepository.getDismissedSmsIds().contains(id)) {
                 _pendingSmsQueue.update { list -> list.filter { it.id != id } }
                 return@launch
             }
 
             val item = _pendingSmsQueue.value.find { it.id == id } ?: return@launch
+            val finalType = customType ?: item.type ?: return@launch
+
+            val txId = "tx_sms_$id"
             try {
-                // 1. Mark SMS as processed persistently FIRST to guarantee idempotency
-                smsRepository.markSmsProcessed(id)
+                val db = AppDatabase.getDatabase(getApplication())
+                val userId = SessionManager.userId ?: "user_default"
 
-                // 2. Remove from local queue
-                _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+                // Idempotency check: check if transaction with this stable ID already exists
+                val existing = db.transactionDao().getTransactionIncludingDeleted(userId, txId)
+                if (existing != null) {
+                    smsRepository.markSmsProcessed(id)
+                    _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+                    loadDashboardData()
+                    return@launch
+                }
 
-                val finalType = customType ?: item.type
                 val finalCategory = customCategory?.trim()?.ifEmpty { null } ?: item.category
                 val finalAccount = customAccount?.trim()?.ifEmpty { null } ?: item.bankName
                 val finalDesc = customDescription?.trim()?.ifEmpty { null } ?: buildString {
@@ -269,7 +278,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     }
                 }
 
-                // 3. Single Write: Add to LocalFinanceRepository which handles persistence and state updates
                 val catObj = com.example.ui.screens.finance.model.FinanceDefaultCategories.allDefaultCategories.find {
                     it.title.contains(finalCategory, ignoreCase = true)
                 } ?: TransactionCategory(
@@ -289,7 +297,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 )
 
                 val finTx = TransactionItemData(
-                    id = "tx_sms_${id}_${System.currentTimeMillis()}",
+                    id = txId,
                     title = when (finalType) {
                         TransactionType.EXPENSE -> "برداشت: $finalCategory"
                         TransactionType.INCOME -> "واریز: $finalCategory"
@@ -304,12 +312,35 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     description = finalDesc
                 )
 
+                // 2. Prepare and write transaction to Room database FIRST
+                val entity = TransactionEntity(
+                    stringId = txId,
+                    userId = userId,
+                    amount = finTx.amount,
+                    type = finalType.name,
+                    category = finalCategory,
+                    accountName = finalAccount,
+                    description = finalDesc,
+                    timestamp = System.currentTimeMillis(),
+                    timeFormatted = finTx.timePersian,
+                    datePersian = finTx.datePersian
+                )
+                db.transactionDao().insertTransaction(entity)
+
+                // 3. Add to LocalFinanceRepository so FinancialScreen updates immediately
                 LocalFinanceRepository.instance.addTransaction(finTx)
 
-                // 4. Trigger dashboard reload
+                // 4. ONLY after successful Transaction registration, mark SMS as processed persistently
+                smsRepository.markSmsProcessed(id)
+
+                // 5. Remove from local queue
+                _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+
+                // 6. Refresh dashboard
                 loadDashboardData()
             } catch (e: Exception) {
                 e.printStackTrace()
+                // Transaction failed -> Processed = false, SMS remains pending in queue for retry!
             }
         }
     }
