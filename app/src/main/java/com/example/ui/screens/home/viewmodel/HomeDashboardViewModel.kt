@@ -41,6 +41,13 @@ enum class SmsPermissionState {
     GRANTED
 }
 
+sealed class SmsAcceptResult {
+    object Success : SmsAcceptResult()
+    object AlreadyExists : SmsAcceptResult()
+    object TypeNotSelected : SmsAcceptResult()
+    object Failed : SmsAcceptResult()
+}
+
 class HomeDashboardViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = HomeDashboardRepository(application)
@@ -242,29 +249,41 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         customCategory: String? = null,
         customAccount: String? = null,
         customDescription: String? = null,
-        destAccount: String? = null
+        destAccount: String? = null,
+        onResult: (SmsAcceptResult) -> Unit = {}
     ) {
         viewModelScope.launch {
             // 1. Check if SMS has already been processed or dismissed
             if (smsRepository.getProcessedSmsIds().contains(id) || smsRepository.getDismissedSmsIds().contains(id)) {
                 _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+                onResult(SmsAcceptResult.AlreadyExists)
                 return@launch
             }
 
-            val item = _pendingSmsQueue.value.find { it.id == id } ?: return@launch
-            val finalType = customType ?: item.type ?: return@launch
+            val item = _pendingSmsQueue.value.find { id == it.id }
+            if (item == null) {
+                onResult(SmsAcceptResult.Failed)
+                return@launch
+            }
+
+            val finalType = customType ?: item.type
+            if (finalType == null || item.isTypeUncertain) {
+                onResult(SmsAcceptResult.TypeNotSelected)
+                return@launch
+            }
 
             val txId = "tx_sms_$id"
             try {
                 val db = AppDatabase.getDatabase(getApplication())
                 val userId = SessionManager.userId ?: "user_default"
 
-                // Idempotency check: check if transaction with this stable ID already exists
+                // Idempotency check: check if transaction with this stable ID already exists in Room
                 val existing = db.transactionDao().getTransactionIncludingDeleted(userId, txId)
                 if (existing != null) {
                     smsRepository.markSmsProcessed(id)
                     _pendingSmsQueue.update { list -> list.filter { it.id != id } }
                     loadDashboardData()
+                    onResult(SmsAcceptResult.AlreadyExists)
                     return@launch
                 }
 
@@ -278,69 +297,35 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     }
                 }
 
-                val catObj = com.example.ui.screens.finance.model.FinanceDefaultCategories.allDefaultCategories.find {
-                    it.title.contains(finalCategory, ignoreCase = true)
-                } ?: TransactionCategory(
-                    id = "cat_gen_${System.currentTimeMillis()}",
-                    title = finalCategory,
-                    iconEmoji = when (finalType) {
-                        TransactionType.EXPENSE -> "🛍️"
-                        TransactionType.INCOME -> "💰"
-                        TransactionType.TRANSFER -> "🔄"
-                    },
-                    accentColor = when (finalType) {
-                        TransactionType.EXPENSE -> Color(0xFFEF4444)
-                        TransactionType.INCOME -> Color(0xFF10B981)
-                        TransactionType.TRANSFER -> Color(0xFF3B82F6)
-                    },
-                    type = finalType
-                )
-
-                val finTx = TransactionItemData(
-                    id = txId,
-                    title = when (finalType) {
-                        TransactionType.EXPENSE -> "برداشت: $finalCategory"
-                        TransactionType.INCOME -> "واریز: $finalCategory"
-                        TransactionType.TRANSFER -> "انتقال: $finalAccount"
-                    },
-                    amount = item.amount,
-                    type = finalType,
-                    category = catObj,
-                    datePersian = item.dateText,
-                    timePersian = item.timeText,
-                    accountName = finalAccount,
-                    description = finalDesc
-                )
-
-                // 2. Prepare and write transaction to Room database FIRST
+                // Single Write: Insert directly into Room database (LocalFinanceRepository observes Room reactively)
                 val entity = TransactionEntity(
                     stringId = txId,
                     userId = userId,
-                    amount = finTx.amount,
+                    amount = item.amount,
                     type = finalType.name,
                     category = finalCategory,
                     accountName = finalAccount,
                     description = finalDesc,
                     timestamp = System.currentTimeMillis(),
-                    timeFormatted = finTx.timePersian,
-                    datePersian = finTx.datePersian
+                    timeFormatted = item.timeText,
+                    datePersian = item.dateText
                 )
                 db.transactionDao().insertTransaction(entity)
 
-                // 3. Add to LocalFinanceRepository so FinancialScreen updates immediately
-                LocalFinanceRepository.instance.addTransaction(finTx)
-
-                // 4. ONLY after successful Transaction registration, mark SMS as processed persistently
+                // Mark SMS as processed persistently ONLY after successful DB insert
                 smsRepository.markSmsProcessed(id)
 
-                // 5. Remove from local queue
+                // Remove from local queue
                 _pendingSmsQueue.update { list -> list.filter { it.id != id } }
 
-                // 6. Refresh dashboard
+                // Refresh dashboard
                 loadDashboardData()
+
+                onResult(SmsAcceptResult.Success)
             } catch (e: Exception) {
                 e.printStackTrace()
                 // Transaction failed -> Processed = false, SMS remains pending in queue for retry!
+                onResult(SmsAcceptResult.Failed)
             }
         }
     }

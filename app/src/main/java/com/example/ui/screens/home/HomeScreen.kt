@@ -45,6 +45,7 @@ import com.example.ui.screens.home.components.UpcomingObligationsCard
 import com.example.ui.screens.home.components.UpcomingRemindersCard
 import com.example.ui.screens.home.domain.ObligationType
 import com.example.ui.screens.home.viewmodel.HomeDashboardViewModel
+import com.example.ui.screens.home.viewmodel.SmsAcceptResult
 import com.example.ui.screens.subscription.SubscriptionStatusCard
 import com.example.ui.screens.subscription.SubscriptionViewModel
 import kotlinx.coroutines.launch
@@ -184,9 +185,23 @@ fun HomeScreen(
                                 viewModel.updateSmsTransactionType(id, type)
                             },
                             onAccept = { id, type, cat, acc, desc, dest ->
-                                viewModel.acceptSmsSuggestion(id, type, cat, acc, desc, dest)
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("تراکنش با موفقیت ثبت گردید.")
+                                viewModel.acceptSmsSuggestion(id, type, cat, acc, desc, dest) { result ->
+                                    scope.launch {
+                                        when (result) {
+                                            SmsAcceptResult.Success -> {
+                                                snackbarHostState.showSnackbar("تراکنش با موفقیت ثبت گردید.")
+                                            }
+                                            SmsAcceptResult.AlreadyExists -> {
+                                                snackbarHostState.showSnackbar("این تراکنش قبلاً ثبت شده است.")
+                                            }
+                                            SmsAcceptResult.TypeNotSelected -> {
+                                                snackbarHostState.showSnackbar("لطفاً نوع تراکنش را مشخص کنید.")
+                                            }
+                                            SmsAcceptResult.Failed -> {
+                                                snackbarHostState.showSnackbar("خطا در ثبت تراکنش. لطفاً دوباره تلاش کنید.")
+                                            }
+                                        }
+                                    }
                                 }
                             },
                             onDismiss = { id ->
