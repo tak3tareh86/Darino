@@ -33,6 +33,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 enum class SmsPermissionState {
     NOT_REQUESTED,
@@ -79,29 +81,42 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     private val _pendingSmsQueue = MutableStateFlow<List<BankSmsSuggestion>>(emptyList())
     val pendingSmsQueue: StateFlow<List<BankSmsSuggestion>> = _pendingSmsQueue.asStateFlow()
 
-    // Controlled debounced refresh mechanism to prevent duplicate/conflicting parallel loads
+    // Controlled debounced refresh mechanism with Mutex serialization & versioned latest-wins state protection
     private val refreshTrigger = MutableSharedFlow<Unit>(
         replay = 1,
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
 
+    private val refreshMutex = Mutex()
+    private var latestRequestId = 0L
+    private var lastCommittedVersion = 0L
+
     init {
-        // Debounced aggregator pipeline
+        // Robust refresh pipeline: debounced, mutex-serialized (at most one aggregate execution at a time), latest wins (version checked)
         viewModelScope.launch {
             refreshTrigger
                 .debounce(50L)
-                .collectLatest {
-                    try {
-                        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-                        val aggregated = aggregator.aggregate()
-                        _uiState.value = aggregated
-                    } catch (e: Exception) {
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                errorMessage = "خطا در بارگذاری اطلاعات داشبورد: ${e.localizedMessage}"
-                            )
+                .collect {
+                    val requestId = ++latestRequestId
+                    refreshMutex.withLock {
+                        if (requestId <= lastCommittedVersion) return@withLock
+                        try {
+                            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+                            val aggregated = aggregator.aggregate()
+                            if (requestId > lastCommittedVersion) {
+                                lastCommittedVersion = requestId
+                                _uiState.value = aggregated
+                            }
+                        } catch (e: Exception) {
+                            if (requestId > lastCommittedVersion) {
+                                _uiState.update {
+                                    it.copy(
+                                        isLoading = false,
+                                        errorMessage = "خطا در بارگذاری اطلاعات داشبورد: ${e.localizedMessage}"
+                                    )
+                                }
+                            }
                         }
                     }
                 }

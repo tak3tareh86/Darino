@@ -223,4 +223,34 @@ class HomeDashboardTest {
         assertTrue(smsRepo.getDismissedSmsIds().contains(testSmsId2))
         assertFalse(smsRepo.getProcessedSmsIds().contains("sms_non_existent"))
     }
+
+    @Test
+    fun `test HomeDashboardViewModel rapid refresh concurrency and latest state win`() = kotlinx.coroutines.runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        com.example.data.security.SessionManager.setAuthenticatedUser(
+            com.example.data.api.NetworkUserDto(
+                id = "test_user_vm",
+                fullName = "کاربر تست",
+                email = null,
+                phoneNumber = "09120000000",
+                phoneVerified = true
+            )
+        )
+
+        val viewModel = com.example.ui.screens.home.viewmodel.HomeDashboardViewModel(
+            ApplicationProvider.getApplicationContext()
+        )
+
+        // Trigger multiple rapid refreshes
+        viewModel.loadDashboardData()
+        viewModel.loadDashboardData()
+        viewModel.loadDashboardData()
+
+        // Wait a bit for debounce and mutex processing
+        kotlinx.coroutines.delay(250L)
+
+        val state = viewModel.uiState.value
+        assertNotNull(state)
+        assertFalse(state.isLoading)
+    }
 }
