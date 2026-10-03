@@ -1,13 +1,22 @@
 package com.example.ui.screens.home.domain
 
+import com.example.ui.screens.finance.model.TransactionType
+
 data class BankSmsSuggestion(
     val id: String,
     val bankName: String,
     val amount: Long,
     val formattedAmount: String,
-    val isExpense: Boolean, // true = برداشت (خرید), false = واریز
+    val type: TransactionType = TransactionType.EXPENSE,
     val smsText: String,
     val dateText: String,
     val timeText: String = "۱۴:۳۰",
-    val category: String = "سایر"
-)
+    val category: String = "سایر",
+    val sourceAccount: String? = null,
+    val destinationAccount: String? = null,
+    val rawSender: String? = null,
+    val parseError: String? = null
+) {
+    val isExpense: Boolean
+        get() = type == TransactionType.EXPENSE
+}

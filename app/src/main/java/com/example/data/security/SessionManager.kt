@@ -62,8 +62,27 @@ object SessionManager {
                 Log.i(TAG, "Restored session needing phone verification for user: ${user.phoneNumber ?: user.email}")
             }
         } else {
-            _sessionState.value = SessionState.LoggedOut
+            val localSession = AuthSessionManager(context).getActiveSession()
+            if (localSession != null) {
+                val localUser = NetworkUserDto(
+                    id = localSession.userId,
+                    fullName = localSession.username,
+                    email = null,
+                    phoneNumber = localSession.phoneNumber,
+                    phoneVerified = localSession.phoneVerified
+                )
+                _sessionState.value = SessionState.Authenticated(localUser)
+                Log.i(TAG, "Restored active local session for user: ${localSession.username}")
+            } else {
+                _sessionState.value = SessionState.LoggedOut
+            }
         }
+    }
+
+    fun setAuthenticatedUser(user: NetworkUserDto) {
+        tokenManager?.saveUser(user)
+        _sessionState.value = SessionState.Authenticated(user)
+        Log.i(TAG, "Authenticated user set in SessionManager: ${user.id}")
     }
 
     fun setBaseUrl(url: String) {

@@ -12,7 +12,7 @@ class HomeDashboardAggregator(
     private val repository: HomeDashboardRepository
 ) {
 
-    fun aggregate(): HomeDashboardState {
+    suspend fun aggregate(): HomeDashboardState {
         val (income, expense, balance) = repository.getMonthlyFinancials()
         val savingsRate = repository.getSavingsRate(income, expense)
         val userName = repository.getUserFullName()
@@ -24,13 +24,17 @@ class HomeDashboardAggregator(
 
         val todayPersian = getTodayPersianDateString()
 
+        // Real counts for insight engine
+        val activeInstCount = upcomingObligations.count { it.type == ObligationType.INSTALLMENT }
+        val totalInstAmount = upcomingObligations.filter { it.type == ObligationType.INSTALLMENT }.sumOf { it.amount }
+
         // Generate dynamic rule-based insight
         val insight = HomeInsightEngine.generateInsight(
             monthlyIncome = income,
             monthlyExpense = expense,
             savingsRate = savingsRate,
-            activeInstallmentsCount = 3,
-            totalInstallmentsAmount = 8_500_000L,
+            activeInstallmentsCount = activeInstCount,
+            totalInstallmentsAmount = totalInstAmount,
             hasOverdueInstallments = overdueItems.isNotEmpty(),
             hasVehicleNeedsService = vehicleSummary?.isNeedsService == true,
             upcomingObligationsCount = upcomingObligations.size

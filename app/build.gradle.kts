@@ -21,13 +21,15 @@ android {
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    buildConfigField("String", "SMS_API_KEY", "\"\"")
-    buildConfigField("String", "SMS_API_SECRET", "\"\"")
-    buildConfigField("String", "SMS_PASSWORD", "\"\"")
-    buildConfigField("String", "SMS_USERNAME", "\"\"")
   }
 
   signingConfigs {
+    create("debugConfig") {
+      storeFile = file("${rootDir}/debug.keystore")
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
+    }
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH")
       if (!keystorePath.isNullOrBlank()) {
@@ -40,6 +42,9 @@ android {
   }
 
   buildTypes {
+    debug {
+      signingConfig = signingConfigs.getByName("debugConfig")
+    }
     release {
       isCrunchPngs = false
       isMinifyEnabled = true
@@ -74,6 +79,11 @@ secrets {
   defaultPropertiesFileName = ".env.example"
   ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
   ignoreList.add("APP_CORS_ALLOWED_ORIGINS")
+  ignoreList.add("DATABASE_.*")
+  ignoreList.add("JWT_.*")
+  ignoreList.add("LOG_LEVEL")
+  ignoreList.add("SERVER_PORT")
+  ignoreList.add("SMS_.*")
 }
 
 googleServices { missingGoogleServicesStrategy = com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy.WARN }

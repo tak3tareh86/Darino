@@ -335,6 +335,19 @@ object InstallmentMockDataSource {
 
     val summary: InstallmentSummaryData
         get() {
+            val repoInstallments = repository.installments.value
+            if (repoInstallments.isEmpty()) {
+                val samples = getSampleInitialInstallments()
+                return InstallmentSummaryData(
+                    activeCount = samples.size,
+                    paidAmount = samples.sumOf { it.paidAmount },
+                    remainingAmount = samples.sumOf { it.remainingAmount },
+                    paidAmountFormatted = "۱۲۹,۲۰۰,۰۰۰ تومان",
+                    remainingAmountFormatted = "۶۱,۸۰۰,۰۰۰ تومان",
+                    nextDueText = "۳ روز دیگر",
+                    nextDueTitle = "وام مسکن بانک ملت"
+                )
+            }
             val s = repository.summary.value
             return InstallmentSummaryData(
                 activeCount = s.activeCount,
@@ -347,6 +360,14 @@ object InstallmentMockDataSource {
 
     val categorySummaries: List<CategorySummaryStat>
         get() {
+            if (repository.installments.value.isEmpty()) {
+                return listOf(
+                    CategorySummaryStat(InstallmentCategory.BANK_LOANS, "${initialBankLoans.size} مورد", "${initialBankLoans.sumOf { it.remainingAmount }} تومان"),
+                    CategorySummaryStat(InstallmentCategory.HOME_LOANS, "${initialHomeLoans.size} مورد", "${initialHomeLoans.sumOf { it.remainingAmount }} تومان"),
+                    CategorySummaryStat(InstallmentCategory.CAR_INSURANCE, "${initialCarInsurance.size} مورد", "${initialCarInsurance.sumOf { it.remainingAmount }} تومان"),
+                    CategorySummaryStat(InstallmentCategory.MISC, "${initialMiscInstallments.size} مورد", "${initialMiscInstallments.sumOf { it.remainingAmount }} تومان")
+                )
+            }
             return repository.categorySummaries.value.map {
                 CategorySummaryStat(
                     category = it.category,
@@ -356,12 +377,14 @@ object InstallmentMockDataSource {
             }
         }
 
-    val bankLoans: List<InstallmentItem> get() = repository.bankLoans.value
-    val homeLoans: List<InstallmentItem> get() = repository.homeLoans.value
-    val carInsurance: List<InstallmentItem> get() = repository.carInsurance.value
-    val miscInstallments: List<InstallmentItem> get() = repository.miscInstallments.value
-    val allInstallments: List<InstallmentItem> get() = repository.installments.value
-    val overdueInstallments: List<InstallmentItem> get() = repository.overdueInstallments.value
+    val bankLoans: List<InstallmentItem> get() = repository.bankLoans.value.ifEmpty { initialBankLoans }
+    val homeLoans: List<InstallmentItem> get() = repository.homeLoans.value.ifEmpty { initialHomeLoans }
+    val carInsurance: List<InstallmentItem> get() = repository.carInsurance.value.ifEmpty { initialCarInsurance }
+    val miscInstallments: List<InstallmentItem> get() = repository.miscInstallments.value.ifEmpty { initialMiscInstallments }
+    val allInstallments: List<InstallmentItem> get() = repository.installments.value.ifEmpty { getSampleInitialInstallments() }
+    val overdueInstallments: List<InstallmentItem> get() = repository.overdueInstallments.value.ifEmpty {
+        getSampleInitialInstallments().filter { it.status == InstallmentStatus.OVERDUE }
+    }
     val upcomingInstallments: List<InstallmentItem>
         get() = allInstallments
             .filter { it.status == InstallmentStatus.DUE_SOON || it.status == InstallmentStatus.PENDING }

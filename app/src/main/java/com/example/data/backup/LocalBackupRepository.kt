@@ -14,12 +14,15 @@ class LocalBackupRepository(
 
     private val db = AppDatabase.getDatabase(context)
 
+    private fun getEffectiveUserId(): String {
+        return SessionManager.userId
+            ?: com.example.data.security.AuthSessionManager(context).getActiveSession()?.userId
+            ?: throw IllegalStateException("Authenticated user is required")
+    }
+
     override suspend fun createBackup(): DarinoBackup =
         withContext(Dispatchers.IO) {
-            val userId = SessionManager.userId
-                ?: throw IllegalStateException(
-                    "Authenticated user is required"
-                )
+            val userId = getEffectiveUserId()
 
             val transactions =
                 db.transactionDao().getAllTransactionsList(userId)
@@ -96,10 +99,7 @@ class LocalBackupRepository(
         mode: RestoreMode
     ) {
         withContext(Dispatchers.IO) {
-            val userId = SessionManager.userId
-                ?: throw IllegalStateException(
-                    "Authenticated user is required"
-                )
+            val userId = getEffectiveUserId()
 
             db.withTransaction {
                 if (mode == RestoreMode.REPLACE) {
@@ -223,10 +223,7 @@ class LocalBackupRepository(
 
     override suspend fun exportCsvTransactions(): String =
         withContext(Dispatchers.IO) {
-            val userId = SessionManager.userId
-                ?: throw IllegalStateException(
-                    "Authenticated user is required"
-                )
+            val userId = getEffectiveUserId()
 
             val transactions =
                 db.transactionDao()
@@ -252,10 +249,7 @@ class LocalBackupRepository(
 
     override suspend fun exportCsvInstallments(): String =
         withContext(Dispatchers.IO) {
-            val userId = SessionManager.userId
-                ?: throw IllegalStateException(
-                    "Authenticated user is required"
-                )
+            val userId = getEffectiveUserId()
 
             val installments =
                 db.installmentDao()
@@ -283,10 +277,7 @@ class LocalBackupRepository(
 
     override suspend fun exportCsvVehicleExpenses(): String =
         withContext(Dispatchers.IO) {
-            val userId = SessionManager.userId
-                ?: throw IllegalStateException(
-                    "Authenticated user is required"
-                )
+            val userId = getEffectiveUserId()
 
             val services =
                 db.vehicleDao()
@@ -325,10 +316,7 @@ class LocalBackupRepository(
 
     override suspend fun deleteAllData() {
         withContext(Dispatchers.IO) {
-            val userId = SessionManager.userId
-                ?: throw IllegalStateException(
-                    "Authenticated user is required"
-                )
+            val userId = getEffectiveUserId()
 
             db.withTransaction {
                 db.transactionDao()

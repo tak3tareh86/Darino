@@ -1,11 +1,15 @@
 package com.example.ui.screens.home.components
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -13,6 +17,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +27,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,22 +37,28 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.CompareArrows
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.FlashOn
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.MarkEmailRead
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.TrendingDown
 import androidx.compose.material.icons.rounded.TrendingUp
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -64,6 +75,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -72,51 +84,43 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.domain.BankSmsSuggestion
+import com.example.ui.screens.home.viewmodel.SmsPermissionState
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
-import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
+import com.example.util.IranianPhoneUtils
 
-@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun BankSmsAssistantCard(
+    permissionState: SmsPermissionState,
+    isScanning: Boolean,
+    errorMessage: String?,
     queue: List<BankSmsSuggestion>,
-    onAccept: (id: String, category: String?, account: String?) -> Unit,
-    onDismiss: (String) -> Unit,
+    onTypeChange: (id: String, type: TransactionType) -> Unit,
+    onAccept: (id: String, type: TransactionType?, category: String?, account: String?, desc: String?, dest: String?) -> Unit,
+    onDismiss: (id: String) -> Unit,
+    onRequestPermission: () -> Unit,
+    onPermanentDeniedGoToSettings: () -> Unit,
+    onRefreshScan: () -> Unit,
     onSimulateClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (queue.isEmpty()) return
-
-    val currentSuggestion = queue.first()
-    val remainingCount = queue.size - 1
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-    val context = LocalContext.current
 
-    var hasSmsPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
-        )
-    }
+    var editingSuggestion by remember { mutableStateOf<BankSmsSuggestion?>(null) }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        hasSmsPermission = isGranted
-    }
-
-    var showConfirmDialog by remember { mutableStateOf(false) }
-
-    if (showConfirmDialog) {
-        ConfirmSmsDialog(
-            suggestion = currentSuggestion,
-            onDismiss = { showConfirmDialog = false },
-            onConfirm = { cat, acc ->
-                onAccept(currentSuggestion.id, cat, acc)
-                showConfirmDialog = false
+    if (editingSuggestion != null) {
+        EditSmsTransactionDialog(
+            suggestion = editingSuggestion!!,
+            onDismiss = { editingSuggestion = null },
+            onConfirm = { type, cat, acc, desc, dest ->
+                onAccept(editingSuggestion!!.id, type, cat, acc, desc, dest)
+                editingSuggestion = null
             }
         )
     }
@@ -124,321 +128,67 @@ fun BankSmsAssistantCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .testTag("bank_sms_assistant_card"),
-        shape = RoundedCornerShape(RadiusMD),
+            .testTag("sms_financial_transactions_card")
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = Color.Black.copy(alpha = 0.05f),
+                spotColor = Color.Black.copy(alpha = 0.08f)
+            ),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDark) Color(0xFF0F131E) else Color(0xFFFFFFFF)
+            containerColor = if (isDark) Color(0xFF0F172A) else Color.White
         ),
-        border = BorderStroke(1.dp, if (isDark) Color(0xFF232D42) else Color(0xFFE2E8F0)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp)
+        border = BorderStroke(1.dp, if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 9.dp, vertical = 7.dp)
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Header: Icon + Title + Status
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(22.dp)
-                            .background(
-                                if (isDark) Color(0xFF16252C) else Color(0xFFE6F4EA),
-                                CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Sms,
-                            contentDescription = null,
-                            tint = if (isDark) Color(0xFF14B8A6) else EmeraldPrimaryLight,
-                            modifier = Modifier.size(13.dp)
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = "دستیار هوشمند پیامک",
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        if (remainingCount > 0) {
-                            Text(
-                                text = "۱ از ${queue.size} پیامک در صف بررسی",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.Medium
-                                ),
-                                color = if (isDark) Color(0xFF6366F1) else Color(0xFF4F46E5)
-                            )
-                        } else {
-                            Text(
-                                text = "تراکنش بانکی موقت نیازمند تأیید شما",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-
-            // User Permission Control Banner if SMS permission is not granted
-            if (!hasSmsPermission) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Surface(
-                    shape = RoundedCornerShape(RadiusSM),
-                    color = if (isDark) Color(0xFF2E1A08) else Color(0xFFFFF7ED),
-                    border = BorderStroke(1.dp, Color(0xFFF97316).copy(alpha = 0.4f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Security,
-                            contentDescription = null,
-                            tint = Color(0xFFF97316),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "دسترسی پیامک بانکی",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 10.5.sp,
-                                    color = if (isDark) Color(0xFFFDBA74) else Color(0xFFC2410C)
-                                )
-                            )
-                            Text(
-                                text = "برای خواندن خودکار پیامک‌ها مجوز را فعال نمایید.",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 9.sp,
-                                    color = if (isDark) Color(0xFFFED7AA) else Color(0xFFEA580C)
-                                )
-                            )
-                        }
-                        Button(
-                            onClick = { permissionLauncher.launch(Manifest.permission.READ_SMS) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFF97316),
-                                contentColor = Color.White
-                            ),
-                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 1.dp),
-                            shape = RoundedCornerShape(RadiusSM),
-                            modifier = Modifier.height(26.dp)
-                        ) {
-                            Text("اعطا", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Sliding animation when top SMS suggestion changes
-            AnimatedContent(
-                targetState = currentSuggestion,
-                transitionSpec = {
-                    slideInHorizontally { width -> width } + fadeIn() togetherWith
-                            slideOutHorizontally { width -> -width } + fadeOut()
-                },
-                label = "sms_queue_transition"
-            ) { suggestion ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            if (isDark) Color(0xFF161E2E) else Color(0xFFF8FAFC),
-                            RoundedCornerShape(RadiusSM)
-                        )
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
-                ) {
-                    // Bank Name, Amount, Type (Withdrawal vs Deposit)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(RadiusSM),
-                                color = if (suggestion.isExpense) {
-                                    if (isDark) Color(0xFF3F161C) else Color(0xFFFFECEE)
-                                } else {
-                                    if (isDark) Color(0xFF0F3A22) else Color(0xFFE6F9EE)
-                                },
-                                modifier = Modifier.padding(1.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (suggestion.isExpense) Icons.Rounded.TrendingDown else Icons.Rounded.TrendingUp,
-                                        contentDescription = null,
-                                        tint = if (suggestion.isExpense) ExpenseRoseLight else EmeraldPrimaryLight,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Text(
-                                        text = if (suggestion.isExpense) "برداشت" else "واریز",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
-                                        color = if (suggestion.isExpense) ExpenseRoseLight else EmeraldPrimaryLight
-                                    )
-                                }
-                            }
-
-                            Text(
-                                text = suggestion.bankName,
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.5.sp),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        Text(
-                            text = suggestion.formattedAmount,
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = if (suggestion.isExpense) ExpenseRoseLight else EmeraldPrimaryLight
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(3.dp))
-
-                    // Raw SMS Content representation (compact 2 lines)
-                    Text(
-                        text = suggestion.smsText,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 9.5.sp,
-                            lineHeight = 13.5.sp,
-                            fontWeight = FontWeight.Normal
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(modifier = Modifier.height(3.dp))
-
-                    // Category + Date & Time Row inside Card
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                modifier = Modifier.size(10.dp)
-                            )
-                            Text(
-                                text = "دسته: ${suggestion.category}",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 8.5.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                                )
-                            )
-                        }
-
-                        // Date and Time displayed clearly inside card
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Schedule,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(10.dp)
-                            )
-                            Text(
-                                text = "${suggestion.dateText} | ${suggestion.timeText}",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(5.dp))
-
-            // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // Reject Button
-                OutlinedButton(
-                    onClick = { onDismiss(currentSuggestion.id) },
-                    modifier = Modifier.weight(1f).height(28.dp),
-                    shape = RoundedCornerShape(RadiusSM),
-                    border = BorderStroke(1.dp, Color(0xFFEF4444)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFFEF4444)
-                    ),
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = null,
-                        tint = Color(0xFFEF4444),
-                        modifier = Modifier.size(11.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = "رد کردن",
-                        color = Color(0xFFEF4444),
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp)
+            when (permissionState) {
+                // 1. Permission Not Requested Yet -> Onboarding State
+                SmsPermissionState.NOT_REQUESTED -> {
+                    SmsOnboardingView(
+                        isDark = isDark,
+                        onRequestPermission = onRequestPermission
                     )
                 }
 
-                // Confirm and Smart Register Button
-                Button(
-                    onClick = { showConfirmDialog = true },
-                    modifier = Modifier.weight(1.3f).height(28.dp),
-                    shape = RoundedCornerShape(RadiusSM),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isDark) Color(0xFF14B8A6) else EmeraldPrimaryLight,
-                        contentColor = Color.White
-                    ),
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.CheckCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(11.dp)
+                // 2. Permission Denied -> Friendly retry prompt
+                SmsPermissionState.DENIED -> {
+                    SmsPermissionDeniedView(
+                        isDark = isDark,
+                        onRetry = onRequestPermission
                     )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = "تأیید و ثبت هوشمند",
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                }
+
+                // 3. Permission Permanently Denied -> Open App Settings
+                SmsPermissionState.PERMANENTLY_DENIED -> {
+                    SmsPermissionPermanentlyDeniedView(
+                        isDark = isDark,
+                        onOpenSettings = onPermanentDeniedGoToSettings
+                    )
+                }
+
+                // 4. Permission Granted -> Handle Scanning, Empty, Queue & Error states
+                SmsPermissionState.GRANTED -> {
+                    SmsGrantedContentView(
+                        isDark = isDark,
+                        isScanning = isScanning,
+                        errorMessage = errorMessage,
+                        queue = queue,
+                        onTypeChange = onTypeChange,
+                        onQuickAccept = { id ->
+                            onAccept(id, null, null, null, null, null)
+                        },
+                        onEditClick = { suggestion ->
+                            editingSuggestion = suggestion
+                        },
+                        onDismiss = onDismiss,
+                        onRefreshScan = onRefreshScan,
+                        onSimulateClick = onSimulateClick
                     )
                 }
             }
@@ -446,22 +196,769 @@ fun BankSmsAssistantCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConfirmSmsDialog(
+private fun SmsOnboardingView(
+    isDark: Boolean,
+    onRequestPermission: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("sms_onboarding_view"),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF0D9488).copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Sms,
+                    contentDescription = null,
+                    tint = Color(0xFF0D9488),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(
+                    text = "ثبت خودکار تراکنش‌ها",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "دستیار هوشمند پیامک‌های بانکی دارینو",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 10.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+        }
+
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = if (isDark) Color(0xFF131D31) else Color(0xFFF1F5F9),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "با دسترسی به پیامک‌های بانکی، دارینو می‌تواند تراکنش‌های مالی شما را شناسایی کند.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                modifier = Modifier.padding(12.dp)
+            )
+        }
+
+        Button(
+            onClick = onRequestPermission,
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF0D9488),
+                contentColor = Color.White
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(42.dp)
+                .testTag("btn_request_sms_permission")
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Security,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "فعال کردن دسترسی پیامک",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.5.sp
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun SmsPermissionDeniedView(
+    isDark: Boolean,
+    onRetry: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("sms_permission_denied_view"),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF59E0B).copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Warning,
+                    contentDescription = null,
+                    tint = Color(0xFFF59E0B),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Column {
+                Text(
+                    text = "دسترسی به پیامک‌ها تأیید نشد",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "برای تشخیص واریز و برداشت‌ها، برنامه نیازمند مجوز خواندن پیامک است.",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+        }
+
+        Button(
+            onClick = onRetry,
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFF59E0B),
+                contentColor = Color(0xFF451A03)
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(38.dp)
+        ) {
+            Text(
+                text = "تلاش مجدد و اعطای دسترسی",
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun SmsPermissionPermanentlyDeniedView(
+    isDark: Boolean,
+    onOpenSettings: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("sms_permanently_denied_view"),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFEF4444).copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Security,
+                    contentDescription = null,
+                    tint = Color(0xFFEF4444),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Column {
+                Text(
+                    text = "دسترسی پیامک غیرفعال است",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "لطفاً در تنظیمات سیستم، مجوز پیامک را برای دارینو فعال نمایید.",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+        }
+
+        OutlinedButton(
+            onClick = onOpenSettings,
+            shape = RoundedCornerShape(10.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(38.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Settings,
+                contentDescription = null,
+                modifier = Modifier.size(15.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "باز کردن تنظیمات برنامه",
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.5.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun SmsGrantedContentView(
+    isDark: Boolean,
+    isScanning: Boolean,
+    errorMessage: String?,
+    queue: List<BankSmsSuggestion>,
+    onTypeChange: (id: String, type: TransactionType) -> Unit,
+    onQuickAccept: (id: String) -> Unit,
+    onEditClick: (BankSmsSuggestion) -> Unit,
+    onDismiss: (id: String) -> Unit,
+    onRefreshScan: () -> Unit,
+    onSimulateClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Header Row: Status badge + actions
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF0D9488).copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Sms,
+                        contentDescription = null,
+                        tint = Color(0xFF0D9488),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+
+                Text(
+                    text = "ثبت خودکار تراکنش‌ها",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                if (queue.isNotEmpty()) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF0D9488),
+                        contentColor = Color.White
+                    ) {
+                        Text(
+                            text = "${IranianPhoneUtils.convertDigitsToPersian(queue.size.toString())} پیامک جدید",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                        )
+                    }
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                IconButton(
+                    onClick = onRefreshScan,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Refresh,
+                        contentDescription = "بررسی مجدد",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+
+        // Parsing / Reading Error state
+        if (errorMessage != null) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFFFEF2F2),
+                border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Info,
+                        contentDescription = null,
+                        tint = Color(0xFFDC2626),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 10.5.sp,
+                            color = Color(0xFF991B1B)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        // Loading Scanning State
+        if (isScanning) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = Color(0xFF0D9488)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "در حال پایش پیامک‌های بانکی...",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+        } else if (queue.isEmpty()) {
+            // No new financial SMS
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isDark) Color(0xFF131D31) else Color(0xFFF8FAFC),
+                border = BorderStroke(1.dp, if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.MarkEmailRead,
+                        contentDescription = null,
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Text(
+                        text = "هیچ پیامک مالی جدیدی یافت نشد",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "تراکنش‌های پیامکی شما به‌روز هستند.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 10.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    TextButton(
+                        onClick = onSimulateClick,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "+ ایجاد پیامک تستی جهت بررسی",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        } else {
+            // New Financial SMS Available -> Pending Queue Item Card
+            val current = queue.first()
+
+            AnimatedContent(
+                targetState = current,
+                transitionSpec = {
+                    slideInHorizontally { width -> width } + fadeIn() togetherWith
+                            slideOutHorizontally { width -> -width } + fadeOut()
+                },
+                label = "sms_item_transition"
+            ) { item ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            if (isDark) Color(0xFF131D31) else Color(0xFFF8FAFC),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .border(
+                            1.dp,
+                            if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Top Row: Bank name + Amount
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = item.bankName,
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.5.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (queue.size > 1) {
+                                Text(
+                                    text = "(۱ از ${IranianPhoneUtils.convertDigitsToPersian(queue.size.toString())})",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 9.sp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = item.formattedAmount,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = when (item.type) {
+                                    TransactionType.EXPENSE -> ExpenseRoseLight
+                                    TransactionType.INCOME -> EmeraldPrimaryLight
+                                    TransactionType.TRANSFER -> Color(0xFF3B82F6)
+                                }
+                            )
+                        )
+                    }
+
+                    // Interactive Transaction Type Selector: [هزینه | درآمد | انتقال]
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TransactionTypeChip(
+                            title = "هزینه",
+                            icon = Icons.Rounded.TrendingDown,
+                            isSelected = item.type == TransactionType.EXPENSE,
+                            activeColor = ExpenseRoseLight,
+                            onClick = { onTypeChange(item.id, TransactionType.EXPENSE) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        TransactionTypeChip(
+                            title = "درآمد",
+                            icon = Icons.Rounded.TrendingUp,
+                            isSelected = item.type == TransactionType.INCOME,
+                            activeColor = EmeraldPrimaryLight,
+                            onClick = { onTypeChange(item.id, TransactionType.INCOME) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        TransactionTypeChip(
+                            title = "انتقال",
+                            icon = Icons.AutoMirrored.Rounded.CompareArrows,
+                            isSelected = item.type == TransactionType.TRANSFER,
+                            activeColor = Color(0xFF3B82F6),
+                            onClick = { onTypeChange(item.id, TransactionType.TRANSFER) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    // Transfer notes if present
+                    if (item.type == TransactionType.TRANSFER && (!item.sourceAccount.isNullOrBlank() || !item.destinationAccount.isNullOrBlank())) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF3B82F6).copy(alpha = 0.08f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                if (!item.sourceAccount.isNullOrBlank()) {
+                                    Text(
+                                        text = "مبدأ: ${item.sourceAccount}",
+                                        fontSize = 9.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                if (!item.destinationAccount.isNullOrBlank()) {
+                                    Text(
+                                        text = "مقصد: ${item.destinationAccount}",
+                                        fontSize = 9.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Original SMS snippet
+                    Text(
+                        text = item.smsText,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 10.sp,
+                            lineHeight = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    // Suggested Category & Date/Time
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "دسته‌بندی: ${item.category}",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Schedule,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(10.dp)
+                            )
+                            Text(
+                                text = "${item.dateText} | ${item.timeText}",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 9.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
+                    }
+
+                    // Action Buttons Row: [نادیده گرفتن | ویرایش | ثبت تراکنش]
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // Dismiss / Ignore Button
+                        OutlinedButton(
+                            onClick = { onDismiss(item.id) },
+                            modifier = Modifier
+                                .weight(0.9f)
+                                .height(32.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, Color(0xFFEF4444)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444)),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "نادیده گرفتن",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // Edit Before Save Button
+                        OutlinedButton(
+                            onClick = { onEditClick(item) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(32.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "ویرایش",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // Register Transaction Button
+                        Button(
+                            onClick = { onQuickAccept(item.id) },
+                            modifier = Modifier
+                                .weight(1.3f)
+                                .height(32.dp)
+                                .testTag("btn_register_sms_transaction"),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = when (item.type) {
+                                    TransactionType.EXPENSE -> ExpenseRoseLight
+                                    TransactionType.INCOME -> EmeraldPrimaryLight
+                                    TransactionType.TRANSFER -> Color(0xFF3B82F6)
+                                },
+                                contentColor = Color.White
+                            ),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "ثبت تراکنش",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransactionTypeChip(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    isSelected: Boolean,
+    activeColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSelected) activeColor else Color.Transparent,
+        border = BorderStroke(1.dp, if (isSelected) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+        contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+        modifier = modifier.height(28.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = if (isSelected) Color.White else activeColor
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = title,
+                fontSize = 10.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+fun EditSmsTransactionDialog(
     suggestion: BankSmsSuggestion,
     onDismiss: () -> Unit,
-    onConfirm: (category: String, account: String) -> Unit
+    onConfirm: (
+        type: TransactionType,
+        category: String,
+        account: String,
+        description: String,
+        destAccount: String?
+    ) -> Unit
 ) {
+    var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
     var category by remember(suggestion.id) { mutableStateOf(suggestion.category) }
-    var accountName by remember(suggestion.id) { mutableStateOf(suggestion.bankName) }
+    var accountName by remember(suggestion.id) { mutableStateOf(suggestion.sourceAccount ?: suggestion.bankName) }
+    var destAccountName by remember(suggestion.id) { mutableStateOf(suggestion.destinationAccount ?: "") }
+    var description by remember(suggestion.id) {
+        mutableStateOf("ثبت از پیامک ${suggestion.bankName}")
+    }
 
-    val expenseCategories = listOf("خرید روزمره", "سوپرمارکت", "قبوض و خدمات", "خودرو و بنزین", "اقساط", "سایر")
-    val incomeCategories = listOf("حقوق و دستمزد", "درآمد جانبی", "سود سپرده", "فروش کالا", "سایر")
-    val defaultAccounts = listOf("بانک ملت", "بانک ملی", "بانک صادرات", "بانک سامان", "بانک تجارت", "بانک پاسارگاد", "بلوبانک", "کیف پول")
+    val expenseCategories = listOf("خرید روزمره", "سوپرمارکت و خرید", "غذا و رستوران", "خودرو و سوخت", "قبوض و خدمات", "اقساط و تسهیلات", "سلامت و درمان", "سایر")
+    val incomeCategories = listOf("حقوق و دستمزد", "درآمد و واریز", "سود سپرده", "یارانه و کمک‌معیشتی", "فروش کالا", "سایر")
+    val transferCategories = listOf("انتقال بین‌بانکی", "کارت به کارت", "پایا", "ساتنا", "انتقال داخلی")
 
-    val categoriesList = if (suggestion.isExpense) expenseCategories else incomeCategories
-    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+    val categoriesList = when (selectedType) {
+        TransactionType.EXPENSE -> expenseCategories
+        TransactionType.INCOME -> incomeCategories
+        TransactionType.TRANSFER -> transferCategories
+    }
+
+    val defaultAccounts = listOf("بانک ملت", "بانک ملی", "بانک سامان", "بانک پاسارگاد", "بانک تجارت", "بانک صادرات", "بلوبانک", "بانک رسالت")
 
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
@@ -473,191 +970,206 @@ fun ConfirmSmsDialog(
         ) {
             Card(
                 modifier = Modifier
-                    .widthIn(max = 330.dp)
-                    .offset(y = (-75).dp) // Shifted upwards so it centers perfectly in the screen
-                    .padding(horizontal = 20.dp),
+                    .widthIn(max = 340.dp)
+                    .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(9.dp)
-            ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(
-                        imageVector = if (suggestion.isExpense) Icons.Rounded.TrendingDown else Icons.Rounded.TrendingUp,
-                        contentDescription = null,
-                        tint = if (suggestion.isExpense) Color(0xFFEF4444) else EmeraldPrimaryLight,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    // Title
                     Text(
-                        text = if (suggestion.isExpense) "ثبت هوشمند برداشت" else "ثبت هوشمند واریز",
+                        text = "ویرایش تراکنش قبل از ثبت",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
                         )
                     )
-                }
 
-                // Summary Box with Amount, Date & Time
-                Surface(
-                    shape = RoundedCornerShape(RadiusSM),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    // Amount Display
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = suggestion.bankName,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.5.sp
-                                )
+                                text = "مبلغ تراکنش:",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
                             )
                             Text(
                                 text = suggestion.formattedAmount,
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 12.5.sp,
-                                    color = if (suggestion.isExpense) Color(0xFFEF4444) else EmeraldPrimaryLight
-                                )
-                            )
-                        }
-                        // Date and Time
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Schedule,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(11.dp)
-                            )
-                            Text(
-                                text = "تاریخ: ${suggestion.dateText} | ساعت: ${suggestion.timeText}",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 9.5.sp,
-                                    fontWeight = FontWeight.Medium
+                                    fontSize = 13.sp,
+                                    color = when (selectedType) {
+                                        TransactionType.EXPENSE -> ExpenseRoseLight
+                                        TransactionType.INCOME -> EmeraldPrimaryLight
+                                        TransactionType.TRANSFER -> Color(0xFF3B82F6)
+                                    }
                                 )
                             )
                         }
                     }
-                }
 
-                // Category Input
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        text = if (suggestion.isExpense) "نوع هزینه (دسته‌بندی):" else "نوع درآمد (دسته‌بندی):",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.5.sp
-                        )
-                    )
-                    OutlinedTextField(
-                        value = category,
-                        onValueChange = { category = it },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(RadiusSM),
-                        textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp)
-                    )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        items(categoriesList) { cat ->
-                            FilterChip(
-                                selected = category == cat,
-                                onClick = { category = cat },
-                                label = { Text(cat, fontSize = 9.5.sp) }
-                            )
-                        }
-                    }
-                }
-
-                // Account / Card Input
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        text = if (suggestion.isExpense) "کارت / حساب مبدأ:" else "حساب مقصد:",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.5.sp
-                        )
-                    )
-                    OutlinedTextField(
-                        value = accountName,
-                        onValueChange = { accountName = it },
-                        placeholder = { Text("نام بانک یا حساب را وارد کنید...", fontSize = 11.sp) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth().testTag("sms_account_name_input"),
-                        shape = RoundedCornerShape(RadiusSM),
-                        textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp)
-                    )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        items(defaultAccounts) { acc ->
-                            FilterChip(
-                                selected = accountName == acc,
-                                onClick = { accountName = acc },
-                                label = { Text(acc, fontSize = 9.5.sp) }
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Actions
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("انصراف", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp))
-                    }
-
-                    Button(
-                        onClick = {
-                            val chosenCat = category.trim().ifEmpty { suggestion.category }
-                            val chosenAcc = accountName.trim().ifEmpty { suggestion.bankName }
-                            onConfirm(chosenCat, chosenAcc)
-                        },
-                        modifier = Modifier.weight(1.4f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (suggestion.isExpense) Color(0xFFEF4444) else EmeraldPrimaryLight,
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(RadiusSM)
-                    ) {
+                    // Type Selector
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
-                            text = if (suggestion.isExpense) "ثبت قطعی برداشت" else "ثبت قطعی واریز",
-                            style = MaterialTheme.typography.bodySmall.copy(
+                            text = "نوع تراکنش:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            TransactionTypeChip(
+                                title = "هزینه",
+                                icon = Icons.Rounded.TrendingDown,
+                                isSelected = selectedType == TransactionType.EXPENSE,
+                                activeColor = ExpenseRoseLight,
+                                onClick = { selectedType = TransactionType.EXPENSE },
+                                modifier = Modifier.weight(1f)
+                            )
+                            TransactionTypeChip(
+                                title = "درآمد",
+                                icon = Icons.Rounded.TrendingUp,
+                                isSelected = selectedType == TransactionType.INCOME,
+                                activeColor = EmeraldPrimaryLight,
+                                onClick = { selectedType = TransactionType.INCOME },
+                                modifier = Modifier.weight(1f)
+                            )
+                            TransactionTypeChip(
+                                title = "انتقال",
+                                icon = Icons.AutoMirrored.Rounded.CompareArrows,
+                                isSelected = selectedType == TransactionType.TRANSFER,
+                                activeColor = Color(0xFF3B82F6),
+                                onClick = { selectedType = TransactionType.TRANSFER },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    // Category input
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            text = "دسته‌بندی:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                        OutlinedTextField(
+                            value = category,
+                            onValueChange = { category = it },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp)
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            items(categoriesList) { cat ->
+                                FilterChip(
+                                    selected = category == cat,
+                                    onClick = { category = cat },
+                                    label = { Text(cat, fontSize = 9.sp) }
+                                )
+                            }
+                        }
+                    }
+
+                    // Account / Card Input
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            text = if (selectedType == TransactionType.TRANSFER) "حساب مبدأ:" else "حساب / کارت:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                        OutlinedTextField(
+                            value = accountName,
+                            onValueChange = { accountName = it },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp)
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            items(defaultAccounts) { acc ->
+                                FilterChip(
+                                    selected = accountName.contains(acc),
+                                    onClick = { accountName = acc },
+                                    label = { Text(acc, fontSize = 9.sp) }
+                                )
+                            }
+                        }
+                    }
+
+                    // Destination Account (Only for TRANSFER)
+                    if (selectedType == TransactionType.TRANSFER) {
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                text = "حساب / کارت مقصد:",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                            OutlinedTextField(
+                                value = destAccountName,
+                                onValueChange = { destAccountName = it },
+                                placeholder = { Text("نام بانک یا شماره کارت مقصد...", fontSize = 10.5.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp)
+                            )
+                        }
+                    }
+
+                    // Actions
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TextButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("انصراف", fontSize = 11.5.sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                val finalCat = category.trim().ifEmpty { suggestion.category }
+                                val finalAcc = accountName.trim().ifEmpty { suggestion.bankName }
+                                onConfirm(
+                                    selectedType,
+                                    finalCat,
+                                    finalAcc,
+                                    description,
+                                    destAccountName.trim().ifEmpty { null }
+                                )
+                            },
+                            modifier = Modifier.weight(1.3f),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = when (selectedType) {
+                                    TransactionType.EXPENSE -> ExpenseRoseLight
+                                    TransactionType.INCOME -> EmeraldPrimaryLight
+                                    TransactionType.TRANSFER -> Color(0xFF3B82F6)
+                                }
+                            )
+                        ) {
+                            Text(
+                                text = "تأیید و ثبت",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
                             )
-                        )
+                        }
                     }
                 }
             }
         }
     }
-}
 }

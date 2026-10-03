@@ -24,6 +24,14 @@ class WeeklyBackupWorker(
             return Result.success()
         }
 
+        val userId = com.example.data.security.SessionManager.userId
+            ?: com.example.data.security.AuthSessionManager(applicationContext).getActiveSession()?.userId
+
+        if (userId.isNullOrBlank()) {
+            Log.i(TAG, "Weekly auto-backup skipped: no authenticated user session.")
+            return Result.success()
+        }
+
         return try {
             val backupRepo = LocalBackupRepository(applicationContext)
             val backup = backupRepo.createBackup()
@@ -52,6 +60,9 @@ class WeeklyBackupWorker(
                 .putLong("last_backup_time", System.currentTimeMillis())
                 .apply()
 
+            Result.success()
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "Weekly auto-backup skipped: ${e.message}")
             Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "Error performing weekly auto-backup", e)

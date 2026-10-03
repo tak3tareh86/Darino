@@ -246,6 +246,10 @@ class LocalInstallmentRepository private constructor() {
     }
 
     fun markOverdueAsPaid(installmentId: String, paymentDate: String, context: Context? = null) {
+        payInstallment(installmentId, paymentDate, context)
+    }
+
+    fun payInstallment(installmentId: String, paymentDate: String, context: Context? = null) {
         val current = _installments.value.map { item ->
             if (item.id == installmentId) {
                 val updatedRemaining = (item.remainingInstallments - 1).coerceAtLeast(0)

@@ -26,7 +26,9 @@ data class UpcomingObligationItem(
     val type: ObligationType,
     val destinationTab: BottomNavItem,
     @DrawableRes val iconRes: Int,
-    val accentColor: Color
+    val accentColor: Color,
+    val isOverdue: Boolean = false,
+    val rawId: String = id
 )
 
 data class UpcomingReminderItem(

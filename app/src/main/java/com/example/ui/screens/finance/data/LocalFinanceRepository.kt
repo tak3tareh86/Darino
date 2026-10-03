@@ -530,7 +530,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             sourceType = item.sourceType.name,
             sourceId = item.sourceId,
             isRecurring = item.isRecurring,
-            userId = requireNotNull(SessionManager.userId) { "Authenticated user is required" }
+            userId = SessionManager.userId ?: "user_default"
         )
     }
 

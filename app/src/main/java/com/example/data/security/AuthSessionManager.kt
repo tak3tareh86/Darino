@@ -80,6 +80,15 @@ class AuthSessionManager(context: Context) {
             lastLoginAt = now
         )
         _sessionState.value = AuthSessionState.Authenticated(session)
+        SessionManager.setAuthenticatedUser(
+            com.example.data.api.NetworkUserDto(
+                id = userId,
+                fullName = username,
+                email = null,
+                phoneNumber = phoneNumber,
+                phoneVerified = true
+            )
+        )
         return session
     }
 
@@ -92,6 +101,7 @@ class AuthSessionManager(context: Context) {
             .remove(KEY_LAST_LOGIN_AT)
             .apply()
         _sessionState.value = AuthSessionState.LoggedOut
+        SessionManager.logout()
     }
 
     fun hasValidSession(): Boolean {
