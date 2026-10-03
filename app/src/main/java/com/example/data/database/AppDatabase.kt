@@ -203,10 +203,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        private val MIGRATION_17_18 = object : androidx.room.migration.Migration(17, 18) {
+        val MIGRATION_17_18 = object : androidx.room.migration.Migration(17, 18) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-                // 1. Remove duplicates before applying the unique constraint
-                // Keep only one record per (userId, stringId), prioritized by updatedAt DESC, then id DESC
+                // 1. Assign unique IDs to legacy records with empty or null stringId
+                // This prevents data loss for records that were valid but lacked a stringId in old versions
+                db.execSQL("""
+                    UPDATE transactions 
+                    SET stringId = 'legacy_' || userId || '_' || id 
+                    WHERE stringId IS NULL OR stringId = ''
+                """.trimIndent())
+
+                // 2. Remove actual duplicates (same userId and stringId)
+                // Keep only the most recently updated record
                 db.execSQL("""
                     DELETE FROM transactions WHERE rowid NOT IN (
                         SELECT rowid FROM (
@@ -216,7 +224,7 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """.trimIndent())
                 
-                // 2. Create the unique index
+                // 3. Create the unique index
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_transactions_userId_stringId ON transactions(userId, stringId)")
             }
         }
