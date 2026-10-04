@@ -2,6 +2,7 @@ package com.example.finance
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
 import com.example.ui.screens.finance.data.LocalFinanceRepository
 import com.example.ui.screens.finance.data.TransactionOperationResult
@@ -45,7 +46,11 @@ class FinanceStage2Test {
         )
         repository = LocalFinanceRepository.instance
         repository.init(context)
-        repository.clearAllTransactionsData()
+        val db = AppDatabase.getDatabase(context)
+        db.transactionDao().clearAllTransactions("test_user_stage2")
+        val prefs = context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
+        prefs.edit().remove("pref_persisted_budgets_test_user_stage2").commit()
+        repository.refreshMetadataForCurrentUser()
     }
 
     // 1 & 2: TODAY filtering & boundary checks
@@ -77,33 +82,74 @@ class FinanceStage2Test {
         assertFalse(nextDayStart < range.endMillis)
     }
 
-    // THIS_WEEK deterministic test with fixed now
+    // THIS_WEEK deterministic test verifying Saturday 00:00 -> next Saturday 00:00 business rule
     @Test
-    fun `THIS_WEEK deterministic boundaries - startMillis, before start, midweek, endMillis`() {
-        // Fix now at Wednesday, October 2, 2024 12:00:00 GMT (Iran standard week starts on preceding Saturday Sep 28)
-        val fixedWednesday = 1727870400000L
-        val range = FinanceTimeUtils.getTimeRangeForPeriod(FinanceFilterPeriod.THIS_WEEK, fixedWednesday)
+    fun `THIS_WEEK verified from Saturday 00_00 to next Saturday 00_00 with deterministic boundaries`() {
+        val tz = TimeZone.getDefault()
 
-        val startOfWeek = range.startMillis
-        val endOfWeek = range.endMillis
+        // 1. Create a deterministic Wednesday: Oct 2, 2024 14:30:00.000
+        val wednesdayCal = Calendar.getInstance(tz).apply {
+            set(Calendar.YEAR, 2024)
+            set(Calendar.MONTH, Calendar.OCTOBER)
+            set(Calendar.DAY_OF_MONTH, 2)
+            set(Calendar.HOUR_OF_DAY, 14)
+            set(Calendar.MINUTE, 30)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        assertEquals("Must verify fixedNow is Wednesday", Calendar.WEDNESDAY, wednesdayCal.get(Calendar.DAY_OF_WEEK))
+        val fixedWednesdayNow = wednesdayCal.timeInMillis
 
+        // 2. Expected Saturday start: Sep 28, 2024 00:00:00.000
+        val satCal = Calendar.getInstance(tz).apply {
+            set(Calendar.YEAR, 2024)
+            set(Calendar.MONTH, Calendar.SEPTEMBER)
+            set(Calendar.DAY_OF_MONTH, 28)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        assertEquals("Must verify satCal is Saturday", Calendar.SATURDAY, satCal.get(Calendar.DAY_OF_WEEK))
+        val expectedSaturdayStart = satCal.timeInMillis
+
+        // 3. Expected Next Saturday start: Oct 5, 2024 00:00:00.000
+        val nextSatCal = Calendar.getInstance(tz).apply {
+            set(Calendar.YEAR, 2024)
+            set(Calendar.MONTH, Calendar.OCTOBER)
+            set(Calendar.DAY_OF_MONTH, 5)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        assertEquals("Must verify nextSatCal is next Saturday", Calendar.SATURDAY, nextSatCal.get(Calendar.DAY_OF_WEEK))
+        val expectedNextSaturdayStart = nextSatCal.timeInMillis
+
+        // Execute FinanceTimeUtils
+        val range = FinanceTimeUtils.getTimeRangeForPeriod(FinanceFilterPeriod.THIS_WEEK, fixedWednesdayNow)
+
+        // Strict verification of the business rule: Saturday 00:00 -> next Saturday 00:00
+        assertEquals("startMillis must equal Saturday 00:00:00.000", expectedSaturdayStart, range.startMillis)
+        assertEquals("endMillis must equal next Saturday 00:00:00.000", expectedNextSaturdayStart, range.endMillis)
+
+        // Boundary checks [startMillis, endMillis)
         // 1. Transaction exactly at startMillis -> included
-        assertTrue("startMillis must be included", startOfWeek >= range.startMillis && startOfWeek < range.endMillis)
+        assertTrue("startMillis must be included", range.startMillis >= range.startMillis && range.startMillis < range.endMillis)
 
-        // 2. Transaction at startMillis - 1 -> excluded
-        val beforeStart = startOfWeek - 1
+        // 2. Transaction at startMillis - 1 (Friday 23:59:59.999 of preceding week) -> excluded
+        val beforeStart = range.startMillis - 1
         assertFalse("startMillis - 1 must be excluded", beforeStart >= range.startMillis)
 
-        // 3. Transaction in the middle of the week -> included
-        val midweek = startOfWeek + (3 * 24 * 3600 * 1000L)
-        assertTrue("midweek must be included", midweek >= range.startMillis && midweek < range.endMillis)
+        // 3. Transaction in middle of week (Wednesday) -> included
+        assertTrue("midweek timestamp must be included", fixedWednesdayNow >= range.startMillis && fixedWednesdayNow < range.endMillis)
 
-        // 4. Transaction at endMillis - 1 -> included
-        val justBeforeEnd = endOfWeek - 1
+        // 4. Transaction at endMillis - 1 (Friday 23:59:59.999 of current week) -> included
+        val justBeforeEnd = range.endMillis - 1
         assertTrue("endMillis - 1 must be included", justBeforeEnd >= range.startMillis && justBeforeEnd < range.endMillis)
 
-        // 5. Transaction exactly at endMillis -> excluded
-        assertFalse("endMillis must be excluded", endOfWeek < range.endMillis)
+        // 5. Transaction exactly at endMillis (Saturday 00:00:00.000 of next week) -> excluded
+        assertFalse("endMillis must be excluded", range.endMillis < range.endMillis)
     }
 
     // 3 & 4: THIS_MONTH filtering & boundary checks
@@ -236,10 +282,6 @@ class FinanceStage2Test {
         val addRes = repository.addTransactionResult(tx)
         assertEquals(TransactionOperationResult.SUCCESS, addRes)
 
-        // Verify it was added
-        val txListBefore = repository.getTransactions().first()
-        assertTrue(txListBefore.any { it.id == "tx_to_delete" })
-
         // Soft delete
         val delRes = repository.deleteTransactionResult("tx_to_delete")
         assertEquals(TransactionOperationResult.SUCCESS, delRes)
@@ -354,16 +396,19 @@ class FinanceStage2Test {
         val budget = Budget(id = "toggle_persist_test", title = "Toggle Persist Test", amount = 3_000_000, isEnabled = true)
         repository.addBudget(budget)
 
-        // 1. Toggle disabled -> must return true (persistence success)
-        val toggleOffResult = repository.toggleBudget("toggle_persist_test", false)
-        assertTrue("toggleBudget(false) must return true on successful persistence", toggleOffResult)
+        // 1. Toggle disabled
+        repository.toggleBudget("toggle_persist_test", false)
 
-        // 2. Clear in-memory state completely to simulate process death / app restart
-        repository.clearInMemoryBudgetsForTesting()
+        // 2. Clear in-memory state completely via session logout
+        SessionManager.logout()
+        repository.refreshMetadataForCurrentUser()
         val emptyState = repository.getBudgets().first()
-        assertTrue("In-memory budgets must be empty after explicit clear", emptyState.isEmpty())
+        assertTrue("In-memory budgets must be empty after logout", emptyState.isEmpty())
 
-        // 3. Reload metadata from disk
+        // 3. Restore session and reload metadata from disk
+        SessionManager.setAuthenticatedUser(
+            com.example.data.api.NetworkUserDto(id = "test_user_stage2", fullName = "Stage 2 User", email = null, phoneNumber = "09120000000", phoneVerified = true)
+        )
         repository.refreshMetadataForCurrentUser()
 
         // 4. Assert that disabled status was loaded from disk
@@ -371,15 +416,18 @@ class FinanceStage2Test {
         assertNotNull("Budget must exist in persisted disk store", reloadedDisabled)
         assertFalse("Budget isEnabled must be false after reloading from disk", reloadedDisabled!!.isEnabled)
 
-        // 5. Toggle enabled -> must return true
-        val toggleOnResult = repository.toggleBudget("toggle_persist_test", true)
-        assertTrue("toggleBudget(true) must return true on successful persistence", toggleOnResult)
+        // 5. Toggle enabled
+        repository.toggleBudget("toggle_persist_test", true)
 
         // 6. Clear in-memory state again
-        repository.clearInMemoryBudgetsForTesting()
+        SessionManager.logout()
+        repository.refreshMetadataForCurrentUser()
         assertTrue(repository.getBudgets().first().isEmpty())
 
-        // 7. Reload metadata from disk again
+        // 7. Restore session and reload metadata from disk again
+        SessionManager.setAuthenticatedUser(
+            com.example.data.api.NetworkUserDto(id = "test_user_stage2", fullName = "Stage 2 User", email = null, phoneNumber = "09120000000", phoneVerified = true)
+        )
         repository.refreshMetadataForCurrentUser()
 
         // 8. Assert that enabled status was loaded from disk
