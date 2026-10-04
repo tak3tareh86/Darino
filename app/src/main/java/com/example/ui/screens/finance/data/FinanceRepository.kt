@@ -40,7 +40,7 @@ interface FinanceRepository {
     fun addBudget(budget: Budget)
     fun updateBudget(budget: Budget)
     fun deleteBudget(id: String)
-    fun toggleBudget(id: String, enabled: Boolean)
+    fun toggleBudget(id: String, enabled: Boolean): Boolean
 
     fun addSavingsGoal(goal: SavingsGoal)
     fun updateSavingsGoal(goal: SavingsGoal)

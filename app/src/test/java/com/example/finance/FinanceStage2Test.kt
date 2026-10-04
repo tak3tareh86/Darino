@@ -2,7 +2,6 @@ package com.example.finance
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
 import com.example.ui.screens.finance.data.LocalFinanceRepository
 import com.example.ui.screens.finance.data.TransactionOperationResult
@@ -10,11 +9,13 @@ import com.example.ui.screens.finance.domain.BudgetEngine
 import com.example.ui.screens.finance.domain.FinanceEngine
 import com.example.ui.screens.finance.domain.FinanceTimeUtils
 import com.example.ui.screens.finance.model.*
+import com.example.ui.screens.finance.viewmodel.FinancialViewModel
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -76,6 +77,35 @@ class FinanceStage2Test {
         assertFalse(nextDayStart < range.endMillis)
     }
 
+    // THIS_WEEK deterministic test with fixed now
+    @Test
+    fun `THIS_WEEK deterministic boundaries - startMillis, before start, midweek, endMillis`() {
+        // Fix now at Wednesday, October 2, 2024 12:00:00 GMT (Iran standard week starts on preceding Saturday Sep 28)
+        val fixedWednesday = 1727870400000L
+        val range = FinanceTimeUtils.getTimeRangeForPeriod(FinanceFilterPeriod.THIS_WEEK, fixedWednesday)
+
+        val startOfWeek = range.startMillis
+        val endOfWeek = range.endMillis
+
+        // 1. Transaction exactly at startMillis -> included
+        assertTrue("startMillis must be included", startOfWeek >= range.startMillis && startOfWeek < range.endMillis)
+
+        // 2. Transaction at startMillis - 1 -> excluded
+        val beforeStart = startOfWeek - 1
+        assertFalse("startMillis - 1 must be excluded", beforeStart >= range.startMillis)
+
+        // 3. Transaction in the middle of the week -> included
+        val midweek = startOfWeek + (3 * 24 * 3600 * 1000L)
+        assertTrue("midweek must be included", midweek >= range.startMillis && midweek < range.endMillis)
+
+        // 4. Transaction at endMillis - 1 -> included
+        val justBeforeEnd = endOfWeek - 1
+        assertTrue("endMillis - 1 must be included", justBeforeEnd >= range.startMillis && justBeforeEnd < range.endMillis)
+
+        // 5. Transaction exactly at endMillis -> excluded
+        assertFalse("endMillis must be excluded", endOfWeek < range.endMillis)
+    }
+
     // 3 & 4: THIS_MONTH filtering & boundary checks
     @Test
     fun `3 & 4 THIS_MONTH transaction included and previous month excluded`() {
@@ -94,9 +124,60 @@ class FinanceStage2Test {
         assertFalse(lastMomentOfShahrivar >= range.startMillis)
     }
 
-    // 5 & 6: THIS_YEAR filtering & boundary checks
+    // LAST_3_MONTHS deterministic tests (both standard and crossing Persian year)
     @Test
-    fun `5 & 6 THIS_YEAR transaction included and previous year excluded`() {
+    fun `LAST_3_MONTHS standard 3 calendar months boundaries`() {
+        // Fixed date: Khordad 15, 1403 (Month 3 of 1403)
+        // 3 calendar months: Farvardin (1), Ordibehesht (2), Khordad (3)
+        val fixedKhordad = PersianCalendarHelper.jalaliToEpochMillis(1403, 3, 15, 12, 0)
+        val range = FinanceTimeUtils.getTimeRangeForPeriod(FinanceFilterPeriod.LAST_3_MONTHS, fixedKhordad)
+
+        val startOfFarvardin = PersianCalendarHelper.jalaliToEpochMillis(1403, 1, 1, 0, 0)
+        val endOfKhordad = PersianCalendarHelper.jalaliToEpochMillis(1403, 4, 1, 0, 0) // Tir 1
+        val insideFarvardin = PersianCalendarHelper.jalaliToEpochMillis(1403, 1, 15, 12, 0)
+        val startOfEsfand1402 = PersianCalendarHelper.jalaliToEpochMillis(1402, 12, 1, 0, 0)
+
+        assertEquals(startOfFarvardin, range.startMillis)
+        assertEquals(endOfKhordad, range.endMillis)
+
+        // 1. Start of 1st month -> included
+        assertTrue("Start of Farvardin must be included", startOfFarvardin >= range.startMillis && startOfFarvardin < range.endMillis)
+        // 2. Timestamp inside 1st month -> included
+        assertTrue("Inside Farvardin must be included", insideFarvardin >= range.startMillis && insideFarvardin < range.endMillis)
+        // 3. Month before that (Esfand 1402) -> excluded
+        assertFalse("Esfand 1402 must be excluded", startOfEsfand1402 >= range.startMillis)
+        // 4. Exactly at endMillis -> excluded
+        assertFalse("Tir 1 (endMillis) must be excluded", endOfKhordad < range.endMillis)
+    }
+
+    @Test
+    fun `LAST_3_MONTHS crossing Persian year boundary`() {
+        // Fixed date: Farvardin 10, 1404 (Month 1 of 1404)
+        // 3 calendar months: Bahman 1403 (11), Esfand 1403 (12), Farvardin 1404 (1)
+        val fixedFarvardin = PersianCalendarHelper.jalaliToEpochMillis(1404, 1, 10, 10, 0)
+        val range = FinanceTimeUtils.getTimeRangeForPeriod(FinanceFilterPeriod.LAST_3_MONTHS, fixedFarvardin)
+
+        val startOfBahman1403 = PersianCalendarHelper.jalaliToEpochMillis(1403, 11, 1, 0, 0)
+        val endOfFarvardin1404 = PersianCalendarHelper.jalaliToEpochMillis(1404, 2, 1, 0, 0) // Ordibehesht 1
+        val insideBahman1403 = PersianCalendarHelper.jalaliToEpochMillis(1403, 11, 20, 14, 0)
+        val startOfDey1403 = PersianCalendarHelper.jalaliToEpochMillis(1403, 10, 1, 0, 0)
+
+        assertEquals(startOfBahman1403, range.startMillis)
+        assertEquals(endOfFarvardin1404, range.endMillis)
+
+        // 1. Start of Bahman 1403 -> included
+        assertTrue("Start of Bahman 1403 must be included", startOfBahman1403 >= range.startMillis && startOfBahman1403 < range.endMillis)
+        // 2. Inside Bahman 1403 -> included
+        assertTrue("Inside Bahman 1403 must be included", insideBahman1403 >= range.startMillis && insideBahman1403 < range.endMillis)
+        // 3. Dey 1403 (month before the 3-month window) -> excluded
+        assertFalse("Dey 1403 must be excluded", startOfDey1403 >= range.startMillis)
+        // 4. Exactly at endMillis -> excluded
+        assertFalse("Ordibehesht 1 (endMillis) must be excluded", endOfFarvardin1404 < range.endMillis)
+    }
+
+    // 5 & 6: THIS_YEAR filtering & complete boundary checks
+    @Test
+    fun `5 & 6 THIS_YEAR boundary checks - startOfYear, before, endOfYear-1, endOfYear`() {
         // Date: 1403/05/10 (Mordad 10, 1403)
         val fixedNow = PersianCalendarHelper.jalaliToEpochMillis(1403, 5, 10, 12, 0)
         val range = FinanceTimeUtils.getTimeRangeForPeriod(FinanceFilterPeriod.THIS_YEAR, fixedNow)
@@ -104,12 +185,19 @@ class FinanceStage2Test {
         val startOfYear1403 = PersianCalendarHelper.jalaliToEpochMillis(1403, 1, 1, 0, 0)
         val startOfYear1404 = PersianCalendarHelper.jalaliToEpochMillis(1404, 1, 1, 0, 0)
         val endOfYear1402 = startOfYear1403 - 1
+        val lastMomentOf1403 = startOfYear1404 - 1
 
         assertEquals(startOfYear1403, range.startMillis)
         assertEquals(startOfYear1404, range.endMillis)
 
-        assertTrue(fixedNow >= range.startMillis && fixedNow < range.endMillis)
-        assertFalse(endOfYear1402 >= range.startMillis)
+        // startOfYear -> included
+        assertTrue("startOfYear must be included", startOfYear1403 >= range.startMillis && startOfYear1403 < range.endMillis)
+        // startOfYear - 1 -> excluded
+        assertFalse("startOfYear - 1 must be excluded", endOfYear1402 >= range.startMillis)
+        // endOfYear - 1 -> included
+        assertTrue("endOfYear - 1 must be included", lastMomentOf1403 >= range.startMillis && lastMomentOf1403 < range.endMillis)
+        // endOfYear -> excluded
+        assertFalse("endOfYear must be excluded", startOfYear1404 < range.endMillis)
     }
 
     // 7: ALL period
@@ -260,24 +348,44 @@ class FinanceStage2Test {
         assertEquals(BudgetStatus.SAFE, summary.status)
     }
 
-    // 17: Toggle enable disable persists after reload
+    // 17: Genuine Reload Persistence Test (proving state is loaded from disk, not in-memory flow)
     @Test
-    fun `17 Toggle enable disable persists after reload`() = runBlocking {
-        val budget = Budget(id = "toggle_test", title = "Toggleable", amount = 3_000_000, isEnabled = true)
+    fun `17 True Reload Persistence Test for Budget Toggle`() = runBlocking {
+        val budget = Budget(id = "toggle_persist_test", title = "Toggle Persist Test", amount = 3_000_000, isEnabled = true)
         repository.addBudget(budget)
 
-        var list = repository.getBudgets().first()
-        assertTrue(list.first { it.id == "toggle_test" }.isEnabled)
+        // 1. Toggle disabled -> must return true (persistence success)
+        val toggleOffResult = repository.toggleBudget("toggle_persist_test", false)
+        assertTrue("toggleBudget(false) must return true on successful persistence", toggleOffResult)
 
-        // Toggle OFF
-        repository.toggleBudget("toggle_test", false)
-        list = repository.getBudgets().first()
-        assertFalse(list.first { it.id == "toggle_test" }.isEnabled)
+        // 2. Clear in-memory state completely to simulate process death / app restart
+        repository.clearInMemoryBudgetsForTesting()
+        val emptyState = repository.getBudgets().first()
+        assertTrue("In-memory budgets must be empty after explicit clear", emptyState.isEmpty())
 
-        // Toggle ON
-        repository.toggleBudget("toggle_test", true)
-        list = repository.getBudgets().first()
-        assertTrue(list.first { it.id == "toggle_test" }.isEnabled)
+        // 3. Reload metadata from disk
+        repository.refreshMetadataForCurrentUser()
+
+        // 4. Assert that disabled status was loaded from disk
+        val reloadedDisabled = repository.getBudgets().first().find { it.id == "toggle_persist_test" }
+        assertNotNull("Budget must exist in persisted disk store", reloadedDisabled)
+        assertFalse("Budget isEnabled must be false after reloading from disk", reloadedDisabled!!.isEnabled)
+
+        // 5. Toggle enabled -> must return true
+        val toggleOnResult = repository.toggleBudget("toggle_persist_test", true)
+        assertTrue("toggleBudget(true) must return true on successful persistence", toggleOnResult)
+
+        // 6. Clear in-memory state again
+        repository.clearInMemoryBudgetsForTesting()
+        assertTrue(repository.getBudgets().first().isEmpty())
+
+        // 7. Reload metadata from disk again
+        repository.refreshMetadataForCurrentUser()
+
+        // 8. Assert that enabled status was loaded from disk
+        val reloadedEnabled = repository.getBudgets().first().find { it.id == "toggle_persist_test" }
+        assertNotNull("Budget must exist in persisted disk store", reloadedEnabled)
+        assertTrue("Budget isEnabled must be true after reloading from disk", reloadedEnabled!!.isEnabled)
     }
 
     // 18: Budget user A not visible to user B
@@ -313,5 +421,62 @@ class FinanceStage2Test {
         assertEquals(1, matching.size)
         assertEquals("Updated Title", matching.first().title)
         assertEquals(2_000_000L, matching.first().amount)
+    }
+
+    // End-to-End ViewModel Period Test
+    @Test
+    fun `FinancialViewModel setPeriod dynamically filters transactions and budget summary`() = runBlocking {
+        val catFood = FinanceDefaultCategories.defaultExpenseCategories.find { it.id == "food" }!!
+        val now = System.currentTimeMillis()
+        val monthRange = FinanceTimeUtils.getTimeRangeForPeriod(FinanceFilterPeriod.THIS_MONTH, now)
+
+        val currentMonthTx = TransactionItemData(
+            id = "tx_cur_month",
+            title = "Food Current Month",
+            amount = 1_000_000L,
+            type = TransactionType.EXPENSE,
+            category = catFood,
+            datePersian = "این ماه",
+            timePersian = "12:00",
+            dateMillis = monthRange.startMillis + 3600_000L // definitely inside current month
+        )
+
+        val previousMonthTx = TransactionItemData(
+            id = "tx_prev_month",
+            title = "Food Previous Month",
+            amount = 2_000_000L,
+            type = TransactionType.EXPENSE,
+            category = catFood,
+            datePersian = "ماه قبل",
+            timePersian = "12:00",
+            dateMillis = monthRange.startMillis - 3600_000L // definitely in previous month
+        )
+
+        val budget = Budget(
+            id = "b_test_vm",
+            title = "Food Budget VM",
+            amount = 5_000_000L,
+            categoryId = "food",
+            isEnabled = true
+        )
+
+        repository.addTransactionResult(currentMonthTx)
+        repository.addTransactionResult(previousMonthTx)
+        repository.addBudget(budget)
+
+        val viewModel = FinancialViewModel(repository)
+
+        // 1. With THIS_MONTH, only current month transaction (1,000,000) should be included
+        viewModel.setPeriod(FinanceFilterPeriod.THIS_MONTH)
+        // Wait for flow combine to emit
+        var state = viewModel.uiState.first { it.monthlyExpense > 0 }
+        assertEquals(1_000_000L, state.monthlyExpense)
+        assertEquals(1_000_000L, state.budgetUsed)
+
+        // 2. With ALL, both transactions (1,000,000 + 2,000,000 = 3,000,000) should be included
+        viewModel.setPeriod(FinanceFilterPeriod.ALL)
+        state = viewModel.uiState.first { it.monthlyExpense == 3_000_000L }
+        assertEquals(3_000_000L, state.monthlyExpense)
+        assertEquals(3_000_000L, state.budgetUsed)
     }
 }

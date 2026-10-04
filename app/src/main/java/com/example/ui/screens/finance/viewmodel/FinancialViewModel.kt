@@ -210,9 +210,10 @@ class FinancialViewModel(
         }
     }
 
-    fun toggleBudget(id: String, enabled: Boolean) {
+    fun toggleBudget(id: String, enabled: Boolean, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            repository.toggleBudget(id, enabled)
+            val success = repository.toggleBudget(id, enabled)
+            onResult(success)
         }
     }
 

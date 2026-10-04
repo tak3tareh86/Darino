@@ -302,14 +302,70 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         saveMetadataToDisk()
     }
     
-    override fun toggleBudget(id: String, enabled: Boolean) {
-        val current = _budgets.value.toMutableList()
+    fun clearInMemoryBudgetsForTesting() {
+        _budgets.value = emptyList()
+    }
+
+    override fun toggleBudget(id: String, enabled: Boolean): Boolean {
+        val currentUserId = SessionManager.userId ?: run {
+            android.util.Log.e("LocalFinanceRepository", "toggleBudget: No authenticated user")
+            return false
+        }
+        val current = _budgets.value
         val index = current.indexOfFirst { it.id == id }
-        if (index != -1) {
-            val item = current[index]
-            current[index] = item.copy(isEnabled = enabled, enabled = enabled)
-            _budgets.value = current
-            saveMetadataToDisk()
+        if (index == -1) {
+            android.util.Log.e("LocalFinanceRepository", "toggleBudget: Budget with id $id not found")
+            return false
+        }
+
+        // Prepare updated list WITHOUT modifying in-memory state yet
+        val updatedList = current.toMutableList()
+        val item = current[index]
+        updatedList[index] = item.copy(isEnabled = enabled, enabled = enabled)
+
+        // 1. Persist to disk FIRST
+        val persisted = persistBudgetsToDisk(updatedList, currentUserId)
+        if (!persisted) {
+            android.util.Log.e("LocalFinanceRepository", "toggleBudget: Persistence failed for budget $id")
+            return false
+        }
+
+        // 2. Only after persistence succeeds, update in-memory state
+        _budgets.value = updatedList
+        return true
+    }
+
+    private fun persistBudgetsToDisk(budgets: List<Budget>, userId: String?): Boolean {
+        val ctx = appContext ?: run {
+            android.util.Log.e("LocalFinanceRepository", "persistBudgetsToDisk: appContext is null")
+            return false
+        }
+        return try {
+            val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val bArr = JSONArray()
+            budgets.forEach { b ->
+                val obj = JSONObject()
+                obj.put("id", b.id)
+                obj.put("title", b.title)
+                obj.put("categoryId", b.categoryId ?: "")
+                obj.put("categoryTitle", b.categoryTitle ?: "")
+                obj.put("amount", b.amount)
+                obj.put("period", b.period)
+                obj.put("startDate", b.startDate)
+                obj.put("endDate", b.endDate)
+                obj.put("isEnabled", b.isEnabled)
+                bArr.put(obj)
+            }
+            val committed = prefs.edit()
+                .putString(userScopedKey(KEY_BUDGETS, userId), bArr.toString())
+                .commit()
+            if (!committed) {
+                android.util.Log.e("LocalFinanceRepository", "persistBudgetsToDisk: commit() returned false")
+            }
+            committed
+        } catch (e: Exception) {
+            android.util.Log.e("LocalFinanceRepository", "Failed to persist budgets to disk", e)
+            false
         }
     }
 
@@ -513,7 +569,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
             editor.commit()
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("LocalFinanceRepository", "saveMetadataToDisk failed", e)
         }
     }
 

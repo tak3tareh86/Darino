@@ -282,7 +282,11 @@ fun FinancialScreen(
                         scope.launch { snackbarHostState.showSnackbar("بودجه حذف شد") }
                     },
                     onToggleBudget = { bId, enabled ->
-                        viewModel.toggleBudget(bId, enabled)
+                        viewModel.toggleBudget(bId, enabled) { success ->
+                            if (!success) {
+                                scope.launch { snackbarHostState.showSnackbar("خطا در ذخیره‌سازی وضعیت بودجه") }
+                            }
+                        }
                     }
                 )
             }
