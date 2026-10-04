@@ -45,6 +45,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -56,7 +58,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -333,7 +337,8 @@ fun BudgetScreen(
                         BudgetDetailCard(
                             budget = b,
                             onEdit = { onEditBudgetClick(b) },
-                            onDelete = { budgetToDelete = b }
+                            onDelete = { budgetToDelete = b },
+                            onToggle = { enabled -> onToggleBudget(b.id, enabled) }
                         )
                     }
                 }
@@ -371,12 +376,14 @@ fun BudgetDetailCard(
     budget: Budget,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+    val isEnabled = budget.isEnabled
 
     val progressAnimated by animateFloatAsState(
-        targetValue = (budget.usagePercentage.coerceIn(0, 100) / 100f),
+        targetValue = (if (isEnabled) budget.usagePercentage.coerceIn(0, 100) / 100f else 0f),
         animationSpec = tween(500),
         label = "budget_card_progress"
     )
@@ -391,9 +398,16 @@ fun BudgetDetailCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDark) Color(0xFF0F172A) else Color(0xFFFFFFFF)
+            containerColor = if (!isEnabled) {
+                if (isDark) Color(0xFF1E293B).copy(alpha = 0.5f) else Color(0xFFF1F5F9).copy(alpha = 0.5f)
+            } else {
+                if (isDark) Color(0xFF0F172A) else Color(0xFFFFFFFF)
+            }
         ),
-        border = BorderStroke(1.dp, if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9))
+        border = BorderStroke(
+            1.dp, 
+            if (isEnabled) (if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)) else Color.Transparent
+        )
     ) {
         Column(
             modifier = Modifier
@@ -401,7 +415,7 @@ fun BudgetDetailCard(
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Header Row: Title, Status Badge, Edit, Delete
+            // Header Row: Title, Status Badge, Toggle, Edit, Delete
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -416,12 +430,16 @@ fun BudgetDetailCard(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(budget.status.color.copy(alpha = if (isDark) 0.2f else 0.08f)),
+                            .background(
+                                if (isEnabled) budget.status.color.copy(alpha = if (isDark) 0.2f else 0.08f)
+                                else Color.Gray.copy(alpha = 0.1f)
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (budget.categoryId != null) "🏷️" else "📊",
-                            fontSize = 18.sp
+                            fontSize = 18.sp,
+                            modifier = if (isEnabled) Modifier else Modifier.alpha(0.5f)
                         )
                     }
 
@@ -432,12 +450,12 @@ fun BudgetDetailCard(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.5.sp
                             ),
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = if (isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                         Text(
-                            text = if (budget.enabled) "بودجه فعال ماه جاری" else "غیرفعال شده",
+                            text = if (isEnabled) "بودجه فعال" else "غیرفعال شده",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -447,20 +465,37 @@ fun BudgetDetailCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Status Badge
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = budget.status.color.copy(alpha = if (isDark) 0.25f else 0.12f)
-                    ) {
-                        Text(
-                            text = budget.status.title,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 9.5.sp
-                            ),
-                            color = budget.status.color
-                        )
+                    if (isEnabled) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = budget.status.color.copy(alpha = if (isDark) 0.25f else 0.12f)
+                        ) {
+                            Text(
+                                text = budget.status.title,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 9.5.sp
+                                ),
+                                color = budget.status.color
+                            )
+                        }
                     }
+
+                    Switch(
+                        checked = isEnabled,
+                        onCheckedChange = onToggle,
+                        modifier = Modifier.size(width = 36.dp, height = 20.dp).padding(end = 4.dp),
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            uncheckedThumbColor = if (isDark) Color.Gray else Color.White,
+                            uncheckedTrackColor = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1),
+                            uncheckedBorderColor = Color.Transparent
+                        )
+                    )
+                    
+                    Spacer(modifier = Modifier.width(2.dp))
 
                     IconButton(
                         onClick = onEdit,
@@ -498,82 +533,91 @@ fun BudgetDetailCard(
                 }
             }
 
-            // Progress bar
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            if (isEnabled) {
+                // Progress bar
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "مصرف‌شده: ${budget.formattedSpent}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${MoneyFormatter.toPersianDigits(budget.usagePercentage.toString())}٪",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp
+                            ),
+                            color = budget.status.color
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(progressAnimated)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(progressGradient)
+                        )
+                    }
+                }
+
+                // Bottom details row: budget vs remaining
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "مصرف‌شده: ${budget.formattedSpent}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "${MoneyFormatter.toPersianDigits(budget.usagePercentage.toString())}٪",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.5.sp
-                        ),
-                        color = budget.status.color
-                    )
-                }
+                    Column {
+                        Text(
+                            text = "کل سقف بودجه",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = budget.formattedAmount,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.5.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(progressAnimated)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(progressGradient)
-                    )
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "مبلغ باقیمانده",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = budget.formattedRemaining,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.5.sp
+                            ),
+                            color = if (budget.status == BudgetStatus.EXCEEDED) Color(0xFFEF4444) else EmeraldPrimaryLight
+                        )
+                    }
                 }
-            }
-
-            // Bottom details row: budget vs remaining
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "کل سقف بودجه",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = budget.formattedAmount,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.5.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "مبلغ باقیمانده",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = budget.formattedRemaining,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.5.sp
-                        ),
-                        color = if (budget.status == BudgetStatus.EXCEEDED) Color(0xFFEF4444) else EmeraldPrimaryLight
-                    )
-                }
+            } else {
+                Text(
+                    text = "این بودجه غیرفعال است و در محاسبات کلی مالی نمایش داده نمی‌شود.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         }
     }

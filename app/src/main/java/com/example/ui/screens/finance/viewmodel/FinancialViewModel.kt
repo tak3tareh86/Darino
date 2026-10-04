@@ -8,6 +8,7 @@ import com.example.ui.screens.finance.data.TransactionOperationResult
 import com.example.ui.screens.finance.domain.BudgetEngine
 import com.example.ui.screens.finance.domain.FinanceEngine
 import com.example.ui.screens.finance.model.Budget
+import com.example.ui.screens.finance.model.FinanceFilterPeriod
 import com.example.ui.screens.finance.model.FinancialState
 import com.example.ui.screens.finance.model.RecurringTransaction
 import com.example.ui.screens.finance.model.SavingsGoal
@@ -25,19 +26,48 @@ class FinancialViewModel(
     private val repository: FinanceRepository = LocalFinanceRepository.instance
 ) : ViewModel() {
 
+    private val _selectedPeriod = MutableStateFlow(FinanceFilterPeriod.THIS_MONTH)
+    val selectedPeriod: StateFlow<FinanceFilterPeriod> = _selectedPeriod
+
     val uiState: StateFlow<FinancialState> = combine(
-        repository.getTransactions(),
-        repository.getBudgets(),
-        repository.getSavingsGoals(),
-        repository.getRecurringTransactions(),
-        repository.getCategories()
-    ) { transactions, budgets, savingsGoals, recurring, categories ->
-        val income = FinanceEngine.calculateMonthlyIncome(transactions)
-        val expense = FinanceEngine.calculateMonthlyExpense(transactions)
+        listOf(
+            repository.getTransactions(),
+            repository.getBudgets(),
+            repository.getSavingsGoals(),
+            repository.getRecurringTransactions(),
+            repository.getCategories(),
+            _selectedPeriod
+        )
+    ) { args ->
+        @Suppress("UNCHECKED_CAST")
+        val transactions = args[0] as List<TransactionItemData>
+        @Suppress("UNCHECKED_CAST")
+        val budgets = args[1] as List<Budget>
+        @Suppress("UNCHECKED_CAST")
+        val savingsGoals = args[2] as List<SavingsGoal>
+        @Suppress("UNCHECKED_CAST")
+        val recurring = args[3] as List<RecurringTransaction>
+        @Suppress("UNCHECKED_CAST")
+        val categories = args[4] as List<TransactionCategory>
+        val period = args[5] as FinanceFilterPeriod
+
+        val range = com.example.ui.screens.finance.domain.FinanceTimeUtils.getTimeRangeForPeriod(period)
+        
+        val filteredTransactions = transactions.filter { 
+            it.dateMillis >= range.startMillis && it.dateMillis < range.endMillis 
+        }
+
+        val income = FinanceEngine.calculateMonthlyIncome(filteredTransactions)
+        val expense = FinanceEngine.calculateMonthlyExpense(filteredTransactions)
         val balance = FinanceEngine.calculateMonthlyBalance(income, expense)
         val savingsRate = FinanceEngine.calculateSavingsRate(income, expense)
 
-        val budgetSummary = BudgetEngine.calculateTotalMonthlyBudgetUsage(budgets, transactions)
+        // Recalculate each budget's usage based on the same filtered transactions
+        val updatedBudgets = budgets.map { budget ->
+            BudgetEngine.calculateBudgetUsage(budget, filteredTransactions)
+        }
+
+        val budgetSummary = BudgetEngine.calculateTotalMonthlyBudgetUsage(updatedBudgets, filteredTransactions)
 
         FinancialState(
             monthlyIncome = income,
@@ -55,9 +85,9 @@ class FinancialViewModel(
             formattedMonthlyBudget = MoneyFormatter.formatToman(budgetSummary.totalBudget),
             formattedBudgetUsed = MoneyFormatter.formatToman(budgetSummary.totalSpent),
             formattedBudgetRemaining = MoneyFormatter.formatToman(budgetSummary.remainingBudget),
-            recentTransactions = transactions.take(4),
-            allTransactions = transactions,
-            activeBudgets = budgets,
+            recentTransactions = filteredTransactions.take(4),
+            allTransactions = filteredTransactions,
+            activeBudgets = updatedBudgets,
             savingsGoals = savingsGoals,
             recurringTransactions = recurring,
             categories = categories,
@@ -69,6 +99,10 @@ class FinancialViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = FinancialState(isLoading = true)
     )
+
+    fun setPeriod(period: FinanceFilterPeriod) {
+        _selectedPeriod.value = period
+    }
 
     fun addTransaction(transaction: TransactionItemData, onResult: (TransactionOperationResult) -> Unit = {}) {
         viewModelScope.launch {
@@ -178,9 +212,7 @@ class FinancialViewModel(
 
     fun toggleBudget(id: String, enabled: Boolean) {
         viewModelScope.launch {
-            val budgets = (repository as? LocalFinanceRepository)?.let {
-                // repository handles it or toggle isEnabled
-            }
+            repository.toggleBudget(id, enabled)
         }
     }
 

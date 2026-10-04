@@ -67,13 +67,25 @@ object BudgetEngine {
 
     /**
      * Aggregates total monthly budget vs total expense across active budgets.
+     * Only expenses matching an enabled budget's category are counted.
      */
     fun calculateTotalMonthlyBudgetUsage(
         budgets: List<Budget>,
         transactions: List<TransactionItemData>
     ): OverallBudgetSummary {
-        val totalBudget = budgets.filter { it.isEnabled }.sumOf { it.amount }
-        val totalSpent = transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+        val activeBudgets = budgets.filter { it.isEnabled }
+        val totalBudget = activeBudgets.sumOf { it.amount }
+        
+        // Only count expenses that belong to one of the active budget categories
+        val activeBudgetCategoryIds = activeBudgets.mapNotNull { it.categoryId }.toSet()
+        
+        val totalSpent = transactions
+            .filter { tx -> 
+                tx.type == TransactionType.EXPENSE && 
+                activeBudgetCategoryIds.contains(tx.categoryId)
+            }
+            .sumOf { it.amount }
+            
         val remaining = totalBudget - totalSpent
 
         val usagePercentage = if (totalBudget <= 0L) {

@@ -41,6 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import com.example.ui.components.PersianAmountInputField
 import com.example.ui.screens.finance.model.Budget
 import com.example.ui.screens.finance.model.FinanceDefaultCategories
@@ -66,6 +68,7 @@ fun AddBudgetSheet(
     var rawAmount by remember { mutableStateOf(initialBudget?.amount?.toString() ?: "") }
     var selectedCategoryId by remember { mutableStateOf<String?>(initialBudget?.categoryId) }
     var period by remember { mutableStateOf(initialBudget?.period ?: "این ماه") }
+    var isEnabled by remember { mutableStateOf(initialBudget?.isEnabled ?: true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val parsedAmount = IranianAmountUtils.parseAmountToLong(rawAmount)
@@ -211,6 +214,45 @@ fun AddBudgetSheet(
                 testTag = "budget_amount_input"
             )
 
+            // Active Status Switch
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(RadiusMD))
+                    .clickable { isEnabled = !isEnabled },
+                color = if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+                border = BorderStroke(1.dp, if (isDark) Color(0xFF232D42) else Color(0xFFE2E8F0))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "وضعیت بودجه",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isEnabled) "این بودجه فعال است و در محاسبات لحاظ می‌شود" else "بودجه غیرفعال است",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isEnabled,
+                        onCheckedChange = { isEnabled = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
+            }
+
             errorMessage?.let {
                 Text(text = it, style = MaterialTheme.typography.labelSmall, color = Color(0xFFEF4444))
             }
@@ -228,7 +270,9 @@ fun AddBudgetSheet(
                         categoryId = selectedCategoryId,
                         categoryTitle = catTitle,
                         amount = parsedAmount,
-                        period = period
+                        period = period,
+                        isEnabled = isEnabled,
+                        enabled = isEnabled
                     )
                     onSubmit(b)
                 },

@@ -80,11 +80,11 @@ fun FinancialScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
+    val selectedPeriod by viewModel.selectedPeriod.collectAsState()
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var currentSubScreen by remember { mutableStateOf(FinanceSubScreen.MAIN) }
-    var selectedPeriod by remember { mutableStateOf(FinanceFilterPeriod.THIS_MONTH) }
 
     // Bottom Sheets State
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -357,7 +357,7 @@ fun FinancialScreen(
             sheetState = filterSheetState,
             selectedPeriod = selectedPeriod,
             onPeriodSelected = { period ->
-                selectedPeriod = period
+                viewModel.setPeriod(period)
                 showFilterSheet = false
             },
             onDismiss = { showFilterSheet = false }

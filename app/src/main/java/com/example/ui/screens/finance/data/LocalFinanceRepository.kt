@@ -122,6 +122,19 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         }
     }
 
+    fun refreshMetadataForCurrentUser() {
+        val appCtx = appContext ?: return
+        val currentUserId = SessionManager.userId
+        if (currentUserId == null) {
+            _transactions.value = emptyList()
+            _budgets.value = emptyList()
+            _savingsGoals.value = emptyList()
+            _recurringTransactions.value = emptyList()
+        } else {
+            loadMetadataFromDisk(appCtx, currentUserId)
+        }
+    }
+
     override suspend fun addTransactionResult(transaction: TransactionItemData): TransactionOperationResult {
         val userId = SessionManager.userId ?: return TransactionOperationResult.NO_AUTHENTICATED_USER
         
@@ -139,6 +152,10 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             val db = AppDatabase.getDatabase(ctx)
             val entity = toEntity(validatedTx)
             db.transactionDao().insertTransaction(entity)
+            val current = _transactions.value.filter { it.id != validatedTx.id }.toMutableList()
+            current.add(0, validatedTx)
+            _transactions.value = current
+            recalculateBudgets()
             TransactionOperationResult.SUCCESS
         } catch (e: Exception) {
             e.printStackTrace()
@@ -165,6 +182,13 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             }
             val entity = toEntity(transaction).copy(id = existing.id, userId = userId)
             db.transactionDao().updateTransaction(entity)
+            val current = _transactions.value.toMutableList()
+            val index = current.indexOfFirst { it.id == transaction.id }
+            if (index != -1) {
+                current[index] = transaction
+            }
+            _transactions.value = current
+            recalculateBudgets()
             TransactionOperationResult.SUCCESS
         } catch (e: Exception) {
             e.printStackTrace()
@@ -183,6 +207,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 return TransactionOperationResult.NOT_FOUND
             }
             db.transactionDao().softDeleteByStringId(userId, id, System.currentTimeMillis(), System.currentTimeMillis())
+            _transactions.value = _transactions.value.filter { it.id != id }
+            recalculateBudgets()
             TransactionOperationResult.SUCCESS
         } catch (e: Exception) {
             e.printStackTrace()
@@ -248,7 +274,12 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     override fun addBudget(budget: Budget) {
         val recalculated = BudgetEngine.calculateBudgetUsage(budget, _transactions.value)
         val current = _budgets.value.toMutableList()
-        current.add(recalculated)
+        val index = current.indexOfFirst { it.id == budget.id }
+        if (index != -1) {
+            current[index] = recalculated
+        } else {
+            current.add(recalculated)
+        }
         _budgets.value = current
         saveMetadataToDisk()
     }
@@ -269,6 +300,17 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         current.removeAll { it.id == id }
         _budgets.value = current
         saveMetadataToDisk()
+    }
+    
+    override fun toggleBudget(id: String, enabled: Boolean) {
+        val current = _budgets.value.toMutableList()
+        val index = current.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val item = current[index]
+            current[index] = item.copy(isEnabled = enabled, enabled = enabled)
+            _budgets.value = current
+            saveMetadataToDisk()
+        }
     }
 
     override fun addSavingsGoal(goal: SavingsGoal) {
@@ -409,67 +451,69 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
     private fun saveMetadataToDisk() {
         val ctx = appContext ?: return
-        repositoryScope.launch {
-            try {
-                val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                val editor = prefs.edit()
+        val currentUserId = SessionManager.userId
+        val currentBudgets = _budgets.value
+        val currentSavings = _savingsGoals.value
+        val currentRecurring = _recurringTransactions.value
+        try {
+            val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val editor = prefs.edit()
 
-                // Budgets
-                val bArr = JSONArray()
-                _budgets.value.forEach { b ->
-                    val obj = JSONObject()
-                    obj.put("id", b.id)
-                    obj.put("title", b.title)
-                    obj.put("categoryId", b.categoryId ?: "")
-                    obj.put("categoryTitle", b.categoryTitle ?: "")
-                    obj.put("amount", b.amount)
-                    obj.put("period", b.period)
-                    obj.put("startDate", b.startDate)
-                    obj.put("endDate", b.endDate)
-                    obj.put("isEnabled", b.isEnabled)
-                    bArr.put(obj)
-                }
-                editor.putString(userScopedKey(KEY_BUDGETS, SessionManager.userId), bArr.toString())
-
-                // Savings Goals
-                val gArr = JSONArray()
-                _savingsGoals.value.forEach { g ->
-                    val obj = JSONObject()
-                    obj.put("id", g.id)
-                    obj.put("title", g.title)
-                    obj.put("targetAmount", g.targetAmount)
-                    obj.put("currentAmount", g.currentAmount)
-                    obj.put("targetDate", g.targetDate)
-                    obj.put("description", g.description)
-                    obj.put("status", g.status.name)
-                    obj.put("iconEmoji", g.iconEmoji)
-                    gArr.put(obj)
-                }
-                editor.putString(userScopedKey(KEY_SAVINGS, SessionManager.userId), gArr.toString())
-
-                // Recurring
-                val rArr = JSONArray()
-                _recurringTransactions.value.forEach { r ->
-                    val obj = JSONObject()
-                    obj.put("id", r.id)
-                    obj.put("title", r.title)
-                    obj.put("amount", r.amount)
-                    obj.put("type", r.type.name)
-                    obj.put("categoryId", r.categoryId)
-                    obj.put("categoryTitle", r.categoryTitle)
-                    obj.put("frequency", r.frequency.name)
-                    obj.put("startDate", r.startDate)
-                    obj.put("endDate", r.endDate ?: "")
-                    obj.put("nextExecutionDate", r.nextExecutionDate)
-                    obj.put("enabled", r.enabled)
-                    rArr.put(obj)
-                }
-                editor.putString(userScopedKey(KEY_RECURRING, SessionManager.userId), rArr.toString())
-
-                editor.apply()
-            } catch (e: Exception) {
-                e.printStackTrace()
+            // Budgets
+            val bArr = JSONArray()
+            currentBudgets.forEach { b ->
+                val obj = JSONObject()
+                obj.put("id", b.id)
+                obj.put("title", b.title)
+                obj.put("categoryId", b.categoryId ?: "")
+                obj.put("categoryTitle", b.categoryTitle ?: "")
+                obj.put("amount", b.amount)
+                obj.put("period", b.period)
+                obj.put("startDate", b.startDate)
+                obj.put("endDate", b.endDate)
+                obj.put("isEnabled", b.isEnabled)
+                bArr.put(obj)
             }
+            editor.putString(userScopedKey(KEY_BUDGETS, currentUserId), bArr.toString())
+
+            // Savings Goals
+            val gArr = JSONArray()
+            currentSavings.forEach { g ->
+                val obj = JSONObject()
+                obj.put("id", g.id)
+                obj.put("title", g.title)
+                obj.put("targetAmount", g.targetAmount)
+                obj.put("currentAmount", g.currentAmount)
+                obj.put("targetDate", g.targetDate)
+                obj.put("description", g.description)
+                obj.put("status", g.status.name)
+                obj.put("iconEmoji", g.iconEmoji)
+                gArr.put(obj)
+            }
+            editor.putString(userScopedKey(KEY_SAVINGS, currentUserId), gArr.toString())
+
+            // Recurring
+            val rArr = JSONArray()
+            currentRecurring.forEach { r ->
+                val obj = JSONObject()
+                obj.put("id", r.id)
+                obj.put("title", r.title)
+                obj.put("amount", r.amount)
+                obj.put("type", r.type.name)
+                obj.put("categoryId", r.categoryId)
+                obj.put("categoryTitle", r.categoryTitle)
+                obj.put("frequency", r.frequency.name)
+                obj.put("startDate", r.startDate)
+                obj.put("endDate", r.endDate ?: "")
+                obj.put("nextExecutionDate", r.nextExecutionDate)
+                obj.put("enabled", r.enabled)
+                rArr.put(obj)
+            }
+            editor.putString(userScopedKey(KEY_RECURRING, currentUserId), rArr.toString())
+
+            editor.commit()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
