@@ -72,14 +72,18 @@ class FinanceStage2Test {
         val nextDayStart = exactStartOfDay + 24 * 3600_000L
         val exactJustBeforeEnd = nextDayStart - 1
 
+        val isInside = { timestamp: Long ->
+            timestamp >= range.startMillis && timestamp < range.endMillis
+        }
+
         // Boundary checks
         assertEquals(exactStartOfDay, range.startMillis)
         assertEquals(nextDayStart, range.endMillis)
-        assertTrue(insideToday >= range.startMillis && insideToday < range.endMillis)
-        assertFalse(exactJustBeforeStart >= range.startMillis)
-        assertTrue(exactStartOfDay >= range.startMillis && exactStartOfDay < range.endMillis)
-        assertTrue(exactJustBeforeEnd >= range.startMillis && exactJustBeforeEnd < range.endMillis)
-        assertFalse(nextDayStart < range.endMillis)
+        assertTrue(isInside(insideToday))
+        assertFalse(isInside(exactJustBeforeStart))
+        assertTrue(isInside(exactStartOfDay))
+        assertTrue(isInside(exactJustBeforeEnd))
+        assertFalse(isInside(nextDayStart))
     }
 
     // THIS_WEEK deterministic test verifying Saturday 00:00 -> next Saturday 00:00 business rule
@@ -133,23 +137,26 @@ class FinanceStage2Test {
         assertEquals("startMillis must equal Saturday 00:00:00.000", expectedSaturdayStart, range.startMillis)
         assertEquals("endMillis must equal next Saturday 00:00:00.000", expectedNextSaturdayStart, range.endMillis)
 
+        // Boundary helper function for [startMillis, endMillis)
+        val isInside = { timestamp: Long ->
+            timestamp >= range.startMillis && timestamp < range.endMillis
+        }
+
         // Boundary checks [startMillis, endMillis)
         // 1. Transaction exactly at startMillis -> included
-        assertTrue("startMillis must be included", range.startMillis >= range.startMillis && range.startMillis < range.endMillis)
+        assertTrue("startMillis must be included", isInside(range.startMillis))
 
         // 2. Transaction at startMillis - 1 (Friday 23:59:59.999 of preceding week) -> excluded
-        val beforeStart = range.startMillis - 1
-        assertFalse("startMillis - 1 must be excluded", beforeStart >= range.startMillis)
+        assertFalse("startMillis - 1 must be excluded", isInside(range.startMillis - 1))
 
         // 3. Transaction in middle of week (Wednesday) -> included
-        assertTrue("midweek timestamp must be included", fixedWednesdayNow >= range.startMillis && fixedWednesdayNow < range.endMillis)
+        assertTrue("midweek timestamp must be included", isInside(fixedWednesdayNow))
 
         // 4. Transaction at endMillis - 1 (Friday 23:59:59.999 of current week) -> included
-        val justBeforeEnd = range.endMillis - 1
-        assertTrue("endMillis - 1 must be included", justBeforeEnd >= range.startMillis && justBeforeEnd < range.endMillis)
+        assertTrue("endMillis - 1 must be included", isInside(range.endMillis - 1))
 
         // 5. Transaction exactly at endMillis (Saturday 00:00:00.000 of next week) -> excluded
-        assertFalse("endMillis must be excluded", range.endMillis < range.endMillis)
+        assertFalse("endMillis must be excluded", isInside(range.endMillis))
     }
 
     // 3 & 4: THIS_MONTH filtering & boundary checks
@@ -396,8 +403,9 @@ class FinanceStage2Test {
         val budget = Budget(id = "toggle_persist_test", title = "Toggle Persist Test", amount = 3_000_000, isEnabled = true)
         repository.addBudget(budget)
 
-        // 1. Toggle disabled
-        repository.toggleBudget("toggle_persist_test", false)
+        // 1. Toggle disabled and assert result
+        val disableResult = repository.toggleBudget("toggle_persist_test", false)
+        assertTrue("toggleBudget(false) must return true", disableResult)
 
         // 2. Clear in-memory state completely via session logout
         SessionManager.logout()
@@ -416,8 +424,9 @@ class FinanceStage2Test {
         assertNotNull("Budget must exist in persisted disk store", reloadedDisabled)
         assertFalse("Budget isEnabled must be false after reloading from disk", reloadedDisabled!!.isEnabled)
 
-        // 5. Toggle enabled
-        repository.toggleBudget("toggle_persist_test", true)
+        // 5. Toggle enabled and assert result
+        val enableResult = repository.toggleBudget("toggle_persist_test", true)
+        assertTrue("toggleBudget(true) must return true", enableResult)
 
         // 6. Clear in-memory state again
         SessionManager.logout()
