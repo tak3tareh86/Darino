@@ -8,7 +8,9 @@ import com.example.financial_health.domain.FinancialHealthStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
+import com.example.data.security.SessionManager
 
 class FinancialHealthRepository(context: Context) {
 
@@ -22,43 +24,71 @@ class FinancialHealthRepository(context: Context) {
         const val DEFAULT_FIXED_EXPENSES = 4_000_000L
     }
 
-    val profileFlow: Flow<FinancialHealthProfile> = dao.getProfile(DEFAULT_PROFILE_ID).map { entity ->
-        if (entity == null) {
-            val transactions = try { db.transactionDao().getAllTransactionsList() } catch (e: Exception) { emptyList() }
-            val installmentsList = try { db.installmentDao().getAllInstallmentsList() } catch (e: Exception) { emptyList() }
-
-            val computedIncome = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }.let { if (it > 0) it else DEFAULT_INCOME }
-            val computedInstallments = installmentsList.filter { it.status == "ACTIVE" || it.status == "PENDING" || it.status == "OVERDUE" }
-                .sumOf { it.amount / it.totalInstallments.coerceAtLeast(1) }.let { if (it > 0) it else DEFAULT_INSTALLMENTS }
-
-            val commitments = computedInstallments + DEFAULT_FIXED_EXPENSES
-            val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(commitments, computedIncome)
-            val status = FinancialAnalyzerEngine.calculateHealthStatus(pressure)
-            FinancialHealthProfile(
-                id = DEFAULT_PROFILE_ID,
-                monthlyIncome = computedIncome,
-                monthlyInstallments = computedInstallments,
-                fixedExpenses = DEFAULT_FIXED_EXPENSES,
-                financialPressure = pressure,
-                healthStatus = status
-            )
-        } else {
-            val status = try {
-                FinancialHealthStatus.valueOf(entity.healthStatus)
-            } catch (e: Exception) {
-                FinancialAnalyzerEngine.calculateHealthStatus(entity.financialPressure)
+    val profileFlow: Flow<FinancialHealthProfile> =
+        SessionManager.sessionState.flatMapLatest { state ->
+            val userId = when (state) {
+                is com.example.data.security.SessionState.Authenticated -> state.user.id
+                is com.example.data.security.SessionState.PhoneVerificationRequired -> state.user.id
+                else -> null
             }
-            FinancialHealthProfile(
-                id = entity.id,
-                monthlyIncome = entity.monthlyIncome,
-                monthlyInstallments = entity.monthlyInstallments,
-                fixedExpenses = entity.fixedExpenses,
-                financialPressure = entity.financialPressure,
-                healthStatus = status,
-                updatedAt = entity.updatedAt
-            )
+
+            if (userId == null) {
+                kotlinx.coroutines.flow.flowOf(defaultProfile())
+            } else {
+                dao.getProfile(userId, DEFAULT_PROFILE_ID).map { entity ->
+                    if (entity == null) {
+                        calculateProfile(userId)
+                    } else {
+                        val status = try {
+                            FinancialHealthStatus.valueOf(entity.healthStatus)
+                        } catch (e: Exception) {
+                            FinancialAnalyzerEngine.calculateHealthStatus(entity.financialPressure)
+                        }
+                        FinancialHealthProfile(
+                            id = entity.id,
+                            monthlyIncome = entity.monthlyIncome,
+                            monthlyInstallments = entity.monthlyInstallments,
+                            fixedExpenses = entity.fixedExpenses,
+                            financialPressure = entity.financialPressure,
+                            healthStatus = status,
+                            updatedAt = entity.updatedAt
+                        )
+                    }
+                }
+            }
         }
+
+    private suspend fun calculateProfile(userId: String): FinancialHealthProfile {
+        val transactions = try { db.transactionDao().getAllTransactionsList(userId) } catch (_: Exception) { emptyList() }
+        val installmentsList = try { db.installmentDao().getAllInstallmentsList(userId) } catch (_: Exception) { emptyList() }
+        val computedIncome = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }.let { if (it > 0) it else DEFAULT_INCOME }
+        val computedInstallments = installmentsList
+            .filter { it.status == "ACTIVE" || it.status == "PENDING" || it.status == "OVERDUE" }
+            .sumOf { it.amount / it.totalInstallments.coerceAtLeast(1) }
+            .let { if (it > 0) it else DEFAULT_INSTALLMENTS }
+        val commitments = computedInstallments + DEFAULT_FIXED_EXPENSES
+        val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(commitments, computedIncome)
+        return FinancialHealthProfile(
+            id = DEFAULT_PROFILE_ID,
+            monthlyIncome = computedIncome,
+            monthlyInstallments = computedInstallments,
+            fixedExpenses = DEFAULT_FIXED_EXPENSES,
+            financialPressure = pressure,
+            healthStatus = FinancialAnalyzerEngine.calculateHealthStatus(pressure)
+        )
     }
+
+    private fun defaultProfile() = FinancialHealthProfile(
+        id = DEFAULT_PROFILE_ID,
+        monthlyIncome = DEFAULT_INCOME,
+        monthlyInstallments = DEFAULT_INSTALLMENTS,
+        fixedExpenses = DEFAULT_FIXED_EXPENSES,
+        financialPressure = 40f,
+        healthStatus = FinancialHealthStatus.MEDIUM
+    )
+
+    private fun requireUserId(): String =
+        SessionManager.userId ?: throw IllegalStateException("Authenticated user is required")
 
     suspend fun saveProfile(
         monthlyIncome: Long,
@@ -71,6 +101,7 @@ class FinancialHealthRepository(context: Context) {
 
         val entity = FinancialHealthEntity(
             id = DEFAULT_PROFILE_ID,
+            userId = requireUserId(),
             monthlyIncome = monthlyIncome,
             monthlyInstallments = monthlyInstallments,
             fixedExpenses = fixedExpenses,
@@ -82,14 +113,14 @@ class FinancialHealthRepository(context: Context) {
     }
 
     suspend fun updateIncome(newIncome: Long) = withContext(Dispatchers.IO) {
-        val existing = dao.getProfileSync(DEFAULT_PROFILE_ID)
+        val existing = dao.getProfileSync(requireUserId(), DEFAULT_PROFILE_ID)
         val installments = existing?.monthlyInstallments ?: DEFAULT_INSTALLMENTS
         val fixed = existing?.fixedExpenses ?: DEFAULT_FIXED_EXPENSES
         saveProfile(newIncome, installments, fixed)
     }
 
     suspend fun updateFixedExpenses(newFixed: Long) = withContext(Dispatchers.IO) {
-        val existing = dao.getProfileSync(DEFAULT_PROFILE_ID)
+        val existing = dao.getProfileSync(requireUserId(), DEFAULT_PROFILE_ID)
         val income = existing?.monthlyIncome ?: DEFAULT_INCOME
         val installments = existing?.monthlyInstallments ?: DEFAULT_INSTALLMENTS
         saveProfile(income, installments, newFixed)

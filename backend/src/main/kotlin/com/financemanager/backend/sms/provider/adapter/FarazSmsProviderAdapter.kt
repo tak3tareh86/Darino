@@ -112,6 +112,6 @@ class FarazSmsProviderAdapter(
     }
 
     override fun verifyWebhookSignature(payload: String, signature: String?): Boolean {
-        return webhookSecret.isBlank() || signature == webhookSecret
+        return webhookSecret.isNotBlank() && signature == webhookSecret
     }
 }

@@ -152,11 +152,15 @@ class ReminderScheduler(private val context: Context) {
     suspend fun rebuildAllSchedules() {
         try {
             val db = AppDatabase.getDatabase(context)
-            val activeReminders = db.smartReminderDao().getActiveRemindersList()
+            val userId = com.example.data.security.SessionManager.userId ?: run {
+                Log.i("ReminderScheduler", "No authenticated user; skipping schedule rebuild.")
+                return
+            }
+            val activeReminders = db.smartReminderDao().getActiveRemindersList(userId)
             var count = 0
 
             activeReminders.forEach { reminder ->
-                val schedules = db.smartReminderDao().getSchedulesForReminderSync(reminder.id)
+                val schedules = db.smartReminderDao().getSchedulesForReminderSync(reminder.userId, reminder.id)
                 schedules.forEach { schedule ->
                     if (schedule.enabled && schedule.triggerDateTime > System.currentTimeMillis()) {
                         scheduleSingle(reminder, schedule)

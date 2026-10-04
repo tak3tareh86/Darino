@@ -1,0 +1,38 @@
+name: Darino Verification
+
+on:
+  push:
+    branches:
+      - hardening/world-class-baseline
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: Android verification
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Backend Gradle version
+        working-directory: backend
+        run: gradle --version
+      - name: Backend verification
+        working-directory: backend
+        run: gradle test --stacktrace

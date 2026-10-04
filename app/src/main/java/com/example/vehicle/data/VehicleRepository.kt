@@ -7,6 +7,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.example.data.security.SessionManager
+import com.example.data.security.SessionState
+import kotlinx.coroutines.flow.collectLatest
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -16,22 +19,23 @@ import java.util.UUID
  */
 class VehicleRepository {
 
-    private val _vehicles = MutableStateFlow<List<VehicleEntity>>(createInitialVehicles())
+    private val _vehicles = MutableStateFlow<List<VehicleEntity>>(emptyList())
     val vehicles: StateFlow<List<VehicleEntity>> = _vehicles.asStateFlow()
 
-    private val _services = MutableStateFlow<List<VehicleServiceEntity>>(createInitialServices())
+    private val _services = MutableStateFlow<List<VehicleServiceEntity>>(emptyList())
     val services: StateFlow<List<VehicleServiceEntity>> = _services.asStateFlow()
 
-    private val _expenses = MutableStateFlow<List<VehicleExpenseEntity>>(createInitialExpenses())
+    private val _expenses = MutableStateFlow<List<VehicleExpenseEntity>>(emptyList())
     val expenses: StateFlow<List<VehicleExpenseEntity>> = _expenses.asStateFlow()
 
-    private val _insurances = MutableStateFlow<List<VehicleInsuranceEntity>>(createInitialInsurances())
+    private val _insurances = MutableStateFlow<List<VehicleInsuranceEntity>>(emptyList())
     val insurances: StateFlow<List<VehicleInsuranceEntity>> = _insurances.asStateFlow()
 
-    private val _inspections = MutableStateFlow<List<VehicleInspectionEntity>>(createInitialInspections())
+    private val _inspections = MutableStateFlow<List<VehicleInspectionEntity>>(emptyList())
     val inspections: StateFlow<List<VehicleInspectionEntity>> = _inspections.asStateFlow()
 
     private var dbContext: Context? = null
+    private var sessionObserverStarted = false
 
     /**
      * Initializes the Room SQLite database and loads any persisted vehicle store.
@@ -40,16 +44,34 @@ class VehicleRepository {
         val appCtx = context.applicationContext
         dbContext = appCtx
         
+        if (!sessionObserverStarted) {
+            sessionObserverStarted = true
+            kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                SessionManager.sessionState.collectLatest { state ->
+                    val userId = when (state) {
+                        is SessionState.Authenticated -> state.user.id
+                        is SessionState.PhoneVerificationRequired -> state.user.id
+                        else -> null
+                    }
+                    if (userId == null) {
+                        clearAllVehiclesData()
+                        return@collectLatest
+                    }
+                    loadUserData(appCtx, userId)
+                }
+            }
+        }
+    }
+
+    private suspend fun loadUserData(appCtx: Context, userId: String) {
         val prefs = appCtx.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
         val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
-        
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                val db = com.example.data.database.AppDatabase.getDatabase(appCtx)
-                val vDao = db.vehicleDao()
+        try {
+            val db = com.example.data.database.AppDatabase.getDatabase(appCtx)
+            val vDao = db.vehicleDao()
 
-                // 1. One-time Legacy JSON Migration to Room tables if legacy store exists
-                val store = vDao.getVehicleStore()
+            // Legacy JSON migration is owner-scoped and only runs for the authenticated user.
+            val store = vDao.getVehicleStore(userId)
                 if (store != null && store.vehiclesJson.isNotBlank()) {
                     val migratedVehicles = jsonToVehicles(store.vehiclesJson)
                     val migratedServices = jsonToServices(store.servicesJson)
@@ -61,7 +83,7 @@ class VehicleRepository {
                         vDao.insertVehicle(
                             com.example.data.database.VehicleEntity(
                                 serverId = v.id,
-                                userId = "default_user",
+                                userId = userId,
                                 brand = v.brand,
                                 model = v.model,
                                 year = v.year,
@@ -76,6 +98,7 @@ class VehicleRepository {
                         vDao.insertService(
                             com.example.data.database.VehicleServiceEntity(
                                 serverId = s.id,
+                                userId = userId,
                                 vehicleId = 1,
                                 type = s.serviceType.name,
                                 title = s.title,
@@ -90,6 +113,7 @@ class VehicleRepository {
                     vDao.insertExpenses(migratedExpenses.map { e ->
                         com.example.data.database.VehicleExpenseRoomEntity(
                             id = e.id,
+                            userId = userId,
                             vehicleId = e.vehicleId,
                             title = e.title,
                             category = e.category.name,
@@ -103,6 +127,7 @@ class VehicleRepository {
                     vDao.insertInsurances(migratedInsurances.map { ins ->
                         com.example.data.database.VehicleInsuranceRoomEntity(
                             id = ins.id,
+                            userId = userId,
                             vehicleId = ins.vehicleId,
                             company = ins.company,
                             type = ins.type,
@@ -117,6 +142,7 @@ class VehicleRepository {
                     vDao.insertInspections(migratedInspections.map { insp ->
                         com.example.data.database.VehicleInspectionRoomEntity(
                             id = insp.id,
+                            userId = userId,
                             vehicleId = insp.vehicleId,
                             lastInspectionDate = insp.lastInspectionDate,
                             expiryDate = insp.expiryDate,
@@ -127,20 +153,19 @@ class VehicleRepository {
                     })
 
                     // Clear legacy JSON store to prevent dual-authority
-                    vDao.insertVehicleStore(com.example.data.database.VehicleStoreEntity(vehiclesJson = ""))
+                    vDao.insertVehicleStore(com.example.data.database.VehicleStoreEntity(userId = userId, vehiclesJson = ""))
                 }
 
                 // 2. Authoritative Load from Room DAOs
-                loadFromRoom(db, isCleanSlate)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            loadFromRoom(db, userId, isCleanSlate)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
-    private suspend fun loadFromRoom(db: com.example.data.database.AppDatabase, isCleanSlate: Boolean) {
+    private suspend fun loadFromRoom(db: com.example.data.database.AppDatabase, userId: String, isCleanSlate: Boolean) {
         val vDao = db.vehicleDao()
-        val dbVehicles = vDao.getAllVehiclesList()
+        val dbVehicles = vDao.getAllVehiclesList(userId)
         if (dbVehicles.isNotEmpty()) {
             _vehicles.value = dbVehicles.map { v ->
                 VehicleEntity(
@@ -153,7 +178,7 @@ class VehicleRepository {
                     currentMileage = v.currentMileage
                 )
             }
-            val dbServices = vDao.getAllServicesList()
+            val dbServices = vDao.getAllServicesList(userId)
             _services.value = dbServices.map { s ->
                 VehicleServiceEntity(
                     id = s.serverId ?: s.id.toString(),
@@ -166,7 +191,7 @@ class VehicleRepository {
                     description = s.notes ?: ""
                 )
             }
-            val dbExpenses = vDao.getAllExpensesList()
+            val dbExpenses = vDao.getAllExpensesList(userId)
             if (dbExpenses.isNotEmpty()) {
                 _expenses.value = dbExpenses.map { e ->
                     VehicleExpenseEntity(
@@ -181,7 +206,7 @@ class VehicleRepository {
                     )
                 }
             }
-            val dbInsurances = vDao.getAllInsurancesList()
+            val dbInsurances = vDao.getAllInsurancesList(userId)
             if (dbInsurances.isNotEmpty()) {
                 _insurances.value = dbInsurances.map { ins ->
                     VehicleInsuranceEntity(
@@ -197,7 +222,7 @@ class VehicleRepository {
                     )
                 }
             }
-            val dbInspections = vDao.getAllInspectionsList()
+            val dbInspections = vDao.getAllInspectionsList(userId)
             if (dbInspections.isNotEmpty()) {
                 _inspections.value = dbInspections.map { insp ->
                     VehicleInspectionEntity(
@@ -211,21 +236,6 @@ class VehicleRepository {
                     )
                 }
             }
-        } else if (!isCleanSlate) {
-            // Seed initial vehicles to Room
-            val initialV = createInitialVehicles()
-            val initialS = createInitialServices()
-            val initialE = createInitialExpenses()
-            val initialIns = createInitialInsurances()
-            val initialInsp = createInitialInspections()
-
-            _vehicles.value = initialV
-            _services.value = initialS
-            _expenses.value = initialE
-            _insurances.value = initialIns
-            _inspections.value = initialInsp
-
-            saveToDb()
         }
     }
 
@@ -240,14 +250,15 @@ class VehicleRepository {
             try {
                 val db = com.example.data.database.AppDatabase.getDatabase(appCtx)
                 val vDao = db.vehicleDao()
+                val userId = SessionManager.userId ?: return@launch
 
                 // Save strictly to Room relational DAOs
-                vDao.clearAllVehicles()
+                vDao.clearAllVehicles(userId)
                 _vehicles.value.forEach { v ->
                     vDao.insertVehicle(
                         com.example.data.database.VehicleEntity(
                             serverId = v.id,
-                            userId = "default_user",
+                            userId = userId,
                             brand = v.brand,
                             model = v.model,
                             year = v.year,
@@ -258,11 +269,12 @@ class VehicleRepository {
                     )
                 }
 
-                vDao.clearAllServices()
+                vDao.clearAllServices(userId)
                 _services.value.forEach { s ->
                     vDao.insertService(
                         com.example.data.database.VehicleServiceEntity(
                             serverId = s.id,
+                            userId = userId,
                             vehicleId = 1,
                             type = s.serviceType.name,
                             title = s.title,
@@ -274,10 +286,11 @@ class VehicleRepository {
                     )
                 }
 
-                vDao.clearAllExpenses()
+                vDao.clearAllExpenses(userId)
                 vDao.insertExpenses(_expenses.value.map { e ->
                     com.example.data.database.VehicleExpenseRoomEntity(
                         id = e.id,
+                        userId = userId,
                         vehicleId = e.vehicleId,
                         title = e.title,
                         category = e.category.name,
@@ -288,10 +301,11 @@ class VehicleRepository {
                     )
                 })
 
-                vDao.clearAllInsurances()
+                vDao.clearAllInsurances(userId)
                 vDao.insertInsurances(_insurances.value.map { ins ->
                     com.example.data.database.VehicleInsuranceRoomEntity(
                         id = ins.id,
+                        userId = userId,
                         vehicleId = ins.vehicleId,
                         company = ins.company,
                         type = ins.type,
@@ -303,10 +317,11 @@ class VehicleRepository {
                     )
                 })
 
-                vDao.clearAllInspections()
+                vDao.clearAllInspections(userId)
                 vDao.insertInspections(_inspections.value.map { insp ->
                     com.example.data.database.VehicleInspectionRoomEntity(
                         id = insp.id,
+                        userId = userId,
                         vehicleId = insp.vehicleId,
                         lastInspectionDate = insp.lastInspectionDate,
                         expiryDate = insp.expiryDate,
@@ -327,7 +342,7 @@ class VehicleRepository {
         kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val db = com.example.data.database.AppDatabase.getDatabase(appCtx)
-                loadFromRoom(db, isCleanSlate = false)
+                SessionManager.userId?.let { loadFromRoom(db, it, isCleanSlate = false) }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -342,12 +357,14 @@ class VehicleRepository {
         type: String = "VEHICLE"
     ) {
         val context = dbContext ?: return
+        val userId = SessionManager.userId ?: return
         kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val manager = com.example.reminder.domain.ReminderManager(context)
                 val persianDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(date)
                 val reminder = com.example.reminder.data.ReminderEntity(
                     id = id,
+                    userId = userId,
                     title = title,
                     description = description,
                     type = type,

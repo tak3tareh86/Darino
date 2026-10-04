@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.example.data.database.AppDatabase
-import com.example.reminder.data.ReminderDeliveryLogEntity
+import com.example.data.security.SessionManager
 import com.example.reminder.domain.DispatchDecision
 import com.example.reminder.domain.MockSmsDispatcher
 import com.example.reminder.domain.NotificationDispatcher
@@ -16,188 +16,177 @@ import com.example.reminder.domain.ReminderScheduler
 import com.example.reminder.domain.RepeatType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 class ReminderBroadcastReceiver : BroadcastReceiver() {
 
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent) {
-        val action = intent.action
-        Log.i("ReminderReceiver", "Broadcast received with action: $action")
-
-        when (action) {
+        when (intent.action) {
             Intent.ACTION_BOOT_COMPLETED,
             "android.intent.action.QUICKBOOT_POWERON",
             Intent.ACTION_MY_PACKAGE_REPLACED,
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED -> {
-                Log.i("ReminderReceiver", "Device boot / timezone change detected. Rebuilding all schedules.")
-                scope.launch {
-                    val scheduler = ReminderScheduler(context)
-                    scheduler.rebuildAllSchedules()
+                goAsyncWork {
+                    if (SessionManager.userId == null) {
+                        Log.i(TAG, "No authenticated user; skipping reminder rebuild.")
+                        return@goAsyncWork
+                    }
+                    ReminderScheduler(context.applicationContext).rebuildAllSchedules()
                 }
             }
 
             ACTION_TRIGGER_REMINDER -> {
                 val reminderId = intent.getStringExtra(EXTRA_REMINDER_ID) ?: return
-                val scheduleId = intent.getStringExtra(EXTRA_SCHEDULE_ID)
-                handleTrigger(context, reminderId, scheduleId)
+                val scheduleId = intent.getStringExtra(EXTRA_SCHEDULE_ID) ?: return
+                goAsyncWork { handleTrigger(context.applicationContext, reminderId, scheduleId) }
             }
 
             ACTION_COMPLETE_REMINDER -> {
                 val reminderId = intent.getStringExtra(EXTRA_REMINDER_ID) ?: return
-                val notifId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
-                handleComplete(context, reminderId, notifId)
+                val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
+                goAsyncWork { handleComplete(context.applicationContext, reminderId, notificationId) }
             }
 
             ACTION_SNOOZE_REMINDER -> {
                 val reminderId = intent.getStringExtra(EXTRA_REMINDER_ID) ?: return
-                val notifId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
-                val snoozeMinutes = intent.getIntExtra(EXTRA_SNOOZE_MINUTES, 15)
-                handleSnooze(context, reminderId, notifId, snoozeMinutes)
+                val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
+                val snoozeMinutes = intent.getIntExtra(EXTRA_SNOOZE_MINUTES, 15).coerceIn(1, 24 * 60)
+                goAsyncWork { handleSnooze(context.applicationContext, reminderId, notificationId, snoozeMinutes) }
             }
         }
     }
 
-    private fun handleTrigger(context: Context, reminderId: String, scheduleId: String?) {
+    private fun goAsyncWork(block: suspend () -> Unit) {
+        val pendingResult = goAsync()
         scope.launch {
             try {
-                val db = AppDatabase.getDatabase(context)
-                val reminder = db.smartReminderDao().getReminderById(reminderId)
-                if (reminder == null) {
-                    Log.w("ReminderReceiver", "Reminder $reminderId not found in database.")
-                    return@launch
-                }
-
-                if (!reminder.status.equals("ACTIVE", ignoreCase = true)) {
-                    Log.i("ReminderReceiver", "Reminder $reminderId is not ACTIVE (${reminder.status}). Skipping.")
-                    return@launch
-                }
-
-                val schedule = if (scheduleId != null) {
-                    db.smartReminderDao().getScheduleById(scheduleId)
-                } else null
-
-                // 1. Check Policy & Quiet Hours
-                val quietHours = QuietHoursConfig(
-                    enabled = false, // Configurable from settings
-                    startHour = 23,
-                    startMinute = 0,
-                    endHour = 7,
-                    endMinute = 0,
-                    allowHighPriority = true
-                )
-
-                val decision = ReminderPolicyEngine.evaluateDispatch(reminder, quietHours)
-                when (decision) {
-                    is DispatchDecision.DeliverNow -> {
-                        // Deliver Android Notification
-                        if (reminder.notificationEnabled) {
-                            val notifDispatcher = NotificationDispatcher(context)
-                            notifDispatcher.dispatchNotification(reminder, schedule)
-                        }
-
-                        // Deliver Mock SMS
-                        if (reminder.smsEnabled && !reminder.phoneNumber.isNullOrBlank()) {
-                            val smsDispatcher = MockSmsDispatcher()
-                            val smsResult = smsDispatcher.sendSms(
-                                phoneNumber = reminder.phoneNumber,
-                                message = reminder.title + "\n" + reminder.description,
-                                reminderType = reminder.type
-                            )
-                            db.smartReminderDao().insertDeliveryLog(
-                                ReminderDeliveryLogEntity(
-                                    reminderId = reminder.id,
-                                    scheduleId = scheduleId,
-                                    channel = "SMS",
-                                    scheduledAt = schedule?.triggerDateTime ?: System.currentTimeMillis(),
-                                    triggeredAt = System.currentTimeMillis(),
-                                    status = if (smsResult.success) "SENT" else "FAILED",
-                                    errorMessage = smsResult.errorReason,
-                                    providerMessageId = smsResult.providerMessageId
-                                )
-                            )
-                        }
-
-                        // Handle Recurring schedules if any
-                        if (schedule != null && !schedule.repeatType.equals("NONE", ignoreCase = true)) {
-                            val repeatType = RepeatType.fromKey(schedule.repeatType)
-                            val nextTrigger = RecurrenceEngine.calculateNextOccurrence(
-                                schedule.triggerDateTime,
-                                repeatType,
-                                schedule.repeatInterval
-                            )
-                            val nextSchedule = RecurrenceEngine.generateNextSchedule(schedule, nextTrigger)
-                            db.smartReminderDao().insertSchedule(nextSchedule)
-                            val scheduler = ReminderScheduler(context)
-                            scheduler.scheduleSingle(reminder, nextSchedule)
-                            Log.i("ReminderReceiver", "Scheduled next recurring occurrence for ${reminder.title} at $nextTrigger")
-                        }
-                    }
-
-                    is DispatchDecision.PostponeTo -> {
-                        Log.i("ReminderReceiver", "Quiet hours active. Postponing reminder ${reminder.title} to ${decision.postponeTimeMillis}")
-                        val postponedSchedule = schedule?.copy(triggerDateTime = decision.postponeTimeMillis)
-                        if (postponedSchedule != null) {
-                            val scheduler = ReminderScheduler(context)
-                            scheduler.scheduleSingle(reminder, postponedSchedule)
-                        }
-                    }
-
-                    is DispatchDecision.SuppressQuietHours -> {
-                        Log.i("ReminderReceiver", "Reminder ${reminder.title} suppressed due to quiet hours.")
-                    }
-                }
-
+                block()
             } catch (e: Exception) {
-                Log.e("ReminderReceiver", "Error processing reminder trigger", e)
+                Log.e(TAG, "Reminder broadcast processing failed", e)
+            } finally {
+                pendingResult.finish()
             }
         }
     }
 
-    private fun handleComplete(context: Context, reminderId: String, notifId: Int) {
-        scope.launch {
-            try {
-                val db = AppDatabase.getDatabase(context)
-                db.smartReminderDao().updateStatus(
-                    id = reminderId,
-                    status = "COMPLETED",
-                    updatedAt = System.currentTimeMillis(),
-                    completedAt = System.currentTimeMillis()
-                )
-                if (notifId != -1) {
-                    val notifDispatcher = NotificationDispatcher(context)
-                    notifDispatcher.cancelNotification(notifId)
+    private suspend fun handleTrigger(context: Context, reminderId: String, scheduleId: String) {
+        val userId = SessionManager.userId ?: return
+        val db = AppDatabase.getDatabase(context)
+        val dao = db.smartReminderDao()
+
+        val reminder = dao.getReminderById(userId, reminderId) ?: run {
+            Log.w(TAG, "Reminder $reminderId not found for current user.")
+            return
+        }
+        if (!reminder.status.equals("ACTIVE", ignoreCase = true)) return
+
+        val schedule = dao.getScheduleById(userId, scheduleId) ?: run {
+            Log.w(TAG, "Schedule $scheduleId not found for current user.")
+            return
+        }
+        if (schedule.reminderId != reminder.id || !schedule.enabled) return
+
+        val decision = ReminderPolicyEngine.evaluateDispatch(
+            reminder,
+            QuietHoursConfig(enabled = false)
+        )
+
+        when (decision) {
+            DispatchDecision.DeliverNow -> {
+                if (reminder.notificationEnabled) {
+                    NotificationDispatcher(context).dispatchNotification(reminder, schedule)
                 }
-                Log.i("ReminderReceiver", "Reminder $reminderId marked as COMPLETED from notification action.")
-            } catch (e: Exception) {
-                Log.e("ReminderReceiver", "Error completing reminder $reminderId", e)
+
+                if (reminder.smsEnabled && !reminder.phoneNumber.isNullOrBlank()) {
+                    val result = MockSmsDispatcher().sendSms(
+                        phoneNumber = reminder.phoneNumber,
+                        message = buildString {
+                            append(reminder.title)
+                            if (reminder.description.isNotBlank()) {
+                                append("\n")
+                                append(reminder.description)
+                            }
+                        },
+                        reminderType = reminder.type
+                    )
+
+                    dao.insertDeliveryLog(
+                        com.example.reminder.data.ReminderDeliveryLogEntity(
+                            reminderId = reminder.id,
+                            scheduleId = schedule.id,
+                            channel = "SMS",
+                            scheduledAt = schedule.triggerDateTime,
+                            triggeredAt = System.currentTimeMillis(),
+                            status = if (result.success) "SENT" else "FAILED",
+                            errorMessage = result.errorReason,
+                            providerMessageId = result.providerMessageId
+                        )
+                    )
+                }
+
+                val repeatType = RepeatType.fromKey(schedule.repeatType)
+                if (repeatType != RepeatType.NONE) {
+                    val nextTrigger = RecurrenceEngine.calculateNextOccurrence(
+                        schedule.triggerDateTime,
+                        repeatType,
+                        schedule.repeatInterval
+                    )
+                    if (nextTrigger > System.currentTimeMillis()) {
+                        val nextSchedule = RecurrenceEngine.generateNextSchedule(schedule, nextTrigger)
+                        dao.insertSchedule(nextSchedule)
+                        ReminderScheduler(context).scheduleSingle(reminder, nextSchedule)
+                    }
+                }
             }
+
+            is DispatchDecision.PostponeTo -> {
+                val postponed = schedule.copy(triggerDateTime = decision.postponeTimeMillis)
+                dao.updateSchedule(postponed)
+                ReminderScheduler(context).scheduleSingle(reminder, postponed)
+            }
+
+            DispatchDecision.SuppressQuietHours -> Unit
         }
     }
 
-    private fun handleSnooze(context: Context, reminderId: String, notifId: Int, snoozeMinutes: Int) {
-        scope.launch {
-            try {
-                val db = AppDatabase.getDatabase(context)
-                val reminder = db.smartReminderDao().getReminderById(reminderId) ?: return@launch
-                val scheduler = ReminderScheduler(context)
-                val snoozeSchedule = scheduler.snooze(reminder, snoozeMinutes)
-                db.smartReminderDao().insertSchedule(snoozeSchedule)
+    private suspend fun handleComplete(context: Context, reminderId: String, notificationId: Int) {
+        val userId = SessionManager.userId ?: return
+        val now = System.currentTimeMillis()
+        AppDatabase.getDatabase(context).smartReminderDao().updateStatus(
+            userId = userId,
+            id = reminderId,
+            status = "COMPLETED",
+            updatedAt = now,
+            completedAt = now,
+            cancelledAt = null
+        )
+        if (notificationId != -1) NotificationDispatcher(context).cancelNotification(notificationId)
+    }
 
-                if (notifId != -1) {
-                    val notifDispatcher = NotificationDispatcher(context)
-                    notifDispatcher.cancelNotification(notifId)
-                }
-                Log.i("ReminderReceiver", "Reminder $reminderId snoozed for $snoozeMinutes minutes.")
-            } catch (e: Exception) {
-                Log.e("ReminderReceiver", "Error snoozing reminder $reminderId", e)
-            }
-        }
+    private suspend fun handleSnooze(
+        context: Context,
+        reminderId: String,
+        notificationId: Int,
+        snoozeMinutes: Int
+    ) {
+        val userId = SessionManager.userId ?: return
+        val db = AppDatabase.getDatabase(context)
+        val dao = db.smartReminderDao()
+        val reminder = dao.getReminderById(userId, reminderId) ?: return
+        if (!reminder.status.equals("ACTIVE", ignoreCase = true)) return
+
+        val schedule = ReminderScheduler(context).snooze(reminder, snoozeMinutes)
+        dao.insertSchedule(schedule)
+        if (notificationId != -1) NotificationDispatcher(context).cancelNotification(notificationId)
     }
 
     companion object {
+        private const val TAG = "ReminderReceiver"
+
         const val ACTION_TRIGGER_REMINDER = "com.example.reminder.ACTION_TRIGGER_REMINDER"
         const val ACTION_COMPLETE_REMINDER = "com.example.reminder.ACTION_COMPLETE_REMINDER"
         const val ACTION_SNOOZE_REMINDER = "com.example.reminder.ACTION_SNOOZE_REMINDER"

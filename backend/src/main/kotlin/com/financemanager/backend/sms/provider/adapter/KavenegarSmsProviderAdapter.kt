@@ -192,8 +192,8 @@ class KavenegarSmsProviderAdapter(
     }
 
     override fun verifyWebhookSignature(payload: String, signature: String?): Boolean {
-        if (webhookSecret.isBlank()) return true
+        if (webhookSecret.isBlank()) return false
         // Validate shared secret or HMAC header
-        return signature == webhookSecret || signature?.contains(webhookSecret) == true
+        return signature == webhookSecret
     }
 }

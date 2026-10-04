@@ -41,12 +41,12 @@ spring:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    secret: ${JWT_SECRET}
     access-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000} # 15 minutes
     refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
     issuer: finance-manager-auth
   cors:
-    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:*}
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:}
   sms:
     provider: ${SMS_PROVIDER:mock}
     api-base-url: ${SMS_API_BASE_URL:https://api.kavenegar.com/v1}
@@ -55,7 +55,7 @@ app:
     username: ${SMS_USERNAME:}
     password: ${SMS_PASSWORD:}
     sender: ${SMS_SENDER:+9830000000}
-    webhook-secret: ${SMS_WEBHOOK_SECRET:default_webhook_secret}
+    webhook-secret: ${SMS_WEBHOOK_SECRET}
     queue:
       max-retry-attempts: 4
       initial-backoff-ms: 10000

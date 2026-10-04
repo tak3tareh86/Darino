@@ -5,44 +5,38 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ReminderDao {
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND status != 'CANCELLED' ORDER BY date ASC, time ASC")
+    fun getAllActiveReminders(userId: String): Flow<List<ReminderEntity>>
 
-    // === Reminders ===
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId ORDER BY createdAt DESC")
+    fun getAllReminders(userId: String): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM smart_reminders WHERE status != 'CANCELLED' ORDER BY date ASC, time ASC")
-    fun getAllActiveReminders(): Flow<List<ReminderEntity>>
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId")
+    suspend fun getAllRemindersList(userId: String): List<ReminderEntity>
 
-    @Query("SELECT * FROM smart_reminders ORDER BY createdAt DESC")
-    fun getAllReminders(): Flow<List<ReminderEntity>>
+    @Query("DELETE FROM smart_reminders WHERE userId = :userId")
+    suspend fun clearAllReminders(userId: String)
 
-    @Query("SELECT * FROM smart_reminders")
-    suspend fun getAllRemindersList(): List<ReminderEntity>
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND status = 'ACTIVE' ORDER BY date ASC, time ASC")
+    fun getActiveReminders(userId: String): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM smart_reminder_schedules")
-    suspend fun getAllSchedulesList(): List<ReminderScheduleEntity>
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND status = 'ACTIVE' ORDER BY date ASC, time ASC")
+    suspend fun getActiveRemindersList(userId: String): List<ReminderEntity>
 
-    @Query("DELETE FROM smart_reminders")
-    suspend fun clearAllReminders()
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND status = 'COMPLETED' ORDER BY updatedAt DESC")
+    fun getCompletedReminders(userId: String): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM smart_reminders WHERE status = 'ACTIVE' ORDER BY date ASC, time ASC")
-    fun getActiveReminders(): Flow<List<ReminderEntity>>
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND status = 'MISSED' ORDER BY date ASC")
+    fun getMissedReminders(userId: String): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM smart_reminders WHERE status = 'ACTIVE' ORDER BY date ASC, time ASC")
-    suspend fun getActiveRemindersList(): List<ReminderEntity>
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND type = :type ORDER BY createdAt DESC")
+    fun getRemindersByType(userId: String, type: String): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM smart_reminders WHERE status = 'COMPLETED' ORDER BY updatedAt DESC")
-    fun getCompletedReminders(): Flow<List<ReminderEntity>>
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND sourceId = :sourceId LIMIT 1")
+    suspend fun getReminderBySourceId(userId: String, sourceId: String): ReminderEntity?
 
-    @Query("SELECT * FROM smart_reminders WHERE status = 'MISSED' ORDER BY date ASC")
-    fun getMissedReminders(): Flow<List<ReminderEntity>>
-
-    @Query("SELECT * FROM smart_reminders WHERE type = :type ORDER BY createdAt DESC")
-    fun getRemindersByType(type: String): Flow<List<ReminderEntity>>
-
-    @Query("SELECT * FROM smart_reminders WHERE sourceId = :sourceId LIMIT 1")
-    suspend fun getReminderBySourceId(sourceId: String): ReminderEntity?
-
-    @Query("SELECT * FROM smart_reminders WHERE id = :id LIMIT 1")
-    suspend fun getReminderById(id: String): ReminderEntity?
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND id = :id LIMIT 1")
+    suspend fun getReminderById(userId: String, id: String): ReminderEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReminder(reminder: ReminderEntity)
@@ -56,34 +50,36 @@ interface ReminderDao {
     @Delete
     suspend fun deleteReminder(reminder: ReminderEntity)
 
-    @Query("DELETE FROM smart_reminders WHERE id = :id")
-    suspend fun deleteReminderById(id: String)
+    @Query("DELETE FROM smart_reminders WHERE userId = :userId AND id = :id")
+    suspend fun deleteReminderById(userId: String, id: String)
 
-    @Query("UPDATE smart_reminders SET status = :status, updatedAt = :updatedAt, completedAt = :completedAt, cancelledAt = :cancelledAt WHERE id = :id")
-    suspend fun updateStatus(
-        id: String,
-        status: String,
-        updatedAt: Long = System.currentTimeMillis(),
-        completedAt: Long? = null,
-        cancelledAt: Long? = null
-    )
+    @Query("UPDATE smart_reminders SET status = :status, updatedAt = :updatedAt, completedAt = :completedAt, cancelledAt = :cancelledAt WHERE userId = :userId AND id = :id")
+    suspend fun updateStatus(userId: String, id: String, status: String, updatedAt: Long = System.currentTimeMillis(), completedAt: Long? = null, cancelledAt: Long? = null)
 
-    @Query("UPDATE smart_reminders SET date = :date, time = :time, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun updateDateTime(id: String, date: String, time: String, updatedAt: Long = System.currentTimeMillis())
+    @Query("UPDATE smart_reminders SET date = :date, time = :time, updatedAt = :updatedAt WHERE userId = :userId AND id = :id")
+    suspend fun updateDateTime(userId: String, id: String, date: String, time: String, updatedAt: Long = System.currentTimeMillis())
 
-    // === Schedules ===
+    @Query("SELECT s.* FROM smart_reminder_schedules s INNER JOIN smart_reminders r ON r.id = s.reminderId WHERE r.userId = :userId AND s.reminderId = :reminderId ORDER BY s.triggerDateTime ASC")
+    fun getSchedulesForReminder(userId: String, reminderId: String): Flow<List<ReminderScheduleEntity>>
 
-    @Query("SELECT * FROM smart_reminder_schedules WHERE reminderId = :reminderId ORDER BY triggerDateTime ASC")
-    fun getSchedulesForReminder(reminderId: String): Flow<List<ReminderScheduleEntity>>
+    @Query("SELECT s.* FROM smart_reminder_schedules s INNER JOIN smart_reminders r ON r.id = s.reminderId WHERE r.userId = :userId AND s.reminderId = :reminderId ORDER BY s.triggerDateTime ASC")
+    suspend fun getSchedulesForReminderSync(userId: String, reminderId: String): List<ReminderScheduleEntity>
 
-    @Query("SELECT * FROM smart_reminder_schedules WHERE reminderId = :reminderId ORDER BY triggerDateTime ASC")
-    suspend fun getSchedulesForReminderSync(reminderId: String): List<ReminderScheduleEntity>
+    @Query("SELECT s.* FROM smart_reminder_schedules s INNER JOIN smart_reminders r ON r.id = s.reminderId WHERE r.userId = :userId AND s.enabled = 1 AND s.triggerDateTime > :now ORDER BY s.triggerDateTime ASC")
+    suspend fun getAllFutureActiveSchedules(userId: String, now: Long = System.currentTimeMillis()): List<ReminderScheduleEntity>
 
-    @Query("SELECT * FROM smart_reminder_schedules WHERE enabled = 1 AND triggerDateTime > :now ORDER BY triggerDateTime ASC")
-    suspend fun getAllFutureActiveSchedules(now: Long = System.currentTimeMillis()): List<ReminderScheduleEntity>
+    @Query("DELETE FROM smart_reminder_schedules WHERE reminderId IN (SELECT id FROM smart_reminders WHERE userId = :userId) AND reminderId = :reminderId")
+    suspend fun deleteSchedulesByReminderId(userId: String, reminderId: String)
 
-    @Query("SELECT * FROM smart_reminder_schedules WHERE id = :id LIMIT 1")
-    suspend fun getScheduleById(id: String): ReminderScheduleEntity?
+    @Query("""
+        SELECT s.*
+        FROM smart_reminder_schedules AS s
+        INNER JOIN smart_reminders AS r ON r.id = s.reminderId
+        WHERE r.userId = :userId
+          AND s.id = :id
+        LIMIT 1
+    """)
+    suspend fun getScheduleById(userId: String, id: String): ReminderScheduleEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedule(schedule: ReminderScheduleEntity)
@@ -97,26 +93,12 @@ interface ReminderDao {
     @Delete
     suspend fun deleteSchedule(schedule: ReminderScheduleEntity)
 
-    @Query("DELETE FROM smart_reminder_schedules WHERE reminderId = :reminderId")
-    suspend fun deleteSchedulesByReminderId(reminderId: String)
+    @Query("SELECT l.* FROM smart_reminder_delivery_logs l INNER JOIN smart_reminders r ON r.id = l.reminderId WHERE r.userId = :userId AND l.reminderId = :reminderId ORDER BY l.scheduledAt DESC")
+    fun getDeliveryLogsForReminder(userId: String, reminderId: String): Flow<List<ReminderDeliveryLogEntity>>
 
-    // === Delivery Logs ===
-
-    @Query("SELECT * FROM smart_reminder_delivery_logs ORDER BY scheduledAt DESC")
-    fun getAllDeliveryLogs(): Flow<List<ReminderDeliveryLogEntity>>
-
-    @Query("SELECT * FROM smart_reminder_delivery_logs WHERE reminderId = :reminderId ORDER BY scheduledAt DESC")
-    fun getDeliveryLogsForReminder(reminderId: String): Flow<List<ReminderDeliveryLogEntity>>
+    @Query("SELECT l.* FROM smart_reminder_delivery_logs l INNER JOIN smart_reminders r ON r.id = l.reminderId WHERE r.userId = :userId ORDER BY l.scheduledAt DESC")
+    fun getAllDeliveryLogs(userId: String): Flow<List<ReminderDeliveryLogEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDeliveryLog(log: ReminderDeliveryLogEntity)
-
-    @Query("UPDATE smart_reminder_delivery_logs SET status = :status, triggeredAt = :triggeredAt, errorMessage = :errorMessage, providerMessageId = :providerId WHERE id = :id")
-    suspend fun updateDeliveryLog(
-        id: String,
-        status: String,
-        triggeredAt: Long?,
-        errorMessage: String?,
-        providerId: String?
-    )
 }

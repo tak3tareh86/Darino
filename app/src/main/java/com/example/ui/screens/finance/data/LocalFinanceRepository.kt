@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.ui.graphics.Color
 import com.example.data.database.AppDatabase
 import com.example.data.database.TransactionEntity
+import com.example.data.security.SessionManager
 import com.example.ui.screens.finance.domain.BudgetEngine
 import com.example.ui.screens.finance.domain.FinanceEngine
 import com.example.ui.screens.finance.model.Budget
@@ -23,6 +24,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -49,27 +51,36 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val appCtx = context.applicationContext
         appContext = appCtx
 
-        val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
-
-        loadMetadataFromDisk(appCtx)
-
         val db = AppDatabase.getDatabase(appCtx)
         repositoryScope.launch {
-            try {
-                db.transactionDao().getAllTransactions().collect { entities ->
-                    if (entities.isEmpty() && !isCleanSlate) {
-                        // Populate Room with initial default sample transactions
-                        val initialEntities = FinanceMockDataSource.initialTransactions.map { toEntity(it) }
-                        db.transactionDao().insertTransactions(initialEntities)
-                    } else {
+            SessionManager.sessionState.collectLatest { state ->
+                val authenticatedUserId = when (state) {
+                    is com.example.data.security.SessionState.Authenticated -> state.user.id
+                    is com.example.data.security.SessionState.PhoneVerificationRequired -> state.user.id
+                    else -> null
+                }
+
+                if (authenticatedUserId == null) {
+                    _transactions.value = emptyList()
+                    _budgets.value = emptyList()
+                    _savingsGoals.value = emptyList()
+                    _recurringTransactions.value = emptyList()
+                    recalculateBudgets()
+                    return@collectLatest
+                }
+
+                loadMetadataFromDisk(appCtx, authenticatedUserId)
+
+                try {
+                    db.transactionDao().getAllTransactions(authenticatedUserId).collectLatest { entities ->
+                        // Room is the production source of truth; an empty database stays empty.
                         val mapped = entities.map { toItemData(it, _categories.value) }
                         _transactions.value = mapped
                         recalculateBudgets()
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -124,7 +135,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val ctx = appContext ?: return
         repositoryScope.launch {
             try {
-                AppDatabase.getDatabase(ctx).transactionDao().deleteByStringId(id)
+                SessionManager.userId?.let { userId ->
+                    AppDatabase.getDatabase(ctx).transactionDao().deleteByStringId(userId, id)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -306,7 +319,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val ctx = appContext ?: return
         repositoryScope.launch {
             try {
-                AppDatabase.getDatabase(ctx).transactionDao().clearAllTransactions()
+                SessionManager.userId?.let { userId ->
+                    AppDatabase.getDatabase(ctx).transactionDao().clearAllTransactions(userId)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -323,7 +338,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         repositoryScope.launch {
             try {
                 val db = AppDatabase.getDatabase(ctx)
-                db.transactionDao().clearAllTransactions()
+                val userId = SessionManager.userId ?: return@launch
+                db.transactionDao().clearAllTransactions(userId)
                 val initialEntities = FinanceMockDataSource.initialTransactions.map { toEntity(it) }
                 db.transactionDao().insertTransactions(initialEntities)
             } catch (e: Exception) {
@@ -362,7 +378,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     obj.put("isEnabled", b.isEnabled)
                     bArr.put(obj)
                 }
-                editor.putString(KEY_BUDGETS, bArr.toString())
+                editor.putString(userScopedKey(KEY_BUDGETS, SessionManager.userId), bArr.toString())
 
                 // Savings Goals
                 val gArr = JSONArray()
@@ -378,7 +394,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     obj.put("iconEmoji", g.iconEmoji)
                     gArr.put(obj)
                 }
-                editor.putString(KEY_SAVINGS, gArr.toString())
+                editor.putString(userScopedKey(KEY_SAVINGS, SessionManager.userId), gArr.toString())
 
                 // Recurring
                 val rArr = JSONArray()
@@ -397,7 +413,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     obj.put("enabled", r.enabled)
                     rArr.put(obj)
                 }
-                editor.putString(KEY_RECURRING, rArr.toString())
+                editor.putString(userScopedKey(KEY_RECURRING, SessionManager.userId), rArr.toString())
 
                 editor.apply()
             } catch (e: Exception) {
@@ -406,12 +422,10 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         }
     }
 
-    private fun loadMetadataFromDisk(context: Context) {
+    private fun loadMetadataFromDisk(context: Context, userId: String) {
         try {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
-
-            val budgetsJson = prefs.getString(KEY_BUDGETS, null)
+            val budgetsJson = prefs.getString(userScopedKey(KEY_BUDGETS, userId), null)
             if (!budgetsJson.isNullOrBlank()) {
                 val arr = JSONArray(budgetsJson)
                 val list = mutableListOf<Budget>()
@@ -432,11 +446,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     )
                 }
                 _budgets.value = list
-            } else if (!isCleanSlate) {
-                _budgets.value = FinanceMockDataSource.initialBudgets
+            } else {
+                _budgets.value = emptyList()
             }
 
-            val savingsJson = prefs.getString(KEY_SAVINGS, null)
+            val savingsJson = prefs.getString(userScopedKey(KEY_SAVINGS, userId), null)
             if (!savingsJson.isNullOrBlank()) {
                 val arr = JSONArray(savingsJson)
                 val list = mutableListOf<SavingsGoal>()
@@ -464,11 +478,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     )
                 }
                 _savingsGoals.value = list
-            } else if (!isCleanSlate) {
-                _savingsGoals.value = FinanceMockDataSource.initialSavingsGoals
+            } else {
+                _savingsGoals.value = emptyList()
             }
 
-            val recurringJson = prefs.getString(KEY_RECURRING, null)
+            val recurringJson = prefs.getString(userScopedKey(KEY_RECURRING, userId), null)
             if (!recurringJson.isNullOrBlank()) {
                 val arr = JSONArray(recurringJson)
                 val list = mutableListOf<RecurringTransaction>()
@@ -491,8 +505,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     )
                 }
                 _recurringTransactions.value = list
-            } else if (!isCleanSlate) {
-                _recurringTransactions.value = FinanceMockDataSource.initialRecurring
+            } else {
+                _recurringTransactions.value = emptyList()
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -515,7 +529,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             paymentMethod = item.paymentMethod.name,
             sourceType = item.sourceType.name,
             sourceId = item.sourceId,
-            isRecurring = item.isRecurring
+            isRecurring = item.isRecurring,
+            userId = requireNotNull(SessionManager.userId) { "Authenticated user is required" }
         )
     }
 
@@ -570,6 +585,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         private const val KEY_BUDGETS = "pref_persisted_budgets"
         private const val KEY_SAVINGS = "pref_persisted_savings_goals"
         private const val KEY_RECURRING = "pref_persisted_recurring_txs"
+
+        private fun userScopedKey(base: String, userId: String?): String =
+            if (userId.isNullOrBlank()) "${base}_anonymous" else "${base}_$userId"
 
         val instance: LocalFinanceRepository by lazy { LocalFinanceRepository() }
     }

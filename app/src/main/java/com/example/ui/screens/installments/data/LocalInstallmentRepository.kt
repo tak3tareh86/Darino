@@ -4,11 +4,14 @@ import android.content.Context
 import com.example.data.database.AppDatabase
 import com.example.data.database.InstallmentEntity
 import com.example.data.database.InstallmentPaymentEntity
+import com.example.data.security.SessionManager
+import com.example.data.security.SessionState
 import com.example.ui.screens.installments.model.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 
 /**
  * Canonical Room-backed repository for the Installments domain.
@@ -44,9 +47,11 @@ class LocalInstallmentRepository private constructor() {
 
     private var appContext: Context? = null
     private var initialized = false
+    private var sessionObserverStarted = false
 
     init {
-        updateInternalState(InstallmentMockDataSource.getSampleInitialInstallments())
+        // Room is the sole source of truth. Production state must never be seeded from mock data.
+        updateInternalState(emptyList())
     }
 
     fun init(context: Context) {
@@ -55,19 +60,34 @@ class LocalInstallmentRepository private constructor() {
         val appCtx = context.applicationContext
         appContext = appCtx
 
-        val prefs = appCtx.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
-        val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
+        if (!sessionObserverStarted) {
+            sessionObserverStarted = true
+            repositoryScope.launch {
+                SessionManager.sessionState.collectLatest { state ->
+                    val userId = when (state) {
+                        is SessionState.Authenticated -> state.user.id
+                        is SessionState.PhoneVerificationRequired -> state.user.id
+                        else -> null
+                    }
+                    if (userId == null) {
+                        updateInternalState(emptyList())
+                        return@collectLatest
+                    }
+                    reloadForUser(appCtx, userId)
+                }
+            }
+        }
+    }
 
-        repositoryScope.launch {
-            try {
-                val db = AppDatabase.getDatabase(appCtx)
-                val dao = db.installmentDao()
+    private suspend fun reloadForUser(appCtx: Context, userId: String) {
+        try {
+            val db = AppDatabase.getDatabase(appCtx)
+            val dao = db.installmentDao()
+            val dbInsts = dao.getAllInstallmentsList(userId)
+            val dbPayments = dao.getAllPaymentsList(userId)
 
-                val dbInsts = dao.getAllInstallmentsList()
-                val dbPayments = dao.getAllPaymentsList()
-
-                if (dbInsts.isNotEmpty()) {
-                    val loaded = dbInsts.map { entity ->
+            if (dbInsts.isNotEmpty()) {
+                val loaded = dbInsts.map { entity ->
                         val payments = dbPayments.filter { it.installmentId == entity.id }.map { p ->
                             PaymentHistoryItem(
                                 id = p.paymentReference ?: p.id.toString(),
@@ -109,14 +129,9 @@ class LocalInstallmentRepository private constructor() {
                         )
                     }
                     updateInternalState(loaded)
-                } else if (!isCleanSlate) {
-                    val sample = InstallmentMockDataSource.getSampleInitialInstallments()
-                    updateInternalState(sample)
-                    saveToRoom(appCtx, sample)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -127,8 +142,9 @@ class LocalInstallmentRepository private constructor() {
             try {
                 val db = AppDatabase.getDatabase(appCtx)
                 val dao = db.installmentDao()
-                val dbInsts = dao.getAllInstallmentsList()
-                val dbPayments = dao.getAllPaymentsList()
+                val userId = SessionManager.userId ?: return@launch
+                val dbInsts = dao.getAllInstallmentsList(userId)
+                val dbPayments = dao.getAllPaymentsList(userId)
 
                 val loaded = dbInsts.map { entity ->
                     val payments = dbPayments.filter { it.installmentId == entity.id }.map { p ->
@@ -313,8 +329,9 @@ class LocalInstallmentRepository private constructor() {
         repositoryScope.launch {
             try {
                 val db = AppDatabase.getDatabase(targetContext)
-                db.installmentDao().clearAllInstallments()
-                db.installmentDao().clearAllPayments()
+                val userId = SessionManager.userId ?: return@launch
+                db.installmentDao().clearAllInstallments(userId)
+                db.installmentDao().clearAllPayments(userId)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -334,16 +351,16 @@ class LocalInstallmentRepository private constructor() {
         try {
             val db = AppDatabase.getDatabase(context)
             val dao = db.installmentDao()
-            dao.clearAllInstallments()
-            dao.clearAllPayments()
+            val userId = SessionManager.userId ?: return
+            dao.clearAllInstallments(userId)
+            dao.clearAllPayments(userId)
 
-            items.forEachIndexed { idx, item ->
-                val instId = idx + 1
+            items.forEach { item ->
                 val entity = InstallmentEntity(
-                    id = instId,
+                    id = 0,
                     serverId = item.id,
                     syncState = "SYNCED",
-                    userId = "user_default",
+                    userId = userId,
                     category = item.category.name,
                     providerName = item.providerOrPerson,
                     title = item.title,
@@ -357,7 +374,7 @@ class LocalInstallmentRepository private constructor() {
                     status = item.status.name,
                     notes = item.notes
                 )
-                dao.insertInstallment(entity)
+                val instId = dao.insertInstallment(entity).toInt()
 
                 item.paymentHistory.forEach { p ->
                     val paymentEntity = InstallmentPaymentEntity(

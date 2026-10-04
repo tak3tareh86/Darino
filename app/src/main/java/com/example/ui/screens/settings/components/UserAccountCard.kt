@@ -459,7 +459,12 @@ fun UserAccountCard(
                             try {
                                 val db = AppDatabase.getDatabase(context)
                                 val userDao = db.userDao()
-                                val user = userDao.getFirstUser()
+                                val userId = com.example.data.security.SessionManager.userId
+                                if (userId == null) {
+                                    passwordErrorMessage = "لطفاً ابتدا وارد حساب کاربری شوید."
+                                    return@launch
+                                }
+                                val user = userDao.getUserByIdSync(userId)
                                 if (user != null) {
                                     if (!user.passwordHash.isNullOrBlank() && !user.salt.isNullOrBlank()) {
                                         val isValid = PasswordHasher.verifyPassword(currentPasswordInput, user.salt, user.passwordHash)

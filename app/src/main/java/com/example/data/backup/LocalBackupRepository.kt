@@ -1,176 +1,366 @@
 package com.example.data.backup
 
 import android.content.Context
+import android.util.Log
 import androidx.room.withTransaction
 import com.example.data.database.AppDatabase
-import com.example.data.database.TransactionEntity
-import com.example.data.database.InstallmentEntity
-import com.example.data.database.InstallmentPaymentEntity
-import com.example.data.database.VehicleEntity
-import com.example.data.database.VehicleServiceEntity
-import com.example.reminder.data.ReminderEntity
-import com.example.reminder.data.ReminderScheduleEntity
-import com.example.calendar.data.FinancialEventEntity
+import com.example.data.security.SessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class LocalBackupRepository(private val context: Context) : BackupRepository {
+class LocalBackupRepository(
+    private val context: Context
+) : BackupRepository {
+
     private val db = AppDatabase.getDatabase(context)
 
-    override suspend fun createBackup(): DarinoBackup = withContext(Dispatchers.IO) {
-        val txs = db.transactionDao().getAllTransactionsList()
-        val installments = db.installmentDao().getAllInstallmentsList()
-        val payments = db.installmentDao().getAllPaymentsList()
-        val vehicles = db.vehicleDao().getAllVehiclesList()
-        val services = db.vehicleDao().getAllServicesList()
-        val expenses = db.vehicleDao().getAllExpensesList()
-        val insurances = db.vehicleDao().getAllInsurancesList()
-        val inspections = db.vehicleDao().getAllInspectionsList()
-        val reminders = db.smartReminderDao().getAllRemindersList()
-        val schedules = db.smartReminderDao().getAllSchedulesList()
-        val events = db.financialEventDao().getAllEventsList()
+    override suspend fun createBackup(): DarinoBackup =
+        withContext(Dispatchers.IO) {
+            val userId = SessionManager.userId
+                ?: throw IllegalStateException(
+                    "Authenticated user is required"
+                )
 
-        val totalRecords = txs.size + installments.size + payments.size + vehicles.size + services.size + expenses.size + insurances.size + inspections.size + reminders.size + events.size
+            val transactions =
+                db.transactionDao().getAllTransactionsList(userId)
 
-        val metadata = BackupMetadata(
-            backupVersion = 1,
-            appVersion = "1.0",
-            createdAt = System.currentTimeMillis(),
-            recordCount = totalRecords,
-            checksum = "",
-            currencyUnit = "TOMAN",
-            dateSystem = "JALALI_UI"
-        )
+            val installments =
+                db.installmentDao().getAllInstallmentsList(userId)
 
-        DarinoBackup(
-            metadata = metadata,
-            transactions = txs,
-            installments = installments,
-            installmentPayments = payments,
-            vehicles = vehicles,
-            vehicleServices = services,
-            vehicleExpenses = expenses,
-            vehicleInsurances = insurances,
-            vehicleInspections = inspections,
-            reminders = reminders,
-            reminderSchedules = schedules,
-            financialEvents = events
-        )
-    }
+            val payments =
+                db.installmentDao().getAllPaymentsList(userId)
 
-    override suspend fun restoreBackup(backup: DarinoBackup, mode: RestoreMode) = withContext(Dispatchers.IO) {
-        db.withTransaction {
-            if (mode == RestoreMode.REPLACE) {
-                // Clear existing tables
-                db.transactionDao().clearAllTransactions()
-                db.installmentDao().clearAllInstallments()
-                db.installmentDao().clearAllPayments()
-                db.vehicleDao().clearAllVehicles()
-                db.vehicleDao().clearAllServices()
-                db.vehicleDao().clearAllExpenses()
-                db.vehicleDao().clearAllInsurances()
-                db.vehicleDao().clearAllInspections()
-                db.smartReminderDao().clearAllReminders()
-                db.financialEventDao().clearAllEvents()
-            }
+            val vehicles =
+                db.vehicleDao().getAllVehiclesList(userId)
 
-            // Insert backup data
-            for (tx in backup.transactions) {
+            val services =
+                db.vehicleDao().getAllServicesList(userId)
+
+            val expenses =
+                db.vehicleDao().getAllExpensesList(userId)
+
+            val insurances =
+                db.vehicleDao().getAllInsurancesList(userId)
+
+            val inspections =
+                db.vehicleDao().getAllInspectionsList(userId)
+
+            val reminders =
+                db.smartReminderDao().getAllRemindersList(userId)
+
+            val schedules =
+                db.smartReminderDao()
+                    .getAllFutureActiveSchedules(userId)
+
+            val events =
+                db.financialEventDao().getAllEventsList(userId)
+
+            val totalRecords =
+                transactions.size +
+                        installments.size +
+                        payments.size +
+                        vehicles.size +
+                        services.size +
+                        expenses.size +
+                        insurances.size +
+                        inspections.size +
+                        reminders.size +
+                        events.size
+
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 1,
+                    appVersion = "1.0",
+                    createdAt = System.currentTimeMillis(),
+                    recordCount = totalRecords,
+                    checksum = "",
+                    currencyUnit = "TOMAN",
+                    dateSystem = "JALALI_UI"
+                ),
+                transactions = transactions,
+                installments = installments,
+                installmentPayments = payments,
+                vehicles = vehicles,
+                vehicleServices = services,
+                vehicleExpenses = expenses,
+                vehicleInsurances = insurances,
+                vehicleInspections = inspections,
+                reminders = reminders,
+                reminderSchedules = schedules,
+                financialEvents = events
+            )
+        }
+
+    override suspend fun restoreBackup(
+        backup: DarinoBackup,
+        mode: RestoreMode
+    ) {
+        withContext(Dispatchers.IO) {
+            val userId = SessionManager.userId
+                ?: throw IllegalStateException(
+                    "Authenticated user is required"
+                )
+
+            db.withTransaction {
                 if (mode == RestoreMode.REPLACE) {
-                    db.transactionDao().insertTransaction(tx)
-                } else {
-                    db.transactionDao().insertTransaction(tx) // or upsert
+                    db.transactionDao()
+                        .clearAllTransactions(userId)
+
+                    db.installmentDao()
+                        .clearAllPayments(userId)
+
+                    db.installmentDao()
+                        .clearAllInstallments(userId)
+
+                    db.vehicleDao()
+                        .clearAllInspections(userId)
+
+                    db.vehicleDao()
+                        .clearAllInsurances(userId)
+
+                    db.vehicleDao()
+                        .clearAllExpenses(userId)
+
+                    db.vehicleDao()
+                        .clearAllServices(userId)
+
+                    db.vehicleDao()
+                        .clearAllVehicles(userId)
+
+                    db.smartReminderDao()
+                        .clearAllReminders(userId)
+
+                    db.financialEventDao()
+                        .clearAllEvents(userId)
+                }
+
+                backup.transactions.forEach { transaction ->
+                    db.transactionDao().insertTransaction(
+                        transaction.copy(userId = userId)
+                    )
+                }
+
+                backup.installments.forEach { installment ->
+                    db.installmentDao().insertInstallment(
+                        installment.copy(userId = userId)
+                    )
+                }
+
+                backup.installmentPayments.forEach { payment ->
+                    db.installmentDao().insertPayment(payment)
+                }
+
+                backup.vehicles.forEach { vehicle ->
+                    db.vehicleDao().insertVehicle(
+                        vehicle.copy(userId = userId)
+                    )
+                }
+
+                backup.vehicleServices.forEach { service ->
+                    db.vehicleDao().insertService(
+                        service.copy(userId = userId)
+                    )
+                }
+
+                if (backup.vehicleExpenses.isNotEmpty()) {
+                    db.vehicleDao().insertExpenses(
+                        backup.vehicleExpenses.map {
+                            it.copy(userId = userId)
+                        }
+                    )
+                }
+
+                if (backup.vehicleInsurances.isNotEmpty()) {
+                    db.vehicleDao().insertInsurances(
+                        backup.vehicleInsurances.map {
+                            it.copy(userId = userId)
+                        }
+                    )
+                }
+
+                if (backup.vehicleInspections.isNotEmpty()) {
+                    db.vehicleDao().insertInspections(
+                        backup.vehicleInspections.map {
+                            it.copy(userId = userId)
+                        }
+                    )
+                }
+
+                backup.reminders.forEach { reminder ->
+                    db.smartReminderDao().insertReminder(
+                        reminder.copy(userId = userId)
+                    )
+                }
+
+                backup.reminderSchedules.forEach { schedule ->
+                    db.smartReminderDao().insertSchedule(schedule)
+                }
+
+                backup.financialEvents.forEach { event ->
+                    db.financialEventDao().insertEvent(
+                        event.copy(userId = userId)
+                    )
                 }
             }
-            for (inst in backup.installments) {
-                db.installmentDao().insertInstallment(inst)
-            }
-            for (payment in backup.installmentPayments) {
-                db.installmentDao().insertPayment(payment)
-            }
-            for (v in backup.vehicles) {
-                db.vehicleDao().insertVehicle(v)
-            }
-            for (s in backup.vehicleServices) {
-                db.vehicleDao().insertService(s)
-            }
-            if (backup.vehicleExpenses.isNotEmpty()) {
-                db.vehicleDao().insertExpenses(backup.vehicleExpenses)
-            }
-            if (backup.vehicleInsurances.isNotEmpty()) {
-                db.vehicleDao().insertInsurances(backup.vehicleInsurances)
-            }
-            if (backup.vehicleInspections.isNotEmpty()) {
-                db.vehicleDao().insertInspections(backup.vehicleInspections)
-            }
-            for (r in backup.reminders) {
-                db.smartReminderDao().insertReminder(r)
-            }
-            for (sched in backup.reminderSchedules) {
-                db.smartReminderDao().insertSchedule(sched)
-            }
-            for (ev in backup.financialEvents) {
-                db.financialEventDao().insertEvent(ev)
-            }
-        }
 
-        // Notify active repositories to reload state from newly restored database
-        try {
-            com.example.vehicle.data.VehicleRepository.instance.reloadFromDatabase(context)
-            com.example.ui.screens.installments.model.InstallmentMockDataSource.init(context)
-        } catch (e: Exception) {
-            e.printStackTrace()
+            try {
+                com.example.vehicle.data.VehicleRepository
+                    .instance
+                    .reloadFromDatabase(context)
+
+                com.example.ui.screens.installments.model
+                    .InstallmentMockDataSource
+                    .init(context)
+            } catch (e: Exception) {
+                Log.e(
+                    "LocalBackupRepository",
+                    "Failed to reload restored data",
+                    e
+                )
+            }
         }
     }
 
-    override suspend fun exportCsvTransactions(): String = withContext(Dispatchers.IO) {
-        val txs = db.transactionDao().getAllTransactionsList()
-        val sb = StringBuilder()
-        sb.append("Time,Type,Category,AccountName,Amount,Description\n")
-        for (tx in txs) {
-            sb.append("\"${tx.timeFormatted}\",${tx.type},\"${tx.category}\",\"${tx.accountName}\",${tx.amount},\"${tx.description}\"\n")
+    override suspend fun exportCsvTransactions(): String =
+        withContext(Dispatchers.IO) {
+            val userId = SessionManager.userId
+                ?: throw IllegalStateException(
+                    "Authenticated user is required"
+                )
+
+            val transactions =
+                db.transactionDao()
+                    .getAllTransactionsList(userId)
+
+            buildString {
+                appendLine(
+                    "Time,Type,Category,AccountName,Amount,Description"
+                )
+
+                transactions.forEach { transaction ->
+                    appendLine(
+                        "\"${transaction.timeFormatted}\"," +
+                                "${transaction.type}," +
+                                "\"${transaction.category}\"," +
+                                "\"${transaction.accountName}\"," +
+                                "${transaction.amount}," +
+                                "\"${transaction.description}\""
+                    )
+                }
+            }
         }
-        sb.toString()
-    }
 
-    override suspend fun exportCsvInstallments(): String = withContext(Dispatchers.IO) {
-        val insts = db.installmentDao().getAllInstallmentsList()
-        val sb = StringBuilder()
-        sb.append("Title,Provider,Amount,TotalInstallments,RemainingInstallments,NextDueDate,Status\n")
-        for (i in insts) {
-            sb.append("\"${i.title}\",\"${i.providerName}\",${i.amount},${i.totalInstallments},${i.remainingInstallments},${i.nextDueDate},\"${i.status}\"\n")
+    override suspend fun exportCsvInstallments(): String =
+        withContext(Dispatchers.IO) {
+            val userId = SessionManager.userId
+                ?: throw IllegalStateException(
+                    "Authenticated user is required"
+                )
+
+            val installments =
+                db.installmentDao()
+                    .getAllInstallmentsList(userId)
+
+            buildString {
+                appendLine(
+                    "Title,Provider,Amount,TotalInstallments," +
+                            "RemainingInstallments,NextDueDate,Status"
+                )
+
+                installments.forEach { installment ->
+                    appendLine(
+                        "\"${installment.title}\"," +
+                                "\"${installment.providerName}\"," +
+                                "${installment.amount}," +
+                                "${installment.totalInstallments}," +
+                                "${installment.remainingInstallments}," +
+                                "${installment.nextDueDate}," +
+                                "\"${installment.status}\""
+                    )
+                }
+            }
         }
-        sb.toString()
-    }
 
-    override suspend fun exportCsvVehicleExpenses(): String = withContext(Dispatchers.IO) {
-        val services = db.vehicleDao().getAllServicesList()
-        val sb = StringBuilder()
-        sb.append("VehicleId,Title,Type,DueDate,DueMileage,Status,Notes\n")
-        for (s in services) {
-            sb.append("${s.vehicleId},\"${s.title}\",\"${s.type}\",${s.dueDate ?: 0},${s.dueMileage ?: 0},\"${s.status}\",\"${s.notes ?: ""}\"\n")
+    override suspend fun exportCsvVehicleExpenses(): String =
+        withContext(Dispatchers.IO) {
+            val userId = SessionManager.userId
+                ?: throw IllegalStateException(
+                    "Authenticated user is required"
+                )
+
+            val services =
+                db.vehicleDao()
+                    .getAllServicesList(userId)
+
+            buildString {
+                appendLine(
+                    "VehicleId,Title,Type,DueDate,DueMileage,Status,Notes"
+                )
+
+                services.forEach { service ->
+                    appendLine(
+                        "${service.vehicleId}," +
+                                "\"${service.title}\"," +
+                                "\"${service.type}\"," +
+                                "${service.dueDate ?: 0}," +
+                                "${service.dueMileage ?: 0}," +
+                                "\"${service.status}\"," +
+                                "\"${service.notes ?: ""}\""
+                    )
+                }
+            }
         }
-        sb.toString()
-    }
 
-    override suspend fun getLastBackupTime(): Long? = withContext(Dispatchers.IO) {
-        // Can be stored in SharedPrefs or DB metadata
-        val prefs = context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
-        val time = prefs.getLong("last_backup_time", 0L)
-        if (time == 0L) null else time
-    }
+    override suspend fun getLastBackupTime(): Long? =
+        withContext(Dispatchers.IO) {
+            val preferences = context.getSharedPreferences(
+                "darino_backup_prefs",
+                Context.MODE_PRIVATE
+            )
 
-    override suspend fun deleteAllData() = withContext(Dispatchers.IO) {
-        db.withTransaction {
-            db.transactionDao().clearAllTransactions()
-            db.installmentDao().clearAllInstallments()
-            db.vehicleDao().clearAllVehicles()
-            db.vehicleDao().clearAllServices()
-            db.vehicleDao().clearAllExpenses()
-            db.vehicleDao().clearAllInsurances()
-            db.vehicleDao().clearAllInspections()
-            db.smartReminderDao().clearAllReminders()
-            db.financialEventDao().clearAllEvents()
+            preferences
+                .getLong("last_backup_time", 0L)
+                .takeIf { it != 0L }
+        }
+
+    override suspend fun deleteAllData() {
+        withContext(Dispatchers.IO) {
+            val userId = SessionManager.userId
+                ?: throw IllegalStateException(
+                    "Authenticated user is required"
+                )
+
+            db.withTransaction {
+                db.transactionDao()
+                    .clearAllTransactions(userId)
+
+                db.installmentDao()
+                    .clearAllPayments(userId)
+
+                db.installmentDao()
+                    .clearAllInstallments(userId)
+
+                db.vehicleDao()
+                    .clearAllInspections(userId)
+
+                db.vehicleDao()
+                    .clearAllInsurances(userId)
+
+                db.vehicleDao()
+                    .clearAllExpenses(userId)
+
+                db.vehicleDao()
+                    .clearAllServices(userId)
+
+                db.vehicleDao()
+                    .clearAllVehicles(userId)
+
+                db.smartReminderDao()
+                    .clearAllReminders(userId)
+
+                db.financialEventDao()
+                    .clearAllEvents(userId)
+            }
         }
     }
 }

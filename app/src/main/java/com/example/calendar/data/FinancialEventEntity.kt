@@ -1,15 +1,18 @@
 package com.example.calendar.data
 
 import androidx.room.Entity
-import androidx.room.PrimaryKey
 import com.example.calendar.domain.model.FinancialEvent
 import com.example.calendar.domain.model.FinancialEventStatus
 import com.example.calendar.domain.model.FinancialEventType
 import com.example.calendar.domain.model.ReminderBeforeOption
 
-@Entity(tableName = "financial_events")
+@Entity(
+    tableName = "financial_events",
+    primaryKeys = ["id", "userId"]
+)
 data class FinancialEventEntity(
-    @PrimaryKey val id: String,
+    val id: String,
+    val userId: String,
     val title: String,
     val description: String = "",
     val type: String, // "INSTALLMENT", "REMINDER", "VEHICLE", "EXPENSE"
@@ -40,9 +43,10 @@ data class FinancialEventEntity(
     }
 
     companion object {
-        fun fromDomain(event: FinancialEvent): FinancialEventEntity {
+        fun fromDomain(event: FinancialEvent, userId: String): FinancialEventEntity {
             return FinancialEventEntity(
                 id = event.id,
+                userId = userId,
                 title = event.title,
                 description = event.description,
                 type = event.type.name,

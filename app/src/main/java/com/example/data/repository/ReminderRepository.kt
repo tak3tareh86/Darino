@@ -8,12 +8,20 @@ import com.example.data.database.AppDatabase
 import com.example.data.database.ReminderEntity
 import com.example.data.receiver.ReminderScheduler
 import com.example.data.security.SessionManager
+import com.example.data.security.SessionState
 import com.example.util.IranianPhoneUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private fun SessionState.userIdOrNull(): String? = when (this) {
+    is SessionState.Authenticated -> user.id
+    is SessionState.PhoneVerificationRequired -> user.id
+    else -> null
+}
 
 class ReminderRepository(
     private val context: Context,
@@ -24,12 +32,23 @@ class ReminderRepository(
     private val syncManager = SyncManager(context, database)
     private val backgroundScope = CoroutineScope(Dispatchers.IO)
 
-    fun getAllReminders(): Flow<List<ReminderEntity>> = reminderDao.getAllReminders()
+    private fun requireUserId(): String =
+        SessionManager.userId ?: throw IllegalStateException("Authenticated user is required for reminder access")
 
-    fun getActiveReminders(): Flow<List<ReminderEntity>> = reminderDao.getActiveReminders()
+    fun getAllReminders(): Flow<List<ReminderEntity>> =
+        SessionManager.sessionState.flatMapLatest { state ->
+            val userId = state.userIdOrNull()
+            if (userId == null) kotlinx.coroutines.flow.flowOf(emptyList()) else reminderDao.getAllReminders(userId)
+        }
+
+    fun getActiveReminders(): Flow<List<ReminderEntity>> =
+        SessionManager.sessionState.flatMapLatest { state ->
+            val userId = state.userIdOrNull()
+            if (userId == null) kotlinx.coroutines.flow.flowOf(emptyList()) else reminderDao.getActiveReminders(userId)
+        }
 
     suspend fun getReminderById(id: Int): ReminderEntity? = withContext(Dispatchers.IO) {
-        reminderDao.getReminderById(id)
+        SessionManager.userId?.let { reminderDao.getReminderById(it, id) }
     }
 
     suspend fun createReminder(
@@ -51,7 +70,7 @@ class ReminderRepository(
             id = 0,
             serverId = null,
             syncState = "PENDING_INSERT",
-            userId = SessionManager.userId ?: "1",
+            userId = requireUserId(),
             type = type,
             title = title,
             description = description,
@@ -109,8 +128,8 @@ class ReminderRepository(
     }
 
     suspend fun toggleEnabled(id: Int, enabled: Boolean) = withContext(Dispatchers.IO) {
-        reminderDao.toggleEnabled(id, enabled)
-        val rem = reminderDao.getReminderById(id)
+        reminderDao.toggleEnabled(requireUserId(), id, enabled)
+        val rem = reminderDao.getReminderById(requireUserId(), id)
         if (rem != null) {
             if (enabled && rem.scheduledDateTime > System.currentTimeMillis()) {
                 reminderScheduler.schedule(rem)
@@ -125,7 +144,7 @@ class ReminderRepository(
 
     suspend fun markCompleted(id: Int, completed: Boolean) = withContext(Dispatchers.IO) {
         val completedAt = if (completed) System.currentTimeMillis() else null
-        reminderDao.markCompleted(id, completedAt)
+        reminderDao.markCompleted(requireUserId(), id, completedAt)
         if (completed) {
             reminderScheduler.cancel(id)
         }
@@ -136,14 +155,14 @@ class ReminderRepository(
 
     suspend fun deleteReminder(id: Int) = withContext(Dispatchers.IO) {
         reminderScheduler.cancel(id)
-        reminderDao.softDeleteReminder(id)
+        reminderDao.softDeleteReminder(requireUserId(), id)
         backgroundScope.launch {
             syncManager.syncReminders()
         }
     }
 
     suspend fun snoozeReminder(id: Int, snoozeMinutes: Long = 15) = withContext(Dispatchers.IO) {
-        val existing = reminderDao.getReminderById(id) ?: return@withContext
+        val existing = reminderDao.getReminderById(requireUserId(), id) ?: return@withContext
         val newTrigger = System.currentTimeMillis() + snoozeMinutes * 60 * 1000L
         val updated = existing.copy(
             scheduledDateTime = newTrigger,
@@ -165,7 +184,7 @@ class ReminderRepository(
     }
 
     suspend fun refreshSmsStatus(reminderId: Int): String? = withContext(Dispatchers.IO) {
-        val reminder = reminderDao.getReminderById(reminderId) ?: return@withContext null
+        val reminder = reminderDao.getReminderById(requireUserId(), reminderId) ?: return@withContext null
         if (reminder.serverId == null || !reminder.smsEnabled) return@withContext null
 
         try {
@@ -173,7 +192,7 @@ class ReminderRepository(
             if (response.isSuccessful && response.body()?.success == true) {
                 val status = response.body()?.data?.status
                 if (status != null) {
-                    reminderDao.updateSmsStatus(reminderId, status)
+                    reminderDao.updateSmsStatus(requireUserId(), reminderId, status)
                     return@withContext status
                 }
             }

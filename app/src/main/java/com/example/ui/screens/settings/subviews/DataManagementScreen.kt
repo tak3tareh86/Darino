@@ -269,18 +269,21 @@ fun DataManagementScreen(
                     }
                     "clear_transactions" -> {
                         financeRepo.clearAllTransactionsData()
-                        db.transactionDao().clearAllTransactions()
+                        val userId = com.example.data.security.SessionManager.userId ?: ""
+                        db.transactionDao().clearAllTransactions(userId)
                         Toast.makeText(context, "تراکنش‌ها و بودجه‌ها با موفقیت پاکسازی شدند.", Toast.LENGTH_SHORT).show()
                     }
                     "clear_vehicles" -> {
                         vehicleRepo.clearAllVehiclesData()
-                        db.vehicleDao().clearAllVehicles()
-                        db.vehicleDao().clearAllServices()
+                        val userId = com.example.data.security.SessionManager.userId ?: ""
+                        db.vehicleDao().clearAllVehicles(userId)
+                        db.vehicleDao().clearAllServices(userId)
                         Toast.makeText(context, "خودروها و سوابق سرویس با موفقیت پاک شدند.", Toast.LENGTH_SHORT).show()
                     }
                     "clear_installments" -> {
                         InstallmentMockDataSource.clearAllInstallments(context)
-                        db.installmentDao().clearAllInstallments()
+                        val userId = com.example.data.security.SessionManager.userId ?: ""
+                        db.installmentDao().clearAllInstallments(userId)
                         Toast.makeText(context, "اقساط و بدهی‌ها با موفقیت پاک شدند.", Toast.LENGTH_SHORT).show()
                     }
                     "reset_all" -> {

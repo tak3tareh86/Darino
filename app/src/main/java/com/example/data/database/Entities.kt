@@ -19,7 +19,7 @@ data class UserEntity(
 @Entity(tableName = "transactions")
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val userId: String = "default_user",
+    val userId: String,
     val amount: Long = 0L,
     val type: String = "EXPENSE", // "EXPENSE", "INCOME", "TRANSFER"
     val category: String = "",
@@ -34,7 +34,10 @@ data class TransactionEntity(
     val paymentMethod: String = "BANK_CARD",
     val sourceType: String = "MANUAL",
     val sourceId: String? = null,
-    val isRecurring: Boolean = false
+    val isRecurring: Boolean = false,
+    val syncState: String = "PENDING_UPSERT",
+    val updatedAt: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null
 )
 
 @Entity(tableName = "installments")
@@ -92,6 +95,7 @@ data class VehicleServiceEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val serverId: String? = null,
     val syncState: String = "SYNCED",
+    val userId: String = "",
     val vehicleId: Int,
     val type: String, // "INSURANCE", "INSPECTION", "OIL", "SERVICE", "TIRES", "BATTERY", "MAINTENANCE", "TAX", "CUSTOM"
     val title: String,
@@ -106,6 +110,7 @@ data class VehicleServiceEntity(
 @Entity(tableName = "vehicle_expenses")
 data class VehicleExpenseRoomEntity(
     @PrimaryKey val id: String,
+    val userId: String = "",
     val vehicleId: String,
     val title: String,
     val category: String,
@@ -118,6 +123,7 @@ data class VehicleExpenseRoomEntity(
 @Entity(tableName = "vehicle_insurances")
 data class VehicleInsuranceRoomEntity(
     @PrimaryKey val id: String,
+    val userId: String = "",
     val vehicleId: String,
     val company: String,
     val type: String,
@@ -131,6 +137,7 @@ data class VehicleInsuranceRoomEntity(
 @Entity(tableName = "vehicle_inspections")
 data class VehicleInspectionRoomEntity(
     @PrimaryKey val id: String,
+    val userId: String = "",
     val vehicleId: String,
     val lastInspectionDate: String,
     val expiryDate: String,
@@ -179,6 +186,7 @@ data class ReminderScheduleEntity(
 @Entity(tableName = "notification_logs")
 data class NotificationLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val userId: String,
     val serverId: String? = null,
     val syncState: String = "SYNCED",
     val reminderId: Int? = null,
@@ -195,6 +203,7 @@ data class NotificationLogEntity(
 @Entity(tableName = "sms_logs")
 data class SmsLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val userId: String,
     val reminderId: Int?,
     val providerMessageId: String?,
     val phoneNumber: String,

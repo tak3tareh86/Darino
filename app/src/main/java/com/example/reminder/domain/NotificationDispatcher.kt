@@ -208,6 +208,7 @@ class NotificationDispatcher(private val context: Context) {
 
             db.notificationLogDao().insertNotification(
                 NotificationLogEntity(
+                    userId = reminder.userId,
                     reminderId = notifId,
                     title = reminder.title,
                     message = bodyText,

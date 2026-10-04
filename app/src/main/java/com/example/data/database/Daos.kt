@@ -17,8 +17,8 @@ interface UserDao {
     @Query("UPDATE users SET passwordHash = :passwordHash, salt = :salt WHERE id = :userId")
     suspend fun updatePassword(userId: String, passwordHash: String, salt: String)
 
-    @Query("SELECT * FROM users LIMIT 1")
-    suspend fun getFirstUser(): UserEntity?
+    @Query("SELECT * FROM users WHERE id = :userId LIMIT 1")
+    suspend fun getUserByIdSync(userId: String): UserEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: UserEntity)
@@ -29,14 +29,26 @@ interface UserDao {
 
 @Dao
 interface TransactionDao {
-    @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
-    fun getAllTransactions(): Flow<List<TransactionEntity>>
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND deletedAt IS NULL ORDER BY timestamp DESC")
+    fun getAllTransactions(userId: String): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
-    suspend fun getAllTransactionsList(): List<TransactionEntity>
+    @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY timestamp DESC")
+    suspend fun getAllTransactionsList(userId: String): List<TransactionEntity>
 
-    @Query("DELETE FROM transactions")
-    suspend fun clearAllTransactions()
+    @Query("DELETE FROM transactions WHERE userId = :userId")
+    suspend fun clearAllTransactions(userId: String)
+
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND syncState != 'SYNCED' ORDER BY updatedAt ASC")
+    suspend fun getPendingSyncTransactions(userId: String): List<TransactionEntity>
+
+    @Query("UPDATE transactions SET syncState = 'SYNCED', updatedAt = :updatedAt, deletedAt = :deletedAt WHERE userId = :userId AND stringId = :stringId")
+    suspend fun markTransactionSynced(userId: String, stringId: String, updatedAt: Long, deletedAt: Long?)
+
+    @Query("UPDATE transactions SET deletedAt = :deletedAt, updatedAt = :updatedAt, syncState = 'PENDING_DELETE' WHERE userId = :userId AND stringId = :stringId")
+    suspend fun softDeleteByStringId(userId: String, stringId: String, deletedAt: Long, updatedAt: Long)
+
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND stringId = :stringId LIMIT 1")
+    suspend fun getTransactionIncludingDeleted(userId: String, stringId: String): TransactionEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: TransactionEntity)
@@ -50,30 +62,30 @@ interface TransactionDao {
     @Delete
     suspend fun deleteTransaction(transaction: TransactionEntity)
 
-    @Query("DELETE FROM transactions WHERE stringId = :stringId OR CAST(id AS TEXT) = :stringId")
-    suspend fun deleteByStringId(stringId: String)
+    @Query("DELETE FROM transactions WHERE userId = :userId AND (stringId = :stringId OR CAST(id AS TEXT) = :stringId)")
+    suspend fun deleteByStringId(userId: String, stringId: String)
 
-    @Query("SELECT * FROM transactions WHERE stringId = :stringId OR CAST(id AS TEXT) = :stringId LIMIT 1")
-    suspend fun getTransactionByStringId(stringId: String): TransactionEntity?
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND (stringId = :stringId OR CAST(id AS TEXT) = :stringId) LIMIT 1")
+    suspend fun getTransactionByStringId(userId: String, stringId: String): TransactionEntity?
 }
 
 @Dao
 interface InstallmentDao {
-    @Query("SELECT * FROM installments WHERE deletedAt IS NULL ORDER BY nextDueDate ASC")
-    fun getAllInstallments(): Flow<List<InstallmentEntity>>
+    @Query("SELECT * FROM installments WHERE userId = :userId AND deletedAt IS NULL ORDER BY nextDueDate ASC")
+    fun getAllInstallments(userId: String): Flow<List<InstallmentEntity>>
 
-    @Query("SELECT * FROM installments")
-    suspend fun getAllInstallmentsList(): List<InstallmentEntity>
+    @Query("SELECT * FROM installments WHERE userId = :userId")
+    suspend fun getAllInstallmentsList(userId: String): List<InstallmentEntity>
 
-    @Query("DELETE FROM installments")
-    suspend fun clearAllInstallments()
+    @Query("DELETE FROM installments WHERE userId = :userId")
+    suspend fun clearAllInstallments(userId: String)
 
-    @Query("SELECT * FROM installments WHERE id = :id AND deletedAt IS NULL LIMIT 1")
-    suspend fun getInstallmentById(id: Int): InstallmentEntity?
+    @Query("SELECT * FROM installments WHERE userId = :userId AND id = :id AND deletedAt IS NULL LIMIT 1")
+    suspend fun getInstallmentById(userId: String, id: Int): InstallmentEntity?
 
 
-    @Query("SELECT * FROM installments WHERE syncState != 'SYNCED'")
-    suspend fun getPendingSyncInstallments(): List<InstallmentEntity>
+    @Query("SELECT * FROM installments WHERE userId = :userId AND syncState != 'SYNCED'")
+    suspend fun getPendingSyncInstallments(userId: String): List<InstallmentEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInstallment(installment: InstallmentEntity): Long
@@ -81,21 +93,21 @@ interface InstallmentDao {
     @Update
     suspend fun updateInstallment(installment: InstallmentEntity)
 
-    @Query("UPDATE installments SET deletedAt = :deletedAt, syncState = 'PENDING_DELETE' WHERE id = :id")
-    suspend fun softDeleteInstallment(id: Int, deletedAt: Long = System.currentTimeMillis())
+    @Query("UPDATE installments SET deletedAt = :deletedAt, syncState = 'PENDING_DELETE' WHERE userId = :userId AND id = :id")
+    suspend fun softDeleteInstallment(userId: String, id: Int, deletedAt: Long = System.currentTimeMillis())
 
     @Delete
     suspend fun deleteInstallment(installment: InstallmentEntity)
 
     // Payments
-    @Query("SELECT * FROM installment_payments WHERE installmentId = :installmentId ORDER BY dueDate ASC")
-    fun getPaymentsForInstallment(installmentId: Int): Flow<List<InstallmentPaymentEntity>>
+    @Query("SELECT p.* FROM installment_payments p INNER JOIN installments i ON i.id = p.installmentId WHERE i.userId = :userId AND p.installmentId = :installmentId ORDER BY p.dueDate ASC")
+    fun getPaymentsForInstallment(userId: String, installmentId: Int): Flow<List<InstallmentPaymentEntity>>
 
-    @Query("SELECT * FROM installment_payments")
-    suspend fun getAllPaymentsList(): List<InstallmentPaymentEntity>
+    @Query("SELECT p.* FROM installment_payments p INNER JOIN installments i ON i.id = p.installmentId WHERE i.userId = :userId")
+    suspend fun getAllPaymentsList(userId: String): List<InstallmentPaymentEntity>
 
-    @Query("DELETE FROM installment_payments")
-    suspend fun clearAllPayments()
+    @Query("DELETE FROM installment_payments WHERE installmentId IN (SELECT id FROM installments WHERE userId = :userId)")
+    suspend fun clearAllPayments(userId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPayment(payment: InstallmentPaymentEntity)
@@ -106,41 +118,41 @@ interface InstallmentDao {
 
 @Dao
 interface VehicleDao {
-    @Query("SELECT * FROM vehicles WHERE deletedAt IS NULL")
-    fun getAllVehicles(): Flow<List<VehicleEntity>>
+    @Query("SELECT * FROM vehicles WHERE userId = :userId AND deletedAt IS NULL")
+    fun getAllVehicles(userId: String): Flow<List<VehicleEntity>>
 
-    @Query("SELECT * FROM vehicles")
-    suspend fun getAllVehiclesList(): List<VehicleEntity>
+    @Query("SELECT * FROM vehicles WHERE userId = :userId")
+    suspend fun getAllVehiclesList(userId: String): List<VehicleEntity>
 
-    @Query("SELECT * FROM vehicle_services")
-    suspend fun getAllServicesList(): List<VehicleServiceEntity>
+    @Query("SELECT * FROM vehicle_services WHERE userId = :userId")
+    suspend fun getAllServicesList(userId: String): List<VehicleServiceEntity>
 
-    @Query("SELECT * FROM vehicle_expenses")
-    suspend fun getAllExpensesList(): List<VehicleExpenseRoomEntity>
+    @Query("SELECT * FROM vehicle_expenses WHERE userId = :userId")
+    suspend fun getAllExpensesList(userId: String): List<VehicleExpenseRoomEntity>
 
-    @Query("SELECT * FROM vehicle_insurances")
-    suspend fun getAllInsurancesList(): List<VehicleInsuranceRoomEntity>
+    @Query("SELECT * FROM vehicle_insurances WHERE userId = :userId")
+    suspend fun getAllInsurancesList(userId: String): List<VehicleInsuranceRoomEntity>
 
-    @Query("SELECT * FROM vehicle_inspections")
-    suspend fun getAllInspectionsList(): List<VehicleInspectionRoomEntity>
+    @Query("SELECT * FROM vehicle_inspections WHERE userId = :userId")
+    suspend fun getAllInspectionsList(userId: String): List<VehicleInspectionRoomEntity>
 
-    @Query("DELETE FROM vehicles")
-    suspend fun clearAllVehicles()
+    @Query("DELETE FROM vehicles WHERE userId = :userId")
+    suspend fun clearAllVehicles(userId: String)
 
-    @Query("DELETE FROM vehicle_services")
-    suspend fun clearAllServices()
+    @Query("DELETE FROM vehicle_services WHERE userId = :userId")
+    suspend fun clearAllServices(userId: String)
 
-    @Query("DELETE FROM vehicle_expenses")
-    suspend fun clearAllExpenses()
+    @Query("DELETE FROM vehicle_expenses WHERE userId = :userId")
+    suspend fun clearAllExpenses(userId: String)
 
-    @Query("DELETE FROM vehicle_insurances")
-    suspend fun clearAllInsurances()
+    @Query("DELETE FROM vehicle_insurances WHERE userId = :userId")
+    suspend fun clearAllInsurances(userId: String)
 
-    @Query("DELETE FROM vehicle_inspections")
-    suspend fun clearAllInspections()
+    @Query("DELETE FROM vehicle_inspections WHERE userId = :userId")
+    suspend fun clearAllInspections(userId: String)
 
-    @Query("DELETE FROM vehicle_expenses WHERE id = :id")
-    suspend fun deleteExpenseById(id: String)
+    @Query("DELETE FROM vehicle_expenses WHERE userId = :userId AND id = :id")
+    suspend fun deleteExpenseById(userId: String, id: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExpenses(expenses: List<VehicleExpenseRoomEntity>)
@@ -160,11 +172,11 @@ interface VehicleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInspection(inspection: VehicleInspectionRoomEntity)
 
-    @Query("SELECT * FROM vehicles WHERE id = :id AND deletedAt IS NULL LIMIT 1")
-    suspend fun getVehicleById(id: Int): VehicleEntity?
+    @Query("SELECT * FROM vehicles WHERE userId = :userId AND id = :id AND deletedAt IS NULL LIMIT 1")
+    suspend fun getVehicleById(userId: String, id: Int): VehicleEntity?
 
-    @Query("SELECT * FROM vehicles WHERE syncState != 'SYNCED'")
-    suspend fun getPendingSyncVehicles(): List<VehicleEntity>
+    @Query("SELECT * FROM vehicles WHERE userId = :userId AND syncState != 'SYNCED'")
+    suspend fun getPendingSyncVehicles(userId: String): List<VehicleEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVehicle(vehicle: VehicleEntity): Long
@@ -172,21 +184,20 @@ interface VehicleDao {
     @Update
     suspend fun updateVehicle(vehicle: VehicleEntity)
 
-    @Query("UPDATE vehicles SET deletedAt = :deletedAt, syncState = 'PENDING_DELETE' WHERE id = :id")
-    suspend fun softDeleteVehicle(id: Int, deletedAt: Long = System.currentTimeMillis())
+    @Query("UPDATE vehicles SET deletedAt = :deletedAt, syncState = 'PENDING_DELETE' WHERE userId = :userId AND id = :id")
+    suspend fun softDeleteVehicle(userId: String, id: Int, deletedAt: Long = System.currentTimeMillis())
 
     @Delete
     suspend fun deleteVehicle(vehicle: VehicleEntity)
 
-    // Services
-    @Query("SELECT * FROM vehicle_services WHERE vehicleId = :vehicleId AND deletedAt IS NULL ORDER BY dueDate ASC")
-    fun getServicesForVehicle(vehicleId: Int): Flow<List<VehicleServiceEntity>>
+    @Query("SELECT * FROM vehicle_services WHERE userId = :userId AND vehicleId = :vehicleId AND deletedAt IS NULL ORDER BY dueDate ASC")
+    fun getServicesForVehicle(userId: String, vehicleId: Int): Flow<List<VehicleServiceEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertService(service: VehicleServiceEntity)
 
-    @Query("SELECT * FROM vehicle_store WHERE `key` = :key LIMIT 1")
-    suspend fun getVehicleStore(key: String = "vehicle_data"): VehicleStoreEntity?
+    @Query("SELECT * FROM vehicle_store WHERE userId = :userId AND key = :key LIMIT 1")
+    suspend fun getVehicleStore(userId: String, key: String = "vehicle_data"): VehicleStoreEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVehicleStore(store: VehicleStoreEntity)
@@ -194,23 +205,23 @@ interface VehicleDao {
 
 @Dao
 interface ReminderDao {
-    @Query("SELECT * FROM reminders WHERE deletedAt IS NULL ORDER BY scheduledDateTime ASC")
-    fun getAllReminders(): Flow<List<ReminderEntity>>
+    @Query("SELECT * FROM reminders WHERE userId = :userId AND deletedAt IS NULL ORDER BY scheduledDateTime ASC")
+    fun getAllReminders(userId: String): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminders WHERE enabled = 1 AND deletedAt IS NULL ORDER BY scheduledDateTime ASC")
-    fun getActiveReminders(): Flow<List<ReminderEntity>>
+    @Query("SELECT * FROM reminders WHERE userId = :userId AND enabled = 1 AND deletedAt IS NULL ORDER BY scheduledDateTime ASC")
+    fun getActiveReminders(userId: String): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminders WHERE enabled = 1 AND deletedAt IS NULL ORDER BY scheduledDateTime ASC")
-    suspend fun getActiveRemindersSnapshot(): List<ReminderEntity>
+    @Query("SELECT * FROM reminders WHERE userId = :userId AND enabled = 1 AND deletedAt IS NULL ORDER BY scheduledDateTime ASC")
+    suspend fun getActiveRemindersSnapshot(userId: String): List<ReminderEntity>
 
-    @Query("SELECT * FROM reminders WHERE id = :id AND deletedAt IS NULL LIMIT 1")
-    suspend fun getReminderById(id: Int): ReminderEntity?
+    @Query("SELECT * FROM reminders WHERE userId = :userId AND id = :id AND deletedAt IS NULL LIMIT 1")
+    suspend fun getReminderById(userId: String, id: Int): ReminderEntity?
 
-    @Query("SELECT * FROM reminders WHERE serverId = :serverId LIMIT 1")
-    suspend fun getReminderByServerId(serverId: String): ReminderEntity?
+    @Query("SELECT * FROM reminders WHERE userId = :userId AND serverId = :serverId LIMIT 1")
+    suspend fun getReminderByServerId(userId: String, serverId: String): ReminderEntity?
 
-    @Query("SELECT * FROM reminders WHERE syncState != 'SYNCED'")
-    suspend fun getPendingSyncReminders(): List<ReminderEntity>
+    @Query("SELECT * FROM reminders WHERE userId = :userId AND syncState != 'SYNCED'")
+    suspend fun getPendingSyncReminders(userId: String): List<ReminderEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReminder(reminder: ReminderEntity): Long
@@ -218,30 +229,30 @@ interface ReminderDao {
     @Update
     suspend fun updateReminder(reminder: ReminderEntity)
 
-    @Query("UPDATE reminders SET deletedAt = :deletedAt, syncState = 'PENDING_DELETE' WHERE id = :id")
-    suspend fun softDeleteReminder(id: Int, deletedAt: Long = System.currentTimeMillis())
+    @Query("UPDATE reminders SET deletedAt = :deletedAt, syncState = 'PENDING_DELETE' WHERE userId = :userId AND id = :id")
+    suspend fun softDeleteReminder(userId: String, id: Int, deletedAt: Long = System.currentTimeMillis())
 
-    @Query("DELETE FROM reminders WHERE id = :id")
-    suspend fun hardDeleteReminder(id: Int)
+    @Query("DELETE FROM reminders WHERE userId = :userId AND id = :id")
+    suspend fun hardDeleteReminder(userId: String, id: Int)
 
     @Delete
     suspend fun deleteReminder(reminder: ReminderEntity)
 
-    @Query("UPDATE reminders SET syncState = :syncState, serverId = :serverId, lastSyncedAt = :lastSyncedAt WHERE id = :id")
-    suspend fun updateSyncStatus(id: Int, serverId: String?, syncState: String, lastSyncedAt: Long)
+    @Query("UPDATE reminders SET syncState = :syncState, serverId = :serverId, lastSyncedAt = :lastSyncedAt WHERE userId = :userId AND id = :id")
+    suspend fun updateSyncStatus(userId: String, id: Int, serverId: String?, syncState: String, lastSyncedAt: Long)
 
-    @Query("UPDATE reminders SET smsDeliveryStatus = :status WHERE id = :id")
-    suspend fun updateSmsStatus(id: Int, status: String)
+    @Query("UPDATE reminders SET smsDeliveryStatus = :status WHERE userId = :userId AND id = :id")
+    suspend fun updateSmsStatus(userId: String, id: Int, status: String)
 
-    @Query("UPDATE reminders SET enabled = :enabled, updatedAt = :updatedAt, syncState = 'PENDING_UPDATE' WHERE id = :id")
-    suspend fun toggleEnabled(id: Int, enabled: Boolean, updatedAt: Long = System.currentTimeMillis())
+    @Query("UPDATE reminders SET enabled = :enabled, updatedAt = :updatedAt, syncState = 'PENDING_UPDATE' WHERE userId = :userId AND id = :id")
+    suspend fun toggleEnabled(userId: String, id: Int, enabled: Boolean, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE reminders SET completedAt = :completedAt, updatedAt = :updatedAt, syncState = 'PENDING_UPDATE' WHERE id = :id")
-    suspend fun markCompleted(id: Int, completedAt: Long?, updatedAt: Long = System.currentTimeMillis())
+    @Query("UPDATE reminders SET completedAt = :completedAt, updatedAt = :updatedAt, syncState = 'PENDING_UPDATE' WHERE userId = :userId AND id = :id")
+    suspend fun markCompleted(userId: String, id: Int, completedAt: Long?, updatedAt: Long = System.currentTimeMillis())
 
     // Schedules
-    @Query("SELECT * FROM reminder_schedules WHERE reminderId = :reminderId")
-    suspend fun getSchedulesForReminder(reminderId: Int): List<ReminderScheduleEntity>
+    @Query("SELECT s.* FROM reminder_schedules s INNER JOIN reminders r ON r.id = s.reminderId WHERE r.userId = :userId AND s.reminderId = :reminderId")
+    suspend fun getSchedulesForReminder(userId: String, reminderId: Int): List<ReminderScheduleEntity>
 
     @Query("SELECT * FROM reminder_schedules WHERE triggerDateTime >= :start AND triggerDateTime <= :end AND status = 'PENDING'")
     suspend fun getPendingSchedulesInRange(start: Long, end: Long): List<ReminderScheduleEntity>
@@ -249,56 +260,57 @@ interface ReminderDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedule(schedule: ReminderScheduleEntity)
 
-    @Query("UPDATE reminder_schedules SET status = :status, notificationStatus = :notifStatus, smsStatus = :smsStatus WHERE id = :id")
-    suspend fun updateScheduleStatus(id: Int, status: String, notifStatus: String, smsStatus: String)
+    @Query("UPDATE reminder_schedules SET status = :status, notificationStatus = :notifStatus, smsStatus = :smsStatus WHERE id = :id AND reminderId IN (SELECT id FROM reminders WHERE userId = :userId)")
+    suspend fun updateScheduleStatus(userId: String, id: Int, status: String, notifStatus: String, smsStatus: String)
 }
 
 @Dao
 interface NotificationLogDao {
-    @Query("SELECT * FROM notification_logs WHERE deletedAt IS NULL ORDER BY timestamp DESC")
-    fun getAllNotifications(): Flow<List<NotificationLogEntity>>
+    @Query("SELECT * FROM notification_logs WHERE userId = :userId AND deletedAt IS NULL ORDER BY timestamp DESC")
+    fun getAllNotifications(userId: String): Flow<List<NotificationLogEntity>>
 
-    @Query("SELECT COUNT(*) FROM notification_logs WHERE isRead = 0 AND deletedAt IS NULL")
-    fun getUnreadCount(): Flow<Int>
+    @Query("SELECT COUNT(*) FROM notification_logs WHERE userId = :userId AND isRead = 0 AND deletedAt IS NULL")
+    fun getUnreadCount(userId: String): Flow<Int>
 
-    @Query("SELECT * FROM notification_logs WHERE syncState != 'SYNCED'")
-    suspend fun getPendingSyncNotifications(): List<NotificationLogEntity>
+    @Query("SELECT * FROM notification_logs WHERE userId = :userId AND syncState != 'SYNCED'")
+    suspend fun getPendingSyncNotifications(userId: String): List<NotificationLogEntity>
 
-    @Query("SELECT * FROM notification_logs WHERE serverId = :serverId LIMIT 1")
-    suspend fun getNotificationByServerId(serverId: String): NotificationLogEntity?
+    @Query("SELECT * FROM notification_logs WHERE userId = :userId AND serverId = :serverId LIMIT 1")
+    suspend fun getNotificationByServerId(userId: String, serverId: String): NotificationLogEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNotification(log: NotificationLogEntity): Long
 
-    @Query("UPDATE notification_logs SET isRead = 1, syncState = 'PENDING_UPDATE' WHERE id = :id")
-    suspend fun markAsRead(id: Int)
+    @Query("UPDATE notification_logs SET isRead = 1, syncState = 'PENDING_UPDATE' WHERE userId = :userId AND id = :id")
+    suspend fun markAsRead(userId: String, id: Int)
 
-    @Query("UPDATE notification_logs SET isRead = 1, syncState = 'PENDING_UPDATE'")
-    suspend fun markAllAsRead()
+    @Query("UPDATE notification_logs SET isRead = 1, syncState = 'PENDING_UPDATE' WHERE userId = :userId")
+    suspend fun markAllAsRead(userId: String)
 
-    @Query("UPDATE notification_logs SET syncState = :syncState, serverId = :serverId WHERE id = :id")
-    suspend fun updateSyncStatus(id: Int, serverId: String?, syncState: String)
+    @Query("UPDATE notification_logs SET syncState = :syncState, serverId = :serverId WHERE userId = :userId AND id = :id")
+    suspend fun updateSyncStatus(userId: String, id: Int, serverId: String?, syncState: String)
 
-    @Query("DELETE FROM notification_logs WHERE id = :id")
-    suspend fun deleteNotification(id: Int)
+    @Query("DELETE FROM notification_logs WHERE userId = :userId AND id = :id")
+    suspend fun deleteNotification(userId: String, id: Int)
 }
 
 @Dao
 interface SmsLogDao {
-    @Query("SELECT * FROM sms_logs ORDER BY id DESC")
-    fun getAllSmsLogs(): Flow<List<SmsLogEntity>>
+    @Query("SELECT * FROM sms_logs WHERE userId = :userId ORDER BY id DESC")
+    fun getAllSmsLogs(userId: String): Flow<List<SmsLogEntity>>
 
-    @Query("SELECT * FROM sms_logs WHERE providerMessageId = :providerId LIMIT 1")
-    suspend fun getLogByProviderId(providerId: String): SmsLogEntity?
+    @Query("SELECT * FROM sms_logs WHERE userId = :userId AND providerMessageId = :providerId LIMIT 1")
+    suspend fun getLogByProviderId(userId: String, providerId: String): SmsLogEntity?
 
-    @Query("SELECT * FROM sms_logs WHERE reminderId = :reminderId ORDER BY id DESC LIMIT 1")
-    suspend fun getLatestLogForReminder(reminderId: Int): SmsLogEntity?
+    @Query("SELECT * FROM sms_logs WHERE userId = :userId AND reminderId = :reminderId ORDER BY id DESC LIMIT 1")
+    suspend fun getLatestLogForReminder(userId: String, reminderId: Int): SmsLogEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSmsLog(log: SmsLogEntity): Long
 
-    @Query("UPDATE sms_logs SET status = :status, providerMessageId = :providerId, sentAt = :sentAt, deliveredAt = :deliveredAt, failedAt = :failedAt, failureReason = :reason, retryCount = :retryCount WHERE id = :id")
+    @Query("UPDATE sms_logs SET status = :status, providerMessageId = :providerId, sentAt = :sentAt, deliveredAt = :deliveredAt, failedAt = :failedAt, failureReason = :reason, retryCount = :retryCount WHERE userId = :userId AND id = :id")
     suspend fun updateSmsLog(
+        userId: String,
         id: Int,
         status: String,
         providerId: String?,
@@ -309,13 +321,14 @@ interface SmsLogDao {
         retryCount: Int
     )
 
-    @Query("UPDATE sms_logs SET status = :status, deliveredAt = :deliveredAt WHERE providerMessageId = :providerId")
-    suspend fun updateStatusByProviderId(providerId: String, status: String, deliveredAt: Long?)
+    @Query("UPDATE sms_logs SET status = :status, deliveredAt = :deliveredAt WHERE userId = :userId AND providerMessageId = :providerId")
+    suspend fun updateStatusByProviderId(userId: String, providerId: String, status: String, deliveredAt: Long?)
 }
 
 @Entity(tableName = "vehicle_store")
 data class VehicleStoreEntity(
     @PrimaryKey val key: String = "vehicle_data",
+    val userId: String = "",
     val vehiclesJson: String = "",
     val servicesJson: String = "",
     val expensesJson: String = "",

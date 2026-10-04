@@ -46,8 +46,9 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
     private fun rescheduleAllActiveReminders(context: Context) {
         scope.launch {
             try {
+                val userId = com.example.data.security.SessionManager.userId ?: return@launch
                 val db = AppDatabase.getDatabase(context)
-                val activeReminders = db.reminderDao().getActiveReminders().first()
+                val activeReminders = db.reminderDao().getActiveReminders(userId).first()
                 val scheduler = ReminderScheduler(context)
                 
                 activeReminders.forEach { reminder ->
@@ -65,8 +66,9 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
     private fun dispatchReminder(context: Context, reminderId: Int) {
         scope.launch {
             try {
+                val userId = com.example.data.security.SessionManager.userId ?: return@launch
                 val db = AppDatabase.getDatabase(context)
-                val reminder = db.reminderDao().getReminderById(reminderId)
+                val reminder = db.reminderDao().getReminderById(userId, reminderId)
                 if (reminder == null) {
                     Log.w("ReminderReceiver", "Reminder with ID $reminderId not found in database")
                     return@launch
@@ -88,9 +90,10 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                 }
 
                 // Mark schedules related to this as SENT/DELIVERED
-                val schedules = db.reminderDao().getSchedulesForReminder(reminderId)
+                val schedules = db.reminderDao().getSchedulesForReminder(reminder.userId, reminderId)
                 schedules.forEach { sched ->
                     db.reminderDao().updateScheduleStatus(
+                        reminder.userId,
                         sched.id,
                         status = "SENT",
                         notifStatus = if (reminder.notificationEnabled) "SENT" else "DISABLED",
@@ -160,6 +163,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                 val db = AppDatabase.getDatabase(context)
                 db.notificationLogDao().insertNotification(
                     NotificationLogEntity(
+                        userId = reminder.userId,
                         reminderId = reminder.id,
                         title = reminder.title,
                         message = reminder.description,
@@ -183,6 +187,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         // Log SMS initially as QUEUED
         val smsLogId = db.smsLogDao().insertSmsLog(
             SmsLogEntity(
+                userId = reminder.userId,
                 reminderId = reminder.id,
                 providerMessageId = null,
                 phoneNumber = phoneNumber,
@@ -201,6 +206,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         
         if (result.success) {
             db.smsLogDao().updateSmsLog(
+                userId = reminder.userId,
                 id = smsLogId,
                 status = "SENT",
                 providerId = result.providerMessageId,
@@ -213,6 +219,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             Log.i("ReminderReceiver", "SMS dispatched successfully via secure API to $phoneNumber")
         } else {
             db.smsLogDao().updateSmsLog(
+                userId = reminder.userId,
                 id = smsLogId,
                 status = "FAILED",
                 providerId = null,

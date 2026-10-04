@@ -6,8 +6,7 @@
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+/.idea/navEditorSettings.xml
 .DS_Store
 /build
 /captures
@@ -16,3 +15,5 @@
 local.properties
 .env
 debug.keystore
+*.jks
+*.keystore
