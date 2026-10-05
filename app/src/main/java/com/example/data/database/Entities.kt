@@ -18,6 +18,23 @@ data class UserEntity(
 )
 
 @Entity(
+    tableName = "accounts",
+    indices = [Index(value = ["userId", "stringId"], unique = true)]
+)
+data class AccountEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val userId: String,
+    val stringId: String,
+    val name: String,
+    val type: String, // "BANK", "CASH", "CARD", "OTHER"
+    val initialBalance: Long = 0L,
+    val isActive: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null
+)
+
+@Entity(
     tableName = "transactions",
     indices = [Index(value = ["userId", "stringId"], unique = true)]
 )
@@ -41,7 +58,10 @@ data class TransactionEntity(
     val isRecurring: Boolean = false,
     val syncState: String = "PENDING_UPSERT",
     val updatedAt: Long = System.currentTimeMillis(),
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val accountId: String? = null,
+    val transferSourceAccountId: String? = null,
+    val transferDestinationAccountId: String? = null
 )
 
 @Entity(tableName = "installments")

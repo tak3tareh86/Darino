@@ -325,6 +325,30 @@ interface SmsLogDao {
     suspend fun updateStatusByProviderId(userId: String, providerId: String, status: String, deliveredAt: Long?)
 }
 
+@Dao
+interface AccountDao {
+    @Query("SELECT * FROM accounts WHERE userId = :userId AND deletedAt IS NULL ORDER BY name ASC")
+    fun getAllAccountsFlow(userId: String): Flow<List<AccountEntity>>
+
+    @Query("SELECT * FROM accounts WHERE userId = :userId AND deletedAt IS NULL ORDER BY name ASC")
+    suspend fun getAllAccountsList(userId: String): List<AccountEntity>
+
+    @Query("SELECT * FROM accounts WHERE userId = :userId AND stringId = :stringId AND deletedAt IS NULL LIMIT 1")
+    suspend fun getAccountByStringId(userId: String, stringId: String): AccountEntity?
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertAccount(account: AccountEntity)
+
+    @Update
+    suspend fun updateAccount(account: AccountEntity)
+
+    @Query("UPDATE accounts SET deletedAt = :deletedAt, updatedAt = :updatedAt WHERE userId = :userId AND stringId = :stringId")
+    suspend fun softDeleteAccount(userId: String, stringId: String, deletedAt: Long, updatedAt: Long)
+
+    @Query("DELETE FROM accounts WHERE userId = :userId")
+    suspend fun clearAllAccounts(userId: String)
+}
+
 @Entity(tableName = "vehicle_store")
 data class VehicleStoreEntity(
     @PrimaryKey val key: String = "vehicle_data",

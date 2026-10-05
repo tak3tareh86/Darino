@@ -75,6 +75,24 @@ data class TransactionCategory(
     val subCategories: List<String> = emptyList()
 )
 
+enum class AccountType(val title: String) {
+    BANK("بانک"),
+    CASH("نقدی"),
+    CARD("کارت"),
+    OTHER("سایر")
+}
+
+data class Account(
+    val id: String,
+    val userId: String,
+    val name: String,
+    val type: AccountType,
+    val initialBalance: Long = 0L,
+    val isActive: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
 data class TransactionItemData(
     val id: String,
     val title: String,
@@ -93,7 +111,10 @@ data class TransactionItemData(
     val sourceId: String? = null,
     val tags: List<String> = emptyList(),
     val isRecurring: Boolean = false,
-    val recurringFrequency: RecurringFrequency? = null
+    val recurringFrequency: RecurringFrequency? = null,
+    val accountId: String? = null,
+    val transferSourceAccountId: String? = null,
+    val transferDestinationAccountId: String? = null
 ) {
     val amountFormatted: String
         get() = when (type) {

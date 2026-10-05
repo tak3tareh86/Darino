@@ -21,6 +21,7 @@ interface FinanceRepository {
     fun getBudgets(): Flow<List<Budget>>
     fun getSavingsGoals(): Flow<List<SavingsGoal>>
     fun getRecurringTransactions(): Flow<List<RecurringTransaction>>
+    fun getAccounts(): Flow<List<com.example.ui.screens.finance.model.Account>>
 
     fun addTransaction(transaction: TransactionItemData)
     fun updateTransaction(transaction: TransactionItemData)
@@ -31,6 +32,11 @@ interface FinanceRepository {
     suspend fun updateTransactionResult(transaction: TransactionItemData): TransactionOperationResult
     suspend fun deleteTransactionResult(id: String): TransactionOperationResult
     suspend fun duplicateTransactionResult(id: String): TransactionItemData?
+
+    suspend fun addAccountResult(account: com.example.ui.screens.finance.model.Account): TransactionOperationResult
+    suspend fun updateAccountResult(account: com.example.ui.screens.finance.model.Account): TransactionOperationResult
+    suspend fun deleteAccountResult(id: String): TransactionOperationResult
+    suspend fun calculateAccountBalance(accountId: String): Long
 
     fun addCategory(category: TransactionCategory)
     fun updateCategory(category: TransactionCategory)

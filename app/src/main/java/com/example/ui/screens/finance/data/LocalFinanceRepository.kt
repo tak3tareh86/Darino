@@ -41,6 +41,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     private val _budgets = MutableStateFlow<List<Budget>>(emptyList())
     private val _savingsGoals = MutableStateFlow<List<SavingsGoal>>(emptyList())
     private val _recurringTransactions = MutableStateFlow<List<RecurringTransaction>>(emptyList())
+    private val _accounts = MutableStateFlow<List<com.example.ui.screens.finance.model.Account>>(emptyList())
 
     private var appContext: Context? = null
     private var initialized = false
@@ -65,6 +66,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     _budgets.value = emptyList()
                     _savingsGoals.value = emptyList()
                     _recurringTransactions.value = emptyList()
+                    _accounts.value = emptyList()
                     recalculateBudgets()
                     return@collectLatest
                 }
@@ -72,11 +74,22 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 loadMetadataFromDisk(appCtx, authenticatedUserId)
 
                 try {
-                    db.transactionDao().getAllTransactions(authenticatedUserId).collectLatest { entities ->
-                        // Room is the production source of truth; an empty database stays empty.
-                        val mapped = entities.map { toItemData(it, _categories.value) }
-                        _transactions.value = mapped
-                        recalculateBudgets()
+                    // Collect accounts
+                    launch {
+                        db.accountDao().getAllAccountsFlow(authenticatedUserId).collectLatest { entities ->
+                            val mapped = entities.map { toAccount(it) }
+                            _accounts.value = mapped
+                        }
+                    }
+
+                    // Collect transactions
+                    launch {
+                        db.transactionDao().getAllTransactions(authenticatedUserId).collectLatest { entities ->
+                            // Room is the production source of truth; an empty database stays empty.
+                            val mapped = entities.map { toItemData(it, _categories.value) }
+                            _transactions.value = mapped
+                            recalculateBudgets()
+                        }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -90,11 +103,70 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     override fun getBudgets(): Flow<List<Budget>> = _budgets.asStateFlow()
     override fun getSavingsGoals(): Flow<List<SavingsGoal>> = _savingsGoals.asStateFlow()
     override fun getRecurringTransactions(): Flow<List<RecurringTransaction>> = _recurringTransactions.asStateFlow()
+    override fun getAccounts(): Flow<List<com.example.ui.screens.finance.model.Account>> = _accounts.asStateFlow()
+
+    private fun toAccount(entity: com.example.data.database.AccountEntity): com.example.ui.screens.finance.model.Account {
+        val typeEnum = try {
+            com.example.ui.screens.finance.model.AccountType.valueOf(entity.type)
+        } catch (e: Exception) {
+            com.example.ui.screens.finance.model.AccountType.OTHER
+        }
+        return com.example.ui.screens.finance.model.Account(
+            id = entity.stringId,
+            userId = entity.userId,
+            name = entity.name,
+            type = typeEnum,
+            initialBalance = entity.initialBalance,
+            isActive = entity.isActive,
+            createdAt = entity.createdAt,
+            updatedAt = entity.updatedAt
+        )
+    }
+
+    private fun toAccountEntity(account: com.example.ui.screens.finance.model.Account): com.example.data.database.AccountEntity {
+        return com.example.data.database.AccountEntity(
+            stringId = account.id,
+            userId = account.userId,
+            name = account.name,
+            type = account.type.name,
+            initialBalance = account.initialBalance,
+            isActive = account.isActive,
+            createdAt = account.createdAt,
+            updatedAt = account.updatedAt,
+            deletedAt = null
+        )
+    }
 
     private fun validateTransaction(transaction: TransactionItemData): Boolean {
         if (transaction.amount <= 0L) return false
         if (transaction.title.isBlank()) return false
         if (transaction.type != TransactionType.EXPENSE && transaction.type != TransactionType.INCOME && transaction.type != TransactionType.TRANSFER) return false
+        return true
+    }
+
+    private suspend fun validateTransactionWithDatabase(tx: TransactionItemData, userId: String, db: AppDatabase): Boolean {
+        if (!validateTransaction(tx)) return false
+
+        if (tx.type == TransactionType.TRANSFER) {
+            val srcId = tx.transferSourceAccountId ?: return false
+            val destId = tx.transferDestinationAccountId ?: return false
+            if (srcId.isBlank() || destId.isBlank()) return false
+            if (srcId == destId) return false
+
+            val srcAcc = db.accountDao().getAccountByStringId(userId, srcId) ?: return false
+            val destAcc = db.accountDao().getAccountByStringId(userId, destId) ?: return false
+
+            if (srcAcc.userId != userId || destAcc.userId != userId) return false
+            if (!srcAcc.isActive || !destAcc.isActive) return false
+        } else {
+            // INCOME or EXPENSE
+            val accId = tx.accountId
+            if (accId != null && accId.isNotBlank()) {
+                val acc = db.accountDao().getAccountByStringId(userId, accId) ?: return false
+                if (acc.userId != userId) return false
+                if (!acc.isActive) return false
+            }
+        }
         return true
     }
 
@@ -143,13 +215,13 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         } else {
             transaction
         }
-        if (!validateTransaction(validatedTx)) {
-            return TransactionOperationResult.VALIDATION_ERROR
-        }
 
         val ctx = appContext ?: return TransactionOperationResult.PERSISTENCE_ERROR
         return try {
             val db = AppDatabase.getDatabase(ctx)
+            if (!validateTransactionWithDatabase(validatedTx, userId, db)) {
+                return TransactionOperationResult.VALIDATION_ERROR
+            }
             val entity = toEntity(validatedTx)
             db.transactionDao().insertTransaction(entity)
             val current = _transactions.value.filter { it.id != validatedTx.id }.toMutableList()
@@ -165,13 +237,13 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
     override suspend fun updateTransactionResult(transaction: TransactionItemData): TransactionOperationResult {
         val userId = SessionManager.userId ?: return TransactionOperationResult.NO_AUTHENTICATED_USER
-        if (!validateTransaction(transaction)) {
-            return TransactionOperationResult.VALIDATION_ERROR
-        }
 
         val ctx = appContext ?: return TransactionOperationResult.PERSISTENCE_ERROR
         return try {
             val db = AppDatabase.getDatabase(ctx)
+            if (!validateTransactionWithDatabase(transaction, userId, db)) {
+                return TransactionOperationResult.VALIDATION_ERROR
+            }
             val existing = db.transactionDao().getTransactionByStringId(userId, transaction.id)
                 ?: db.transactionDao().getTransactionIncludingDeleted(userId, transaction.id)
             if (existing == null) {
@@ -682,7 +754,10 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             sourceType = item.sourceType.name,
             sourceId = item.sourceId,
             isRecurring = item.isRecurring,
-            userId = userId
+            userId = userId,
+            accountId = item.accountId,
+            transferSourceAccountId = item.transferSourceAccountId,
+            transferDestinationAccountId = item.transferDestinationAccountId
         )
     }
 
@@ -728,8 +803,106 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             sourceType = srcType,
             sourceId = entity.sourceId,
             tags = emptyList(),
-            isRecurring = entity.isRecurring
+            isRecurring = entity.isRecurring,
+            accountId = entity.accountId,
+            transferSourceAccountId = entity.transferSourceAccountId,
+            transferDestinationAccountId = entity.transferDestinationAccountId
         )
+    }
+
+    override suspend fun addAccountResult(account: com.example.ui.screens.finance.model.Account): TransactionOperationResult {
+        val userId = SessionManager.userId ?: return TransactionOperationResult.NO_AUTHENTICATED_USER
+        if (account.name.isBlank()) {
+            return TransactionOperationResult.VALIDATION_ERROR
+        }
+        val ctx = appContext ?: return TransactionOperationResult.PERSISTENCE_ERROR
+        val db = AppDatabase.getDatabase(ctx)
+        
+        // Ensure isolation: use current logged-in user id
+        val boundAccount = account.copy(userId = userId)
+        
+        return try {
+            val entity = toAccountEntity(boundAccount)
+            db.accountDao().insertAccount(entity)
+            TransactionOperationResult.SUCCESS
+        } catch (e: Exception) {
+            e.printStackTrace()
+            TransactionOperationResult.PERSISTENCE_ERROR
+        }
+    }
+
+    override suspend fun updateAccountResult(account: com.example.ui.screens.finance.model.Account): TransactionOperationResult {
+        val userId = SessionManager.userId ?: return TransactionOperationResult.NO_AUTHENTICATED_USER
+        if (account.name.isBlank()) {
+            return TransactionOperationResult.VALIDATION_ERROR
+        }
+        val ctx = appContext ?: return TransactionOperationResult.PERSISTENCE_ERROR
+        val db = AppDatabase.getDatabase(ctx)
+        
+        return try {
+            val existing = db.accountDao().getAccountByStringId(userId, account.id)
+                ?: return TransactionOperationResult.NOT_FOUND
+                
+            val entity = toAccountEntity(account).copy(id = existing.id, userId = userId)
+            db.accountDao().updateAccount(entity)
+            TransactionOperationResult.SUCCESS
+        } catch (e: Exception) {
+            e.printStackTrace()
+            TransactionOperationResult.PERSISTENCE_ERROR
+        }
+    }
+
+    override suspend fun deleteAccountResult(id: String): TransactionOperationResult {
+        val userId = SessionManager.userId ?: return TransactionOperationResult.NO_AUTHENTICATED_USER
+        val ctx = appContext ?: return TransactionOperationResult.PERSISTENCE_ERROR
+        val db = AppDatabase.getDatabase(ctx)
+        
+        return try {
+            val existing = db.accountDao().getAccountByStringId(userId, id)
+                ?: return TransactionOperationResult.NOT_FOUND
+                
+            db.accountDao().softDeleteAccount(userId, id, System.currentTimeMillis(), System.currentTimeMillis())
+            TransactionOperationResult.SUCCESS
+        } catch (e: Exception) {
+            e.printStackTrace()
+            TransactionOperationResult.PERSISTENCE_ERROR
+        }
+    }
+
+    override suspend fun calculateAccountBalance(accountId: String): Long {
+        val userId = SessionManager.userId ?: return 0L
+        val ctx = appContext ?: return 0L
+        val db = AppDatabase.getDatabase(ctx)
+        val account = db.accountDao().getAccountByStringId(userId, accountId) ?: return 0L
+        
+        val txs = db.transactionDao().getAllTransactionsList(userId)
+        
+        var balance = account.initialBalance
+        for (tx in txs) {
+            if (tx.deletedAt != null) continue
+            
+            when (tx.type) {
+                "INCOME" -> {
+                    if (tx.accountId == accountId) {
+                        balance += tx.amount
+                    }
+                }
+                "EXPENSE" -> {
+                    if (tx.accountId == accountId) {
+                        balance -= tx.amount
+                    }
+                }
+                "TRANSFER" -> {
+                    if (tx.transferSourceAccountId == accountId) {
+                        balance -= tx.amount
+                    }
+                    if (tx.transferDestinationAccountId == accountId) {
+                        balance += tx.amount
+                    }
+                }
+            }
+        }
+        return balance
     }
 
     companion object {

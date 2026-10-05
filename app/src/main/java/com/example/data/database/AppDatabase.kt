@@ -8,6 +8,7 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [
         UserEntity::class,
+        AccountEntity::class,
         TransactionEntity::class,
         InstallmentEntity::class,
         InstallmentPaymentEntity::class,
@@ -28,12 +29,13 @@ import androidx.room.RoomDatabase
         VehicleInspectionRoomEntity::class,
         VehicleStoreEntity::class
     ],
-    version = 18,
+    version = 19,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
+    abstract fun accountDao(): AccountDao
     abstract fun transactionDao(): TransactionDao
     abstract fun installmentDao(): InstallmentDao
     abstract fun vehicleDao(): VehicleDao
@@ -229,6 +231,32 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_18_19 = object : androidx.room.migration.Migration(18, 19) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Create accounts table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `accounts` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `userId` TEXT NOT NULL,
+                        `stringId` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `type` TEXT NOT NULL,
+                        `initialBalance` INTEGER NOT NULL DEFAULT 0,
+                        `isActive` INTEGER NOT NULL DEFAULT 1,
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        `deletedAt` INTEGER
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_accounts_userId_stringId ON accounts(userId, stringId)")
+
+                // Alter transactions table to add account columns
+                db.execSQL("ALTER TABLE transactions ADD COLUMN accountId TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN transferSourceAccountId TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN transferDestinationAccountId TEXT DEFAULT NULL")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -236,7 +264,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "finance_app_database"
                 )
-                     .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
+                     .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
                     .build()
                 INSTANCE = instance
                 instance
