@@ -168,7 +168,11 @@ class CalendarManager(private val context: Context) {
                             repeatType = "NONE",
                             reminderBefore = ReminderBeforeOption.THREE_DAYS,
                             sourceId = svc.id,
-                            status = FinancialEventStatus.PENDING
+                            status = if (svc.isReminderEnabled) {
+                                FinancialEventStatus.PENDING
+                            } else {
+                                FinancialEventStatus.PAID
+                            }
                         )
                     )
                 }
