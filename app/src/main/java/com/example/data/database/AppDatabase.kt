@@ -29,7 +29,7 @@ import androidx.room.RoomDatabase
         VehicleInspectionRoomEntity::class,
         VehicleStoreEntity::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -257,6 +257,29 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_19_20 = object : androidx.room.migration.Migration(19, 20) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS vehicle_services")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `vehicle_services` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `serverId` TEXT,
+                        `syncState` TEXT NOT NULL DEFAULT 'SYNCED',
+                        `userId` TEXT NOT NULL DEFAULT '',
+                        `vehicleId` TEXT NOT NULL DEFAULT '',
+                        `type` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `dueDate` INTEGER,
+                        `dueMileage` INTEGER,
+                        `status` TEXT NOT NULL,
+                        `notes` TEXT,
+                        `updatedAt` INTEGER NOT NULL,
+                        `deletedAt` INTEGER
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -264,7 +287,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "finance_app_database"
                 )
-                     .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+                     .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
                     .build()
                 INSTANCE = instance
                 instance

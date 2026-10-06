@@ -99,13 +99,12 @@ class VehicleRepository {
                         val dueDateMs = runCatching {
                             com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(targetDateStr)
                         }.getOrNull()
-                        val vehicleIntId = s.vehicleId.toIntOrNull() ?: 1
 
                         vDao.insertService(
                             com.example.data.database.VehicleServiceEntity(
                                 serverId = s.id,
                                 userId = userId,
-                                vehicleId = vehicleIntId,
+                                vehicleId = s.vehicleId,
                                 type = s.serviceType.name,
                                 title = s.title,
                                 dueDate = dueDateMs,
@@ -304,14 +303,13 @@ class VehicleRepository {
                     val dueDateMs = runCatching {
                         com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(targetDateStr)
                     }.getOrNull()
-                    val vehicleIntId = s.vehicleId.toIntOrNull() ?: 1
                     val encodedNotes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
 
                     vDao.insertService(
                         com.example.data.database.VehicleServiceEntity(
                             serverId = s.id,
                             userId = userId,
-                            vehicleId = vehicleIntId,
+                            vehicleId = s.vehicleId,
                             type = s.serviceType.name,
                             title = s.title,
                             dueDate = dueDateMs,

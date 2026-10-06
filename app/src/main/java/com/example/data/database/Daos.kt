@@ -191,7 +191,7 @@ interface VehicleDao {
     suspend fun deleteVehicle(vehicle: VehicleEntity)
 
     @Query("SELECT * FROM vehicle_services WHERE userId = :userId AND vehicleId = :vehicleId AND deletedAt IS NULL ORDER BY dueDate ASC")
-    fun getServicesForVehicle(userId: String, vehicleId: Int): Flow<List<VehicleServiceEntity>>
+    fun getServicesForVehicle(userId: String, vehicleId: String): Flow<List<VehicleServiceEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertService(service: VehicleServiceEntity)

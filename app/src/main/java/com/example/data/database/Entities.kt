@@ -122,7 +122,7 @@ data class VehicleServiceEntity(
     val serverId: String? = null,
     val syncState: String = "SYNCED",
     val userId: String = "",
-    val vehicleId: Int,
+    val vehicleId: String = "",
     val type: String, // "INSURANCE", "INSPECTION", "OIL", "SERVICE", "TIRES", "BATTERY", "MAINTENANCE", "TAX", "CUSTOM"
     val title: String,
     val dueDate: Long?,
