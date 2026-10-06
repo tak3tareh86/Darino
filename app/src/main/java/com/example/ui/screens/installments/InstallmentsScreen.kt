@@ -481,12 +481,35 @@ fun InstallmentsScreen(
                 val remainingFormatted = com.example.util.MoneyFormatter.formatToman(remainingAmount)
                 val paidFormatted = com.example.util.MoneyFormatter.formatToman(paidAmount)
 
-                val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
                 val effectiveDueDate = if (!customScheduleItems.isNullOrEmpty()) {
-                    customScheduleItems.firstOrNull()?.dueDate ?: dueDateStr.ifBlank { todayJalali }
+                    customScheduleItems.firstOrNull()?.dueDate.orEmpty()
                 } else {
-                    dueDateStr.ifBlank { todayJalali }
+                    dueDateStr
                 }
+
+                val parsedTriple = com.example.calendar.domain.CalendarDateUtils.parseJalali(effectiveDueDate)
+                if (effectiveDueDate.isBlank() || parsedTriple == null) {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("تاریخ سررسید نامعتبر یا خالی است")
+                    }
+                    return@Button
+                }
+
+                if (!customScheduleItems.isNullOrEmpty()) {
+                    val invalidCustom = customScheduleItems.firstOrNull { 
+                        it.installmentNumber <= 0 || 
+                        it.amount <= 0 || 
+                        it.dueDate.isBlank() || 
+                        com.example.calendar.domain.CalendarDateUtils.parseJalali(it.dueDate) == null 
+                    }
+                    if (invalidCustom != null) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("اقساط سفارشی دارای مقادیر نامعتبر هستند")
+                        }
+                        return@Button
+                    }
+                }
+
                 val computedEndDate = PersianCalendarHelper.addMonthsToPersianDate(effectiveDueDate, totalInstallments)
 
                 val paymentHistoryList = if (!customScheduleItems.isNullOrEmpty()) {
@@ -511,10 +534,7 @@ fun InstallmentsScreen(
                     defaultList
                 }
 
-                val targetMillis = runCatching {
-                    val triple = com.example.calendar.domain.CalendarDateUtils.parseJalali(effectiveDueDate)
-                    if (triple != null) PersianCalendarHelper.jalaliToEpochMillis(triple.first, triple.second, triple.third, 9, 0) else System.currentTimeMillis()
-                }.getOrDefault(System.currentTimeMillis())
+                val targetMillis = PersianCalendarHelper.jalaliToEpochMillis(parsedTriple.first, parsedTriple.second, parsedTriple.third, 9, 0)
 
                 val diffDays = ((targetMillis - System.currentTimeMillis()) / (24 * 3600 * 1000L)).toInt()
                 val computedDueDaysText = when {

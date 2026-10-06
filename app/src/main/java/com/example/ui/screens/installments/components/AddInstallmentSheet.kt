@@ -893,21 +893,21 @@ private fun CustomInstallmentsDialog(
     val countInt = installmentsCountStr.filter { it.isDigit() }.toIntOrNull()?.coerceAtLeast(1) ?: 12
 
     var feeAmountStr by remember { mutableStateOf("") }
+    var validationError by remember { mutableStateOf<String?>(null) }
 
     var scheduleList by remember {
         mutableStateOf(
             if (!initialCustomList.isNullOrEmpty()) {
                 initialCustomList
             } else {
-                val defaultMonthly = if (totalAmountLong > 0) totalAmountLong / countInt else 1_000_000L
                 (1..countInt).map { i ->
                     com.example.ui.screens.installments.model.PaymentHistoryItem(
                         id = "p_custom_$i",
                         installmentNumber = i,
-                        dueDate = if (i == 1) dueDateStr.ifBlank { "۱۴۰۴/۰۸/۱۵" } else "قسط $i",
-                        amountFormatted = MoneyFormatter.formatToman(defaultMonthly),
+                        dueDate = if (i == 1) dueDateStr else com.example.util.PersianCalendarHelper.addMonthsToPersianDate(dueDateStr, i - 1),
+                        amountFormatted = "",
                         status = if (i == 1) com.example.ui.screens.installments.model.InstallmentStatus.DUE_SOON else com.example.ui.screens.installments.model.InstallmentStatus.PENDING,
-                        amount = defaultMonthly
+                        amount = 0L
                     )
                 }
             }
@@ -1046,6 +1046,15 @@ private fun CustomInstallmentsDialog(
                     )
                 }
 
+                if (validationError != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = validationError!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Row(
@@ -1061,7 +1070,18 @@ private fun CustomInstallmentsDialog(
                     }
                     Button(
                         onClick = {
-                            onConfirm(scheduleList)
+                            val invalidItem = scheduleList.firstOrNull { item ->
+                                item.installmentNumber <= 0 ||
+                                item.amount <= 0L ||
+                                item.dueDate.isBlank() ||
+                                com.example.calendar.domain.CalendarDateUtils.parseJalali(item.dueDate) == null
+                            }
+                            if (invalidItem != null) {
+                                validationError = "تمام اقساط باید شماره معتبر، مبلغ بیشتر از صفر و تاریخ سررسید معتبر شمسی داشته باشند."
+                            } else {
+                                validationError = null
+                                onConfirm(scheduleList)
+                            }
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp)
