@@ -27,8 +27,8 @@ import com.example.ui.components.Layered3DCard
 import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.PersianDateInputField
 import com.example.ui.screens.installments.components.InstallmentStatusBadge
+import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import com.example.ui.screens.installments.model.InstallmentItem
-import com.example.ui.screens.installments.model.InstallmentMockDataSource
 import com.example.ui.screens.installments.model.PaymentHistoryItem
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusMD
@@ -196,16 +196,16 @@ fun InstallmentScheduleScreen(
                         Button(
                             onClick = {
                                 val parsedLong = IranianAmountUtils.parseAmountToLong(amountStr)
-                                val success = InstallmentMockDataSource.updateScheduleItem(
+                                val success = LocalInstallmentRepository.instance.updateScheduleItem(
                                     installmentId = currentItem.id,
                                     scheduleItemId = targetItem.id,
                                     newAmountLong = parsedLong,
                                     newDueDate = dueDateStr,
-                                    newNote = targetItem.note,
+                                    note = targetItem.note,
                                     context = context
                                 )
                                 if (success) {
-                                    val updatedAll = InstallmentMockDataSource.allInstallments
+                                    val updatedAll = LocalInstallmentRepository.instance.installments.value
                                     val found = updatedAll.find { it.id == currentItem.id }
                                     if (found != null) {
                                         currentItem = found

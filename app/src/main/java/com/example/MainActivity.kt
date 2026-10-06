@@ -67,7 +67,7 @@ import com.example.ui.screens.settings.SettingsScreen
 import com.example.financial_health.presentation.FinancialHealthScreen
 import com.example.ui.screens.settings.model.AppThemeMode
 import com.example.ui.screens.settings.model.NavigationTransitionAnimation
-import com.example.ui.screens.installments.model.InstallmentMockDataSource
+import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import com.example.ui.screens.splash.SplashScreen
 import com.example.ui.screens.vehicle.VehicleServicesScreen
 import com.example.ui.screens.subscription.SubscriptionGate
@@ -88,7 +88,7 @@ class MainActivity : FragmentActivity() {
 
         // 1. Initialize secure session manager and persistent data sources
         SessionManager.init(this)
-        InstallmentMockDataSource.init(this)
+        LocalInstallmentRepository.instance.init(this)
         com.example.ui.screens.finance.data.LocalFinanceRepository.instance.init(this)
         com.example.vehicle.data.VehicleRepository.instance.initDatabase(this)
 

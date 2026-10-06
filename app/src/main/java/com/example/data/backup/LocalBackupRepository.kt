@@ -208,9 +208,10 @@ class LocalBackupRepository(
                     .instance
                     .reloadFromDatabase(context)
 
-                com.example.ui.screens.installments.model
-                    .InstallmentMockDataSource
-                    .init(context)
+                com.example.ui.screens.installments.data
+                    .LocalInstallmentRepository
+                    .instance
+                    .reloadFromDatabase(context)
             } catch (e: Exception) {
                 Log.e(
                     "LocalBackupRepository",

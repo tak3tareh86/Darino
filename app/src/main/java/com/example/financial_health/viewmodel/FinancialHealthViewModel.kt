@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.financial_health.data.FinancialHealthRepository
 import com.example.financial_health.domain.FinancialAnalyzerEngine
 import com.example.financial_health.domain.NextMonthPrediction
-import com.example.ui.screens.installments.model.InstallmentMockDataSource
+import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,8 +22,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
     private val _customFixedExpenses = MutableStateFlow<Long?>(null)
     private val _customInstallments = MutableStateFlow<Long?>(null)
 
-    // Read real installment info from InstallmentMockDataSource
-    private val allInstallments = InstallmentMockDataSource.allInstallments
+    // Read real installment info from LocalInstallmentRepository
+    private val allInstallments = LocalInstallmentRepository.instance.installments.value
     private val activeInstallments = allInstallments.filter { it.remainingInstallments > 0 }
     private val activeCount = activeInstallments.size.coerceAtLeast(5)
     private val largestInstallment = activeInstallments.maxByOrNull {

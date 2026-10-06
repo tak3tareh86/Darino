@@ -439,6 +439,14 @@ object InstallmentMockDataSource {
         val current = repository.installments.value.find { it.id == installmentId } ?: return false
         val targetHistory = current.paymentHistory.find { it.id == scheduleItemId } ?: return false
         val newStatus = targetHistory.status
-        return repository.updateScheduleItem(installmentId, scheduleItemId, newStatus, newNote ?: "", context)
+        return repository.updateScheduleItem(
+            installmentId = installmentId,
+            scheduleItemId = scheduleItemId,
+            newAmountLong = newAmountLong,
+            newDueDate = newDueDate,
+            newStatus = newStatus,
+            note = newNote,
+            context = context
+        )
     }
 }

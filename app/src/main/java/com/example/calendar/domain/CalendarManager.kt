@@ -297,7 +297,7 @@ class CalendarManager(private val context: Context) {
             if (instId != null) {
                 val inst = database.installmentDao().getInstallmentById(userId, instId)
                 if (inst != null) {
-                    val newStatus = if (event.status == FinancialEventStatus.PAID) "ACTIVE" else "PAID"
+                    val newStatus = if (event.status == FinancialEventStatus.PAID) "PENDING" else "PAID"
                     database.installmentDao().updateInstallment(inst.copy(status = newStatus, updatedAt = System.currentTimeMillis()))
                     com.example.ui.screens.installments.data.LocalInstallmentRepository.instance.reloadFromDatabase(context)
                 }

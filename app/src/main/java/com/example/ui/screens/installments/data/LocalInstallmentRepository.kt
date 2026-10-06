@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Canonical Room-backed repository for the Installments domain.
@@ -24,6 +26,7 @@ import kotlinx.coroutines.flow.collectLatest
 class LocalInstallmentRepository private constructor() {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val saveMutex = Mutex()
 
     private val _installments = MutableStateFlow<List<InstallmentItem>>(emptyList())
     val installments: StateFlow<List<InstallmentItem>> = _installments.asStateFlow()
@@ -236,6 +239,10 @@ class LocalInstallmentRepository private constructor() {
         val targetContext = context?.applicationContext ?: appContext ?: return
         repositoryScope.launch {
             saveToRoom(targetContext, current)
+            val userId = SessionManager.userId
+            if (userId != null) {
+                reloadForUser(targetContext, userId)
+            }
         }
     }
 
@@ -246,6 +253,10 @@ class LocalInstallmentRepository private constructor() {
         val targetContext = context?.applicationContext ?: appContext ?: return
         repositoryScope.launch {
             saveToRoom(targetContext, current)
+            val userId = SessionManager.userId
+            if (userId != null) {
+                reloadForUser(targetContext, userId)
+            }
         }
     }
 
@@ -255,7 +266,18 @@ class LocalInstallmentRepository private constructor() {
 
         val targetContext = context?.applicationContext ?: appContext ?: return
         repositoryScope.launch {
-            saveToRoom(targetContext, current)
+            saveMutex.withLock {
+                try {
+                    val db = AppDatabase.getDatabase(targetContext)
+                    val userId = SessionManager.userId ?: return@withLock
+                    val numericId = id.toIntOrNull() ?: 0
+                    db.installmentDao().deleteInstallmentById(userId, numericId, id)
+                    db.installmentDao().deletePaymentsForInstallment(userId, numericId, id)
+                    reloadForUser(targetContext, userId)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         }
     }
 
@@ -267,64 +289,97 @@ class LocalInstallmentRepository private constructor() {
         val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
         val effectivePaymentDate = paymentDate.ifBlank { todayJalali }
 
-        val current = _installments.value.map { item ->
-            if (item.id == installmentId) {
-                val updatedRemaining = (item.remainingInstallments - 1).coerceAtLeast(0)
-                val monthly = item.totalAmount / item.totalInstallments.coerceAtLeast(1)
-                val newPaidAmount = item.paidAmount + monthly
-                val newRemainingAmount = (item.remainingAmount - monthly).coerceAtLeast(0)
-                val newStatus = if (updatedRemaining == 0) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
+        val current = _installments.value.toMutableList()
+        val index = current.indexOfFirst { it.id == installmentId }
+        if (index == -1) return
 
-                val nextDueDateStr = if (updatedRemaining > 0) {
-                    PersianCalendarHelper.addMonthsToPersianDate(item.nextPaymentDate, 1)
-                } else {
-                    item.nextPaymentDate
-                }
-                val nextDueMillis = parseJalaliStringToMillis(nextDueDateStr) ?: System.currentTimeMillis()
-                val newDueDaysText = computeDueDaysText(nextDueMillis, newStatus, updatedRemaining)
+        val item = current[index]
+        val history = item.paymentHistory.toMutableList()
 
-                val newHistory = item.paymentHistory.toMutableList()
-                newHistory.add(
-                    PaymentHistoryItem(
-                        id = "p_auto_${System.currentTimeMillis()}",
-                        installmentNumber = item.totalInstallments - updatedRemaining,
-                        dueDate = item.nextPaymentDate,
-                        paidDate = effectivePaymentDate,
-                        amountFormatted = MoneyFormatter.formatToman(monthly),
-                        status = InstallmentStatus.PAID,
-                        note = "پرداخت شده",
-                        amount = monthly
-                    )
-                )
+        val targetIndex = history.indexOfFirst { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
 
-                item.copy(
-                    remainingInstallments = updatedRemaining,
-                    paidAmount = newPaidAmount,
-                    paidAmountFormatted = MoneyFormatter.formatToman(newPaidAmount),
-                    remainingAmount = newRemainingAmount,
-                    remainingAmountFormatted = MoneyFormatter.formatToman(newRemainingAmount),
-                    status = newStatus,
-                    nextPaymentDate = nextDueDateStr,
-                    nextDueDaysText = newDueDaysText,
-                    paymentHistory = newHistory
-                )
+        val updatedHistory = if (targetIndex != -1) {
+            val target = history[targetIndex]
+            if (target.status == InstallmentStatus.PAID) {
+                history
             } else {
-                item
+                history[targetIndex] = target.copy(
+                    status = InstallmentStatus.PAID,
+                    paidDate = effectivePaymentDate
+                )
+                history
             }
+        } else {
+            val nextNum = history.size + 1
+            val monthlyAmount = item.totalAmount / item.totalInstallments.coerceAtLeast(1)
+            history.add(
+                PaymentHistoryItem(
+                    id = "p_auto_${System.currentTimeMillis()}",
+                    installmentNumber = nextNum,
+                    dueDate = item.nextPaymentDate,
+                    paidDate = effectivePaymentDate,
+                    amountFormatted = MoneyFormatter.formatToman(monthlyAmount),
+                    status = InstallmentStatus.PAID,
+                    note = "پرداخت شده",
+                    amount = monthlyAmount
+                )
+            )
+            history
         }
+
+        val paidCount = updatedHistory.count { it.status == InstallmentStatus.PAID }
+        val remainingCount = (item.totalInstallments - paidCount).coerceAtLeast(0)
+
+        val actualPaidAmount = updatedHistory.filter { it.status == InstallmentStatus.PAID }.sumOf { it.amount }
+        val actualRemainingAmount = (item.totalAmount - actualPaidAmount).coerceAtLeast(0L)
+
+        val isCompleted = remainingCount == 0
+        val newStatus = if (isCompleted) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
+
+        val nextPending = updatedHistory.firstOrNull { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+        val nextPaymentDateStr = if (nextPending != null) {
+            nextPending.dueDate
+        } else if (remainingCount > 0) {
+            PersianCalendarHelper.addMonthsToPersianDate(item.nextPaymentDate, 1)
+        } else {
+            item.nextPaymentDate
+        }
+
+        val nextDueMillis = parseJalaliStringToMillis(nextPaymentDateStr) ?: System.currentTimeMillis()
+        val newDueDaysText = computeDueDaysText(nextDueMillis, newStatus, remainingCount)
+
+        val updatedItem = item.copy(
+            paidAmount = actualPaidAmount,
+            paidAmountFormatted = MoneyFormatter.formatToman(actualPaidAmount),
+            remainingAmount = actualRemainingAmount,
+            remainingAmountFormatted = MoneyFormatter.formatToman(actualRemainingAmount),
+            remainingInstallments = remainingCount,
+            status = newStatus,
+            nextPaymentDate = nextPaymentDateStr,
+            nextDueDaysText = newDueDaysText,
+            paymentHistory = updatedHistory
+        )
+
+        current[index] = updatedItem
         updateInternalState(current)
 
         val targetContext = context?.applicationContext ?: appContext ?: return
         repositoryScope.launch {
             saveToRoom(targetContext, current)
+            val userId = SessionManager.userId
+            if (userId != null) {
+                reloadForUser(targetContext, userId)
+            }
         }
     }
 
     fun updateScheduleItem(
         installmentId: String,
         scheduleItemId: String,
-        newStatus: InstallmentStatus,
-        note: String,
+        newAmountLong: Long? = null,
+        newDueDate: String? = null,
+        newStatus: InstallmentStatus? = null,
+        note: String? = null,
         context: Context? = null
     ): Boolean {
         var found = false
@@ -333,12 +388,41 @@ class LocalInstallmentRepository private constructor() {
                 val updatedHistory = item.paymentHistory.map { hist ->
                     if (hist.id == scheduleItemId) {
                         found = true
-                        hist.copy(status = newStatus, note = note)
+                        val targetStatus = newStatus ?: hist.status
+                        val targetAmount = newAmountLong ?: hist.amount
+                        val targetDueDate = newDueDate ?: hist.dueDate
+                        hist.copy(
+                            amount = targetAmount,
+                            amountFormatted = MoneyFormatter.formatToman(targetAmount),
+                            dueDate = targetDueDate,
+                            status = targetStatus,
+                            note = note ?: hist.note,
+                            paidDate = if (targetStatus == InstallmentStatus.PAID && hist.paidDate.isNullOrBlank()) {
+                                PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                            } else hist.paidDate
+                        )
                     } else {
                         hist
                     }
                 }
-                item.copy(paymentHistory = updatedHistory)
+                val paidCount = updatedHistory.count { it.status == InstallmentStatus.PAID }
+                val remainingCount = (item.totalInstallments - paidCount).coerceAtLeast(0)
+                val paidSum = updatedHistory.filter { it.status == InstallmentStatus.PAID }.sumOf { it.amount }
+                val totalSum = updatedHistory.sumOf { it.amount }.coerceAtLeast(item.totalAmount)
+                val remainingSum = (totalSum - paidSum).coerceAtLeast(0L)
+                val status = if (remainingCount == 0) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
+
+                item.copy(
+                    totalAmount = totalSum,
+                    totalAmountFormatted = MoneyFormatter.formatToman(totalSum),
+                    paidAmount = paidSum,
+                    paidAmountFormatted = MoneyFormatter.formatToman(paidSum),
+                    remainingAmount = remainingSum,
+                    remainingAmountFormatted = MoneyFormatter.formatToman(remainingSum),
+                    remainingInstallments = remainingCount,
+                    status = status,
+                    paymentHistory = updatedHistory
+                )
             } else {
                 item
             }
@@ -348,6 +432,10 @@ class LocalInstallmentRepository private constructor() {
             val targetContext = context?.applicationContext ?: appContext ?: return true
             repositoryScope.launch {
                 saveToRoom(targetContext, current)
+                val userId = SessionManager.userId
+                if (userId != null) {
+                    reloadForUser(targetContext, userId)
+                }
             }
         }
         return found
@@ -377,11 +465,11 @@ class LocalInstallmentRepository private constructor() {
         }
     }
 
-    private suspend fun saveToRoom(context: Context, items: List<InstallmentItem>) {
+    private suspend fun saveToRoom(context: Context, items: List<InstallmentItem>) = saveMutex.withLock {
         try {
             val db = AppDatabase.getDatabase(context)
             val dao = db.installmentDao()
-            val userId = SessionManager.userId ?: return
+            val userId = SessionManager.userId ?: return@withLock
             dao.clearAllInstallments(userId)
             dao.clearAllPayments(userId)
 

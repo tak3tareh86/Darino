@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.backup.LocalBackupRepository
 import com.example.data.database.AppDatabase
 import com.example.ui.screens.finance.data.LocalFinanceRepository
-import com.example.ui.screens.installments.model.InstallmentMockDataSource
+import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import com.example.ui.screens.settings.components.SettingsConfirmationDialog
 import com.example.ui.screens.settings.components.SettingsHeader
 import com.example.ui.screens.settings.components.SettingsItem
@@ -264,7 +264,7 @@ fun DataManagementScreen(
                         prefsRepo.setCleanSlatePerformed(false)
                         financeRepo.restoreSampleTransactions()
                         vehicleRepo.restoreSampleVehicles()
-                        InstallmentMockDataSource.restoreSampleInstallments(context)
+                        LocalInstallmentRepository.instance.restoreSampleInstallments(context)
                         Toast.makeText(context, "داده‌های تستی و نمونه با موفقیت بازیابی شدند.", Toast.LENGTH_SHORT).show()
                     }
                     "clear_transactions" -> {
@@ -281,7 +281,7 @@ fun DataManagementScreen(
                         Toast.makeText(context, "خودروها و سوابق سرویس با موفقیت پاک شدند.", Toast.LENGTH_SHORT).show()
                     }
                     "clear_installments" -> {
-                        InstallmentMockDataSource.clearAllInstallments(context)
+                        LocalInstallmentRepository.instance.clearAllInstallments(context)
                         val userId = com.example.data.security.SessionManager.userId ?: ""
                         db.installmentDao().clearAllInstallments(userId)
                         Toast.makeText(context, "اقساط و بدهی‌ها با موفقیت پاک شدند.", Toast.LENGTH_SHORT).show()
@@ -289,7 +289,7 @@ fun DataManagementScreen(
                     "reset_all" -> {
                         financeRepo.clearAllTransactionsData()
                         vehicleRepo.clearAllVehiclesData()
-                        InstallmentMockDataSource.clearAllInstallments(context)
+                        LocalInstallmentRepository.instance.clearAllInstallments(context)
                         backupRepo.deleteAllData()
                         Toast.makeText(context, "برنامه به حالت صفر کارخانه بازنشانی گردید.", Toast.LENGTH_LONG).show()
                     }

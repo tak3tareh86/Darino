@@ -109,6 +109,12 @@ interface InstallmentDao {
     @Query("DELETE FROM installment_payments WHERE installmentId IN (SELECT id FROM installments WHERE userId = :userId)")
     suspend fun clearAllPayments(userId: String)
 
+    @Query("DELETE FROM installments WHERE userId = :userId AND (id = :id OR serverId = :serverId)")
+    suspend fun deleteInstallmentById(userId: String, id: Int, serverId: String)
+
+    @Query("DELETE FROM installment_payments WHERE installmentId IN (SELECT id FROM installments WHERE userId = :userId AND (id = :id OR serverId = :serverId)) OR (installmentId = :id AND :id > 0)")
+    suspend fun deletePaymentsForInstallment(userId: String, id: Int, serverId: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPayment(payment: InstallmentPaymentEntity)
 

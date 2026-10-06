@@ -71,9 +71,9 @@ import com.example.ui.screens.installments.components.OverdueInstallmentsSection
 import com.example.ui.screens.installments.components.UpcomingInstallmentsSection
 import com.example.ui.screens.installments.detail.InstallmentDetailScreen
 import com.example.ui.screens.installments.detail.InstallmentScheduleScreen
+import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import com.example.ui.screens.installments.model.InstallmentCategory
 import com.example.ui.screens.installments.model.InstallmentItem
-import com.example.ui.screens.installments.model.InstallmentMockDataSource
 import com.example.ui.screens.installments.model.InstallmentStatus
 import com.example.ui.screens.installments.model.PaymentHistoryItem
 import com.example.util.PersianCalendarHelper
@@ -121,23 +121,15 @@ fun InstallmentsScreen(
         navigateBack()
     }
 
-    // Dynamic mock state that supports additions
-    var bankLoansList by remember { mutableStateOf(InstallmentMockDataSource.bankLoans) }
-    var homeLoansList by remember { mutableStateOf(InstallmentMockDataSource.homeLoans) }
-    var carInsuranceList by remember { mutableStateOf(InstallmentMockDataSource.carInsurance) }
-    var miscInstallmentsList by remember { mutableStateOf(InstallmentMockDataSource.miscInstallments) }
+    // Repository State
+    val repo = LocalInstallmentRepository.instance
+    val bankLoansList by repo.bankLoans.collectAsState()
+    val homeLoansList by repo.homeLoans.collectAsState()
+    val carInsuranceList by repo.carInsurance.collectAsState()
+    val miscInstallmentsList by repo.miscInstallments.collectAsState()
+    val summaryData by repo.summary.collectAsState()
+    val categorySummariesData by repo.categorySummaries.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-
-    fun refreshData() {
-        bankLoansList = InstallmentMockDataSource.bankLoans
-        homeLoansList = InstallmentMockDataSource.homeLoans
-        carInsuranceList = InstallmentMockDataSource.carInsurance
-        miscInstallmentsList = InstallmentMockDataSource.miscInstallments
-    }
-
-    LaunchedEffect(Unit) {
-        refreshData()
-    }
 
     val allInstallments = remember(bankLoansList, homeLoansList, carInsuranceList, miscInstallmentsList) {
         bankLoansList + homeLoansList + carInsuranceList + miscInstallmentsList
@@ -234,7 +226,7 @@ fun InstallmentsScreen(
                         } else {
                             // 1. Summary Card
                             InstallmentsSummaryCard(
-                                summary = InstallmentMockDataSource.summary,
+                                summary = summaryData,
                                 onClick = {
                                     navigateTo(InstallmentNavigationState.GroupedLoansView)
                                 }
@@ -294,7 +286,7 @@ fun InstallmentsScreen(
                                     exit = shrinkVertically() + fadeOut()
                                 ) {
                                     InstallmentCategoryGrid(
-                                        categories = InstallmentMockDataSource.categorySummaries,
+                                        categories = categorySummariesData,
                                         onCategoryClick = { category ->
                                             navigateTo(InstallmentNavigationState.CategoryView(category))
                                         }
@@ -389,14 +381,12 @@ fun InstallmentsScreen(
                     overdueItems = overdueList,
                     onBackClick = {
                         navigateBack()
-                        refreshData()
                     },
                     onItemClick = { item ->
                         navigateTo(InstallmentNavigationState.DetailView(item))
                     },
                     onMarkAsPaid = { installmentId, paymentDate ->
-                        InstallmentMockDataSource.markOverdueAsPaid(installmentId, paymentDate, context)
-                        refreshData()
+                        LocalInstallmentRepository.instance.markOverdueAsPaid(installmentId, paymentDate, context)
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("قسط با موفقیت در تاریخ $paymentDate به عنوان پرداخت شده ثبت شد.")
                         }
@@ -460,10 +450,24 @@ fun InstallmentsScreen(
                 prefillMonthly = ""
                 prefillCount = ""
 
-                val parsedTotal = com.example.util.IranianAmountUtils.parseAmountToLong(totalStr).let { if (it <= 0L) 10_000_000L else it }
-                val parsedMonthly = com.example.util.IranianAmountUtils.parseAmountToLong(monthlyStr).let { if (it <= 0L) 1_000_000L else it }
-                val parsedCount = countStr.filter { it.isDigit() }.toIntOrNull().let {
-                    if (it == null || it <= 0) (parsedTotal / parsedMonthly.coerceAtLeast(1L)).toInt().coerceAtLeast(1) else it
+                val parsedTotal = com.example.util.IranianAmountUtils.parseAmountToLong(totalStr)
+                val parsedMonthly = com.example.util.IranianAmountUtils.parseAmountToLong(monthlyStr)
+                val parsedCount = countStr.filter { it.isDigit() }.toIntOrNull() ?: 0
+
+                if (customScheduleItems.isNullOrEmpty()) {
+                    if (parsedTotal <= 0L || parsedCount <= 0 || parsedMonthly <= 0L) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("مبلغ کل، مبلغ هر قسط و تعداد اقساط باید معتبر و بزرگتر از صفر باشند.")
+                        }
+                        return@AddInstallmentSheet
+                    }
+                } else {
+                    if (customScheduleItems.isEmpty() || customScheduleItems.sumOf { it.amount } <= 0L) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("برنامه زمان‌بندی سفارشی وارد شده نامعتبر است.")
+                        }
+                        return@AddInstallmentSheet
+                    }
                 }
 
                 val totalAmount = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.sumOf { it.amount } else parsedTotal
@@ -478,7 +482,11 @@ fun InstallmentsScreen(
                 val paidFormatted = com.example.util.MoneyFormatter.formatToman(paidAmount)
 
                 val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-                val effectiveDueDate = dueDateStr.ifBlank { todayJalali }
+                val effectiveDueDate = if (!customScheduleItems.isNullOrEmpty()) {
+                    customScheduleItems.firstOrNull()?.dueDate ?: dueDateStr.ifBlank { todayJalali }
+                } else {
+                    dueDateStr.ifBlank { todayJalali }
+                }
                 val computedEndDate = PersianCalendarHelper.addMonthsToPersianDate(effectiveDueDate, totalInstallments)
 
                 val paymentHistoryList = if (!customScheduleItems.isNullOrEmpty()) {
@@ -545,8 +553,7 @@ fun InstallmentsScreen(
                     notes = noteText,
                     paymentHistory = paymentHistoryList
                 )
-                InstallmentMockDataSource.addInstallment(newItem, context)
-                refreshData()
+                LocalInstallmentRepository.instance.addInstallment(newItem, context)
 
                 if (reminderEnabled) {
                     coroutineScope.launch {

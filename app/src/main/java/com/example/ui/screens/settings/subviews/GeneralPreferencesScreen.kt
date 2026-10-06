@@ -471,7 +471,7 @@ private fun CleanSlateDeveloperCard(
                     if (dialogAction == "clean") {
                         financeRepo.clearAllTransactionsData()
                         vehicleRepo.clearAllVehiclesData()
-                        com.example.ui.screens.installments.model.InstallmentMockDataSource.clearAllInstallments(context)
+                        com.example.ui.screens.installments.data.LocalInstallmentRepository.instance.clearAllInstallments(context)
                         backupRepo.deleteAllData()
                         Toast.makeText(
                             context,
@@ -481,7 +481,7 @@ private fun CleanSlateDeveloperCard(
                     } else {
                         financeRepo.restoreSampleTransactions()
                         vehicleRepo.restoreSampleVehicles()
-                        com.example.ui.screens.installments.model.InstallmentMockDataSource.restoreSampleInstallments(context)
+                        com.example.ui.screens.installments.data.LocalInstallmentRepository.instance.restoreSampleInstallments(context)
                         Toast.makeText(
                             context,
                             if (isEn) "Sample data restored." else "داده‌های تستی و نمونه با موفقیت بازیابی شدند.",
