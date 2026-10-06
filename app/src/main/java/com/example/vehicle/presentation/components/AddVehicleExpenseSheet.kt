@@ -134,6 +134,7 @@ fun AddVehicleExpenseSheet(
                                     VehicleExpenseCategory.REPAIRS -> "تعمیرات فنی"
                                     VehicleExpenseCategory.PARTS -> "خرید قطعات یدکی"
                                     VehicleExpenseCategory.INSURANCE -> "تمدید بیمه‌نامه"
+                                    VehicleExpenseCategory.INSPECTION -> "معاینه فنی خودرو"
                                     VehicleExpenseCategory.SERVICE -> "سرویس دوره‌ای"
                                     VehicleExpenseCategory.OTHER -> "سایر هزینه‌های متفرقه"
                                 }

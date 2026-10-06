@@ -60,6 +60,7 @@ enum class VehicleExpenseCategory(val title: String, val colorHex: Long, @Drawab
     PARTS("قطعات", 0xFF8B5CF6, R.drawable.img_3d_settings_gear),
     WASH("شستشو و کارواش", 0xFF06B6D4, R.drawable.img_3d_car),
     PARKING("پارکینگ و عوارض", 0xFF64748B, R.drawable.img_3d_card),
+    INSPECTION("معاینه فنی", 0xFF0D9488, R.drawable.img_3d_settings_gear),
     OTHER("سایر", 0xFF6B7280, R.drawable.img_3d_wallet)
 }
 
