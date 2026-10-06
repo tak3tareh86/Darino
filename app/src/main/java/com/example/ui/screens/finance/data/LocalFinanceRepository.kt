@@ -344,12 +344,12 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         saveMetadataToDisk()
     }
 
-    override fun toggleCategoryActive(id: String) {
+    override fun setCategoryActive(id: String, active: Boolean) {
         val current = _categories.value.toMutableList()
         val index = current.indexOfFirst { it.id == id }
         if (index != -1) {
             val item = current[index]
-            current[index] = item.copy(isActive = !item.isActive)
+            current[index] = item.copy(isActive = active)
             _categories.value = current
             saveMetadataToDisk()
         }
@@ -390,15 +390,15 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         _budgets.value = emptyList()
     }
 
-    override fun toggleBudget(id: String, enabled: Boolean): Boolean {
+    override fun setBudgetEnabled(id: String, enabled: Boolean): Boolean {
         val currentUserId = SessionManager.userId ?: run {
-            android.util.Log.e("LocalFinanceRepository", "toggleBudget: No authenticated user")
+            android.util.Log.e("LocalFinanceRepository", "setBudgetEnabled: No authenticated user")
             return false
         }
         val current = _budgets.value
         val index = current.indexOfFirst { it.id == id }
         if (index == -1) {
-            android.util.Log.e("LocalFinanceRepository", "toggleBudget: Budget with id $id not found")
+            android.util.Log.e("LocalFinanceRepository", "setBudgetEnabled: Budget with id $id not found")
             return false
         }
 
@@ -410,7 +410,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         // 1. Persist to disk FIRST
         val persisted = persistBudgetsToDisk(updatedList, currentUserId)
         if (!persisted) {
-            android.util.Log.e("LocalFinanceRepository", "toggleBudget: Persistence failed for budget $id")
+            android.util.Log.e("LocalFinanceRepository", "setBudgetEnabled: Persistence failed for budget $id")
             return false
         }
 
@@ -532,12 +532,12 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         saveMetadataToDisk()
     }
 
-    override fun toggleRecurringEnabled(id: String) {
+    override fun setRecurringEnabled(id: String, enabled: Boolean) {
         val current = _recurringTransactions.value.toMutableList()
         val index = current.indexOfFirst { it.id == id }
         if (index != -1) {
             val item = current[index]
-            current[index] = item.copy(enabled = !item.enabled)
+            current[index] = item.copy(enabled = enabled)
             _recurringTransactions.value = current
             saveMetadataToDisk()
         }

@@ -116,7 +116,11 @@ fun AddTransactionSheet(
     var selectedSubCategory by remember { mutableStateOf(initialTransaction?.subCategory) }
     var paymentMethod by remember { mutableStateOf(initialTransaction?.paymentMethod ?: PaymentMethod.BANK_CARD) }
     var datePersian by remember { mutableStateOf(initialTransaction?.datePersian ?: todayPersian) }
-    var timePersian by remember { mutableStateOf(initialTransaction?.timePersian ?: "۱۲:۰۰") }
+    var timePersian by remember {
+        mutableStateOf(
+            initialTransaction?.timePersian ?: PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedTime()
+        )
+    }
     var description by remember { mutableStateOf(initialTransaction?.description ?: "") }
     var tagsText by remember { mutableStateOf(initialTransaction?.tags?.joinToString("، ") ?: "") }
     val activeAccounts = remember(accounts) { accounts.filter { it.isActive } }

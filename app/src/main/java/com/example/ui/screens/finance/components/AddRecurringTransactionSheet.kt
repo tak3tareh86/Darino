@@ -55,6 +55,7 @@ import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
+import com.example.util.PersianCalendarHelper
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,12 +69,14 @@ fun AddRecurringTransactionSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
+    val today = remember { PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate() }
+
     var title by remember { mutableStateOf(initialItem?.title ?: "") }
     var rawAmount by remember { mutableStateOf(initialItem?.amount?.toString() ?: "") }
     var selectedType by remember { mutableStateOf(initialItem?.type ?: TransactionType.EXPENSE) }
     var selectedFrequency by remember { mutableStateOf(initialItem?.frequency ?: RecurringFrequency.MONTHLY) }
-    var startDate by remember { mutableStateOf(initialItem?.startDate ?: "۱۴۰۵/۰۱/۰۱") }
-    var nextDate by remember { mutableStateOf(initialItem?.nextExecutionDate ?: "۱۴۰۵/۰۷/۰۱") }
+    var startDate by remember { mutableStateOf(initialItem?.startDate ?: today) }
+    var nextDate by remember { mutableStateOf(initialItem?.nextExecutionDate ?: today) }
     var paymentMethod by remember { mutableStateOf(initialItem?.paymentMethod ?: PaymentMethod.BANK_CARD) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 

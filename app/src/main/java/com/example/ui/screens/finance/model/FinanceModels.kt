@@ -263,8 +263,18 @@ object FinanceDefaultCategories {
             type = TransactionType.INCOME)
     )
 
+    val transferCategory = TransactionCategory(
+        id = "transfer_internal",
+        title = "انتقال بین حساب‌ها",
+        iconEmoji = "🔄",
+        accentColor = Color(0xFF6366F1),
+        type = TransactionType.TRANSFER,
+        isDefault = true,
+        isActive = true
+    )
+
     val allDefaultCategories: List<TransactionCategory>
-        get() = defaultExpenseCategories + defaultIncomeCategories
+        get() = defaultExpenseCategories + defaultIncomeCategories + transferCategory
 }
 
 object FinanceMockDataSource {

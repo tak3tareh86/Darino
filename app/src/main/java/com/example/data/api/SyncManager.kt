@@ -73,11 +73,11 @@ class SyncManager(
             val remoteByClientId = remoteResponse.body()?.data.orEmpty().associateBy { it.clientId }
 
             fun remoteUpdatedAt(remote: NetworkTransactionDto): Long =
-                remote.updatedAt?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
-                    ?: runCatching { java.time.Instant.parse(remote.occurredAt).toEpochMilli() }.getOrDefault(0L)
+                remote.updatedAt?.let { runCatching { isoDateFormat.parse(it)?.time }.getOrNull() }
+                    ?: runCatching { isoDateFormat.parse(remote.occurredAt)?.time }.getOrNull() ?: 0L
 
             fun remoteTimestamp(remote: NetworkTransactionDto): Long =
-                runCatching { java.time.Instant.parse(remote.occurredAt).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
+                runCatching { isoDateFormat.parse(remote.occurredAt)?.time }.getOrNull() ?: System.currentTimeMillis()
 
             suspend fun applyRemote(remote: NetworkTransactionDto, existing: TransactionEntity?) {
                 val timestamp = remoteTimestamp(remote)
@@ -132,9 +132,10 @@ class SyncManager(
                         applyRemote(remote, local)
                     }
                 } else if (remote == null || local.updatedAt >= remoteUpdated) {
+                    val occurredAtIso = isoDateFormat.format(Date(local.timestamp))
                     val request = NetworkTransactionRequest(
                         clientId, local.amount, local.type, local.category, local.accountName,
-                        local.description, java.time.Instant.ofEpochMilli(local.timestamp).toString(),
+                        local.description, occurredAtIso,
                         local.timeFormatted, local.title, local.subCategory, local.datePersian,
                         local.paymentMethod, local.sourceType, local.sourceId, local.isRecurring
                     )

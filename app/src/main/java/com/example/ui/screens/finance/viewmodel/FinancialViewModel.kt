@@ -222,21 +222,15 @@ class FinancialViewModel(
         }
     }
 
-    fun toggleRecurringEnabled(id: String) {
-        viewModelScope.launch {
-            repository.toggleRecurringEnabled(id)
-        }
-    }
-
     fun toggleRecurringTransaction(id: String, enabled: Boolean) {
         viewModelScope.launch {
-            repository.toggleRecurringEnabled(id)
+            repository.setRecurringEnabled(id, enabled)
         }
     }
 
     fun toggleBudget(id: String, enabled: Boolean, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            val success = repository.toggleBudget(id, enabled)
+            val success = repository.setBudgetEnabled(id, enabled)
             onResult(success)
         }
     }
@@ -265,9 +259,9 @@ class FinancialViewModel(
         }
     }
 
-    fun toggleCategoryActive(id: String, active: Boolean = true) {
+    fun toggleCategoryActive(id: String, active: Boolean) {
         viewModelScope.launch {
-            repository.toggleCategoryActive(id)
+            repository.setCategoryActive(id, active)
         }
     }
 

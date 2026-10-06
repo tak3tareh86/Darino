@@ -41,12 +41,12 @@ interface FinanceRepository {
     fun addCategory(category: TransactionCategory)
     fun updateCategory(category: TransactionCategory)
     fun deleteCategory(id: String)
-    fun toggleCategoryActive(id: String)
+    fun setCategoryActive(id: String, active: Boolean)
 
     fun addBudget(budget: Budget)
     fun updateBudget(budget: Budget)
     fun deleteBudget(id: String)
-    fun toggleBudget(id: String, enabled: Boolean): Boolean
+    fun setBudgetEnabled(id: String, enabled: Boolean): Boolean
 
     fun addSavingsGoal(goal: SavingsGoal)
     fun updateSavingsGoal(goal: SavingsGoal)
@@ -57,7 +57,7 @@ interface FinanceRepository {
     fun addRecurringTransaction(recurring: RecurringTransaction)
     fun updateRecurringTransaction(recurring: RecurringTransaction)
     fun deleteRecurringTransaction(id: String)
-    fun toggleRecurringEnabled(id: String)
+    fun setRecurringEnabled(id: String, enabled: Boolean)
 
     fun clearAllTransactionsData()
     fun restoreSampleTransactions()

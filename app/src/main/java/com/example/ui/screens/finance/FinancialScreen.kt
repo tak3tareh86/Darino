@@ -201,12 +201,22 @@ fun FinancialScreen(
                                 showAddTxSheet = true
                             },
                             onDuplicateClick = { tx ->
-                                viewModel.duplicateTransaction(tx.id)
-                                scope.launch { snackbarHostState.showSnackbar("تراکنش کپی و تکرار شد") }
+                                viewModel.duplicateTransaction(tx.id) { duplicatedTx ->
+                                    if (duplicatedTx != null) {
+                                        scope.launch { snackbarHostState.showSnackbar("تراکنش کپی و تکرار شد") }
+                                    } else {
+                                        scope.launch { snackbarHostState.showSnackbar("خطا در کپی تراکنش") }
+                                    }
+                                }
                             },
                             onDeleteClick = { tx ->
-                                viewModel.deleteTransaction(tx.id)
-                                scope.launch { snackbarHostState.showSnackbar("تراکنش با موفقیت حذف شد") }
+                                viewModel.deleteTransaction(tx.id) { res ->
+                                    if (res == TransactionOperationResult.SUCCESS) {
+                                        scope.launch { snackbarHostState.showSnackbar("تراکنش با موفقیت حذف شد") }
+                                    } else {
+                                        scope.launch { snackbarHostState.showSnackbar("خطا در حذف تراکنش") }
+                                    }
+                                }
                             },
                             onSeeAllClick = {
                                 currentSubScreen = FinanceSubScreen.ALL_TRANSACTIONS
@@ -233,12 +243,22 @@ fun FinancialScreen(
                         showAddTxSheet = true
                     },
                     onDuplicateTransaction = { txId ->
-                        viewModel.duplicateTransaction(txId)
-                        scope.launch { snackbarHostState.showSnackbar("تراکنش با موفقیت تکرار شد") }
+                        viewModel.duplicateTransaction(txId) { duplicated ->
+                            if (duplicated != null) {
+                                scope.launch { snackbarHostState.showSnackbar("تراکنش با موفقیت تکرار شد") }
+                            } else {
+                                scope.launch { snackbarHostState.showSnackbar("خطا در تکرار تراکنش") }
+                            }
+                        }
                     },
                     onDeleteTransaction = { txId ->
-                        viewModel.deleteTransaction(txId)
-                        scope.launch { snackbarHostState.showSnackbar("تراکنش حذف شد") }
+                        viewModel.deleteTransaction(txId) { res ->
+                            if (res == TransactionOperationResult.SUCCESS) {
+                                scope.launch { snackbarHostState.showSnackbar("تراکنش حذف شد") }
+                            } else {
+                                scope.launch { snackbarHostState.showSnackbar("خطا در حذف تراکنش") }
+                            }
+                        }
                     }
                 )
             }
@@ -253,14 +273,24 @@ fun FinancialScreen(
                             showAddTxSheet = true
                         },
                         onDuplicateClick = {
-                            viewModel.duplicateTransaction(tx.id)
-                            currentSubScreen = FinanceSubScreen.MAIN
-                            scope.launch { snackbarHostState.showSnackbar("تراکنش کپی شد") }
+                            viewModel.duplicateTransaction(tx.id) { duplicated ->
+                                if (duplicated != null) {
+                                    currentSubScreen = FinanceSubScreen.MAIN
+                                    scope.launch { snackbarHostState.showSnackbar("تراکنش کپی شد") }
+                                } else {
+                                    scope.launch { snackbarHostState.showSnackbar("خطا در کپی تراکنش") }
+                                }
+                            }
                         },
                         onDeleteClick = {
-                            viewModel.deleteTransaction(tx.id)
-                            currentSubScreen = FinanceSubScreen.MAIN
-                            scope.launch { snackbarHostState.showSnackbar("تراکنش حذف شد") }
+                            viewModel.deleteTransaction(tx.id) { res ->
+                                if (res == TransactionOperationResult.SUCCESS) {
+                                    currentSubScreen = FinanceSubScreen.MAIN
+                                    scope.launch { snackbarHostState.showSnackbar("تراکنش حذف شد") }
+                                } else {
+                                    scope.launch { snackbarHostState.showSnackbar("خطا در حذف تراکنش") }
+                                }
+                            }
                         }
                     )
                 } ?: run {
@@ -378,14 +408,16 @@ fun FinancialScreen(
             onSubmitTransfer = { srcId, destId, amountStr, desc ->
                 val parsedAmt = com.example.util.IranianAmountUtils.parseAmountToLong(amountStr) ?: amountStr.toLongOrNull() ?: 0L
                 if (parsedAmt > 0L) {
+                    val now = System.currentTimeMillis()
                     val transferTx = TransactionItemData(
                         id = java.util.UUID.randomUUID().toString(),
                         title = "انتقال وجه",
                         amount = parsedAmt,
                         type = TransactionType.TRANSFER,
-                        category = state.categories.firstOrNull() ?: FinanceDefaultCategories.defaultExpenseCategories[0],
-                        datePersian = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
-                        timePersian = "۱۲:۰۰",
+                        category = FinanceDefaultCategories.transferCategory,
+                        dateMillis = now,
+                        datePersian = PersianCalendarHelper.fromEpochMillis(now).toFormattedDate(),
+                        timePersian = PersianCalendarHelper.fromEpochMillis(now).toFormattedTime(),
                         description = desc,
                         transferSourceAccountId = srcId,
                         transferDestinationAccountId = destId
@@ -395,7 +427,12 @@ fun FinancialScreen(
                             scope.launch { snackbarHostState.showSnackbar("انتقال وجه با موفقیت انجام شد") }
                             showTransferSheet = false
                         } else {
-                            scope.launch { snackbarHostState.showSnackbar("خطا در انجام انتقال وجه") }
+                            val errorMsg = when(res) {
+                                TransactionOperationResult.VALIDATION_ERROR -> "خطا در تأیید اطلاعات انتقال"
+                                TransactionOperationResult.NOT_FOUND -> "حساب مورد نظر یافت نشد"
+                                else -> "خطا در انجام انتقال وجه"
+                            }
+                            scope.launch { snackbarHostState.showSnackbar(errorMsg) }
                         }
                     }
                 }
@@ -415,16 +452,27 @@ fun FinancialScreen(
             },
             onSubmitTransaction = { item ->
                 if (editingTransaction != null) {
-                    viewModel.updateTransaction(item)
-                    if (selectedTransactionDetail?.id == item.id) {
-                        selectedTransactionDetail = item
+                    viewModel.updateTransaction(item) { res ->
+                        if (res == TransactionOperationResult.SUCCESS) {
+                            if (selectedTransactionDetail?.id == item.id) {
+                                selectedTransactionDetail = item
+                            }
+                            scope.launch { snackbarHostState.showSnackbar("تراکنش به‌روزرسانی شد") }
+                            showAddTxSheet = false
+                        } else {
+                            scope.launch { snackbarHostState.showSnackbar("خطا در ویرایش تراکنش") }
+                        }
                     }
-                    scope.launch { snackbarHostState.showSnackbar("تراکنش به‌روزرسانی شد") }
                 } else {
-                    viewModel.addTransaction(item)
-                    scope.launch { snackbarHostState.showSnackbar("تراکنش جدید با موفقیت ثبت شد") }
+                    viewModel.addTransaction(item) { res ->
+                        if (res == TransactionOperationResult.SUCCESS) {
+                            scope.launch { snackbarHostState.showSnackbar("تراکنش جدید با موفقیت ثبت شد") }
+                            showAddTxSheet = false
+                        } else {
+                            scope.launch { snackbarHostState.showSnackbar("خطا در ثبت تراکنش") }
+                        }
+                    }
                 }
-                showAddTxSheet = false
                 editingTransaction = null
             }
         )
