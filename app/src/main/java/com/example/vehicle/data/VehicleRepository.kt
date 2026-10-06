@@ -213,13 +213,13 @@ class VehicleRepository {
                 } else if (parsedCost > 0L) {
                     parsedCost
                 } else {
-                    _expenses.value.find { it.vehicleId == realVehicleId && it.title == s.title }?.amount
-                        ?: _expenses.value.find { it.title == s.title }?.amount
-                        ?: 0L
+                    0L
                 }
 
                 val realServiceDate = if (s.serviceDate != null && s.serviceDate > 0L) {
                     com.example.util.PersianCalendarHelper.fromEpochMillis(s.serviceDate).toFormattedDate()
+                } else if (s.dueDate != null && s.dueDate > 0L) {
+                    com.example.util.PersianCalendarHelper.fromEpochMillis(s.dueDate).toFormattedDate()
                 } else if (s.updatedAt > 0L) {
                     com.example.util.PersianCalendarHelper.fromEpochMillis(s.updatedAt).toFormattedDate()
                 } else {
@@ -619,7 +619,8 @@ class VehicleRepository {
                 svc.copy(
                     date = completedDate,
                     nextReminderDate = null,
-                    nextReminderMileage = null
+                    nextReminderMileage = null,
+                    isReminderEnabled = false
                 )
             } else svc
         }

@@ -290,7 +290,29 @@ abstract class AppDatabase : RoomDatabase() {
                             `id`, `serverId`, `syncState`, `userId`, `vehicleId`, `type`, `title`, `serviceDate`, `dueDate`, `cost`, `dueMileage`, `status`, `notes`, `updatedAt`, `deletedAt`
                         )
                         SELECT 
-                            `id`, `serverId`, `syncState`, `userId`, CAST(`vehicleId` AS TEXT), `type`, `title`, NULL, `dueDate`, 0, `dueMileage`, `status`, `notes`, `updatedAt`, `deletedAt`
+                            `id`, 
+                            `serverId`, 
+                            `syncState`, 
+                            `userId`, 
+                            CAST(`vehicleId` AS TEXT), 
+                            `type`, 
+                            `title`, 
+                            `dueDate` AS `serviceDate`, 
+                            `dueDate`, 
+                            CASE 
+                                WHEN `notes` LIKE 'COST:%|%' THEN CAST(SUBSTR(`notes`, 6, INSTR(`notes`, '|') - 6) AS INTEGER)
+                                WHEN `notes` LIKE 'COST:%' THEN CAST(SUBSTR(`notes`, 6) AS INTEGER)
+                                ELSE 0 
+                            END AS `cost`, 
+                            `dueMileage`, 
+                            `status`, 
+                            CASE 
+                                WHEN `notes` LIKE 'COST:%|%' THEN SUBSTR(`notes`, INSTR(`notes`, '|') + 1)
+                                WHEN `notes` LIKE 'COST:%' THEN ''
+                                ELSE `notes` 
+                            END AS `notes`, 
+                            `updatedAt`, 
+                            `deletedAt`
                         FROM `vehicle_services`
                     """.trimIndent())
                     db.execSQL("DROP TABLE `vehicle_services` ")
