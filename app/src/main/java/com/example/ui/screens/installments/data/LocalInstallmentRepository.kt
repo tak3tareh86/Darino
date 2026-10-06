@@ -101,22 +101,19 @@ class LocalInstallmentRepository private constructor() {
                     val startJalali = if (entity.startDate > 0L) {
                         PersianCalendarHelper.fromEpochMillis(entity.startDate).toFormattedDate()
                     } else {
-                        PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                        throw IllegalStateException("Invalid installment startDate in DB")
                     }
 
                     val nextDueMillis = if (entity.nextDueDate > 0L) {
                         entity.nextDueDate
-                    } else if (entity.startDate > 0L) {
-                        entity.startDate
                     } else {
-                        System.currentTimeMillis()
+                        entity.startDate
                     }
 
                     val nextDueJalali = PersianCalendarHelper.fromEpochMillis(nextDueMillis).toFormattedDate()
                     val endJalali = PersianCalendarHelper.addMonthsToPersianDate(startJalali, entity.totalInstallments)
-                    val dueDaysText = computeDueDaysText(nextDueMillis, status, entity.remainingInstallments)
 
-                    val payments = dbPayments.filter { it.installmentId == entity.id }.mapIndexed { idx, p ->
+                    val payments = dbPayments.filter { it.installmentId == entity.id }.map { p ->
                         val dueStr = if (p.dueDate > 0L) {
                             PersianCalendarHelper.fromEpochMillis(p.dueDate).toFormattedDate()
                         } else {
@@ -128,8 +125,8 @@ class LocalInstallmentRepository private constructor() {
                         val pStatus = try { InstallmentStatus.valueOf(p.status) } catch (e: Exception) { InstallmentStatus.PENDING }
 
                         PaymentHistoryItem(
-                            id = p.paymentReference ?: p.id.toString(),
-                            installmentNumber = idx + 1,
+                            id = p.paymentReference ?: "p_${p.id}",
+                            installmentNumber = p.installmentNumber,
                             dueDate = dueStr,
                             paidDate = paidStr,
                             amountFormatted = MoneyFormatter.formatToman(p.amount),
@@ -137,10 +134,24 @@ class LocalInstallmentRepository private constructor() {
                             note = p.notes,
                             amount = p.amount
                         )
-                    }
+                    }.sortedBy { it.installmentNumber }
 
-                    val paidAmount = entity.amount - (entity.amount * entity.remainingInstallments / entity.totalInstallments.coerceAtLeast(1))
-                    val monthly = entity.amount / entity.totalInstallments.coerceAtLeast(1)
+                    val paidAmount = payments.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }.sumOf { it.amount }
+                    val paidInstallmentsCount = payments.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
+                    val remainingInstallmentsCount = (entity.totalInstallments - paidInstallmentsCount).coerceAtLeast(0)
+                    val remainingAmount = (entity.amount - paidAmount).coerceAtLeast(0L)
+
+                    val actualStatus = if (remainingInstallmentsCount == 0) InstallmentStatus.COMPLETED else status
+                    val dueDaysText = computeDueDaysText(nextDueMillis, actualStatus, remainingInstallmentsCount)
+
+                    val firstUnpaid = payments.firstOrNull { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                    val effectiveNextPaymentDate = firstUnpaid?.dueDate ?: nextDueJalali
+
+                    val monthly = if (payments.isNotEmpty()) {
+                        payments.first().amount
+                    } else {
+                        entity.amount / entity.totalInstallments.coerceAtLeast(1)
+                    }
 
                     InstallmentItem(
                         id = entity.serverId ?: entity.id.toString(),
@@ -151,16 +162,16 @@ class LocalInstallmentRepository private constructor() {
                         totalAmountFormatted = MoneyFormatter.formatToman(entity.amount),
                         paidAmount = paidAmount,
                         paidAmountFormatted = MoneyFormatter.formatToman(paidAmount),
-                        remainingAmount = entity.amount - paidAmount,
-                        remainingAmountFormatted = MoneyFormatter.formatToman(entity.amount - paidAmount),
+                        remainingAmount = remainingAmount,
+                        remainingAmountFormatted = MoneyFormatter.formatToman(remainingAmount),
                         monthlyPaymentFormatted = MoneyFormatter.formatToman(monthly),
                         totalInstallments = entity.totalInstallments,
-                        remainingInstallments = entity.remainingInstallments,
-                        nextPaymentDate = nextDueJalali,
+                        remainingInstallments = remainingInstallmentsCount,
+                        nextPaymentDate = effectiveNextPaymentDate,
                         nextDueDaysText = dueDaysText,
                         startDate = startJalali,
                         endDate = endJalali,
-                        status = status,
+                        status = actualStatus,
                         notes = entity.notes ?: "",
                         paymentHistory = payments
                     )
@@ -171,6 +182,7 @@ class LocalInstallmentRepository private constructor() {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            throw e
         }
     }
 
@@ -456,15 +468,6 @@ class LocalInstallmentRepository private constructor() {
         }
     }
 
-    fun restoreSampleInstallments(context: Context? = null) {
-        val sample = InstallmentMockDataSource.getSampleInitialInstallments()
-        updateInternalState(sample)
-        val targetContext = context?.applicationContext ?: appContext ?: return
-        repositoryScope.launch {
-            saveToRoom(targetContext, sample)
-        }
-    }
-
     private suspend fun saveToRoom(context: Context, items: List<InstallmentItem>) = saveMutex.withLock {
         try {
             val db = AppDatabase.getDatabase(context)
@@ -474,11 +477,11 @@ class LocalInstallmentRepository private constructor() {
             dao.clearAllPayments(userId)
 
             items.forEach { item ->
-                val startMillis = parseJalaliStringToMillis(item.startDate) ?: System.currentTimeMillis()
+                val startMillis = parseJalaliStringToMillis(item.startDate) ?: throw IllegalArgumentException("Invalid start date: ${item.startDate}")
                 val nextDueMillis = parseJalaliStringToMillis(item.nextPaymentDate) ?: startMillis
                 val dueDayNum = CalendarDateUtils.parseJalali(item.nextPaymentDate)?.third
                     ?: CalendarDateUtils.parseJalali(item.startDate)?.third
-                    ?: 15
+                    ?: throw IllegalArgumentException("Invalid due day in dates")
 
                 val entity = InstallmentEntity(
                     id = 0,
@@ -490,8 +493,8 @@ class LocalInstallmentRepository private constructor() {
                     title = item.title,
                     amount = item.totalAmount,
                     totalInstallments = item.totalInstallments,
-                    paidInstallments = (item.totalInstallments - item.remainingInstallments).coerceAtLeast(0),
-                    remainingInstallments = item.remainingInstallments,
+                    paidInstallments = item.paymentHistory.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED },
+                    remainingInstallments = (item.totalInstallments - item.paymentHistory.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }).coerceAtLeast(0),
                     startDate = startMillis,
                     dueDay = dueDayNum,
                     nextDueDate = nextDueMillis,
@@ -506,6 +509,7 @@ class LocalInstallmentRepository private constructor() {
 
                     val paymentEntity = InstallmentPaymentEntity(
                         installmentId = instId,
+                        installmentNumber = p.installmentNumber,
                         amount = p.amount,
                         dueDate = pDueMillis,
                         paidDate = pPaidMillis,
@@ -518,6 +522,7 @@ class LocalInstallmentRepository private constructor() {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            throw e
         }
     }
 

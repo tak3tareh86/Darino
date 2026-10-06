@@ -419,10 +419,6 @@ object InstallmentMockDataSource {
         repository.clearAllInstallments(context)
     }
 
-    fun restoreSampleInstallments(context: Context? = null) {
-        repository.restoreSampleInstallments(context)
-    }
-
     fun markOverdueAsPaid(installmentId: String, paymentDate: String, context: Context? = null): Boolean {
         repository.markOverdueAsPaid(installmentId, paymentDate, context)
         return true

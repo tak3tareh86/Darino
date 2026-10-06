@@ -264,7 +264,6 @@ fun DataManagementScreen(
                         prefsRepo.setCleanSlatePerformed(false)
                         financeRepo.restoreSampleTransactions()
                         vehicleRepo.restoreSampleVehicles()
-                        LocalInstallmentRepository.instance.restoreSampleInstallments(context)
                         Toast.makeText(context, "داده‌های تستی و نمونه با موفقیت بازیابی شدند.", Toast.LENGTH_SHORT).show()
                     }
                     "clear_transactions" -> {

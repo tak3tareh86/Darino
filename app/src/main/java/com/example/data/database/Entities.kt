@@ -92,6 +92,7 @@ data class InstallmentEntity(
 data class InstallmentPaymentEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val installmentId: Int,
+    val installmentNumber: Int = 1,
     val amount: Long,
     val dueDate: Long,
     val paidDate: Long?,
