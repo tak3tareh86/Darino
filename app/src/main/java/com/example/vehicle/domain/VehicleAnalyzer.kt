@@ -99,6 +99,9 @@ object VehicleAnalyzer {
         val checklist = mutableListOf<VehicleHealthCheckItem>()
         var score = 100
 
+        val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val todayJalali = currentPdt.toFormattedDate()
+
         // 1. Oil & Filter Health
         if (lastOilService != null) {
             val nextKm = lastOilService.nextReminderMileage ?: (lastOilService.mileage + 5000)
@@ -149,20 +152,34 @@ object VehicleAnalyzer {
         }
 
         // 2. Insurance Status
-        val thirdPartyInsurance = carInsurances.find { it.type.contains("ثالث") }
+        val thirdPartyInsurance = carInsurances.find { it.type.contains("ثالث") } ?: carInsurances.firstOrNull()
         if (thirdPartyInsurance != null) {
-            checklist.add(
-                VehicleHealthCheckItem(
-                    title = "بیمه‌نامه شخص ثالث",
-                    statusText = "دارای اعتبار (${thirdPartyInsurance.company})",
-                    isOk = true,
-                    iconRes = R.drawable.img_3d_insurance
+            val isExpired = thirdPartyInsurance.endDate.isNotBlank() && thirdPartyInsurance.endDate < todayJalali
+            if (isExpired) {
+                checklist.add(
+                    VehicleHealthCheckItem(
+                        title = "بیمه‌نامه خودرو",
+                        statusText = "منقضی شده در ${thirdPartyInsurance.endDate} (${thirdPartyInsurance.company})",
+                        isOk = false,
+                        isWarning = true,
+                        iconRes = R.drawable.img_3d_insurance
+                    )
                 )
-            )
+                score -= 35
+            } else {
+                checklist.add(
+                    VehicleHealthCheckItem(
+                        title = "بیمه‌نامه خودرو",
+                        statusText = "دارای اعتبار (${thirdPartyInsurance.company})",
+                        isOk = true,
+                        iconRes = R.drawable.img_3d_insurance
+                    )
+                )
+            }
         } else {
             checklist.add(
                 VehicleHealthCheckItem(
-                    title = "بیمه‌نامه شخص ثالث",
+                    title = "بیمه‌نامه خودرو",
                     statusText = "ثبت نشده یا نیازمند تمدید",
                     isOk = false,
                     isWarning = true,
@@ -197,14 +214,28 @@ object VehicleAnalyzer {
 
         // 4. Technical Inspection
         if (carInspection != null) {
-            checklist.add(
-                VehicleHealthCheckItem(
-                    title = "معاینه فنی و آلایندگی",
-                    statusText = carInspection.status,
-                    isOk = true,
-                    iconRes = R.drawable.img_3d_settings_gear
+            val isInspectionExpired = carInspection.expiryDate.isNotBlank() && carInspection.expiryDate < todayJalali
+            if (isInspectionExpired) {
+                checklist.add(
+                    VehicleHealthCheckItem(
+                        title = "معاینه فنی و آلایندگی",
+                        statusText = "معاینه فنی منقضی شده (${carInspection.expiryDate})",
+                        isOk = false,
+                        isWarning = true,
+                        iconRes = R.drawable.img_3d_settings_gear
+                    )
                 )
-            )
+                score -= 20
+            } else {
+                checklist.add(
+                    VehicleHealthCheckItem(
+                        title = "معاینه فنی و آلایندگی",
+                        statusText = carInspection.status.ifBlank { "دارای اعتبار تا ${carInspection.expiryDate}" },
+                        isOk = true,
+                        iconRes = R.drawable.img_3d_settings_gear
+                    )
+                )
+            }
         } else {
             checklist.add(
                 VehicleHealthCheckItem(
@@ -245,12 +276,21 @@ object VehicleAnalyzer {
         val carExpenses = expenses.filter { it.vehicleId == vehicleId }
         val carServices = services.filter { it.vehicleId == vehicleId }
 
-        val currentMonthCost = carExpenses.filter { it.date.startsWith("1405/06") }.sumOf { it.amount }
-        val yearlyCost = carExpenses.sumOf { it.amount }.coerceAtLeast(currentMonthCost)
+        val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val currentYear = currentPdt.year
+        val currentMonth = currentPdt.month
+        val currentYearMonth = "%04d/%02d".format(currentYear, currentMonth)
+        val currentYearStr = "%04d".format(currentYear)
+
+        val currentMonthCost = carExpenses.filter { it.date.startsWith(currentYearMonth) }.sumOf { it.amount }
+        val yearlyCost = carExpenses.filter { it.date.startsWith(currentYearStr) }.sumOf { it.amount }.let {
+            if (it == 0L && carExpenses.isNotEmpty()) carExpenses.sumOf { exp -> exp.amount } else it
+        }
 
         val categoryTotals = VehicleExpenseCategory.values().map { cat ->
             val total = carExpenses.filter { it.category == cat }.sumOf { it.amount }
-            val percentage = if (yearlyCost > 0) ((total.toDouble() / yearlyCost.toDouble()) * 100).toInt() else 0
+            val totalAll = carExpenses.sumOf { it.amount }
+            val percentage = if (totalAll > 0) ((total.toDouble() / totalAll.toDouble()) * 100).toInt() else 0
             VehicleCostCategoryStat(cat, total, percentage)
         }.filter { it.amount > 0 }.sortedByDescending { it.amount }
 
@@ -260,19 +300,42 @@ object VehicleAnalyzer {
         val lastRepairTitle = lastRepair?.title ?: "بدون تعمیرات سنگین"
         val lastRepairDate = lastRepair?.date ?: "—"
 
-        // Mock 6-Month Chart Data
-        val monthlyBars = listOf(
-            VehicleMonthlyExpenseBar("فروردین", 300_000, 0, 0, 0, 300_000),
-            VehicleMonthlyExpenseBar("اردیبهشت", 350_000, 0, 950_000, 0, 1_300_000),
-            VehicleMonthlyExpenseBar("خرداد", 400_000, 0, 0, 0, 400_000),
-            VehicleMonthlyExpenseBar("تیر", 450_000, 1_200_000, 1_200_000, 0, 2_850_000),
-            VehicleMonthlyExpenseBar("مرداد", 400_000, 0, 0, 0, 400_000),
-            VehicleMonthlyExpenseBar("شهریور", 500_000, 0, 850_000, 3_000_000, 4_350_000, isCurrentMonth = true)
-        )
+        // Dynamic 6-Month Chart Data
+        val monthNames = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
+        val monthlyBars = mutableListOf<VehicleMonthlyExpenseBar>()
+
+        for (i in 5 downTo 0) {
+            var m = currentMonth - i
+            var y = currentYear
+            while (m <= 0) {
+                m += 12
+                y -= 1
+            }
+            val prefix = "%04d/%02d".format(y, m)
+            val monthExpenses = carExpenses.filter { it.date.startsWith(prefix) }
+            val fuel = monthExpenses.filter { it.category == VehicleExpenseCategory.FUEL }.sumOf { it.amount }
+            val repair = monthExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS || it.category == VehicleExpenseCategory.PARTS }.sumOf { it.amount }
+            val service = monthExpenses.filter { it.category == VehicleExpenseCategory.SERVICE }.sumOf { it.amount }
+            val insurance = monthExpenses.filter { it.category == VehicleExpenseCategory.INSURANCE }.sumOf { it.amount }
+            val total = monthExpenses.sumOf { it.amount }
+            val name = monthNames.getOrElse(m - 1) { "ماه $m" }
+
+            monthlyBars.add(
+                VehicleMonthlyExpenseBar(
+                    monthName = name,
+                    fuelAmount = fuel,
+                    repairAmount = repair,
+                    serviceAmount = service,
+                    insuranceAmount = insurance,
+                    totalAmount = total,
+                    isCurrentMonth = (i == 0)
+                )
+            )
+        }
 
         return VehicleStatistics(
-            currentMonthCost = if (currentMonthCost > 0) currentMonthCost else 2_000_000L,
-            yearlyCost = if (yearlyCost > 0) yearlyCost else 24_000_000L,
+            currentMonthCost = currentMonthCost,
+            yearlyCost = yearlyCost,
             totalServicesCount = carServices.size,
             lastRepairTitle = lastRepairTitle,
             lastRepairDate = lastRepairDate,

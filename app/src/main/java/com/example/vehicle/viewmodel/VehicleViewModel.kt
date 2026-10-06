@@ -249,6 +249,23 @@ class VehicleViewModel(
         }
     }
 
+    fun deleteVehicle(vehicleId: String) {
+        repository.deleteVehicle(vehicleId)
+        val remaining = repository.vehicles.value.filter { it.id != vehicleId }
+        val nextSelected = remaining.firstOrNull()
+        if (nextSelected != null) {
+            selectVehicle(nextSelected)
+        } else {
+            _uiState.update {
+                it.copy(
+                    selectedVehicle = null,
+                    showProfileScreen = false,
+                    snackBarMessage = "خودرو از پرونده حذف شد."
+                )
+            }
+        }
+    }
+
     fun updateCurrentMileage(newMileage: Int) {
         val current = _uiState.value.selectedVehicle ?: return
         repository.updateMileage(current.id, newMileage)

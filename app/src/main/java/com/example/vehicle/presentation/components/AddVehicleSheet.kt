@@ -46,16 +46,17 @@ fun AddVehicleSheet(
     ) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val currentYear = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year.toString()
     var brand by remember { mutableStateOf("ایران‌خودرو") }
     var model by remember { mutableStateOf("") }
-    var year by remember { mutableStateOf("1403") }
+    var year by remember { mutableStateOf(currentYear) }
     var color by remember { mutableStateOf("سفید") }
-    var platePart1 by remember { mutableStateOf("12") }
-    var plateLetter by remember { mutableStateOf("ب") }
-    var platePart2 by remember { mutableStateOf("345") }
-    var plateIranCode by remember { mutableStateOf("68") }
+    var platePart1 by remember { mutableStateOf("") }
+    var plateLetter by remember { mutableStateOf("الف") }
+    var platePart2 by remember { mutableStateOf("") }
+    var plateIranCode by remember { mutableStateOf("") }
     var vin by remember { mutableStateOf("") }
-    var mileageText by remember { mutableStateOf("0") }
+    var mileageText by remember { mutableStateOf("") }
     var estimatedValueText by remember { mutableStateOf("") }
 
     val brands = listOf("ایران‌خودرو", "سایپا", "مدیران‌خودرو", "کرمان‌موتور", "بهمن‌موتور", "هیوندای", "کیا", "تویوتا", "سایر")

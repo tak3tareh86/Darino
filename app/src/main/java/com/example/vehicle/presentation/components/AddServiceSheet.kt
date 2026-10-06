@@ -54,11 +54,12 @@ fun AddServiceSheet(
     ) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val todayJalali = remember { com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate() }
     var selectedType by remember { mutableStateOf(ServiceType.OIL_CHANGE) }
     var title by remember { mutableStateOf(ServiceType.OIL_CHANGE.title) }
-    var date by remember { mutableStateOf("1405/06/10") }
-    var mileageText by remember { mutableStateOf(vehicle.currentMileage.toString()) }
-    var costText by remember { mutableStateOf("850000") }
+    var date by remember { mutableStateOf(todayJalali) }
+    var mileageText by remember { mutableStateOf(if (vehicle.currentMileage > 0) vehicle.currentMileage.toString() else "") }
+    var costText by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
 
     // Next Reminder settings

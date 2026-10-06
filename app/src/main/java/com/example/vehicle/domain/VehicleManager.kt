@@ -13,7 +13,7 @@ object VehicleManager {
     fun calculateRecommendedReminder(
         serviceType: ServiceType,
         currentMileage: Int,
-        currentShamsiDate: String = "1405/06/10"
+        currentShamsiDate: String = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
     ): Pair<Int, String> {
         val nextKm = currentMileage + serviceType.defaultIntervalKm
         val nextDate = com.example.util.PersianCalendarHelper.addMonthsToPersianDate(

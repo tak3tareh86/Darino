@@ -51,22 +51,28 @@ fun VehicleInsuranceSheet(
     ) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val todayPdt = remember { com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()) }
+    val todayJalali = remember { todayPdt.toFormattedDate() }
+    val nextYearJalali = remember {
+        com.example.util.IranianDateUtils.createFormattedDate(todayPdt.year + 1, todayPdt.month, todayPdt.day)
+    }
+
     var selectedSection by remember { mutableIntStateOf(0) } // 0: Insurance, 1: Inspection
 
     // Insurance fields
     var insuranceCompany by remember { mutableStateOf("بیمه ایران") }
     var insuranceType by remember { mutableStateOf("شخص ثالث") }
-    var startDate by remember { mutableStateOf("1405/06/01") }
-    var endDate by remember { mutableStateOf("1406/06/01") }
-    var insuranceAmountText by remember { mutableStateOf("3000000") }
-    var policyNumber by remember { mutableStateOf("IR-9820-4491-01") }
+    var startDate by remember { mutableStateOf(todayJalali) }
+    var endDate by remember { mutableStateOf(nextYearJalali) }
+    var insuranceAmountText by remember { mutableStateOf("") }
+    var policyNumber by remember { mutableStateOf("") }
 
     // Inspection fields
-    var lastInspectionDate by remember { mutableStateOf("1404/08/10") }
-    var inspectionExpiryDate by remember { mutableStateOf("1406/08/10") }
-    var inspectionCostText by remember { mutableStateOf("92000") }
+    var lastInspectionDate by remember { mutableStateOf(todayJalali) }
+    var inspectionExpiryDate by remember { mutableStateOf(nextYearJalali) }
+    var inspectionCostText by remember { mutableStateOf("") }
     var inspectionStatus by remember { mutableStateOf("معتبر (گواهی معاینه فنی)") }
-    var centerName by remember { mutableStateOf("مرکز مکانیزه نیایش") }
+    var centerName by remember { mutableStateOf("") }
 
     val companies = listOf("بیمه ایران", "بیمه آسیا", "بیمه دانا", "بیمه البرز", "بیمه پاسارگاد", "بیمه سامان")
     val insuranceTypes = listOf("شخص ثالث", "بیمه بدنه")

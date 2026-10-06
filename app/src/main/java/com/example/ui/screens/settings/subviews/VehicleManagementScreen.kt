@@ -42,8 +42,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,6 +53,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -63,24 +64,31 @@ import com.example.R
 import com.example.ui.screens.settings.components.SettingsConfirmationDialog
 import com.example.ui.screens.settings.components.SettingsEmptyState
 import com.example.ui.screens.settings.components.SettingsHeader
-import com.example.ui.screens.settings.model.SettingsMockDataSource
-import com.example.ui.screens.settings.model.VehicleSettingItem
 import com.example.ui.theme.ButtonShape
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
+import com.example.util.IranianPhoneUtils
+import com.example.vehicle.data.VehicleEntity
+import com.example.vehicle.data.VehicleRepository
 
 @Composable
 fun VehicleManagementScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val vehicles = remember { mutableStateListOf(*SettingsMockDataSource.vehicles.toTypedArray()) }
+    val context = LocalContext.current
+    val repository = remember {
+        VehicleRepository.instance.apply {
+            initDatabase(context)
+        }
+    }
+    val vehicles by repository.vehicles.collectAsState()
     var isAddSheetOpen by remember { mutableStateOf(false) }
-    var editingVehicle by remember { mutableStateOf<VehicleSettingItem?>(null) }
-    var vehicleToDelete by remember { mutableStateOf<VehicleSettingItem?>(null) }
+    var editingVehicle by remember { mutableStateOf<VehicleEntity?>(null) }
+    var vehicleToDelete by remember { mutableStateOf<VehicleEntity?>(null) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -149,7 +157,7 @@ fun VehicleManagementScreen(
                 ) {
                     item {
                         Text(
-                            text = "لیست خودروهای فعال در گاراژ (${vehicles.size})",
+                            text = "لیست خودروهای فعال در گاراژ (${IranianPhoneUtils.convertDigitsToPersian(vehicles.size.toString())})",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.5.sp
@@ -185,12 +193,32 @@ fun VehicleManagementScreen(
         AddEditVehicleSheet(
             vehicle = editingVehicle,
             onDismiss = { isAddSheetOpen = false },
-            onSave = { savedVeh ->
+            onSave = { brand, model, year, color, plate, vin, mileage, estValue ->
                 if (editingVehicle != null) {
-                    val index = vehicles.indexOfFirst { it.id == editingVehicle?.id }
-                    if (index >= 0) vehicles[index] = savedVeh
+                    val current = editingVehicle!!
+                    repository.updateVehicle(
+                        current.copy(
+                            brand = brand,
+                            model = model,
+                            year = year,
+                            color = color,
+                            plate = plate,
+                            vin = vin,
+                            currentMileage = mileage,
+                            estimatedValue = estValue
+                        )
+                    )
                 } else {
-                    vehicles.add(savedVeh)
+                    repository.addVehicle(
+                        brand = brand,
+                        model = model,
+                        year = year,
+                        color = color,
+                        plate = plate,
+                        vin = vin,
+                        currentMileage = mileage,
+                        estimatedValue = estValue
+                    )
                 }
                 isAddSheetOpen = false
             }
@@ -200,11 +228,11 @@ fun VehicleManagementScreen(
     // Confirmation Dialog
     SettingsConfirmationDialog(
         isOpen = vehicleToDelete != null,
-        title = "حذف خودرو ${vehicleToDelete?.name ?: ""}",
+        title = "حذف خودرو ${vehicleToDelete?.brand ?: ""} ${vehicleToDelete?.model ?: ""}",
         message = "آیا از حذف این خودرو از گاراژ خود مطمئن هستید؟ سوابق سرویس‌ها و هزینه‌های این خودرو حذف خواهند شد.",
         confirmButtonText = "حذف خودرو",
         onConfirm = {
-            vehicleToDelete?.let { vehicles.remove(it) }
+            vehicleToDelete?.let { repository.deleteVehicle(it.id) }
             vehicleToDelete = null
         },
         onDismiss = { vehicleToDelete = null }
@@ -213,13 +241,21 @@ fun VehicleManagementScreen(
 
 @Composable
 fun VehicleManageCard(
-    vehicle: VehicleSettingItem,
+    vehicle: VehicleEntity,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     var showMenu by remember { mutableStateOf(false) }
+
+    val iconRes = if (vehicle.brand.contains("دنا") || vehicle.model.contains("دنا")) {
+        R.drawable.img_3d_car_dena
+    } else if (vehicle.brand.contains("206") || vehicle.model.contains("206") || vehicle.brand.contains("۲۰۶") || vehicle.model.contains("۲۰۶")) {
+        R.drawable.img_3d_car_peugeot
+    } else {
+        R.drawable.img_3d_car
+    }
 
     Surface(
         modifier = modifier
@@ -259,8 +295,8 @@ fun VehicleManageCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            painter = painterResource(id = vehicle.iconRes),
-                            contentDescription = vehicle.name,
+                            painter = painterResource(id = iconRes),
+                            contentDescription = "${vehicle.brand} ${vehicle.model}",
                             modifier = Modifier.size(46.dp),
                             contentScale = ContentScale.Crop
                         )
@@ -268,7 +304,7 @@ fun VehicleManageCard(
 
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = vehicle.name,
+                            text = "${vehicle.brand} ${vehicle.model}",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.5.sp
@@ -277,7 +313,7 @@ fun VehicleManageCard(
                         )
 
                         Text(
-                            text = "${vehicle.modelYear} • ${vehicle.plateNumber}",
+                            text = "${vehicle.year} • ${vehicle.plate}",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -345,7 +381,7 @@ fun VehicleManageCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = vehicle.mileageFormatted,
+                        text = "${IranianPhoneUtils.convertDigitsToPersian(vehicle.currentMileage.toString())} کیلومتر",
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.5.sp
@@ -357,16 +393,16 @@ fun VehicleManageCard(
                 Box(
                     modifier = Modifier
                         .clip(CircleShape)
-                        .background(vehicle.statusColor.copy(alpha = 0.15f))
+                        .background(EmeraldPrimaryLight.copy(alpha = 0.15f))
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = vehicle.statusText,
+                        text = "وضعیت فعال",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontSize = 10.5.sp,
                             fontWeight = FontWeight.SemiBold
                         ),
-                        color = vehicle.statusColor
+                        color = EmeraldPrimaryLight
                     )
                 }
             }
@@ -377,16 +413,20 @@ fun VehicleManageCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditVehicleSheet(
-    vehicle: VehicleSettingItem?,
+    vehicle: VehicleEntity?,
     onDismiss: () -> Unit,
-    onSave: (VehicleSettingItem) -> Unit
+    onSave: (brand: String, model: String, year: String, color: String, plate: String, vin: String, mileage: Int, estimatedValue: Long) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    var name by remember { mutableStateOf(vehicle?.name ?: "") }
-    var modelYear by remember { mutableStateOf(vehicle?.modelYear ?: "مدل ۱۴۰۲") }
-    var mileage by remember { mutableStateOf(vehicle?.mileageFormatted ?: "") }
-    var plate by remember { mutableStateOf(vehicle?.plateNumber ?: "") }
+    var brand by remember { mutableStateOf(vehicle?.brand ?: "") }
+    var model by remember { mutableStateOf(vehicle?.model ?: "") }
+    var modelYear by remember { mutableStateOf(vehicle?.year ?: "") }
+    var color by remember { mutableStateOf(vehicle?.color ?: "سفید") }
+    var mileage by remember { mutableStateOf(vehicle?.currentMileage?.toString() ?: "") }
+    var plate by remember { mutableStateOf(vehicle?.plate ?: "") }
+    var vin by remember { mutableStateOf(vehicle?.vin ?: "") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -399,7 +439,7 @@ fun AddEditVehicleSheet(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 8.dp)
                 .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
                 text = if (vehicle != null) "ویرایش خودرو" else "افزودن خودرو جدید",
@@ -410,37 +450,65 @@ fun AddEditVehicleSheet(
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("نام و مدل خودرو (مثلاً تارا اتوماتیک)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(RadiusMD)
-            )
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
 
-            OutlinedTextField(
-                value = modelYear,
-                onValueChange = { modelYear = it },
-                label = { Text("سال ساخت (مثلاً مدل ۱۴۰۱)") },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(RadiusMD)
-            )
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = brand,
+                    onValueChange = { brand = it; errorMessage = null },
+                    label = { Text("برند (مثلاً پژو، تارا)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    shape = RoundedCornerShape(RadiusMD)
+                )
 
-            OutlinedTextField(
-                value = mileage,
-                onValueChange = { mileage = it },
-                label = { Text("کیلومتر کارکرد فعلی (کیلومتر)") },
+                OutlinedTextField(
+                    value = model,
+                    onValueChange = { model = it; errorMessage = null },
+                    label = { Text("مدل (مثلاً ۲۰۶ تیپ ۵)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    shape = RoundedCornerShape(RadiusMD)
+                )
+            }
+
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                shape = RoundedCornerShape(RadiusMD)
-            )
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = modelYear,
+                    onValueChange = { modelYear = it; errorMessage = null },
+                    label = { Text("سال ساخت (مثلاً ۱۴۰۱)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(RadiusMD)
+                )
+
+                OutlinedTextField(
+                    value = mileage,
+                    onValueChange = { mileage = it; errorMessage = null },
+                    label = { Text("کارکرد فعلی (کیلومتر)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(RadiusMD)
+                )
+            }
 
             OutlinedTextField(
                 value = plate,
-                onValueChange = { plate = it },
+                onValueChange = { plate = it; errorMessage = null },
                 label = { Text("شماره پلاک (مثلاً ایران ۷۷ - ۲۴۵ ب ۱۲)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -449,17 +517,21 @@ fun AddEditVehicleSheet(
 
             Button(
                 onClick = {
-                    val saved = VehicleSettingItem(
-                        id = vehicle?.id ?: "veh_${System.currentTimeMillis()}",
-                        name = name.ifBlank { "خودروی من" },
-                        modelYear = modelYear.ifBlank { "مدل ۱۴۰۰" },
-                        mileageFormatted = if (mileage.contains("کیلومتر")) mileage else "$mileage کیلومتر",
-                        plateNumber = plate.ifBlank { "ایران ۱۱ - ۱۱۱ الف ۱۱" },
-                        statusText = "وضعیت عادی",
-                        statusColor = EmeraldPrimaryLight,
-                        iconRes = if (name.contains("دنا")) R.drawable.img_3d_car_dena else if (name.contains("206") || name.contains("۲۰۶")) R.drawable.img_3d_car_peugeot else R.drawable.img_3d_car
+                    if (brand.isBlank() || model.isBlank() || plate.isBlank()) {
+                        errorMessage = "لطفاً برند، مدل و شماره پلاک را وارد کنید."
+                        return@Button
+                    }
+                    val mileageInt = mileage.replace(",", "").trim().toIntOrNull() ?: 0
+                    onSave(
+                        brand.trim(),
+                        model.trim(),
+                        modelYear.trim().ifBlank { "۱۴۰۰" },
+                        color.trim(),
+                        plate.trim(),
+                        vin.trim(),
+                        mileageInt,
+                        0L
                     )
-                    onSave(saved)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -480,3 +552,4 @@ fun AddEditVehicleSheet(
         }
     }
 }
+

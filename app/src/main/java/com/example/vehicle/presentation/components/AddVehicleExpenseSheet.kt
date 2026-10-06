@@ -46,12 +46,13 @@ fun AddVehicleExpenseSheet(
     ) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val todayJalali = remember { com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate() }
     var selectedCategory by remember { mutableStateOf(VehicleExpenseCategory.FUEL) }
     var title by remember { mutableStateOf("سوخت‌گیری بنزین") }
-    var amountText by remember { mutableStateOf("500000") }
-    var date by remember { mutableStateOf("1405/06/20") }
+    var amountText by remember { mutableStateOf("") }
+    var date by remember { mutableStateOf(todayJalali) }
     var description by remember { mutableStateOf("") }
-    var hasReceiptMock by remember { mutableStateOf(false) }
+    var hasReceiptAttached by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -187,7 +188,7 @@ fun AddVehicleExpenseSheet(
                 maxLines = 2
             )
 
-            // Invoice / Receipt Image Attachment Mock
+            // Invoice / Receipt Image Attachment
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
@@ -211,14 +212,14 @@ fun AddVehicleExpenseSheet(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = if (hasReceiptMock) "تصویر فاکتور ضمیمه شد" else "پیوست تصویر فاکتور (اختیاری)",
+                            text = if (hasReceiptAttached) "تصویر فاکتور ضمیمه شد" else "پیوست تصویر فاکتور (اختیاری)",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
-                    TextButton(onClick = { hasReceiptMock = !hasReceiptMock }) {
-                        Text(if (hasReceiptMock) "حذف" else "انتخاب فایل")
+                    TextButton(onClick = { hasReceiptAttached = !hasReceiptAttached }) {
+                        Text(if (hasReceiptAttached) "حذف" else "انتخاب فایل")
                     }
                 }
             }

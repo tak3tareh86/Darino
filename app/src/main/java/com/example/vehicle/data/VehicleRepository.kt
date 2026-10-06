@@ -1,23 +1,29 @@
 package com.example.vehicle.data
 
 import android.content.Context
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import androidx.room.withTransaction
+import com.example.data.database.AppDatabase
+import com.example.data.security.SessionManager
+import com.example.data.security.SessionState
+import com.example.util.PersianCalendarHelper
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import com.example.data.security.SessionManager
-import com.example.data.security.SessionState
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
 /**
- * Repository providing vehicle dossier data and Room SQLite Database persistence
+ * Production-ready Repository providing vehicle dossier data and persistent Room SQLite Database operations.
  */
 class VehicleRepository {
+
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _vehicles = MutableStateFlow<List<VehicleEntity>>(emptyList())
     val vehicles: StateFlow<List<VehicleEntity>> = _vehicles.asStateFlow()
@@ -38,15 +44,15 @@ class VehicleRepository {
     private var sessionObserverStarted = false
 
     /**
-     * Initializes the Room SQLite database and loads any persisted vehicle store.
+     * Initializes the Room SQLite database and loads user-specific vehicle records.
      */
     fun initDatabase(context: Context) {
         val appCtx = context.applicationContext
         dbContext = appCtx
-        
+
         if (!sessionObserverStarted) {
             sessionObserverStarted = true
-            kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            repositoryScope.launch {
                 SessionManager.sessionState.collectLatest { state ->
                     val userId = when (state) {
                         is SessionState.Authenticated -> state.user.id
@@ -64,21 +70,20 @@ class VehicleRepository {
     }
 
     private suspend fun loadUserData(appCtx: Context, userId: String) {
-        val prefs = appCtx.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
-        val isCleanSlate = prefs.getBoolean("pref_is_clean_slate", false)
         try {
-            val db = com.example.data.database.AppDatabase.getDatabase(appCtx)
+            val db = AppDatabase.getDatabase(appCtx)
             val vDao = db.vehicleDao()
 
-            // Legacy JSON migration is owner-scoped and only runs for the authenticated user.
+            // 1. One-time legacy JSON migration if present
             val store = vDao.getVehicleStore(userId)
-                if (store != null && store.vehiclesJson.isNotBlank()) {
-                    val migratedVehicles = jsonToVehicles(store.vehiclesJson)
-                    val migratedServices = jsonToServices(store.servicesJson)
-                    val migratedExpenses = jsonToExpenses(store.expensesJson)
-                    val migratedInsurances = jsonToInsurances(store.insurancesJson)
-                    val migratedInspections = jsonToInspections(store.inspectionsJson)
+            if (store != null && store.vehiclesJson.isNotBlank()) {
+                val migratedVehicles = jsonToVehicles(store.vehiclesJson)
+                val migratedServices = jsonToServices(store.servicesJson)
+                val migratedExpenses = jsonToExpenses(store.expensesJson)
+                val migratedInsurances = jsonToInsurances(store.insurancesJson)
+                val migratedInspections = jsonToInspections(store.inspectionsJson)
 
+                db.withTransaction {
                     migratedVehicles.forEach { v ->
                         vDao.insertVehicle(
                             com.example.data.database.VehicleEntity(
@@ -89,7 +94,10 @@ class VehicleRepository {
                                 year = v.year,
                                 plate = v.plate,
                                 currentMileage = v.currentMileage,
-                                notes = v.color
+                                notes = v.color,
+                                vin = v.vin,
+                                estimatedValue = v.estimatedValue,
+                                updatedAt = v.createdAt
                             )
                         )
                     }
@@ -109,7 +117,7 @@ class VehicleRepository {
                                 dueDate = dueDateMs,
                                 cost = s.cost,
                                 dueMileage = s.mileage,
-                                status = "PENDING",
+                                status = if (s.isReminderEnabled) "PENDING" else "COMPLETED",
                                 notes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
                             )
                         )
@@ -157,20 +165,22 @@ class VehicleRepository {
                         )
                     })
 
-                    // Clear legacy JSON store to prevent dual-authority
+                    // Clear legacy JSON store to prevent repeated migration
                     vDao.insertVehicleStore(com.example.data.database.VehicleStoreEntity(userId = userId, vehiclesJson = ""))
                 }
+            }
 
-                // 2. Authoritative Load from Room DAOs
-            loadFromRoom(db, userId, isCleanSlate)
+            // 2. Authoritative Load from Room DAOs
+            loadFromRoom(db, userId)
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    private suspend fun loadFromRoom(db: com.example.data.database.AppDatabase, userId: String, isCleanSlate: Boolean) {
+    private suspend fun loadFromRoom(db: AppDatabase, userId: String) {
         val vDao = db.vehicleDao()
         val dbVehicles = vDao.getAllVehiclesList(userId)
+
         if (dbVehicles.isNotEmpty()) {
             _vehicles.value = dbVehicles.map { v ->
                 VehicleEntity(
@@ -180,56 +190,49 @@ class VehicleRepository {
                     year = v.year,
                     color = v.notes ?: "سفید",
                     plate = v.plate,
-                    currentMileage = v.currentMileage
+                    vin = v.vin,
+                    currentMileage = v.currentMileage,
+                    estimatedValue = v.estimatedValue,
+                    createdAt = v.updatedAt
                 )
             }
+
             val dbExpenses = vDao.getAllExpensesList(userId)
-            if (dbExpenses.isNotEmpty()) {
-                _expenses.value = dbExpenses.map { e ->
-                    VehicleExpenseEntity(
-                        id = e.id,
-                        vehicleId = e.vehicleId,
-                        title = e.title,
-                        category = try { VehicleExpenseCategory.valueOf(e.category) } catch (ex: Exception) { VehicleExpenseCategory.OTHER },
-                        amount = e.amount,
-                        date = e.date,
-                        description = e.description,
-                        receiptImageUri = e.receiptImageUri
-                    )
-                }
+            _expenses.value = dbExpenses.map { e ->
+                VehicleExpenseEntity(
+                    id = e.id,
+                    vehicleId = e.vehicleId,
+                    title = e.title,
+                    category = try { VehicleExpenseCategory.valueOf(e.category) } catch (ex: Exception) { VehicleExpenseCategory.OTHER },
+                    amount = e.amount,
+                    date = e.date,
+                    description = e.description,
+                    receiptImageUri = e.receiptImageUri
+                )
             }
+
             val dbServices = vDao.getAllServicesList(userId)
             _services.value = dbServices.map { s ->
                 val (parsedCost, cleanDescription) = parseCostAndDescription(s.notes)
-                val realVehicleId = s.vehicleId
-
-                val realCost = if (s.cost > 0L) {
-                    s.cost
-                } else if (parsedCost > 0L) {
-                    parsedCost
-                } else {
-                    0L
-                }
+                val realCost = if (s.cost > 0L) s.cost else parsedCost
 
                 val realServiceDate = if (s.serviceDate != null && s.serviceDate > 0L) {
-                    com.example.util.PersianCalendarHelper.fromEpochMillis(s.serviceDate).toFormattedDate()
-                } else if (s.dueDate != null && s.dueDate > 0L) {
-                    com.example.util.PersianCalendarHelper.fromEpochMillis(s.dueDate).toFormattedDate()
+                    PersianCalendarHelper.fromEpochMillis(s.serviceDate).toFormattedDate()
                 } else if (s.updatedAt > 0L) {
-                    com.example.util.PersianCalendarHelper.fromEpochMillis(s.updatedAt).toFormattedDate()
+                    PersianCalendarHelper.fromEpochMillis(s.updatedAt).toFormattedDate()
                 } else {
-                    "۱۴۰۴/۰۱/۰۱"
+                    PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
                 }
 
                 val realNextReminderDate = if (s.dueDate != null && s.dueDate > 0L) {
-                    com.example.util.PersianCalendarHelper.fromEpochMillis(s.dueDate).toFormattedDate()
+                    PersianCalendarHelper.fromEpochMillis(s.dueDate).toFormattedDate()
                 } else {
                     null
                 }
 
                 VehicleServiceEntity(
                     id = s.serverId ?: s.id.toString(),
-                    vehicleId = realVehicleId,
+                    vehicleId = s.vehicleId,
                     title = s.title,
                     serviceType = try { ServiceType.valueOf(s.type) } catch (e: Exception) { ServiceType.OIL_CHANGE },
                     date = realServiceDate,
@@ -241,150 +244,46 @@ class VehicleRepository {
                     isReminderEnabled = s.status != "COMPLETED"
                 )
             }
+
             val dbInsurances = vDao.getAllInsurancesList(userId)
-            if (dbInsurances.isNotEmpty()) {
-                _insurances.value = dbInsurances.map { ins ->
-                    VehicleInsuranceEntity(
-                        id = ins.id,
-                        vehicleId = ins.vehicleId,
-                        company = ins.company,
-                        type = ins.type,
-                        startDate = ins.startDate,
-                        endDate = ins.endDate,
-                        amount = ins.amount,
-                        policyNumber = ins.policyNumber,
-                        reminderDays = ins.reminderDays.split(",").mapNotNull { it.toIntOrNull() }
-                    )
-                }
+            _insurances.value = dbInsurances.map { ins ->
+                VehicleInsuranceEntity(
+                    id = ins.id,
+                    vehicleId = ins.vehicleId,
+                    company = ins.company,
+                    type = ins.type,
+                    startDate = ins.startDate,
+                    endDate = ins.endDate,
+                    amount = ins.amount,
+                    policyNumber = ins.policyNumber,
+                    reminderDays = ins.reminderDays.split(",").mapNotNull { it.toIntOrNull() }
+                )
             }
+
             val dbInspections = vDao.getAllInspectionsList(userId)
-            if (dbInspections.isNotEmpty()) {
-                _inspections.value = dbInspections.map { insp ->
-                    VehicleInspectionEntity(
-                        id = insp.id,
-                        vehicleId = insp.vehicleId,
-                        lastInspectionDate = insp.lastInspectionDate,
-                        expiryDate = insp.expiryDate,
-                        cost = insp.cost,
-                        status = insp.status,
-                        centerName = insp.centerName
-                    )
-                }
+            _inspections.value = dbInspections.map { insp ->
+                VehicleInspectionEntity(
+                    id = insp.id,
+                    vehicleId = insp.vehicleId,
+                    lastInspectionDate = insp.lastInspectionDate,
+                    expiryDate = insp.expiryDate,
+                    cost = insp.cost,
+                    status = insp.status,
+                    centerName = insp.centerName
+                )
             }
-        }
-    }
-
-    private fun saveToDb() {
-        val context = dbContext ?: return
-        saveToDbInternal(context)
-    }
-
-    private fun saveToDbInternal(context: Context) {
-        val appCtx = context.applicationContext
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                val db = com.example.data.database.AppDatabase.getDatabase(appCtx)
-                val vDao = db.vehicleDao()
-                val userId = SessionManager.userId ?: return@launch
-
-                // Save strictly to Room relational DAOs
-                vDao.clearAllVehicles(userId)
-                _vehicles.value.forEach { v ->
-                    vDao.insertVehicle(
-                        com.example.data.database.VehicleEntity(
-                            serverId = v.id,
-                            userId = userId,
-                            brand = v.brand,
-                            model = v.model,
-                            year = v.year,
-                            plate = v.plate,
-                            currentMileage = v.currentMileage,
-                            notes = v.color
-                        )
-                    )
-                }
-
-                vDao.clearAllServices(userId)
-                _services.value.forEach { s ->
-                    val serviceDateMs = parseJalaliToTimestamp(s.date)
-                    val dueDateMs = parseJalaliToTimestamp(s.nextReminderDate)
-
-                    val encodedNotes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
-
-                    vDao.insertService(
-                        com.example.data.database.VehicleServiceEntity(
-                            serverId = s.id,
-                            userId = userId,
-                            vehicleId = s.vehicleId,
-                            type = s.serviceType.name,
-                            title = s.title,
-                            serviceDate = serviceDateMs,
-                            dueDate = dueDateMs,
-                            cost = s.cost,
-                            dueMileage = s.mileage,
-                            status = if (s.isReminderEnabled) "PENDING" else "COMPLETED",
-                            notes = encodedNotes
-                        )
-                    )
-                }
-
-                vDao.clearAllExpenses(userId)
-                vDao.insertExpenses(_expenses.value.map { e ->
-                    com.example.data.database.VehicleExpenseRoomEntity(
-                        id = e.id,
-                        userId = userId,
-                        vehicleId = e.vehicleId,
-                        title = e.title,
-                        category = e.category.name,
-                        amount = e.amount,
-                        date = e.date,
-                        description = e.description,
-                        receiptImageUri = e.receiptImageUri
-                    )
-                })
-
-                vDao.clearAllInsurances(userId)
-                vDao.insertInsurances(_insurances.value.map { ins ->
-                    com.example.data.database.VehicleInsuranceRoomEntity(
-                        id = ins.id,
-                        userId = userId,
-                        vehicleId = ins.vehicleId,
-                        company = ins.company,
-                        type = ins.type,
-                        startDate = ins.startDate,
-                        endDate = ins.endDate,
-                        amount = ins.amount,
-                        policyNumber = ins.policyNumber,
-                        reminderDays = ins.reminderDays.joinToString(",")
-                    )
-                })
-
-                vDao.clearAllInspections(userId)
-                vDao.insertInspections(_inspections.value.map { insp ->
-                    com.example.data.database.VehicleInspectionRoomEntity(
-                        id = insp.id,
-                        userId = userId,
-                        vehicleId = insp.vehicleId,
-                        lastInspectionDate = insp.lastInspectionDate,
-                        expiryDate = insp.expiryDate,
-                        cost = insp.cost,
-                        status = insp.status,
-                        centerName = insp.centerName
-                    )
-                })
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+        } else {
+            clearAllVehiclesData()
         }
     }
 
     fun reloadFromDatabase(context: Context) {
         val appCtx = context.applicationContext
         dbContext = appCtx
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        repositoryScope.launch {
             try {
-                val db = com.example.data.database.AppDatabase.getDatabase(appCtx)
-                SessionManager.userId?.let { loadFromRoom(db, it, isCleanSlate = false) }
+                val db = AppDatabase.getDatabase(appCtx)
+                SessionManager.userId?.let { loadFromRoom(db, it) }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -400,7 +299,7 @@ class VehicleRepository {
     ) {
         val context = dbContext ?: return
         val userId = SessionManager.userId ?: return
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        repositoryScope.launch {
             try {
                 val manager = com.example.reminder.domain.ReminderManager(context)
                 val persianDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(date)
@@ -445,14 +344,83 @@ class VehicleRepository {
             estimatedValue = estimatedValue
         )
         _vehicles.value = _vehicles.value + newVehicle
-        saveToDb()
+
+        val context = dbContext
+        val userId = SessionManager.userId
+        if (context != null && userId != null) {
+            repositoryScope.launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    db.vehicleDao().insertVehicle(
+                        com.example.data.database.VehicleEntity(
+                            serverId = newVehicle.id,
+                            userId = userId,
+                            brand = newVehicle.brand,
+                            model = newVehicle.model,
+                            year = newVehicle.year,
+                            plate = newVehicle.plate,
+                            currentMileage = newVehicle.currentMileage,
+                            notes = newVehicle.color,
+                            vin = newVehicle.vin,
+                            estimatedValue = newVehicle.estimatedValue,
+                            updatedAt = System.currentTimeMillis()
+                        )
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
         return newVehicle
     }
 
     // Update Vehicle
     fun updateVehicle(updated: VehicleEntity) {
         _vehicles.value = _vehicles.value.map { if (it.id == updated.id) updated else it }
-        saveToDb()
+
+        val context = dbContext
+        val userId = SessionManager.userId
+        if (context != null && userId != null) {
+            repositoryScope.launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    val existing = db.vehicleDao().getVehicleByServerId(userId, updated.id)
+                    if (existing != null) {
+                        db.vehicleDao().updateVehicle(
+                            existing.copy(
+                                brand = updated.brand,
+                                model = updated.model,
+                                year = updated.year,
+                                notes = updated.color,
+                                plate = updated.plate,
+                                vin = updated.vin,
+                                currentMileage = updated.currentMileage,
+                                estimatedValue = updated.estimatedValue,
+                                updatedAt = System.currentTimeMillis()
+                            )
+                        )
+                    } else {
+                        db.vehicleDao().insertVehicle(
+                            com.example.data.database.VehicleEntity(
+                                serverId = updated.id,
+                                userId = userId,
+                                brand = updated.brand,
+                                model = updated.model,
+                                year = updated.year,
+                                plate = updated.plate,
+                                currentMileage = updated.currentMileage,
+                                notes = updated.color,
+                                vin = updated.vin,
+                                estimatedValue = updated.estimatedValue,
+                                updatedAt = System.currentTimeMillis()
+                            )
+                        )
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     // Update Mileage
@@ -460,7 +428,47 @@ class VehicleRepository {
         _vehicles.value = _vehicles.value.map {
             if (it.id == vehicleId) it.copy(currentMileage = newMileage) else it
         }
-        saveToDb()
+
+        val context = dbContext
+        val userId = SessionManager.userId
+        if (context != null && userId != null) {
+            repositoryScope.launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    db.vehicleDao().updateMileage(userId, vehicleId, newMileage)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    // Delete Vehicle
+    fun deleteVehicle(vehicleId: String) {
+        _vehicles.value = _vehicles.value.filter { it.id != vehicleId }
+        _services.value = _services.value.filter { it.vehicleId != vehicleId }
+        _expenses.value = _expenses.value.filter { it.vehicleId != vehicleId }
+        _insurances.value = _insurances.value.filter { it.vehicleId != vehicleId }
+        _inspections.value = _inspections.value.filter { it.vehicleId != vehicleId }
+
+        val context = dbContext
+        val userId = SessionManager.userId
+        if (context != null && userId != null) {
+            repositoryScope.launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    db.withTransaction {
+                        db.vehicleDao().deleteVehicleByServerId(userId, vehicleId)
+                        db.vehicleDao().deleteServicesByVehicleId(userId, vehicleId)
+                        db.vehicleDao().deleteExpensesByVehicleId(userId, vehicleId)
+                        db.vehicleDao().deleteInsurancesByVehicleId(userId, vehicleId)
+                        db.vehicleDao().deleteInspectionsByVehicleId(userId, vehicleId)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     // Add Service
@@ -497,15 +505,17 @@ class VehicleRepository {
             updateMileage(vehicleId, mileage)
         }
 
-        // Also record as a vehicle expense
-        addExpense(
-            vehicleId = vehicleId,
-            title = title,
-            category = VehicleExpenseCategory.SERVICE,
-            amount = cost,
-            date = date,
-            description = "سرویس دوره‌ای خودرو: $description"
-        )
+        // Also record as a vehicle expense if cost > 0
+        if (cost > 0L) {
+            addExpense(
+                vehicleId = vehicleId,
+                title = title,
+                category = VehicleExpenseCategory.SERVICE,
+                amount = cost,
+                date = date,
+                description = "سرویس دوره‌ای خودرو: $description"
+            )
+        }
 
         // Schedule notification alarm if reminder is enabled and next date is set
         if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
@@ -518,8 +528,65 @@ class VehicleRepository {
             )
         }
 
-        saveToDb()
+        val context = dbContext
+        val userId = SessionManager.userId
+        if (context != null && userId != null) {
+            repositoryScope.launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    val serviceDateMs = parseJalaliToTimestamp(date)
+                    val dueDateMs = parseJalaliToTimestamp(nextReminderDate)
+                    val encodedNotes = if (cost > 0L) "COST:$cost|$description" else description
+
+                    db.vehicleDao().insertService(
+                        com.example.data.database.VehicleServiceEntity(
+                            serverId = newService.id,
+                            userId = userId,
+                            vehicleId = vehicleId,
+                            type = serviceType.name,
+                            title = title,
+                            serviceDate = serviceDateMs,
+                            dueDate = dueDateMs,
+                            cost = cost,
+                            dueMileage = mileage,
+                            status = if (isReminderEnabled) "PENDING" else "COMPLETED",
+                            notes = encodedNotes
+                        )
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
         return newService
+    }
+
+    // Complete Service
+    fun completeService(serviceId: String, completedDate: String) {
+        _services.value = _services.value.map { svc ->
+            if (svc.id == serviceId) {
+                svc.copy(
+                    date = completedDate,
+                    nextReminderDate = null,
+                    nextReminderMileage = null,
+                    isReminderEnabled = false
+                )
+            } else svc
+        }
+
+        val context = dbContext
+        val userId = SessionManager.userId
+        if (context != null && userId != null) {
+            repositoryScope.launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    val completedDateMs = parseJalaliToTimestamp(completedDate) ?: System.currentTimeMillis()
+                    db.vehicleDao().completeService(userId, serviceId, completedDateMs)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     // Add Expense
@@ -541,8 +608,49 @@ class VehicleRepository {
             description = description
         )
         _expenses.value = listOf(newExpense) + _expenses.value
-        saveToDb()
+
+        val context = dbContext
+        val userId = SessionManager.userId
+        if (context != null && userId != null) {
+            repositoryScope.launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    db.vehicleDao().insertExpense(
+                        com.example.data.database.VehicleExpenseRoomEntity(
+                            id = newExpense.id,
+                            userId = userId,
+                            vehicleId = vehicleId,
+                            title = title,
+                            category = category.name,
+                            amount = amount,
+                            date = date,
+                            description = description
+                        )
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
         return newExpense
+    }
+
+    // Delete Expense
+    fun deleteExpense(expenseId: String) {
+        _expenses.value = _expenses.value.filter { it.id != expenseId }
+
+        val context = dbContext
+        val userId = SessionManager.userId
+        if (context != null && userId != null) {
+            repositoryScope.launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    db.vehicleDao().deleteExpenseById(userId, expenseId)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     // Add or Update Insurance
@@ -567,15 +675,17 @@ class VehicleRepository {
         )
         _insurances.value = listOf(newInsurance) + _insurances.value.filter { it.vehicleId != vehicleId || it.type != type }
 
-        // Also record as vehicle expense
-        addExpense(
-            vehicleId = vehicleId,
-            title = "تمدید $type ($company)",
-            category = VehicleExpenseCategory.INSURANCE,
-            amount = amount,
-            date = startDate,
-            description = "شماره بیمه‌نامه: $policyNumber"
-        )
+        // Also record as vehicle expense if amount > 0
+        if (amount > 0L) {
+            addExpense(
+                vehicleId = vehicleId,
+                title = "تمدید $type ($company)",
+                category = VehicleExpenseCategory.INSURANCE,
+                amount = amount,
+                date = startDate,
+                description = "شماره بیمه‌نامه: $policyNumber"
+            )
+        }
 
         // Schedule Alarm Notification Reminder for Insurance expiry date
         val currentCar = _vehicles.value.find { it.id == vehicleId }
@@ -587,34 +697,57 @@ class VehicleRepository {
             type = "INSURANCE"
         )
 
-        saveToDb()
+        val context = dbContext
+        val userId = SessionManager.userId
+        if (context != null && userId != null) {
+            repositoryScope.launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    db.vehicleDao().insertInsurance(
+                        com.example.data.database.VehicleInsuranceRoomEntity(
+                            id = newInsurance.id,
+                            userId = userId,
+                            vehicleId = vehicleId,
+                            company = company,
+                            type = type,
+                            startDate = startDate,
+                            endDate = endDate,
+                            amount = amount,
+                            policyNumber = policyNumber,
+                            reminderDays = newInsurance.reminderDays.joinToString(",")
+                        )
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
         return newInsurance
     }
 
     fun renewInsurance(insuranceId: String, newEndDate: String) {
+        val today = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
         _insurances.value = _insurances.value.map { ins ->
             if (ins.id == insuranceId) {
                 ins.copy(
-                    startDate = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
+                    startDate = today,
                     endDate = newEndDate
                 )
             } else ins
         }
-        saveToDb()
-    }
 
-    fun completeService(serviceId: String, completedDate: String) {
-        _services.value = _services.value.map { svc ->
-            if (svc.id == serviceId) {
-                svc.copy(
-                    date = completedDate,
-                    nextReminderDate = null,
-                    nextReminderMileage = null,
-                    isReminderEnabled = false
-                )
-            } else svc
+        val context = dbContext
+        val userId = SessionManager.userId
+        if (context != null && userId != null) {
+            repositoryScope.launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    db.vehicleDao().renewInsurance(userId, insuranceId, today, newEndDate)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         }
-        saveToDb()
     }
 
     // Add or Update Inspection
@@ -647,27 +780,58 @@ class VehicleRepository {
             type = "VEHICLE"
         )
 
-        saveToDb()
+        val context = dbContext
+        val userId = SessionManager.userId
+        if (context != null && userId != null) {
+            repositoryScope.launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    db.vehicleDao().insertInspection(
+                        com.example.data.database.VehicleInspectionRoomEntity(
+                            id = newInspection.id,
+                            userId = userId,
+                            vehicleId = vehicleId,
+                            lastInspectionDate = lastInspectionDate,
+                            expiryDate = expiryDate,
+                            cost = cost,
+                            status = status,
+                            centerName = centerName
+                        )
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
         return newInspection
     }
 
-    private fun vehiclesToJson(list: List<VehicleEntity>): String {
-        val arr = JSONArray()
-        list.forEach { item ->
-            val obj = JSONObject()
-            obj.put("id", item.id)
-            obj.put("brand", item.brand)
-            obj.put("model", item.model)
-            obj.put("year", item.year)
-            obj.put("color", item.color)
-            obj.put("plate", item.plate)
-            obj.put("vin", item.vin)
-            obj.put("currentMileage", item.currentMileage)
-            obj.put("estimatedValue", item.estimatedValue)
-            obj.put("createdAt", item.createdAt)
-            arr.put(obj)
+    fun clearAllVehiclesData() {
+        _vehicles.value = emptyList()
+        _services.value = emptyList()
+        _expenses.value = emptyList()
+        _insurances.value = emptyList()
+        _inspections.value = emptyList()
+    }
+
+    private fun parseCostAndDescription(notes: String?): Pair<Long, String> {
+        if (notes.isNullOrBlank()) return Pair(0L, "")
+        if (notes.startsWith("COST:")) {
+            val parts = notes.split("|", limit = 2)
+            val costStr = parts[0].removePrefix("COST:")
+            val cost = costStr.toLongOrNull() ?: 0L
+            val desc = if (parts.size > 1) parts[1] else ""
+            return Pair(cost, desc)
         }
-        return arr.toString()
+        return Pair(0L, notes)
+    }
+
+    private fun parseJalaliToTimestamp(dateStr: String?): Long? {
+        if (dateStr.isNullOrBlank()) return null
+        val triple = com.example.calendar.domain.CalendarDateUtils.parseJalali(dateStr) ?: return null
+        return runCatching {
+            PersianCalendarHelper.jalaliToEpochMillis(triple.first, triple.second, triple.third, 9, 0)
+        }.getOrNull()
     }
 
     private fun jsonToVehicles(json: String): List<VehicleEntity> {
@@ -692,26 +856,6 @@ class VehicleRepository {
             )
         }
         return list
-    }
-
-    private fun servicesToJson(list: List<VehicleServiceEntity>): String {
-        val arr = JSONArray()
-        list.forEach { item ->
-            val obj = JSONObject()
-            obj.put("id", item.id)
-            obj.put("vehicleId", item.vehicleId)
-            obj.put("title", item.title)
-            obj.put("serviceType", item.serviceType.name)
-            obj.put("date", item.date)
-            obj.put("mileage", item.mileage)
-            obj.put("cost", item.cost)
-            obj.put("description", item.description)
-            obj.put("nextReminderDate", item.nextReminderDate ?: "")
-            obj.put("nextReminderMileage", item.nextReminderMileage ?: 0)
-            obj.put("isReminderEnabled", item.isReminderEnabled)
-            arr.put(obj)
-        }
-        return arr.toString()
     }
 
     private fun jsonToServices(json: String): List<VehicleServiceEntity> {
@@ -741,23 +885,6 @@ class VehicleRepository {
         return list
     }
 
-    private fun expensesToJson(list: List<VehicleExpenseEntity>): String {
-        val arr = JSONArray()
-        list.forEach { item ->
-            val obj = JSONObject()
-            obj.put("id", item.id)
-            obj.put("vehicleId", item.vehicleId)
-            obj.put("title", item.title)
-            obj.put("category", item.category.name)
-            obj.put("amount", item.amount)
-            obj.put("date", item.date)
-            obj.put("description", item.description)
-            obj.put("receiptImageUri", item.receiptImageUri ?: "")
-            arr.put(obj)
-        }
-        return arr.toString()
-    }
-
     private fun jsonToExpenses(json: String): List<VehicleExpenseEntity> {
         val list = mutableListOf<VehicleExpenseEntity>()
         if (json.isBlank()) return list
@@ -782,23 +909,6 @@ class VehicleRepository {
         return list
     }
 
-    private fun insurancesToJson(list: List<VehicleInsuranceEntity>): String {
-        val arr = JSONArray()
-        list.forEach { item ->
-            val obj = JSONObject()
-            obj.put("id", item.id)
-            obj.put("vehicleId", item.vehicleId)
-            obj.put("company", item.company)
-            obj.put("type", item.type)
-            obj.put("startDate", item.startDate)
-            obj.put("endDate", item.endDate)
-            obj.put("amount", item.amount)
-            obj.put("policyNumber", item.policyNumber)
-            arr.put(obj)
-        }
-        return arr.toString()
-    }
-
     private fun jsonToInsurances(json: String): List<VehicleInsuranceEntity> {
         val list = mutableListOf<VehicleInsuranceEntity>()
         if (json.isBlank()) return list
@@ -819,22 +929,6 @@ class VehicleRepository {
             )
         }
         return list
-    }
-
-    private fun inspectionsToJson(list: List<VehicleInspectionEntity>): String {
-        val arr = JSONArray()
-        list.forEach { item ->
-            val obj = JSONObject()
-            obj.put("id", item.id)
-            obj.put("vehicleId", item.vehicleId)
-            obj.put("lastInspectionDate", item.lastInspectionDate)
-            obj.put("expiryDate", item.expiryDate)
-            obj.put("cost", item.cost)
-            obj.put("status", item.status)
-            obj.put("centerName", item.centerName)
-            arr.put(obj)
-        }
-        return arr.toString()
     }
 
     private fun jsonToInspections(json: String): List<VehicleInspectionEntity> {
@@ -859,254 +953,6 @@ class VehicleRepository {
     }
 
     companion object {
-        private fun createInitialVehicles(): List<VehicleEntity> {
-            return listOf(
-                VehicleEntity(
-                    id = "v-1",
-                    brand = "پژو",
-                    model = "207i پانوراما دنده‌ای",
-                    year = "1402",
-                    color = "سفید دوپوششه",
-                    plate = "ایران ۴۴ - ۸۷۲ س ۳۵",
-                    vin = "IRAN-PEUG-207-883921",
-                    currentMileage = 45000,
-                    estimatedValue = 820_000_000L
-                ),
-                VehicleEntity(
-                    id = "v-2",
-                    brand = "سایپا",
-                    model = "پراید 131 SE",
-                    year = "1398",
-                    color = "نقره‌ای متالیک",
-                    plate = "ایران ۱۱ - ۱۹۴ د ۶۱",
-                    vin = "IRAN-SAIPA-131-447192",
-                    currentMileage = 98000,
-                    estimatedValue = 340_000_000L
-                ),
-                VehicleEntity(
-                    id = "v-3",
-                    brand = "ایران‌خودرو",
-                    model = "دنا پلاس توربو اتوماتیک",
-                    year = "1401",
-                    color = "مشکی آبنوس",
-                    plate = "ایران ۲۲ - ۳۱۸ ب ۷۴",
-                    vin = "IRAN-IKCO-DENA-992381",
-                    currentMileage = 32000,
-                    estimatedValue = 1_050_000_000L
-                )
-            )
-        }
-
-        private fun createInitialServices(): List<VehicleServiceEntity> {
-            return listOf(
-                VehicleServiceEntity(
-                    id = "s-1",
-                    vehicleId = "v-1",
-                    title = "تعویض روغن موتور و فیلترها",
-                    serviceType = ServiceType.OIL_CHANGE,
-                    date = "1405/06/10",
-                    mileage = 45000,
-                    cost = 850_000L,
-                    description = "روغن بهران سوپر رانا 5W-40 + فیلتر روغن و هوای اصلی ایساکو",
-                    nextReminderDate = "1405/12/10",
-                    nextReminderMileage = 50000,
-                    isReminderEnabled = true
-                ),
-                VehicleServiceEntity(
-                    id = "s-2",
-                    vehicleId = "v-1",
-                    title = "تعویض لنت ترمز جلو",
-                    serviceType = ServiceType.BRAKE_PADS,
-                    date = "1405/04/15",
-                    mileage = 40000,
-                    cost = 1_200_000L,
-                    description = "لنت تکستار اصلی فرانسه",
-                    nextReminderDate = "1406/04/15",
-                    nextReminderMileage = 60000,
-                    isReminderEnabled = true
-                ),
-                VehicleServiceEntity(
-                    id = "s-3",
-                    vehicleId = "v-1",
-                    title = "سرویس شمع و تنظیم موتور",
-                    serviceType = ServiceType.ENGINE_TUNE,
-                    date = "1405/02/20",
-                    mileage = 35000,
-                    cost = 950_000L,
-                    description = "شمع سوزنی NGK و شستشوی انژکتور",
-                    nextReminderDate = "1406/02/20",
-                    nextReminderMileage = 55000,
-                    isReminderEnabled = true
-                ),
-                VehicleServiceEntity(
-                    id = "s-4",
-                    vehicleId = "v-2",
-                    title = "تعویض روغن و واسکازین",
-                    serviceType = ServiceType.OIL_CHANGE,
-                    date = "1405/05/18",
-                    mileage = 95000,
-                    cost = 600_000L,
-                    description = "روغن اسپیدی طلایی 20W-50",
-                    nextReminderDate = "1405/11/18",
-                    nextReminderMileage = 100000,
-                    isReminderEnabled = true
-                )
-            )
-        }
-
-        private fun createInitialExpenses(): List<VehicleExpenseEntity> {
-            return listOf(
-                VehicleExpenseEntity(
-                    id = "e-1",
-                    vehicleId = "v-1",
-                    title = "سوخت‌گیری بنزین سوپر",
-                    category = VehicleExpenseCategory.FUEL,
-                    amount = 500_000L,
-                    date = "1405/06/20",
-                    description = "جایگاه سوخت ولنجک - ۴۰ لیتر"
-                ),
-                VehicleExpenseEntity(
-                    id = "e-2",
-                    vehicleId = "v-1",
-                    title = "تعویض روغن و فیلتر",
-                    category = VehicleExpenseCategory.SERVICE,
-                    amount = 850_000L,
-                    date = "1405/06/10",
-                    description = "روغن بهران سوپر رانا"
-                ),
-                VehicleExpenseEntity(
-                    id = "e-3",
-                    vehicleId = "v-1",
-                    title = "تمدید بیمه شخص ثالث",
-                    category = VehicleExpenseCategory.INSURANCE,
-                    amount = 3_000_000L,
-                    date = "1405/06/01",
-                    description = "بیمه ایران یکساله با تخفیف عدم خسارت"
-                ),
-                VehicleExpenseEntity(
-                    id = "e-4",
-                    vehicleId = "v-1",
-                    title = "کارواش نانو و صفرشویی",
-                    category = VehicleExpenseCategory.WASH,
-                    amount = 250_000L,
-                    date = "1405/05/28",
-                    description = "کارواش پاسداران"
-                ),
-                VehicleExpenseEntity(
-                    id = "e-5",
-                    vehicleId = "v-1",
-                    title = "شارژ پارکینگ و عوارض آزادراهی",
-                    category = VehicleExpenseCategory.PARKING,
-                    amount = 150_000L,
-                    date = "1405/05/15",
-                    description = "عوارض آزادراه تهران-شمال"
-                ),
-                VehicleExpenseEntity(
-                    id = "e-6",
-                    vehicleId = "v-1",
-                    title = "تعویض دسته موتور و آچارکشی",
-                    category = VehicleExpenseCategory.REPAIRS,
-                    amount = 1_200_000L,
-                    date = "1405/04/22",
-                    description = "تعمیرگاه تخصصی پژو"
-                )
-            )
-        }
-
-        private fun createInitialInsurances(): List<VehicleInsuranceEntity> {
-            return listOf(
-                VehicleInsuranceEntity(
-                    id = "ins-1",
-                    vehicleId = "v-1",
-                    company = "بیمه ایران",
-                    type = "شخص ثالث",
-                    startDate = "1405/06/01",
-                    endDate = "1406/06/01",
-                    amount = 3_000_000L,
-                    policyNumber = "IR-9820-4491-01"
-                ),
-                VehicleInsuranceEntity(
-                    id = "ins-2",
-                    vehicleId = "v-1",
-                    company = "بیمه آسیا",
-                    type = "بیمه بدنه",
-                    startDate = "1405/07/01",
-                    endDate = "1406/07/01",
-                    amount = 2_400_000L,
-                    policyNumber = "AS-1029-7712-09"
-                ),
-                VehicleInsuranceEntity(
-                    id = "ins-3",
-                    vehicleId = "v-2",
-                    company = "بیمه دانا",
-                    type = "شخص ثالث",
-                    startDate = "1405/01/15",
-                    endDate = "1406/01/15",
-                    amount = 2_800_000L,
-                    policyNumber = "DN-8812-3321-45"
-                )
-            )
-        }
-
-        private fun createInitialInspections(): List<VehicleInspectionEntity> {
-            return listOf(
-                VehicleInspectionEntity(
-                    id = "insp-1",
-                    vehicleId = "v-1",
-                    lastInspectionDate = "1404/08/10",
-                    expiryDate = "1406/08/10",
-                    cost = 92_000L,
-                    status = "معتبر (خودرو صفر تا ۳ سال معاف/دارای گواهی)",
-                    centerName = "مرکز مکانیزه نیایش"
-                ),
-                VehicleInspectionEntity(
-                    id = "insp-2",
-                    vehicleId = "v-2",
-                    lastInspectionDate = "1404/10/20",
-                    expiryDate = "1405/10/20",
-                    cost = 92_000L,
-                    status = "معتبر (اعتبار تا دی‌ماه)",
-                    centerName = "مرکز بیهقی"
-                )
-            )
-        }
-
         val instance: VehicleRepository by lazy { VehicleRepository() }
-    }
-
-    fun clearAllVehiclesData() {
-        _vehicles.value = emptyList()
-        _services.value = emptyList()
-        _expenses.value = emptyList()
-        _insurances.value = emptyList()
-        _inspections.value = emptyList()
-    }
-
-    fun restoreSampleVehicles() {
-        _vehicles.value = createInitialVehicles()
-        _services.value = createInitialServices()
-        _expenses.value = createInitialExpenses()
-        _insurances.value = createInitialInsurances()
-        _inspections.value = createInitialInspections()
-    }
-
-    private fun parseCostAndDescription(notes: String?): Pair<Long, String> {
-        if (notes.isNullOrBlank()) return Pair(0L, "")
-        if (notes.startsWith("COST:")) {
-            val parts = notes.split("|", limit = 2)
-            val costStr = parts[0].removePrefix("COST:")
-            val cost = costStr.toLongOrNull() ?: 0L
-            val desc = if (parts.size > 1) parts[1] else ""
-            return Pair(cost, desc)
-        }
-        return Pair(0L, notes)
-    }
-
-    private fun parseJalaliToTimestamp(dateStr: String?): Long? {
-        if (dateStr.isNullOrBlank()) return null
-        val triple = com.example.calendar.domain.CalendarDateUtils.parseJalali(dateStr) ?: return null
-        return runCatching {
-            com.example.util.PersianCalendarHelper.jalaliToEpochMillis(triple.first, triple.second, triple.third, 9, 0)
-        }.getOrNull()
     }
 }

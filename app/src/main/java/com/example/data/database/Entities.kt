@@ -113,6 +113,8 @@ data class VehicleEntity(
     val plate: String,
     val currentMileage: Int,
     val notes: String?,
+    val vin: String = "",
+    val estimatedValue: Long = 0L,
     val updatedAt: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null
 )

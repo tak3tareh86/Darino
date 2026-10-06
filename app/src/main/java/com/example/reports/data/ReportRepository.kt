@@ -169,7 +169,9 @@ class ReportRepository(
             isCostIncreased = false,
             costBreakdown = vehicleBreakdown,
             vehicles = liveVehicles.map { v ->
-                VehicleDetailItem(v.id, "${v.brand} ${v.model}", v.plate, 0L, 0L, R.drawable.img_3d_car)
+                val vehExpenses = liveExpenses.filter { it.vehicleId == v.id }
+                val vehCost = vehExpenses.sumOf { it.amount }
+                VehicleDetailItem(v.id, "${v.brand} ${v.model}", v.plate, vehCost, vehCost * 12, R.drawable.img_3d_car)
             }
         )
 

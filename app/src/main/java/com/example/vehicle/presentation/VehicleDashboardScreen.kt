@@ -310,6 +310,49 @@ fun DarinoVehicleMainDashboard(
                         }
                     }
                 }
+            } else {
+                // Empty State when no vehicle is registered yet
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Soft3DIcon(
+                            imageRes = R.drawable.img_3d_empty_garage,
+                            contentDescription = "گاراژ خالی",
+                            size = 80.dp,
+                            accentColor = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "هنوز خودرویی ثبت نکرده‌اید",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "با ثبت خودرو در پرونده دارینو، هزینه‌های بنزین، بیمه، معاینه فنی و موعد تعویض روغن و سرویس‌های دوره‌ای خودکار یادآوری و تحلیل می‌شوند.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Button(
+                            onClick = { viewModel.openAddVehicle() },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.testTag("empty_state_add_vehicle_btn")
+                        ) {
+                            Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("ثبت اولین خودرو", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
         }
     }
