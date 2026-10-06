@@ -1,5 +1,6 @@
 package com.example.ui.screens.installments
 
+import com.example.util.IranianPhoneUtils
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -476,6 +477,10 @@ fun InstallmentsScreen(
                 val remainingFormatted = com.example.util.MoneyFormatter.formatToman(remainingAmount)
                 val paidFormatted = com.example.util.MoneyFormatter.formatToman(paidAmount)
 
+                val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                val effectiveDueDate = dueDateStr.ifBlank { todayJalali }
+                val computedEndDate = PersianCalendarHelper.addMonthsToPersianDate(effectiveDueDate, totalInstallments)
+
                 val paymentHistoryList = if (!customScheduleItems.isNullOrEmpty()) {
                     customScheduleItems
                 } else {
@@ -485,7 +490,7 @@ fun InstallmentsScreen(
                             PaymentHistoryItem(
                                 id = "p_${System.currentTimeMillis()}_$i",
                                 installmentNumber = i,
-                                dueDate = com.example.util.PersianCalendarHelper.addMonthsToPersianDate(dueDateStr.ifBlank { "۱۴۰۴/۰۸/۱۵" }, i - 1),
+                                dueDate = com.example.util.PersianCalendarHelper.addMonthsToPersianDate(effectiveDueDate, i - 1),
                                 paidDate = null,
                                 amountFormatted = monthlyFormatted,
                                 status = if (i == 1) InstallmentStatus.DUE_SOON else InstallmentStatus.PENDING,
@@ -498,7 +503,18 @@ fun InstallmentsScreen(
                     defaultList
                 }
 
-                val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                val targetMillis = runCatching {
+                    val triple = com.example.calendar.domain.CalendarDateUtils.parseJalali(effectiveDueDate)
+                    if (triple != null) PersianCalendarHelper.jalaliToEpochMillis(triple.first, triple.second, triple.third, 9, 0) else System.currentTimeMillis()
+                }.getOrDefault(System.currentTimeMillis())
+
+                val diffDays = ((targetMillis - System.currentTimeMillis()) / (24 * 3600 * 1000L)).toInt()
+                val computedDueDaysText = when {
+                    diffDays == 0 -> "امروز"
+                    diffDays > 0 -> "${IranianPhoneUtils.convertDigitsToPersian(diffDays.toString())} روز دیگر"
+                    else -> "${IranianPhoneUtils.convertDigitsToPersian(kotlin.math.abs(diffDays).toString())} روز گذشته"
+                }
+
                 val noteText = buildString {
                     if (itemNotes.isNotBlank()) append(itemNotes)
                     if (reminderEnabled) {
@@ -521,10 +537,10 @@ fun InstallmentsScreen(
                     monthlyPaymentFormatted = monthlyFormatted,
                     totalInstallments = totalInstallments,
                     remainingInstallments = remainingInstallments,
-                    nextPaymentDate = dueDateStr.ifBlank { "۱۴۰۴/۰۸/۱۵" },
-                    nextDueDaysText = "در انتظار سررسید",
+                    nextPaymentDate = effectiveDueDate,
+                    nextDueDaysText = computedDueDaysText,
                     startDate = todayJalali,
-                    endDate = "۱۴۰۵/۰۸/۱۵",
+                    endDate = computedEndDate,
                     status = InstallmentStatus.PENDING,
                     notes = noteText,
                     paymentHistory = paymentHistoryList

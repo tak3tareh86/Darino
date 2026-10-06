@@ -95,13 +95,8 @@ class VehicleRepository {
                     }
 
                     migratedServices.forEach { s ->
-                        val serviceDateMs = runCatching {
-                            if (s.date.isNotBlank()) com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(s.date) else null
-                        }.getOrNull()
-
-                        val dueDateMs = runCatching {
-                            s.nextReminderDate?.takeIf { it.isNotBlank() }?.let { com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(it) }
-                        }.getOrNull()
+                        val serviceDateMs = parseJalaliToTimestamp(s.date)
+                        val dueDateMs = parseJalaliToTimestamp(s.nextReminderDate)
 
                         vDao.insertService(
                             com.example.data.database.VehicleServiceEntity(
@@ -311,13 +306,8 @@ class VehicleRepository {
 
                 vDao.clearAllServices(userId)
                 _services.value.forEach { s ->
-                    val serviceDateMs = runCatching {
-                        if (s.date.isNotBlank()) com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(s.date) else null
-                    }.getOrNull()
-
-                    val dueDateMs = runCatching {
-                        s.nextReminderDate?.takeIf { it.isNotBlank() }?.let { com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(it) }
-                    }.getOrNull()
+                    val serviceDateMs = parseJalaliToTimestamp(s.date)
+                    val dueDateMs = parseJalaliToTimestamp(s.nextReminderDate)
 
                     val encodedNotes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
 
@@ -1110,5 +1100,13 @@ class VehicleRepository {
             return Pair(cost, desc)
         }
         return Pair(0L, notes)
+    }
+
+    private fun parseJalaliToTimestamp(dateStr: String?): Long? {
+        if (dateStr.isNullOrBlank()) return null
+        val triple = com.example.calendar.domain.CalendarDateUtils.parseJalali(dateStr) ?: return null
+        return runCatching {
+            com.example.util.PersianCalendarHelper.jalaliToEpochMillis(triple.first, triple.second, triple.third, 9, 0)
+        }.getOrNull()
     }
 }

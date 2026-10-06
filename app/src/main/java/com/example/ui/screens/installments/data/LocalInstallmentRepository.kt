@@ -1,12 +1,16 @@
 package com.example.ui.screens.installments.data
 
 import android.content.Context
+import com.example.calendar.domain.CalendarDateUtils
 import com.example.data.database.AppDatabase
 import com.example.data.database.InstallmentEntity
 import com.example.data.database.InstallmentPaymentEntity
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
 import com.example.ui.screens.installments.model.*
+import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
+import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -88,47 +92,79 @@ class LocalInstallmentRepository private constructor() {
 
             if (dbInsts.isNotEmpty()) {
                 val loaded = dbInsts.map { entity ->
-                        val payments = dbPayments.filter { it.installmentId == entity.id }.map { p ->
-                            PaymentHistoryItem(
-                                id = p.paymentReference ?: p.id.toString(),
-                                installmentNumber = 1,
-                                dueDate = "۱۴۰۴/۰۷/۱۵",
-                                paidDate = if (p.paidDate != null) "۱۴۰۴/۰۷/۱۵" else null,
-                                amountFormatted = "${p.amount} تومان",
-                                status = try { InstallmentStatus.valueOf(p.status) } catch (e: Exception) { InstallmentStatus.PENDING },
-                                note = p.notes,
-                                amount = p.amount
-                            )
-                        }
-                        val cat = try { InstallmentCategory.valueOf(entity.category) } catch (e: Exception) { InstallmentCategory.BANK_LOANS }
-                        val status = try { InstallmentStatus.valueOf(entity.status) } catch (e: Exception) { InstallmentStatus.PENDING }
-                        val paidAmount = entity.amount - (entity.amount * entity.remainingInstallments / entity.totalInstallments.coerceAtLeast(1))
-                        val monthly = entity.amount / entity.totalInstallments.coerceAtLeast(1)
+                    val cat = try { InstallmentCategory.valueOf(entity.category) } catch (e: Exception) { InstallmentCategory.BANK_LOANS }
+                    val status = try { InstallmentStatus.valueOf(entity.status) } catch (e: Exception) { InstallmentStatus.PENDING }
 
-                        InstallmentItem(
-                            id = entity.serverId ?: entity.id.toString(),
-                            title = entity.title,
-                            category = cat,
-                            providerOrPerson = entity.providerName,
-                            totalAmount = entity.amount,
-                            totalAmountFormatted = "${entity.amount} تومان",
-                            paidAmount = paidAmount,
-                            paidAmountFormatted = "$paidAmount تومان",
-                            remainingAmount = entity.amount - paidAmount,
-                            remainingAmountFormatted = "${entity.amount - paidAmount} تومان",
-                            monthlyPaymentFormatted = "$monthly تومان",
-                            totalInstallments = entity.totalInstallments,
-                            remainingInstallments = entity.remainingInstallments,
-                            nextPaymentDate = "۱۴۰۴/۰۷/۱۵",
-                            nextDueDaysText = "۱۰ روز دیگر",
-                            startDate = "۱۴۰۳/۰۱/۰۱",
-                            endDate = "۱۴۰۵/۰۱/۰۱",
-                            status = status,
-                            notes = entity.notes ?: "",
-                            paymentHistory = payments
+                    val startJalali = if (entity.startDate > 0L) {
+                        PersianCalendarHelper.fromEpochMillis(entity.startDate).toFormattedDate()
+                    } else {
+                        PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                    }
+
+                    val nextDueMillis = if (entity.nextDueDate > 0L) {
+                        entity.nextDueDate
+                    } else if (entity.startDate > 0L) {
+                        entity.startDate
+                    } else {
+                        System.currentTimeMillis()
+                    }
+
+                    val nextDueJalali = PersianCalendarHelper.fromEpochMillis(nextDueMillis).toFormattedDate()
+                    val endJalali = PersianCalendarHelper.addMonthsToPersianDate(startJalali, entity.totalInstallments)
+                    val dueDaysText = computeDueDaysText(nextDueMillis, status, entity.remainingInstallments)
+
+                    val payments = dbPayments.filter { it.installmentId == entity.id }.mapIndexed { idx, p ->
+                        val dueStr = if (p.dueDate > 0L) {
+                            PersianCalendarHelper.fromEpochMillis(p.dueDate).toFormattedDate()
+                        } else {
+                            nextDueJalali
+                        }
+                        val paidStr = p.paidDate?.takeIf { it > 0L }?.let {
+                            PersianCalendarHelper.fromEpochMillis(it).toFormattedDate()
+                        }
+                        val pStatus = try { InstallmentStatus.valueOf(p.status) } catch (e: Exception) { InstallmentStatus.PENDING }
+
+                        PaymentHistoryItem(
+                            id = p.paymentReference ?: p.id.toString(),
+                            installmentNumber = idx + 1,
+                            dueDate = dueStr,
+                            paidDate = paidStr,
+                            amountFormatted = MoneyFormatter.formatToman(p.amount),
+                            status = pStatus,
+                            note = p.notes,
+                            amount = p.amount
                         )
                     }
-                    updateInternalState(loaded)
+
+                    val paidAmount = entity.amount - (entity.amount * entity.remainingInstallments / entity.totalInstallments.coerceAtLeast(1))
+                    val monthly = entity.amount / entity.totalInstallments.coerceAtLeast(1)
+
+                    InstallmentItem(
+                        id = entity.serverId ?: entity.id.toString(),
+                        title = entity.title,
+                        category = cat,
+                        providerOrPerson = entity.providerName,
+                        totalAmount = entity.amount,
+                        totalAmountFormatted = MoneyFormatter.formatToman(entity.amount),
+                        paidAmount = paidAmount,
+                        paidAmountFormatted = MoneyFormatter.formatToman(paidAmount),
+                        remainingAmount = entity.amount - paidAmount,
+                        remainingAmountFormatted = MoneyFormatter.formatToman(entity.amount - paidAmount),
+                        monthlyPaymentFormatted = MoneyFormatter.formatToman(monthly),
+                        totalInstallments = entity.totalInstallments,
+                        remainingInstallments = entity.remainingInstallments,
+                        nextPaymentDate = nextDueJalali,
+                        nextDueDaysText = dueDaysText,
+                        startDate = startJalali,
+                        endDate = endJalali,
+                        status = status,
+                        notes = entity.notes ?: "",
+                        paymentHistory = payments
+                    )
+                }
+                updateInternalState(loaded)
+            } else {
+                updateInternalState(emptyList())
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -139,58 +175,8 @@ class LocalInstallmentRepository private constructor() {
         val appCtx = context.applicationContext
         appContext = appCtx
         repositoryScope.launch {
-            try {
-                val db = AppDatabase.getDatabase(appCtx)
-                val dao = db.installmentDao()
-                val userId = SessionManager.userId ?: return@launch
-                val dbInsts = dao.getAllInstallmentsList(userId)
-                val dbPayments = dao.getAllPaymentsList(userId)
-
-                val loaded = dbInsts.map { entity ->
-                    val payments = dbPayments.filter { it.installmentId == entity.id }.map { p ->
-                        PaymentHistoryItem(
-                            id = p.paymentReference ?: p.id.toString(),
-                            installmentNumber = 1,
-                            dueDate = "۱۴۰۴/۰۷/۱۵",
-                            paidDate = if (p.paidDate != null) "۱۴۰۴/۰۷/۱۵" else null,
-                            amountFormatted = "${p.amount} تومان",
-                            status = try { InstallmentStatus.valueOf(p.status) } catch (e: Exception) { InstallmentStatus.PENDING },
-                            note = p.notes,
-                            amount = p.amount
-                        )
-                    }
-                    val cat = try { InstallmentCategory.valueOf(entity.category) } catch (e: Exception) { InstallmentCategory.BANK_LOANS }
-                    val status = try { InstallmentStatus.valueOf(entity.status) } catch (e: Exception) { InstallmentStatus.PENDING }
-                    val paidAmount = entity.amount - (entity.amount * entity.remainingInstallments / entity.totalInstallments.coerceAtLeast(1))
-                    val monthly = entity.amount / entity.totalInstallments.coerceAtLeast(1)
-
-                    InstallmentItem(
-                        id = entity.serverId ?: entity.id.toString(),
-                        title = entity.title,
-                        category = cat,
-                        providerOrPerson = entity.providerName,
-                        totalAmount = entity.amount,
-                        totalAmountFormatted = "${entity.amount} تومان",
-                        paidAmount = paidAmount,
-                        paidAmountFormatted = "$paidAmount تومان",
-                        remainingAmount = entity.amount - paidAmount,
-                        remainingAmountFormatted = "${entity.amount - paidAmount} تومان",
-                        monthlyPaymentFormatted = "$monthly تومان",
-                        totalInstallments = entity.totalInstallments,
-                        remainingInstallments = entity.remainingInstallments,
-                        nextPaymentDate = "۱۴۰۴/۰۷/۱۵",
-                        nextDueDaysText = "۱۰ روز دیگر",
-                        startDate = "۱۴۰۳/۰۱/۰۱",
-                        endDate = "۱۴۰۵/۰۱/۰۱",
-                        status = status,
-                        notes = entity.notes ?: "",
-                        paymentHistory = payments
-                    )
-                }
-                updateInternalState(loaded)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            val userId = SessionManager.userId ?: return@launch
+            reloadForUser(appCtx, userId)
         }
     }
 
@@ -201,16 +187,44 @@ class LocalInstallmentRepository private constructor() {
         _carInsurance.value = items.filter { it.category == InstallmentCategory.CAR_INSURANCE }
         _miscInstallments.value = items.filter { it.category == InstallmentCategory.MISC }
         _overdueInstallments.value = items.filter { it.status == InstallmentStatus.OVERDUE }
+
+        val activeItems = items.filter { it.remainingInstallments > 0 }
+        val nearestItem = activeItems.minByOrNull { parseJalaliStringToMillis(it.nextPaymentDate) ?: Long.MAX_VALUE }
+
+        val totalPaid = items.sumOf { it.paidAmount }
+        val totalRemaining = items.sumOf { it.remainingAmount }
+
         _summary.value = InstallmentSummaryData(
-            activeCount = items.size,
-            paidAmount = items.sumOf { it.paidAmount },
-            remainingAmount = items.sumOf { it.remainingAmount }
+            activeCount = activeItems.size,
+            paidAmount = totalPaid,
+            remainingAmount = totalRemaining,
+            paidAmountFormatted = MoneyFormatter.formatToman(totalPaid),
+            remainingAmountFormatted = MoneyFormatter.formatToman(totalRemaining),
+            nextDueText = nearestItem?.nextDueDaysText ?: "-",
+            nextDueTitle = nearestItem?.title ?: "-"
         )
+
         _categorySummaries.value = listOf(
-            CategorySummaryStat(InstallmentCategory.BANK_LOANS, "${_bankLoans.value.size} مورد", "${_bankLoans.value.sumOf { it.remainingAmount }} تومان"),
-            CategorySummaryStat(InstallmentCategory.HOME_LOANS, "${_homeLoans.value.size} مورد", "${_homeLoans.value.sumOf { it.remainingAmount }} تومان"),
-            CategorySummaryStat(InstallmentCategory.CAR_INSURANCE, "${_carInsurance.value.size} مورد", "${_carInsurance.value.sumOf { it.remainingAmount }} تومان"),
-            CategorySummaryStat(InstallmentCategory.MISC, "${_miscInstallments.value.size} مورد", "${_miscInstallments.value.sumOf { it.remainingAmount }} تومان")
+            CategorySummaryStat(
+                InstallmentCategory.BANK_LOANS,
+                "${_bankLoans.value.count { it.remainingInstallments > 0 }} مورد",
+                MoneyFormatter.formatToman(_bankLoans.value.sumOf { it.remainingAmount })
+            ),
+            CategorySummaryStat(
+                InstallmentCategory.HOME_LOANS,
+                "${_homeLoans.value.count { it.remainingInstallments > 0 }} مورد",
+                MoneyFormatter.formatToman(_homeLoans.value.sumOf { it.remainingAmount })
+            ),
+            CategorySummaryStat(
+                InstallmentCategory.CAR_INSURANCE,
+                "${_carInsurance.value.count { it.remainingInstallments > 0 }} مورد",
+                MoneyFormatter.formatToman(_carInsurance.value.sumOf { it.remainingAmount })
+            ),
+            CategorySummaryStat(
+                InstallmentCategory.MISC,
+                "${_miscInstallments.value.count { it.remainingInstallments > 0 }} مورد",
+                MoneyFormatter.formatToman(_miscInstallments.value.sumOf { it.remainingAmount })
+            )
         )
     }
 
@@ -250,6 +264,9 @@ class LocalInstallmentRepository private constructor() {
     }
 
     fun payInstallment(installmentId: String, paymentDate: String, context: Context? = null) {
+        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+        val effectivePaymentDate = paymentDate.ifBlank { todayJalali }
+
         val current = _installments.value.map { item ->
             if (item.id == installmentId) {
                 val updatedRemaining = (item.remainingInstallments - 1).coerceAtLeast(0)
@@ -258,14 +275,22 @@ class LocalInstallmentRepository private constructor() {
                 val newRemainingAmount = (item.remainingAmount - monthly).coerceAtLeast(0)
                 val newStatus = if (updatedRemaining == 0) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
 
+                val nextDueDateStr = if (updatedRemaining > 0) {
+                    PersianCalendarHelper.addMonthsToPersianDate(item.nextPaymentDate, 1)
+                } else {
+                    item.nextPaymentDate
+                }
+                val nextDueMillis = parseJalaliStringToMillis(nextDueDateStr) ?: System.currentTimeMillis()
+                val newDueDaysText = computeDueDaysText(nextDueMillis, newStatus, updatedRemaining)
+
                 val newHistory = item.paymentHistory.toMutableList()
                 newHistory.add(
                     PaymentHistoryItem(
                         id = "p_auto_${System.currentTimeMillis()}",
                         installmentNumber = item.totalInstallments - updatedRemaining,
-                        dueDate = paymentDate,
-                        paidDate = paymentDate,
-                        amountFormatted = "${monthly} تومان",
+                        dueDate = item.nextPaymentDate,
+                        paidDate = effectivePaymentDate,
+                        amountFormatted = MoneyFormatter.formatToman(monthly),
                         status = InstallmentStatus.PAID,
                         note = "پرداخت شده",
                         amount = monthly
@@ -275,11 +300,12 @@ class LocalInstallmentRepository private constructor() {
                 item.copy(
                     remainingInstallments = updatedRemaining,
                     paidAmount = newPaidAmount,
-                    paidAmountFormatted = "$newPaidAmount تومان",
+                    paidAmountFormatted = MoneyFormatter.formatToman(newPaidAmount),
                     remainingAmount = newRemainingAmount,
-                    remainingAmountFormatted = "$newRemainingAmount تومان",
+                    remainingAmountFormatted = MoneyFormatter.formatToman(newRemainingAmount),
                     status = newStatus,
-                    nextDueDaysText = if (updatedRemaining > 0) "۳۰ روز دیگر" else "تکمیل شده",
+                    nextPaymentDate = nextDueDateStr,
+                    nextDueDaysText = newDueDaysText,
                     paymentHistory = newHistory
                 )
             } else {
@@ -360,6 +386,12 @@ class LocalInstallmentRepository private constructor() {
             dao.clearAllPayments(userId)
 
             items.forEach { item ->
+                val startMillis = parseJalaliStringToMillis(item.startDate) ?: System.currentTimeMillis()
+                val nextDueMillis = parseJalaliStringToMillis(item.nextPaymentDate) ?: startMillis
+                val dueDayNum = CalendarDateUtils.parseJalali(item.nextPaymentDate)?.third
+                    ?: CalendarDateUtils.parseJalali(item.startDate)?.third
+                    ?: 15
+
                 val entity = InstallmentEntity(
                     id = 0,
                     serverId = item.id,
@@ -372,20 +404,23 @@ class LocalInstallmentRepository private constructor() {
                     totalInstallments = item.totalInstallments,
                     paidInstallments = (item.totalInstallments - item.remainingInstallments).coerceAtLeast(0),
                     remainingInstallments = item.remainingInstallments,
-                    startDate = System.currentTimeMillis(),
-                    dueDay = 15,
-                    nextDueDate = System.currentTimeMillis(),
+                    startDate = startMillis,
+                    dueDay = dueDayNum,
+                    nextDueDate = nextDueMillis,
                     status = item.status.name,
                     notes = item.notes
                 )
                 val instId = dao.insertInstallment(entity).toInt()
 
                 item.paymentHistory.forEach { p ->
+                    val pDueMillis = parseJalaliStringToMillis(p.dueDate) ?: nextDueMillis
+                    val pPaidMillis = p.paidDate?.let { parseJalaliStringToMillis(it) }
+
                     val paymentEntity = InstallmentPaymentEntity(
                         installmentId = instId,
                         amount = p.amount,
-                        dueDate = System.currentTimeMillis(),
-                        paidDate = if (p.paidDate != null) System.currentTimeMillis() else null,
+                        dueDate = pDueMillis,
+                        paidDate = pPaidMillis,
                         status = p.status.name,
                         paymentReference = p.id,
                         notes = p.note
@@ -395,6 +430,28 @@ class LocalInstallmentRepository private constructor() {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    private fun parseJalaliStringToMillis(dateStr: String?): Long? {
+        if (dateStr.isNullOrBlank()) return null
+        val triple = CalendarDateUtils.parseJalali(dateStr) ?: return null
+        return runCatching {
+            PersianCalendarHelper.jalaliToEpochMillis(triple.first, triple.second, triple.third, 9, 0)
+        }.getOrNull()
+    }
+
+    private fun computeDueDaysText(targetMillis: Long, status: InstallmentStatus, remainingInstallments: Int): String {
+        if (status == InstallmentStatus.COMPLETED || remainingInstallments == 0) {
+            return "تکمیل شده"
+        }
+        val nowMillis = System.currentTimeMillis()
+        val diffMillis = targetMillis - nowMillis
+        val diffDays = (diffMillis / (24 * 3600 * 1000L)).toInt()
+        return when {
+            diffDays == 0 -> "امروز"
+            diffDays > 0 -> "${IranianPhoneUtils.convertDigitsToPersian(diffDays.toString())} روز دیگر"
+            else -> "${IranianPhoneUtils.convertDigitsToPersian(kotlin.math.abs(diffDays).toString())} روز گذشته"
         }
     }
 
