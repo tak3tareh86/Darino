@@ -263,7 +263,6 @@ fun DataManagementScreen(
                     "restore_samples" -> {
                         prefsRepo.setCleanSlatePerformed(false)
                         financeRepo.restoreSampleTransactions()
-                        vehicleRepo.restoreSampleVehicles()
                         Toast.makeText(context, "داده‌های تستی و نمونه با موفقیت بازیابی شدند.", Toast.LENGTH_SHORT).show()
                     }
                     "clear_transactions" -> {

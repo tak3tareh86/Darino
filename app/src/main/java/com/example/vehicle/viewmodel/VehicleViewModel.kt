@@ -80,6 +80,10 @@ class VehicleViewModel(
                         it.copy(
                             vehicles = vehicles,
                             selectedVehicle = null,
+                            services = emptyList(),
+                            expenses = emptyList(),
+                            insurance = emptyList(),
+                            inspections = emptyList(),
                             isLoading = false
                         )
                     }
@@ -178,7 +182,6 @@ class VehicleViewModel(
     }
 
     fun confirmReminderSchedule() {
-        val service = _uiState.value.lastAddedService
         _uiState.update {
             it.copy(
                 showReminderConfirmationDialog = false,
@@ -202,22 +205,32 @@ class VehicleViewModel(
         currentMileage: Int,
         estimatedValue: Long
     ) {
-        val created = repository.addVehicle(
-            brand = brand,
-            model = model,
-            year = year,
-            color = color,
-            plate = plate,
-            vin = vin,
-            currentMileage = currentMileage,
-            estimatedValue = estimatedValue
-        )
-        selectVehicle(created)
-        _uiState.update {
-            it.copy(
-                showAddVehicleSheet = false,
-                snackBarMessage = "خودروی $brand $model با موفقیت به پرونده خودروها افزوده شد."
+        viewModelScope.launch {
+            val result = repository.addVehicle(
+                brand = brand,
+                model = model,
+                year = year,
+                color = color,
+                plate = plate,
+                vin = vin,
+                currentMileage = currentMileage,
+                estimatedValue = estimatedValue
             )
+            result.onSuccess { created ->
+                selectVehicle(created)
+                _uiState.update {
+                    it.copy(
+                        showAddVehicleSheet = false,
+                        snackBarMessage = "خودروی $brand $model با موفقیت به پرونده خودروها افزوده شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در ثبت خودرو: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}"
+                    )
+                }
+            }
         }
     }
 
@@ -240,40 +253,70 @@ class VehicleViewModel(
             vin = vin,
             estimatedValue = estimatedValue
         )
-        repository.updateVehicle(updated)
-        selectVehicle(updated)
-        _uiState.update {
-            it.copy(
-                snackBarMessage = "اطلاعات پرونده خودرو به‌روزرسانی شد."
-            )
+        viewModelScope.launch {
+            val result = repository.updateVehicle(updated)
+            result.onSuccess {
+                selectVehicle(updated)
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "اطلاعات پرونده خودرو به‌روزرسانی شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در به‌روزرسانی مشخصات: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}"
+                    )
+                }
+            }
         }
     }
 
     fun deleteVehicle(vehicleId: String) {
-        repository.deleteVehicle(vehicleId)
-        val remaining = repository.vehicles.value.filter { it.id != vehicleId }
-        val nextSelected = remaining.firstOrNull()
-        if (nextSelected != null) {
-            selectVehicle(nextSelected)
-        } else {
-            _uiState.update {
-                it.copy(
-                    selectedVehicle = null,
-                    showProfileScreen = false,
-                    snackBarMessage = "خودرو از پرونده حذف شد."
-                )
+        viewModelScope.launch {
+            val result = repository.deleteVehicle(vehicleId)
+            result.onSuccess {
+                val remaining = repository.vehicles.value.filter { it.id != vehicleId }
+                val nextSelected = remaining.firstOrNull()
+                if (nextSelected != null) {
+                    selectVehicle(nextSelected)
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            selectedVehicle = null,
+                            showProfileScreen = false,
+                            snackBarMessage = "خودرو از پرونده حذف شد."
+                        )
+                    }
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در حذف خودرو: ${err.localizedMessage ?: "خطا در اتصال به پایگاه داده."}"
+                    )
+                }
             }
         }
     }
 
     fun updateCurrentMileage(newMileage: Int) {
         val current = _uiState.value.selectedVehicle ?: return
-        repository.updateMileage(current.id, newMileage)
-        _uiState.update {
-            it.copy(
-                showMileageDialog = false,
-                snackBarMessage = "کیلومتر خودرو به $newMileage تغییر یافت."
-            )
+        viewModelScope.launch {
+            val result = repository.updateMileage(current.id, newMileage)
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        showMileageDialog = false,
+                        snackBarMessage = "کیلومتر خودرو به $newMileage تغییر یافت."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در به‌روزرسانی کیلومتر: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}"
+                    )
+                }
+            }
         }
     }
 
@@ -289,26 +332,73 @@ class VehicleViewModel(
         isReminderEnabled: Boolean
     ) {
         val current = _uiState.value.selectedVehicle ?: return
-        val created = repository.addService(
-            vehicleId = current.id,
-            title = title,
-            serviceType = serviceType,
-            date = date,
-            mileage = mileage,
-            cost = cost,
-            description = description,
-            nextReminderDate = nextReminderDate,
-            nextReminderMileage = nextReminderMileage,
-            isReminderEnabled = isReminderEnabled
-        )
-
-        _uiState.update {
-            it.copy(
-                showAddServiceSheet = false,
-                lastAddedService = created,
-                showReminderConfirmationDialog = isReminderEnabled,
-                snackBarMessage = if (!isReminderEnabled) "سرویس $title با موفقیت در پرونده خودرو ثبت شد." else null
+        viewModelScope.launch {
+            val result = repository.addService(
+                vehicleId = current.id,
+                title = title,
+                serviceType = serviceType,
+                date = date,
+                mileage = mileage,
+                cost = cost,
+                description = description,
+                nextReminderDate = nextReminderDate,
+                nextReminderMileage = nextReminderMileage,
+                isReminderEnabled = isReminderEnabled
             )
+            result.onSuccess { created ->
+                _uiState.update {
+                    it.copy(
+                        showAddServiceSheet = false,
+                        lastAddedService = created,
+                        showReminderConfirmationDialog = isReminderEnabled,
+                        snackBarMessage = if (!isReminderEnabled) "سرویس $title با موفقیت در پرونده خودرو ثبت شد." else null
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در ثبت سرویس: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun completeServiceRecord(serviceId: String, completedDate: String) {
+        viewModelScope.launch {
+            val result = repository.completeService(serviceId, completedDate)
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "سرویس با موفقیت به عنوان انجام شده ثبت شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در ثبت انجام سرویس: ${err.localizedMessage ?: "خطای پایگاه داده."}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun deleteServiceRecord(serviceId: String) {
+        viewModelScope.launch {
+            val result = repository.deleteService(serviceId)
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "سرویس دوره‌ای از پرونده حذف شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در حذف سرویس: ${err.localizedMessage ?: "خطای پایگاه داده."}"
+                    )
+                }
+            }
         }
     }
 
@@ -320,19 +410,48 @@ class VehicleViewModel(
         description: String
     ) {
         val current = _uiState.value.selectedVehicle ?: return
-        repository.addExpense(
-            vehicleId = current.id,
-            title = title,
-            category = category,
-            amount = amount,
-            date = date,
-            description = description
-        )
-        _uiState.update {
-            it.copy(
-                showAddExpenseSheet = false,
-                snackBarMessage = "هزینه $title در مخارج خودرو ثبت گردید."
+        viewModelScope.launch {
+            val result = repository.addExpense(
+                vehicleId = current.id,
+                title = title,
+                category = category,
+                amount = amount,
+                date = date,
+                description = description
             )
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        showAddExpenseSheet = false,
+                        snackBarMessage = "هزینه $title در مخارج خودرو ثبت گردید."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در ثبت هزینه: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun deleteExpenseRecord(expenseId: String) {
+        viewModelScope.launch {
+            val result = repository.deleteExpense(expenseId)
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "هزینه از پرونده حذف گردید."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در حذف هزینه: ${err.localizedMessage ?: "خطای پایگاه داده."}"
+                    )
+                }
+            }
         }
     }
 
@@ -345,20 +464,68 @@ class VehicleViewModel(
         policyNumber: String
     ) {
         val current = _uiState.value.selectedVehicle ?: return
-        repository.saveInsurance(
-            vehicleId = current.id,
-            company = company,
-            type = type,
-            startDate = startDate,
-            endDate = endDate,
-            amount = amount,
-            policyNumber = policyNumber
-        )
-        _uiState.update {
-            it.copy(
-                showInsuranceSheet = false,
-                snackBarMessage = "بیمه‌نامه $type با موفقیت ثبت و یادآور انقضا تنظیم شد."
+        viewModelScope.launch {
+            val result = repository.saveInsurance(
+                vehicleId = current.id,
+                company = company,
+                type = type,
+                startDate = startDate,
+                endDate = endDate,
+                amount = amount,
+                policyNumber = policyNumber
             )
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        showInsuranceSheet = false,
+                        snackBarMessage = "بیمه‌نامه $type با موفقیت ثبت و یادآور انقضا تنظیم شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در ثبت بیمه‌نامه: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun renewInsuranceRecord(insuranceId: String, newEndDate: String) {
+        viewModelScope.launch {
+            val result = repository.renewInsurance(insuranceId, newEndDate)
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "بیمه‌نامه با موفقیت تمدید شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در تمدید بیمه‌نامه: ${err.localizedMessage ?: "خطای پایگاه داده."}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun deleteInsuranceRecord(insuranceId: String) {
+        viewModelScope.launch {
+            val result = repository.deleteInsurance(insuranceId)
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "بیمه‌نامه از پرونده حذف شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در حذف بیمه‌نامه: ${err.localizedMessage ?: "خطای پایگاه داده."}"
+                    )
+                }
+            }
         }
     }
 
@@ -370,19 +537,48 @@ class VehicleViewModel(
         centerName: String
     ) {
         val current = _uiState.value.selectedVehicle ?: return
-        repository.saveInspection(
-            vehicleId = current.id,
-            lastInspectionDate = lastInspectionDate,
-            expiryDate = expiryDate,
-            cost = cost,
-            status = status,
-            centerName = centerName
-        )
-        _uiState.update {
-            it.copy(
-                showInsuranceSheet = false,
-                snackBarMessage = "اطلاعات معاینه فنی خودرو ثبت شد."
+        viewModelScope.launch {
+            val result = repository.saveInspection(
+                vehicleId = current.id,
+                lastInspectionDate = lastInspectionDate,
+                expiryDate = expiryDate,
+                cost = cost,
+                status = status,
+                centerName = centerName
             )
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        showInsuranceSheet = false,
+                        snackBarMessage = "اطلاعات معاینه فنی خودرو ثبت شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در ثبت معاینه فنی: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun deleteInspectionRecord(inspectionId: String) {
+        viewModelScope.launch {
+            val result = repository.deleteInspection(inspectionId)
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "گواهی معاینه فنی از پرونده حذف شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در حذف معاینه فنی: ${err.localizedMessage ?: "خطای پایگاه داده."}"
+                    )
+                }
+            }
         }
     }
 }

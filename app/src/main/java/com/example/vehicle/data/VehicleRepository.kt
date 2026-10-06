@@ -3,23 +3,28 @@ package com.example.vehicle.data
 import android.content.Context
 import androidx.room.withTransaction
 import com.example.data.database.AppDatabase
+import com.example.data.database.VehicleExpenseRoomEntity
+import com.example.data.database.VehicleInspectionRoomEntity
+import com.example.data.database.VehicleInsuranceRoomEntity
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
-import org.json.JSONObject
 import java.util.UUID
 
 /**
- * Production-ready Repository providing vehicle dossier data and persistent Room SQLite Database operations.
+ * Production-ready Repository providing strictly-typed, atomic, Room SQLite Database operations for Vehicles.
+ * DB is the single source of truth; all mutations are suspendable with atomic transactions.
  */
 class VehicleRepository {
 
@@ -42,6 +47,7 @@ class VehicleRepository {
 
     private var dbContext: Context? = null
     private var sessionObserverStarted = false
+    private var roomCollectorsJob: Job? = null
 
     /**
      * Initializes the Room SQLite database and loads user-specific vehicle records.
@@ -60,21 +66,23 @@ class VehicleRepository {
                         else -> null
                     }
                     if (userId == null) {
+                        roomCollectorsJob?.cancel()
                         clearAllVehiclesData()
                         return@collectLatest
                     }
-                    loadUserData(appCtx, userId)
+                    setupRoomCollectors(appCtx, userId)
                 }
             }
         }
     }
 
-    private suspend fun loadUserData(appCtx: Context, userId: String) {
-        try {
-            val db = AppDatabase.getDatabase(appCtx)
-            val vDao = db.vehicleDao()
+    private suspend fun setupRoomCollectors(appCtx: Context, userId: String) {
+        roomCollectorsJob?.cancel()
+        val db = AppDatabase.getDatabase(appCtx)
+        val vDao = db.vehicleDao()
 
-            // 1. One-time legacy JSON migration if present
+        // 1. One-time legacy JSON migration if present
+        try {
             val store = vDao.getVehicleStore(userId)
             if (store != null && store.vehiclesJson.isNotBlank()) {
                 val migratedVehicles = jsonToVehicles(store.vehiclesJson)
@@ -121,10 +129,25 @@ class VehicleRepository {
                                 notes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
                             )
                         )
+
+                        if (s.cost > 0L) {
+                            vDao.insertExpense(
+                                VehicleExpenseRoomEntity(
+                                    id = "exp_svc_${s.id}",
+                                    userId = userId,
+                                    vehicleId = s.vehicleId,
+                                    title = s.title,
+                                    category = VehicleExpenseCategory.SERVICE.name,
+                                    amount = s.cost,
+                                    date = s.date,
+                                    description = "سرویس دوره‌ای خودرو: ${s.description}"
+                                )
+                            )
+                        }
                     }
 
                     vDao.insertExpenses(migratedExpenses.map { e ->
-                        com.example.data.database.VehicleExpenseRoomEntity(
+                        VehicleExpenseRoomEntity(
                             id = e.id,
                             userId = userId,
                             vehicleId = e.vehicleId,
@@ -138,7 +161,7 @@ class VehicleRepository {
                     })
 
                     vDao.insertInsurances(migratedInsurances.map { ins ->
-                        com.example.data.database.VehicleInsuranceRoomEntity(
+                        VehicleInsuranceRoomEntity(
                             id = ins.id,
                             userId = userId,
                             vehicleId = ins.vehicleId,
@@ -153,7 +176,7 @@ class VehicleRepository {
                     })
 
                     vDao.insertInspections(migratedInspections.map { insp ->
-                        com.example.data.database.VehicleInspectionRoomEntity(
+                        VehicleInspectionRoomEntity(
                             id = insp.id,
                             userId = userId,
                             vehicleId = insp.vehicleId,
@@ -169,310 +192,291 @@ class VehicleRepository {
                     vDao.insertVehicleStore(com.example.data.database.VehicleStoreEntity(userId = userId, vehiclesJson = ""))
                 }
             }
-
-            // 2. Authoritative Load from Room DAOs
-            loadFromRoom(db, userId)
         } catch (e: Exception) {
             e.printStackTrace()
         }
-    }
 
-    private suspend fun loadFromRoom(db: AppDatabase, userId: String) {
-        val vDao = db.vehicleDao()
-        val dbVehicles = vDao.getAllVehiclesList(userId)
-
-        if (dbVehicles.isNotEmpty()) {
-            _vehicles.value = dbVehicles.map { v ->
-                VehicleEntity(
-                    id = v.serverId ?: v.id.toString(),
-                    brand = v.brand,
-                    model = v.model,
-                    year = v.year,
-                    color = v.notes ?: "سفید",
-                    plate = v.plate,
-                    vin = v.vin,
-                    currentMileage = v.currentMileage,
-                    estimatedValue = v.estimatedValue,
-                    createdAt = v.updatedAt
-                )
-            }
-
-            val dbExpenses = vDao.getAllExpensesList(userId)
-            _expenses.value = dbExpenses.map { e ->
-                VehicleExpenseEntity(
-                    id = e.id,
-                    vehicleId = e.vehicleId,
-                    title = e.title,
-                    category = try { VehicleExpenseCategory.valueOf(e.category) } catch (ex: Exception) { VehicleExpenseCategory.OTHER },
-                    amount = e.amount,
-                    date = e.date,
-                    description = e.description,
-                    receiptImageUri = e.receiptImageUri
-                )
-            }
-
-            val dbServices = vDao.getAllServicesList(userId)
-            _services.value = dbServices.map { s ->
-                val (parsedCost, cleanDescription) = parseCostAndDescription(s.notes)
-                val realCost = if (s.cost > 0L) s.cost else parsedCost
-
-                val realServiceDate = if (s.serviceDate != null && s.serviceDate > 0L) {
-                    PersianCalendarHelper.fromEpochMillis(s.serviceDate).toFormattedDate()
-                } else if (s.updatedAt > 0L) {
-                    PersianCalendarHelper.fromEpochMillis(s.updatedAt).toFormattedDate()
-                } else {
-                    PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+        // 2. Observe Room DAOs as authoritative Source of Truth
+        roomCollectorsJob = repositoryScope.launch {
+            launch {
+                vDao.getAllVehicles(userId).collectLatest { dbVehicles ->
+                    _vehicles.value = dbVehicles.map { v ->
+                        VehicleEntity(
+                            id = v.serverId ?: v.id.toString(),
+                            brand = v.brand,
+                            model = v.model,
+                            year = v.year,
+                            color = v.notes ?: "سفید",
+                            plate = v.plate,
+                            vin = v.vin,
+                            currentMileage = v.currentMileage,
+                            estimatedValue = v.estimatedValue,
+                            createdAt = v.updatedAt
+                        )
+                    }
                 }
+            }
 
-                val realNextReminderDate = if (s.dueDate != null && s.dueDate > 0L) {
-                    PersianCalendarHelper.fromEpochMillis(s.dueDate).toFormattedDate()
-                } else {
-                    null
+            launch {
+                vDao.getAllServices(userId).collectLatest { dbServices ->
+                    _services.value = dbServices.map { s ->
+                        val (parsedCost, cleanDescription) = parseCostAndDescription(s.notes)
+                        val realCost = if (s.cost > 0L) s.cost else parsedCost
+
+                        val realServiceDate = if (s.serviceDate != null && s.serviceDate > 0L) {
+                            PersianCalendarHelper.fromEpochMillis(s.serviceDate).toFormattedDate()
+                        } else if (s.updatedAt > 0L) {
+                            PersianCalendarHelper.fromEpochMillis(s.updatedAt).toFormattedDate()
+                        } else {
+                            ""
+                        }
+
+                        val realNextReminderDate = if (s.dueDate != null && s.dueDate > 0L) {
+                            PersianCalendarHelper.fromEpochMillis(s.dueDate).toFormattedDate()
+                        } else {
+                            null
+                        }
+
+                        VehicleServiceEntity(
+                            id = s.serverId ?: s.id.toString(),
+                            vehicleId = s.vehicleId,
+                            title = s.title,
+                            serviceType = try { ServiceType.valueOf(s.type) } catch (e: Exception) { ServiceType.OIL_CHANGE },
+                            date = realServiceDate,
+                            mileage = s.dueMileage ?: 0,
+                            cost = realCost,
+                            description = cleanDescription,
+                            nextReminderDate = realNextReminderDate,
+                            nextReminderMileage = s.dueMileage,
+                            isReminderEnabled = s.status != "COMPLETED"
+                        )
+                    }
                 }
-
-                VehicleServiceEntity(
-                    id = s.serverId ?: s.id.toString(),
-                    vehicleId = s.vehicleId,
-                    title = s.title,
-                    serviceType = try { ServiceType.valueOf(s.type) } catch (e: Exception) { ServiceType.OIL_CHANGE },
-                    date = realServiceDate,
-                    mileage = s.dueMileage ?: 0,
-                    cost = realCost,
-                    description = cleanDescription,
-                    nextReminderDate = realNextReminderDate,
-                    nextReminderMileage = s.dueMileage,
-                    isReminderEnabled = s.status != "COMPLETED"
-                )
             }
 
-            val dbInsurances = vDao.getAllInsurancesList(userId)
-            _insurances.value = dbInsurances.map { ins ->
-                VehicleInsuranceEntity(
-                    id = ins.id,
-                    vehicleId = ins.vehicleId,
-                    company = ins.company,
-                    type = ins.type,
-                    startDate = ins.startDate,
-                    endDate = ins.endDate,
-                    amount = ins.amount,
-                    policyNumber = ins.policyNumber,
-                    reminderDays = ins.reminderDays.split(",").mapNotNull { it.toIntOrNull() }
-                )
+            launch {
+                vDao.getAllExpenses(userId).collectLatest { dbExpenses ->
+                    _expenses.value = dbExpenses.map { e ->
+                        VehicleExpenseEntity(
+                            id = e.id,
+                            vehicleId = e.vehicleId,
+                            title = e.title,
+                            category = try { VehicleExpenseCategory.valueOf(e.category) } catch (ex: Exception) { VehicleExpenseCategory.OTHER },
+                            amount = e.amount,
+                            date = e.date,
+                            description = e.description,
+                            receiptImageUri = e.receiptImageUri
+                        )
+                    }
+                }
             }
 
-            val dbInspections = vDao.getAllInspectionsList(userId)
-            _inspections.value = dbInspections.map { insp ->
-                VehicleInspectionEntity(
-                    id = insp.id,
-                    vehicleId = insp.vehicleId,
-                    lastInspectionDate = insp.lastInspectionDate,
-                    expiryDate = insp.expiryDate,
-                    cost = insp.cost,
-                    status = insp.status,
-                    centerName = insp.centerName
-                )
+            launch {
+                vDao.getAllInsurances(userId).collectLatest { dbInsurances ->
+                    _insurances.value = dbInsurances.map { ins ->
+                        VehicleInsuranceEntity(
+                            id = ins.id,
+                            vehicleId = ins.vehicleId,
+                            company = ins.company,
+                            type = ins.type,
+                            startDate = ins.startDate,
+                            endDate = ins.endDate,
+                            amount = ins.amount,
+                            policyNumber = ins.policyNumber,
+                            reminderDays = ins.reminderDays.split(",").mapNotNull { it.toIntOrNull() }
+                        )
+                    }
+                }
             }
-        } else {
-            clearAllVehiclesData()
+
+            launch {
+                vDao.getAllInspections(userId).collectLatest { dbInspections ->
+                    _inspections.value = dbInspections.map { insp ->
+                        VehicleInspectionEntity(
+                            id = insp.id,
+                            vehicleId = insp.vehicleId,
+                            lastInspectionDate = insp.lastInspectionDate,
+                            expiryDate = insp.expiryDate,
+                            cost = insp.cost,
+                            status = insp.status,
+                            centerName = insp.centerName
+                        )
+                    }
+                }
+            }
         }
     }
 
-    fun reloadFromDatabase(context: Context) {
+    suspend fun reloadFromDatabase(context: Context) = withContext(Dispatchers.IO) {
         val appCtx = context.applicationContext
         dbContext = appCtx
-        repositoryScope.launch {
-            try {
-                val db = AppDatabase.getDatabase(appCtx)
-                SessionManager.userId?.let { loadFromRoom(db, it) }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+        val userId = SessionManager.userId ?: return@withContext
+        setupRoomCollectors(appCtx, userId)
     }
 
-    private fun syncReminder(
+    private suspend fun syncReminderInternal(
+        context: Context,
+        userId: String,
         id: String,
         title: String,
         description: String,
         date: String,
         type: String = "VEHICLE"
-    ) {
-        val context = dbContext ?: return
-        val userId = SessionManager.userId ?: return
-        repositoryScope.launch {
-            try {
-                val manager = com.example.reminder.domain.ReminderManager(context)
-                val persianDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(date)
-                val reminder = com.example.reminder.data.ReminderEntity(
-                    id = id,
-                    userId = userId,
-                    title = title,
-                    description = description,
-                    type = type,
-                    sourceType = "VEHICLE",
-                    sourceId = id,
-                    date = persianDate,
-                    time = "۰۹:۰۰"
-                )
-                manager.createReminder(reminder)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+    ): Result<Unit> {
+        return runCatching {
+            val manager = com.example.reminder.domain.ReminderManager(context)
+            val persianDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(date)
+            val reminder = com.example.reminder.data.ReminderEntity(
+                id = id,
+                userId = userId,
+                title = title,
+                description = description,
+                type = type,
+                sourceType = "VEHICLE",
+                sourceId = id,
+                date = persianDate,
+                time = "۰۹:۰۰"
+            )
+            manager.createReminder(reminder)
         }
     }
 
-    // Add Vehicle
-    fun addVehicle(
+    // 1. Add Vehicle (Synchronous suspend contract)
+    suspend fun addVehicle(
         brand: String,
         model: String,
         year: String,
         color: String,
         plate: String,
-        vin: String,
-        currentMileage: Int,
-        estimatedValue: Long
-    ): VehicleEntity {
-        val newVehicle = VehicleEntity(
-            id = UUID.randomUUID().toString(),
-            brand = brand,
-            model = model,
-            year = year,
-            color = color,
-            plate = plate,
-            vin = vin,
-            currentMileage = currentMileage,
-            estimatedValue = estimatedValue
-        )
-        _vehicles.value = _vehicles.value + newVehicle
+        vin: String = "",
+        currentMileage: Int = 0,
+        estimatedValue: Long = 0L
+    ): Result<VehicleEntity> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
-        val context = dbContext
-        val userId = SessionManager.userId
-        if (context != null && userId != null) {
-            repositoryScope.launch {
-                try {
-                    val db = AppDatabase.getDatabase(context)
-                    db.vehicleDao().insertVehicle(
-                        com.example.data.database.VehicleEntity(
-                            serverId = newVehicle.id,
-                            userId = userId,
-                            brand = newVehicle.brand,
-                            model = newVehicle.model,
-                            year = newVehicle.year,
-                            plate = newVehicle.plate,
-                            currentMileage = newVehicle.currentMileage,
-                            notes = newVehicle.color,
-                            vin = newVehicle.vin,
-                            estimatedValue = newVehicle.estimatedValue,
-                            updatedAt = System.currentTimeMillis()
-                        )
-                    )
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
-        return newVehicle
-    }
+        // Validation
+        if (brand.isBlank()) return@withContext Result.failure(IllegalArgumentException("نام برند خودرو نمی‌تواند خالی باشد."))
+        if (model.isBlank()) return@withContext Result.failure(IllegalArgumentException("مدل خودرو نمی‌تواند خالی باشد."))
+        if (year.isBlank()) return@withContext Result.failure(IllegalArgumentException("سال ساخت خودرو نمی‌تواند خالی باشد."))
+        if (plate.isBlank()) return@withContext Result.failure(IllegalArgumentException("شماره پلاک خودرو الزامی است."))
+        if (currentMileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر کارکرد نمی‌تواند منفی باشد."))
+        if (estimatedValue < 0L) return@withContext Result.failure(IllegalArgumentException("ارزش تقریبی خودرو نمی‌تواند منفی باشد."))
 
-    // Update Vehicle
-    fun updateVehicle(updated: VehicleEntity) {
-        _vehicles.value = _vehicles.value.map { if (it.id == updated.id) updated else it }
+        try {
+            val db = AppDatabase.getDatabase(context)
+            val newId = UUID.randomUUID().toString()
+            val entity = com.example.data.database.VehicleEntity(
+                serverId = newId,
+                userId = userId,
+                brand = brand.trim(),
+                model = model.trim(),
+                year = year.trim(),
+                plate = plate.trim(),
+                currentMileage = currentMileage,
+                notes = color.trim().ifBlank { "سفید" },
+                vin = vin.trim(),
+                estimatedValue = estimatedValue,
+                updatedAt = System.currentTimeMillis()
+            )
 
-        val context = dbContext
-        val userId = SessionManager.userId
-        if (context != null && userId != null) {
-            repositoryScope.launch {
-                try {
-                    val db = AppDatabase.getDatabase(context)
-                    val existing = db.vehicleDao().getVehicleByServerId(userId, updated.id)
-                    if (existing != null) {
-                        db.vehicleDao().updateVehicle(
-                            existing.copy(
-                                brand = updated.brand,
-                                model = updated.model,
-                                year = updated.year,
-                                notes = updated.color,
-                                plate = updated.plate,
-                                vin = updated.vin,
-                                currentMileage = updated.currentMileage,
-                                estimatedValue = updated.estimatedValue,
-                                updatedAt = System.currentTimeMillis()
-                            )
-                        )
-                    } else {
-                        db.vehicleDao().insertVehicle(
-                            com.example.data.database.VehicleEntity(
-                                serverId = updated.id,
-                                userId = userId,
-                                brand = updated.brand,
-                                model = updated.model,
-                                year = updated.year,
-                                plate = updated.plate,
-                                currentMileage = updated.currentMileage,
-                                notes = updated.color,
-                                vin = updated.vin,
-                                estimatedValue = updated.estimatedValue,
-                                updatedAt = System.currentTimeMillis()
-                            )
-                        )
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
+            db.vehicleDao().insertVehicle(entity)
+
+            val createdDomain = VehicleEntity(
+                id = newId,
+                brand = entity.brand,
+                model = entity.model,
+                year = entity.year,
+                color = entity.notes ?: "سفید",
+                plate = entity.plate,
+                vin = entity.vin,
+                currentMileage = entity.currentMileage,
+                estimatedValue = entity.estimatedValue,
+                createdAt = entity.updatedAt
+            )
+            Result.success(createdDomain)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
-    // Update Mileage
-    fun updateMileage(vehicleId: String, newMileage: Int) {
-        _vehicles.value = _vehicles.value.map {
-            if (it.id == vehicleId) it.copy(currentMileage = newMileage) else it
-        }
+    // 2. Update Vehicle (Synchronous suspend contract)
+    suspend fun updateVehicle(updated: VehicleEntity): Result<VehicleEntity> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
-        val context = dbContext
-        val userId = SessionManager.userId
-        if (context != null && userId != null) {
-            repositoryScope.launch {
-                try {
-                    val db = AppDatabase.getDatabase(context)
-                    db.vehicleDao().updateMileage(userId, vehicleId, newMileage)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
-    }
+        if (updated.brand.isBlank()) return@withContext Result.failure(IllegalArgumentException("برند خودرو نمی‌تواند خالی باشد."))
+        if (updated.model.isBlank()) return@withContext Result.failure(IllegalArgumentException("مدل خودرو نمی‌تواند خالی باشد."))
+        if (updated.year.isBlank()) return@withContext Result.failure(IllegalArgumentException("سال ساخت خودرو نمی‌تواند خالی باشد."))
+        if (updated.plate.isBlank()) return@withContext Result.failure(IllegalArgumentException("شماره پلاک خودرو الزامی است."))
+        if (updated.currentMileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر کارکرد نمی‌تواند منفی باشد."))
+        if (updated.estimatedValue < 0L) return@withContext Result.failure(IllegalArgumentException("ارزش تقریبی خودرو نمی‌تواند منفی باشد."))
 
-    // Delete Vehicle
-    fun deleteVehicle(vehicleId: String) {
-        _vehicles.value = _vehicles.value.filter { it.id != vehicleId }
-        _services.value = _services.value.filter { it.vehicleId != vehicleId }
-        _expenses.value = _expenses.value.filter { it.vehicleId != vehicleId }
-        _insurances.value = _insurances.value.filter { it.vehicleId != vehicleId }
-        _inspections.value = _inspections.value.filter { it.vehicleId != vehicleId }
+        try {
+            val db = AppDatabase.getDatabase(context)
+            val existing = db.vehicleDao().getVehicleByServerId(userId, updated.id)
+                ?: return@withContext Result.failure(NoSuchElementException("خودروی مورد نظر در پرونده یافت نشد."))
 
-        val context = dbContext
-        val userId = SessionManager.userId
-        if (context != null && userId != null) {
-            repositoryScope.launch {
-                try {
-                    val db = AppDatabase.getDatabase(context)
-                    db.withTransaction {
-                        db.vehicleDao().deleteVehicleByServerId(userId, vehicleId)
-                        db.vehicleDao().deleteServicesByVehicleId(userId, vehicleId)
-                        db.vehicleDao().deleteExpensesByVehicleId(userId, vehicleId)
-                        db.vehicleDao().deleteInsurancesByVehicleId(userId, vehicleId)
-                        db.vehicleDao().deleteInspectionsByVehicleId(userId, vehicleId)
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
+            val updatedEntity = existing.copy(
+                brand = updated.brand.trim(),
+                model = updated.model.trim(),
+                year = updated.year.trim(),
+                notes = updated.color.trim(),
+                plate = updated.plate.trim(),
+                vin = updated.vin.trim(),
+                currentMileage = updated.currentMileage,
+                estimatedValue = updated.estimatedValue,
+                updatedAt = System.currentTimeMillis()
+            )
+
+            db.vehicleDao().updateVehicle(updatedEntity)
+            Result.success(updated)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
-    // Add Service
-    fun addService(
+    // 3. Update Mileage (Synchronous suspend contract)
+    suspend fun updateMileage(vehicleId: String, newMileage: Int): Result<Int> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+
+        if (newMileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر نمی‌تواند منفی باشد."))
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            val existing = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
+                ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
+
+            db.vehicleDao().updateMileage(userId, vehicleId, newMileage)
+            Result.success(newMileage)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 4. Delete Vehicle (Atomic cascading delete in Room transaction)
+    suspend fun deleteVehicle(vehicleId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            db.withTransaction {
+                db.vehicleDao().deleteVehicleByServerId(userId, vehicleId)
+                db.vehicleDao().deleteServicesByVehicleId(userId, vehicleId)
+                db.vehicleDao().deleteExpensesByVehicleId(userId, vehicleId)
+                db.vehicleDao().deleteInsurancesByVehicleId(userId, vehicleId)
+                db.vehicleDao().deleteInspectionsByVehicleId(userId, vehicleId)
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 5. Add Service (Atomic Service + Expense transaction)
+    suspend fun addService(
         vehicleId: String,
         title: String,
         serviceType: ServiceType,
@@ -483,178 +487,206 @@ class VehicleRepository {
         nextReminderDate: String?,
         nextReminderMileage: Int?,
         isReminderEnabled: Boolean
-    ): VehicleServiceEntity {
-        val newService = VehicleServiceEntity(
-            id = UUID.randomUUID().toString(),
-            vehicleId = vehicleId,
-            title = title,
-            serviceType = serviceType,
-            date = date,
-            mileage = mileage,
-            cost = cost,
-            description = description,
-            nextReminderDate = nextReminderDate,
-            nextReminderMileage = nextReminderMileage,
-            isReminderEnabled = isReminderEnabled
-        )
-        _services.value = listOf(newService) + _services.value
+    ): Result<VehicleServiceEntity> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
-        // Automatically update vehicle mileage if service mileage is higher
-        val currentCar = _vehicles.value.find { it.id == vehicleId }
-        if (currentCar != null && mileage > currentCar.currentMileage) {
-            updateMileage(vehicleId, mileage)
-        }
+        if (title.isBlank()) return@withContext Result.failure(IllegalArgumentException("عنوان سرویس نمی‌تواند خالی باشد."))
+        if (cost < 0L) return@withContext Result.failure(IllegalArgumentException("مبلغ سرویس نمی‌تواند منفی باشد."))
+        if (mileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر نمی‌تواند منفی باشد."))
 
-        // Also record as a vehicle expense if cost > 0
-        if (cost > 0L) {
-            addExpense(
+        val serviceDateMs = parseJalaliToTimestamp(date)
+            ?: return@withContext Result.failure(IllegalArgumentException("تاریخ سرویس وارد شده نامعتبر است."))
+
+        val dueDateMs = if (!nextReminderDate.isNullOrBlank()) {
+            parseJalaliToTimestamp(nextReminderDate)
+                ?: return@withContext Result.failure(IllegalArgumentException("تاریخ یادآور سرویس نامعتبر است."))
+        } else null
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
+                ?: return@withContext Result.failure(NoSuchElementException("خودروی مورد نظر یافت نشد."))
+
+            val serviceId = UUID.randomUUID().toString()
+            val encodedNotes = if (cost > 0L) "COST:$cost|$description" else description
+
+            val newService = VehicleServiceEntity(
+                id = serviceId,
                 vehicleId = vehicleId,
-                title = title,
-                category = VehicleExpenseCategory.SERVICE,
-                amount = cost,
-                date = date,
-                description = "سرویس دوره‌ای خودرو: $description"
+                title = title.trim(),
+                serviceType = serviceType,
+                date = date.trim(),
+                mileage = mileage,
+                cost = cost,
+                description = description.trim(),
+                nextReminderDate = nextReminderDate?.trim(),
+                nextReminderMileage = nextReminderMileage,
+                isReminderEnabled = isReminderEnabled
             )
-        }
 
-        // Schedule notification alarm if reminder is enabled and next date is set
-        if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
-            syncReminder(
-                id = newService.id,
-                title = "یادآور سرویس: ${currentCar?.brand ?: ""} ${currentCar?.model ?: ""}",
-                description = "موعد تعویض و سرویس دوره‌ای: $title ($description)",
-                date = nextReminderDate,
-                type = "VEHICLE"
-            )
-        }
+            db.withTransaction {
+                // Insert Service Record
+                db.vehicleDao().insertService(
+                    com.example.data.database.VehicleServiceEntity(
+                        serverId = serviceId,
+                        userId = userId,
+                        vehicleId = vehicleId,
+                        type = serviceType.name,
+                        title = title.trim(),
+                        serviceDate = serviceDateMs,
+                        dueDate = dueDateMs,
+                        cost = cost,
+                        dueMileage = mileage,
+                        status = if (isReminderEnabled) "PENDING" else "COMPLETED",
+                        notes = encodedNotes
+                    )
+                )
 
-        val context = dbContext
-        val userId = SessionManager.userId
-        if (context != null && userId != null) {
-            repositoryScope.launch {
-                try {
-                    val db = AppDatabase.getDatabase(context)
-                    val serviceDateMs = parseJalaliToTimestamp(date)
-                    val dueDateMs = parseJalaliToTimestamp(nextReminderDate)
-                    val encodedNotes = if (cost > 0L) "COST:$cost|$description" else description
-
-                    db.vehicleDao().insertService(
-                        com.example.data.database.VehicleServiceEntity(
-                            serverId = newService.id,
+                // Atomic Expense Record for Service
+                if (cost > 0L) {
+                    db.vehicleDao().insertExpense(
+                        VehicleExpenseRoomEntity(
+                            id = "exp_svc_$serviceId",
                             userId = userId,
                             vehicleId = vehicleId,
-                            type = serviceType.name,
-                            title = title,
-                            serviceDate = serviceDateMs,
-                            dueDate = dueDateMs,
-                            cost = cost,
-                            dueMileage = mileage,
-                            status = if (isReminderEnabled) "PENDING" else "COMPLETED",
-                            notes = encodedNotes
+                            title = title.trim(),
+                            category = VehicleExpenseCategory.SERVICE.name,
+                            amount = cost,
+                            date = date.trim(),
+                            description = "سرویس دوره‌ای خودرو: ${description.trim()}"
                         )
                     )
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                }
+
+                // Update Vehicle Mileage if higher
+                if (mileage > vehicle.currentMileage) {
+                    db.vehicleDao().updateMileage(userId, vehicleId, mileage)
                 }
             }
-        }
-        return newService
-    }
 
-    // Complete Service
-    fun completeService(serviceId: String, completedDate: String) {
-        _services.value = _services.value.map { svc ->
-            if (svc.id == serviceId) {
-                svc.copy(
-                    date = completedDate,
-                    nextReminderDate = null,
-                    nextReminderMileage = null,
-                    isReminderEnabled = false
+            // Sync Notification Reminder if enabled
+            if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+                syncReminderInternal(
+                    context = context,
+                    userId = userId,
+                    id = serviceId,
+                    title = "یادآور سرویس: ${vehicle.brand} ${vehicle.model}",
+                    description = "موعد تعویض و سرویس دوره‌ای: $title (${description.trim()})",
+                    date = nextReminderDate.trim(),
+                    type = "VEHICLE"
                 )
-            } else svc
-        }
-
-        val context = dbContext
-        val userId = SessionManager.userId
-        if (context != null && userId != null) {
-            repositoryScope.launch {
-                try {
-                    val db = AppDatabase.getDatabase(context)
-                    val completedDateMs = parseJalaliToTimestamp(completedDate) ?: System.currentTimeMillis()
-                    db.vehicleDao().completeService(userId, serviceId, completedDateMs)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
             }
+
+            Result.success(newService)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
-    // Add Expense
-    fun addExpense(
+    // 6. Complete Service (Atomic Status update)
+    suspend fun completeService(serviceId: String, completedDate: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+
+        val completedDateMs = parseJalaliToTimestamp(completedDate)
+            ?: return@withContext Result.failure(IllegalArgumentException("تاریخ انجام سرویس نامعتبر است."))
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            db.vehicleDao().completeService(userId, serviceId, completedDateMs)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 7. Delete Service (Atomic Service + linked Expense delete)
+    suspend fun deleteService(serviceId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            db.withTransaction {
+                db.vehicleDao().deleteServiceByServerId(userId, serviceId)
+                db.vehicleDao().deleteExpenseById(userId, "exp_svc_$serviceId")
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 8. Add Expense (Synchronous suspend contract)
+    suspend fun addExpense(
         vehicleId: String,
         title: String,
         category: VehicleExpenseCategory,
         amount: Long,
         date: String,
         description: String = ""
-    ): VehicleExpenseEntity {
-        val newExpense = VehicleExpenseEntity(
-            id = UUID.randomUUID().toString(),
-            vehicleId = vehicleId,
-            title = title,
-            category = category,
-            amount = amount,
-            date = date,
-            description = description
-        )
-        _expenses.value = listOf(newExpense) + _expenses.value
+    ): Result<VehicleExpenseEntity> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
-        val context = dbContext
-        val userId = SessionManager.userId
-        if (context != null && userId != null) {
-            repositoryScope.launch {
-                try {
-                    val db = AppDatabase.getDatabase(context)
-                    db.vehicleDao().insertExpense(
-                        com.example.data.database.VehicleExpenseRoomEntity(
-                            id = newExpense.id,
-                            userId = userId,
-                            vehicleId = vehicleId,
-                            title = title,
-                            category = category.name,
-                            amount = amount,
-                            date = date,
-                            description = description
-                        )
-                    )
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
-        return newExpense
-    }
+        if (title.isBlank()) return@withContext Result.failure(IllegalArgumentException("عنوان هزینه نمی‌تواند خالی باشد."))
+        if (amount <= 0L) return@withContext Result.failure(IllegalArgumentException("مبلغ هزینه باید بزرگتر از صفر باشد."))
 
-    // Delete Expense
-    fun deleteExpense(expenseId: String) {
-        _expenses.value = _expenses.value.filter { it.id != expenseId }
+        val parsedMs = parseJalaliToTimestamp(date)
+            ?: return@withContext Result.failure(IllegalArgumentException("تاریخ هزینه نامعتبر است."))
 
-        val context = dbContext
-        val userId = SessionManager.userId
-        if (context != null && userId != null) {
-            repositoryScope.launch {
-                try {
-                    val db = AppDatabase.getDatabase(context)
-                    db.vehicleDao().deleteExpenseById(userId, expenseId)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
+        try {
+            val db = AppDatabase.getDatabase(context)
+            val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
+                ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
+
+            val expenseId = UUID.randomUUID().toString()
+            val newExpense = VehicleExpenseEntity(
+                id = expenseId,
+                vehicleId = vehicleId,
+                title = title.trim(),
+                category = category,
+                amount = amount,
+                date = date.trim(),
+                description = description.trim()
+            )
+
+            db.vehicleDao().insertExpense(
+                VehicleExpenseRoomEntity(
+                    id = expenseId,
+                    userId = userId,
+                    vehicleId = vehicleId,
+                    title = title.trim(),
+                    category = category.name,
+                    amount = amount,
+                    date = date.trim(),
+                    description = description.trim()
+                )
+            )
+
+            Result.success(newExpense)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
-    // Add or Update Insurance
-    fun saveInsurance(
+    // 9. Delete Expense
+    suspend fun deleteExpense(expenseId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            db.vehicleDao().deleteExpenseById(userId, expenseId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 10. Save Insurance (Atomic Insurance + Expense + Reminder)
+    suspend fun saveInsurance(
         vehicleId: String,
         company: String,
         type: String,
@@ -662,148 +694,220 @@ class VehicleRepository {
         endDate: String,
         amount: Long,
         policyNumber: String
-    ): VehicleInsuranceEntity {
-        val newInsurance = VehicleInsuranceEntity(
-            id = UUID.randomUUID().toString(),
-            vehicleId = vehicleId,
-            company = company,
-            type = type,
-            startDate = startDate,
-            endDate = endDate,
-            amount = amount,
-            policyNumber = policyNumber
-        )
-        _insurances.value = listOf(newInsurance) + _insurances.value.filter { it.vehicleId != vehicleId || it.type != type }
+    ): Result<VehicleInsuranceEntity> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
-        // Also record as vehicle expense if amount > 0
-        if (amount > 0L) {
-            addExpense(
-                vehicleId = vehicleId,
-                title = "تمدید $type ($company)",
-                category = VehicleExpenseCategory.INSURANCE,
-                amount = amount,
-                date = startDate,
-                description = "شماره بیمه‌نامه: $policyNumber"
-            )
+        if (company.isBlank()) return@withContext Result.failure(IllegalArgumentException("نام شرکت بیمه نمی‌تواند خالی باشد."))
+        if (amount < 0L) return@withContext Result.failure(IllegalArgumentException("مبلغ حق بیمه نمی‌تواند منفی باشد."))
+
+        val startMs = parseJalaliToTimestamp(startDate)
+            ?: return@withContext Result.failure(IllegalArgumentException("تاریخ شروع بیمه‌نامه نامعتبر است."))
+        val endMs = parseJalaliToTimestamp(endDate)
+            ?: return@withContext Result.failure(IllegalArgumentException("تاریخ پایان بیمه‌نامه نامعتبر است."))
+
+        if (endMs < startMs) {
+            return@withContext Result.failure(IllegalArgumentException("تاریخ پایان بیمه نمی‌تواند قبل از تاریخ شروع باشد."))
         }
 
-        // Schedule Alarm Notification Reminder for Insurance expiry date
-        val currentCar = _vehicles.value.find { it.id == vehicleId }
-        syncReminder(
-            id = newInsurance.id,
-            title = "تمدید $type خودرو",
-            description = "سررسید انقضای بیمه‌نامه برای خودرو ${currentCar?.brand ?: ""} ${currentCar?.model ?: ""}. شماره بیمه‌نامه: $policyNumber",
-            date = endDate,
-            type = "INSURANCE"
-        )
+        try {
+            val db = AppDatabase.getDatabase(context)
+            val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
+                ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
 
-        val context = dbContext
-        val userId = SessionManager.userId
-        if (context != null && userId != null) {
-            repositoryScope.launch {
-                try {
-                    val db = AppDatabase.getDatabase(context)
-                    db.vehicleDao().insertInsurance(
-                        com.example.data.database.VehicleInsuranceRoomEntity(
-                            id = newInsurance.id,
+            val insuranceId = UUID.randomUUID().toString()
+            val newInsurance = VehicleInsuranceEntity(
+                id = insuranceId,
+                vehicleId = vehicleId,
+                company = company.trim(),
+                type = type.trim(),
+                startDate = startDate.trim(),
+                endDate = endDate.trim(),
+                amount = amount,
+                policyNumber = policyNumber.trim()
+            )
+
+            db.withTransaction {
+                db.vehicleDao().insertInsurance(
+                    VehicleInsuranceRoomEntity(
+                        id = insuranceId,
+                        userId = userId,
+                        vehicleId = vehicleId,
+                        company = company.trim(),
+                        type = type.trim(),
+                        startDate = startDate.trim(),
+                        endDate = endDate.trim(),
+                        amount = amount,
+                        policyNumber = policyNumber.trim(),
+                        reminderDays = newInsurance.reminderDays.joinToString(",")
+                    )
+                )
+
+                if (amount > 0L) {
+                    db.vehicleDao().insertExpense(
+                        VehicleExpenseRoomEntity(
+                            id = "exp_ins_$insuranceId",
                             userId = userId,
                             vehicleId = vehicleId,
-                            company = company,
-                            type = type,
-                            startDate = startDate,
-                            endDate = endDate,
+                            title = "تمدید ${type.trim()} (${company.trim()})",
+                            category = VehicleExpenseCategory.INSURANCE.name,
                             amount = amount,
-                            policyNumber = policyNumber,
-                            reminderDays = newInsurance.reminderDays.joinToString(",")
+                            date = startDate.trim(),
+                            description = "شماره بیمه‌نامه: ${policyNumber.trim()}"
                         )
                     )
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
             }
+
+            // Sync Reminder for Insurance
+            syncReminderInternal(
+                context = context,
+                userId = userId,
+                id = insuranceId,
+                title = "تمدید $type خودرو",
+                description = "سررسید انقضای بیمه‌نامه برای خودرو ${vehicle.brand} ${vehicle.model}. شماره بیمه‌نامه: $policyNumber",
+                date = endDate.trim(),
+                type = "INSURANCE"
+            )
+
+            Result.success(newInsurance)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
-        return newInsurance
     }
 
-    fun renewInsurance(insuranceId: String, newEndDate: String) {
+    // 11. Renew Insurance
+    suspend fun renewInsurance(insuranceId: String, newEndDate: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+
         val today = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-        _insurances.value = _insurances.value.map { ins ->
-            if (ins.id == insuranceId) {
-                ins.copy(
-                    startDate = today,
-                    endDate = newEndDate
-                )
-            } else ins
-        }
+        val endMs = parseJalaliToTimestamp(newEndDate)
+            ?: return@withContext Result.failure(IllegalArgumentException("تاریخ پایان بیمه نامعتبر است."))
 
-        val context = dbContext
-        val userId = SessionManager.userId
-        if (context != null && userId != null) {
-            repositoryScope.launch {
-                try {
-                    val db = AppDatabase.getDatabase(context)
-                    db.vehicleDao().renewInsurance(userId, insuranceId, today, newEndDate)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
+        try {
+            val db = AppDatabase.getDatabase(context)
+            db.vehicleDao().renewInsurance(userId, insuranceId, today, newEndDate.trim())
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
-    // Add or Update Inspection
-    fun saveInspection(
+    // 12. Delete Insurance
+    suspend fun deleteInsurance(insuranceId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            db.withTransaction {
+                db.vehicleDao().deleteInsuranceById(userId, insuranceId)
+                db.vehicleDao().deleteExpenseById(userId, "exp_ins_$insuranceId")
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 13. Save Inspection (Atomic Inspection + Expense + Reminder)
+    suspend fun saveInspection(
         vehicleId: String,
         lastInspectionDate: String,
         expiryDate: String,
         cost: Long,
         status: String,
         centerName: String
-    ): VehicleInspectionEntity {
-        val newInspection = VehicleInspectionEntity(
-            id = UUID.randomUUID().toString(),
-            vehicleId = vehicleId,
-            lastInspectionDate = lastInspectionDate,
-            expiryDate = expiryDate,
-            cost = cost,
-            status = status,
-            centerName = centerName
-        )
-        _inspections.value = listOf(newInspection) + _inspections.value.filter { it.vehicleId != vehicleId }
+    ): Result<VehicleInspectionEntity> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
-        // Schedule Alarm Notification Reminder for Technical Inspection expiry date
-        val currentCar = _vehicles.value.find { it.id == vehicleId }
-        syncReminder(
-            id = newInspection.id,
-            title = "معاینه فنی خودرو",
-            description = "موعد سررسید معاینه فنی برای خودرو ${currentCar?.brand ?: ""} ${currentCar?.model ?: ""}. مرکز $centerName",
-            date = expiryDate,
-            type = "VEHICLE"
-        )
+        if (cost < 0L) return@withContext Result.failure(IllegalArgumentException("هزینه معاینه فنی نمی‌تواند منفی باشد."))
 
-        val context = dbContext
-        val userId = SessionManager.userId
-        if (context != null && userId != null) {
-            repositoryScope.launch {
-                try {
-                    val db = AppDatabase.getDatabase(context)
-                    db.vehicleDao().insertInspection(
-                        com.example.data.database.VehicleInspectionRoomEntity(
-                            id = newInspection.id,
+        val lastMs = parseJalaliToTimestamp(lastInspectionDate)
+            ?: return@withContext Result.failure(IllegalArgumentException("تاریخ آخرین معاینه فنی نامعتبر است."))
+        val expMs = parseJalaliToTimestamp(expiryDate)
+            ?: return@withContext Result.failure(IllegalArgumentException("تاریخ انقضای معاینه فنی نامعتبر است."))
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
+                ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
+
+            val inspectionId = UUID.randomUUID().toString()
+            val newInspection = VehicleInspectionEntity(
+                id = inspectionId,
+                vehicleId = vehicleId,
+                lastInspectionDate = lastInspectionDate.trim(),
+                expiryDate = expiryDate.trim(),
+                cost = cost,
+                status = status.trim(),
+                centerName = centerName.trim()
+            )
+
+            db.withTransaction {
+                db.vehicleDao().insertInspection(
+                    VehicleInspectionRoomEntity(
+                        id = inspectionId,
+                        userId = userId,
+                        vehicleId = vehicleId,
+                        lastInspectionDate = lastInspectionDate.trim(),
+                        expiryDate = expiryDate.trim(),
+                        cost = cost,
+                        status = status.trim(),
+                        centerName = centerName.trim()
+                    )
+                )
+
+                if (cost > 0L) {
+                    db.vehicleDao().insertExpense(
+                        VehicleExpenseRoomEntity(
+                            id = "exp_insp_$inspectionId",
                             userId = userId,
                             vehicleId = vehicleId,
-                            lastInspectionDate = lastInspectionDate,
-                            expiryDate = expiryDate,
-                            cost = cost,
-                            status = status,
-                            centerName = centerName
+                            title = "معاینه فنی خودرو ($centerName)",
+                            category = VehicleExpenseCategory.INSPECTION.name,
+                            amount = cost,
+                            date = lastInspectionDate.trim(),
+                            description = "مرکز معاینه فنی: $centerName"
                         )
                     )
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
             }
+
+            // Sync Reminder for Inspection
+            syncReminderInternal(
+                context = context,
+                userId = userId,
+                id = inspectionId,
+                title = "معاینه فنی خودرو",
+                description = "موعد سررسید معاینه فنی برای خودرو ${vehicle.brand} ${vehicle.model}. مرکز $centerName",
+                date = expiryDate.trim(),
+                type = "VEHICLE"
+            )
+
+            Result.success(newInspection)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
-        return newInspection
+    }
+
+    // 14. Delete Inspection
+    suspend fun deleteInspection(inspectionId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            db.withTransaction {
+                db.vehicleDao().deleteInspectionById(userId, inspectionId)
+                db.vehicleDao().deleteExpenseById(userId, "exp_insp_$inspectionId")
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     fun clearAllVehiclesData() {

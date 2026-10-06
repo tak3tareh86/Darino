@@ -80,6 +80,7 @@ fun VehicleManagementScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val repository = remember {
         VehicleRepository.instance.apply {
             initDatabase(context)
@@ -194,10 +195,23 @@ fun VehicleManagementScreen(
             vehicle = editingVehicle,
             onDismiss = { isAddSheetOpen = false },
             onSave = { brand, model, year, color, plate, vin, mileage, estValue ->
-                if (editingVehicle != null) {
-                    val current = editingVehicle!!
-                    repository.updateVehicle(
-                        current.copy(
+                scope.launch {
+                    val result = if (editingVehicle != null) {
+                        val current = editingVehicle!!
+                        repository.updateVehicle(
+                            current.copy(
+                                brand = brand,
+                                model = model,
+                                year = year,
+                                color = color,
+                                plate = plate,
+                                vin = vin,
+                                currentMileage = mileage,
+                                estimatedValue = estValue
+                            )
+                        )
+                    } else {
+                        repository.addVehicle(
                             brand = brand,
                             model = model,
                             year = year,
@@ -207,20 +221,13 @@ fun VehicleManagementScreen(
                             currentMileage = mileage,
                             estimatedValue = estValue
                         )
-                    )
-                } else {
-                    repository.addVehicle(
-                        brand = brand,
-                        model = model,
-                        year = year,
-                        color = color,
-                        plate = plate,
-                        vin = vin,
-                        currentMileage = mileage,
-                        estimatedValue = estValue
-                    )
+                    }
+                    result.onSuccess {
+                        isAddSheetOpen = false
+                    }.onFailure { err ->
+                        android.widget.Toast.makeText(context, "خطا در ثبت خودرو: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}", android.widget.Toast.LENGTH_LONG).show()
+                    }
                 }
-                isAddSheetOpen = false
             }
         )
     }
@@ -232,8 +239,16 @@ fun VehicleManagementScreen(
         message = "آیا از حذف این خودرو از گاراژ خود مطمئن هستید؟ سوابق سرویس‌ها و هزینه‌های این خودرو حذف خواهند شد.",
         confirmButtonText = "حذف خودرو",
         onConfirm = {
-            vehicleToDelete?.let { repository.deleteVehicle(it.id) }
+            val target = vehicleToDelete
             vehicleToDelete = null
+            if (target != null) {
+                scope.launch {
+                    val result = repository.deleteVehicle(target.id)
+                    result.onFailure { err ->
+                        android.widget.Toast.makeText(context, "خطا در حذف خودرو: ${err.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         },
         onDismiss = { vehicleToDelete = null }
     )
@@ -517,16 +532,16 @@ fun AddEditVehicleSheet(
 
             Button(
                 onClick = {
-                    if (brand.isBlank() || model.isBlank() || plate.isBlank()) {
-                        errorMessage = "لطفاً برند، مدل و شماره پلاک را وارد کنید."
+                    if (brand.isBlank() || model.isBlank() || modelYear.isBlank() || plate.isBlank()) {
+                        errorMessage = "لطفاً برند، مدل، سال ساخت و شماره پلاک را وارد کنید."
                         return@Button
                     }
                     val mileageInt = mileage.replace(",", "").trim().toIntOrNull() ?: 0
                     onSave(
                         brand.trim(),
                         model.trim(),
-                        modelYear.trim().ifBlank { "۱۴۰۰" },
-                        color.trim(),
+                        modelYear.trim(),
+                        color.trim().ifBlank { "سفید" },
                         plate.trim(),
                         vin.trim(),
                         mileageInt,

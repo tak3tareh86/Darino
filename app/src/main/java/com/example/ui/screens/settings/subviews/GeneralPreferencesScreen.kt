@@ -480,7 +480,6 @@ private fun CleanSlateDeveloperCard(
                         ).show()
                     } else {
                         financeRepo.restoreSampleTransactions()
-                        vehicleRepo.restoreSampleVehicles()
                         Toast.makeText(
                             context,
                             if (isEn) "Sample data restored." else "داده‌های تستی و نمونه با موفقیت بازیابی شدند.",

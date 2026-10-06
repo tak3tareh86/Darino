@@ -492,7 +492,7 @@ fun InstallmentsScreen(
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar("تاریخ سررسید نامعتبر یا خالی است")
                     }
-                    return@Button
+                    return@AddInstallmentSheet
                 }
 
                 if (!customScheduleItems.isNullOrEmpty()) {
@@ -508,11 +508,12 @@ fun InstallmentsScreen(
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("شماره اقساط سفارشی باید یکتا و معتبر باشند و مبلغ/تاریخ نباید خالی باشد")
                         }
-                        return@Button
+                        return@AddInstallmentSheet
                     }
                 }
 
                 val computedEndDate = PersianCalendarHelper.addMonthsToPersianDate(effectiveDueDate, totalInstallments)
+                val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
 
                 val paymentHistoryList = if (!customScheduleItems.isNullOrEmpty()) {
                     customScheduleItems
