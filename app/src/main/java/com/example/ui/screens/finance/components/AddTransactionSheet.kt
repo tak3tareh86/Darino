@@ -109,7 +109,11 @@ fun AddTransactionSheet(
 
     var selectedCategory by remember {
         mutableStateOf(
-            initialTransaction?.category ?: availableCategories.firstOrNull() ?: FinanceDefaultCategories.defaultExpenseCategories[0]
+            initialTransaction?.category ?: if (selectedType == TransactionType.TRANSFER) {
+                FinanceDefaultCategories.transferCategory
+            } else {
+                availableCategories.firstOrNull() ?: FinanceDefaultCategories.defaultExpenseCategories[0]
+            }
         )
     }
 
