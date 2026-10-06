@@ -95,17 +95,23 @@ class VehicleRepository {
                     }
 
                     migratedServices.forEach { s ->
+                        val targetDateStr = s.nextReminderDate?.takeIf { it.isNotBlank() } ?: s.date
+                        val dueDateMs = runCatching {
+                            com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(targetDateStr)
+                        }.getOrNull()
+                        val vehicleIntId = s.vehicleId.toIntOrNull() ?: 1
+
                         vDao.insertService(
                             com.example.data.database.VehicleServiceEntity(
                                 serverId = s.id,
                                 userId = userId,
-                                vehicleId = 1,
+                                vehicleId = vehicleIntId,
                                 type = s.serviceType.name,
                                 title = s.title,
-                                dueDate = null,
+                                dueDate = dueDateMs,
                                 dueMileage = s.mileage,
                                 status = "PENDING",
-                                notes = s.description
+                                notes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
                             )
                         )
                     }
@@ -178,19 +184,6 @@ class VehicleRepository {
                     currentMileage = v.currentMileage
                 )
             }
-            val dbServices = vDao.getAllServicesList(userId)
-            _services.value = dbServices.map { s ->
-                VehicleServiceEntity(
-                    id = s.serverId ?: s.id.toString(),
-                    vehicleId = _vehicles.value.firstOrNull()?.id ?: "v-1",
-                    title = s.title,
-                    serviceType = try { ServiceType.valueOf(s.type) } catch (e: Exception) { ServiceType.OIL_CHANGE },
-                    date = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
-                    mileage = s.dueMileage ?: 0,
-                    cost = 0L,
-                    description = s.notes ?: ""
-                )
-            }
             val dbExpenses = vDao.getAllExpensesList(userId)
             if (dbExpenses.isNotEmpty()) {
                 _expenses.value = dbExpenses.map { e ->
@@ -205,6 +198,42 @@ class VehicleRepository {
                         receiptImageUri = e.receiptImageUri
                     )
                 }
+            }
+            val dbServices = vDao.getAllServicesList(userId)
+            _services.value = dbServices.map { s ->
+                val (parsedCost, cleanDescription) = parseCostAndDescription(s.notes)
+                val matchedVehicle = _vehicles.value.find { it.id == s.vehicleId.toString() }
+                val realVehicleId = matchedVehicle?.id ?: s.vehicleId.toString()
+
+                val realCost = if (parsedCost > 0L) {
+                    parsedCost
+                } else {
+                    _expenses.value.find { it.vehicleId == realVehicleId && it.title == s.title }?.amount
+                        ?: _expenses.value.find { it.title == s.title }?.amount
+                        ?: 0L
+                }
+
+                val realDate = if (s.dueDate != null && s.dueDate > 0L) {
+                    com.example.util.PersianCalendarHelper.fromEpochMillis(s.dueDate).toFormattedDate()
+                } else if (s.updatedAt > 0L) {
+                    com.example.util.PersianCalendarHelper.fromEpochMillis(s.updatedAt).toFormattedDate()
+                } else {
+                    "۱۴۰۴/۰۱/۰۱"
+                }
+
+                VehicleServiceEntity(
+                    id = s.serverId ?: s.id.toString(),
+                    vehicleId = realVehicleId,
+                    title = s.title,
+                    serviceType = try { ServiceType.valueOf(s.type) } catch (e: Exception) { ServiceType.OIL_CHANGE },
+                    date = realDate,
+                    mileage = s.dueMileage ?: 0,
+                    cost = realCost,
+                    description = cleanDescription,
+                    nextReminderDate = if (s.dueDate != null && s.dueDate > 0L) realDate else null,
+                    nextReminderMileage = s.dueMileage,
+                    isReminderEnabled = s.status != "COMPLETED"
+                )
             }
             val dbInsurances = vDao.getAllInsurancesList(userId)
             if (dbInsurances.isNotEmpty()) {
@@ -271,17 +300,24 @@ class VehicleRepository {
 
                 vDao.clearAllServices(userId)
                 _services.value.forEach { s ->
+                    val targetDateStr = s.nextReminderDate?.takeIf { it.isNotBlank() } ?: s.date
+                    val dueDateMs = runCatching {
+                        com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(targetDateStr)
+                    }.getOrNull()
+                    val vehicleIntId = s.vehicleId.toIntOrNull() ?: 1
+                    val encodedNotes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
+
                     vDao.insertService(
                         com.example.data.database.VehicleServiceEntity(
                             serverId = s.id,
                             userId = userId,
-                            vehicleId = 1,
+                            vehicleId = vehicleIntId,
                             type = s.serviceType.name,
                             title = s.title,
-                            dueDate = null,
+                            dueDate = dueDateMs,
                             dueMileage = s.mileage,
-                            status = "PENDING",
-                            notes = s.description
+                            status = if (s.isReminderEnabled) "PENDING" else "COMPLETED",
+                            notes = encodedNotes
                         )
                     )
                 }
@@ -1045,5 +1081,17 @@ class VehicleRepository {
         _expenses.value = createInitialExpenses()
         _insurances.value = createInitialInsurances()
         _inspections.value = createInitialInspections()
+    }
+
+    private fun parseCostAndDescription(notes: String?): Pair<Long, String> {
+        if (notes.isNullOrBlank()) return Pair(0L, "")
+        if (notes.startsWith("COST:")) {
+            val parts = notes.split("|", limit = 2)
+            val costStr = parts[0].removePrefix("COST:")
+            val cost = costStr.toLongOrNull() ?: 0L
+            val desc = if (parts.size > 1) parts[1] else ""
+            return Pair(cost, desc)
+        }
+        return Pair(0L, notes)
     }
 }
