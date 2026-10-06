@@ -160,12 +160,26 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             if (!srcAcc.isActive || !destAcc.isActive) return false
         } else {
             // INCOME or EXPENSE
-            val accId = tx.accountId
-            if (accId != null && accId.isNotBlank()) {
-                val acc = db.accountDao().getAccountByStringId(userId, accId) ?: return false
-                if (acc.userId != userId) return false
-                if (!acc.isActive) return false
+            var accId = tx.accountId
+            if (accId.isNullOrBlank()) {
+                val accounts = db.accountDao().getAllAccountsList(userId).filter { it.isActive && it.deletedAt == null }
+                val defaultAcc = accounts.firstOrNull() ?: run {
+                    val newAcc = com.example.data.database.AccountEntity(
+                        userId = userId,
+                        stringId = "default_acc_" + userId,
+                        name = "حساب پیش‌فرض",
+                        type = "BANK",
+                        initialBalance = 0L,
+                        isActive = true
+                    )
+                    try { db.accountDao().insertAccount(newAcc) } catch (_: Exception) {}
+                    db.accountDao().getAccountByStringId(userId, "default_acc_" + userId)
+                }
+                accId = defaultAcc?.stringId ?: return false
             }
+            val acc = db.accountDao().getAccountByStringId(userId, accId) ?: return false
+            if (acc.userId != userId) return false
+            if (!acc.isActive || acc.deletedAt != null) return false
         }
         return true
     }

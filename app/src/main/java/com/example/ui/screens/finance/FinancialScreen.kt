@@ -41,14 +41,18 @@ import com.example.ui.screens.finance.components.FinancialHeader
 import com.example.ui.screens.finance.components.FinancialQuickActions
 import com.example.ui.screens.finance.components.FinancialSummaryCard
 import com.example.ui.screens.finance.components.MonthlyBudgetCard
+import com.example.ui.screens.finance.components.TransferSheet
+import com.example.ui.screens.finance.model.TransactionItemData
+import com.example.ui.screens.finance.model.TransactionType
+import com.example.ui.screens.finance.model.FinanceDefaultCategories
+import com.example.util.PersianCalendarHelper
+import com.example.ui.screens.finance.data.TransactionOperationResult
 import com.example.ui.screens.finance.components.RecentTransactionsSection
 import com.example.ui.screens.finance.model.Budget
 import com.example.ui.screens.finance.model.FinanceFilterPeriod
 import com.example.ui.screens.finance.model.RecurringTransaction
 import com.example.ui.screens.finance.model.SavingsGoal
 import com.example.ui.screens.finance.model.TransactionCategory
-import com.example.ui.screens.finance.model.TransactionItemData
-import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.finance.screens.BudgetScreen
 import com.example.ui.screens.finance.screens.CategoryManagementScreen
 import com.example.ui.screens.finance.screens.RecurringTransactionsScreen
@@ -89,6 +93,7 @@ fun FinancialScreen(
     // Bottom Sheets State
     var showFilterSheet by remember { mutableStateOf(false) }
     var showAddTxSheet by remember { mutableStateOf(false) }
+    var showTransferSheet by remember { mutableStateOf(false) }
     var addTxInitialType by remember { mutableStateOf(TransactionType.EXPENSE) }
     var editingTransaction by remember { mutableStateOf<TransactionItemData?>(null) }
     var selectedTransactionDetail by remember { mutableStateOf<TransactionItemData?>(null) }
@@ -170,9 +175,7 @@ fun FinancialScreen(
                                         showAddTxSheet = true
                                     }
                                     "transfer" -> {
-                                        addTxInitialType = TransactionType.TRANSFER
-                                        editingTransaction = null
-                                        showAddTxSheet = true
+                                        showTransferSheet = true
                                     }
                                 }
                             }
@@ -368,11 +371,44 @@ fun FinancialScreen(
         )
     }
 
+    if (showTransferSheet) {
+        TransferSheet(
+            accounts = state.accounts,
+            onDismiss = { showTransferSheet = false },
+            onSubmitTransfer = { srcId, destId, amountStr, desc ->
+                val parsedAmt = com.example.util.IranianAmountUtils.parseAmountToLong(amountStr) ?: amountStr.toLongOrNull() ?: 0L
+                if (parsedAmt > 0L) {
+                    val transferTx = TransactionItemData(
+                        id = java.util.UUID.randomUUID().toString(),
+                        title = "انتقال وجه",
+                        amount = parsedAmt,
+                        type = TransactionType.TRANSFER,
+                        category = state.categories.firstOrNull() ?: FinanceDefaultCategories.defaultExpenseCategories[0],
+                        datePersian = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
+                        timePersian = "۱۲:۰۰",
+                        description = desc,
+                        transferSourceAccountId = srcId,
+                        transferDestinationAccountId = destId
+                    )
+                    viewModel.addTransaction(transferTx) { res ->
+                        if (res == TransactionOperationResult.SUCCESS) {
+                            scope.launch { snackbarHostState.showSnackbar("انتقال وجه با موفقیت انجام شد") }
+                            showTransferSheet = false
+                        } else {
+                            scope.launch { snackbarHostState.showSnackbar("خطا در انجام انتقال وجه") }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
     if (showAddTxSheet) {
         AddTransactionSheet(
             initialType = addTxInitialType,
             initialTransaction = editingTransaction,
             categories = state.categories,
+            accounts = state.accounts,
             onDismiss = {
                 showAddTxSheet = false
                 editingTransaction = null

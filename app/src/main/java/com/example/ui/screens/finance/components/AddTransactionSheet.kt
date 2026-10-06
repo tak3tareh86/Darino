@@ -84,6 +84,7 @@ fun AddTransactionSheet(
     initialType: TransactionType = TransactionType.EXPENSE,
     initialTransaction: TransactionItemData? = null,
     categories: List<TransactionCategory> = FinanceDefaultCategories.allDefaultCategories,
+    accounts: List<com.example.ui.screens.finance.model.Account> = emptyList(),
     onDismiss: () -> Unit,
     onSubmitTransaction: (TransactionItemData) -> Unit
 ) {
@@ -118,6 +119,12 @@ fun AddTransactionSheet(
     var timePersian by remember { mutableStateOf(initialTransaction?.timePersian ?: "۱۲:۰۰") }
     var description by remember { mutableStateOf(initialTransaction?.description ?: "") }
     var tagsText by remember { mutableStateOf(initialTransaction?.tags?.joinToString("، ") ?: "") }
+    val activeAccounts = remember(accounts) { accounts.filter { it.isActive } }
+    var selectedAccount by remember(activeAccounts, initialTransaction) {
+        mutableStateOf(
+            activeAccounts.find { it.id == initialTransaction?.accountId } ?: activeAccounts.firstOrNull()
+        )
+    }
     var isRecurring by remember { mutableStateOf(initialTransaction?.isRecurring ?: false) }
     var recurringFrequency by remember { mutableStateOf(initialTransaction?.recurringFrequency ?: RecurringFrequency.MONTHLY) }
 
@@ -210,6 +217,69 @@ fun AddTransactionSheet(
                             ),
                             color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+            }
+
+            // Account Selector Section
+            if (selectedType != TransactionType.TRANSFER) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "انتخاب حساب",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (activeAccounts.isEmpty()) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(RadiusMD),
+                            color = Color(0xFFEF4444).copy(alpha = 0.1f)
+                        ) {
+                            Text(
+                                text = "هیچ حساب فعالی یافت نشد. لطفاً ابتدا از بخش تنظیمات حساب اضافه کنید.",
+                                modifier = Modifier.padding(12.dp),
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFEF4444)),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            activeAccounts.forEach { acc ->
+                                val isSelected = selectedAccount?.id == acc.id
+                                Surface(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { selectedAccount = acc },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
+                                    border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = acc.name,
+                                            style = MaterialTheme.typography.labelMedium.copy(
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                fontSize = 12.sp
+                                            ),
+                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = com.example.util.MoneyFormatter.formatToman(acc.initialBalance) + " تومان",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                            color = if (isSelected) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -576,6 +646,16 @@ fun AddTransactionSheet(
             // Submit Button
             Button(
                 onClick = {
+                    if (selectedType != TransactionType.TRANSFER) {
+                        if (selectedAccount == null) {
+                            errorMessage = "لطفاً حساب مورد نظر را انتخاب کنید."
+                            return@Button
+                        }
+                        if (activeAccounts.isEmpty()) {
+                            errorMessage = "هیچ حساب فعالی موجود نیست."
+                            return@Button
+                        }
+                    }
                     if (parsedAmount <= 0L) {
                         errorMessage = "لطفاً مبلغ معتبری وارد کنید."
                         return@Button
@@ -596,7 +676,8 @@ fun AddTransactionSheet(
                         timePersian = timePersian,
                         description = description,
                         paymentMethod = paymentMethod,
-                        accountName = paymentMethod.title,
+                        accountName = selectedAccount?.name ?: paymentMethod.title,
+                        accountId = selectedAccount?.id,
                         sourceType = initialTransaction?.sourceType ?: TransactionSourceType.MANUAL,
                         sourceId = initialTransaction?.sourceId,
                         tags = tags,

@@ -213,6 +213,7 @@ data class FinancialState(
     val savingsGoals: List<SavingsGoal> = emptyList(),
     val recurringTransactions: List<RecurringTransaction> = emptyList(),
     val categories: List<TransactionCategory> = emptyList(),
+    val accounts: List<Account> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
 )

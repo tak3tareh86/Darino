@@ -32,6 +32,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,14 +50,17 @@ import com.example.ui.theme.RadiusMD
 
 @Composable
 fun TransferSheet(
+    accounts: List<com.example.ui.screens.finance.model.Account> = emptyList(),
     onDismiss: () -> Unit,
     onSubmitTransfer: (from: String, to: String, amount: String, desc: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var fromAccount by remember { mutableStateOf("حساب اصلی") }
-    var toAccount by remember { mutableStateOf("حساب پس‌انداز") }
+    val activeAccounts = remember(accounts) { accounts.filter { it.isActive } }
+    var selectedSource by remember(activeAccounts) { mutableStateOf(activeAccounts.firstOrNull()) }
+    var selectedDestination by remember(activeAccounts) { mutableStateOf(activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()) }
     var amountText by remember { mutableStateOf("") }
     var descText by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Dialog(
         onDismissRequest = onDismiss
@@ -120,6 +126,58 @@ fun TransferSheet(
                     }
                 }
 
+                // Account Selectors
+                val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+                if (activeAccounts.size < 2) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(RadiusMD),
+                        color = Color(0xFFEF4444).copy(alpha = 0.1f)
+                    ) {
+                        Text(
+                            text = "برای انتقال وجه بین حساب‌ها حداقل به دو حساب فعال نیاز دارید.",
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFEF4444)),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("حساب مبدأ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            activeAccounts.forEach { acc ->
+                                val isSel = selectedSource?.id == acc.id
+                                Surface(
+                                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { selectedSource = acc },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSel) MaterialTheme.colorScheme.primary else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
+                                ) {
+                                    Text(acc.name, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), color = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
+                        Text("حساب مقصد", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            activeAccounts.forEach { acc ->
+                                val isSel = selectedDestination?.id == acc.id
+                                Surface(
+                                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { selectedDestination = acc },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSel) MaterialTheme.colorScheme.primary else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
+                                ) {
+                                    Text(acc.name, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), color = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Amount Field
                 OutlinedTextField(
                     value = amountText,
@@ -152,12 +210,30 @@ fun TransferSheet(
                     singleLine = true
                 )
 
+                errorMessage?.let { msg ->
+                    Text(text = msg, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFEF4444)))
+                }
+
                 // Submit Button
                 Button(
                     onClick = {
-                        if (amountText.isNotBlank()) {
-                            onSubmitTransfer(fromAccount, toAccount, amountText, descText)
+                        val parsed = com.example.util.IranianAmountUtils.parseAmountToLong(amountText) ?: amountText.toLongOrNull() ?: 0L
+                        if (parsed <= 0L) {
+                            errorMessage = "لطفاً مبلغ معتبری وارد کنید."
+                            return@Button
                         }
+                        val src = selectedSource
+                        val dest = selectedDestination
+                        if (src == null || dest == null) {
+                            errorMessage = "لطفاً حساب مبدأ و مقصد را انتخاب کنید."
+                            return@Button
+                        }
+                        if (src.id == dest.id) {
+                            errorMessage = "حساب مبدأ و مقصد نمی‌توانند یکسان باشند."
+                            return@Button
+                        }
+                        errorMessage = null
+                        onSubmitTransfer(src.id, dest.id, amountText, descText)
                     },
                     modifier = Modifier
                         .fillMaxWidth()

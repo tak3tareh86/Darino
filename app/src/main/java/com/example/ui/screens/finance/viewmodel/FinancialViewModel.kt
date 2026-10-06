@@ -36,6 +36,7 @@ class FinancialViewModel(
             repository.getSavingsGoals(),
             repository.getRecurringTransactions(),
             repository.getCategories(),
+            repository.getAccounts(),
             _selectedPeriod
         )
     ) { args ->
@@ -49,7 +50,9 @@ class FinancialViewModel(
         val recurring = args[3] as List<RecurringTransaction>
         @Suppress("UNCHECKED_CAST")
         val categories = args[4] as List<TransactionCategory>
-        val period = args[5] as FinanceFilterPeriod
+        @Suppress("UNCHECKED_CAST")
+        val accounts = args[5] as List<com.example.ui.screens.finance.model.Account>
+        val period = args[6] as FinanceFilterPeriod
 
         val range = com.example.ui.screens.finance.domain.FinanceTimeUtils.getTimeRangeForPeriod(period)
         
@@ -91,6 +94,7 @@ class FinancialViewModel(
             savingsGoals = savingsGoals,
             recurringTransactions = recurring,
             categories = categories,
+            accounts = accounts,
             isLoading = false,
             error = null
         )
