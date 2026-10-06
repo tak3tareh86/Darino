@@ -213,12 +213,25 @@ fun AddTransactionSheet(
                             .background(if (isSelected) activeBg else Color.Transparent)
                             .clickable {
                                 selectedType = type
-                                val cats = if (type == TransactionType.INCOME) {
-                                    categories.filter { it.type == TransactionType.INCOME }
-                                } else {
-                                    categories.filter { it.type == TransactionType.EXPENSE }
+                                when (type) {
+                                    TransactionType.TRANSFER -> {
+                                        selectedCategory = FinanceDefaultCategories.transferCategory
+                                        selectedSubCategory = null
+                                    }
+                                    TransactionType.INCOME -> {
+                                        val cats = categories.filter { it.type == TransactionType.INCOME && it.isActive }
+                                        cats.firstOrNull()?.let { selectedCategory = it }
+                                        selectedSubCategory = selectedCategory.subCategories.firstOrNull()
+                                    }
+                                    TransactionType.EXPENSE -> {
+                                        val cats = categories.filter { it.type == TransactionType.EXPENSE && it.isActive }
+                                        cats.firstOrNull()?.let { selectedCategory = it }
+                                        selectedSubCategory = selectedCategory.subCategories.firstOrNull()
+                                    }
                                 }
-                                cats.firstOrNull()?.let { selectedCategory = it }
+                                if (title.isBlank() || title == FinanceDefaultCategories.transferCategory.title) {
+                                    title = if (type == TransactionType.TRANSFER) "" else selectedCategory.title
+                                }
                             }
                             .padding(vertical = 8.dp),
                         contentAlignment = Alignment.Center

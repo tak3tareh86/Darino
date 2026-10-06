@@ -840,7 +840,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             categoryId = cat.id,
             subCategory = entity.subCategory,
             datePersian = if (entity.datePersian.isNotBlank()) entity.datePersian else PersianCalendarHelper.fromEpochMillis(entity.timestamp).toFormattedDate(),
-            timePersian = entity.timeFormatted.ifBlank { "۱۲:۰۰" },
+            timePersian = entity.timeFormatted.ifBlank { PersianCalendarHelper.fromEpochMillis(entity.timestamp).toFormattedTime() },
             dateMillis = entity.timestamp,
             description = entity.description,
             paymentMethod = payMethod,
