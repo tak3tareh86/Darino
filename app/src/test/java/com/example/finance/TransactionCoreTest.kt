@@ -29,21 +29,36 @@ class TransactionCoreTest {
     private lateinit var repository: LocalFinanceRepository
 
     @Before
-    fun setUp() = runBlocking {
-        context = ApplicationProvider.getApplicationContext()
-        SessionManager.setAuthenticatedUser(
-            com.example.data.api.NetworkUserDto(
-                id = "test_user_tx",
-                fullName = "کاربر تست",
-                email = null,
-                phoneNumber = "09120000000",
-                phoneVerified = true
+    fun setUp() {
+        runBlocking {
+            context = ApplicationProvider.getApplicationContext()
+            SessionManager.setAuthenticatedUser(
+                com.example.data.api.NetworkUserDto(
+                    id = "test_user_tx",
+                    fullName = "کاربر تست",
+                    email = null,
+                    phoneNumber = "09120000000",
+                    phoneVerified = true
+                )
             )
-        )
-        repository = LocalFinanceRepository.instance
-        repository.init(context)
-        val db = AppDatabase.getDatabase(context)
-        db.transactionDao().clearAllTransactions("test_user_tx")
+            repository = LocalFinanceRepository.instance
+            repository.init(context)
+            val db = AppDatabase.getDatabase(context)
+            db.transactionDao().clearAllTransactions("test_user_tx")
+            db.transactionDao().clearAllTransactions("test_user_B")
+            db.accountDao().clearAllAccounts("test_user_tx")
+            db.accountDao().clearAllAccounts("test_user_B")
+            repository.addAccountResult(
+                com.example.ui.screens.finance.model.Account(
+                    id = "acc_core_test",
+                    userId = "test_user_tx",
+                    name = "حساب اصلی تست",
+                    type = com.example.ui.screens.finance.model.AccountType.CARD,
+                    initialBalance = 10_000_000L,
+                    isActive = true
+                )
+            )
+        }
     }
 
     @Test
@@ -56,7 +71,8 @@ class TransactionCoreTest {
             type = TransactionType.EXPENSE,
             category = cat,
             datePersian = "۱۴۰۳/۰۷/۰۱",
-            timePersian = "10:00"
+            timePersian = "10:00",
+            accountId = "acc_core_test"
         )
         val result = repository.addTransactionResult(tx)
         assertEquals(TransactionOperationResult.SUCCESS, result)
@@ -77,7 +93,8 @@ class TransactionCoreTest {
             type = TransactionType.INCOME,
             category = cat,
             datePersian = "۱۴۰۳/۰۷/۰۱",
-            timePersian = "09:00"
+            timePersian = "09:00",
+            accountId = "acc_core_test"
         )
         repository.addTransactionResult(tx)
         val duplicate = repository.duplicateTransactionResult("tx_orig")
@@ -100,7 +117,8 @@ class TransactionCoreTest {
             type = TransactionType.EXPENSE,
             category = cat,
             datePersian = "۱۴۰۳/۰۷/۰۱",
-            timePersian = "11:00"
+            timePersian = "11:00",
+            accountId = "acc_core_test"
         )
         repository.addTransactionResult(tx)
 
@@ -126,7 +144,8 @@ class TransactionCoreTest {
             type = TransactionType.INCOME,
             category = cat,
             datePersian = "۱۴۰۳/۰۷/۰۱",
-            timePersian = "12:00"
+            timePersian = "12:00",
+            accountId = "acc_core_test"
         )
         repository.addTransactionResult(tx)
 
@@ -203,12 +222,16 @@ class TransactionCoreTest {
         val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
         
         // Invalid amount
-        val tx1 = TransactionItemData(id = "v_1", title = "تست", amount = 0L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        val tx1 = TransactionItemData(id = "v_1", title = "تست", amount = 0L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00", accountId = "acc_core_test")
         assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(tx1))
         
         // Invalid title
-        val tx2 = TransactionItemData(id = "v_2", title = "", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        val tx2 = TransactionItemData(id = "v_2", title = "", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00", accountId = "acc_core_test")
         assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(tx2))
+
+        // Missing accountId
+        val tx3 = TransactionItemData(id = "v_3", title = "بدون حساب", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00", accountId = null)
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(tx3))
         
         val db = AppDatabase.getDatabase(context)
         val list = db.transactionDao().getAllTransactionsList("test_user_tx")
@@ -218,7 +241,7 @@ class TransactionCoreTest {
     @Test
     fun `Test 9 - Unique Identity enforcement within user scope`() = runBlocking {
         val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
-        val tx = TransactionItemData(id = "tx_123", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        val tx = TransactionItemData(id = "tx_123", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00", accountId = "acc_core_test")
         
         assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(tx))
         // Attempt duplicate identity for same user
@@ -228,13 +251,14 @@ class TransactionCoreTest {
     @Test
     fun `Test 10 - User Isolation`() = runBlocking {
         val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
-        val txA = TransactionItemData(id = "tx_shared", title = "برای کاربر A", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        val txA = TransactionItemData(id = "tx_shared", title = "برای کاربر A", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00", accountId = "acc_core_test")
         
         // As User A
         assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(txA))
         
         // Switch to User B
         SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "test_user_B", fullName = "User B", email = null, phoneNumber = "09120000001", phoneVerified = true))
+        repository.refreshMetadataForCurrentUser()
         
         // User B cannot see/update/delete/duplicate User A's tx
         val db = AppDatabase.getDatabase(context)
@@ -247,7 +271,7 @@ class TransactionCoreTest {
     @Test
     fun `Test 11 - Soft Delete Verification`() = runBlocking {
         val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
-        val tx = TransactionItemData(id = "tx_del_check", title = "تست حذف", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        val tx = TransactionItemData(id = "tx_del_check", title = "تست حذف", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00", accountId = "acc_core_test")
         repository.addTransactionResult(tx)
         
         repository.deleteTransactionResult("tx_del_check")
@@ -266,7 +290,7 @@ class TransactionCoreTest {
         SessionManager.logout()
         
         val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
-        val tx = TransactionItemData(id = "tx_no_auth", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        val tx = TransactionItemData(id = "tx_no_auth", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00", accountId = "acc_core_test")
         
         assertEquals(TransactionOperationResult.NO_AUTHENTICATED_USER, repository.addTransactionResult(tx))
     }
@@ -274,23 +298,34 @@ class TransactionCoreTest {
     @Test
     fun `Test 13 - Same stringId allowed for different users`() = runBlocking {
         val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
-        val txA = TransactionItemData(id = "tx_123", title = "برای کاربر A", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        val txA = TransactionItemData(id = "tx_123", title = "برای کاربر A", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00", accountId = "acc_core_test")
         
         // Insert for user A
         assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(txA))
         
         // Switch to User B
         SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "test_user_B", fullName = "User B", email = null, phoneNumber = "09120000001", phoneVerified = true))
+        repository.refreshMetadataForCurrentUser()
+        repository.addAccountResult(
+            com.example.ui.screens.finance.model.Account(
+                id = "acc_core_test_b",
+                userId = "test_user_B",
+                name = "حساب کاربر B",
+                type = com.example.ui.screens.finance.model.AccountType.CARD,
+                initialBalance = 1_000_000L,
+                isActive = true
+            )
+        )
         
-        // Same stringId for user B should be successful
-        val txB = TransactionItemData(id = "tx_123", title = "برای کاربر B", amount = 2000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        // Same stringId for user B should be successful with User B's account
+        val txB = TransactionItemData(id = "tx_123", title = "برای کاربر B", amount = 2000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00", accountId = "acc_core_test_b")
         assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(txB))
     }
 
     @Test
     fun `Test 14 - Deleted transaction cannot be updated`() = runBlocking {
         val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
-        val tx = TransactionItemData(id = "tx_del_upd", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        val tx = TransactionItemData(id = "tx_del_upd", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00", accountId = "acc_core_test")
         repository.addTransactionResult(tx)
         
         repository.deleteTransactionResult("tx_del_upd")
@@ -302,7 +337,7 @@ class TransactionCoreTest {
     @Test
     fun `Test 15 - Deleted transaction cannot be duplicated`() = runBlocking {
         val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
-        val tx = TransactionItemData(id = "tx_del_dup", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00")
+        val tx = TransactionItemData(id = "tx_del_dup", title = "تست", amount = 1000L, type = TransactionType.EXPENSE, category = cat, datePersian = "۱۴۰۳/۰۷/۰۱", timePersian = "10:00", accountId = "acc_core_test")
         repository.addTransactionResult(tx)
         
         repository.deleteTransactionResult("tx_del_dup")

@@ -173,6 +173,16 @@ dependencies {
   "ksp"(libs.moshi.kotlin.codegen)
 }
 
+tasks.withType<Test> {
+  testLogging {
+    events("passed", "skipped", "failed")
+    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    showExceptions = true
+    showCauses = true
+    showStackTraces = true
+  }
+}
+
 abstract class FixComposeAarRule : ComponentMetadataRule {
   override fun execute(context: ComponentMetadataContext) {
     val id = context.details.id

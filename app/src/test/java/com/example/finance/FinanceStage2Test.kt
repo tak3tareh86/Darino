@@ -33,24 +33,37 @@ class FinanceStage2Test {
     private lateinit var repository: LocalFinanceRepository
 
     @Before
-    fun setUp() = runBlocking {
-        context = ApplicationProvider.getApplicationContext()
-        SessionManager.setAuthenticatedUser(
-            com.example.data.api.NetworkUserDto(
-                id = "test_user_stage2",
-                fullName = "Stage 2 User",
-                email = null,
-                phoneNumber = "09120000000",
-                phoneVerified = true
+    fun setUp() {
+        runBlocking {
+            context = ApplicationProvider.getApplicationContext()
+            SessionManager.setAuthenticatedUser(
+                com.example.data.api.NetworkUserDto(
+                    id = "test_user_stage2",
+                    fullName = "Stage 2 User",
+                    email = null,
+                    phoneNumber = "09120000000",
+                    phoneVerified = true
+                )
             )
-        )
-        repository = LocalFinanceRepository.instance
-        repository.init(context)
-        val db = AppDatabase.getDatabase(context)
-        db.transactionDao().clearAllTransactions("test_user_stage2")
-        val prefs = context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
-        prefs.edit().remove("pref_persisted_budgets_test_user_stage2").commit()
-        repository.refreshMetadataForCurrentUser()
+            repository = LocalFinanceRepository.instance
+            repository.init(context)
+            val db = AppDatabase.getDatabase(context)
+            db.transactionDao().clearAllTransactions("test_user_stage2")
+            db.accountDao().clearAllAccounts("test_user_stage2")
+            repository.addAccountResult(
+                com.example.ui.screens.finance.model.Account(
+                    id = "stage2_acc",
+                    userId = "test_user_stage2",
+                    name = "حساب مرحله ۲",
+                    type = com.example.ui.screens.finance.model.AccountType.CARD,
+                    initialBalance = 10_000_000L,
+                    isActive = true
+                )
+            )
+            val prefs = context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
+            prefs.edit().remove("pref_persisted_budgets_test_user_stage2").commit()
+            repository.refreshMetadataForCurrentUser()
+        }
     }
 
     // 1 & 2: TODAY filtering & boundary checks
@@ -284,7 +297,7 @@ class FinanceStage2Test {
     @Test
     fun `9 Deleted transaction excluded from summary`() = runBlocking {
         val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
-        val tx = TransactionItemData(id = "tx_to_delete", title = "To Delete", amount = 2_000_000, type = TransactionType.EXPENSE, category = cat, datePersian = "", timePersian = "")
+        val tx = TransactionItemData(id = "tx_to_delete", title = "To Delete", amount = 2_000_000, type = TransactionType.EXPENSE, category = cat, datePersian = "", timePersian = "", accountId = "stage2_acc")
 
         val addRes = repository.addTransactionResult(tx)
         assertEquals(TransactionOperationResult.SUCCESS, addRes)
@@ -360,7 +373,7 @@ class FinanceStage2Test {
         val budget = Budget(id = "b_food", title = "Food Budget", amount = 5_000_000, categoryId = "food")
         repository.addBudget(budget)
 
-        val tx = TransactionItemData(id = "tx_food_del", title = "Food Tx", amount = 1_200_000, type = TransactionType.EXPENSE, category = catFood, datePersian = "", timePersian = "")
+        val tx = TransactionItemData(id = "tx_food_del", title = "Food Tx", amount = 1_200_000, type = TransactionType.EXPENSE, category = catFood, datePersian = "", timePersian = "", accountId = "stage2_acc")
         repository.addTransactionResult(tx)
 
         // Delete tx
@@ -495,6 +508,7 @@ class FinanceStage2Test {
             category = catFood,
             datePersian = "این ماه",
             timePersian = "12:00",
+            accountId = "stage2_acc",
             dateMillis = monthRange.startMillis + 3600_000L // definitely inside current month
         )
 
@@ -506,6 +520,7 @@ class FinanceStage2Test {
             category = catFood,
             datePersian = "ماه قبل",
             timePersian = "12:00",
+            accountId = "stage2_acc",
             dateMillis = monthRange.startMillis - 3600_000L // definitely in previous month
         )
 

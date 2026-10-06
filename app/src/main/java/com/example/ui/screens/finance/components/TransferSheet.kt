@@ -56,8 +56,8 @@ fun TransferSheet(
     modifier: Modifier = Modifier
 ) {
     val activeAccounts = remember(accounts) { accounts.filter { it.isActive } }
-    var selectedSource by remember(activeAccounts) { mutableStateOf(activeAccounts.firstOrNull()) }
-    var selectedDestination by remember(activeAccounts) { mutableStateOf(activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()) }
+    var selectedSource by remember(activeAccounts) { mutableStateOf<com.example.ui.screens.finance.model.Account?>(null) }
+    var selectedDestination by remember(activeAccounts) { mutableStateOf<com.example.ui.screens.finance.model.Account?>(null) }
     var amountText by remember { mutableStateOf("") }
     var descText by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }

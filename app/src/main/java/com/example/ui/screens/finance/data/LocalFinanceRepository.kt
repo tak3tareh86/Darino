@@ -9,7 +9,6 @@ import com.example.ui.screens.finance.domain.BudgetEngine
 import com.example.ui.screens.finance.domain.FinanceEngine
 import com.example.ui.screens.finance.model.Budget
 import com.example.ui.screens.finance.model.FinanceDefaultCategories
-import com.example.ui.screens.finance.model.FinanceMockDataSource
 import com.example.ui.screens.finance.model.PaymentMethod
 import com.example.ui.screens.finance.model.RecurringFrequency
 import com.example.ui.screens.finance.model.RecurringTransaction
@@ -116,6 +115,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             userId = entity.userId,
             name = entity.name,
             type = typeEnum,
+            bankName = entity.bankName,
+            accountNumberMasked = entity.accountNumberMasked,
             initialBalance = entity.initialBalance,
             isActive = entity.isActive,
             createdAt = entity.createdAt,
@@ -129,6 +130,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             userId = account.userId,
             name = account.name,
             type = account.type.name,
+            bankName = account.bankName,
+            accountNumberMasked = account.accountNumberMasked,
             initialBalance = account.initialBalance,
             isActive = account.isActive,
             createdAt = account.createdAt,
@@ -141,6 +144,14 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         if (transaction.amount <= 0L) return false
         if (transaction.title.isBlank()) return false
         if (transaction.type != TransactionType.EXPENSE && transaction.type != TransactionType.INCOME && transaction.type != TransactionType.TRANSFER) return false
+        if (transaction.type == TransactionType.INCOME || transaction.type == TransactionType.EXPENSE) {
+            if (transaction.accountId.isNullOrBlank()) return false
+        } else if (transaction.type == TransactionType.TRANSFER) {
+            val src = transaction.transferSourceAccountId
+            val dest = transaction.transferDestinationAccountId
+            if (src.isNullOrBlank() || dest.isNullOrBlank()) return false
+            if (src == dest) return false
+        }
         return true
     }
 
@@ -158,25 +169,12 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
             if (srcAcc.userId != userId || destAcc.userId != userId) return false
             if (!srcAcc.isActive || !destAcc.isActive) return false
+            if (srcAcc.deletedAt != null || destAcc.deletedAt != null) return false
         } else {
-            // INCOME or EXPENSE
-            var accId = tx.accountId
-            if (accId.isNullOrBlank()) {
-                val accounts = db.accountDao().getAllAccountsList(userId).filter { it.isActive && it.deletedAt == null }
-                val defaultAcc = accounts.firstOrNull() ?: run {
-                    val newAcc = com.example.data.database.AccountEntity(
-                        userId = userId,
-                        stringId = "default_acc_" + userId,
-                        name = "حساب پیش‌فرض",
-                        type = "BANK",
-                        initialBalance = 0L,
-                        isActive = true
-                    )
-                    try { db.accountDao().insertAccount(newAcc) } catch (_: Exception) {}
-                    db.accountDao().getAccountByStringId(userId, "default_acc_" + userId)
-                }
-                accId = defaultAcc?.stringId ?: return false
-            }
+            // INCOME or EXPENSE: accountId is strictly required and must be valid, active, non-deleted, and belong to current user
+            val accId = tx.accountId
+            if (accId.isNullOrBlank()) return false
+            
             val acc = db.accountDao().getAccountByStringId(userId, accId) ?: return false
             if (acc.userId != userId) return false
             if (!acc.isActive || acc.deletedAt != null) return false
@@ -255,15 +253,15 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val ctx = appContext ?: return TransactionOperationResult.PERSISTENCE_ERROR
         return try {
             val db = AppDatabase.getDatabase(ctx)
-            if (!validateTransactionWithDatabase(transaction, userId, db)) {
-                return TransactionOperationResult.VALIDATION_ERROR
-            }
             val existing = db.transactionDao().getTransactionByStringId(userId, transaction.id)
                 ?: db.transactionDao().getTransactionIncludingDeleted(userId, transaction.id)
             if (existing == null) {
                 return TransactionOperationResult.NOT_FOUND
             }
             if (existing.deletedAt != null) {
+                return TransactionOperationResult.VALIDATION_ERROR
+            }
+            if (!validateTransactionWithDatabase(transaction, userId, db)) {
                 return TransactionOperationResult.VALIDATION_ERROR
             }
             val entity = toEntity(transaction).copy(id = existing.id, userId = userId)
@@ -564,23 +562,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     }
 
     override fun restoreSampleTransactions() {
-        val userId = SessionManager.userId ?: return
-        _recurringTransactions.value = FinanceMockDataSource.initialRecurring
-        _budgets.value = FinanceMockDataSource.initialBudgets
-        _savingsGoals.value = FinanceMockDataSource.initialSavingsGoals
-        saveMetadataToDisk()
-
-        val ctx = appContext ?: return
-        repositoryScope.launch {
-            try {
-                val db = AppDatabase.getDatabase(ctx)
-                db.transactionDao().clearAllTransactions(userId)
-                val initialEntities = FinanceMockDataSource.initialTransactions.map { toEntity(it) }
-                db.transactionDao().insertTransactions(initialEntities)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+        // Mock data is prohibited in production. This method is now a no-op to ensure clean state.
     }
 
     private fun recalculateBudgets() {
@@ -652,6 +634,24 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 rArr.put(obj)
             }
             editor.putString(userScopedKey(KEY_RECURRING, currentUserId), rArr.toString())
+
+            // Categories
+            val cArr = JSONArray()
+            _categories.value.forEach { c ->
+                val obj = JSONObject()
+                obj.put("id", c.id)
+                obj.put("title", c.title)
+                obj.put("iconEmoji", c.iconEmoji)
+                obj.put("accentColor", c.accentColor.value.toLong())
+                obj.put("type", c.type.name)
+                obj.put("isDefault", c.isDefault)
+                obj.put("isActive", c.isActive)
+                val subArr = JSONArray()
+                c.subCategories.forEach { subArr.put(it) }
+                obj.put("subCategories", subArr)
+                cArr.put(obj)
+            }
+            editor.putString(userScopedKey(KEY_CATEGORIES, currentUserId), cArr.toString())
 
             editor.commit()
         } catch (e: Exception) {
@@ -744,6 +744,37 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 _recurringTransactions.value = list
             } else {
                 _recurringTransactions.value = emptyList()
+            }
+
+            val categoriesJson = prefs.getString(userScopedKey(KEY_CATEGORIES, userId), null)
+            if (!categoriesJson.isNullOrBlank()) {
+                val arr = JSONArray(categoriesJson)
+                val list = mutableListOf<TransactionCategory>()
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val subArr = obj.optJSONArray("subCategories")
+                    val subs = mutableListOf<String>()
+                    if (subArr != null) {
+                        for (j in 0 until subArr.length()) {
+                            subs.add(subArr.getString(j))
+                        }
+                    }
+                    list.add(
+                        TransactionCategory(
+                            id = obj.getString("id"),
+                            title = obj.getString("title"),
+                            iconEmoji = obj.getString("iconEmoji"),
+                            accentColor = Color(obj.getLong("accentColor").toULong()),
+                            type = try { TransactionType.valueOf(obj.getString("type")) } catch (e: Exception) { TransactionType.EXPENSE },
+                            isDefault = obj.optBoolean("isDefault", true),
+                            isActive = obj.optBoolean("isActive", true),
+                            subCategories = subs
+                        )
+                    )
+                }
+                _categories.value = list
+            } else {
+                _categories.value = FinanceDefaultCategories.allDefaultCategories
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -924,6 +955,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         private const val KEY_BUDGETS = "pref_persisted_budgets"
         private const val KEY_SAVINGS = "pref_persisted_savings_goals"
         private const val KEY_RECURRING = "pref_persisted_recurring_txs"
+        private const val KEY_CATEGORIES = "pref_persisted_categories"
 
         private fun userScopedKey(base: String, userId: String?): String =
             if (userId.isNullOrBlank()) "${base}_anonymous" else "${base}_$userId"

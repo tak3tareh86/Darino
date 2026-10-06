@@ -122,7 +122,17 @@ fun AddTransactionSheet(
     val activeAccounts = remember(accounts) { accounts.filter { it.isActive } }
     var selectedAccount by remember(activeAccounts, initialTransaction) {
         mutableStateOf(
-            activeAccounts.find { it.id == initialTransaction?.accountId } ?: activeAccounts.firstOrNull()
+            activeAccounts.find { it.id == initialTransaction?.accountId }
+        )
+    }
+    var selectedSourceAccount by remember(activeAccounts, initialTransaction) {
+        mutableStateOf(
+            activeAccounts.find { it.id == initialTransaction?.transferSourceAccountId }
+        )
+    }
+    var selectedDestinationAccount by remember(activeAccounts, initialTransaction) {
+        mutableStateOf(
+            activeAccounts.find { it.id == initialTransaction?.transferDestinationAccountId }
         )
     }
     var isRecurring by remember { mutableStateOf(initialTransaction?.isRecurring ?: false) }
@@ -277,6 +287,77 @@ fun AddTransactionSheet(
                                             color = if (isSelected) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Transfer Account Selection
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Source Account
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "حساب مبدأ",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            activeAccounts.forEach { acc ->
+                                val isSelected = selectedSourceAccount?.id == acc.id
+                                Surface(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { selectedSourceAccount = acc },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) InfoIndigoLight else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
+                                    border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                ) {
+                                    Text(
+                                        text = acc.name,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Destination Account
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "حساب مقصد",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            activeAccounts.forEach { acc ->
+                                val isSelected = selectedDestinationAccount?.id == acc.id
+                                Surface(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { selectedDestinationAccount = acc },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) EmeraldPrimaryLight else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
+                                    border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                ) {
+                                    Text(
+                                        text = acc.name,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                    )
                                 }
                             }
                         }
@@ -655,12 +736,25 @@ fun AddTransactionSheet(
                             errorMessage = "هیچ حساب فعالی موجود نیست."
                             return@Button
                         }
+                    } else {
+                        if (selectedSourceAccount == null || selectedDestinationAccount == null) {
+                            errorMessage = "لطفاً حساب‌های مبدأ و مقصد را انتخاب کنید."
+                            return@Button
+                        }
+                        if (selectedSourceAccount?.id == selectedDestinationAccount?.id) {
+                            errorMessage = "حساب مبدأ و مقصد نمی‌توانند یکسان باشند."
+                            return@Button
+                        }
                     }
                     if (parsedAmount <= 0L) {
                         errorMessage = "لطفاً مبلغ معتبری وارد کنید."
                         return@Button
                     }
-                    val finalTitle = title.ifBlank { selectedCategory.title }
+                    val finalTitle = if (selectedType == TransactionType.TRANSFER) {
+                        "انتقال از ${selectedSourceAccount?.name} به ${selectedDestinationAccount?.name}"
+                    } else {
+                        title.ifBlank { selectedCategory.title }
+                    }
 
                     val tags = tagsText.split("،", ",").map { it.trim() }.filter { it.isNotEmpty() }
 
@@ -676,8 +770,13 @@ fun AddTransactionSheet(
                         timePersian = timePersian,
                         description = description,
                         paymentMethod = paymentMethod,
-                        accountName = selectedAccount?.name ?: paymentMethod.title,
+                        accountName = if (selectedType == TransactionType.TRANSFER) 
+                            "انتقال وجه" 
+                        else 
+                            (selectedAccount?.name ?: paymentMethod.title),
                         accountId = selectedAccount?.id,
+                        transferSourceAccountId = if (selectedType == TransactionType.TRANSFER) selectedSourceAccount?.id else null,
+                        transferDestinationAccountId = if (selectedType == TransactionType.TRANSFER) selectedDestinationAccount?.id else null,
                         sourceType = initialTransaction?.sourceType ?: TransactionSourceType.MANUAL,
                         sourceId = initialTransaction?.sourceId,
                         tags = tags,

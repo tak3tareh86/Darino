@@ -27,6 +27,8 @@ data class AccountEntity(
     val stringId: String,
     val name: String,
     val type: String, // "BANK", "CASH", "CARD", "OTHER"
+    val bankName: String? = null,
+    val accountNumberMasked: String? = null,
     val initialBalance: Long = 0L,
     val isActive: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),

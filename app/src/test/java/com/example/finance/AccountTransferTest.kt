@@ -29,24 +29,26 @@ class AccountTransferTest {
     private val userB = "user_B"
 
     @Before
-    fun setUp() = runBlocking {
-        context = ApplicationProvider.getApplicationContext()
-        SessionManager.setAuthenticatedUser(
-            com.example.data.api.NetworkUserDto(
-                id = userA,
-                fullName = "کاربر آ",
-                email = null,
-                phoneNumber = "09120000001",
-                phoneVerified = true
+    fun setUp() {
+        runBlocking {
+            context = ApplicationProvider.getApplicationContext()
+            SessionManager.setAuthenticatedUser(
+                com.example.data.api.NetworkUserDto(
+                    id = userA,
+                    fullName = "کاربر آ",
+                    email = null,
+                    phoneNumber = "09120000001",
+                    phoneVerified = true
+                )
             )
-        )
-        repository = LocalFinanceRepository.instance
-        repository.init(context)
-        db = AppDatabase.getDatabase(context)
-        db.transactionDao().clearAllTransactions(userA)
-        db.transactionDao().clearAllTransactions(userB)
-        db.accountDao().clearAllAccounts(userA)
-        db.accountDao().clearAllAccounts(userB)
+            repository = LocalFinanceRepository.instance
+            repository.init(context)
+            db = AppDatabase.getDatabase(context)
+            db.transactionDao().clearAllTransactions(userA)
+            db.transactionDao().clearAllTransactions(userB)
+            db.accountDao().clearAllAccounts(userA)
+            db.accountDao().clearAllAccounts(userB)
+        }
     }
 
     @Test
@@ -261,6 +263,180 @@ class AccountTransferTest {
         repository.updateTransactionResult(updatedTransfer)
         assertEquals(600_000L, repository.calculateAccountBalance("acc_src"))
         assertEquals(900_000L, repository.calculateAccountBalance("acc_dest"))
+    }
+
+    @Test
+    fun `Income and Expense - validation rejects missing, invalid, foreign, deleted, inactive accounts`() = runBlocking {
+        val activeAcc = Account(id = "acc_valid", userId = userA, name = "حساب معتبر", type = AccountType.CARD, initialBalance = 1_000_000L, isActive = true)
+        val inactiveAcc = Account(id = "acc_inactive", userId = userA, name = "حساب غیرفعال", type = AccountType.CARD, initialBalance = 500_000L, isActive = false)
+        val deletedAcc = Account(id = "acc_del", userId = userA, name = "حساب حذفی", type = AccountType.CARD, initialBalance = 200_000L, isActive = true)
+
+        repository.addAccountResult(activeAcc)
+        repository.addAccountResult(inactiveAcc)
+        repository.addAccountResult(deletedAcc)
+        repository.deleteAccountResult("acc_del")
+
+        // User B account
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = userB, fullName = "User B", email = null, phoneNumber = "09120000002", phoneVerified = true))
+        repository.refreshMetadataForCurrentUser()
+        val userBAcc = Account(id = "acc_user_b", userId = userB, name = "حساب B", type = AccountType.CARD, initialBalance = 100_000L, isActive = true)
+        repository.addAccountResult(userBAcc)
+
+        // Switch back to User A
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = userA, fullName = "User A", email = null, phoneNumber = "09120000001", phoneVerified = true))
+        repository.refreshMetadataForCurrentUser()
+
+        val catInc = FinanceDefaultCategories.defaultIncomeCategories.first()
+        val catExp = FinanceDefaultCategories.defaultExpenseCategories.first()
+
+        // 1. Missing accountId -> FAIL
+        val incNoAcc = TransactionItemData(id = "inc_no_acc", title = "درآمد بدون حساب", amount = 100_000L, type = TransactionType.INCOME, category = catInc, datePersian = "امروز", timePersian = "12:00", accountId = null)
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(incNoAcc))
+
+        val expNoAcc = TransactionItemData(id = "exp_no_acc", title = "هزینه بدون حساب", amount = 50_000L, type = TransactionType.EXPENSE, category = catExp, datePersian = "امروز", timePersian = "12:00", accountId = "")
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(expNoAcc))
+
+        // 2. Non-existent accountId -> FAIL
+        val incInvalid = incNoAcc.copy(id = "inc_inv", accountId = "non_existent_acc")
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(incInvalid))
+
+        val expInvalid = expNoAcc.copy(id = "exp_inv", accountId = "non_existent_acc")
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(expInvalid))
+
+        // 3. Foreign user accountId -> FAIL
+        val incForeign = incNoAcc.copy(id = "inc_foreign", accountId = "acc_user_b")
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(incForeign))
+
+        val expForeign = expNoAcc.copy(id = "exp_foreign", accountId = "acc_user_b")
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(expForeign))
+
+        // 4. Inactive accountId -> FAIL
+        val incInactive = incNoAcc.copy(id = "inc_inact", accountId = "acc_inactive")
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(incInactive))
+
+        val expInactive = expNoAcc.copy(id = "exp_inact", accountId = "acc_inactive")
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(expInactive))
+
+        // 5. Deleted accountId -> FAIL
+        val incDeleted = incNoAcc.copy(id = "inc_del", accountId = "acc_del")
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(incDeleted))
+
+        val expDeleted = expNoAcc.copy(id = "exp_del", accountId = "acc_del")
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(expDeleted))
+
+        // 6. Valid account -> SUCCESS & balance correctly adjusted
+        val incValid = incNoAcc.copy(id = "inc_ok", accountId = "acc_valid", amount = 300_000L)
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(incValid))
+        assertEquals(1_300_000L, repository.calculateAccountBalance("acc_valid"))
+
+        val expValid = expNoAcc.copy(id = "exp_ok", accountId = "acc_valid", amount = 100_000L)
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(expValid))
+        assertEquals(1_200_000L, repository.calculateAccountBalance("acc_valid"))
+    }
+
+    @Test
+    fun `Transfer - validation rejects missing, invalid, foreign, deleted, inactive, same account, negative amount`() = runBlocking {
+        val validSrc = Account(id = "t_src", userId = userA, name = "مبدأ", type = AccountType.CARD, initialBalance = 1_000_000L, isActive = true)
+        val validDest = Account(id = "t_dest", userId = userA, name = "مقصد", type = AccountType.CARD, initialBalance = 500_000L, isActive = true)
+        val inactDest = Account(id = "t_inact", userId = userA, name = "مقصد غیرفعال", type = AccountType.CARD, initialBalance = 0L, isActive = false)
+        val delDest = Account(id = "t_del", userId = userA, name = "مقصد حذفی", type = AccountType.CARD, initialBalance = 0L, isActive = true)
+
+        repository.addAccountResult(validSrc)
+        repository.addAccountResult(validDest)
+        repository.addAccountResult(inactDest)
+        repository.addAccountResult(delDest)
+        repository.deleteAccountResult("t_del")
+
+        val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
+        val base = TransactionItemData(
+            id = "tx_t_check",
+            title = "انتقال",
+            amount = 100_000L,
+            type = TransactionType.TRANSFER,
+            category = cat,
+            datePersian = "امروز",
+            timePersian = "12:00",
+            transferSourceAccountId = "t_src",
+            transferDestinationAccountId = "t_dest"
+        )
+
+        // Missing source
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferSourceAccountId = null)))
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferSourceAccountId = "")))
+
+        // Missing destination
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferDestinationAccountId = null)))
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferDestinationAccountId = "")))
+
+        // Same account
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferDestinationAccountId = "t_src")))
+
+        // Inactive destination
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferDestinationAccountId = "t_inact")))
+
+        // Deleted destination
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferDestinationAccountId = "t_del")))
+
+        // Non-existent source
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferSourceAccountId = "fake_src")))
+
+        // Amount <= 0
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(amount = 0L)))
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(amount = -50_000L)))
+    }
+
+    @Test
+    fun `Edit and Delete balance consistency across Income, Expense, and Transfer`() = runBlocking {
+        val acc1 = Account(id = "acc_b1", userId = userA, name = "حساب ۱", type = AccountType.CARD, initialBalance = 1_000_000L, isActive = true)
+        val acc2 = Account(id = "acc_b2", userId = userA, name = "حساب ۲", type = AccountType.CARD, initialBalance = 500_000L, isActive = true)
+
+        repository.addAccountResult(acc1)
+        repository.addAccountResult(acc2)
+
+        val catInc = FinanceDefaultCategories.defaultIncomeCategories.first()
+        val catExp = FinanceDefaultCategories.defaultExpenseCategories.first()
+
+        // 1. Income flow: add -> edit -> delete
+        val txInc = TransactionItemData(id = "tx_inc_c", title = "درآمد", amount = 400_000L, type = TransactionType.INCOME, category = catInc, datePersian = "امروز", timePersian = "12:00", accountId = "acc_b1")
+        repository.addTransactionResult(txInc)
+        assertEquals(1_400_000L, repository.calculateAccountBalance("acc_b1"))
+
+        // Edit income amount to 600,000
+        repository.updateTransactionResult(txInc.copy(amount = 600_000L))
+        assertEquals(1_600_000L, repository.calculateAccountBalance("acc_b1"))
+
+        // Delete income
+        repository.deleteTransactionResult("tx_inc_c")
+        assertEquals(1_000_000L, repository.calculateAccountBalance("acc_b1"))
+
+        // 2. Expense flow: add -> edit -> delete
+        val txExp = TransactionItemData(id = "tx_exp_c", title = "هزینه", amount = 250_000L, type = TransactionType.EXPENSE, category = catExp, datePersian = "امروز", timePersian = "12:00", accountId = "acc_b1")
+        repository.addTransactionResult(txExp)
+        assertEquals(750_000L, repository.calculateAccountBalance("acc_b1"))
+
+        // Edit expense amount to 350,000
+        repository.updateTransactionResult(txExp.copy(amount = 350_000L))
+        assertEquals(650_000L, repository.calculateAccountBalance("acc_b1"))
+
+        // Delete expense
+        repository.deleteTransactionResult("tx_exp_c")
+        assertEquals(1_000_000L, repository.calculateAccountBalance("acc_b1"))
+
+        // 3. Transfer flow: add -> edit -> delete
+        val txTr = TransactionItemData(id = "tx_tr_c", title = "انتقال", amount = 200_000L, type = TransactionType.TRANSFER, category = catExp, datePersian = "امروز", timePersian = "12:00", transferSourceAccountId = "acc_b1", transferDestinationAccountId = "acc_b2")
+        repository.addTransactionResult(txTr)
+        assertEquals(800_000L, repository.calculateAccountBalance("acc_b1"))
+        assertEquals(700_000L, repository.calculateAccountBalance("acc_b2"))
+
+        // Edit transfer amount to 500,000
+        repository.updateTransactionResult(txTr.copy(amount = 500_000L))
+        assertEquals(500_000L, repository.calculateAccountBalance("acc_b1"))
+        assertEquals(1_000_000L, repository.calculateAccountBalance("acc_b2"))
+
+        // Delete transfer
+        repository.deleteTransactionResult("tx_tr_c")
+        assertEquals(1_000_000L, repository.calculateAccountBalance("acc_b1"))
+        assertEquals(500_000L, repository.calculateAccountBalance("acc_b2"))
     }
 
     @Test

@@ -87,6 +87,8 @@ data class Account(
     val userId: String,
     val name: String,
     val type: AccountType,
+    val bankName: String? = null,
+    val accountNumberMasked: String? = null,
     val initialBalance: Long = 0L,
     val isActive: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),

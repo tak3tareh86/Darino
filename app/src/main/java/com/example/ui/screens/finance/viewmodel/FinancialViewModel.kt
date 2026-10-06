@@ -7,6 +7,7 @@ import com.example.ui.screens.finance.data.LocalFinanceRepository
 import com.example.ui.screens.finance.data.TransactionOperationResult
 import com.example.ui.screens.finance.domain.BudgetEngine
 import com.example.ui.screens.finance.domain.FinanceEngine
+import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.finance.model.Budget
 import com.example.ui.screens.finance.model.FinanceFilterPeriod
 import com.example.ui.screens.finance.model.FinancialState
@@ -60,6 +61,25 @@ class FinancialViewModel(
             it.dateMillis >= range.startMillis && it.dateMillis < range.endMillis 
         }
 
+        // Calculate real balances for all accounts (unrestricted by period)
+        val accountBalances = accounts.associate { acc ->
+            var balance = acc.initialBalance
+            transactions.forEach { tx ->
+                // Note: transactions from repository are already filtered by user and not deleted
+                when (tx.type) {
+                    TransactionType.INCOME -> if (tx.accountId == acc.id) balance += tx.amount
+                    TransactionType.EXPENSE -> if (tx.accountId == acc.id) balance -= tx.amount
+                    TransactionType.TRANSFER -> {
+                        if (tx.transferSourceAccountId == acc.id) balance -= tx.amount
+                        if (tx.transferDestinationAccountId == acc.id) balance += tx.amount
+                    }
+                }
+            }
+            acc.id to balance
+        }
+
+        val totalRealBalance = accountBalances.values.sum()
+
         val income = FinanceEngine.calculateMonthlyIncome(filteredTransactions)
         val expense = FinanceEngine.calculateMonthlyExpense(filteredTransactions)
         val balance = FinanceEngine.calculateMonthlyBalance(income, expense)
@@ -79,7 +99,7 @@ class FinancialViewModel(
             savingsRate = savingsRate,
             formattedIncome = MoneyFormatter.formatSignedToman(income, isExpense = false),
             formattedExpense = MoneyFormatter.formatSignedToman(expense, isExpense = true),
-            formattedBalance = MoneyFormatter.formatToman(balance),
+            formattedBalance = MoneyFormatter.formatToman(totalRealBalance), // Show total real balance in summary card? User said current balance shouldn't be restricted.
             monthlyBudget = budgetSummary.totalBudget,
             budgetUsed = budgetSummary.totalSpent,
             budgetRemaining = budgetSummary.remainingBudget,
@@ -248,6 +268,27 @@ class FinancialViewModel(
     fun toggleCategoryActive(id: String, active: Boolean = true) {
         viewModelScope.launch {
             repository.toggleCategoryActive(id)
+        }
+    }
+
+    fun addAccount(account: com.example.ui.screens.finance.model.Account, onResult: (TransactionOperationResult) -> Unit = {}) {
+        viewModelScope.launch {
+            val res = repository.addAccountResult(account)
+            onResult(res)
+        }
+    }
+
+    fun updateAccount(account: com.example.ui.screens.finance.model.Account, onResult: (TransactionOperationResult) -> Unit = {}) {
+        viewModelScope.launch {
+            val res = repository.updateAccountResult(account)
+            onResult(res)
+        }
+    }
+
+    fun deleteAccount(id: String, onResult: (TransactionOperationResult) -> Unit = {}) {
+        viewModelScope.launch {
+            val res = repository.deleteAccountResult(id)
+            onResult(res)
         }
     }
 }

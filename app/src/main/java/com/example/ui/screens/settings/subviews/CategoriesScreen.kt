@@ -63,8 +63,11 @@ import com.example.R
 import com.example.ui.screens.settings.components.SettingsConfirmationDialog
 import com.example.ui.screens.settings.components.SettingsEmptyState
 import com.example.ui.screens.settings.components.SettingsHeader
-import com.example.ui.screens.settings.model.CategorySettingItem
-import com.example.ui.screens.settings.model.SettingsMockDataSource
+import com.example.ui.screens.finance.model.TransactionType
+import com.example.ui.screens.finance.model.TransactionCategory
+import com.example.ui.screens.finance.viewmodel.FinancialViewModel
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.theme.ButtonShape
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusLG
@@ -74,15 +77,18 @@ import com.example.ui.theme.RadiusSM
 @Composable
 fun CategoriesScreen(
     onBackClick: () -> Unit,
+    viewModel: FinancialViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
+    val state by viewModel.uiState.collectAsState()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val expenseCategories = remember { mutableStateListOf(*SettingsMockDataSource.expenseCategories.toTypedArray()) }
-    val incomeCategories = remember { mutableStateListOf(*SettingsMockDataSource.incomeCategories.toTypedArray()) }
+
+    val expenseCategories = state.categories.filter { it.type == TransactionType.EXPENSE }
+    val incomeCategories = state.categories.filter { it.type == TransactionType.INCOME }
 
     var isAddSheetOpen by remember { mutableStateOf(false) }
-    var editingCategory by remember { mutableStateOf<CategorySettingItem?>(null) }
-    var categoryToDelete by remember { mutableStateOf<CategorySettingItem?>(null) }
+    var editingCategory by remember { mutableStateOf<com.example.ui.screens.finance.model.TransactionCategory?>(null) }
+    var categoryToDelete by remember { mutableStateOf<com.example.ui.screens.finance.model.TransactionCategory?>(null) }
 
     val currentList = if (selectedTabIndex == 0) expenseCategories else incomeCategories
 
@@ -218,12 +224,10 @@ fun CategoriesScreen(
             isExpense = selectedTabIndex == 0,
             onDismiss = { isAddSheetOpen = false },
             onSave = { savedCategory ->
-                val list = if (savedCategory.isExpense) expenseCategories else incomeCategories
                 if (editingCategory != null) {
-                    val index = list.indexOfFirst { it.id == editingCategory?.id }
-                    if (index >= 0) list[index] = savedCategory
+                    viewModel.updateCategory(savedCategory)
                 } else {
-                    list.add(savedCategory)
+                    viewModel.addCategory(savedCategory)
                 }
                 isAddSheetOpen = false
             }
@@ -238,7 +242,7 @@ fun CategoriesScreen(
         confirmButtonText = "حذف دسته",
         onConfirm = {
             categoryToDelete?.let {
-                if (it.isExpense) expenseCategories.remove(it) else incomeCategories.remove(it)
+                viewModel.deleteCategory(it.id)
             }
             categoryToDelete = null
         },
@@ -248,7 +252,7 @@ fun CategoriesScreen(
 
 @Composable
 fun CategoryManageCard(
-    category: CategorySettingItem,
+    category: com.example.ui.screens.finance.model.TransactionCategory,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
@@ -310,11 +314,13 @@ fun CategoryManageCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
-                    Text(
-                        text = "${category.transactionCount} تراکنش ثبت‌شده",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (category.subCategories.isNotEmpty()) {
+                        Text(
+                            text = category.subCategories.joinToString("، "),
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
@@ -354,10 +360,10 @@ fun CategoryManageCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditCategorySheet(
-    category: CategorySettingItem?,
+    category: com.example.ui.screens.finance.model.TransactionCategory?,
     isExpense: Boolean,
     onDismiss: () -> Unit,
-    onSave: (CategorySettingItem) -> Unit
+    onSave: (com.example.ui.screens.finance.model.TransactionCategory) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val availableEmojis = listOf("🍔", "🚗", "🏠", "🛒", "💊", "🎓", "🎮", "💳", "🎁", "✈️", "☕", "📱")
@@ -465,14 +471,14 @@ fun AddEditCategorySheet(
 
             Button(
                 onClick = {
-                    val saved = CategorySettingItem(
+                    val saved = com.example.ui.screens.finance.model.TransactionCategory(
                         id = category?.id ?: "cat_${System.currentTimeMillis()}",
                         title = title.ifBlank { "دسته جدید" },
                         iconEmoji = selectedEmoji,
-                        iconRes = category?.iconRes,
                         accentColor = selectedColor,
-                        transactionCount = category?.transactionCount ?: 0,
-                        isExpense = isExpense
+                        type = if (isExpense) com.example.ui.screens.finance.model.TransactionType.EXPENSE else com.example.ui.screens.finance.model.TransactionType.INCOME,
+                        isDefault = category?.isDefault ?: false,
+                        isActive = category?.isActive ?: true
                     )
                     onSave(saved)
                 },

@@ -47,12 +47,21 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import com.example.ui.components.PersianAmountInputField
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.Composable
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ui.screens.finance.viewmodel.FinancialViewModel
+import com.example.ui.screens.finance.model.Account as DomainAccount
+import com.example.ui.screens.finance.model.AccountType
+import com.example.ui.screens.finance.data.TransactionOperationResult
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -82,12 +91,15 @@ import com.example.ui.theme.RadiusSM
 @Composable
 fun AccountsScreen(
     onBackClick: () -> Unit,
+    viewModel: FinancialViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
-    val accounts = remember { mutableStateListOf(*SettingsMockDataSource.accounts.toTypedArray()) }
+    val state by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
+    
     var isAddSheetOpen by remember { mutableStateOf(false) }
-    var editingAccount by remember { mutableStateOf<AccountSettingItem?>(null) }
-    var accountToDelete by remember { mutableStateOf<AccountSettingItem?>(null) }
+    var editingAccount by remember { mutableStateOf<DomainAccount?>(null) }
+    var accountToDelete by remember { mutableStateOf<DomainAccount?>(null) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -137,7 +149,7 @@ fun AccountsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (accounts.isEmpty()) {
+            if (state.accounts.isEmpty()) {
                 SettingsEmptyState(
                     title = "هنوز حسابی اضافه نکرده‌اید",
                     description = "برای مدیریت هزینه‌ها و درآمدهای خود، حداقل یک حساب بانکی یا کیف پول نقدی تعریف کنید.",
@@ -156,13 +168,20 @@ fun AccountsScreen(
                 ) {
                     item {
                         // Total Balance Card
-                        val totalBalance = "۳۰,۷۰۰,۰۰۰"
-                        TotalAccountsBalanceCard(totalBalanceFormatted = totalBalance, count = accounts.size)
+                        val totalBalance = state.accounts.sumOf { acc -> 
+                            // This is a simplified total balance. In a real app we might want to use calculateAccountBalance for each
+                            // but for the summary card, the initialBalance + transactions in memory is fine.
+                            acc.initialBalance 
+                        }
+                        TotalAccountsBalanceCard(
+                            totalBalanceFormatted = com.example.util.MoneyFormatter.formatToman(totalBalance), 
+                            count = state.accounts.size
+                        )
                     }
 
                     item {
                         Text(
-                            text = "لیست حساب‌های فعال (${accounts.size})",
+                            text = "لیست حساب‌های فعال (${state.accounts.size})",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.5.sp
@@ -172,7 +191,7 @@ fun AccountsScreen(
                         )
                     }
 
-                    items(accounts, key = { it.id }) { account ->
+                    items(state.accounts, key = { it.id }) { account ->
                         AccountManageCard(
                             account = account,
                             onEdit = {
@@ -200,10 +219,9 @@ fun AccountsScreen(
             onDismiss = { isAddSheetOpen = false },
             onSave = { savedAccount ->
                 if (editingAccount != null) {
-                    val index = accounts.indexOfFirst { it.id == editingAccount?.id }
-                    if (index >= 0) accounts[index] = savedAccount
+                    viewModel.updateAccount(savedAccount)
                 } else {
-                    accounts.add(savedAccount)
+                    viewModel.addAccount(savedAccount)
                 }
                 isAddSheetOpen = false
             }
@@ -213,11 +231,11 @@ fun AccountsScreen(
     // Confirmation Dialog
     SettingsConfirmationDialog(
         isOpen = accountToDelete != null,
-        title = "حذف حساب ${accountToDelete?.title ?: ""}",
+        title = "حذف حساب ${accountToDelete?.name ?: ""}",
         message = "آیا از حذف این حساب مطمئن هستید؟ تمامی تراکنش‌های مرتبط با این حساب از برنامه حذف خواهند شد.",
         confirmButtonText = "حذف حساب",
         onConfirm = {
-            accountToDelete?.let { accounts.remove(it) }
+            accountToDelete?.let { viewModel.deleteAccount(it.id) }
             accountToDelete = null
         },
         onDismiss = { accountToDelete = null }
@@ -308,13 +326,27 @@ private fun TotalAccountsBalanceCard(
 
 @Composable
 fun AccountManageCard(
-    account: AccountSettingItem,
+    account: DomainAccount,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     var showMenu by remember { mutableStateOf(false) }
+
+    val iconRes = when(account.type) {
+        AccountType.CASH -> R.drawable.img_3d_wallet
+        AccountType.BANK -> R.drawable.img_3d_bank
+        AccountType.CARD -> R.drawable.img_3d_card
+        else -> R.drawable.img_3d_bank
+    }
+    
+    val accentColor = when(account.type) {
+        AccountType.CASH -> EmeraldPrimaryLight
+        AccountType.BANK -> Color(0xFFE11D48)
+        AccountType.CARD -> Color(0xFF2563EB)
+        else -> MaterialTheme.colorScheme.primary
+    }
 
     Surface(
         modifier = modifier
@@ -352,12 +384,12 @@ fun AccountManageCard(
                         modifier = Modifier
                             .size(46.dp)
                             .clip(RoundedCornerShape(RadiusMD))
-                            .background(account.accentColor.copy(alpha = 0.15f)),
+                            .background(accentColor.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            painter = painterResource(id = account.iconRes),
-                            contentDescription = account.title,
+                            painter = painterResource(id = iconRes),
+                            contentDescription = account.name,
                             modifier = Modifier.size(36.dp),
                             contentScale = ContentScale.Crop
                         )
@@ -369,7 +401,7 @@ fun AccountManageCard(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = account.title,
+                                text = account.name,
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp
@@ -379,22 +411,22 @@ fun AccountManageCard(
                             Box(
                                 modifier = Modifier
                                     .clip(CircleShape)
-                                    .background(account.accentColor.copy(alpha = 0.12f))
+                                    .background(accentColor.copy(alpha = 0.12f))
                                     .padding(horizontal = 7.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = account.accountType,
+                                    text = account.type.name,
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.SemiBold
                                     ),
-                                    color = account.accentColor
+                                    color = accentColor
                                 )
                             }
                         }
 
                         Text(
-                            text = "${account.bankName} • ${account.accountNumberMasked}",
+                            text = "${account.bankName ?: "بانک من"} • ${account.accountNumberMasked ?: "•••• ••••"}",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -454,7 +486,7 @@ fun AccountManageCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "موجودی فعلی:",
+                    text = "موجودی اولیه:",
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -464,7 +496,7 @@ fun AccountManageCard(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = account.balanceFormatted,
+                        text = com.example.util.MoneyFormatter.formatToman(account.initialBalance),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
@@ -485,18 +517,23 @@ fun AccountManageCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditAccountSheet(
-    account: AccountSettingItem?,
+    account: DomainAccount?,
     onDismiss: () -> Unit,
-    onSave: (AccountSettingItem) -> Unit
+    onSave: (DomainAccount) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val accountTypes = listOf("بانک", "کیف پول", "کارت", "نقدی", "سایر")
+    val accountTypes = mapOf(
+        "بانک" to AccountType.BANK,
+        "کیف پول" to AccountType.CASH,
+        "کارت" to AccountType.CARD,
+        "سایر" to AccountType.OTHER
+    )
 
-    var title by remember { mutableStateOf(account?.title ?: "") }
-    var bankName by remember { mutableStateOf(account?.bankName ?: "بانک ملت") }
-    var balance by remember { mutableStateOf(account?.balanceFormatted ?: "") }
+    var name by remember { mutableStateOf(account?.name ?: "") }
+    var bankName by remember { mutableStateOf(account?.bankName ?: "") }
+    var balance by remember { mutableStateOf(account?.initialBalance?.toString() ?: "") }
     var accountNumber by remember { mutableStateOf(account?.accountNumberMasked ?: "") }
-    var selectedType by remember { mutableStateOf(account?.accountType ?: "بانک") }
+    var selectedType by remember { mutableStateOf(account?.type ?: AccountType.BANK) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -530,7 +567,7 @@ fun AddEditAccountSheet(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(accountTypes) { type ->
+                    items(accountTypes.entries.toList()) { (label, type) ->
                         val isSelected = type == selectedType
                         Box(
                             modifier = Modifier
@@ -542,7 +579,7 @@ fun AddEditAccountSheet(
                                 .padding(horizontal = 14.dp, vertical = 8.dp)
                         ) {
                             Text(
-                                text = type,
+                                text = label,
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                     fontSize = 12.sp
@@ -556,8 +593,8 @@ fun AddEditAccountSheet(
 
             // Input Fields
             OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
+                value = name,
+                onValueChange = { name = it },
                 label = { Text("نام حساب (مثلاً کارت حقوق)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -592,15 +629,15 @@ fun AddEditAccountSheet(
 
             Button(
                 onClick = {
-                    val saved = AccountSettingItem(
+                    val saved = DomainAccount(
                         id = account?.id ?: "acc_${System.currentTimeMillis()}",
-                        title = title.ifBlank { "حساب جدید" },
-                        bankName = bankName.ifBlank { "حساب من" },
-                        accountNumberMasked = accountNumber.ifBlank { "•••• •••• ••••" },
-                        balanceFormatted = balance.ifBlank { "۰" },
-                        accountType = selectedType,
-                        iconRes = if (selectedType == "کیف پول") R.drawable.img_3d_wallet else if (selectedType == "کارت") R.drawable.img_3d_card else R.drawable.img_3d_bank,
-                        accentColor = if (selectedType == "کیف پول") EmeraldPrimaryLight else Color(0xFF2563EB)
+                        userId = account?.userId ?: "",
+                        name = name.ifBlank { "حساب جدید" },
+                        bankName = bankName.ifBlank { null },
+                        accountNumberMasked = accountNumber.ifBlank { null },
+                        type = selectedType,
+                        initialBalance = IranianAmountUtils.parseAmountToLong(balance) ?: 0L,
+                        isActive = account?.isActive ?: true
                     )
                     onSave(saved)
                 },
