@@ -496,15 +496,17 @@ fun InstallmentsScreen(
                 }
 
                 if (!customScheduleItems.isNullOrEmpty()) {
+                    val numbers = customScheduleItems.map { it.installmentNumber }
+                    val hasDuplicates = numbers.toSet().size != numbers.size
                     val invalidCustom = customScheduleItems.firstOrNull { 
                         it.installmentNumber <= 0 || 
                         it.amount <= 0 || 
                         it.dueDate.isBlank() || 
                         com.example.calendar.domain.CalendarDateUtils.parseJalali(it.dueDate) == null 
                     }
-                    if (invalidCustom != null) {
+                    if (hasDuplicates || invalidCustom != null) {
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("اقساط سفارشی دارای مقادیر نامعتبر هستند")
+                            snackbarHostState.showSnackbar("شماره اقساط سفارشی باید یکتا و معتبر باشند و مبلغ/تاریخ نباید خالی باشد")
                         }
                         return@Button
                     }
