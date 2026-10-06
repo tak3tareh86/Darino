@@ -245,38 +245,39 @@ class LocalInstallmentRepository private constructor() {
     }
 
     fun addInstallment(item: InstallmentItem, context: Context? = null) {
-        val current = _installments.value.toMutableList()
-        current.add(0, item)
-        updateInternalState(current)
-
         val targetContext = context?.applicationContext ?: appContext ?: return
         repositoryScope.launch {
-            saveToRoom(targetContext, current)
-            val userId = SessionManager.userId
-            if (userId != null) {
-                reloadForUser(targetContext, userId)
+            try {
+                val current = _installments.value.toMutableList()
+                current.add(0, item)
+                saveToRoom(targetContext, current)
+                val userId = SessionManager.userId
+                if (userId != null) {
+                    reloadForUser(targetContext, userId)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
 
     fun updateInstallment(updated: InstallmentItem, context: Context? = null) {
-        val current = _installments.value.map { if (it.id == updated.id) updated else it }
-        updateInternalState(current)
-
         val targetContext = context?.applicationContext ?: appContext ?: return
         repositoryScope.launch {
-            saveToRoom(targetContext, current)
-            val userId = SessionManager.userId
-            if (userId != null) {
-                reloadForUser(targetContext, userId)
+            try {
+                val current = _installments.value.map { if (it.id == updated.id) updated else it }
+                saveToRoom(targetContext, current)
+                val userId = SessionManager.userId
+                if (userId != null) {
+                    reloadForUser(targetContext, userId)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
 
     fun deleteInstallment(id: String, context: Context? = null) {
-        val current = _installments.value.filter { it.id != id }
-        updateInternalState(current)
-
         val targetContext = context?.applicationContext ?: appContext ?: return
         repositoryScope.launch {
             saveMutex.withLock {
@@ -284,8 +285,10 @@ class LocalInstallmentRepository private constructor() {
                     val db = AppDatabase.getDatabase(targetContext)
                     val userId = SessionManager.userId ?: return@withLock
                     val numericId = id.toIntOrNull() ?: 0
-                    db.installmentDao().deleteInstallmentById(userId, numericId, id)
-                    db.installmentDao().deletePaymentsForInstallment(userId, numericId, id)
+                    db.withTransaction {
+                        db.installmentDao().deleteInstallmentById(userId, numericId, id)
+                        db.installmentDao().deletePaymentsForInstallment(userId, numericId, id)
+                    }
                     reloadForUser(targetContext, userId)
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -299,64 +302,62 @@ class LocalInstallmentRepository private constructor() {
     }
 
     fun payInstallment(installmentId: String, paymentDate: String, context: Context? = null) {
-        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-        val effectivePaymentDate = paymentDate.ifBlank { todayJalali }
-
-        val current = _installments.value.toMutableList()
-        val index = current.indexOfFirst { it.id == installmentId }
-        if (index == -1) return
-
-        val item = current[index]
-        val history = item.paymentHistory.toMutableList()
-
-        val targetIndex = history.indexOfFirst { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
-        if (targetIndex == -1) {
-            return // No unpaid schedule item exists; never invent new payments.
-        }
-
-        val target = history[targetIndex]
-        if (target.status == InstallmentStatus.PAID || target.status == InstallmentStatus.COMPLETED) {
-            return
-        }
-
-        history[targetIndex] = target.copy(
-            status = InstallmentStatus.PAID,
-            paidDate = effectivePaymentDate
-        )
-
-        val paidCount = history.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
-        val remainingCount = (item.totalInstallments - paidCount).coerceAtLeast(0)
-
-        val actualPaidAmount = history.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }.sumOf { it.amount }
-        val actualRemainingAmount = (item.totalAmount - actualPaidAmount).coerceAtLeast(0L)
-
-        val isCompleted = remainingCount == 0
-        val newStatus = if (isCompleted) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
-
-        val nextPending = history.firstOrNull { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
-        val nextPaymentDateStr = nextPending?.dueDate ?: item.nextPaymentDate
-
-        val nextDueMillis = parseJalaliStringToMillis(nextPaymentDateStr) ?: throw IllegalStateException("Invalid next payment date: $nextPaymentDateStr")
-        val newDueDaysText = computeDueDaysText(nextDueMillis, newStatus, remainingCount)
-
-        val updatedItem = item.copy(
-            paidAmount = actualPaidAmount,
-            paidAmountFormatted = MoneyFormatter.formatToman(actualPaidAmount),
-            remainingAmount = actualRemainingAmount,
-            remainingAmountFormatted = MoneyFormatter.formatToman(actualRemainingAmount),
-            remainingInstallments = remainingCount,
-            status = newStatus,
-            nextPaymentDate = nextPaymentDateStr,
-            nextDueDaysText = newDueDaysText,
-            paymentHistory = history
-        )
-
-        current[index] = updatedItem
-        updateInternalState(current)
-
         val targetContext = context?.applicationContext ?: appContext ?: return
         repositoryScope.launch {
             try {
+                val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                val effectivePaymentDate = paymentDate.ifBlank { todayJalali }
+
+                val current = _installments.value.toMutableList()
+                val index = current.indexOfFirst { it.id == installmentId }
+                if (index == -1) return@launch
+
+                val item = current[index]
+                val history = item.paymentHistory.toMutableList()
+
+                val targetIndex = history.indexOfFirst { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                if (targetIndex == -1) {
+                    return@launch // No unpaid schedule item exists; never invent new payments.
+                }
+
+                val target = history[targetIndex]
+                if (target.status == InstallmentStatus.PAID || target.status == InstallmentStatus.COMPLETED) {
+                    return@launch
+                }
+
+                history[targetIndex] = target.copy(
+                    status = InstallmentStatus.PAID,
+                    paidDate = effectivePaymentDate
+                )
+
+                val paidCount = history.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
+                val remainingCount = (item.totalInstallments - paidCount).coerceAtLeast(0)
+
+                val actualPaidAmount = history.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }.sumOf { it.amount }
+                val actualRemainingAmount = (item.totalAmount - actualPaidAmount).coerceAtLeast(0L)
+
+                val isCompleted = remainingCount == 0
+                val newStatus = if (isCompleted) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
+
+                val nextPending = history.firstOrNull { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                val nextPaymentDateStr = nextPending?.dueDate ?: item.nextPaymentDate
+
+                val nextDueMillis = parseJalaliStringToMillis(nextPaymentDateStr) ?: throw IllegalStateException("Invalid next payment date: $nextPaymentDateStr")
+                val newDueDaysText = computeDueDaysText(nextDueMillis, newStatus, remainingCount)
+
+                val updatedItem = item.copy(
+                    paidAmount = actualPaidAmount,
+                    paidAmountFormatted = MoneyFormatter.formatToman(actualPaidAmount),
+                    remainingAmount = actualRemainingAmount,
+                    remainingAmountFormatted = MoneyFormatter.formatToman(actualRemainingAmount),
+                    remainingInstallments = remainingCount,
+                    status = newStatus,
+                    nextPaymentDate = nextPaymentDateStr,
+                    nextDueDaysText = newDueDaysText,
+                    paymentHistory = history
+                )
+
+                current[index] = updatedItem
                 saveToRoom(targetContext, current)
                 val userId = SessionManager.userId
                 if (userId != null) {
@@ -378,6 +379,7 @@ class LocalInstallmentRepository private constructor() {
         context: Context? = null
     ): Boolean {
         var found = false
+        val targetContext = context?.applicationContext ?: appContext
         val current = _installments.value.map { item ->
             if (item.id == installmentId) {
                 val updatedHistory = item.paymentHistory.map { hist ->
@@ -400,9 +402,9 @@ class LocalInstallmentRepository private constructor() {
                         hist
                     }
                 }
-                val paidCount = updatedHistory.count { it.status == InstallmentStatus.PAID }
+                val paidCount = updatedHistory.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
                 val remainingCount = (item.totalInstallments - paidCount).coerceAtLeast(0)
-                val paidSum = updatedHistory.filter { it.status == InstallmentStatus.PAID }.sumOf { it.amount }
+                val paidSum = updatedHistory.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }.sumOf { it.amount }
                 val totalSum = updatedHistory.sumOf { it.amount }.coerceAtLeast(item.totalAmount)
                 val remainingSum = (totalSum - paidSum).coerceAtLeast(0L)
                 val status = if (remainingCount == 0) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
@@ -422,14 +424,16 @@ class LocalInstallmentRepository private constructor() {
                 item
             }
         }
-        if (found) {
-            updateInternalState(current)
-            val targetContext = context?.applicationContext ?: appContext ?: return true
+        if (found && targetContext != null) {
             repositoryScope.launch {
-                saveToRoom(targetContext, current)
-                val userId = SessionManager.userId
-                if (userId != null) {
-                    reloadForUser(targetContext, userId)
+                try {
+                    saveToRoom(targetContext, current)
+                    val userId = SessionManager.userId
+                    if (userId != null) {
+                        reloadForUser(targetContext, userId)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
         }
