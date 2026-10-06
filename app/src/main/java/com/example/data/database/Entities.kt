@@ -125,10 +125,12 @@ data class VehicleServiceEntity(
     val vehicleId: String = "",
     val type: String, // "INSURANCE", "INSPECTION", "OIL", "SERVICE", "TIRES", "BATTERY", "MAINTENANCE", "TAX", "CUSTOM"
     val title: String,
-    val dueDate: Long?,
-    val dueMileage: Int?,
-    val status: String, // "PENDING", "COMPLETED"
-    val notes: String?,
+    val serviceDate: Long? = null,
+    val dueDate: Long? = null,
+    val cost: Long = 0L,
+    val dueMileage: Int? = null,
+    val status: String = "PENDING", // "PENDING", "COMPLETED"
+    val notes: String? = null,
     val updatedAt: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null
 )

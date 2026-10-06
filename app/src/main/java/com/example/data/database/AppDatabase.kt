@@ -259,9 +259,9 @@ abstract class AppDatabase : RoomDatabase() {
 
         val MIGRATION_19_20 = object : androidx.room.migration.Migration(19, 20) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-                db.execSQL("DROP TABLE IF EXISTS vehicle_services")
+                // 1. Create new temporary table with updated schema
                 db.execSQL("""
-                    CREATE TABLE IF NOT EXISTS `vehicle_services` (
+                    CREATE TABLE IF NOT EXISTS `vehicle_services_temp` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                         `serverId` TEXT,
                         `syncState` TEXT NOT NULL DEFAULT 'SYNCED',
@@ -269,14 +269,35 @@ abstract class AppDatabase : RoomDatabase() {
                         `vehicleId` TEXT NOT NULL DEFAULT '',
                         `type` TEXT NOT NULL,
                         `title` TEXT NOT NULL,
+                        `serviceDate` INTEGER,
                         `dueDate` INTEGER,
+                        `cost` INTEGER NOT NULL DEFAULT 0,
                         `dueMileage` INTEGER,
-                        `status` TEXT NOT NULL,
+                        `status` TEXT NOT NULL DEFAULT 'PENDING',
                         `notes` TEXT,
-                        `updatedAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL DEFAULT 0,
                         `deletedAt` INTEGER
                     )
                 """.trimIndent())
+
+                // 2. Safely migrate data from existing vehicle_services table if present
+                val cursor = db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='vehicle_services'")
+                val tableExists = cursor.use { it.moveToFirst() }
+
+                if (tableExists) {
+                    db.execSQL("""
+                        INSERT INTO `vehicle_services_temp` (
+                            `id`, `serverId`, `syncState`, `userId`, `vehicleId`, `type`, `title`, `serviceDate`, `dueDate`, `cost`, `dueMileage`, `status`, `notes`, `updatedAt`, `deletedAt`
+                        )
+                        SELECT 
+                            `id`, `serverId`, `syncState`, `userId`, CAST(`vehicleId` AS TEXT), `type`, `title`, NULL, `dueDate`, 0, `dueMileage`, `status`, `notes`, `updatedAt`, `deletedAt`
+                        FROM `vehicle_services`
+                    """.trimIndent())
+                    db.execSQL("DROP TABLE `vehicle_services` ")
+                }
+
+                // 3. Rename temporary table to vehicle_services
+                db.execSQL("ALTER TABLE `vehicle_services_temp` RENAME TO `vehicle_services` ")
             }
         }
 

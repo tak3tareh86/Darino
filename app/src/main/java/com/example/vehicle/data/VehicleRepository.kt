@@ -95,9 +95,12 @@ class VehicleRepository {
                     }
 
                     migratedServices.forEach { s ->
-                        val targetDateStr = s.nextReminderDate?.takeIf { it.isNotBlank() } ?: s.date
+                        val serviceDateMs = runCatching {
+                            if (s.date.isNotBlank()) com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(s.date) else null
+                        }.getOrNull()
+
                         val dueDateMs = runCatching {
-                            com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(targetDateStr)
+                            s.nextReminderDate?.takeIf { it.isNotBlank() }?.let { com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(it) }
                         }.getOrNull()
 
                         vDao.insertService(
@@ -107,7 +110,9 @@ class VehicleRepository {
                                 vehicleId = s.vehicleId,
                                 type = s.serviceType.name,
                                 title = s.title,
+                                serviceDate = serviceDateMs,
                                 dueDate = dueDateMs,
+                                cost = s.cost,
                                 dueMileage = s.mileage,
                                 status = "PENDING",
                                 notes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
@@ -201,10 +206,11 @@ class VehicleRepository {
             val dbServices = vDao.getAllServicesList(userId)
             _services.value = dbServices.map { s ->
                 val (parsedCost, cleanDescription) = parseCostAndDescription(s.notes)
-                val matchedVehicle = _vehicles.value.find { it.id == s.vehicleId.toString() }
-                val realVehicleId = matchedVehicle?.id ?: s.vehicleId.toString()
+                val realVehicleId = s.vehicleId
 
-                val realCost = if (parsedCost > 0L) {
+                val realCost = if (s.cost > 0L) {
+                    s.cost
+                } else if (parsedCost > 0L) {
                     parsedCost
                 } else {
                     _expenses.value.find { it.vehicleId == realVehicleId && it.title == s.title }?.amount
@@ -212,12 +218,18 @@ class VehicleRepository {
                         ?: 0L
                 }
 
-                val realDate = if (s.dueDate != null && s.dueDate > 0L) {
-                    com.example.util.PersianCalendarHelper.fromEpochMillis(s.dueDate).toFormattedDate()
+                val realServiceDate = if (s.serviceDate != null && s.serviceDate > 0L) {
+                    com.example.util.PersianCalendarHelper.fromEpochMillis(s.serviceDate).toFormattedDate()
                 } else if (s.updatedAt > 0L) {
                     com.example.util.PersianCalendarHelper.fromEpochMillis(s.updatedAt).toFormattedDate()
                 } else {
                     "۱۴۰۴/۰۱/۰۱"
+                }
+
+                val realNextReminderDate = if (s.dueDate != null && s.dueDate > 0L) {
+                    com.example.util.PersianCalendarHelper.fromEpochMillis(s.dueDate).toFormattedDate()
+                } else {
+                    null
                 }
 
                 VehicleServiceEntity(
@@ -225,11 +237,11 @@ class VehicleRepository {
                     vehicleId = realVehicleId,
                     title = s.title,
                     serviceType = try { ServiceType.valueOf(s.type) } catch (e: Exception) { ServiceType.OIL_CHANGE },
-                    date = realDate,
+                    date = realServiceDate,
                     mileage = s.dueMileage ?: 0,
                     cost = realCost,
                     description = cleanDescription,
-                    nextReminderDate = if (s.dueDate != null && s.dueDate > 0L) realDate else null,
+                    nextReminderDate = realNextReminderDate,
                     nextReminderMileage = s.dueMileage,
                     isReminderEnabled = s.status != "COMPLETED"
                 )
@@ -299,10 +311,14 @@ class VehicleRepository {
 
                 vDao.clearAllServices(userId)
                 _services.value.forEach { s ->
-                    val targetDateStr = s.nextReminderDate?.takeIf { it.isNotBlank() } ?: s.date
-                    val dueDateMs = runCatching {
-                        com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(targetDateStr)
+                    val serviceDateMs = runCatching {
+                        if (s.date.isNotBlank()) com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(s.date) else null
                     }.getOrNull()
+
+                    val dueDateMs = runCatching {
+                        s.nextReminderDate?.takeIf { it.isNotBlank() }?.let { com.example.util.PersianCalendarHelper.parseJalaliToTimestamp(it) }
+                    }.getOrNull()
+
                     val encodedNotes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
 
                     vDao.insertService(
@@ -312,7 +328,9 @@ class VehicleRepository {
                             vehicleId = s.vehicleId,
                             type = s.serviceType.name,
                             title = s.title,
+                            serviceDate = serviceDateMs,
                             dueDate = dueDateMs,
+                            cost = s.cost,
                             dueMileage = s.mileage,
                             status = if (s.isReminderEnabled) "PENDING" else "COMPLETED",
                             notes = encodedNotes
