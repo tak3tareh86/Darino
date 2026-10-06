@@ -55,6 +55,7 @@ fun AddFinancialEventSheet(
     var timeText by remember { mutableStateOf("۱۰:۰۰") }
     var description by remember { mutableStateOf("") }
     var selectedReminderBefore by remember { mutableStateOf(ReminderBeforeOption.ONE_DAY) }
+    var dateError by remember { mutableStateOf<String?>(null) }
 
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
@@ -188,9 +189,14 @@ fun AddFinancialEventSheet(
             ) {
                 PersianDateInputField(
                     value = dateText,
-                    onValueChange = { dateText = it },
+                    onValueChange = { 
+                        dateText = it
+                        dateError = null
+                    },
                     label = "تاریخ سررسید (شمسی)",
                     placeholder = "۱۴۰۴/۰۱/۰۱",
+                    isError = dateError != null,
+                    errorMessage = dateError,
                     modifier = Modifier
                         .weight(1.2f)
                         .testTag("event_date_input")
@@ -279,6 +285,12 @@ fun AddFinancialEventSheet(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
+                        if (!CalendarDateUtils.isValidJalaliDate(dateText)) {
+                            dateError = "لطفاً یک تاریخ شمسی معتبر وارد کنید."
+                            return@Button
+                        }
+                        dateError = null
+
                         val amountLong = IranianAmountUtils.parseAmountToLong(amountText)
                         val newEvent = FinancialEvent(
                             id = "user_ev_${System.currentTimeMillis()}",

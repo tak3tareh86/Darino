@@ -90,4 +90,19 @@ object CalendarDateUtils {
     fun getMonthName(month: Int): String {
         return PersianCalendarHelper.PERSIAN_MONTH_NAMES.getOrElse(month - 1) { "" }
     }
+
+    /**
+     * Validates if a string is a valid Jalali date (YYYY/MM/DD)
+     */
+    fun isValidJalaliDate(date: String): Boolean {
+        val parts = parseJalali(date) ?: return false
+        val (y, m, d) = parts
+        
+        if (y < 1000 || y > 1600) return false
+        if (m < 1 || m > 12) return false
+        if (d < 1) return false
+        
+        val maxDays = getDaysInJalaliMonth(y, m)
+        return d <= maxDays
+    }
 }

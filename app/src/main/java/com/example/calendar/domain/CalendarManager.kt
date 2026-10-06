@@ -82,11 +82,34 @@ class CalendarManager(private val context: Context) {
     }
 
     suspend fun toggleStatus(event: FinancialEvent) {
-        val newStatus = if (event.status == FinancialEventStatus.PAID) {
-            FinancialEventStatus.PENDING
+        if (event.id.startsWith("auto_rem_")) {
+            val reminderId = event.id.removePrefix("auto_rem_")
+            val database = com.example.data.database.AppDatabase.getDatabase(context)
+            val userId = com.example.data.security.SessionManager.userId ?: return
+            
+            // Check current status. In Calendar, PAID maps to COMPLETED/CANCELLED.
+            // If it's currently PAID, we want to set it back to PENDING (ACTIVE).
+            val newReminderStatus = if (event.status == FinancialEventStatus.PAID) {
+                "ACTIVE"
+            } else {
+                "COMPLETED"
+            }
+            
+            // Update the real reminder in DB.
+            database.smartReminderDao().updateStatus(
+                userId = userId,
+                id = reminderId,
+                status = newReminderStatus,
+                completedAt = if (newReminderStatus == "COMPLETED") System.currentTimeMillis() else null,
+                cancelledAt = null
+            )
         } else {
-            FinancialEventStatus.PAID
+            val newStatus = if (event.status == FinancialEventStatus.PAID) {
+                FinancialEventStatus.PENDING
+            } else {
+                FinancialEventStatus.PAID
+            }
+            repository.updateEvent(event.copy(status = newStatus))
         }
-        repository.updateEvent(event.copy(status = newStatus))
     }
 }
