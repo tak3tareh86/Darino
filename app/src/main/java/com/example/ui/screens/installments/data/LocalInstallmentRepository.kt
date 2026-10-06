@@ -102,13 +102,13 @@ class LocalInstallmentRepository private constructor() {
                     val startJalali = if (entity.startDate > 0L) {
                         PersianCalendarHelper.fromEpochMillis(entity.startDate).toFormattedDate()
                     } else {
-                        throw IllegalStateException("Invalid installment startDate in DB")
+                        throw IllegalStateException("Invalid installment startDate in DB: ${entity.startDate}")
                     }
 
                     val nextDueMillis = if (entity.nextDueDate > 0L) {
                         entity.nextDueDate
                     } else {
-                        entity.startDate
+                        throw IllegalStateException("Invalid installment nextDueDate in DB: ${entity.nextDueDate}")
                     }
 
                     val nextDueJalali = PersianCalendarHelper.fromEpochMillis(nextDueMillis).toFormattedDate()
@@ -118,7 +118,7 @@ class LocalInstallmentRepository private constructor() {
                         val dueStr = if (p.dueDate > 0L) {
                             PersianCalendarHelper.fromEpochMillis(p.dueDate).toFormattedDate()
                         } else {
-                            nextDueJalali
+                            throw IllegalStateException("Invalid payment dueDate in DB for payment ${p.id}: ${p.dueDate}")
                         }
                         val paidStr = p.paidDate?.takeIf { it > 0L }?.let {
                             PersianCalendarHelper.fromEpochMillis(it).toFormattedDate()
@@ -425,6 +425,12 @@ class LocalInstallmentRepository private constructor() {
             }
         }
         if (found && targetContext != null) {
+            if (newDueDate != null && parseJalaliStringToMillis(newDueDate) == null) {
+                return false
+            }
+            if (newAmountLong != null && newAmountLong <= 0L) {
+                return false
+            }
             repositoryScope.launch {
                 try {
                     saveToRoom(targetContext, current)
@@ -441,16 +447,20 @@ class LocalInstallmentRepository private constructor() {
     }
 
     fun clearAllInstallments(context: Context? = null) {
-        updateInternalState(emptyList())
         val targetContext = context?.applicationContext ?: appContext ?: return
         repositoryScope.launch {
-            try {
-                val db = AppDatabase.getDatabase(targetContext)
-                val userId = SessionManager.userId ?: return@launch
-                db.installmentDao().clearAllInstallments(userId)
-                db.installmentDao().clearAllPayments(userId)
-            } catch (e: Exception) {
-                e.printStackTrace()
+            saveMutex.withLock {
+                try {
+                    val db = AppDatabase.getDatabase(targetContext)
+                    val userId = SessionManager.userId ?: return@withLock
+                    db.withTransaction {
+                        db.installmentDao().clearAllInstallments(userId)
+                        db.installmentDao().clearAllPayments(userId)
+                    }
+                    reloadForUser(targetContext, userId)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }
@@ -464,11 +474,12 @@ class LocalInstallmentRepository private constructor() {
             dao.clearAllPayments(userId)
 
             items.forEach { item ->
-                val startMillis = parseJalaliStringToMillis(item.startDate) ?: throw IllegalArgumentException("Invalid start date: ${item.startDate}")
-                val nextDueMillis = parseJalaliStringToMillis(item.nextPaymentDate) ?: startMillis
+                val startMillis = parseJalaliStringToMillis(item.startDate) 
+                    ?: throw IllegalArgumentException("Invalid start date: ${item.startDate}")
+                val nextDueMillis = parseJalaliStringToMillis(item.nextPaymentDate) 
+                    ?: throw IllegalArgumentException("Invalid next payment date: ${item.nextPaymentDate}")
                 val dueDayNum = CalendarDateUtils.parseJalali(item.nextPaymentDate)?.third
-                    ?: CalendarDateUtils.parseJalali(item.startDate)?.third
-                    ?: throw IllegalArgumentException("Invalid due day in dates")
+                    ?: throw IllegalArgumentException("Invalid due day in nextPaymentDate: ${item.nextPaymentDate}")
 
                 val entity = InstallmentEntity(
                     id = 0,
@@ -491,8 +502,11 @@ class LocalInstallmentRepository private constructor() {
                 val instId = dao.insertInstallment(entity).toInt()
 
                 item.paymentHistory.forEach { p ->
-                    val pDueMillis = parseJalaliStringToMillis(p.dueDate) ?: nextDueMillis
-                    val pPaidMillis = p.paidDate?.let { parseJalaliStringToMillis(it) }
+                    val pDueMillis = parseJalaliStringToMillis(p.dueDate) 
+                        ?: throw IllegalArgumentException("Invalid payment due date: ${p.dueDate}")
+                    val pPaidMillis = p.paidDate?.takeIf { it.isNotBlank() }?.let {
+                        parseJalaliStringToMillis(it) ?: throw IllegalArgumentException("Invalid payment paid date: $it")
+                    }
 
                     val paymentEntity = InstallmentPaymentEntity(
                         installmentId = instId,
