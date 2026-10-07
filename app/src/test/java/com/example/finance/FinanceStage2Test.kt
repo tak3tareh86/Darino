@@ -417,8 +417,8 @@ class FinanceStage2Test {
         repository.addBudget(budget)
 
         // 1. Toggle disabled and assert result
-        val disableResult = repository.toggleBudget("toggle_persist_test", false)
-        assertTrue("toggleBudget(false) must return true", disableResult)
+        val disableResult = repository.setBudgetEnabled("toggle_persist_test", false)
+        assertTrue("setBudgetEnabled(false) must return true", disableResult)
 
         // 2. Clear in-memory state completely via session logout
         SessionManager.logout()
@@ -438,8 +438,8 @@ class FinanceStage2Test {
         assertFalse("Budget isEnabled must be false after reloading from disk", reloadedDisabled!!.isEnabled)
 
         // 5. Toggle enabled and assert result
-        val enableResult = repository.toggleBudget("toggle_persist_test", true)
-        assertTrue("toggleBudget(true) must return true", enableResult)
+        val enableResult = repository.setBudgetEnabled("toggle_persist_test", true)
+        assertTrue("setBudgetEnabled(true) must return true", enableResult)
 
         // 6. Clear in-memory state again
         SessionManager.logout()

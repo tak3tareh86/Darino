@@ -20,9 +20,9 @@ class VehicleAssistantTest {
     }
 
     @Test
-    fun testAddVehicleAndServiceWorkflow() {
+    fun testAddVehicleAndServiceWorkflow() = kotlinx.coroutines.runBlocking {
         // 1. Add Peugeot 207 (1402, 45,000 km)
-        val car = repository.addVehicle(
+        val carResult = repository.addVehicle(
             brand = "ایران‌خودرو",
             model = "پژو 207i",
             year = "1402",
@@ -32,13 +32,14 @@ class VehicleAssistantTest {
             currentMileage = 45000,
             estimatedValue = 850_000_000L
         )
+        val car = carResult.getOrThrow()
 
         assertNotNull(car)
         assertEquals("پژو 207i", car.model)
         assertEquals(45000, car.currentMileage)
 
         // 2. Add Oil Change (850,000 Toman)
-        val service = repository.addService(
+        val serviceResult = repository.addService(
             vehicleId = car.id,
             title = "تعویض روغن موتور و فیلترها",
             serviceType = ServiceType.OIL_CHANGE,
@@ -50,6 +51,7 @@ class VehicleAssistantTest {
             nextReminderMileage = 50000,
             isReminderEnabled = true
         )
+        val service = serviceResult.getOrThrow()
 
         assertNotNull(service)
         assertEquals(850_000L, service.cost)

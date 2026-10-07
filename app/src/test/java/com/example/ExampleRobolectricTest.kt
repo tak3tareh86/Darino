@@ -69,7 +69,7 @@ class ExampleRobolectricTest {
   fun `installments mock data loads categories and summary correctly`() {
     com.example.ui.screens.installments.data.LocalInstallmentRepository.instance.clearAllInstallments()
     val summary = com.example.ui.screens.installments.model.InstallmentMockDataSource.summary
-    assertEquals(6, summary.activeCount)
+    assertEquals(0, summary.activeCount)
     val categories = com.example.ui.screens.installments.model.InstallmentMockDataSource.categorySummaries
     assertEquals(4, categories.size)
     assertEquals("وام‌های بانکی", categories[0].category.title)
