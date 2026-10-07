@@ -27,8 +27,6 @@ class ReminderManager(
         repeatType: RepeatType = RepeatType.NONE,
         repeatInterval: Int = 1
     ): ReminderEntity = withContext(Dispatchers.IO) {
-        repository.insertReminder(reminder)
-
         // Parse reminder date & time to base epoch millis
         val baseMillis = parsePersianDateTimeToMillis(reminder.date, reminder.time)
 
@@ -49,7 +47,7 @@ class ReminderManager(
             )
         }
 
-        repository.insertSchedules(schedules)
+        repository.insertReminderWithSchedules(reminder, schedules)
         scheduler.schedule(reminder, schedules)
         Log.i("ReminderManager", "Created reminder ${reminder.title} with ${schedules.size} schedule triggers.")
         reminder
@@ -66,9 +64,6 @@ class ReminderManager(
     ) = withContext(Dispatchers.IO) {
         val existingSchedules = repository.getSchedulesSync(reminder.id)
         scheduler.cancel(reminder.id, existingSchedules)
-        repository.deleteSchedulesByReminderId(reminder.id)
-
-        repository.updateReminder(reminder)
 
         val baseMillis = parsePersianDateTimeToMillis(reminder.date, reminder.time)
         val newSchedules = offsets.map { offset ->
@@ -87,7 +82,7 @@ class ReminderManager(
             )
         }
 
-        repository.insertSchedules(newSchedules)
+        repository.updateReminderWithSchedules(reminder, newSchedules)
         scheduler.schedule(reminder, newSchedules)
         Log.i("ReminderManager", "Updated reminder ${reminder.title} and rescheduled.")
     }
@@ -98,8 +93,7 @@ class ReminderManager(
     suspend fun deleteReminder(reminderId: String) = withContext(Dispatchers.IO) {
         val schedules = repository.getSchedulesSync(reminderId)
         scheduler.cancel(reminderId, schedules)
-        repository.deleteSchedulesByReminderId(reminderId)
-        repository.deleteReminderById(reminderId)
+        repository.deleteReminderWithSchedules(reminderId)
         Log.i("ReminderManager", "Deleted reminder $reminderId and all its schedules.")
     }
 
@@ -325,28 +319,26 @@ class ReminderManager(
 
     companion object {
         fun parsePersianDateTimeToMillis(dateStr: String, timeStr: String): Long {
-            return try {
-                val cleanDate = dateStr.replace("۱", "1").replace("۲", "2").replace("۳", "3")
-                    .replace("۴", "4").replace("۵", "5").replace("۶", "6").replace("۷", "7")
-                    .replace("۸", "8").replace("۹", "9").replace("۰", "0")
-                val cleanTime = timeStr.replace("۱", "1").replace("۲", "2").replace("۳", "3")
-                    .replace("۴", "4").replace("۵", "5").replace("۶", "6").replace("۷", "7")
-                    .replace("۸", "8").replace("۹", "9").replace("۰", "0")
+            val cleanDate = dateStr.replace("۱", "1").replace("۲", "2").replace("۳", "3")
+                .replace("۴", "4").replace("۵", "5").replace("۶", "6").replace("۷", "7")
+                .replace("۸", "8").replace("۹", "9").replace("۰", "0")
+            val cleanTime = timeStr.replace("۱", "1").replace("۲", "2").replace("۳", "3")
+                .replace("۴", "4").replace("۵", "5").replace("۶", "6").replace("۷", "7")
+                .replace("۸", "8").replace("۹", "9").replace("۰", "0")
 
-                val dateParts = cleanDate.split("/").map { it.trim().toInt() }
-                val timeParts = cleanTime.split(":").map { it.trim().toInt() }
+            val dateParts = cleanDate.split("/")
+            if (dateParts.size != 3) throw IllegalArgumentException("Invalid date format: $dateStr")
+            val timeParts = cleanTime.split(":")
+            if (timeParts.size != 2) throw IllegalArgumentException("Invalid time format: $timeStr")
 
-                val jy = dateParts.getOrElse(0) { 1405 }
-                val jm = dateParts.getOrElse(1) { 1 }
-                val jd = dateParts.getOrElse(2) { 1 }
+            val jy = dateParts[0].trim().toInt()
+            val jm = dateParts[1].trim().toInt()
+            val jd = dateParts[2].trim().toInt()
 
-                val hour = timeParts.getOrElse(0) { 9 }
-                val minute = timeParts.getOrElse(1) { 0 }
+            val hour = timeParts[0].trim().toInt()
+            val minute = timeParts[1].trim().toInt()
 
-                PersianCalendarHelper.jalaliToEpochMillis(jy, jm, jd, hour, minute)
-            } catch (e: Exception) {
-                System.currentTimeMillis() + (24 * 60 * 60 * 1000L)
-            }
+            return PersianCalendarHelper.jalaliToEpochMillis(jy, jm, jd, hour, minute)
         }
 
         fun getInitialSmartReminders(): List<ReminderEntity> {

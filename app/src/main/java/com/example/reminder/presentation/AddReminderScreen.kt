@@ -81,7 +81,7 @@ fun AddReminderScreen(
     // Channels
     var notificationEnabled by remember { mutableStateOf(true) }
     var smsEnabled by remember { mutableStateOf(false) }
-    val sessionPhone = remember { SessionManager.currentUser?.phoneNumber ?: "09123456789" }
+    val sessionPhone = remember { SessionManager.currentUser?.phoneNumber ?: "" }
     var phoneNumber by remember { mutableStateOf(sessionPhone) }
 
     Scaffold(

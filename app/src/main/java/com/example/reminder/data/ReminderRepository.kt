@@ -1,6 +1,7 @@
 package com.example.reminder.data
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
@@ -26,9 +27,12 @@ interface ReminderRepository {
     suspend fun getReminderBySourceId(sourceId: String): ReminderEntity?
     suspend fun insertReminder(reminder: ReminderEntity)
     suspend fun insertReminders(reminders: List<ReminderEntity>)
+    suspend fun insertReminderWithSchedules(reminder: ReminderEntity, schedules: List<ReminderScheduleEntity>)
     suspend fun updateReminder(reminder: ReminderEntity)
+    suspend fun updateReminderWithSchedules(reminder: ReminderEntity, schedules: List<ReminderScheduleEntity>)
     suspend fun deleteReminder(reminder: ReminderEntity)
     suspend fun deleteReminderById(id: String)
+    suspend fun deleteReminderWithSchedules(reminderId: String)
     suspend fun updateStatus(id: String, status: String)
 
     fun getSchedules(reminderId: String): Flow<List<ReminderScheduleEntity>>
@@ -37,7 +41,7 @@ interface ReminderRepository {
     suspend fun insertSchedules(schedules: List<ReminderScheduleEntity>)
     suspend fun updateSchedule(schedule: ReminderScheduleEntity)
     suspend fun deleteSchedule(schedule: ReminderScheduleEntity)
-    suspend fun deleteSchedulesByReminderId(reminderId: String)
+    suspend fun deleteSchedulesByReminderId(reminderId: String): Int
 
     fun getDeliveryLogs(reminderId: String): Flow<List<ReminderDeliveryLogEntity>>
     fun getAllDeliveryLogs(): Flow<List<ReminderDeliveryLogEntity>>
@@ -132,10 +136,28 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         dao.insertReminders(reminders.map { it.copy(userId = userId) })
     }
 
+    override suspend fun insertReminderWithSchedules(reminder: ReminderEntity, schedules: List<ReminderScheduleEntity>) {
+        val userId = requireUserId()
+        db.withTransaction {
+            dao.insertReminder(reminder.copy(userId = userId))
+            dao.insertSchedules(schedules.map { it.copy(reminderId = reminder.id) })
+        }
+    }
+
     override suspend fun updateReminder(reminder: ReminderEntity) {
         val userId = requireUserId()
         if (reminder.userId != userId) throw SecurityException("Reminder does not belong to current user")
         dao.updateReminder(reminder)
+    }
+
+    override suspend fun updateReminderWithSchedules(reminder: ReminderEntity, schedules: List<ReminderScheduleEntity>) {
+        val userId = requireUserId()
+        if (reminder.userId != userId) throw SecurityException("Reminder does not belong to current user")
+        db.withTransaction {
+            dao.updateReminder(reminder)
+            dao.deleteSchedulesByReminderId(userId, reminder.id)
+            dao.insertSchedules(schedules.map { it.copy(reminderId = reminder.id) })
+        }
     }
 
     override suspend fun deleteReminder(reminder: ReminderEntity) {
@@ -146,6 +168,14 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
 
     override suspend fun deleteReminderById(id: String) {
         dao.deleteReminderById(requireUserId(), id)
+    }
+
+    override suspend fun deleteReminderWithSchedules(reminderId: String) {
+        val userId = requireUserId()
+        db.withTransaction {
+            dao.deleteSchedulesByReminderId(userId, reminderId)
+            dao.deleteReminderById(userId, reminderId)
+        }
     }
 
     override suspend fun updateStatus(id: String, status: String) {

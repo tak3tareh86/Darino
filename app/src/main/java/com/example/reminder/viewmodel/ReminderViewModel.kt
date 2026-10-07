@@ -59,7 +59,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val completedList = allReminders.filter { it.status.equals("COMPLETED", ignoreCase = true) }
         val missedList = allReminders.filter { it.status.equals("MISSED", ignoreCase = true) }
 
-        val todayReminders = activeList.filter { it.date == todayPersian || it.date.contains(todayPersian.takeLast(5)) }
+        val todayReminders = activeList.filter { it.date == todayPersian }
         val upcomingReminders = activeList.filter { it.date >= todayPersian }
 
         // Filter by Tab
@@ -109,8 +109,8 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             selectedFilterChip = filters.filterChip,
             searchQuery = filters.searchQuery,
             notificationCount = unreadCount,
-            todayCount = todayReminders.size.coerceAtLeast(1),
-            thisWeekCount = activeList.size.coerceAtLeast(3),
+            todayCount = todayReminders.size,
+            thisWeekCount = activeList.size,
             nearestReminder = nearest,
             smartSuggestions = suggestions,
             isLoading = isLoading,
