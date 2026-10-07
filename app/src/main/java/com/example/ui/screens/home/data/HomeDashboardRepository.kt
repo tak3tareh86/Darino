@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import com.example.R
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
+import kotlinx.coroutines.flow.firstOrNull
 import com.example.ui.screens.finance.data.LocalFinanceRepository
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.components.BottomNavItem
@@ -293,8 +294,15 @@ class HomeDashboardRepository(
         ).map { it.first }.take(3)
     }
 
-    fun getUnreadNotificationCount(): Int {
-        return com.example.reminder.domain.NotificationStore.getUnreadCount()
+    suspend fun getUnreadNotificationCount(): Int {
+        val ctx = context ?: return 0
+        val userId = SessionManager.userId ?: return 0
+        return try {
+            val db = AppDatabase.getDatabase(ctx)
+            db.notificationLogDao().getUnreadCount(userId).firstOrNull() ?: 0
+        } catch (e: Exception) {
+            0
+        }
     }
 }
 

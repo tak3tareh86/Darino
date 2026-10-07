@@ -52,8 +52,20 @@ class HomeDashboardTest {
 
         // Initialize repositories
         val financeRepo = com.example.ui.screens.finance.data.LocalFinanceRepository.instance
-        val installmentRepo = com.example.ui.screens.installments.data.LocalInstallmentRepository.instance
-        val vehicleRepo = com.example.vehicle.data.VehicleRepository.instance
+        financeRepo.init(context)
+        val testAccount = com.example.ui.screens.finance.model.Account(
+            id = "acc_test",
+            userId = "test_user",
+            name = "حساب تست",
+            type = com.example.ui.screens.finance.model.AccountType.CARD,
+            bankName = "بانک ملت",
+            accountNumberMasked = "**** ۱۲۳۴",
+            initialBalance = 100_000_000L,
+            isActive = true,
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis()
+        )
+        financeRepo.createAccount(testAccount)
 
         val categoryInc = com.example.ui.screens.finance.model.FinanceDefaultCategories.defaultIncomeCategories.first()
         val categoryExp = com.example.ui.screens.finance.model.FinanceDefaultCategories.defaultExpenseCategories.first()
@@ -71,6 +83,7 @@ class HomeDashboardTest {
                 amount = 25_000_000L,
                 type = com.example.ui.screens.finance.model.TransactionType.INCOME,
                 category = categoryInc,
+                accountId = "acc_test",
                 datePersian = prevMonthDate,
                 timePersian = "09:00"
             )
@@ -84,6 +97,7 @@ class HomeDashboardTest {
                 amount = 18_000_000L,
                 type = com.example.ui.screens.finance.model.TransactionType.INCOME,
                 category = categoryInc,
+                accountId = "acc_test",
                 datePersian = currentMonthDate,
                 timePersian = "10:00"
             )
@@ -97,12 +111,27 @@ class HomeDashboardTest {
                 amount = 9_500_000L,
                 type = com.example.ui.screens.finance.model.TransactionType.EXPENSE,
                 category = categoryExp,
+                accountId = "acc_test",
                 datePersian = currentMonthDate,
                 timePersian = "11:00"
             )
         )
 
         // Transfer transaction - should NOT be counted in income or expense
+        val testAccount2 = com.example.ui.screens.finance.model.Account(
+            id = "acc_test_2",
+            userId = "test_user",
+            name = "حساب دوم",
+            type = com.example.ui.screens.finance.model.AccountType.CASH,
+            bankName = "نقدی",
+            accountNumberMasked = null,
+            initialBalance = 10_000_000L,
+            isActive = true,
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis()
+        )
+        financeRepo.createAccount(testAccount2)
+
         financeRepo.addTransaction(
             com.example.ui.screens.finance.model.TransactionItemData(
                 id = "test-transfer",
@@ -110,6 +139,8 @@ class HomeDashboardTest {
                 amount = 5_000_000L,
                 type = com.example.ui.screens.finance.model.TransactionType.TRANSFER,
                 category = categoryExp,
+                transferSourceAccountId = "acc_test",
+                transferDestinationAccountId = "acc_test_2",
                 datePersian = currentMonthDate,
                 timePersian = "12:00"
             )
@@ -247,7 +278,12 @@ class HomeDashboardTest {
         viewModel.loadDashboardData()
 
         // Wait a bit for debounce and mutex processing
-        kotlinx.coroutines.delay(250L)
+        var attempts = 0
+        while (viewModel.uiState.value.isLoading && attempts < 20) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            kotlinx.coroutines.delay(100L)
+            attempts++
+        }
 
         val state = viewModel.uiState.value
         assertNotNull(state)

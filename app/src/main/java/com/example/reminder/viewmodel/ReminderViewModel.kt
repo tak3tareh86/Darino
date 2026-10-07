@@ -29,6 +29,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
 
     private val repository: ReminderRepository = LocalReminderRepository(application)
     private val manager: ReminderManager = ReminderManager(application, repository)
+    private val notificationRepository = com.example.data.repository.NotificationRepository(application)
 
     private val _selectedTab = MutableStateFlow(ReminderTab.ALL)
     private val _selectedFilterChip = MutableStateFlow(ReminderFilterChip.ALL)
@@ -45,9 +46,9 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         repository.getAllReminders(),
         filterParams,
         _activeSuggestions,
-        _isLoading,
-        _errorMessage
-    ) { allReminders: List<ReminderEntity>, filters: FilterParams, suggestions: List<SmartSuggestion>, isLoading: Boolean, error: String? ->
+        notificationRepository.getUnreadCount(),
+        combine(_isLoading, _errorMessage) { loading, err -> Pair(loading, err) }
+    ) { allReminders: List<ReminderEntity>, filters: FilterParams, suggestions: List<SmartSuggestion>, notifCount: Int, (isLoading, error) ->
 
         val todayPersian = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
 
@@ -104,7 +105,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             selectedTab = filters.tab,
             selectedFilterChip = filters.filterChip,
             searchQuery = filters.searchQuery,
-            notificationCount = com.example.reminder.domain.NotificationStore.getUnreadCount(),
+            notificationCount = notifCount,
             todayCount = todayReminders.size.coerceAtLeast(1),
             thisWeekCount = activeList.size.coerceAtLeast(3),
             nearestReminder = nearest,

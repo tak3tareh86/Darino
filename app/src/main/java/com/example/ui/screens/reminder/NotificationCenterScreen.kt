@@ -41,6 +41,10 @@ import java.util.Locale
 @Composable
 fun NotificationCenterScreen(
     onBackClick: () -> Unit,
+    onNavigateToInstallments: () -> Unit = {},
+    onNavigateToVehicles: () -> Unit = {},
+    onNavigateToFinance: () -> Unit = {},
+    onNotificationClick: (Int) -> Unit = {},
     viewModel: NotificationCenterViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
@@ -49,7 +53,7 @@ fun NotificationCenterScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
-        com.example.reminder.domain.NotificationStore.markAsViewed()
+        viewModel.refresh()
     }
 
     // Semi-transparent backdrop for centered popup dialog
@@ -191,6 +195,7 @@ fun NotificationCenterScreen(
                                 if (!log.isRead) {
                                     viewModel.markAsRead(log.id)
                                 }
+                                onNotificationClick(log.id)
                             }
                         )
                     }
