@@ -225,8 +225,6 @@ class VehicleRepository {
 
                         val realServiceDate = if (s.serviceDate != null && s.serviceDate > 0L) {
                             PersianCalendarHelper.fromEpochMillis(s.serviceDate).toFormattedDate()
-                        } else if (s.updatedAt > 0L) {
-                            PersianCalendarHelper.fromEpochMillis(s.updatedAt).toFormattedDate()
                         } else {
                             ""
                         }
@@ -337,7 +335,13 @@ class VehicleRepository {
                 date = persianDate,
                 time = "۰۹:۰۰"
             )
-            manager.createReminder(reminder)
+            val db = com.example.data.database.AppDatabase.getDatabase(context)
+            val existing = db.smartReminderDao().getReminderById(userId, id)
+            if (existing != null) {
+                manager.updateReminder(reminder)
+            } else {
+                manager.createReminder(reminder)
+            }
         }
     }
 
@@ -429,7 +433,10 @@ class VehicleRepository {
                 updatedAt = System.currentTimeMillis()
             )
 
-            db.vehicleDao().updateVehicle(updatedEntity)
+            val affectedRows = db.vehicleDao().updateVehicle(updatedEntity)
+            if (affectedRows == 0) {
+                return@withContext Result.failure(IllegalStateException("بروزرسانی مشخصات خودرو در پایگاه داده شکست خورد."))
+            }
             Result.success(updated)
         } catch (e: Exception) {
             Result.failure(e)
@@ -448,27 +455,49 @@ class VehicleRepository {
             val existing = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
                 ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
 
-            db.vehicleDao().updateMileage(userId, vehicleId, newMileage)
+            val affectedRows = db.vehicleDao().updateMileage(userId, vehicleId, newMileage)
+            if (affectedRows == 0) {
+                return@withContext Result.failure(IllegalStateException("به‌روزرسانی کیلومتر خودرو انجام نشد."))
+            }
             Result.success(newMileage)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // 4. Delete Vehicle (Atomic cascading delete in Room transaction)
+    // 4. Delete Vehicle (Atomic cascading delete in Room transaction with child reminder cleanup)
     suspend fun deleteVehicle(vehicleId: String): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
         try {
             val db = AppDatabase.getDatabase(context)
-            db.withTransaction {
-                db.vehicleDao().deleteVehicleByServerId(userId, vehicleId)
+            val reminderManager = com.example.reminder.domain.ReminderManager(context)
+
+            // Gather child entity IDs to clean up their reminders
+            val serviceIds = db.vehicleDao().getServiceServerIdsByVehicleId(userId, vehicleId)
+            val insuranceIds = db.vehicleDao().getInsuranceIdsByVehicleId(userId, vehicleId)
+            val inspectionIds = db.vehicleDao().getInspectionIdsByVehicleId(userId, vehicleId)
+
+            val affectedRows = db.withTransaction {
+                val vehicleAffected = db.vehicleDao().deleteVehicleByServerId(userId, vehicleId)
                 db.vehicleDao().deleteServicesByVehicleId(userId, vehicleId)
                 db.vehicleDao().deleteExpensesByVehicleId(userId, vehicleId)
                 db.vehicleDao().deleteInsurancesByVehicleId(userId, vehicleId)
                 db.vehicleDao().deleteInspectionsByVehicleId(userId, vehicleId)
+                vehicleAffected
             }
+
+            if (affectedRows == 0) {
+                return@withContext Result.failure(IllegalStateException("هیچ خودرویی برای حذف یافت نشد."))
+            }
+
+            // Cleanup associated reminders to prevent orphans
+            serviceIds.forEach { id -> reminderManager.deleteReminder(id) }
+            insuranceIds.forEach { id -> reminderManager.deleteReminder(id) }
+            inspectionIds.forEach { id -> reminderManager.deleteReminder(id) }
+            reminderManager.deleteReminder(vehicleId)
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -567,7 +596,7 @@ class VehicleRepository {
 
             // Sync Notification Reminder if enabled
             if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
-                syncReminderInternal(
+                val syncResult = syncReminderInternal(
                     context = context,
                     userId = userId,
                     id = serviceId,
@@ -576,6 +605,9 @@ class VehicleRepository {
                     date = nextReminderDate.trim(),
                     type = "VEHICLE"
                 )
+                if (syncResult.isFailure) {
+                    return@withContext Result.failure(syncResult.exceptionOrNull() ?: Exception("خطا در همگام‌سازی یادآور"))
+                }
             }
 
             Result.success(newService)
@@ -584,7 +616,139 @@ class VehicleRepository {
         }
     }
 
-    // 6. Complete Service (Atomic Status update)
+    // 5.5 Update Service (Atomic full-edit Service + Expense + Reminder sync)
+    suspend fun updateService(
+        serviceId: String,
+        title: String,
+        serviceType: ServiceType,
+        date: String,
+        mileage: Int,
+        cost: Long,
+        description: String,
+        nextReminderDate: String?,
+        nextReminderMileage: Int?,
+        isReminderEnabled: Boolean
+    ): Result<VehicleServiceEntity> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+
+        if (title.isBlank()) return@withContext Result.failure(IllegalArgumentException("عنوان سرویس نمی‌تواند خالی باشد."))
+        if (cost < 0L) return@withContext Result.failure(IllegalArgumentException("مبلغ سرویس نمی‌تواند منفی باشد."))
+        if (mileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر نمی‌تواند منفی باشد."))
+
+        val serviceDateMs = parseJalaliToTimestamp(date)
+            ?: return@withContext Result.failure(IllegalArgumentException("تاریخ سرویس وارد شده نامعتبر است."))
+
+        val dueDateMs = if (!nextReminderDate.isNullOrBlank()) {
+            parseJalaliToTimestamp(nextReminderDate)
+                ?: return@withContext Result.failure(IllegalArgumentException("تاریخ یادآور سرویس نامعتبر است."))
+        } else null
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            val existingSvc = db.vehicleDao().getServiceByServerId(userId, serviceId)
+                ?: return@withContext Result.failure(NoSuchElementException("سرویس مورد نظر یافت نشد."))
+
+            val vehicle = db.vehicleDao().getVehicleByServerId(userId, existingSvc.vehicleId)
+                ?: return@withContext Result.failure(NoSuchElementException("خودروی مربوط به سرویس یافت نشد."))
+
+            val encodedNotes = if (cost > 0L) "COST:$cost|$description" else description
+
+            val updatedService = VehicleServiceEntity(
+                id = serviceId,
+                vehicleId = vehicle.serverId ?: vehicle.id.toString(),
+                title = title.trim(),
+                serviceType = serviceType,
+                date = date.trim(),
+                mileage = mileage,
+                cost = cost,
+                description = description.trim(),
+                nextReminderDate = nextReminderDate?.trim(),
+                nextReminderMileage = nextReminderMileage,
+                isReminderEnabled = isReminderEnabled
+            )
+
+            db.withTransaction {
+                // Update Service Record
+                val affectedRows = db.vehicleDao().updateService(
+                    com.example.data.database.VehicleServiceEntity(
+                        id = existingSvc.id,
+                        serverId = serviceId,
+                        userId = userId,
+                        vehicleId = vehicle.serverId ?: vehicle.id.toString(),
+                        type = serviceType.name,
+                        title = title.trim(),
+                        serviceDate = serviceDateMs,
+                        dueDate = dueDateMs,
+                        cost = cost,
+                        dueMileage = mileage,
+                        status = if (isReminderEnabled) "PENDING" else "COMPLETED",
+                        notes = encodedNotes
+                    )
+                )
+
+                if (affectedRows == 0) {
+                    throw IllegalStateException("بروزرسانی سرویس شکست خورد.")
+                }
+
+                // Handle Expense stable identity lifecycle
+                val existingExpense = db.vehicleDao().getExpenseById(userId, "exp_svc_$serviceId")
+                if (cost > 0L) {
+                    val expEntity = VehicleExpenseRoomEntity(
+                        id = "exp_svc_$serviceId",
+                        userId = userId,
+                        vehicleId = vehicle.serverId ?: vehicle.id.toString(),
+                        title = title.trim(),
+                        category = VehicleExpenseCategory.SERVICE.name,
+                        amount = cost,
+                        date = date.trim(),
+                        description = "سرویس دوره‌ای خودرو: ${description.trim()}"
+                    )
+                    if (existingExpense != null) {
+                        db.vehicleDao().updateExpense(expEntity)
+                    } else {
+                        db.vehicleDao().insertExpense(expEntity)
+                    }
+                } else {
+                    db.vehicleDao().deleteExpenseById(userId, "exp_svc_$serviceId")
+                }
+
+                // Update Vehicle Mileage if higher
+                if (mileage > vehicle.currentMileage) {
+                    db.vehicleDao().updateMileage(userId, vehicle.serverId ?: vehicle.id.toString(), mileage)
+                }
+            }
+
+            // Sync Notification Reminder safely without duplicates
+            if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+                val syncResult = syncReminderInternal(
+                    context = context,
+                    userId = userId,
+                    id = serviceId,
+                    title = "یادآور سرویس: ${vehicle.brand} ${vehicle.model}",
+                    description = "موعد تعویض و سرویس دوره‌ای: $title (${description.trim()})",
+                    date = nextReminderDate.trim(),
+                    type = "VEHICLE"
+                )
+                if (syncResult.isFailure) {
+                    return@withContext Result.failure(syncResult.exceptionOrNull() ?: Exception("خطا در همگام‌سازی یادآور"))
+                }
+            } else {
+                val reminderManager = com.example.reminder.domain.ReminderManager(context)
+                val reminderDb = com.example.data.database.AppDatabase.getDatabase(context)
+                val existingReminder = reminderDb.smartReminderDao().getReminderById(userId, serviceId)
+                if (existingReminder != null) {
+                    reminderManager.deleteReminder(serviceId)
+                }
+            }
+
+            Result.success(updatedService)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 6. Complete Service (Atomic Status update with proper reminder sync & affected rows check)
     suspend fun completeService(serviceId: String, completedDate: String): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
@@ -594,24 +758,56 @@ class VehicleRepository {
 
         try {
             val db = AppDatabase.getDatabase(context)
-            db.vehicleDao().completeService(userId, serviceId, completedDateMs)
+            val existing = db.vehicleDao().getServiceByServerId(userId, serviceId)
+                ?: return@withContext Result.failure(NoSuchElementException("سرویس دوره‌ای یافت نشد."))
+
+            val affectedRows = db.vehicleDao().completeService(userId, serviceId, completedDateMs)
+            if (affectedRows == 0) {
+                return@withContext Result.failure(IllegalStateException("ثبت اتمام سرویس انجام نشد."))
+            }
+
+            // Sync expense date to completed date
+            val expense = db.vehicleDao().getExpenseById(userId, "exp_svc_$serviceId")
+            if (expense != null) {
+                db.vehicleDao().updateExpense(expense.copy(date = completedDate.trim()))
+            }
+
+            // Mark associated reminder as completed
+            val reminderManager = com.example.reminder.domain.ReminderManager(context)
+            val reminderDb = com.example.data.database.AppDatabase.getDatabase(context)
+            val existingReminder = reminderDb.smartReminderDao().getReminderById(userId, serviceId)
+            if (existingReminder != null) {
+                reminderManager.completeReminder(serviceId)
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // 7. Delete Service (Atomic Service + linked Expense delete)
+    // 7. Delete Service (Atomic Service + linked Expense delete and reminder cancellation)
     suspend fun deleteService(serviceId: String): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
         try {
             val db = AppDatabase.getDatabase(context)
-            db.withTransaction {
-                db.vehicleDao().deleteServiceByServerId(userId, serviceId)
+
+            // Delete associated reminder
+            val reminderManager = com.example.reminder.domain.ReminderManager(context)
+            reminderManager.deleteReminder(serviceId)
+
+            val affectedRows = db.withTransaction {
+                val serviceAffected = db.vehicleDao().deleteServiceByServerId(userId, serviceId)
                 db.vehicleDao().deleteExpenseById(userId, "exp_svc_$serviceId")
+                serviceAffected
             }
+
+            if (affectedRows == 0) {
+                return@withContext Result.failure(IllegalStateException("هیچ سرویسی برای حذف یافت نشد."))
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -671,21 +867,24 @@ class VehicleRepository {
         }
     }
 
-    // 9. Delete Expense
+    // 9. Delete Expense (Robust affected rows and ownership checks)
     suspend fun deleteExpense(expenseId: String): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
         try {
             val db = AppDatabase.getDatabase(context)
-            db.vehicleDao().deleteExpenseById(userId, expenseId)
+            val affectedRows = db.vehicleDao().deleteExpenseById(userId, expenseId)
+            if (affectedRows == 0) {
+                return@withContext Result.failure(IllegalStateException("هیچ هزینه‌ای برای حذف یافت نشد."))
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // 10. Save Insurance (Atomic Insurance + Expense + Reminder)
+    // 10. Save Insurance (Atomic Insurance + Expense + Reminder sync with failure propagation)
     suspend fun saveInsurance(
         vehicleId: String,
         company: String,
@@ -759,8 +958,8 @@ class VehicleRepository {
                 }
             }
 
-            // Sync Reminder for Insurance
-            syncReminderInternal(
+            // Sync Reminder for Insurance with failure propagation
+            val syncResult = syncReminderInternal(
                 context = context,
                 userId = userId,
                 id = insuranceId,
@@ -769,6 +968,9 @@ class VehicleRepository {
                 date = endDate.trim(),
                 type = "INSURANCE"
             )
+            if (syncResult.isFailure) {
+                return@withContext Result.failure(syncResult.exceptionOrNull() ?: Exception("خطا در همگام‌سازی یادآور"))
+            }
 
             Result.success(newInsurance)
         } catch (e: Exception) {
@@ -776,7 +978,7 @@ class VehicleRepository {
         }
     }
 
-    // 11. Renew Insurance
+    // 11. Renew Insurance (Affected rows validation, expense sync, reminder sync, ownership check)
     suspend fun renewInsurance(insuranceId: String, newEndDate: String): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
@@ -787,31 +989,78 @@ class VehicleRepository {
 
         try {
             val db = AppDatabase.getDatabase(context)
-            db.vehicleDao().renewInsurance(userId, insuranceId, today, newEndDate.trim())
+            // Check ownership and existence
+            val existing = db.vehicleDao().getInsuranceById(userId, insuranceId)
+                ?: return@withContext Result.failure(NoSuchElementException("بیمه‌نامه مورد نظر یافت نشد."))
+
+            val startMs = parseJalaliToTimestamp(existing.startDate) ?: 0L
+            if (endMs < startMs) {
+                return@withContext Result.failure(IllegalArgumentException("تاریخ پایان جدید نمی‌تواند قبل از تاریخ شروع بیمه‌نامه باشد."))
+            }
+
+            val affectedRows = db.vehicleDao().renewInsurance(userId, insuranceId, today, newEndDate.trim())
+            if (affectedRows == 0) {
+                return@withContext Result.failure(IllegalStateException("بروزرسانی بیمه‌نامه شکست خورد."))
+            }
+
+            // Sync Expense associated with Insurance to today's date
+            val expense = db.vehicleDao().getExpenseById(userId, "exp_ins_$insuranceId")
+            if (expense != null) {
+                db.vehicleDao().updateExpense(expense.copy(date = today))
+            }
+
+            // Sync Reminder for Insurance expiration
+            val vehicle = db.vehicleDao().getVehicleByServerId(userId, existing.vehicleId)
+            if (vehicle != null) {
+                val syncResult = syncReminderInternal(
+                    context = context,
+                    userId = userId,
+                    id = insuranceId,
+                    title = "تمدید بیمه ${existing.type} خودرو",
+                    description = "سررسید انقضای بیمه‌نامه برای خودرو ${vehicle.brand} ${vehicle.model}. شماره بیمه‌نامه: ${existing.policyNumber}",
+                    date = newEndDate.trim(),
+                    type = "INSURANCE"
+                )
+                if (syncResult.isFailure) {
+                    return@withContext Result.failure(syncResult.exceptionOrNull() ?: Exception("خطا در همگام‌سازی یادآور"))
+                }
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // 12. Delete Insurance
+    // 12. Delete Insurance (Removes associated reminders, checks affected rows and ownership)
     suspend fun deleteInsurance(insuranceId: String): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
         try {
             val db = AppDatabase.getDatabase(context)
-            db.withTransaction {
-                db.vehicleDao().deleteInsuranceById(userId, insuranceId)
+
+            // Delete associated reminder
+            val reminderManager = com.example.reminder.domain.ReminderManager(context)
+            reminderManager.deleteReminder(insuranceId)
+
+            val affectedRows = db.withTransaction {
+                val insAffected = db.vehicleDao().deleteInsuranceById(userId, insuranceId)
                 db.vehicleDao().deleteExpenseById(userId, "exp_ins_$insuranceId")
+                insAffected
             }
+
+            if (affectedRows == 0) {
+                return@withContext Result.failure(IllegalStateException("هیچ بیمه‌نامه‌ای برای حذف یافت نشد."))
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // 13. Save Inspection (Atomic Inspection + Expense + Reminder)
+    // 13. Save Inspection (Atomic Inspection + Expense + Reminder sync with failure propagation)
     suspend fun saveInspection(
         vehicleId: String,
         lastInspectionDate: String,
@@ -876,8 +1125,8 @@ class VehicleRepository {
                 }
             }
 
-            // Sync Reminder for Inspection
-            syncReminderInternal(
+            // Sync Reminder for Inspection with failure propagation
+            val syncResult = syncReminderInternal(
                 context = context,
                 userId = userId,
                 id = inspectionId,
@@ -886,6 +1135,9 @@ class VehicleRepository {
                 date = expiryDate.trim(),
                 type = "VEHICLE"
             )
+            if (syncResult.isFailure) {
+                return@withContext Result.failure(syncResult.exceptionOrNull() ?: Exception("خطا در همگام‌سازی یادآور"))
+            }
 
             Result.success(newInspection)
         } catch (e: Exception) {
@@ -893,17 +1145,28 @@ class VehicleRepository {
         }
     }
 
-    // 14. Delete Inspection
+    // 14. Delete Inspection (Removes associated reminders, checks affected rows and ownership)
     suspend fun deleteInspection(inspectionId: String): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
         try {
             val db = AppDatabase.getDatabase(context)
-            db.withTransaction {
-                db.vehicleDao().deleteInspectionById(userId, inspectionId)
+
+            // Delete associated reminder
+            val reminderManager = com.example.reminder.domain.ReminderManager(context)
+            reminderManager.deleteReminder(inspectionId)
+
+            val affectedRows = db.withTransaction {
+                val inspAffected = db.vehicleDao().deleteInspectionById(userId, inspectionId)
                 db.vehicleDao().deleteExpenseById(userId, "exp_insp_$inspectionId")
+                inspAffected
             }
+
+            if (affectedRows == 0) {
+                return@withContext Result.failure(IllegalStateException("هیچ معاینه فنی برای حذف یافت نشد."))
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

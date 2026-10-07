@@ -364,6 +364,47 @@ class VehicleViewModel(
         }
     }
 
+    fun updateServiceRecord(
+        serviceId: String,
+        title: String,
+        serviceType: ServiceType,
+        date: String,
+        mileage: Int,
+        cost: Long,
+        description: String,
+        nextReminderDate: String?,
+        nextReminderMileage: Int?,
+        isReminderEnabled: Boolean
+    ) {
+        viewModelScope.launch {
+            val result = repository.updateService(
+                serviceId = serviceId,
+                title = title,
+                serviceType = serviceType,
+                date = date,
+                mileage = mileage,
+                cost = cost,
+                description = description,
+                nextReminderDate = nextReminderDate,
+                nextReminderMileage = nextReminderMileage,
+                isReminderEnabled = isReminderEnabled
+            )
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "سرویس $title با موفقیت ویرایش شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "خطا در ویرایش سرویس: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}"
+                    )
+                }
+            }
+        }
+    }
+
     fun completeServiceRecord(serviceId: String, completedDate: String) {
         viewModelScope.launch {
             val result = repository.completeService(serviceId, completedDate)

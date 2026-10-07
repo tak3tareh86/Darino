@@ -443,6 +443,7 @@ fun AddEditVehicleSheet(
     var mileage by remember { mutableStateOf(vehicle?.currentMileage?.toString() ?: "") }
     var plate by remember { mutableStateOf(vehicle?.plate ?: "") }
     var vin by remember { mutableStateOf(vehicle?.vin ?: "") }
+    var estimatedValueText by remember { mutableStateOf(if ((vehicle?.estimatedValue ?: 0L) > 0L) vehicle!!.estimatedValue.toString() else "") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(
@@ -532,6 +533,30 @@ fun AddEditVehicleSheet(
                 shape = RoundedCornerShape(RadiusMD)
             )
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = vin,
+                    onValueChange = { vin = it; errorMessage = null },
+                    label = { Text("شماره شاسی / VIN (اختیاری)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    shape = RoundedCornerShape(RadiusMD)
+                )
+
+                OutlinedTextField(
+                    value = estimatedValueText,
+                    onValueChange = { estimatedValueText = it; errorMessage = null },
+                    label = { Text("ارزش تقریبی (تومان)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(RadiusMD)
+                )
+            }
+
             Button(
                 onClick = {
                     if (brand.isBlank() || model.isBlank() || modelYear.isBlank() || plate.isBlank()) {
@@ -539,6 +564,7 @@ fun AddEditVehicleSheet(
                         return@Button
                     }
                     val mileageInt = mileage.replace(",", "").trim().toIntOrNull() ?: 0
+                    val estValueLong = com.example.util.IranianAmountUtils.parseAmountToLong(estimatedValueText)
                     onSave(
                         brand.trim(),
                         model.trim(),
@@ -547,7 +573,7 @@ fun AddEditVehicleSheet(
                         plate.trim(),
                         vin.trim(),
                         mileageInt,
-                        0L
+                        estValueLong
                     )
                 },
                 modifier = Modifier
