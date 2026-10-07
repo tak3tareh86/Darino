@@ -155,11 +155,9 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             .mapValues { it.value.sumOf { it.amount } }
         val topCategory = categoryGroups.maxByOrNull { it.value }
 
-        // 4. Installments Report (Period-aware)
-        // We consider payments whose due date is in the selected period.
+        // 4. Installments Report (Period-aware for amounts, global for count)
         var totalInstAmountInPeriod = 0L
         var paidInstAmountInPeriod = 0L
-        var activeInstInPeriodCount = 0
         
         allInstallments.forEach { installment ->
             val paymentsInPeriod = installment.paymentHistory.filter { payment ->
@@ -168,44 +166,61 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             }
             
             if (paymentsInPeriod.isNotEmpty()) {
-                activeInstInPeriodCount++
                 totalInstAmountInPeriod += paymentsInPeriod.sumOf { it.amount }
                 paidInstAmountInPeriod += paymentsInPeriod.filter { it.status == com.example.ui.screens.installments.model.InstallmentStatus.PAID || it.status == com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED }.sumOf { it.amount }
             }
         }
+        
+        val activeInstallmentsCount = allInstallments.count { it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED }
 
         // 5. Vehicle Report (Canonical data from VehicleRepository)
-        // We sum up expenses, services, insurance installments (if applicable), and inspections in the period.
-        val vehicleExpensesSum = vExpenses.filter { parsePersianDateToMillis(it.date) in startTime..endTime }.sumOf { it.amount }
-        val vehicleServicesSum = vServices.filter { parsePersianDateToMillis(it.date) in startTime..endTime }.sumOf { it.cost }
-        val vehicleInspectionsSum = vInspections.filter { parsePersianDateToMillis(it.lastInspectionDate) in startTime..endTime }.sumOf { it.cost }
-        
-        // For insurances, we consider the portion of the premium that falls into this period or just the payment date.
-        // Usually, insurance is paid once. If it's in the period, we count it.
-        val vehicleInsurancesSum = vInsurances.filter { parsePersianDateToMillis(it.startDate) in startTime..endTime }.sumOf { it.amount }
+        fun calculateVehicleSum(start: Long, end: Long): Long {
+            val vExp = vExpenses.filter { parsePersianDateToMillis(it.date) in start..end }.sumOf { it.amount }
+            val vSer = vServices.filter { parsePersianDateToMillis(it.date) in start..end }.sumOf { it.cost }
+            val vInsp = vInspections.filter { parsePersianDateToMillis(it.lastInspectionDate) in start..end }.sumOf { it.cost }
+            val vIns = vInsurances.filter { parsePersianDateToMillis(it.startDate) in start..end }.sumOf { it.amount }
+            return vExp + vSer + vInsp + vIns
+        }
 
-        val totalVehicleExpense = vehicleExpensesSum + vehicleServicesSum + vehicleInspectionsSum + vehicleInsurancesSum
+        val totalVehicleExpense = calculateVehicleSum(startTime, endTime)
+        val prevVehicleExpense = calculateVehicleSum(prevStartTime, prevEndTime)
+
+        // 6. Final Metric Overrides for Category Consistency
+        var finalIncome = income
+        var finalExpense = expense
+        var currentCompExpense = currentCatExpense
+        var previousCompExpense = prevExpense
+
+        if (category == ReportCategory.VEHICLE) {
+            finalIncome = 0 // Vehicle category is expense-focused
+            finalExpense = totalVehicleExpense
+            currentCompExpense = totalVehicleExpense
+            previousCompExpense = prevVehicleExpense
+        }
 
         val smartAdvice = when {
             category == ReportCategory.SMART_ANALYSIS && savings < 0 -> "هزینه‌های شما در این دوره بیشتر از درآمد بوده است. پیشنهاد می‌شود هزینه‌های غیرضروری را کاهش دهید."
             category == ReportCategory.SMART_ANALYSIS && savingsPercent > 30 -> "وضعیت پس‌انداز شما عالی است! بیش از ۳۰٪ درآمد خود را ذخیره کرده‌اید."
             category == ReportCategory.SMART_ANALYSIS && topCategory != null && expense > 0 && (topCategory.value.toDouble() / expense.toDouble()) > 0.5 -> "بیش از نیمی از هزینه‌های شما صرف ${topCategory.key} شده است. بررسی کنید آیا امکان کاهش در این بخش وجود دارد؟"
-            category == ReportCategory.INSTALLMENTS && totalInstAmountInPeriod > 0 -> "شما $activeInstInPeriodCount قسط فعال در این بازه دارید. مجموع تعهدات: ${MoneyFormatter.formatToman(totalInstAmountInPeriod)}."
+            category == ReportCategory.INSTALLMENTS && totalInstAmountInPeriod > 0 -> "شما $activeInstallmentsCount قسط فعال دارید. مجموع تعهدات در این بازه: ${MoneyFormatter.formatToman(totalInstAmountInPeriod)}."
             category == ReportCategory.VEHICLE && totalVehicleExpense > 1000000 -> "هزینه‌های خودروی شما در این دوره قابل توجه بوده است. سرویس‌های دوره‌ای را برای جلوگیری از خرابی‌های سنگین چک کنید."
             else -> "تراکنش‌های شما با موفقیت ثبت و تحلیل شد."
         }
 
-        val expenseRatio = if (category == ReportCategory.FINANCIAL && income > 0) {
-            (expense.toDouble() / income.toDouble()).coerceIn(0.0, 1.0).toFloat()
-        } else if (category == ReportCategory.FINANCIAL && expense > 0) 1.0f else 0.0f
+        val expenseRatio = if (category == ReportCategory.FINANCIAL && finalIncome > 0) {
+            (finalExpense.toDouble() / finalIncome.toDouble()).coerceIn(0.0, 1.0).toFloat()
+        } else if (category == ReportCategory.FINANCIAL && finalExpense > 0) 1.0f else 0.0f
+
+        val expenseDiff = currentCompExpense - previousCompExpense
+        val expenseChangePercent = if (previousCompExpense > 0) (Math.abs(expenseDiff).toDouble() / previousCompExpense.toDouble()) * 100 else 0.0
 
         return ReportsState(
-            totalIncome = income,
-            totalExpense = expense,
+            totalIncome = finalIncome,
+            totalExpense = finalExpense,
             savings = savings,
             savingsPercent = savingsPercent,
-            currentPeriodExpense = currentCatExpense,
-            previousPeriodExpense = prevExpense,
+            currentPeriodExpense = currentCompExpense,
+            previousPeriodExpense = previousCompExpense,
             expenseChangePercent = expenseChangePercent,
             isExpenseIncreased = expenseDiff > 0,
             topExpenseCategory = topCategory?.key ?: "نامشخص",
@@ -213,7 +228,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             categoryBreakdown = categoryGroups,
             totalInstallmentAmount = totalInstAmountInPeriod,
             paidInstallmentAmount = paidInstAmountInPeriod,
-            activeInstallmentsCount = activeInstInPeriodCount,
+            activeInstallmentsCount = activeInstallmentsCount,
             vehicleExpenseTotal = totalVehicleExpense,
             expenseRatio = expenseRatio,
             selectedCategory = category,
