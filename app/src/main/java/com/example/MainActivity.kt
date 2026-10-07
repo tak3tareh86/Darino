@@ -60,7 +60,7 @@ import com.example.ui.screens.home.components.HomeBottomNavigation
 import com.example.ui.screens.installments.InstallmentsScreen
 import com.example.ui.screens.lock.AppLockViewModel
 import com.example.ui.screens.lock.LockedAppScreen
-import com.example.reminder.presentation.NotificationCenterScreen
+import com.example.ui.screens.reminder.NotificationCenterScreen
 import com.example.reminder.presentation.ReminderScreen
 import com.example.ui.screens.reports.ReportsScreen
 import com.example.ui.screens.settings.SettingsScreen
