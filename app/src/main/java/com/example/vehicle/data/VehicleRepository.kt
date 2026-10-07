@@ -774,18 +774,20 @@ class VehicleRepository {
             val existing = db.vehicleDao().getServiceByServerId(userId, serviceId)
                 ?: return@withContext Result.failure(NoSuchElementException("سرویس دوره‌ای یافت نشد."))
 
-            val affectedRows = db.vehicleDao().completeService(userId, serviceId, completedDateMs)
-            if (affectedRows == 0) {
-                return@withContext Result.failure(IllegalStateException("ثبت اتمام سرویس انجام نشد."))
+            db.withTransaction {
+                val affectedRows = db.vehicleDao().completeService(userId, serviceId, completedDateMs)
+                if (affectedRows == 0) {
+                    throw IllegalStateException("ثبت اتمام سرویس انجام نشد.")
+                }
+
+                // Sync expense date to completed date
+                val expense = db.vehicleDao().getExpenseById(userId, "exp_svc_$serviceId")
+                if (expense != null) {
+                    db.vehicleDao().updateExpense(expense.copy(date = completedDate.trim()))
+                }
             }
 
-            // Sync expense date to completed date
-            val expense = db.vehicleDao().getExpenseById(userId, "exp_svc_$serviceId")
-            if (expense != null) {
-                db.vehicleDao().updateExpense(expense.copy(date = completedDate.trim()))
-            }
-
-            // Mark associated reminder as completed
+            // Mark associated reminder as completed after successful db commit
             val reminderManager = com.example.reminder.domain.ReminderManager(context)
             val reminderDb = com.example.data.database.AppDatabase.getDatabase(context)
             val existingReminder = reminderDb.smartReminderDao().getReminderById(userId, serviceId)
@@ -807,10 +809,6 @@ class VehicleRepository {
         try {
             val db = AppDatabase.getDatabase(context)
 
-            // Delete associated reminder
-            val reminderManager = com.example.reminder.domain.ReminderManager(context)
-            reminderManager.deleteReminder(serviceId)
-
             val affectedRows = db.withTransaction {
                 val serviceAffected = db.vehicleDao().deleteServiceByServerId(userId, serviceId)
                 db.vehicleDao().deleteExpenseById(userId, "exp_svc_$serviceId")
@@ -820,6 +818,10 @@ class VehicleRepository {
             if (affectedRows == 0) {
                 return@withContext Result.failure(IllegalStateException("هیچ سرویسی برای حذف یافت نشد."))
             }
+
+            // Delete associated reminder AFTER successful deletion of primary record
+            val reminderManager = com.example.reminder.domain.ReminderManager(context)
+            reminderManager.deleteReminder(serviceId)
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -1013,7 +1015,8 @@ class VehicleRepository {
             val existing = db.vehicleDao().getInsuranceById(userId, insuranceId)
                 ?: return@withContext Result.failure(NoSuchElementException("بیمه‌نامه مورد نظر یافت نشد."))
 
-            val startMs = parseJalaliToTimestamp(existing.startDate) ?: 0L
+            val startMs = parseJalaliToTimestamp(existing.startDate)
+                ?: return@withContext Result.failure(IllegalStateException("تاریخ شروع بیمه‌نامه نامعتبر یا ثبت نشده است. امکان تمدید وجود ندارد."))
             if (endMs < startMs) {
                 return@withContext Result.failure(IllegalArgumentException("تاریخ پایان جدید نمی‌تواند قبل از تاریخ شروع بیمه‌نامه باشد."))
             }
@@ -1041,10 +1044,17 @@ class VehicleRepository {
                     throw IllegalStateException("بروزرسانی بیمه‌نامه شکست خورد.")
                 }
 
-                // Sync Expense associated with Insurance to today's date
+                // Sync Expense associated with Insurance to today's date and keep all metadata consistent
                 val expense = db.vehicleDao().getExpenseById(userId, "exp_ins_$insuranceId")
                 if (expense != null) {
-                    db.vehicleDao().updateExpense(expense.copy(date = today))
+                    db.vehicleDao().updateExpense(
+                        expense.copy(
+                            title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
+                            category = VehicleExpenseCategory.INSURANCE.name,
+                            date = today,
+                            description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
+                        )
+                    )
                 }
             }
 
@@ -1062,10 +1072,6 @@ class VehicleRepository {
         try {
             val db = AppDatabase.getDatabase(context)
 
-            // Delete associated reminder
-            val reminderManager = com.example.reminder.domain.ReminderManager(context)
-            reminderManager.deleteReminder(insuranceId)
-
             val affectedRows = db.withTransaction {
                 val insAffected = db.vehicleDao().deleteInsuranceById(userId, insuranceId)
                 db.vehicleDao().deleteExpenseById(userId, "exp_ins_$insuranceId")
@@ -1075,6 +1081,10 @@ class VehicleRepository {
             if (affectedRows == 0) {
                 return@withContext Result.failure(IllegalStateException("هیچ بیمه‌نامه‌ای برای حذف یافت نشد."))
             }
+
+            // Delete associated reminder AFTER successful deletion of primary record
+            val reminderManager = com.example.reminder.domain.ReminderManager(context)
+            reminderManager.deleteReminder(insuranceId)
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -1182,10 +1192,6 @@ class VehicleRepository {
         try {
             val db = AppDatabase.getDatabase(context)
 
-            // Delete associated reminder
-            val reminderManager = com.example.reminder.domain.ReminderManager(context)
-            reminderManager.deleteReminder(inspectionId)
-
             val affectedRows = db.withTransaction {
                 val inspAffected = db.vehicleDao().deleteInspectionById(userId, inspectionId)
                 db.vehicleDao().deleteExpenseById(userId, "exp_insp_$inspectionId")
@@ -1195,6 +1201,10 @@ class VehicleRepository {
             if (affectedRows == 0) {
                 return@withContext Result.failure(IllegalStateException("هیچ معاینه فنی برای حذف یافت نشد."))
             }
+
+            // Delete associated reminder AFTER successful deletion of primary record
+            val reminderManager = com.example.reminder.domain.ReminderManager(context)
+            reminderManager.deleteReminder(inspectionId)
 
             Result.success(Unit)
         } catch (e: Exception) {
