@@ -554,47 +554,7 @@ class VehicleRepository {
                 isReminderEnabled = isReminderEnabled
             )
 
-            db.withTransaction {
-                // Insert Service Record
-                db.vehicleDao().insertService(
-                    com.example.data.database.VehicleServiceEntity(
-                        serverId = serviceId,
-                        userId = userId,
-                        vehicleId = vehicleId,
-                        type = serviceType.name,
-                        title = title.trim(),
-                        serviceDate = serviceDateMs,
-                        dueDate = dueDateMs,
-                        cost = cost,
-                        dueMileage = mileage,
-                        status = if (isReminderEnabled) "PENDING" else "COMPLETED",
-                        notes = encodedNotes
-                    )
-                )
-
-                // Atomic Expense Record for Service
-                if (cost > 0L) {
-                    db.vehicleDao().insertExpense(
-                        VehicleExpenseRoomEntity(
-                            id = "exp_svc_$serviceId",
-                            userId = userId,
-                            vehicleId = vehicleId,
-                            title = title.trim(),
-                            category = VehicleExpenseCategory.SERVICE.name,
-                            amount = cost,
-                            date = date.trim(),
-                            description = "سرویس دوره‌ای خودرو: ${description.trim()}"
-                        )
-                    )
-                }
-
-                // Update Vehicle Mileage if higher
-                if (mileage > vehicle.currentMileage) {
-                    db.vehicleDao().updateMileage(userId, vehicleId, mileage)
-                }
-            }
-
-            // Sync Notification Reminder if enabled
+            // Sync Notification Reminder first to ensure atomicity & failure propagation
             if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
                 val syncResult = syncReminderInternal(
                     context = context,
@@ -608,6 +568,55 @@ class VehicleRepository {
                 if (syncResult.isFailure) {
                     return@withContext Result.failure(syncResult.exceptionOrNull() ?: Exception("خطا در همگام‌سازی یادآور"))
                 }
+            }
+
+            try {
+                db.withTransaction {
+                    // Insert Service Record
+                    db.vehicleDao().insertService(
+                        com.example.data.database.VehicleServiceEntity(
+                            serverId = serviceId,
+                            userId = userId,
+                            vehicleId = vehicleId,
+                            type = serviceType.name,
+                            title = title.trim(),
+                            serviceDate = serviceDateMs,
+                            dueDate = dueDateMs,
+                            cost = cost,
+                            dueMileage = mileage,
+                            status = if (isReminderEnabled) "PENDING" else "COMPLETED",
+                            notes = encodedNotes
+                        )
+                    )
+
+                    // Atomic Expense Record for Service
+                    if (cost > 0L) {
+                        db.vehicleDao().insertExpense(
+                            VehicleExpenseRoomEntity(
+                                id = "exp_svc_$serviceId",
+                                userId = userId,
+                                vehicleId = vehicleId,
+                                title = title.trim(),
+                                category = VehicleExpenseCategory.SERVICE.name,
+                                amount = cost,
+                                date = date.trim(),
+                                description = "سرویس دوره‌ای خودرو: ${description.trim()}"
+                            )
+                        )
+                    }
+
+                    // Update Vehicle Mileage if higher
+                    if (mileage > vehicle.currentMileage) {
+                        db.vehicleDao().updateMileage(userId, vehicleId, mileage)
+                    }
+                }
+            } catch (e: Exception) {
+                // Cleanup reminder if database transaction fails
+                if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+                    val reminderManager = com.example.reminder.domain.ReminderManager(context)
+                    runCatching { reminderManager.deleteReminder(serviceId) }
+                }
+                throw e
             }
 
             Result.success(newService)
@@ -668,6 +677,33 @@ class VehicleRepository {
                 isReminderEnabled = isReminderEnabled
             )
 
+            // Sync Notification Reminder safely first to ensure atomicity & failure propagation
+            if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+                val syncResult = syncReminderInternal(
+                    context = context,
+                    userId = userId,
+                    id = serviceId,
+                    title = "یادآور سرویس: ${vehicle.brand} ${vehicle.model}",
+                    description = "موعد تعویض و سرویس دوره‌ای: $title (${description.trim()})",
+                    date = nextReminderDate.trim(),
+                    type = "VEHICLE"
+                )
+                if (syncResult.isFailure) {
+                    return@withContext Result.failure(syncResult.exceptionOrNull() ?: Exception("خطا در همگام‌سازی یادآور"))
+                }
+            } else {
+                val reminderManager = com.example.reminder.domain.ReminderManager(context)
+                val reminderDb = com.example.data.database.AppDatabase.getDatabase(context)
+                val existingReminder = reminderDb.smartReminderDao().getReminderById(userId, serviceId)
+                if (existingReminder != null) {
+                    try {
+                        reminderManager.deleteReminder(serviceId)
+                    } catch (e: Exception) {
+                        return@withContext Result.failure(e)
+                    }
+                }
+            }
+
             db.withTransaction {
                 // Update Service Record
                 val affectedRows = db.vehicleDao().updateService(
@@ -716,29 +752,6 @@ class VehicleRepository {
                 // Update Vehicle Mileage if higher
                 if (mileage > vehicle.currentMileage) {
                     db.vehicleDao().updateMileage(userId, vehicle.serverId ?: vehicle.id.toString(), mileage)
-                }
-            }
-
-            // Sync Notification Reminder safely without duplicates
-            if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
-                val syncResult = syncReminderInternal(
-                    context = context,
-                    userId = userId,
-                    id = serviceId,
-                    title = "یادآور سرویس: ${vehicle.brand} ${vehicle.model}",
-                    description = "موعد تعویض و سرویس دوره‌ای: $title (${description.trim()})",
-                    date = nextReminderDate.trim(),
-                    type = "VEHICLE"
-                )
-                if (syncResult.isFailure) {
-                    return@withContext Result.failure(syncResult.exceptionOrNull() ?: Exception("خطا در همگام‌سازی یادآور"))
-                }
-            } else {
-                val reminderManager = com.example.reminder.domain.ReminderManager(context)
-                val reminderDb = com.example.data.database.AppDatabase.getDatabase(context)
-                val existingReminder = reminderDb.smartReminderDao().getReminderById(userId, serviceId)
-                if (existingReminder != null) {
-                    reminderManager.deleteReminder(serviceId)
                 }
             }
 
@@ -926,39 +939,7 @@ class VehicleRepository {
                 policyNumber = policyNumber.trim()
             )
 
-            db.withTransaction {
-                db.vehicleDao().insertInsurance(
-                    VehicleInsuranceRoomEntity(
-                        id = insuranceId,
-                        userId = userId,
-                        vehicleId = vehicleId,
-                        company = company.trim(),
-                        type = type.trim(),
-                        startDate = startDate.trim(),
-                        endDate = endDate.trim(),
-                        amount = amount,
-                        policyNumber = policyNumber.trim(),
-                        reminderDays = newInsurance.reminderDays.joinToString(",")
-                    )
-                )
-
-                if (amount > 0L) {
-                    db.vehicleDao().insertExpense(
-                        VehicleExpenseRoomEntity(
-                            id = "exp_ins_$insuranceId",
-                            userId = userId,
-                            vehicleId = vehicleId,
-                            title = "تمدید ${type.trim()} (${company.trim()})",
-                            category = VehicleExpenseCategory.INSURANCE.name,
-                            amount = amount,
-                            date = startDate.trim(),
-                            description = "شماره بیمه‌نامه: ${policyNumber.trim()}"
-                        )
-                    )
-                }
-            }
-
-            // Sync Reminder for Insurance with failure propagation
+            // Sync Reminder for Insurance first to ensure atomicity & failure propagation
             val syncResult = syncReminderInternal(
                 context = context,
                 userId = userId,
@@ -970,6 +951,45 @@ class VehicleRepository {
             )
             if (syncResult.isFailure) {
                 return@withContext Result.failure(syncResult.exceptionOrNull() ?: Exception("خطا در همگام‌سازی یادآور"))
+            }
+
+            try {
+                db.withTransaction {
+                    db.vehicleDao().insertInsurance(
+                        VehicleInsuranceRoomEntity(
+                            id = insuranceId,
+                            userId = userId,
+                            vehicleId = vehicleId,
+                            company = company.trim(),
+                            type = type.trim(),
+                            startDate = startDate.trim(),
+                            endDate = endDate.trim(),
+                            amount = amount,
+                            policyNumber = policyNumber.trim(),
+                            reminderDays = newInsurance.reminderDays.joinToString(",")
+                        )
+                    )
+
+                    if (amount > 0L) {
+                        db.vehicleDao().insertExpense(
+                            VehicleExpenseRoomEntity(
+                                id = "exp_ins_$insuranceId",
+                                userId = userId,
+                                vehicleId = vehicleId,
+                                title = "تمدید ${type.trim()} (${company.trim()})",
+                                category = VehicleExpenseCategory.INSURANCE.name,
+                                amount = amount,
+                                date = startDate.trim(),
+                                description = "شماره بیمه‌نامه: ${policyNumber.trim()}"
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                // Clean up created reminder if database insert fails
+                val reminderManager = com.example.reminder.domain.ReminderManager(context)
+                runCatching { reminderManager.deleteReminder(insuranceId) }
+                throw e
             }
 
             Result.success(newInsurance)
@@ -998,31 +1018,33 @@ class VehicleRepository {
                 return@withContext Result.failure(IllegalArgumentException("تاریخ پایان جدید نمی‌تواند قبل از تاریخ شروع بیمه‌نامه باشد."))
             }
 
-            val affectedRows = db.vehicleDao().renewInsurance(userId, insuranceId, today, newEndDate.trim())
-            if (affectedRows == 0) {
-                return@withContext Result.failure(IllegalStateException("بروزرسانی بیمه‌نامه شکست خورد."))
-            }
-
-            // Sync Expense associated with Insurance to today's date
-            val expense = db.vehicleDao().getExpenseById(userId, "exp_ins_$insuranceId")
-            if (expense != null) {
-                db.vehicleDao().updateExpense(expense.copy(date = today))
-            }
-
-            // Sync Reminder for Insurance expiration
             val vehicle = db.vehicleDao().getVehicleByServerId(userId, existing.vehicleId)
-            if (vehicle != null) {
-                val syncResult = syncReminderInternal(
-                    context = context,
-                    userId = userId,
-                    id = insuranceId,
-                    title = "تمدید بیمه ${existing.type} خودرو",
-                    description = "سررسید انقضای بیمه‌نامه برای خودرو ${vehicle.brand} ${vehicle.model}. شماره بیمه‌نامه: ${existing.policyNumber}",
-                    date = newEndDate.trim(),
-                    type = "INSURANCE"
-                )
-                if (syncResult.isFailure) {
-                    return@withContext Result.failure(syncResult.exceptionOrNull() ?: Exception("خطا در همگام‌سازی یادآور"))
+                ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
+
+            // Sync Reminder for Insurance expiration first to ensure atomicity & failure propagation
+            val syncResult = syncReminderInternal(
+                context = context,
+                userId = userId,
+                id = insuranceId,
+                title = "تمدید بیمه ${existing.type} خودرو",
+                description = "سررسید انقضای بیمه‌نامه برای خودرو ${vehicle.brand} ${vehicle.model}. شماره بیمه‌نامه: ${existing.policyNumber}",
+                date = newEndDate.trim(),
+                type = "INSURANCE"
+            )
+            if (syncResult.isFailure) {
+                return@withContext Result.failure(syncResult.exceptionOrNull() ?: Exception("خطا در همگام‌سازی یادآور"))
+            }
+
+            db.withTransaction {
+                val affectedRows = db.vehicleDao().renewInsurance(userId, insuranceId, today, newEndDate.trim())
+                if (affectedRows == 0) {
+                    throw IllegalStateException("بروزرسانی بیمه‌نامه شکست خورد.")
+                }
+
+                // Sync Expense associated with Insurance to today's date
+                val expense = db.vehicleDao().getExpenseById(userId, "exp_ins_$insuranceId")
+                if (expense != null) {
+                    db.vehicleDao().updateExpense(expense.copy(date = today))
                 }
             }
 
@@ -1095,37 +1117,7 @@ class VehicleRepository {
                 centerName = centerName.trim()
             )
 
-            db.withTransaction {
-                db.vehicleDao().insertInspection(
-                    VehicleInspectionRoomEntity(
-                        id = inspectionId,
-                        userId = userId,
-                        vehicleId = vehicleId,
-                        lastInspectionDate = lastInspectionDate.trim(),
-                        expiryDate = expiryDate.trim(),
-                        cost = cost,
-                        status = status.trim(),
-                        centerName = centerName.trim()
-                    )
-                )
-
-                if (cost > 0L) {
-                    db.vehicleDao().insertExpense(
-                        VehicleExpenseRoomEntity(
-                            id = "exp_insp_$inspectionId",
-                            userId = userId,
-                            vehicleId = vehicleId,
-                            title = "معاینه فنی خودرو ($centerName)",
-                            category = VehicleExpenseCategory.INSPECTION.name,
-                            amount = cost,
-                            date = lastInspectionDate.trim(),
-                            description = "مرکز معاینه فنی: $centerName"
-                        )
-                    )
-                }
-            }
-
-            // Sync Reminder for Inspection with failure propagation
+            // Sync Reminder for Inspection first to ensure atomicity & failure propagation
             val syncResult = syncReminderInternal(
                 context = context,
                 userId = userId,
@@ -1137,6 +1129,43 @@ class VehicleRepository {
             )
             if (syncResult.isFailure) {
                 return@withContext Result.failure(syncResult.exceptionOrNull() ?: Exception("خطا در همگام‌سازی یادآور"))
+            }
+
+            try {
+                db.withTransaction {
+                    db.vehicleDao().insertInspection(
+                        VehicleInspectionRoomEntity(
+                            id = inspectionId,
+                            userId = userId,
+                            vehicleId = vehicleId,
+                            lastInspectionDate = lastInspectionDate.trim(),
+                            expiryDate = expiryDate.trim(),
+                            cost = cost,
+                            status = status.trim(),
+                            centerName = centerName.trim()
+                        )
+                    )
+
+                    if (cost > 0L) {
+                        db.vehicleDao().insertExpense(
+                            VehicleExpenseRoomEntity(
+                                id = "exp_insp_$inspectionId",
+                                userId = userId,
+                                vehicleId = vehicleId,
+                                title = "معاینه فنی خودرو ($centerName)",
+                                category = VehicleExpenseCategory.INSPECTION.name,
+                                amount = cost,
+                                date = lastInspectionDate.trim(),
+                                description = "مرکز معاینه فنی: $centerName"
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                // Clean up created reminder if database insert fails
+                val reminderManager = com.example.reminder.domain.ReminderManager(context)
+                runCatching { reminderManager.deleteReminder(inspectionId) }
+                throw e
             }
 
             Result.success(newInspection)
