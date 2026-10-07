@@ -898,7 +898,7 @@ private fun ExpenseCategoryCard() {
                 ) {
                     Column(horizontalAlignment = Alignment.Start) {
                         Text(
-                            text = "۵,۵۰۰,۰۰۰ تومان",
+                            text = "${MoneyFormatter.formatToman(uiState.totalExpense)} تومان",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
@@ -906,7 +906,7 @@ private fun ExpenseCategoryCard() {
                             color = Color(0xFF38BDF8)
                         )
                         Text(
-                            text = "۳۷٪ کل مخارج",
+                            text = "مجموع هزینه‌های این دوره",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
                             color = Color(0xFF94A3B8)
                         )
@@ -918,12 +918,12 @@ private fun ExpenseCategoryCard() {
                     ) {
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
-                                text = "بیشترین هزینه این ماه",
+                                text = "بیشترین دسته هزینه",
                                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                 color = Color(0xFF94A3B8)
                             )
                             Text(
-                                text = "خودرو",
+                                text = uiState.topExpenseCategory.ifBlank { "نامشخص" },
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp
@@ -940,7 +940,7 @@ private fun ExpenseCategoryCard() {
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Rounded.DirectionsCar,
+                                    imageVector = Icons.Rounded.PieChart,
                                     contentDescription = null,
                                     tint = Color(0xFF38BDF8),
                                     modifier = Modifier.size(22.dp)
@@ -1049,7 +1049,7 @@ fun ExportReportBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "مجموع درآمد: ۲۰,۰۰۰,۰۰۰ تومان",
+                                text = "مجموع درآمد: ${MoneyFormatter.formatToman(uiState.totalIncome)} تومان",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp
@@ -1057,7 +1057,7 @@ fun ExportReportBottomSheet(
                                 color = Color(0xFF34D399)
                             )
                             Text(
-                                text = "مجموع هزینه: ۱۰,۰۰۰,۰۰۰ تومان",
+                                text = "مجموع هزینه: ${MoneyFormatter.formatToman(uiState.totalExpense)} تومان",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp

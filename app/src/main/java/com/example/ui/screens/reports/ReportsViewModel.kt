@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.repository.NotificationRepository
 import com.example.ui.screens.finance.data.LocalFinanceRepository
+import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import com.example.vehicle.data.VehicleRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,18 +35,25 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
 
     fun loadReportData() {
         viewModelScope.launch {
-            // Real calculations from repositories
             val transactions = financeRepo.getTransactions().value
-            val income = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }
-            val expense = transactions.filter { it.type == "EXPENSE" }.sumOf { it.amount }
-            val savings = (income - expense).coerceAtLeast(0)
+            val income = transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
+            val expense = transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+            val savings = (income - expense)
             val savingsPercent = if (income > 0) ((savings.toDouble() / income.toDouble()) * 100).toInt() else 0
+            
+            // Real top category
+            val topCategory = transactions
+                .filter { it.type == TransactionType.EXPENSE }
+                .groupBy { it.category.title }
+                .mapValues { entry -> entry.value.sumOf { it.amount } }
+                .maxByOrNull { it.value }?.key ?: ""
             
             _uiState.value = ReportsState(
                 totalIncome = income,
                 totalExpense = expense,
                 savings = savings,
-                savingsPercent = savingsPercent
+                savingsPercent = savingsPercent,
+                topExpenseCategory = topCategory
             )
         }
     }
