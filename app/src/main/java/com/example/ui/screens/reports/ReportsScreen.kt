@@ -54,7 +54,7 @@ enum class ReportPeriod(val title: String) {
  * مدل تاریخ شمسی
  */
 data class ShamsiDate(
-    val year: Int = 1400,
+    val year: Int = 1403,
     val month: Int = 1,
     val day: Int = 1
 ) {
@@ -1208,6 +1208,16 @@ fun ExportReportBottomSheet(
     startDate: ShamsiDate,
     endDate: ShamsiDate,
     onDismiss: () -> Unit,
+    totalIncome: Long,
+    totalExpense: Long,
+    savings: Long,
+    savingsPercent: String,
+    topExpenseCategory: String,
+    topCategoryAmount: String,
+    expenseRatio: String,
+    previousPeriodExpense: Long,
+    expenseChangePercent: String,
+    isExpenseIncreased: Boolean,
     onExportPdf: () -> Unit,
     onSaveImage: () -> Unit
 ) {
@@ -1294,7 +1304,7 @@ fun ExportReportBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "مجموع درآمد: ${MoneyFormatter.formatToman(uiState.totalIncome)} تومان",
+                                text = "مجموع درآمد: ${MoneyFormatter.formatToman(totalIncome)} تومان",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp
@@ -1302,7 +1312,7 @@ fun ExportReportBottomSheet(
                                 color = Color(0xFF34D399)
                             )
                             Text(
-                                text = "مجموع هزینه: ${MoneyFormatter.formatToman(uiState.totalExpense)} تومان",
+                                text = "مجموع هزینه: ${MoneyFormatter.formatToman(totalExpense)} تومان",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp
@@ -1679,7 +1689,8 @@ private fun PersianDateSelectorRow(
                     onDismissRequest = { yearExpanded = false },
                     modifier = Modifier.background(Color(0xFF1E293B))
                 ) {
-                    for (y in 1400..1405) {
+                    val currentYear = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year
+                    for (y in (currentYear - 10)..(currentYear + 5)) {
                         DropdownMenuItem(
                             text = { Text("$y", color = Color.White) },
                             onClick = {
