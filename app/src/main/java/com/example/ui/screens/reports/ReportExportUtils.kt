@@ -37,11 +37,15 @@ object ReportExportUtils {
         context: Context,
         startDate: ShamsiDate,
         endDate: ShamsiDate,
-        totalIncome: String = "۲۰,۰۰۰,۰۰۰",
-        totalExpense: String = "۱۰,۰۰۰,۰۰۰",
-        savings: String = "۱۰,۰۰۰,۰۰۰",
-        savingsPercent: String = "۵۰٪",
-        topExpenseCategory: String = "خودرو (۵,۵۰۰,۰۰۰ تومان)"
+        totalIncome: String,
+        totalExpense: String,
+        savings: String,
+        savingsPercent: String,
+        topExpenseCategory: String,
+        expenseRatio: String,
+        previousPeriodExpense: String,
+        expenseChangePercent: String,
+        isExpenseIncreased: Boolean
     ) {
         try {
             val pdfDocument = PdfDocument()
@@ -182,8 +186,8 @@ object ReportExportUtils {
 
             drawDetailRow(detailY + 75f, "• نسبت ذخیره و پس‌انداز به درآمد:", savingsPercent)
             drawDetailRow(detailY + 110f, "• بیشترین شاخه هزینه در این دوره:", topExpenseCategory)
-            drawDetailRow(detailY + 145f, "• وضعیت کلی بودجه و تعهدات:", "مطلوب و پایدار (مدیریت متوازن)")
-            drawDetailRow(detailY + 180f, "• تغییرات نسبت به دوره قبل:", "۵٪ بهبود ذخیره نقدی")
+            drawDetailRow(detailY + 145f, "• مجموع هزینه دوره قبل:", "$previousPeriodExpense تومان")
+            drawDetailRow(detailY + 180f, "• تغییر نسبت به دوره قبل:", "$expenseChangePercent ${if(isExpenseIncreased) "افزایش" else "کاهش"}")
 
             // Watermark / Footer
             val footerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -247,11 +251,16 @@ object ReportExportUtils {
         context: Context,
         startDate: ShamsiDate,
         endDate: ShamsiDate,
-        totalIncome: String = "۲۰,۰۰۰,۰۰۰",
-        totalExpense: String = "۱۰,۰۰۰,۰۰۰",
-        savings: String = "۱۰,۰۰۰,۰۰۰",
-        savingsPercent: String = "۵۰٪",
-        topExpenseCategory: String = "خودرو"
+        totalIncome: String,
+        totalExpense: String,
+        savings: String,
+        savingsPercent: String,
+        topExpenseCategory: String,
+        topCategoryAmount: String,
+        expenseRatio: String,
+        previousPeriodExpense: String,
+        expenseChangePercent: String,
+        isExpenseIncreased: Boolean
     ) {
         try {
             val width = 1080
@@ -383,37 +392,40 @@ object ReportExportUtils {
                 color = AndroidColor.parseColor("#1E293B")
             }
             canvas.drawRoundRect(RectF(100f, 700f, width - 100f, 730f), 12f, 12f, barBgPaint)
+            
+            // We need a ratio float here for the bar
+            val ratioFloat = try { expenseRatio.replace("٪", "").toFloat() / 100f } catch(_: Exception) { 0.5f }
 
             val barFillPaint = Paint().apply {
                 shader = LinearGradient(
-                    100f, 700f, width * 0.5f, 730f,
+                    100f, 700f, width * ratioFloat, 730f,
                     AndroidColor.parseColor("#0284C7"),
                     AndroidColor.parseColor("#38BDF8"),
                     Shader.TileMode.CLAMP
                 )
             }
-            canvas.drawRoundRect(RectF(100f, 700f, width * 0.55f, 730f), 12f, 12f, barFillPaint)
+            canvas.drawRoundRect(RectF(100f, 700f, 100f + (width - 200f) * ratioFloat.coerceIn(0f, 1f), 730f), 12f, 12f, barFillPaint)
 
             val ratioPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CBD5E1")
                 textSize = 23f
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("نسبت مصارف به درآمد کل: $savingsPercent", width - 100f, 780f, ratioPaint)
+            canvas.drawText("نسبت مصارف به درآمد کل: $expenseRatio", width - 100f, 780f, ratioPaint)
 
             val topExpPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CBD5E1")
                 textSize = 23f
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("بیشترین هزینه ثبت شده: $topExpenseCategory (۵,۵۰۰,۰۰۰ تومان - ۳۷٪)", width - 100f, 830f, topExpPaint)
+            canvas.drawText("بیشترین هزینه: $topExpenseCategory ($topCategoryAmount تومان)", width - 100f, 830f, topExpPaint)
 
             val compPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CBD5E1")
                 textSize = 23f
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("مقایسه با ماه قبل: هزینه ماه قبل ۹,۵۰۰,۰۰۰ تومان (۵٪ رشد ذخیره)", width - 100f, 880f, compPaint)
+            canvas.drawText("دوره قبل: $previousPeriodExpense تومان ($expenseChangePercent ${if(isExpenseIncreased) "افزایش" else "کاهش"})", width - 100f, 880f, compPaint)
 
             // Darino Official Seal Card
             val sealRect = RectF(60f, 990f, width - 60f, 1250f)
