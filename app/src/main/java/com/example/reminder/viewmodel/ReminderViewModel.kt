@@ -3,6 +3,7 @@ package com.example.reminder.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.repository.NotificationRepository
 import com.example.reminder.data.LocalReminderRepository
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.data.ReminderRepository
@@ -28,8 +29,8 @@ private data class FilterParams(
 class ReminderViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: ReminderRepository = LocalReminderRepository(application)
+    private val notificationRepository = NotificationRepository(application)
     private val manager: ReminderManager = ReminderManager(application, repository)
-    private val notificationRepository = com.example.data.repository.NotificationRepository(application)
 
     private val _selectedTab = MutableStateFlow(ReminderTab.ALL)
     private val _selectedFilterChip = MutableStateFlow(ReminderFilterChip.ALL)
@@ -46,9 +47,11 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         repository.getAllReminders(),
         filterParams,
         _activeSuggestions,
-        notificationRepository.getUnreadCount(),
-        combine(_isLoading, _errorMessage) { loading, err -> Pair(loading, err) }
-    ) { allReminders: List<ReminderEntity>, filters: FilterParams, suggestions: List<SmartSuggestion>, notifCount: Int, (isLoading, error) ->
+        _isLoading,
+        combine(_errorMessage, notificationRepository.getUnreadCount()) { error, unreadCount -> Pair(error, unreadCount) }
+    ) { allReminders: List<ReminderEntity>, filters: FilterParams, suggestions: List<SmartSuggestion>, isLoading: Boolean, pair: Pair<String?, Int> ->
+        val error = pair.first
+        val unreadCount = pair.second
 
         val todayPersian = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
 
@@ -105,7 +108,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             selectedTab = filters.tab,
             selectedFilterChip = filters.filterChip,
             searchQuery = filters.searchQuery,
-            notificationCount = notifCount,
+            notificationCount = unreadCount,
             todayCount = todayReminders.size.coerceAtLeast(1),
             thisWeekCount = activeList.size.coerceAtLeast(3),
             nearestReminder = nearest,

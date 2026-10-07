@@ -114,10 +114,7 @@ fun ReminderScreen(
 
         ReminderSubScreen.NOTIFICATION_CENTER -> {
             NotificationCenterScreen(
-                onBackClick = { currentSubScreen = ReminderSubScreen.LIST },
-                onNotificationClick = { notifId ->
-                    // Optionally deep-link to reminder
-                }
+                onBackClick = { currentSubScreen = ReminderSubScreen.LIST }
             )
         }
 

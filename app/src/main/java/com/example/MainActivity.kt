@@ -291,19 +291,7 @@ fun AppNavigationContainer(
                         )
                     } else if (isNotificationsOpen) {
                         NotificationCenterScreen(
-                            onBackClick = { isNotificationsOpen = false },
-                            onNavigateToInstallments = {
-                                isNotificationsOpen = false
-                                currentTab = BottomNavItem.INSTALLMENTS
-                            },
-                            onNavigateToVehicles = {
-                                isNotificationsOpen = false
-                                currentTab = BottomNavItem.VEHICLE
-                            },
-                            onNavigateToFinance = {
-                                isNotificationsOpen = false
-                                currentTab = BottomNavItem.FINANCE
-                            }
+                            onBackClick = { isNotificationsOpen = false }
                         )
                     } else if (isFinancialHealthOpen) {
                         FinancialHealthScreen(
