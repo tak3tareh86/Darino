@@ -99,25 +99,44 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         val (startTime, endTime) = getPeriodBounds(period, customStart, customEnd)
         val (prevStartTime, prevEndTime) = getPreviousPeriodBounds(period, startTime, endTime)
 
-        // Filter transactions by time and category if needed
+        // Filter transactions by time and category
         val periodTransactions = allTransactions.filter { it.dateMillis in startTime..endTime }
-        val filteredTransactions = if (category == ReportCategory.FINANCIAL) {
-            periodTransactions
-        } else {
-            // If specific categories are implemented in ReportCategory, filter here.
-            // For now, ReportCategory seems to be the "Tab" selector.
-            periodTransactions
+        
+        val filteredTransactions = when (category) {
+            ReportCategory.FINANCIAL -> periodTransactions
+            ReportCategory.VEHICLE -> periodTransactions.filter { 
+                it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE ||
+                it.category.id == "vehicle" || it.category.id == "fuel"
+            }
+            ReportCategory.INSTALLMENTS -> periodTransactions.filter { 
+                it.category.id == "installment" || it.category.id == "loan"
+            }
+            ReportCategory.SMART_ANALYSIS -> periodTransactions
         }
 
         val income = filteredTransactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
         val expense = filteredTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
-        val savings = income - expense
-        val savingsPercent = if (income > 0) ((savings.toDouble() / income.toDouble()) * 100).toInt() else 0
+        val savings = if (category == ReportCategory.FINANCIAL) income - expense else 0 
+        val savingsPercent = if (category == ReportCategory.FINANCIAL && income > 0) ((savings.toDouble() / income.toDouble()) * 100).toInt() else 0
 
         // Comparison
         val prevTransactions = allTransactions.filter { it.dateMillis in prevStartTime..prevEndTime }
-        val prevExpense = prevTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
-        val expenseDiff = expense - prevExpense
+        val currentCatExpense = filteredTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+        
+        val prevFilteredTransactions = when (category) {
+            ReportCategory.FINANCIAL -> prevTransactions
+            ReportCategory.VEHICLE -> prevTransactions.filter { 
+                it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE ||
+                it.category.id == "vehicle" || it.category.id == "fuel"
+            }
+            ReportCategory.INSTALLMENTS -> prevTransactions.filter { 
+                it.category.id == "installment" || it.category.id == "loan"
+            }
+            ReportCategory.SMART_ANALYSIS -> prevTransactions
+        }
+        
+        val prevExpense = prevFilteredTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+        val expenseDiff = currentCatExpense - prevExpense
         val expenseChangePercent = if (prevExpense > 0) (Math.abs(expenseDiff).toDouble() / prevExpense.toDouble()) * 100 else 0.0
 
         // Category Analysis
@@ -128,27 +147,31 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         
         val topCategory = categoryGroups.maxByOrNull { it.value }
         
-        // Installments (Mocking logic for now using repo data)
+        // Installments - Period aware (Active in current period)
         val activeInstallments = allInstallments.filter { it.status == "ACTIVE" }
         val installmentTotal = activeInstallments.sumOf { it.totalAmount }
         val installmentPaid = activeInstallments.sumOf { it.paidAmount }
 
-        // Vehicle (Filter transactions with vehicle source)
-        val vehicleExpenses = periodTransactions.filter { 
-            it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE ||
-            it.category.id == "vehicle" || it.category.id == "fuel"
-        }.sumOf { it.amount }
+        // Vehicle - Real connection via source/category filtering
+        val vehicleExpenseTotal = if (category == ReportCategory.VEHICLE) {
+            currentCatExpense
+        } else {
+            periodTransactions.filter { 
+                it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE ||
+                it.category.id == "vehicle" || it.category.id == "fuel"
+            }.sumOf { it.amount }
+        }
 
-        val expenseRatio = if (income > 0) {
+        val expenseRatio = if (category == ReportCategory.FINANCIAL && income > 0) {
             (expense.toDouble() / income.toDouble()).coerceIn(0.0, 1.0).toFloat()
-        } else if (expense > 0) 1.0f else 0.0f
+        } else if (category == ReportCategory.FINANCIAL && expense > 0) 1.0f else 0.0f
 
         return ReportsState(
             totalIncome = income,
             totalExpense = expense,
             savings = savings,
             savingsPercent = savingsPercent,
-            currentPeriodExpense = expense,
+            currentPeriodExpense = currentCatExpense,
             previousPeriodExpense = prevExpense,
             expenseChangePercent = expenseChangePercent,
             isExpenseIncreased = expenseDiff > 0,
@@ -158,7 +181,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             totalInstallmentAmount = installmentTotal,
             paidInstallmentAmount = installmentPaid,
             activeInstallmentsCount = activeInstallments.size,
-            vehicleExpenseTotal = vehicleExpenses,
+            vehicleExpenseTotal = vehicleExpenseTotal,
             expenseRatio = expenseRatio,
             selectedCategory = category,
             selectedPeriod = period,
@@ -194,8 +217,31 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun getPreviousPeriodBounds(period: ReportPeriod, startTime: Long, endTime: Long): Pair<Long, Long> {
-        val duration = endTime - startTime
-        return Pair(startTime - duration, startTime)
+        return when (period) {
+            ReportPeriod.WEEK -> Pair(startTime - (7 * 24 * 60 * 60 * 1000L), startTime)
+            ReportPeriod.MONTH -> {
+                val startPersian = PersianCalendarHelper.fromEpochMillis(startTime)
+                var prevYear = startPersian.year
+                var prevMonth = startPersian.month - 1
+                if (prevMonth == 0) {
+                    prevMonth = 12
+                    prevYear -= 1
+                }
+                val prevStart = PersianCalendarHelper.jalaliToEpochMillis(prevYear, prevMonth, 1, 0, 0)
+                val prevEnd = startTime - 1
+                Pair(prevStart, prevEnd)
+            }
+            ReportPeriod.YEAR -> {
+                val startPersian = PersianCalendarHelper.fromEpochMillis(startTime)
+                val prevStart = PersianCalendarHelper.jalaliToEpochMillis(startPersian.year - 1, 1, 1, 0, 0)
+                val prevEnd = startTime - 1
+                Pair(prevStart, prevEnd)
+            }
+            ReportPeriod.CUSTOM -> {
+                val duration = endTime - startTime
+                Pair(startTime - duration, startTime)
+            }
+        }
     }
 
     fun setPeriod(period: ReportPeriod) {

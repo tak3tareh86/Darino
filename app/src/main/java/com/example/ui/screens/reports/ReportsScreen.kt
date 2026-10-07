@@ -54,10 +54,16 @@ enum class ReportPeriod(val title: String) {
  * مدل تاریخ شمسی
  */
 data class ShamsiDate(
-    val year: Int = 1403,
-    val month: Int = 6,
+    val year: Int = 1400,
+    val month: Int = 1,
     val day: Int = 1
 ) {
+    companion object {
+        fun now(): ShamsiDate {
+            val n = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+            return ShamsiDate(n.year, n.month, n.day)
+        }
+    }
     fun formatDisplay(): String {
         val m = if (month < 10) "0$month" else "$month"
         val d = if (day < 10) "0$day" else "$day"
@@ -134,7 +140,7 @@ fun ReportsScreen(
                 ) {
                     ReportsHeader(
                         onExportClick = { showExportSheet = true },
-                        onFilterClick = { /* Can implement a generic filter sheet here if needed */ }
+                        onFilterClick = { showCustomDateSheet = true }
                     )
                 }
 
@@ -155,72 +161,93 @@ fun ReportsScreen(
                             totalExpense = uiState.totalExpense,
                             savings = uiState.savings,
                             savingsPercent = uiState.savingsPercent,
-                            onEditCustomRange = { showCustomDateSheet = true }
+                            onEditCustomRange = { showCustomDateSheet = true },
+                            selectedCategory = uiState.selectedCategory
                         )
                     }
 
-                // ۳. تب‌های دسته‌بندی گزارشات
-                item {
-                    CategoryFilterRow(
-                        selectedCategory = uiState.selectedCategory,
-                        onCategorySelected = { viewModel.setCategory(it) }
-                    )
-                }
+                    // ۳. تب‌های دسته‌بندی گزارشات
+                    item {
+                        CategoryFilterRow(
+                            selectedCategory = uiState.selectedCategory,
+                            onCategorySelected = { viewModel.setCategory(it) }
+                        )
+                    }
 
-                // ۴. تب‌های بازه زمانی
-                item {
-                    PeriodFilterRow(
-                        selectedPeriod = uiState.selectedPeriod,
-                        onPeriodSelected = { period ->
-                            if (period == ReportPeriod.CUSTOM) {
-                                showCustomDateSheet = true
-                            } else {
-                                viewModel.setPeriod(period)
+                    // ۴. تب‌های بازه زمانی
+                    item {
+                        PeriodFilterRow(
+                            selectedPeriod = uiState.selectedPeriod,
+                            onPeriodSelected = { period ->
+                                if (period == ReportPeriod.CUSTOM) {
+                                    showCustomDateSheet = true
+                                } else {
+                                    viewModel.setPeriod(period)
+                                }
+                            }
+                        )
+                    }
+
+                    // ۵. نمایش نوار بازه انتخابی در صورت انتخاب بازه دلخواه
+                    if (uiState.selectedPeriod == ReportPeriod.CUSTOM) {
+                        item {
+                            ActiveCustomRangeBanner(
+                                startDate = startDate,
+                                endDate = endDate,
+                                onClick = { showCustomDateSheet = true }
+                            )
+                        }
+                    }
+
+                    // ۶. کارت مقایسه با دوره قبل
+                    item {
+                        MonthComparisonCard(
+                            currentValue = uiState.currentPeriodExpense,
+                            previousValue = uiState.previousPeriodExpense,
+                            percent = uiState.expenseChangePercent,
+                            isIncrease = uiState.isExpenseIncreased,
+                            label = when(uiState.selectedPeriod) {
+                                ReportPeriod.WEEK -> "مقایسه با هفته قبل"
+                                ReportPeriod.MONTH -> "مقایسه با ماه قبل"
+                                ReportPeriod.YEAR -> "مقایسه با سال قبل"
+                                ReportPeriod.CUSTOM -> "مقایسه با دوره معادل قبل"
+                            }
+                        )
+                    }
+
+                    // ۷. محتوای اختصاصی هر دسته
+                    when (uiState.selectedCategory) {
+                        ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> {
+                            item {
+                                ExpenseCategoryCard(
+                                    totalExpense = uiState.totalExpense,
+                                    topCategory = uiState.topExpenseCategory,
+                                    topCategoryAmount = uiState.topExpenseCategoryAmount
+                                )
                             }
                         }
-                    )
-                }
+                        ReportCategory.INSTALLMENTS -> {
+                            item {
+                                InstallmentSummaryCard(
+                                    totalAmount = uiState.totalInstallmentAmount,
+                                    paidAmount = uiState.paidInstallmentAmount,
+                                    activeCount = uiState.activeInstallmentsCount
+                                )
+                            }
+                        }
+                        ReportCategory.VEHICLE -> {
+                            item {
+                                VehicleExpenseCard(
+                                    totalVehicleExpense = uiState.vehicleExpenseTotal
+                                )
+                            }
+                        }
+                    }
 
-                // ۵. نمایش نوار بازه انتخابی در صورت انتخاب بازه دلخواه
-                if (uiState.selectedPeriod == ReportPeriod.CUSTOM) {
                     item {
-                        ActiveCustomRangeBanner(
-                            startDate = startDate,
-                            endDate = endDate,
-                            onClick = { showCustomDateSheet = true }
-                        )
+                        Spacer(modifier = Modifier.height(32.dp))
                     }
                 }
-
-                // ۶. کارت مقایسه با دوره قبل
-                item {
-                    MonthComparisonCard(
-                        currentValue = uiState.currentPeriodExpense,
-                        previousValue = uiState.previousPeriodExpense,
-                        percent = uiState.expenseChangePercent,
-                        isIncrease = uiState.isExpenseIncreased,
-                        label = when(uiState.selectedPeriod) {
-                            ReportPeriod.WEEK -> "مقایسه با هفته قبل"
-                            ReportPeriod.MONTH -> "مقایسه با ماه قبل"
-                            ReportPeriod.YEAR -> "مقایسه با سال قبل"
-                            ReportPeriod.CUSTOM -> "مقایسه با دوره معادل قبل"
-                        }
-                    )
-                }
-
-                // ۷. کارت تحلیل دسته‌بندی هزینه‌ها
-                item {
-                    ExpenseCategoryCard(
-                        totalExpense = uiState.totalExpense,
-                        topCategory = uiState.topExpenseCategory,
-                        topCategoryAmount = uiState.topExpenseCategoryAmount
-                    )
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(32.dp))
-                }
-            }
         }
     }
 
@@ -248,13 +275,13 @@ fun ReportsScreen(
                         context = context,
                         startDate = startDate,
                         endDate = endDate,
-                        totalIncome = MoneyFormatter.formatToman(uiState.totalIncome),
-                        totalExpense = MoneyFormatter.formatToman(uiState.totalExpense),
-                        savings = MoneyFormatter.formatToman(uiState.savings),
+                        totalIncome = uiState.totalIncome,
+                        totalExpense = uiState.totalExpense,
+                        savings = uiState.savings,
                         savingsPercent = "${uiState.savingsPercent}٪",
                         topExpenseCategory = uiState.topExpenseCategory,
                         expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
-                        previousPeriodExpense = MoneyFormatter.formatToman(uiState.previousPeriodExpense),
+                        previousPeriodExpense = uiState.previousPeriodExpense,
                         expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
                         isExpenseIncreased = uiState.isExpenseIncreased
                     )
@@ -265,14 +292,14 @@ fun ReportsScreen(
                         context = context,
                         startDate = startDate,
                         endDate = endDate,
-                        totalIncome = MoneyFormatter.formatToman(uiState.totalIncome),
-                        totalExpense = MoneyFormatter.formatToman(uiState.totalExpense),
-                        savings = MoneyFormatter.formatToman(uiState.savings),
+                        totalIncome = uiState.totalIncome,
+                        totalExpense = uiState.totalExpense,
+                        savings = uiState.savings,
                         savingsPercent = "${uiState.savingsPercent}٪",
                         topExpenseCategory = uiState.topExpenseCategory,
                         topCategoryAmount = MoneyFormatter.formatToman(uiState.topExpenseCategoryAmount),
                         expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
-                        previousPeriodExpense = MoneyFormatter.formatToman(uiState.previousPeriodExpense),
+                        previousPeriodExpense = uiState.previousPeriodExpense,
                         expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
                         isExpenseIncreased = uiState.isExpenseIncreased
                     )
@@ -384,7 +411,8 @@ private fun FinancialOverviewCard(
     totalExpense: Long,
     savings: Long,
     savingsPercent: Int,
-    onEditCustomRange: () -> Unit
+    onEditCustomRange: () -> Unit,
+    selectedCategory: ReportCategory
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -404,20 +432,38 @@ private fun FinancialOverviewCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFF064E3B).copy(alpha = 0.4f),
-                    border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.4f))
-                ) {
-                    Text(
-                        text = "پس‌انداز: $savingsPercent٪",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.5.sp
-                        ),
-                        color = Color(0xFF34D399),
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
+                if (selectedCategory == ReportCategory.FINANCIAL) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF064E3B).copy(alpha = 0.4f),
+                        border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = "پس‌انداز: $savingsPercent٪",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp
+                            ),
+                            color = Color(0xFF34D399),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF38BDF8).copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.35f))
+                    ) {
+                        Text(
+                            text = selectedCategory.title,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp
+                            ),
+                            color = Color(0xFF38BDF8),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
                 }
 
                 Row(
@@ -867,6 +913,97 @@ private fun MonthComparisonCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun InstallmentSummaryCard(
+    totalAmount: Long,
+    paidAmount: Long,
+    activeCount: Int
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFF10192D),
+        border = BorderStroke(1.dp, Color(0xFF1E293B))
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "$activeCount قسط فعال",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF38BDF8)
+                )
+                Text(
+                    text = "خلاصه تعهدات اقساط",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color.White
+                )
+            }
+            
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MetricBox(
+                    modifier = Modifier.weight(1f),
+                    title = "کل تعهدات",
+                    amount = MoneyFormatter.formatToman(totalAmount),
+                    currency = "تومان",
+                    accentColor = Color.White
+                )
+                MetricBox(
+                    modifier = Modifier.weight(1f),
+                    title = "پرداخت شده",
+                    amount = MoneyFormatter.formatToman(paidAmount),
+                    currency = "تومان",
+                    accentColor = Color(0xFF10B981)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VehicleExpenseCard(
+    totalVehicleExpense: Long
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFF10192D),
+        border = BorderStroke(1.dp, Color(0xFF1E293B))
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.DirectionsCar, null, tint = Color(0xFFF59E0B))
+                Text(
+                    text = "مخارج مدیریت خودرو",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color.White
+                )
+            }
+            
+            MetricBox(
+                modifier = Modifier.fillMaxWidth(),
+                title = "مجموع هزینه‌های خودرو در این دوره",
+                amount = MoneyFormatter.formatToman(totalVehicleExpense),
+                currency = "تومان",
+                accentColor = Color(0xFFF59E0B)
+            )
         }
     }
 }
