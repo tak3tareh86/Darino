@@ -83,6 +83,9 @@ data class ShamsiDate(
     }
 }
 
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ui.screens.reports.ReportsViewModel
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportsScreen(
@@ -91,8 +94,10 @@ fun ReportsScreen(
     onNavigateToInstallments: () -> Unit = {},
     onNavigateToVehicles: () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: ReportsViewModel = viewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var selectedCategory by remember { mutableStateOf(ReportCategory.FINANCIAL) }
     var selectedPeriod by remember { mutableStateOf(ReportPeriod.CUSTOM) }
@@ -140,6 +145,10 @@ fun ReportsScreen(
                             selectedPeriod = selectedPeriod,
                             startDate = startDate,
                             endDate = endDate,
+                            totalIncome = uiState.totalIncome,
+                            totalExpense = uiState.totalExpense,
+                            savings = uiState.savings,
+                            savingsPercent = uiState.savingsPercent,
                             onEditCustomRange = { showCustomDateSheet = true }
                         )
                     }
@@ -219,11 +228,11 @@ fun ReportsScreen(
                         context = context,
                         startDate = startDate,
                         endDate = endDate,
-                        totalIncome = "۲۰,۰۰۰,۰۰۰",
-                        totalExpense = "۱۰,۰۰۰,۰۰۰",
-                        savings = "۱۰,۰۰۰,۰۰۰",
-                        savingsPercent = "۵۰٪",
-                        topExpenseCategory = "خودرو"
+                        totalIncome = MoneyFormatter.formatToman(uiState.totalIncome),
+                        totalExpense = MoneyFormatter.formatToman(uiState.totalExpense),
+                        savings = MoneyFormatter.formatToman(uiState.savings),
+                        savingsPercent = "${uiState.savingsPercent}٪",
+                        topExpenseCategory = uiState.topExpenseCategory
                     )
                     showExportSheet = false
                 },
@@ -232,11 +241,11 @@ fun ReportsScreen(
                         context = context,
                         startDate = startDate,
                         endDate = endDate,
-                        totalIncome = "۲۰,۰۰۰,۰۰۰",
-                        totalExpense = "۱۰,۰۰۰,۰۰۰",
-                        savings = "۱۰,۰۰۰,۰۰۰",
-                        savingsPercent = "۵۰٪",
-                        topExpenseCategory = "خودرو"
+                        totalIncome = MoneyFormatter.formatToman(uiState.totalIncome),
+                        totalExpense = MoneyFormatter.formatToman(uiState.totalExpense),
+                        savings = MoneyFormatter.formatToman(uiState.savings),
+                        savingsPercent = "${uiState.savingsPercent}٪",
+                        topExpenseCategory = uiState.topExpenseCategory
                     )
                     showExportSheet = false
                 }
@@ -341,6 +350,10 @@ private fun FinancialOverviewCard(
     selectedPeriod: ReportPeriod,
     startDate: ShamsiDate,
     endDate: ShamsiDate,
+    totalIncome: Long,
+    totalExpense: Long,
+    savings: Long,
+    savingsPercent: Int,
     onEditCustomRange: () -> Unit
 ) {
     Surface(
@@ -367,7 +380,7 @@ private fun FinancialOverviewCard(
                     border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.4f))
                 ) {
                     Text(
-                        text = "پس‌انداز: ۵۰٪",
+                        text = "پس‌انداز: $savingsPercent٪",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.5.sp
@@ -429,7 +442,7 @@ private fun FinancialOverviewCard(
                 MetricBox(
                     modifier = Modifier.weight(1f),
                     title = "مجموع درآمد",
-                    amount = "۲۰,۰۰۰,۰۰۰",
+                    amount = MoneyFormatter.formatToman(totalIncome),
                     currency = "تومان",
                     accentColor = Color(0xFF10B981),
                     icon = Icons.Rounded.ArrowDownward
@@ -437,7 +450,7 @@ private fun FinancialOverviewCard(
                 MetricBox(
                     modifier = Modifier.weight(1f),
                     title = "مجموع هزینه",
-                    amount = "۱۰,۰۰۰,۰۰۰",
+                    amount = MoneyFormatter.formatToman(totalExpense),
                     currency = "تومان",
                     accentColor = Color(0xFFEF4444),
                     icon = Icons.Rounded.ArrowUpward
@@ -445,7 +458,7 @@ private fun FinancialOverviewCard(
                 MetricBox(
                     modifier = Modifier.weight(1f),
                     title = "میزان پس‌انداز",
-                    amount = "۱۰,۰۰۰,۰۰۰",
+                    amount = MoneyFormatter.formatToman(savings),
                     currency = "تومان",
                     accentColor = Color(0xFF38BDF8)
                 )
