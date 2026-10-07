@@ -48,7 +48,8 @@ data class ReportsState(
     val customEndDate: ShamsiDate? = null,
     
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val smartAdvice: String = ""
 )
 
 class ReportsViewModel(application: Application) : AndroidViewModel(application) {
@@ -73,14 +74,21 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             combine(
                 financeRepo.getTransactions(),
-                installmentRepo.getAllInstallments(),
-                vehicleRepo.getAllVehicles(),
+                installmentRepo.installments,
+                vehicleRepo.expenses,
+                vehicleRepo.services,
+                vehicleRepo.insurances,
+                vehicleRepo.inspections,
                 _selectedCategory,
                 _selectedPeriod,
                 _customStartDate,
                 _customEndDate
-            ) { transactions, installments, vehicles, category, period, start, end ->
-                calculateState(transactions, installments, vehicles, category, period, start, end)
+            ) { transactions, installments, vExpenses, vServices, vInsurances, vInspections, category, period, start, end ->
+                calculateState(
+                    transactions, installments, 
+                    vExpenses, vServices, vInsurances, vInspections,
+                    category, period, start, end
+                )
             }.collect { newState ->
                 _uiState.value = newState
             }
@@ -89,8 +97,11 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
 
     private fun calculateState(
         allTransactions: List<com.example.ui.screens.finance.model.TransactionItemData>,
-        allInstallments: List<com.example.ui.screens.installments.data.InstallmentEntity>,
-        allVehicles: List<com.example.vehicle.data.VehicleEntity>,
+        allInstallments: List<com.example.ui.screens.installments.model.InstallmentItem>,
+        vExpenses: List<com.example.vehicle.data.VehicleExpenseEntity>,
+        vServices: List<com.example.vehicle.data.VehicleServiceEntity>,
+        vInsurances: List<com.example.vehicle.data.VehicleInsuranceEntity>,
+        vInspections: List<com.example.vehicle.data.VehicleInspectionEntity>,
         category: ReportCategory,
         period: ReportPeriod,
         customStart: ShamsiDate,
@@ -99,7 +110,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         val (startTime, endTime) = getPeriodBounds(period, customStart, customEnd)
         val (prevStartTime, prevEndTime) = getPreviousPeriodBounds(period, startTime, endTime)
 
-        // Filter transactions by time and category
+        // 1. Financial Transactions
         val periodTransactions = allTransactions.filter { it.dateMillis in startTime..endTime }
         
         val filteredTransactions = when (category) {
@@ -119,10 +130,9 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         val savings = if (category == ReportCategory.FINANCIAL) income - expense else 0 
         val savingsPercent = if (category == ReportCategory.FINANCIAL && income > 0) ((savings.toDouble() / income.toDouble()) * 100).toInt() else 0
 
-        // Comparison
-        val prevTransactions = allTransactions.filter { it.dateMillis in prevStartTime..prevEndTime }
+        // 2. Comparison
         val currentCatExpense = filteredTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
-        
+        val prevTransactions = allTransactions.filter { it.dateMillis in prevStartTime..prevEndTime }
         val prevFilteredTransactions = when (category) {
             ReportCategory.FINANCIAL -> prevTransactions
             ReportCategory.VEHICLE -> prevTransactions.filter { 
@@ -134,32 +144,55 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             }
             ReportCategory.SMART_ANALYSIS -> prevTransactions
         }
-        
         val prevExpense = prevFilteredTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
         val expenseDiff = currentCatExpense - prevExpense
         val expenseChangePercent = if (prevExpense > 0) (Math.abs(expenseDiff).toDouble() / prevExpense.toDouble()) * 100 else 0.0
 
-        // Category Analysis
+        // 3. Category Analysis
         val categoryGroups = filteredTransactions
             .filter { it.type == TransactionType.EXPENSE }
             .groupBy { it.category.title }
             .mapValues { it.value.sumOf { it.amount } }
-        
         val topCategory = categoryGroups.maxByOrNull { it.value }
-        
-        // Installments - Period aware (Active in current period)
-        val activeInstallments = allInstallments.filter { it.status == "ACTIVE" }
-        val installmentTotal = activeInstallments.sumOf { it.totalAmount }
-        val installmentPaid = activeInstallments.sumOf { it.paidAmount }
 
-        // Vehicle - Real connection via source/category filtering
-        val vehicleExpenseTotal = if (category == ReportCategory.VEHICLE) {
-            currentCatExpense
-        } else {
-            periodTransactions.filter { 
-                it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE ||
-                it.category.id == "vehicle" || it.category.id == "fuel"
-            }.sumOf { it.amount }
+        // 4. Installments Report (Period-aware)
+        // We consider payments whose due date is in the selected period.
+        var totalInstAmountInPeriod = 0L
+        var paidInstAmountInPeriod = 0L
+        var activeInstInPeriodCount = 0
+        
+        allInstallments.forEach { installment ->
+            val paymentsInPeriod = installment.paymentHistory.filter { payment ->
+                val dueMillis = parsePersianDateToMillis(payment.dueDate)
+                dueMillis in startTime..endTime
+            }
+            
+            if (paymentsInPeriod.isNotEmpty()) {
+                activeInstInPeriodCount++
+                totalInstAmountInPeriod += paymentsInPeriod.sumOf { it.amount }
+                paidInstAmountInPeriod += paymentsInPeriod.filter { it.status == com.example.ui.screens.installments.model.InstallmentStatus.PAID || it.status == com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED }.sumOf { it.amount }
+            }
+        }
+
+        // 5. Vehicle Report (Canonical data from VehicleRepository)
+        // We sum up expenses, services, insurance installments (if applicable), and inspections in the period.
+        val vehicleExpensesSum = vExpenses.filter { parsePersianDateToMillis(it.date) in startTime..endTime }.sumOf { it.amount }
+        val vehicleServicesSum = vServices.filter { parsePersianDateToMillis(it.date) in startTime..endTime }.sumOf { it.cost }
+        val vehicleInspectionsSum = vInspections.filter { parsePersianDateToMillis(it.lastInspectionDate) in startTime..endTime }.sumOf { it.cost }
+        
+        // For insurances, we consider the portion of the premium that falls into this period or just the payment date.
+        // Usually, insurance is paid once. If it's in the period, we count it.
+        val vehicleInsurancesSum = vInsurances.filter { parsePersianDateToMillis(it.startDate) in startTime..endTime }.sumOf { it.amount }
+
+        val totalVehicleExpense = vehicleExpensesSum + vehicleServicesSum + vehicleInspectionsSum + vehicleInsurancesSum
+
+        val smartAdvice = when {
+            category == ReportCategory.SMART_ANALYSIS && savings < 0 -> "هزینه‌های شما در این دوره بیشتر از درآمد بوده است. پیشنهاد می‌شود هزینه‌های غیرضروری را کاهش دهید."
+            category == ReportCategory.SMART_ANALYSIS && savingsPercent > 30 -> "وضعیت پس‌انداز شما عالی است! بیش از ۳۰٪ درآمد خود را ذخیره کرده‌اید."
+            category == ReportCategory.SMART_ANALYSIS && topCategory != null && expense > 0 && (topCategory.value.toDouble() / expense.toDouble()) > 0.5 -> "بیش از نیمی از هزینه‌های شما صرف ${topCategory.key} شده است. بررسی کنید آیا امکان کاهش در این بخش وجود دارد؟"
+            category == ReportCategory.INSTALLMENTS && totalInstAmountInPeriod > 0 -> "شما $activeInstInPeriodCount قسط فعال در این بازه دارید. مجموع تعهدات: ${MoneyFormatter.formatToman(totalInstAmountInPeriod)}."
+            category == ReportCategory.VEHICLE && totalVehicleExpense > 1000000 -> "هزینه‌های خودروی شما در این دوره قابل توجه بوده است. سرویس‌های دوره‌ای را برای جلوگیری از خرابی‌های سنگین چک کنید."
+            else -> "تراکنش‌های شما با موفقیت ثبت و تحلیل شد."
         }
 
         val expenseRatio = if (category == ReportCategory.FINANCIAL && income > 0) {
@@ -178,16 +211,32 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             topExpenseCategory = topCategory?.key ?: "نامشخص",
             topExpenseCategoryAmount = topCategory?.value ?: 0,
             categoryBreakdown = categoryGroups,
-            totalInstallmentAmount = installmentTotal,
-            paidInstallmentAmount = installmentPaid,
-            activeInstallmentsCount = activeInstallments.size,
-            vehicleExpenseTotal = vehicleExpenseTotal,
+            totalInstallmentAmount = totalInstAmountInPeriod,
+            paidInstallmentAmount = paidInstAmountInPeriod,
+            activeInstallmentsCount = activeInstInPeriodCount,
+            vehicleExpenseTotal = totalVehicleExpense,
             expenseRatio = expenseRatio,
             selectedCategory = category,
             selectedPeriod = period,
             customStartDate = customStart,
-            customEndDate = customEnd
+            customEndDate = customEnd,
+            smartAdvice = smartAdvice
         )
+    }
+
+    private fun parsePersianDateToMillis(persianDate: String): Long {
+        if (persianDate.isBlank()) return 0L
+        val cleanDate = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(persianDate)
+        val parts = cleanDate.split("/")
+        if (parts.size != 3) return 0L
+        return try {
+            val y = parts[0].toInt()
+            val m = parts[1].toInt()
+            val d = parts[2].toInt()
+            PersianCalendarHelper.jalaliToEpochMillis(y, m, d, 9, 0)
+        } catch (e: Exception) {
+            0L
+        }
     }
 
     private fun getPeriodBounds(period: ReportPeriod, customStart: ShamsiDate, customEnd: ShamsiDate): Pair<Long, Long> {

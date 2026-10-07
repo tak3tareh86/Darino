@@ -217,7 +217,19 @@ fun ReportsScreen(
 
                     // ۷. محتوای اختصاصی هر دسته
                     when (uiState.selectedCategory) {
-                        ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> {
+                        ReportCategory.SMART_ANALYSIS -> {
+                            item {
+                                SmartAdviceCard(advice = uiState.smartAdvice)
+                            }
+                            item {
+                                ExpenseCategoryCard(
+                                    totalExpense = uiState.totalExpense,
+                                    topCategory = uiState.topExpenseCategory,
+                                    topCategoryAmount = uiState.topExpenseCategoryAmount
+                                )
+                            }
+                        }
+                        ReportCategory.FINANCIAL -> {
                             item {
                                 ExpenseCategoryCard(
                                     totalExpense = uiState.totalExpense,
@@ -270,6 +282,16 @@ fun ReportsScreen(
                 startDate = startDate,
                 endDate = endDate,
                 onDismiss = { showExportSheet = false },
+                totalIncome = uiState.totalIncome,
+                totalExpense = uiState.totalExpense,
+                savings = uiState.savings,
+                savingsPercent = "${uiState.savingsPercent}٪",
+                topExpenseCategory = uiState.topExpenseCategory,
+                topCategoryAmount = MoneyFormatter.formatToman(uiState.topExpenseCategoryAmount),
+                expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
+                previousPeriodExpense = uiState.previousPeriodExpense,
+                expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
+                isExpenseIncreased = uiState.isExpenseIncreased,
                 onExportPdf = {
                     ReportExportUtils.exportReportAsPdf(
                         context = context,
@@ -518,7 +540,7 @@ private fun FinancialOverviewCard(
                 MetricBox(
                     modifier = Modifier.weight(1f),
                     title = "مجموع درآمد",
-                    amount = MoneyFormatter.formatToman(totalIncome),
+                    amount = MoneyFormatter.formatToman(totalIncome, includeUnit = false),
                     currency = "تومان",
                     accentColor = Color(0xFF10B981),
                     icon = Icons.Rounded.ArrowDownward
@@ -526,7 +548,7 @@ private fun FinancialOverviewCard(
                 MetricBox(
                     modifier = Modifier.weight(1f),
                     title = "مجموع هزینه",
-                    amount = MoneyFormatter.formatToman(totalExpense),
+                    amount = MoneyFormatter.formatToman(totalExpense, includeUnit = false),
                     currency = "تومان",
                     accentColor = Color(0xFFEF4444),
                     icon = Icons.Rounded.ArrowUpward
@@ -534,7 +556,7 @@ private fun FinancialOverviewCard(
                 MetricBox(
                     modifier = Modifier.weight(1f),
                     title = "میزان پس‌انداز",
-                    amount = MoneyFormatter.formatToman(savings),
+                    amount = MoneyFormatter.formatToman(savings, includeUnit = false),
                     currency = "تومان",
                     accentColor = Color(0xFF38BDF8)
                 )
@@ -918,6 +940,51 @@ private fun MonthComparisonCard(
 }
 
 @Composable
+private fun SmartAdviceCard(advice: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFF064E3B).copy(alpha = 0.15f),
+        border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.3f))
+    ) {
+        Row(
+            modifier = Modifier.padding(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = CircleShape,
+                color = Color(0xFF10B981).copy(alpha = 0.2f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.Lightbulb,
+                        contentDescription = null,
+                        tint = Color(0xFF34D399),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "تحلیل هوشمند دارینو",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFF34D399)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = advice,
+                    style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
+                    color = Color(0xFFE2E8F0)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun InstallmentSummaryCard(
     totalAmount: Long,
     paidAmount: Long,
@@ -954,14 +1021,14 @@ private fun InstallmentSummaryCard(
                 MetricBox(
                     modifier = Modifier.weight(1f),
                     title = "کل تعهدات",
-                    amount = MoneyFormatter.formatToman(totalAmount),
+                    amount = MoneyFormatter.formatToman(totalAmount, includeUnit = false),
                     currency = "تومان",
                     accentColor = Color.White
                 )
                 MetricBox(
                     modifier = Modifier.weight(1f),
                     title = "پرداخت شده",
-                    amount = MoneyFormatter.formatToman(paidAmount),
+                    amount = MoneyFormatter.formatToman(paidAmount, includeUnit = false),
                     currency = "تومان",
                     accentColor = Color(0xFF10B981)
                 )
@@ -1000,7 +1067,7 @@ private fun VehicleExpenseCard(
             MetricBox(
                 modifier = Modifier.fillMaxWidth(),
                 title = "مجموع هزینه‌های خودرو در این دوره",
-                amount = MoneyFormatter.formatToman(totalVehicleExpense),
+                amount = MoneyFormatter.formatToman(totalVehicleExpense, includeUnit = false),
                 currency = "تومان",
                 accentColor = Color(0xFFF59E0B)
             )
