@@ -70,6 +70,7 @@ fun AddReminderScreen(
     var time by remember { mutableStateOf("۰۹:۰۰") }
     var priority by remember { mutableStateOf(Priority.NORMAL) }
     var repeatType by remember { mutableStateOf(RepeatType.NONE) }
+    var repeatInterval by remember { mutableIntStateOf(1) }
     var amountText by remember { mutableStateOf("") }
     var targetKmText by remember { mutableStateOf("") }
 
@@ -275,6 +276,37 @@ fun AddReminderScreen(
                 }
             }
 
+            // 6a. Recurrence Selector
+            Text(
+                text = "تکرار یادآوری",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                RepeatType.entries.forEach { type ->
+                    val isSelected = repeatType == type
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { repeatType = type },
+                        label = { Text(type.title, fontSize = 10.sp) }
+                    )
+                }
+            }
+
+            if (repeatType != RepeatType.NONE) {
+                OutlinedTextField(
+                    value = repeatInterval.toString(),
+                    onValueChange = { repeatInterval = it.filter { ch -> ch.isDigit() }.toIntOrNull() ?: 1 },
+                    label = { Text("بازه تکرار") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+            }
+
             // 6. Priority Selector
             Text(
                 text = "اولویت یادآوری",
@@ -408,7 +440,7 @@ fun AddReminderScreen(
                         targetKilometer = parsedKm
                     )
 
-                    onSaveReminder(reminder, selectedOffsets.toList(), repeatType, 1)
+                    onSaveReminder(reminder, selectedOffsets.toList(), repeatType, repeatInterval)
                 },
                 enabled = title.isNotBlank(),
                 modifier = Modifier
