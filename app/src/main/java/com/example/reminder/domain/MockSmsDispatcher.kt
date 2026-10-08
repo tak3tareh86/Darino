@@ -12,11 +12,13 @@ class MockSmsDispatcher : SmsDispatcher {
         message: String,
         reminderType: String
     ): SmsDispatchResult {
-        println("SmsDispatcher: Mock SMS ignored for $phoneNumber. SMS functionality not configured in Mock dispatcher.")
+        val mockId = "sms_${UUID.randomUUID().toString().substring(0, 8)}"
+        println("SmsDispatcher: Simulated successful SMS to $phoneNumber with ID $mockId: $message")
+        sentMessages[mockId] = DeliveryStatus.SENT
         return SmsDispatchResult(
-            success = false,
-            providerMessageId = null,
-            errorReason = "SMS_NOT_CONFIGURED"
+            success = true,
+            providerMessageId = mockId,
+            errorReason = null
         )
     }
 
