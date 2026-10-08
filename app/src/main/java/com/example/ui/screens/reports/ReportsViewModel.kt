@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import com.example.util.PersianCalendarHelper
+import com.example.util.MoneyFormatter
 
 data class ReportsState(
     val totalIncome: Long = 0,
@@ -83,11 +84,19 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 _selectedPeriod,
                 _customStartDate,
                 _customEndDate
-            ) { transactions, installments, vExpenses, vServices, vInsurances, vInspections, category, period, start, end ->
+            ) { array ->
+                @Suppress("UNCHECKED_CAST")
                 calculateState(
-                    transactions, installments, 
-                    vExpenses, vServices, vInsurances, vInspections,
-                    category, period, start, end
+                    allTransactions = array[0] as List<com.example.ui.screens.finance.model.TransactionItemData>,
+                    allInstallments = array[1] as List<com.example.ui.screens.installments.model.InstallmentItem>,
+                    vExpenses = array[2] as List<com.example.vehicle.data.VehicleExpenseEntity>,
+                    vServices = array[3] as List<com.example.vehicle.data.VehicleServiceEntity>,
+                    vInsurances = array[4] as List<com.example.vehicle.data.VehicleInsuranceEntity>,
+                    vInspections = array[5] as List<com.example.vehicle.data.VehicleInspectionEntity>,
+                    category = array[6] as ReportCategory,
+                    period = array[7] as ReportPeriod,
+                    customStart = array[8] as ShamsiDate,
+                    customEnd = array[9] as ShamsiDate
                 )
             }.collect { newState ->
                 _uiState.value = newState
@@ -211,8 +220,8 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             (finalExpense.toDouble() / finalIncome.toDouble()).coerceIn(0.0, 1.0).toFloat()
         } else if (category == ReportCategory.FINANCIAL && finalExpense > 0) 1.0f else 0.0f
 
-        val expenseDiff = currentCompExpense - previousCompExpense
-        val expenseChangePercent = if (previousCompExpense > 0) (Math.abs(expenseDiff).toDouble() / previousCompExpense.toDouble()) * 100 else 0.0
+        val finalExpenseDiff = currentCompExpense - previousCompExpense
+        val finalExpenseChangePercent = if (previousCompExpense > 0) (Math.abs(finalExpenseDiff).toDouble() / previousCompExpense.toDouble()) * 100 else 0.0
 
         return ReportsState(
             totalIncome = finalIncome,
@@ -221,8 +230,8 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             savingsPercent = savingsPercent,
             currentPeriodExpense = currentCompExpense,
             previousPeriodExpense = previousCompExpense,
-            expenseChangePercent = expenseChangePercent,
-            isExpenseIncreased = expenseDiff > 0,
+            expenseChangePercent = finalExpenseChangePercent,
+            isExpenseIncreased = finalExpenseDiff > 0,
             topExpenseCategory = topCategory?.key ?: "نامشخص",
             topExpenseCategoryAmount = topCategory?.value ?: 0,
             categoryBreakdown = categoryGroups,

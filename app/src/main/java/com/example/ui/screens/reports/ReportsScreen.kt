@@ -29,6 +29,9 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.util.PersianCalendarHelper
+import com.example.util.MoneyFormatter
 
 /**
  * دسته‌بندی‌های گزارشات
@@ -88,9 +91,6 @@ data class ShamsiDate(
         }
     }
 }
-
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.ui.screens.reports.ReportsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -162,7 +162,8 @@ fun ReportsScreen(
                             savings = uiState.savings,
                             savingsPercent = uiState.savingsPercent,
                             onEditCustomRange = { showCustomDateSheet = true },
-                            selectedCategory = uiState.selectedCategory
+                            selectedCategory = uiState.selectedCategory,
+                            expenseRatio = uiState.expenseRatio
                         )
                     }
 
@@ -434,7 +435,8 @@ private fun FinancialOverviewCard(
     savings: Long,
     savingsPercent: Int,
     onEditCustomRange: () -> Unit,
-    selectedCategory: ReportCategory
+    selectedCategory: ReportCategory,
+    expenseRatio: Float
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -577,7 +579,7 @@ private fun FinancialOverviewCard(
                         color = Color(0xFF94A3B8)
                     )
                     Text(
-                        text = "${(uiState.expenseRatio * 100).toInt()}٪",
+                        text = "${(expenseRatio * 100).toInt()}٪",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp
@@ -595,7 +597,7 @@ private fun FinancialOverviewCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(uiState.expenseRatio)
+                            .fillMaxWidth(expenseRatio)
                             .height(8.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .background(

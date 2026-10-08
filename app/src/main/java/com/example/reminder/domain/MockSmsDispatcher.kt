@@ -27,7 +27,7 @@ class MockSmsDispatcher : SmsDispatcher {
     }
 
     override suspend fun getStatus(providerMessageId: String): DeliveryStatus {
-        return sentMessages[providerMessageId] ?: DeliveryStatus.NOT_SENT
+        return sentMessages[providerMessageId] ?: DeliveryStatus.FAILED
     }
 }
 
