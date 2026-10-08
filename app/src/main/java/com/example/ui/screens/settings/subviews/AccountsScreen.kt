@@ -161,6 +161,28 @@ fun AccountsScreen(
                     }
                 )
             } else {
+                val accountBalances = remember(state.accounts, state.allTransactions) {
+                    state.accounts.associate { acc ->
+                        var balance = acc.initialBalance
+                        state.allTransactions.forEach { tx ->
+                            if (tx.accountId == acc.id) {
+                                when (tx.type) {
+                                    com.example.ui.screens.finance.model.TransactionType.INCOME -> balance += tx.amount
+                                    com.example.ui.screens.finance.model.TransactionType.EXPENSE -> balance -= tx.amount
+                                    else -> {}
+                                }
+                            } else if (tx.type == com.example.ui.screens.finance.model.TransactionType.TRANSFER) {
+                                if (tx.transferSourceAccountId == acc.id) {
+                                    balance -= tx.amount
+                                } else if (tx.transferDestinationAccountId == acc.id) {
+                                    balance += tx.amount
+                                }
+                            }
+                        }
+                        acc.id to balance
+                    }
+                }
+
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
@@ -168,11 +190,7 @@ fun AccountsScreen(
                 ) {
                     item {
                         // Total Balance Card
-                        val totalBalance = state.accounts.sumOf { acc -> 
-                            // This is a simplified total balance. In a real app we might want to use calculateAccountBalance for each
-                            // but for the summary card, the initialBalance + transactions in memory is fine.
-                            acc.initialBalance 
-                        }
+                        val totalBalance = accountBalances.values.sum()
                         TotalAccountsBalanceCard(
                             totalBalanceFormatted = com.example.util.MoneyFormatter.formatToman(totalBalance), 
                             count = state.accounts.size
@@ -192,8 +210,10 @@ fun AccountsScreen(
                     }
 
                     items(state.accounts, key = { it.id }) { account ->
+                        val realBal = accountBalances[account.id] ?: account.initialBalance
                         AccountManageCard(
                             account = account,
+                            realBalance = realBal,
                             onEdit = {
                                 editingAccount = account
                                 isAddSheetOpen = true
@@ -327,6 +347,7 @@ private fun TotalAccountsBalanceCard(
 @Composable
 fun AccountManageCard(
     account: DomainAccount,
+    realBalance: Long,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
@@ -475,39 +496,77 @@ fun AccountManageCard(
                 }
             }
 
-            // Balance row
-            Row(
+            // Balance rows (Initial and Current)
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(RadiusSM))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isDark) 0.3f else 0.5f))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "موجودی اولیه:",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
+                // Initial Balance Row
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = com.example.util.MoneyFormatter.formatToman(account.initialBalance),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        ),
+                        text = "موجودی اولیه:",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = com.example.util.MoneyFormatter.formatToman(account.initialBalance),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.5.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "تومان",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+
+                // Current Real Balance Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "موجودی فعلی:",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = "تومان",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.primary
-                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = com.example.util.MoneyFormatter.formatToman(realBalance),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            ),
+                            color = if (realBalance >= 0) EmeraldPrimaryLight else ExpenseRoseLight
+                        )
+                        Text(
+                            text = "تومان",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            color = if (realBalance >= 0) EmeraldPrimaryLight else ExpenseRoseLight
+                        )
+                    }
                 }
             }
         }
