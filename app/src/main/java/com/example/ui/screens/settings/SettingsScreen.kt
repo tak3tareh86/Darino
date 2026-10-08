@@ -274,9 +274,6 @@ fun SettingsScreen(
                             }
                             AppLockType.PIN -> {
                                 lockViewModel.toggleAppLock(true)
-                                if (!securitySettings.pinEnabled) {
-                                    lockViewModel.setPin("1111")
-                                }
                                 lockViewModel.setDefaultUnlockMethod(UnlockMethod.PIN)
                             }
                             AppLockType.BIOMETRIC -> {
@@ -285,6 +282,9 @@ fun SettingsScreen(
                                 lockViewModel.setDefaultUnlockMethod(UnlockMethod.BIOMETRIC)
                             }
                         }
+                    },
+                    onSavePin = { pin ->
+                        lockViewModel.setPin(pin)
                     },
                     onBackClick = { currentDestination = SettingsDestination.SECURITY }
                 )

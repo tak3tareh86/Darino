@@ -59,6 +59,7 @@ import com.example.ui.theme.RadiusSM
 fun AppLockSettingsScreen(
     currentLockType: AppLockType,
     onLockTypeSelected: (AppLockType) -> Unit,
+    onSavePin: (String) -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -164,6 +165,7 @@ fun AppLockSettingsScreen(
                             if (pinCode.length == 4) {
                                 Button(
                                     onClick = {
+                                        onSavePin(pinCode)
                                         pinSavedMessage = true
                                         onBackClick()
                                     },
