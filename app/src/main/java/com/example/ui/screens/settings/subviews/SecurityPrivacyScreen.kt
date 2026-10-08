@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -35,9 +36,11 @@ fun SecurityPrivacyScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("darino_security_prefs", android.content.Context.MODE_PRIVATE) }
+    var showBalanceOnHome by remember { mutableStateOf(prefs.getBoolean("show_balance_on_home", true)) }
+    var isPrivacyModeEnabled by remember { mutableStateOf(prefs.getBoolean("privacy_mode_enabled", false)) }
     var isBiometricEnabled by remember { mutableStateOf(currentLockType == AppLockType.BIOMETRIC) }
-    var showBalanceOnHome by remember { mutableStateOf(true) }
-    var isPrivacyModeEnabled by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -90,7 +93,10 @@ fun SecurityPrivacyScreen(
                         vectorIcon = Icons.Rounded.Visibility,
                         iconAccentColor = Color(0xFF8B5CF6),
                         checked = isPrivacyModeEnabled,
-                        onCheckedChange = { isPrivacyModeEnabled = it }
+                        onCheckedChange = {
+                            isPrivacyModeEnabled = it
+                            prefs.edit().putBoolean("privacy_mode_enabled", it).apply()
+                        }
                     )
 
                     SettingsItem(
@@ -99,7 +105,10 @@ fun SecurityPrivacyScreen(
                         vectorIcon = Icons.Rounded.Lock,
                         iconAccentColor = EmeraldPrimaryLight,
                         checked = showBalanceOnHome,
-                        onCheckedChange = { showBalanceOnHome = it }
+                        onCheckedChange = {
+                            showBalanceOnHome = it
+                            prefs.edit().putBoolean("show_balance_on_home", it).apply()
+                        }
                     )
                 }
             }
