@@ -1,11 +1,9 @@
 package com.example.data.sms
 
-import android.content.Context
-import android.net.Uri
 import android.util.Log
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.domain.BankSmsSuggestion
-import com.example.util.IranianAmountUtils
+import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import java.util.regex.Pattern
@@ -30,7 +28,14 @@ object BankSmsParser {
         "بانک مسکن" to listOf("مسکن", "maskan"),
         "بانک دی" to listOf("بانک دی", "dey"),
         "بانک سینا" to listOf("سینا", "sina"),
-        "پست بانک" to listOf("پست بانک", "postbank")
+        "پست بانک" to listOf("پست بانک", "postbank"),
+        "بانک مهر ایران" to listOf("مهر ایران", "qmb", "mehreiran"),
+        "بانک گردشگری" to listOf("گردشگری", "gardeshgari"),
+        "بانک ایران زمین" to listOf("ایران زمین", "izbank"),
+        "بانک کارآفرین" to listOf("کارآفرین", "karafarin"),
+        "بانک اقتصاد نوین" to listOf("اقتصاد نوین", "enbank"),
+        "بانک خاورمیانه" to listOf("خاورمیانه", "middleeastbank"),
+        "بانک سرمایه" to listOf("بانک سرمایه", "sarmayeh")
     )
 
     fun isPotentialBankSms(sender: String, body: String): Boolean {
@@ -47,29 +52,38 @@ object BankSmsParser {
                 lowerBody.contains("پایا") ||
                 lowerBody.contains("ساتنا") ||
                 lowerBody.contains("خرید") ||
-                lowerBody.contains("مبلغ")
+                lowerBody.contains("مبلغ") ||
+                lowerBody.contains("کسر") ||
+                lowerBody.contains("پرداخت")
 
         val hasSenderIndicator = BANK_PATTERNS.any { (_, aliases) ->
             aliases.any { lowerSender.contains(it) || lowerBody.contains(it) }
         }
 
-        return hasBankKeyword && hasSenderIndicator
+        val hasTransactionKeywords = (lowerBody.contains("واریز") || lowerBody.contains("برداشت") || lowerBody.contains("انتقال") || lowerBody.contains("خرید") || lowerBody.contains("کسر")) &&
+                (lowerBody.contains("مانده") || lowerBody.contains("حساب") || lowerBody.contains("کارت") || lowerBody.contains("مبلغ"))
+
+        return hasBankKeyword && (hasSenderIndicator || hasTransactionKeywords)
     }
 
     fun parse(smsId: String, sender: String, body: String, timestampMillis: Long): BankSmsSuggestion? {
         try {
-            val cleanBody = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(body)
+            val cleanBody = IranianPhoneUtils.convertDigitsToEnglish(body)
             val bankName = detectBankName(sender, body)
 
             val detectedType = detectTransactionType(cleanBody)
-            val type = detectedType ?: TransactionType.EXPENSE
             val isTypeUncertain = (detectedType == null)
             val amountToman = extractAmountToman(cleanBody) ?: return null
 
-            val category = suggestCategory(cleanBody, type)
-            val formattedAmount = MoneyFormatter.formatSignedToman(amountToman, isExpense = (type == TransactionType.EXPENSE))
+            val category = suggestCategory(cleanBody, detectedType ?: TransactionType.EXPENSE)
+            val formattedAmount = when (detectedType) {
+                TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountToman, isExpense = true)
+                TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountToman, isExpense = false)
+                TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountToman)
+                null -> MoneyFormatter.formatToman(amountToman)
+            }
 
-            val (dateText, timeText) = formatDateAndTime(timestampMillis)
+            val (dateText, timeText) = formatDateAndTime(timestampMillis, cleanBody)
             val (sourceAcc, destAcc) = extractAccounts(cleanBody, bankName)
 
             return BankSmsSuggestion(
@@ -77,7 +91,7 @@ object BankSmsParser {
                 bankName = bankName,
                 amount = amountToman,
                 formattedAmount = formattedAmount,
-                type = detectedType, // Passing detectedType directly (which is null if uncertain)
+                type = detectedType,
                 isTypeUncertain = isTypeUncertain,
                 smsText = body.trim(),
                 dateText = dateText,
@@ -86,23 +100,26 @@ object BankSmsParser {
                 sourceAccount = sourceAcc,
                 destinationAccount = destAcc,
                 rawSender = sender,
-                parseError = if (isTypeUncertain) "نوع تراکنش به صورت خودکار تشخیص داده نشد؛ لطفاً بررسی کنید." else null
+                parseError = if (isTypeUncertain) "نوع تراکنش به صورت خودکار تشخیص داده نشد؛ لطفاً بررسی کنید." else null,
+                timestampMillis = timestampMillis
             )
         } catch (e: Exception) {
+            // Keep logs secure: avoid printing SMS body or card numbers
             Log.w("BankSmsParser", "Failed to parse SMS $smsId: ${e.message}")
             return BankSmsSuggestion(
                 id = smsId,
                 bankName = detectBankName(sender, body),
                 amount = 0L,
                 formattedAmount = "۰ تومان",
-                type = null, // Uncertain on failure
+                type = null,
                 isTypeUncertain = true,
                 smsText = body.trim(),
                 dateText = "امروز",
                 timeText = "نامشخص",
                 category = "سایر",
                 rawSender = sender,
-                parseError = "خطا در استخراج خودکار جزئیات پیامک"
+                parseError = "خطا در استخراج خودکار جزئیات پیامک",
+                timestampMillis = timestampMillis
             )
         }
     }
@@ -120,24 +137,30 @@ object BankSmsParser {
     }
 
     fun detectTransactionType(text: String): TransactionType? {
-        val hasExpense = text.contains("برداشت") || text.contains("خرید") || text.contains("کسر") || text.contains("بدهکار") || text.contains("پرداخت") || text.contains("پایانه")
-        val hasIncome = text.contains("واریز") || text.contains("بستانکار") || text.contains("واریز حقوق") || text.contains("سود سپرده")
-        val hasTransfer = text.contains("انتقال") || text.contains("کارت به کارت") ||
-                (text.contains("پایا") && !text.contains("پایانه")) ||
-                text.contains("ساتنا")
+        val textWithoutTerminal = text.replace("پایانه", "")
+
+        val isTransfer = text.contains("انتقال") || text.contains("کارت به کارت") ||
+                text.contains("ساتنا") || textWithoutTerminal.contains("پایا")
+        val isIncome = text.contains("واریز") || text.contains("بستانکار") ||
+                text.contains("سود سپرده") || text.contains("واریز حقوق")
+        val isExpense = text.contains("برداشت") || text.contains("خرید") ||
+                text.contains("کسر") || text.contains("بدهکار") ||
+                text.contains("پرداخت") || text.contains("پایانه")
 
         return when {
-            hasExpense -> TransactionType.EXPENSE
-            hasIncome -> TransactionType.INCOME
-            hasTransfer -> TransactionType.TRANSFER
+            isTransfer && (text.contains("به کارت") || text.contains("به حساب") || text.contains("کارت به کارت") || !isIncome) -> TransactionType.TRANSFER
+            isTransfer && isIncome -> TransactionType.INCOME
+            isExpense && !isIncome -> TransactionType.EXPENSE
+            isIncome && !isExpense -> TransactionType.INCOME
+            isExpense -> TransactionType.EXPENSE
+            isIncome -> TransactionType.INCOME
             else -> null
         }
     }
 
     private fun extractAmountToman(text: String): Long? {
-        // Regex patterns to find amounts with commas or periods followed by currency or prefix
         val patterns = listOf(
-            Pattern.compile("""(?:مبلغ|برداشت|واریز|خرید|انتقال)[\s:]*([0-9,.]+)\s*(ریال|تومان|تومان|Rls)?""", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("""(?:مبلغ|برداشت|واریز|خرید|انتقال|کسر|پرداخت|بدهکار|بستانکار)[\s:]*[+-]?\s*([0-9,.]+)\s*(ریال|تومان|Rls)?""", Pattern.CASE_INSENSITIVE),
             Pattern.compile("""([0-9,.]+)\s*(ریال|تومان|Rls)""", Pattern.CASE_INSENSITIVE),
             Pattern.compile("""([0-9]{4,12})[\s]*(?:ریال|تومان)?""")
         )
@@ -152,7 +175,6 @@ object BankSmsParser {
                 val unit = if (matcher.groupCount() >= 2) matcher.group(2)?.trim() else null
                 return when {
                     unit?.contains("ریال", ignoreCase = true) == true || unit?.contains("Rls", ignoreCase = true) == true -> {
-                        // Rial to Toman
                         (rawNumber / 10L).coerceAtLeast(1L)
                     }
                     unit?.contains("تومان", ignoreCase = true) == true -> {
@@ -195,10 +217,20 @@ object BankSmsParser {
         }
     }
 
-    private fun formatDateAndTime(timestampMillis: Long): Pair<String, String> {
+    private fun formatDateAndTime(timestampMillis: Long, cleanBody: String): Pair<String, String> {
         val jalali = PersianCalendarHelper.fromEpochMillis(timestampMillis)
         val date = jalali.toFormattedDate()
-        val time = jalali.toFormattedTime()
+
+        // Check if SMS contains an explicit time like 14:30 or ساعت 14:30
+        val timePattern = Pattern.compile("""(?:ساعت[\s:]*)?([0-2]?[0-9]:[0-5][0-9])""")
+        val matcher = timePattern.matcher(cleanBody)
+        val time = if (matcher.find()) {
+            val t = matcher.group(1) ?: jalali.toFormattedTime()
+            IranianPhoneUtils.convertDigitsToPersian(t)
+        } else {
+            jalali.toFormattedTime()
+        }
+
         return Pair(date, time)
     }
 
@@ -206,17 +238,27 @@ object BankSmsParser {
         var sourceAcc: String? = bankName
         var destAcc: String? = null
 
-        val cardPattern = Pattern.compile("""(?:کارت|حساب)[\s:]*([*0-9-]{4,16})""")
-        val matcher = cardPattern.matcher(text)
-        if (matcher.find()) {
-            val card = matcher.group(1)
-            sourceAcc = "$bankName ($card)"
+        // 1. Destination card/account pattern (e.g. به کارت 6037..., به حساب 123..., مقصد...)
+        val toPattern = Pattern.compile("""(?:(?:به|مقصد)\s*(?:شماره\s*)?(?:کارت|حساب)?|واریز\s*به)[\s:]*([*0-9-]{4,26})""")
+        val toMatcher = toPattern.matcher(text)
+        var destDigits: String? = null
+        if (toMatcher.find()) {
+            val d = toMatcher.group(1)?.trim()
+            if (!d.isNullOrBlank()) {
+                destDigits = d
+                destAcc = "کارت مقصد ($d)"
+            }
         }
 
-        val toPattern = Pattern.compile("""(?:به|مقصد)[\s:]*(?:کارت|حساب)?[\s:]*([*0-9-]{4,16})""")
-        val toMatcher = toPattern.matcher(text)
-        if (toMatcher.find()) {
-            destAcc = "کارت مقصد (${toMatcher.group(1)})"
+        // 2. Source card/account pattern (e.g. از کارت 123..., از حساب 456..., مبدأ...)
+        val fromPattern = Pattern.compile("""(?:(?:از|مبدأ)\s*(?:شماره\s*)?(?:کارت|حساب)?|(?:کارت|حساب))[\s:]*([*0-9-]{4,26})""")
+        val fromMatcher = fromPattern.matcher(text)
+        while (fromMatcher.find()) {
+            val candidate = fromMatcher.group(1)?.trim()
+            if (!candidate.isNullOrBlank() && candidate != destDigits) {
+                sourceAcc = "$bankName ($candidate)"
+                break
+            }
         }
 
         return Pair(sourceAcc, destAcc)

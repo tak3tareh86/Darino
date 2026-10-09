@@ -217,7 +217,8 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
             _isScanningSms.value = true
             _smsErrorMessage.value = null
             try {
-                val realSmsList = smsRepository.readInboxBankSms()
+                val userId = SessionManager.userId
+                val realSmsList = smsRepository.readInboxBankSms(userId)
                 val currentPending = _pendingSmsQueue.value
                 val existingIds = currentPending.map { it.id }.toSet()
                 val newItems = realSmsList.filterNot { existingIds.contains(it.id) }
@@ -235,7 +236,11 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         _pendingSmsQueue.update { list ->
             list.map { item ->
                 if (item.id == id) {
-                    val isExpense = newType == TransactionType.EXPENSE
+                    val formatted = when (newType) {
+                        TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(item.amount, isExpense = true)
+                        TransactionType.INCOME -> MoneyFormatter.formatSignedToman(item.amount, isExpense = false)
+                        TransactionType.TRANSFER -> MoneyFormatter.formatToman(item.amount)
+                    }
                     val defaultCat = when (newType) {
                         TransactionType.INCOME -> "درآمد و واریز"
                         TransactionType.TRANSFER -> "انتقال بین‌بانکی"
@@ -245,7 +250,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                         type = newType,
                         isTypeUncertain = false,
                         category = defaultCat,
-                        formattedAmount = MoneyFormatter.formatSignedToman(item.amount, isExpense = isExpense)
+                        formattedAmount = formatted
                     )
                 } else {
                     item
@@ -268,8 +273,10 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         onResult: (SmsAcceptResult) -> Unit = {}
     ) {
         viewModelScope.launch {
-            // 1. Check if SMS has already been processed or dismissed
-            if (smsRepository.getProcessedSmsIds().contains(id) || smsRepository.getDismissedSmsIds().contains(id)) {
+            val userId = SessionManager.userId ?: "user_default"
+
+            // 1. Check if SMS has already been processed or dismissed for this user
+            if (smsRepository.getProcessedSmsIds(userId).contains(id) || smsRepository.getDismissedSmsIds(userId).contains(id)) {
                 _pendingSmsQueue.update { list -> list.filter { it.id != id } }
                 onResult(SmsAcceptResult.AlreadyExists)
                 return@launch
@@ -282,7 +289,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
             }
 
             val finalType = customType ?: item.type
-            if (finalType == null || item.isTypeUncertain) {
+            if (finalType == null || (customType == null && item.isTypeUncertain)) {
                 onResult(SmsAcceptResult.TypeNotSelected)
                 return@launch
             }
@@ -290,12 +297,11 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
             val txId = "tx_sms_$id"
             try {
                 val db = AppDatabase.getDatabase(getApplication())
-                val userId = SessionManager.userId ?: "user_default"
 
                 // Idempotency check: check if transaction with this stable ID already exists in Room
                 val existing = db.transactionDao().getTransactionIncludingDeleted(userId, txId)
                 if (existing != null) {
-                    smsRepository.markSmsProcessed(id)
+                    smsRepository.markSmsProcessed(id, userId)
                     _pendingSmsQueue.update { list -> list.filter { it.id != id } }
                     loadDashboardData()
                     onResult(SmsAcceptResult.AlreadyExists)
@@ -312,26 +318,82 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     }
                 }
 
-                // Single Write: Insert directly into Room database (LocalFinanceRepository observes Room reactively)
+                // Link with user's financial accounts in Room database
+                val accounts = db.accountDao().getAllAccountsList(userId)
+                val sourceAcc = accounts.find {
+                    it.name.equals(finalAccount, ignoreCase = true) ||
+                    (!it.bankName.isNullOrBlank() && it.bankName.equals(item.bankName, ignoreCase = true)) ||
+                    it.name.contains(item.bankName, ignoreCase = true)
+                }
+
+                val sourceAccId = if (sourceAcc != null) {
+                    sourceAcc.stringId
+                } else if (accounts.isNotEmpty()) {
+                    accounts.first().stringId
+                } else {
+                    val newAccId = "acc_${System.currentTimeMillis()}"
+                    val newAcc = com.example.data.database.AccountEntity(
+                        userId = userId,
+                        stringId = newAccId,
+                        name = finalAccount,
+                        type = "BANK",
+                        bankName = item.bankName,
+                        accountNumberMasked = null,
+                        initialBalance = 0L,
+                        isActive = true
+                    )
+                    db.accountDao().insertAccount(newAcc)
+                    newAccId
+                }
+
+                var destAccId: String? = null
+                if (finalType == TransactionType.TRANSFER && !destAccount.isNullOrBlank()) {
+                    val destAcc = accounts.find {
+                        it.stringId != sourceAccId && (
+                            it.name.contains(destAccount, ignoreCase = true) ||
+                            destAccount.contains(it.name, ignoreCase = true) ||
+                            (!it.bankName.isNullOrBlank() && destAccount.contains(it.bankName, ignoreCase = true))
+                        )
+                    }
+                    destAccId = destAcc?.stringId
+                }
+
+                val txTitle = when (finalType) {
+                    TransactionType.TRANSFER -> "انتقال وجه"
+                    TransactionType.INCOME -> "واریز ${item.bankName}"
+                    TransactionType.EXPENSE -> "برداشت ${item.bankName}"
+                }
+
+                // Single Write: Insert directly into Room database with accurate SMS timestamp and account links
                 val entity = TransactionEntity(
                     stringId = txId,
                     userId = userId,
+                    title = txTitle,
                     amount = item.amount,
                     type = finalType.name,
                     category = finalCategory,
                     accountName = finalAccount,
                     description = finalDesc,
-                    timestamp = System.currentTimeMillis(),
+                    timestamp = item.timestampMillis,
                     timeFormatted = item.timeText,
-                    datePersian = item.dateText
+                    datePersian = item.dateText,
+                    paymentMethod = "BANK_CARD",
+                    sourceType = "BANK_SMS",
+                    sourceId = id,
+                    accountId = if (finalType != TransactionType.TRANSFER) sourceAccId else null,
+                    transferSourceAccountId = if (finalType == TransactionType.TRANSFER) sourceAccId else null,
+                    transferDestinationAccountId = if (finalType == TransactionType.TRANSFER) destAccId else null
                 )
                 db.transactionDao().insertTransaction(entity)
 
                 // Mark SMS as processed persistently ONLY after successful DB insert
-                smsRepository.markSmsProcessed(id)
+                smsRepository.markSmsProcessed(id, userId)
 
                 // Remove from local queue
                 _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+
+                // Synchronize LocalFinanceRepository caches
+                LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
 
                 // Refresh dashboard
                 loadDashboardData()
@@ -346,8 +408,9 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun dismissSmsSuggestion(id: String) {
+        val userId = SessionManager.userId
         // Mark SMS as dismissed persistently so it is never re-imported
-        smsRepository.markSmsDismissed(id)
+        smsRepository.markSmsDismissed(id, userId)
         _pendingSmsQueue.update { list -> list.filter { it.id != id } }
     }
 

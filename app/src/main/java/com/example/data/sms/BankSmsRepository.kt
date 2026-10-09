@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.example.data.security.SessionManager
 import com.example.ui.screens.home.domain.BankSmsSuggestion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,6 +30,11 @@ class BankSmsRepository(private val context: Context) {
         }
     }
 
+    private fun userKey(key: String, userId: String?): String {
+        val uid = userId ?: SessionManager.userId ?: "default"
+        return "${key}_${uid}"
+    }
+
     fun hasSmsPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
             context,
@@ -44,33 +50,39 @@ class BankSmsRepository(private val context: Context) {
         prefs.edit().putBoolean(KEY_PERMISSION_REQUESTED, true).apply()
     }
 
-    fun getProcessedSmsIds(): Set<String> {
-        return prefs.getStringSet(KEY_PROCESSED_SMS_IDS, emptySet()) ?: emptySet()
+    fun getProcessedSmsIds(userId: String? = null): Set<String> {
+        val scoped = prefs.getStringSet(userKey(KEY_PROCESSED_SMS_IDS, userId), emptySet()) ?: emptySet()
+        val legacy = prefs.getStringSet(KEY_PROCESSED_SMS_IDS, emptySet()) ?: emptySet()
+        return scoped + legacy
     }
 
-    fun getDismissedSmsIds(): Set<String> {
-        return prefs.getStringSet(KEY_DISMISSED_SMS_IDS, emptySet()) ?: emptySet()
+    fun getDismissedSmsIds(userId: String? = null): Set<String> {
+        val scoped = prefs.getStringSet(userKey(KEY_DISMISSED_SMS_IDS, userId), emptySet()) ?: emptySet()
+        val legacy = prefs.getStringSet(KEY_DISMISSED_SMS_IDS, emptySet()) ?: emptySet()
+        return scoped + legacy
     }
 
-    fun markSmsProcessed(smsId: String) {
-        val current = getProcessedSmsIds().toMutableSet()
+    fun markSmsProcessed(smsId: String, userId: String? = null) {
+        val key = userKey(KEY_PROCESSED_SMS_IDS, userId)
+        val current = (prefs.getStringSet(key, emptySet()) ?: emptySet()).toMutableSet()
         current.add(smsId)
-        prefs.edit().putStringSet(KEY_PROCESSED_SMS_IDS, current).apply()
+        prefs.edit().putStringSet(key, current).apply()
     }
 
-    fun markSmsDismissed(smsId: String) {
-        val current = getDismissedSmsIds().toMutableSet()
+    fun markSmsDismissed(smsId: String, userId: String? = null) {
+        val key = userKey(KEY_DISMISSED_SMS_IDS, userId)
+        val current = (prefs.getStringSet(key, emptySet()) ?: emptySet()).toMutableSet()
         current.add(smsId)
-        prefs.edit().putStringSet(KEY_DISMISSED_SMS_IDS, current).apply()
+        prefs.edit().putStringSet(key, current).apply()
     }
 
-    suspend fun readInboxBankSms(): List<BankSmsSuggestion> = withContext(Dispatchers.IO) {
+    suspend fun readInboxBankSms(userId: String? = null): List<BankSmsSuggestion> = withContext(Dispatchers.IO) {
         if (!hasSmsPermission()) {
             return@withContext emptyList()
         }
 
-        val processedIds = getProcessedSmsIds()
-        val dismissedIds = getDismissedSmsIds()
+        val processedIds = getProcessedSmsIds(userId)
+        val dismissedIds = getDismissedSmsIds(userId)
         val ignoredIds = processedIds + dismissedIds
 
         val results = mutableListOf<BankSmsSuggestion>()
@@ -78,12 +90,13 @@ class BankSmsRepository(private val context: Context) {
         try {
             val uri = Uri.parse("content://sms/inbox")
             val projection = arrayOf("_id", "address", "body", "date")
+            // Safe order: do not use LIMIT inside sortOrder string as OEM providers may reject it
             val cursor = context.contentResolver.query(
                 uri,
                 projection,
                 null,
                 null,
-                "date DESC LIMIT 50"
+                "date DESC"
             )
 
             cursor?.use { c ->
@@ -92,13 +105,13 @@ class BankSmsRepository(private val context: Context) {
                 val bodyIdx = c.getColumnIndex("body")
                 val dateIdx = c.getColumnIndex("date")
 
-                while (c.moveToNext()) {
+                while (c.moveToNext() && results.size < 50) {
                     val id = if (idIdx != -1) c.getString(idIdx) else null
                     val address = if (addressIdx != -1) c.getString(addressIdx) else ""
                     val body = if (bodyIdx != -1) c.getString(bodyIdx) else ""
                     val timestamp = if (dateIdx != -1) c.getLong(dateIdx) else System.currentTimeMillis()
 
-                    val uniqueId = id ?: "sms_${address}_$timestamp"
+                    val uniqueId = if (!id.isNullOrBlank()) "sms_$id" else "sms_${address.hashCode()}_$timestamp"
                     if (ignoredIds.contains(uniqueId)) {
                         continue
                     }
@@ -114,7 +127,7 @@ class BankSmsRepository(private val context: Context) {
         } catch (e: SecurityException) {
             Log.w("BankSmsRepository", "Permission revoked while querying SMS inbox", e)
         } catch (e: Exception) {
-            Log.e("BankSmsRepository", "Error reading SMS inbox: ${e.message}", e)
+            Log.e("BankSmsRepository", "Error reading SMS inbox: ${e.message}")
         }
 
         return@withContext results

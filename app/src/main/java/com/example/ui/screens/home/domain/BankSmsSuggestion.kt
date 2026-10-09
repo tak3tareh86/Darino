@@ -16,7 +16,8 @@ data class BankSmsSuggestion(
     val sourceAccount: String? = null,
     val destinationAccount: String? = null,
     val rawSender: String? = null,
-    val parseError: String? = null
+    val parseError: String? = null,
+    val timestampMillis: Long = System.currentTimeMillis()
 ) {
     val isExpense: Boolean
         get() = type == TransactionType.EXPENSE

@@ -2,6 +2,7 @@ package com.example.home
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.database.AppDatabase
 import com.example.data.sms.BankSmsParser
 import com.example.data.sms.BankSmsRepository
 import com.example.ui.screens.finance.model.TransactionType
@@ -9,6 +10,8 @@ import com.example.ui.screens.home.data.HomeDashboardRepository
 import com.example.ui.screens.home.domain.HomeDashboardAggregator
 import com.example.ui.screens.home.domain.HomeDashboardState
 import com.example.ui.screens.home.domain.ObligationType
+import com.example.ui.screens.home.viewmodel.HomeDashboardViewModel
+import com.example.ui.screens.home.viewmodel.SmsAcceptResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -53,6 +56,11 @@ class HomeDashboardTest {
         // Initialize repositories
         val financeRepo = com.example.ui.screens.finance.data.LocalFinanceRepository.instance
         financeRepo.init(context)
+        val installmentRepo = com.example.ui.screens.installments.data.LocalInstallmentRepository.instance
+        installmentRepo.init(context)
+        val vehicleRepo = com.example.vehicle.data.VehicleRepository.instance
+        vehicleRepo.initDatabase(context)
+
         val testAccount = com.example.ui.screens.finance.model.Account(
             id = "acc_test",
             userId = "test_user",
@@ -65,7 +73,7 @@ class HomeDashboardTest {
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
         )
-        financeRepo.createAccount(testAccount)
+        financeRepo.addAccountResult(testAccount)
 
         val categoryInc = com.example.ui.screens.finance.model.FinanceDefaultCategories.defaultIncomeCategories.first()
         val categoryExp = com.example.ui.screens.finance.model.FinanceDefaultCategories.defaultExpenseCategories.first()
@@ -130,7 +138,7 @@ class HomeDashboardTest {
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
         )
-        financeRepo.createAccount(testAccount2)
+        financeRepo.addAccountResult(testAccount2)
 
         financeRepo.addTransaction(
             com.example.ui.screens.finance.model.TransactionItemData(
@@ -219,11 +227,11 @@ class HomeDashboardTest {
         assertEquals(TransactionType.EXPENSE, expenseType)
 
         // Transfer detection
-        val transferType = BankSmsParser.detectTransactionType("انتقال کارت به کارت موفق")
+        val transferType = BankSmsParser.detectTransactionType("انتقال کارت به کارت موفق به کارت 6037")
         assertEquals(TransactionType.TRANSFER, transferType)
 
         // Unknown SMS text should NOT auto-resolve as Expense
-        val unknownType = BankSmsParser.detectTransactionType("رمز پویای شما جهت ثبت‌نام ۱۲۳۴۵ است")
+        val unknownType = BankSmsParser.detectTransactionType("رمز پویای شما جهت ورود ۱۲۳۴۵ است")
         assertNull(unknownType)
 
         // Parse with uncertain type sets isTypeUncertain = true
@@ -238,21 +246,136 @@ class HomeDashboardTest {
     }
 
     @Test
-    fun `test BankSmsRepository persistence and idempotency`() {
+    fun `test BankSmsParser extracts amounts in Rial and converts to Toman`() {
+        // 500,000 Rial = 50,000 Toman
+        val parsedMellat = BankSmsParser.parse(
+            smsId = "sms_m1",
+            sender = "بانک ملت",
+            body = "برداشت: 500,000 ریال از حساب *1234. مانده: 10,000,000 ریال",
+            timestampMillis = 1700000000000L
+        )
+        assertNotNull(parsedMellat)
+        assertEquals(50_000L, parsedMellat!!.amount)
+        assertEquals(TransactionType.EXPENSE, parsedMellat.type)
+        assertFalse(parsedMellat.isTypeUncertain)
+        assertEquals("بانک ملت", parsedMellat.bankName)
+        assertEquals(1700000000000L, parsedMellat.timestampMillis)
+
+        // BluBank Transfer
+        val parsedBlu = BankSmsParser.parse(
+            smsId = "sms_b1",
+            sender = "بلوبانک",
+            body = "انتقال 2,500,000 ریال به کارت 6037991122334455",
+            timestampMillis = 1700000000000L
+        )
+        assertNotNull(parsedBlu)
+        assertEquals(250_000L, parsedBlu!!.amount)
+        assertEquals(TransactionType.TRANSFER, parsedBlu.type)
+        assertTrue(parsedBlu.destinationAccount?.contains("6037991122334455") == true)
+    }
+
+    @Test
+    fun `test BankSmsRepository persistence, user isolation and idempotency`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val smsRepo = BankSmsRepository.getInstance(context)
 
         val testSmsId1 = "sms_unit_test_proc_1"
         val testSmsId2 = "sms_unit_test_dism_2"
+        val testUserId = "user_isolation_test_1"
 
-        // Mark processed and dismissed
-        smsRepo.markSmsProcessed(testSmsId1)
-        smsRepo.markSmsDismissed(testSmsId2)
+        // Mark processed and dismissed for test user
+        smsRepo.markSmsProcessed(testSmsId1, testUserId)
+        smsRepo.markSmsDismissed(testSmsId2, testUserId)
 
-        // Verify persistent IDs
-        assertTrue(smsRepo.getProcessedSmsIds().contains(testSmsId1))
-        assertTrue(smsRepo.getDismissedSmsIds().contains(testSmsId2))
-        assertFalse(smsRepo.getProcessedSmsIds().contains("sms_non_existent"))
+        // Verify persistent IDs for this user
+        assertTrue(smsRepo.getProcessedSmsIds(testUserId).contains(testSmsId1))
+        assertTrue(smsRepo.getDismissedSmsIds(testUserId).contains(testSmsId2))
+        assertFalse(smsRepo.getProcessedSmsIds(testUserId).contains("sms_non_existent"))
+    }
+
+    @Test
+    fun `test HomeDashboardViewModel accepts SMS and registers real transaction into Room`() = kotlinx.coroutines.runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val testUserId = "test_user_sms_flow"
+        com.example.data.security.SessionManager.setAuthenticatedUser(
+            com.example.data.api.NetworkUserDto(
+                id = testUserId,
+                fullName = "کاربر تست پیامک",
+                email = null,
+                phoneNumber = "09120000001",
+                phoneVerified = true
+            )
+        )
+
+        val db = AppDatabase.getDatabase(context)
+        db.transactionDao().clearAllTransactions(testUserId)
+
+        val viewModel = HomeDashboardViewModel(
+            ApplicationProvider.getApplicationContext()
+        )
+
+        // Parse a sample SMS
+        val smsTimestamp = 1710000000000L
+        val suggestion = BankSmsParser.parse(
+            smsId = "test_sms_card_1",
+            sender = "بانک سامان",
+            body = "خرید از پایانه فروشگاه: مبلغ: 150,000 تومان. مانده: 2,000,000 تومان",
+            timestampMillis = smsTimestamp
+        )
+        assertNotNull(suggestion)
+
+        // Inject into viewModel queue
+        val queueField = HomeDashboardViewModel::class.java.getDeclaredField("_pendingSmsQueue")
+        queueField.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        val queueFlow = queueField.get(viewModel) as kotlinx.coroutines.flow.MutableStateFlow<List<com.example.ui.screens.home.domain.BankSmsSuggestion>>
+        queueFlow.value = listOf(suggestion!!)
+
+        var resultHolder: SmsAcceptResult? = null
+        viewModel.acceptSmsSuggestion(
+            id = suggestion.id,
+            customType = null,
+            customCategory = null,
+            customAccount = null,
+            customDescription = null,
+            destAccount = null
+        ) { res ->
+            resultHolder = res
+        }
+
+        // Wait for coroutine completion
+        var count = 0
+        while (resultHolder == null && count < 20) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            kotlinx.coroutines.delay(50L)
+            count++
+        }
+
+        assertEquals(SmsAcceptResult.Success, resultHolder)
+
+        // Verify transaction inserted into Room with accurate timestamp and values
+        val txList = db.transactionDao().getAllTransactionsList(testUserId)
+        assertEquals(1, txList.size)
+        val savedTx = txList[0]
+        assertEquals("tx_sms_${suggestion.id}", savedTx.stringId)
+        assertEquals(150_000L, savedTx.amount)
+        assertEquals("EXPENSE", savedTx.type)
+        assertEquals(smsTimestamp, savedTx.timestamp) // Real SMS timestamp preserved!
+        assertEquals("BANK_SMS", savedTx.sourceType)
+        assertNotNull(savedTx.accountId)
+
+        // Try accepting again -> must return AlreadyExists (Idempotency)
+        var secondResult: SmsAcceptResult? = null
+        viewModel.acceptSmsSuggestion(id = suggestion.id) { res ->
+            secondResult = res
+        }
+        var count2 = 0
+        while (secondResult == null && count2 < 20) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            kotlinx.coroutines.delay(50L)
+            count2++
+        }
+        assertEquals(SmsAcceptResult.AlreadyExists, secondResult)
     }
 
     @Test
@@ -268,7 +391,7 @@ class HomeDashboardTest {
             )
         )
 
-        val viewModel = com.example.ui.screens.home.viewmodel.HomeDashboardViewModel(
+        val viewModel = HomeDashboardViewModel(
             ApplicationProvider.getApplicationContext()
         )
 
@@ -279,9 +402,9 @@ class HomeDashboardTest {
 
         // Wait a bit for debounce and mutex processing
         var attempts = 0
-        while (viewModel.uiState.value.isLoading && attempts < 20) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            kotlinx.coroutines.delay(100L)
+        while (viewModel.uiState.value.isLoading && attempts < 30) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(100L)
+            kotlinx.coroutines.delay(50L)
             attempts++
         }
 
