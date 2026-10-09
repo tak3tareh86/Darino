@@ -422,7 +422,10 @@ object BankSmsParser {
                 lower.contains("پایا") || lower.contains("ساتنا")
 
         if (hasTransferWord) {
-            // Explicit incoming transfer to user's account -> Unambiguous Income
+            val hasDepositWord = lower.contains("واریز") || lower.contains("بستانکار")
+            val hasWithdrawWord = lower.contains("برداشت") || lower.contains("کسر") || lower.contains("بدهکار")
+
+            // Explicit incoming transfer -> must clearly and unambiguously indicate a completed deposit
             val isExplicitIncomingTransfer = lower.contains("انتقال به حساب شما") ||
                     lower.contains("واریز از طریق پایا") ||
                     lower.contains("واریز از طریق ساتنا") ||
@@ -430,34 +433,20 @@ object BankSmsParser {
                     lower.contains("واریز ساتنا") ||
                     lower.contains("واریز از طریق انتقال") ||
                     lower.contains("واریز کارت به کارت") ||
-                    (lower.contains("واریز") && lower.contains("انتقال از"))
+                    (hasDepositWord && lower.contains("انتقال از"))
 
-            if (isExplicitIncomingTransfer) {
+            if (isExplicitIncomingTransfer && !hasWithdrawWord) {
                 return TransactionType.INCOME
             }
 
-            // Explicit outgoing transfer / debit from user's account
-            val hasExplicitOutgoingPhrasing = lower.contains("انتقال از حساب شما") ||
-                    lower.contains("انتقال وجه به") ||
-                    lower.contains("کارت به کارت به") ||
-                    lower.contains("انتقال به کارت") ||
-                    lower.contains("انتقال به حساب") ||
-                    Regex("""انتقال[\s\S]{1,40}به\s*(?:کارت|حساب)""").containsMatchIn(lower)
-
-            val hasDebitIndicator = lower.contains("برداشت") || lower.contains("کسر") || lower.contains("بدهکار")
-            val hasLedgerProof = lower.contains("مانده") || lower.contains("موجودی") || lower.contains("موجودي") ||
-                    lower.contains("پیگیری") || lower.contains("مرجع") || lower.contains("ارجاع")
-
-            if (hasExplicitOutgoingPhrasing && (hasDebitIndicator || hasLedgerProof)) {
-                return TransactionType.TRANSFER
-            }
-
-            if (hasDebitIndicator && (lower.contains("انتقال") || lower.contains("کارت به کارت"))) {
-                return TransactionType.TRANSFER
+            // Explicit debit / withdrawal transfer -> must clearly state a completed withdrawal or debit
+            if (hasWithdrawWord && !hasDepositWord) {
+                return TransactionType.EXPENSE
             }
 
             // If it contains transfer keywords ("انتقال", "پایا", "ساتنا", "کارت به کارت")
-            // but is NEITHER a clear incoming deposit NOR an explicit completed debit/transfer -> reject!
+            // but lacks a clear, unambiguous completed withdrawal or deposit -> reject!
+            // Do NOT guess, do NOT convert ambiguous messages to debit/credit, and do NOT accept as TRANSFER.
             return null
         }
 
