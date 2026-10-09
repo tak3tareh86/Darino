@@ -91,6 +91,7 @@ import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
 
 @Composable
 fun BankSmsAssistantCard(
@@ -98,6 +99,7 @@ fun BankSmsAssistantCard(
     isScanning: Boolean,
     errorMessage: String?,
     queue: List<BankSmsSuggestion>,
+    userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
     onTypeChange: (id: String, type: TransactionType) -> Unit,
     onAccept: (id: String, amount: Long?, type: TransactionType?, category: String?, account: String?, desc: String?, dest: String?) -> Unit,
     onDismiss: (id: String) -> Unit,
@@ -113,6 +115,7 @@ fun BankSmsAssistantCard(
     if (editingSuggestion != null) {
         EditSmsTransactionDialog(
             suggestion = editingSuggestion!!,
+            userAccounts = userAccounts,
             onDismiss = { editingSuggestion = null },
             onConfirm = { amount, type, cat, acc, desc, dest ->
                 onAccept(editingSuggestion!!.id, amount, type, cat, acc, desc, dest)
@@ -932,6 +935,7 @@ private fun TransactionTypeChip(
 @Composable
 fun EditSmsTransactionDialog(
     suggestion: BankSmsSuggestion,
+    userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (
         amount: Long,
@@ -1135,8 +1139,15 @@ fun EditSmsTransactionDialog(
                             shape = RoundedCornerShape(8.dp),
                             textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp)
                         )
+                        val availableAccounts = remember(userAccounts) {
+                            if (userAccounts.isNotEmpty()) {
+                                userAccounts.map { it.name }
+                            } else {
+                                defaultAccounts
+                            }
+                        }
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            items(defaultAccounts) { acc ->
+                            items(availableAccounts) { acc ->
                                 FilterChip(
                                     selected = accountName.contains(acc),
                                     onClick = { accountName = acc },

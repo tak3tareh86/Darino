@@ -187,7 +187,8 @@ object BankSmsParser {
             // Explicit outgoing transfer from user to another account
             if (lower.contains("انتقال از حساب شما") || lower.contains("انتقال وجه به") ||
                 lower.contains("کارت به کارت به") || lower.contains("انتقال به کارت") ||
-                lower.contains("انتقال به حساب")
+                lower.contains("انتقال به حساب") ||
+                Regex("""انتقال[\s\S]{1,40}به\s*(?:کارت|حساب)""").containsMatchIn(lower)
             ) {
                 return TransactionType.TRANSFER
             }
@@ -468,6 +469,16 @@ object BankSmsParser {
     }
 
     private fun extractAccounts(cleanBody: String, defaultBankName: String): Pair<String?, String?> {
+        val destPattern = Pattern.compile("""(?i)(?:به\s*کارت|به\s*حساب|مقصد|به\s*شماره\s*کارت)[\s:]*([0-9*#-]{4,19})""")
+        val destMatcher = destPattern.matcher(cleanBody)
+        var explicitDest: String? = null
+        if (destMatcher.find()) {
+            val num = destMatcher.group(1)?.trim()
+            if (!num.isNullOrBlank() && num.length >= 4) {
+                explicitDest = "کارت $num"
+            }
+        }
+
         val cardPattern = Pattern.compile("""(?i)(?:کارت|card)[\s:]*([0-9*#-]{4,19})""")
         val cardMatcher = cardPattern.matcher(cleanBody)
         val foundCards = mutableListOf<String>()
@@ -479,8 +490,17 @@ object BankSmsParser {
             }
         }
 
-        val sourceAccount = if (foundCards.isNotEmpty()) foundCards.first() else defaultBankName
-        val destAccount = if (foundCards.size > 1) foundCards[1] else null
+        val sourceAccount: String?
+        val destAccount: String?
+
+        if (explicitDest != null) {
+            destAccount = explicitDest
+            val remainingCards = foundCards.filter { it != explicitDest }
+            sourceAccount = if (remainingCards.isNotEmpty()) remainingCards.first() else defaultBankName
+        } else {
+            sourceAccount = if (foundCards.isNotEmpty()) foundCards.first() else defaultBankName
+            destAccount = if (foundCards.size > 1) foundCards[1] else null
+        }
 
         return Pair(sourceAccount, destAccount)
     }

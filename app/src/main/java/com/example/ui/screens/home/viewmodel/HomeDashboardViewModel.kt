@@ -84,6 +84,10 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     private val _pendingSmsQueue = MutableStateFlow<List<BankSmsSuggestion>>(emptyList())
     val pendingSmsQueue: StateFlow<List<BankSmsSuggestion>> = _pendingSmsQueue.asStateFlow()
 
+    // Reactive user accounts for authenticated user
+    private val _userAccounts = MutableStateFlow<List<com.example.data.database.AccountEntity>>(emptyList())
+    val userAccounts: StateFlow<List<com.example.data.database.AccountEntity>> = _userAccounts.asStateFlow()
+
     // Controlled debounced refresh mechanism with Mutex serialization & versioned latest-wins state protection
     private val refreshTrigger = MutableSharedFlow<Unit>(
         replay = 1,
@@ -144,6 +148,18 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                             e.printStackTrace()
                         }
                     }
+                    launch {
+                        try {
+                            val db = AppDatabase.getDatabase(application)
+                            db.accountDao().getAllAccountsFlow(userId).collectLatest { accList ->
+                                _userAccounts.value = accList.filter { it.isActive && it.deletedAt == null }
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                } else {
+                    _userAccounts.value = emptyList()
                 }
                 loadDashboardData()
             }
@@ -231,13 +247,20 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
             val nameMatches = accounts.filter { it.name.equals(trimmed, ignoreCase = true) }
             if (nameMatches.size == 1) return nameMatches.first()
 
-            // Exact match on masked account / card number if present
-            val cardMatches = accounts.filter {
-                !it.accountNumberMasked.isNullOrBlank() && (
-                    it.accountNumberMasked.contains(trimmed) || trimmed.contains(it.accountNumberMasked)
-                )
+            // Safe masked account / card number matching without loose contains
+            val targetDigits = trimmed.filter { it.isDigit() }
+            if (targetDigits.length >= 4) {
+                val cardMatches = accounts.filter { acc ->
+                    val accDigits = acc.accountNumberMasked?.filter { it.isDigit() } ?: ""
+                    when {
+                        accDigits.length >= 16 && targetDigits.length >= 16 -> accDigits == targetDigits
+                        accDigits.length >= 4 -> accDigits.takeLast(4) == targetDigits.takeLast(4)
+                        else -> false
+                    }
+                }
+                // Allowed ONLY if the match is strictly unique!
+                if (cardMatches.size == 1) return cardMatches.first()
             }
-            if (cardMatches.size == 1) return cardMatches.first()
 
             // Exact match on account bankName
             val bankMatches = accounts.filter {
@@ -305,16 +328,69 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                         newType == TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(item.amount, isExpense = true)
                         newType == TransactionType.INCOME -> MoneyFormatter.formatSignedToman(item.amount, isExpense = false)
                         newType == TransactionType.TRANSFER -> MoneyFormatter.formatToman(item.amount)
+                        else -> MoneyFormatter.formatToman(item.amount)
                     }
-                    val defaultCat = when (newType) {
-                        TransactionType.INCOME -> "درآمد و واریز"
-                        TransactionType.TRANSFER -> "انتقال بین‌بانکی"
-                        TransactionType.EXPENSE -> if (item.category == "درآمد و واریز" || item.category == "انتقال بین‌بانکی") "خرید روزمره" else item.category
+                    val isCustomCategory = item.category != "سایر" &&
+                            item.category != "خرید روزمره" &&
+                            item.category != "درآمد و واریز" &&
+                            item.category != "انتقال بین‌بانکی"
+
+                    val finalCat = if (isCustomCategory) {
+                        item.category
+                    } else {
+                        when (newType) {
+                            TransactionType.INCOME -> "درآمد و واریز"
+                            TransactionType.TRANSFER -> "انتقال بین‌بانکی"
+                            TransactionType.EXPENSE -> "خرید روزمره"
+                        }
                     }
                     item.copy(
                         type = newType,
                         isTypeUncertain = false,
-                        category = defaultCat,
+                        category = finalCat,
+                        formattedAmount = formatted
+                    )
+                } else {
+                    item
+                }
+            }
+        }
+    }
+
+    /**
+     * Preserves user's edited details in the pending SMS queue so that in case of error or
+     * re-opening, the user does not lose their typed/selected input.
+     */
+    fun updateSmsCustomDetails(
+        id: String,
+        amount: Long? = null,
+        type: TransactionType? = null,
+        category: String? = null,
+        account: String? = null,
+        destAccount: String? = null
+    ) {
+        _pendingSmsQueue.update { list ->
+            list.map { item ->
+                if (item.id == id) {
+                    val finalAmount = amount ?: item.amount
+                    val finalType = type ?: item.type
+                    val isValid = amount?.let { it > 0L } ?: item.isAmountValid
+                    val formatted = if (isValid && finalAmount > 0L) {
+                        when (finalType) {
+                            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(finalAmount, isExpense = true)
+                            TransactionType.INCOME -> MoneyFormatter.formatSignedToman(finalAmount, isExpense = false)
+                            else -> MoneyFormatter.formatToman(finalAmount)
+                        }
+                    } else "مبلغ نامشخص"
+
+                    item.copy(
+                        amount = finalAmount,
+                        isAmountValid = isValid,
+                        type = finalType,
+                        isTypeUncertain = (finalType == null),
+                        category = category?.trim()?.ifEmpty { null } ?: item.category,
+                        sourceAccount = account?.trim()?.ifEmpty { null } ?: item.sourceAccount,
+                        destinationAccount = destAccount?.trim()?.ifEmpty { null } ?: item.destinationAccount,
                         formattedAmount = formatted
                     )
                 } else {
