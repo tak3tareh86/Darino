@@ -99,7 +99,7 @@ fun BankSmsAssistantCard(
     errorMessage: String?,
     queue: List<BankSmsSuggestion>,
     onTypeChange: (id: String, type: TransactionType) -> Unit,
-    onAccept: (id: String, type: TransactionType?, category: String?, account: String?, desc: String?, dest: String?) -> Unit,
+    onAccept: (id: String, amount: Long?, type: TransactionType?, category: String?, account: String?, desc: String?, dest: String?) -> Unit,
     onDismiss: (id: String) -> Unit,
     onRequestPermission: () -> Unit,
     onPermanentDeniedGoToSettings: () -> Unit,
@@ -114,8 +114,8 @@ fun BankSmsAssistantCard(
         EditSmsTransactionDialog(
             suggestion = editingSuggestion!!,
             onDismiss = { editingSuggestion = null },
-            onConfirm = { type, cat, acc, desc, dest ->
-                onAccept(editingSuggestion!!.id, type, cat, acc, desc, dest)
+            onConfirm = { amount, type, cat, acc, desc, dest ->
+                onAccept(editingSuggestion!!.id, amount, type, cat, acc, desc, dest)
                 editingSuggestion = null
             }
         )
@@ -177,7 +177,7 @@ fun BankSmsAssistantCard(
                         queue = queue,
                         onTypeChange = onTypeChange,
                         onQuickAccept = { id ->
-                            onAccept(id, null, null, null, null, null)
+                            onAccept(id, null, null, null, null, null, null)
                         },
                         onEditClick = { suggestion ->
                             editingSuggestion = suggestion
@@ -673,6 +673,15 @@ private fun SmsGrantedContentView(
                         )
                     }
 
+                    if (!item.isAmountValid || item.amount <= 0L) {
+                        Text(
+                            text = "⚠️ مبلغ تراکنش نامشخص است؛ لطفاً با زدن دکمه ویرایش، مبلغ را وارد کنید.",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFFDC2626)
+                        )
+                    }
+
                     if (item.isTypeUncertain) {
                         Text(
                             text = "⚠️ لطفاً نوع تراکنش را مشخص کنید:",
@@ -846,7 +855,7 @@ private fun SmsGrantedContentView(
                         // Register Transaction Button
                         Button(
                             onClick = { onQuickAccept(item.id) },
-                            enabled = (item.type != null && !item.isTypeUncertain),
+                            enabled = (item.type != null && !item.isTypeUncertain && item.isAmountValid && item.amount > 0L),
                             modifier = Modifier
                                 .weight(1.3f)
                                 .height(32.dp)
@@ -925,6 +934,7 @@ fun EditSmsTransactionDialog(
     suggestion: BankSmsSuggestion,
     onDismiss: () -> Unit,
     onConfirm: (
+        amount: Long,
         type: TransactionType,
         category: String,
         account: String,
@@ -933,6 +943,16 @@ fun EditSmsTransactionDialog(
     ) -> Unit
 ) {
     var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
+    var amountText by remember(suggestion.id) {
+        mutableStateOf(if (suggestion.isAmountValid && suggestion.amount > 0L) suggestion.amount.toString() else "")
+    }
+    val parsedAmount = remember(amountText) {
+        val clean = IranianPhoneUtils.convertDigitsToEnglish(amountText)
+            .replace(",", "").replace("،", "").replace("٫", "").replace("٬", "").replace(".", "").trim()
+        clean.toLongOrNull() ?: 0L
+    }
+    val isAmountValid = parsedAmount > 0L
+
     var category by remember(suggestion.id) { mutableStateOf(suggestion.category) }
     var accountName by remember(suggestion.id) { mutableStateOf(suggestion.sourceAccount ?: suggestion.bankName) }
     var destAccountName by remember(suggestion.id) { mutableStateOf(suggestion.destinationAccount ?: "") }
@@ -984,32 +1004,47 @@ fun EditSmsTransactionDialog(
                         )
                     )
 
-                    // Amount Display
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "مبلغ تراکنش:",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+                    // Editable Amount Input
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            text = "مبلغ تراکنش (تومان):",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                        OutlinedTextField(
+                            value = amountText,
+                            onValueChange = { amountText = it },
+                            singleLine = true,
+                            isError = !isAmountValid && amountText.isNotEmpty(),
+                            placeholder = { Text("مثال: 50,000", fontSize = 11.5.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            textStyle = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = when (selectedType) {
+                                    TransactionType.EXPENSE -> ExpenseRoseLight
+                                    TransactionType.INCOME -> EmeraldPrimaryLight
+                                    TransactionType.TRANSFER -> Color(0xFF3B82F6)
+                                    null -> MaterialTheme.colorScheme.onSurface
+                                }
                             )
+                        )
+                        if (isAmountValid) {
                             Text(
-                                text = suggestion.formattedAmount,
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = when (selectedType) {
-                                        TransactionType.EXPENSE -> ExpenseRoseLight
-                                        TransactionType.INCOME -> EmeraldPrimaryLight
-                                        TransactionType.TRANSFER -> Color(0xFF3B82F6)
-                                        null -> Color.Gray
-                                    }
+                                text = "معادل: ${MoneyFormatter.formatToman(parsedAmount)}",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        } else {
+                            Text(
+                                text = "⚠️ لطفاً مبلغ معتبر (بزرگتر از صفر تومان) وارد کنید.",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 10.sp,
+                                    color = Color(0xFFDC2626),
+                                    fontWeight = FontWeight.Medium
                                 )
                             )
                         }
@@ -1145,9 +1180,11 @@ fun EditSmsTransactionDialog(
                         Button(
                             onClick = {
                                 val sType = selectedType ?: return@Button
+                                if (!isAmountValid) return@Button
                                 val finalCat = category.trim().ifEmpty { suggestion.category }
                                 val finalAcc = accountName.trim().ifEmpty { suggestion.bankName }
                                 onConfirm(
+                                    parsedAmount,
                                     sType,
                                     finalCat,
                                     finalAcc,
@@ -1155,7 +1192,7 @@ fun EditSmsTransactionDialog(
                                     destAccountName.trim().ifEmpty { null }
                                 )
                             },
-                            enabled = selectedType != null,
+                            enabled = (selectedType != null && isAmountValid),
                             modifier = Modifier.weight(1.3f),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(

@@ -112,7 +112,8 @@ class BankSmsRepository(private val context: Context) {
                     val id = if (idIdx != -1) c.getString(idIdx) else null
                     val address = if (addressIdx != -1) c.getString(addressIdx) else ""
                     val body = if (bodyIdx != -1) c.getString(bodyIdx) else ""
-                    val timestamp = if (dateIdx != -1) c.getLong(dateIdx) else System.currentTimeMillis()
+                    val rawTimestamp = if (dateIdx != -1) c.getLong(dateIdx) else 0L
+                    val timestamp = if (rawTimestamp > 0L) rawTimestamp else System.currentTimeMillis()
 
                     val uniqueId = if (!id.isNullOrBlank()) "sms_$id" else "sms_${address.hashCode()}_$timestamp"
                     if (ignoredIds.contains(uniqueId)) {

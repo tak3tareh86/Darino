@@ -184,8 +184,16 @@ fun HomeScreen(
                             onTypeChange = { id, type ->
                                 viewModel.updateSmsTransactionType(id, type)
                             },
-                            onAccept = { id, type, cat, acc, desc, dest ->
-                                viewModel.acceptSmsSuggestion(id, type, cat, acc, desc, dest) { result ->
+                            onAccept = { id, amount, type, cat, acc, desc, dest ->
+                                viewModel.acceptSmsSuggestion(
+                                    id = id,
+                                    customType = type,
+                                    customCategory = cat,
+                                    customAccount = acc,
+                                    customDescription = desc,
+                                    destAccount = dest,
+                                    customAmount = amount
+                                ) { result ->
                                     scope.launch {
                                         when (result) {
                                             SmsAcceptResult.Success -> {
@@ -196,6 +204,9 @@ fun HomeScreen(
                                             }
                                             SmsAcceptResult.TypeNotSelected -> {
                                                 snackbarHostState.showSnackbar("لطفاً نوع تراکنش را مشخص کنید.")
+                                            }
+                                            SmsAcceptResult.InvalidAmount -> {
+                                                snackbarHostState.showSnackbar("مبلغ تراکنش نامعتبر است؛ لطفاً با ویرایش پیامک، مبلغ صحیح را وارد کنید.")
                                             }
                                             SmsAcceptResult.AccountRequired -> {
                                                 snackbarHostState.showSnackbar("حساب بانکی مشخص نیست؛ لطفاً با زدن دکمه ویرایش، حساب را انتخاب کنید.")

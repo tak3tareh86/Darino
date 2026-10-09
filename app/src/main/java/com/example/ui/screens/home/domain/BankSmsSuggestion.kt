@@ -7,6 +7,7 @@ data class BankSmsSuggestion(
     val bankName: String,
     val amount: Long,
     val formattedAmount: String,
+    val isAmountValid: Boolean = (amount > 0L),
     val type: TransactionType? = null,
     val isTypeUncertain: Boolean = false,
     val smsText: String,

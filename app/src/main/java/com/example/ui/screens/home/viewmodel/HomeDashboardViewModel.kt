@@ -47,6 +47,7 @@ sealed class SmsAcceptResult {
     object Success : SmsAcceptResult()
     object AlreadyExists : SmsAcceptResult()
     object TypeNotSelected : SmsAcceptResult()
+    object InvalidAmount : SmsAcceptResult()
     object AccountRequired : SmsAcceptResult()
     object DestinationAccountRequired : SmsAcceptResult()
     object Failed : SmsAcceptResult()
@@ -217,30 +218,51 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         bankNameHint: String?
     ): com.example.data.database.AccountEntity? {
         if (accounts.isEmpty()) return null
+
+        // 1. If targetNameOrId is specified (from user selection or card/account number)
         if (!targetNameOrId.isNullOrBlank()) {
             val trimmed = targetNameOrId.trim()
-            accounts.find { it.stringId == trimmed }?.let { return it }
-            accounts.find { it.name.equals(trimmed, ignoreCase = true) }?.let { return it }
-            accounts.find {
-                it.name.contains(trimmed, ignoreCase = true) || trimmed.contains(it.name, ignoreCase = true)
-            }?.let { return it }
-            accounts.find {
-                !it.bankName.isNullOrBlank() && (it.bankName.equals(trimmed, ignoreCase = true) || trimmed.contains(it.bankName, ignoreCase = true))
-            }?.let { return it }
+
+            // Exact match on account stringId
+            val idMatches = accounts.filter { it.stringId == trimmed }
+            if (idMatches.size == 1) return idMatches.first()
+
+            // Exact match on account name (case-insensitive)
+            val nameMatches = accounts.filter { it.name.equals(trimmed, ignoreCase = true) }
+            if (nameMatches.size == 1) return nameMatches.first()
+
+            // Exact match on masked account / card number if present
+            val cardMatches = accounts.filter {
+                !it.accountNumberMasked.isNullOrBlank() && (
+                    it.accountNumberMasked.contains(trimmed) || trimmed.contains(it.accountNumberMasked)
+                )
+            }
+            if (cardMatches.size == 1) return cardMatches.first()
+
+            // Exact match on account bankName
+            val bankMatches = accounts.filter {
+                !it.bankName.isNullOrBlank() && it.bankName.equals(trimmed, ignoreCase = true)
+            }
+            if (bankMatches.size == 1) return bankMatches.first()
         }
+
+        // 2. If bankNameHint is provided (from SMS bank detection), match normalized bankName ONLY if exact & UNIQUE
         if (!bankNameHint.isNullOrBlank()) {
-            val cleanBank = bankNameHint.replace("بانک", "").trim()
-            if (cleanBank.isNotBlank()) {
-                accounts.find {
-                    (!it.bankName.isNullOrBlank() && it.bankName.contains(cleanBank, ignoreCase = true)) ||
-                    it.name.contains(cleanBank, ignoreCase = true)
-                }?.let { return it }
+            val cleanHint = bankNameHint.replace("بانک", "").trim()
+            if (cleanHint.isNotBlank()) {
+                val matchedByBank = accounts.filter { acc ->
+                    val accCleanBank = acc.bankName?.replace("بانک", "")?.trim() ?: ""
+                    accCleanBank.equals(cleanHint, ignoreCase = true)
+                }
+                // Allowed ONLY if the match is exact, valid, and UNIQUE!
+                if (matchedByBank.size == 1) {
+                    return matchedByBank.first()
+                }
             }
         }
-        // If user has only a single active account, use it as the smart match
-        if (accounts.size == 1) {
-            return accounts.first()
-        }
+
+        // Under no circumstances auto-select first result, loose partial substring, or single remaining account!
+        // Return null so user is prompted to explicitly select the account.
         return null
     }
 
@@ -278,10 +300,11 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         _pendingSmsQueue.update { list ->
             list.map { item ->
                 if (item.id == id) {
-                    val formatted = when (newType) {
-                        TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(item.amount, isExpense = true)
-                        TransactionType.INCOME -> MoneyFormatter.formatSignedToman(item.amount, isExpense = false)
-                        TransactionType.TRANSFER -> MoneyFormatter.formatToman(item.amount)
+                    val formatted = when {
+                        !item.isAmountValid || item.amount <= 0L -> "مبلغ نامشخص"
+                        newType == TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(item.amount, isExpense = true)
+                        newType == TransactionType.INCOME -> MoneyFormatter.formatSignedToman(item.amount, isExpense = false)
+                        newType == TransactionType.TRANSFER -> MoneyFormatter.formatToman(item.amount)
                     }
                     val defaultCat = when (newType) {
                         TransactionType.INCOME -> "درآمد و واریز"
@@ -312,6 +335,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         customAccount: String? = null,
         customDescription: String? = null,
         destAccount: String? = null,
+        customAmount: Long? = null,
         onResult: (SmsAcceptResult) -> Unit = {}
     ) {
         viewModelScope.launch {
@@ -336,6 +360,14 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     return@withLock
                 }
 
+                // 2. Amount validation: must be strictly positive and valid
+                val finalAmount = customAmount ?: item.amount
+                if (finalAmount <= 0L || (customAmount == null && !item.isAmountValid)) {
+                    onResult(SmsAcceptResult.InvalidAmount)
+                    return@withLock
+                }
+
+                // 3. Type validation
                 val finalType = customType ?: item.type
                 if (finalType == null || (customType == null && item.isTypeUncertain)) {
                     onResult(SmsAcceptResult.TypeNotSelected)
@@ -345,7 +377,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 val txId = "tx_sms_$id"
                 val db = AppDatabase.getDatabase(getApplication())
 
-                // 2. Idempotency check: check if transaction with this stable ID already exists in Room
+                // 4. Idempotency check: check if transaction with this stable ID already exists in Room
                 val existing = db.transactionDao().getTransactionIncludingDeleted(userId, txId)
                 if (existing != null) {
                     // Do NOT revive soft-deleted transactions. Mark SMS processed and ignore duplicate.
@@ -366,7 +398,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     }
                 }
 
-                // 3. Resolve accounts strictly from user's active, valid accounts
+                // 5. Resolve accounts strictly from user's active, valid accounts
                 val activeAccounts = db.accountDao().getAllAccountsList(userId).filter { it.isActive && it.deletedAt == null }
                 val sourceAcc = findMatchingAccount(activeAccounts, customAccount ?: finalAccount, item.bankName)
                 if (sourceAcc == null) {
@@ -381,8 +413,8 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                         destAccount,
                         null
                     )
-                    if (matchedDest == null) {
-                        // Transfer cannot be registered without a valid destination account!
+                    if (matchedDest == null || matchedDest.stringId == sourceAcc.stringId) {
+                        // Transfer cannot be registered without a valid distinct destination account!
                         onResult(SmsAcceptResult.DestinationAccountRequired)
                         return@withLock
                     }
@@ -400,7 +432,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     stringId = txId,
                     userId = userId,
                     title = txTitle,
-                    amount = item.amount,
+                    amount = finalAmount,
                     type = finalType.name,
                     category = finalCategory,
                     accountName = sourceAcc.name,
