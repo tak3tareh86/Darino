@@ -422,6 +422,16 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 return@launch
             }
 
+            // Immediately preserve user's edited details in the pending SMS queue so input is not lost
+            updateSmsCustomDetails(
+                id = id,
+                amount = customAmount,
+                type = customType,
+                category = customCategory,
+                account = customAccount,
+                destAccount = destAccount
+            )
+
             smsProcessingMutex.withLock {
                 // 1. Check if SMS has already been processed or dismissed for this user
                 if (smsRepository.getProcessedSmsIds(userId).contains(id) || smsRepository.getDismissedSmsIds(userId).contains(id)) {
@@ -466,13 +476,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                 val finalCategory = customCategory?.trim()?.ifEmpty { null } ?: item.category
                 val finalAccount = customAccount?.trim()?.ifEmpty { null } ?: item.bankName
-                val finalDesc = customDescription?.trim()?.ifEmpty { null } ?: buildString {
-                    append("ثبت هوشمند از پیامک ")
-                    append(finalAccount)
-                    if (finalType == TransactionType.TRANSFER && !destAccount.isNullOrBlank()) {
-                        append(" به $destAccount")
-                    }
-                }
 
                 // 5. Resolve accounts strictly from user's active, valid accounts
                 val activeAccounts = db.accountDao().getAllAccountsList(userId).filter { it.isActive && it.deletedAt == null }
@@ -496,6 +499,14 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     }
                     matchedDest
                 } else null
+
+                val finalDesc = customDescription?.trim()?.ifEmpty { null } ?: buildString {
+                    append("ثبت هوشمند از پیامک ")
+                    append(sourceAcc.name)
+                    if (finalType == TransactionType.TRANSFER && destAcc != null) {
+                        append(" به ${destAcc.name}")
+                    }
+                }
 
                 val txTitle = when (finalType) {
                     TransactionType.TRANSFER -> "انتقال وجه"

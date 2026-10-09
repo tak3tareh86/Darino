@@ -68,6 +68,7 @@ fun HomeScreen(
     val isScanningSms by viewModel.isScanningSms.collectAsState()
     val smsErrorMessage by viewModel.smsErrorMessage.collectAsState()
     val pendingSms by viewModel.pendingSmsQueue.collectAsState()
+    val userAccounts by viewModel.userAccounts.collectAsState()
 
     val context = LocalContext.current
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
@@ -181,10 +182,14 @@ fun HomeScreen(
                             isScanning = isScanningSms,
                             errorMessage = smsErrorMessage,
                             queue = pendingSms,
+                            userAccounts = userAccounts,
                             onTypeChange = { id, type ->
                                 viewModel.updateSmsTransactionType(id, type)
                             },
-                            onAccept = { id, amount, type, cat, acc, desc, dest ->
+                            onUpdateCustomDetails = { id, amount, type, cat, acc, dest ->
+                                viewModel.updateSmsCustomDetails(id, amount, type, cat, acc, dest)
+                            },
+                            onAccept = { id, amount, type, cat, acc, desc, dest, onResult ->
                                 viewModel.acceptSmsSuggestion(
                                     id = id,
                                     customType = type,
@@ -219,6 +224,7 @@ fun HomeScreen(
                                             }
                                         }
                                     }
+                                    onResult(result)
                                 }
                             },
                             onDismiss = { id ->

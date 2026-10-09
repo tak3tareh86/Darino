@@ -101,7 +101,8 @@ fun BankSmsAssistantCard(
     queue: List<BankSmsSuggestion>,
     userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
     onTypeChange: (id: String, type: TransactionType) -> Unit,
-    onAccept: (id: String, amount: Long?, type: TransactionType?, category: String?, account: String?, desc: String?, dest: String?) -> Unit,
+    onAccept: (id: String, amount: Long?, type: TransactionType?, category: String?, account: String?, desc: String?, dest: String?, onResult: (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit) -> Unit = { _, _, _, _, _, _, _, _ -> },
+    onUpdateCustomDetails: (id: String, amount: Long?, type: TransactionType?, category: String?, account: String?, destAccount: String?) -> Unit = { _, _, _, _, _, _ -> },
     onDismiss: (id: String) -> Unit,
     onRequestPermission: () -> Unit,
     onPermanentDeniedGoToSettings: () -> Unit,
@@ -110,16 +111,26 @@ fun BankSmsAssistantCard(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
-    var editingSuggestion by remember { mutableStateOf<BankSmsSuggestion?>(null) }
+    var editingSuggestionId by remember { mutableStateOf<String?>(null) }
+    val editingSuggestion = remember(editingSuggestionId, queue) {
+        editingSuggestionId?.let { id -> queue.find { it.id == id } }
+    }
 
     if (editingSuggestion != null) {
         EditSmsTransactionDialog(
-            suggestion = editingSuggestion!!,
+            suggestion = editingSuggestion,
             userAccounts = userAccounts,
-            onDismiss = { editingSuggestion = null },
-            onConfirm = { amount, type, cat, acc, desc, dest ->
-                onAccept(editingSuggestion!!.id, amount, type, cat, acc, desc, dest)
-                editingSuggestion = null
+            onDismiss = { editingSuggestionId = null },
+            onConfirm = { amount, type, cat, acc, desc, dest, onResult ->
+                onUpdateCustomDetails(editingSuggestion.id, amount, type, cat, acc, dest)
+                onAccept(editingSuggestion.id, amount, type, cat, acc, desc, dest) { result ->
+                    if (result == com.example.ui.screens.home.viewmodel.SmsAcceptResult.Success ||
+                        result == com.example.ui.screens.home.viewmodel.SmsAcceptResult.AlreadyExists
+                    ) {
+                        editingSuggestionId = null
+                    }
+                    onResult(result)
+                }
             }
         )
     }
@@ -180,10 +191,10 @@ fun BankSmsAssistantCard(
                         queue = queue,
                         onTypeChange = onTypeChange,
                         onQuickAccept = { id ->
-                            onAccept(id, null, null, null, null, null, null)
+                            onAccept(id, null, null, null, null, null, null) { }
                         },
                         onEditClick = { suggestion ->
-                            editingSuggestion = suggestion
+                            editingSuggestionId = suggestion.id
                         },
                         onDismiss = onDismiss,
                         onRefreshScan = onRefreshScan
@@ -943,9 +954,14 @@ fun EditSmsTransactionDialog(
         category: String,
         account: String,
         description: String,
-        destAccount: String?
+        destAccount: String?,
+        onResult: (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit
     ) -> Unit
 ) {
+    val activeUserAccounts = remember(userAccounts) {
+        userAccounts.filter { it.isActive && it.deletedAt == null }
+    }
+
     var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
     var amountText by remember(suggestion.id) {
         mutableStateOf(if (suggestion.isAmountValid && suggestion.amount > 0L) suggestion.amount.toString() else "")
@@ -958,11 +974,50 @@ fun EditSmsTransactionDialog(
     val isAmountValid = parsedAmount > 0L
 
     var category by remember(suggestion.id) { mutableStateOf(suggestion.category) }
-    var accountName by remember(suggestion.id) { mutableStateOf(suggestion.sourceAccount ?: suggestion.bankName) }
-    var destAccountName by remember(suggestion.id) { mutableStateOf(suggestion.destinationAccount ?: "") }
     var description by remember(suggestion.id) {
         mutableStateOf("ثبت از پیامک ${suggestion.bankName}")
     }
+
+    // Resolves initial source account strictly: by stringId, unique exact name, unique card digits, or unique bank name
+    var selectedSourceAccountId by remember(suggestion.id, activeUserAccounts) {
+        val initial = activeUserAccounts.firstOrNull { acc ->
+            acc.stringId == suggestion.sourceAccount
+        } ?: activeUserAccounts.firstOrNull { acc ->
+            !suggestion.sourceAccount.isNullOrBlank() && acc.name.equals(suggestion.sourceAccount, ignoreCase = true)
+        } ?: run {
+            val targetDigits = suggestion.sourceAccount?.filter { it.isDigit() } ?: ""
+            if (targetDigits.length >= 4) {
+                val matches = activeUserAccounts.filter { acc ->
+                    val accDigits = acc.accountNumberMasked?.filter { it.isDigit() } ?: ""
+                    accDigits.length >= 4 && accDigits.takeLast(4) == targetDigits.takeLast(4)
+                }
+                if (matches.size == 1) matches.first() else null
+            } else null
+        } ?: run {
+            if (!suggestion.bankName.isNullOrBlank()) {
+                val cleanHint = suggestion.bankName.replace("بانک", "").trim()
+                val matches = activeUserAccounts.filter { acc ->
+                    val cleanBank = acc.bankName?.replace("بانک", "")?.trim() ?: ""
+                    cleanHint.isNotEmpty() && cleanBank.equals(cleanHint, ignoreCase = true)
+                }
+                if (matches.size == 1) matches.first() else null
+            } else null
+        }
+        mutableStateOf(initial?.stringId)
+    }
+
+    // Resolves initial destination account for transfer
+    var selectedDestAccountId by remember(suggestion.id, activeUserAccounts) {
+        val initial = activeUserAccounts.firstOrNull { acc ->
+            acc.stringId == suggestion.destinationAccount
+        } ?: activeUserAccounts.firstOrNull { acc ->
+            !suggestion.destinationAccount.isNullOrBlank() && acc.name.equals(suggestion.destinationAccount, ignoreCase = true)
+        }
+        mutableStateOf(initial?.stringId)
+    }
+
+    var isSubmitting by remember { mutableStateOf(false) }
+    var dialogError by remember { mutableStateOf<String?>(null) }
 
     val expenseCategories = listOf("خرید روزمره", "سوپرمارکت و خرید", "غذا و رستوران", "خودرو و سوخت", "قبوض و خدمات", "اقساط و تسهیلات", "سلامت و درمان", "سایر")
     val incomeCategories = listOf("حقوق و دستمزد", "درآمد و واریز", "سود سپرده", "یارانه و کمک‌معیشتی", "فروش کالا", "سایر")
@@ -974,8 +1029,6 @@ fun EditSmsTransactionDialog(
         TransactionType.TRANSFER -> transferCategories
         null -> emptyList()
     }
-
-    val defaultAccounts = listOf("بانک ملت", "بانک ملی", "بانک سامان", "بانک پاسارگاد", "بانک تجارت", "بانک صادرات", "بلوبانک", "بانک رسالت")
 
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
@@ -1016,7 +1069,10 @@ fun EditSmsTransactionDialog(
                         )
                         OutlinedTextField(
                             value = amountText,
-                            onValueChange = { amountText = it },
+                            onValueChange = {
+                                amountText = it
+                                dialogError = null
+                            },
                             singleLine = true,
                             isError = !isAmountValid && amountText.isNotEmpty(),
                             placeholder = { Text("مثال: 50,000", fontSize = 11.5.sp) },
@@ -1069,9 +1125,10 @@ fun EditSmsTransactionDialog(
                                 icon = Icons.Rounded.TrendingDown,
                                 isSelected = selectedType == TransactionType.EXPENSE,
                                 activeColor = ExpenseRoseLight,
-                                onClick = { 
-                                    selectedType = TransactionType.EXPENSE 
+                                onClick = {
+                                    selectedType = TransactionType.EXPENSE
                                     category = "خرید روزمره"
+                                    dialogError = null
                                 },
                                 modifier = Modifier.weight(1f)
                             )
@@ -1080,9 +1137,10 @@ fun EditSmsTransactionDialog(
                                 icon = Icons.Rounded.TrendingUp,
                                 isSelected = selectedType == TransactionType.INCOME,
                                 activeColor = EmeraldPrimaryLight,
-                                onClick = { 
-                                    selectedType = TransactionType.INCOME 
+                                onClick = {
+                                    selectedType = TransactionType.INCOME
                                     category = "درآمد و واریز"
+                                    dialogError = null
                                 },
                                 modifier = Modifier.weight(1f)
                             )
@@ -1091,9 +1149,10 @@ fun EditSmsTransactionDialog(
                                 icon = Icons.AutoMirrored.Rounded.CompareArrows,
                                 isSelected = selectedType == TransactionType.TRANSFER,
                                 activeColor = Color(0xFF3B82F6),
-                                onClick = { 
-                                    selectedType = TransactionType.TRANSFER 
+                                onClick = {
+                                    selectedType = TransactionType.TRANSFER
                                     category = "انتقال بین‌بانکی"
+                                    dialogError = null
                                 },
                                 modifier = Modifier.weight(1f)
                             )
@@ -1125,56 +1184,185 @@ fun EditSmsTransactionDialog(
                         }
                     }
 
-                    // Account / Card Input
+                    // Real Account Selection (Strictly active, undeleted accounts of current user)
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
-                            text = if (selectedType == TransactionType.TRANSFER) "حساب مبدأ:" else "حساب / کارت:",
+                            text = if (selectedType == TransactionType.TRANSFER) "حساب مبدأ (از):" else "حساب بانکی:",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                         )
-                        OutlinedTextField(
-                            value = accountName,
-                            onValueChange = { accountName = it },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp),
-                            textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp)
-                        )
-                        val availableAccounts = remember(userAccounts) {
-                            if (userAccounts.isNotEmpty()) {
-                                userAccounts.map { it.name }
-                            } else {
-                                defaultAccounts
+                        if (activeUserAccounts.isEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFFEF2F2),
+                                border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Info,
+                                        contentDescription = null,
+                                        tint = Color(0xFFDC2626),
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Text(
+                                        text = "هیچ حساب بانکی فعالی در برنامه یافت نشد. لطفاً ابتدا در بخش حساب‌ها یک حساب تعریف کنید.",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontSize = 10.5.sp,
+                                            color = Color(0xFF991B1B),
+                                            fontWeight = FontWeight.Medium
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
                             }
-                        }
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            items(availableAccounts) { acc ->
-                                FilterChip(
-                                    selected = accountName.contains(acc),
-                                    onClick = { accountName = acc },
-                                    label = { Text(acc, fontSize = 9.sp) }
+                        } else {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                items(activeUserAccounts, key = { it.stringId }) { acc ->
+                                    val isSelected = selectedSourceAccountId == acc.stringId
+                                    val chipLabel = if (!acc.bankName.isNullOrBlank() && !acc.name.contains(acc.bankName!!)) {
+                                        "${acc.name} (${acc.bankName})"
+                                    } else acc.name
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            selectedSourceAccountId = acc.stringId
+                                            if (selectedDestAccountId == acc.stringId) {
+                                                selectedDestAccountId = null
+                                            }
+                                            dialogError = null
+                                        },
+                                        label = {
+                                            Text(
+                                                chipLabel,
+                                                fontSize = 9.5.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        leadingIcon = if (isSelected) {
+                                            {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Check,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                            }
+                                        } else null
+                                    )
+                                }
+                            }
+                            if (selectedSourceAccountId == null) {
+                                Text(
+                                    text = "⚠️ لطفاً یک حساب بانکی معتبر انتخاب کنید.",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFFDC2626),
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         }
                     }
 
-                    // Destination Account (Only for TRANSFER)
+                    // Destination Account (Only for TRANSFER - must be distinct and valid)
                     if (selectedType == TransactionType.TRANSFER) {
+                        val availableDestAccounts = remember(activeUserAccounts, selectedSourceAccountId) {
+                            activeUserAccounts.filter { it.stringId != selectedSourceAccountId }
+                        }
                         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(
-                                text = "حساب / کارت مقصد:",
+                                text = "حساب مقصد (به):",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                             )
-                            OutlinedTextField(
-                                value = destAccountName,
-                                onValueChange = { destAccountName = it },
-                                placeholder = { Text("نام بانک یا شماره کارت مقصد...", fontSize = 10.5.sp) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp),
-                                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp)
-                            )
+                            if (availableDestAccounts.isEmpty()) {
+                                Text(
+                                    text = "⚠️ برای انتقال، به حداقل دو حساب بانکی فعال نیاز است. لطفاً حساب دیگری در برنامه تعریف کنید.",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFFDC2626),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            } else {
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    items(availableDestAccounts, key = { it.stringId }) { acc ->
+                                        val isSelected = selectedDestAccountId == acc.stringId
+                                        val chipLabel = if (!acc.bankName.isNullOrBlank() && !acc.name.contains(acc.bankName!!)) {
+                                            "${acc.name} (${acc.bankName})"
+                                        } else acc.name
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                selectedDestAccountId = acc.stringId
+                                                dialogError = null
+                                            },
+                                            label = {
+                                                Text(
+                                                    chipLabel,
+                                                    fontSize = 9.5.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                )
+                                            },
+                                            leadingIcon = if (isSelected) {
+                                                {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.Check,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                }
+                                            } else null
+                                        )
+                                    }
+                                }
+                                if (selectedDestAccountId == null) {
+                                    Text(
+                                        text = "⚠️ لطفاً حساب مقصد انتقال را انتخاب کنید (متفاوت از حساب مبدأ).",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFFDC2626),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
                         }
                     }
+
+                    // Error Banner if validation / registration failed (Dialog stays open so user can correct)
+                    if (dialogError != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFFEF2F2),
+                            border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Info,
+                                    contentDescription = null,
+                                    tint = Color(0xFFDC2626),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Text(
+                                    text = dialogError!!,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 10.5.sp,
+                                        color = Color(0xFF991B1B),
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+
+                    val canSubmit = (selectedType != null) &&
+                            isAmountValid &&
+                            (selectedSourceAccountId != null) &&
+                            (selectedType != TransactionType.TRANSFER || (selectedDestAccountId != null && selectedDestAccountId != selectedSourceAccountId)) &&
+                            !isSubmitting
 
                     // Actions
                     Row(
@@ -1183,6 +1371,7 @@ fun EditSmsTransactionDialog(
                     ) {
                         TextButton(
                             onClick = onDismiss,
+                            enabled = !isSubmitting,
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("انصراف", fontSize = 11.5.sp)
@@ -1192,18 +1381,54 @@ fun EditSmsTransactionDialog(
                             onClick = {
                                 val sType = selectedType ?: return@Button
                                 if (!isAmountValid) return@Button
+                                val srcId = selectedSourceAccountId
+                                if (srcId == null) {
+                                    dialogError = "لطفاً یک حساب بانکی معتبر انتخاب کنید."
+                                    return@Button
+                                }
+                                val destId = if (sType == TransactionType.TRANSFER) selectedDestAccountId else null
+                                if (sType == TransactionType.TRANSFER && (destId == null || destId == srcId)) {
+                                    dialogError = "حساب مقصد انتقال نامعتبر یا یکسان با حساب مبدأ است؛ لطفاً حساب مقصد دیگری انتخاب کنید."
+                                    return@Button
+                                }
+
+                                isSubmitting = true
+                                dialogError = null
                                 val finalCat = category.trim().ifEmpty { suggestion.category }
-                                val finalAcc = accountName.trim().ifEmpty { suggestion.bankName }
+
                                 onConfirm(
                                     parsedAmount,
                                     sType,
                                     finalCat,
-                                    finalAcc,
+                                    srcId,
                                     description,
-                                    destAccountName.trim().ifEmpty { null }
-                                )
+                                    destId
+                                ) { result ->
+                                    isSubmitting = false
+                                    when (result) {
+                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.Success,
+                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.AlreadyExists -> {
+                                            onDismiss()
+                                        }
+                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.AccountRequired -> {
+                                            dialogError = "حساب بانکی مشخص نیست؛ لطفاً یک حساب معتبر انتخاب کنید."
+                                        }
+                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.DestinationAccountRequired -> {
+                                            dialogError = "حساب مقصد انتقال نامعتبر یا یکسان با مبدأ است؛ لطفاً حساب مقصد دیگری انتخاب کنید."
+                                        }
+                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.InvalidAmount -> {
+                                            dialogError = "مبلغ تراکنش نامعتبر است؛ لطفاً مبلغ صحیح را وارد کنید."
+                                        }
+                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.TypeNotSelected -> {
+                                            dialogError = "لطفاً نوع تراکنش را مشخص کنید."
+                                        }
+                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.Failed -> {
+                                            dialogError = "خطا در ثبت تراکنش در پایگاه داده. لطفاً دوباره تلاش کنید."
+                                        }
+                                    }
+                                }
                             },
-                            enabled = (selectedType != null && isAmountValid),
+                            enabled = canSubmit,
                             modifier = Modifier.weight(1.3f),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
@@ -1215,11 +1440,19 @@ fun EditSmsTransactionDialog(
                                 }
                             )
                         ) {
-                            Text(
-                                text = "تأیید و ثبت",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
+                            if (isSubmitting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White
+                                )
+                            } else {
+                                Text(
+                                    text = "تأیید و ثبت",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
                         }
                     }
                 }
