@@ -237,6 +237,10 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }?.let { return it }
             }
         }
+        // If user has only a single active account, use it as the smart match
+        if (accounts.size == 1) {
+            return accounts.first()
+        }
         return null
     }
 

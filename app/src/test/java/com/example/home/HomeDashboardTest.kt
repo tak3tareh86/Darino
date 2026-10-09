@@ -172,8 +172,14 @@ class HomeDashboardTest {
                 endDate = "1404/01/01",
                 status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING,
                 monthlyPaymentFormatted = "۱۰,۰۰۰,۰۰۰ تومان"
-            )
+            ),
+            context = context
         )
+        var waitInst = 0
+        while (installmentRepo.installments.value.isEmpty() && waitInst < 30) {
+            kotlinx.coroutines.delay(50L)
+            waitInst++
+        }
 
         // Add test reminder
         val db = com.example.data.database.AppDatabase.getDatabase(context)
@@ -309,6 +315,21 @@ class HomeDashboardTest {
 
         val db = AppDatabase.getDatabase(context)
         db.transactionDao().clearAllTransactions(testUserId)
+
+        val testAccount = com.example.data.database.AccountEntity(
+            stringId = "acc_saman",
+            userId = testUserId,
+            name = "حساب سامان",
+            type = "CARD",
+            bankName = "بانک سامان",
+            accountNumberMasked = "**** 4321",
+            initialBalance = 10_000_000L,
+            isActive = true,
+            deletedAt = null,
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis()
+        )
+        db.accountDao().insertAccount(testAccount)
 
         val viewModel = HomeDashboardViewModel(
             ApplicationProvider.getApplicationContext()
