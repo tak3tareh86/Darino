@@ -30,8 +30,8 @@ class BankSmsRepository(private val context: Context) {
         }
     }
 
-    private fun userKey(key: String, userId: String?): String {
-        val uid = userId ?: SessionManager.userId ?: "default"
+    private fun userKey(key: String, userId: String?): String? {
+        val uid = userId ?: SessionManager.userId ?: return null
         return "${key}_${uid}"
     }
 
@@ -51,38 +51,41 @@ class BankSmsRepository(private val context: Context) {
     }
 
     fun getProcessedSmsIds(userId: String? = null): Set<String> {
-        val scoped = prefs.getStringSet(userKey(KEY_PROCESSED_SMS_IDS, userId), emptySet()) ?: emptySet()
-        val legacy = prefs.getStringSet(KEY_PROCESSED_SMS_IDS, emptySet()) ?: emptySet()
-        return scoped + legacy
+        val key = userKey(KEY_PROCESSED_SMS_IDS, userId) ?: return emptySet()
+        return prefs.getStringSet(key, emptySet()) ?: emptySet()
     }
 
     fun getDismissedSmsIds(userId: String? = null): Set<String> {
-        val scoped = prefs.getStringSet(userKey(KEY_DISMISSED_SMS_IDS, userId), emptySet()) ?: emptySet()
-        val legacy = prefs.getStringSet(KEY_DISMISSED_SMS_IDS, emptySet()) ?: emptySet()
-        return scoped + legacy
+        val key = userKey(KEY_DISMISSED_SMS_IDS, userId) ?: return emptySet()
+        return prefs.getStringSet(key, emptySet()) ?: emptySet()
     }
 
     fun markSmsProcessed(smsId: String, userId: String? = null) {
-        val key = userKey(KEY_PROCESSED_SMS_IDS, userId)
+        val key = userKey(KEY_PROCESSED_SMS_IDS, userId) ?: return
         val current = (prefs.getStringSet(key, emptySet()) ?: emptySet()).toMutableSet()
         current.add(smsId)
         prefs.edit().putStringSet(key, current).apply()
     }
 
     fun markSmsDismissed(smsId: String, userId: String? = null) {
-        val key = userKey(KEY_DISMISSED_SMS_IDS, userId)
+        val key = userKey(KEY_DISMISSED_SMS_IDS, userId) ?: return
         val current = (prefs.getStringSet(key, emptySet()) ?: emptySet()).toMutableSet()
         current.add(smsId)
         prefs.edit().putStringSet(key, current).apply()
     }
 
     suspend fun readInboxBankSms(userId: String? = null): List<BankSmsSuggestion> = withContext(Dispatchers.IO) {
+        val uid = userId ?: SessionManager.userId
+        if (uid.isNullOrBlank()) {
+            return@withContext emptyList()
+        }
+
         if (!hasSmsPermission()) {
             return@withContext emptyList()
         }
 
-        val processedIds = getProcessedSmsIds(userId)
-        val dismissedIds = getDismissedSmsIds(userId)
+        val processedIds = getProcessedSmsIds(uid)
+        val dismissedIds = getDismissedSmsIds(uid)
         val ignoredIds = processedIds + dismissedIds
 
         val results = mutableListOf<BankSmsSuggestion>()
@@ -125,9 +128,9 @@ class BankSmsRepository(private val context: Context) {
                 }
             }
         } catch (e: SecurityException) {
-            Log.w("BankSmsRepository", "Permission revoked while querying SMS inbox", e)
+            Log.w("BankSmsRepository", "Permission revoked while querying SMS inbox")
         } catch (e: Exception) {
-            Log.e("BankSmsRepository", "Error reading SMS inbox: ${e.message}")
+            Log.e("BankSmsRepository", "Error reading SMS inbox")
         }
 
         return@withContext results

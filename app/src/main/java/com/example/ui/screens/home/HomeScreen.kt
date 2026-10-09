@@ -197,6 +197,12 @@ fun HomeScreen(
                                             SmsAcceptResult.TypeNotSelected -> {
                                                 snackbarHostState.showSnackbar("لطفاً نوع تراکنش را مشخص کنید.")
                                             }
+                                            SmsAcceptResult.AccountRequired -> {
+                                                snackbarHostState.showSnackbar("حساب بانکی مشخص نیست؛ لطفاً با زدن دکمه ویرایش، حساب را انتخاب کنید.")
+                                            }
+                                            SmsAcceptResult.DestinationAccountRequired -> {
+                                                snackbarHostState.showSnackbar("حساب مقصد انتقال مشخص نیست؛ لطفاً با زدن دکمه ویرایش، حساب مقصد را مشخص کنید.")
+                                            }
                                             SmsAcceptResult.Failed -> {
                                                 snackbarHostState.showSnackbar("خطا در ثبت تراکنش. لطفاً دوباره تلاش کنید.")
                                             }

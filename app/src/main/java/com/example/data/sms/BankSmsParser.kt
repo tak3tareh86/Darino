@@ -73,26 +73,36 @@ object BankSmsParser {
 
             val detectedType = detectTransactionType(cleanBody)
             val isTypeUncertain = (detectedType == null)
-            val amountToman = extractAmountToman(cleanBody) ?: return null
+            val amountToman = extractAmountToman(cleanBody)
+
+            val isAmountUncertain = (amountToman == null || amountToman <= 0L)
+            val effectiveAmount = amountToman ?: 0L
 
             val category = suggestCategory(cleanBody, detectedType ?: TransactionType.EXPENSE)
-            val formattedAmount = when (detectedType) {
-                TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountToman, isExpense = true)
-                TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountToman, isExpense = false)
-                TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountToman)
-                null -> MoneyFormatter.formatToman(amountToman)
+            val formattedAmount = when {
+                isAmountUncertain -> "مبلغ نامشخص"
+                detectedType == TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(effectiveAmount, isExpense = true)
+                detectedType == TransactionType.INCOME -> MoneyFormatter.formatSignedToman(effectiveAmount, isExpense = false)
+                else -> MoneyFormatter.formatToman(effectiveAmount)
             }
 
-            val (dateText, timeText) = formatDateAndTime(timestampMillis, cleanBody)
+            val (dateText, timeText, finalTimestamp) = formatDateAndTime(timestampMillis, cleanBody)
             val (sourceAcc, destAcc) = extractAccounts(cleanBody, bankName)
+
+            val errorMsg = when {
+                isTypeUncertain && isAmountUncertain -> "نوع و مبلغ تراکنش به صورت خودکار تشخیص داده نشد؛ لطفاً تراکنش را بررسی و تکمیل کنید."
+                isTypeUncertain -> "نوع تراکنش به صورت خودکار تشخیص داده نشد؛ لطفاً نوع را مشخص کنید."
+                isAmountUncertain -> "مبلغ تراکنش به صورت خودکار تشخیص داده نشد؛ لطفاً مبلغ را مشخص کنید."
+                else -> null
+            }
 
             return BankSmsSuggestion(
                 id = smsId,
                 bankName = bankName,
-                amount = amountToman,
+                amount = effectiveAmount,
                 formattedAmount = formattedAmount,
                 type = detectedType,
-                isTypeUncertain = isTypeUncertain,
+                isTypeUncertain = (isTypeUncertain || isAmountUncertain),
                 smsText = body.trim(),
                 dateText = dateText,
                 timeText = timeText,
@@ -100,12 +110,13 @@ object BankSmsParser {
                 sourceAccount = sourceAcc,
                 destinationAccount = destAcc,
                 rawSender = sender,
-                parseError = if (isTypeUncertain) "نوع تراکنش به صورت خودکار تشخیص داده نشد؛ لطفاً بررسی کنید." else null,
-                timestampMillis = timestampMillis
+                parseError = errorMsg,
+                timestampMillis = finalTimestamp
             )
         } catch (e: Exception) {
             // Keep logs secure: avoid printing SMS body or card numbers
-            Log.w("BankSmsParser", "Failed to parse SMS $smsId: ${e.message}")
+            Log.w("BankSmsParser", "Failed to parse SMS $smsId")
+            val defaultPdt = PersianCalendarHelper.fromEpochMillis(timestampMillis)
             return BankSmsSuggestion(
                 id = smsId,
                 bankName = detectBankName(sender, body),
@@ -114,8 +125,8 @@ object BankSmsParser {
                 type = null,
                 isTypeUncertain = true,
                 smsText = body.trim(),
-                dateText = "امروز",
-                timeText = "نامشخص",
+                dateText = defaultPdt.toFormattedDate(),
+                timeText = defaultPdt.toFormattedTime(),
                 category = "سایر",
                 rawSender = sender,
                 parseError = "خطا در استخراج خودکار جزئیات پیامک",
@@ -159,35 +170,97 @@ object BankSmsParser {
     }
 
     private fun extractAmountToman(text: String): Long? {
-        val patterns = listOf(
-            Pattern.compile("""(?:مبلغ|برداشت|واریز|خرید|انتقال|کسر|پرداخت|بدهکار|بستانکار)[\s:]*[+-]?\s*([0-9,.]+)\s*(ریال|تومان|Rls)?""", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("""([0-9,.]+)\s*(ریال|تومان|Rls)""", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("""([0-9]{4,12})[\s]*(?:ریال|تومان)?""")
+        val cleanNumber = { s: String ->
+            s.replace(",", "")
+                .replace("،", "")
+                .replace("٫", "")
+                .replace(".", "")
+                .trim()
+        }
+
+        // 1. Explicit transaction amount pattern with valid transaction prefix
+        val txPattern = Pattern.compile(
+            """(?:مبلغ|برداشت|واریز|خرید|انتقال|کسر|پرداخت|بدهکار|بستانکار)[\s:]*[+-]?\s*([0-9,.\u060C\u066B]+)\s*(ریال|تومان|Rls|IRR)?""",
+            Pattern.CASE_INSENSITIVE
         )
 
-        for (pattern in patterns) {
-            val matcher = pattern.matcher(text)
-            if (matcher.find()) {
-                val numStr = matcher.group(1)?.replace(",", "")?.replace(".", "")?.trim() ?: continue
-                val rawNumber = numStr.toLongOrNull() ?: continue
-                if (rawNumber <= 0L) continue
+        val txMatcher = txPattern.matcher(text)
+        val candidateAmounts = mutableListOf<Long>()
 
-                val unit = if (matcher.groupCount() >= 2) matcher.group(2)?.trim() else null
-                return when {
-                    unit?.contains("ریال", ignoreCase = true) == true || unit?.contains("Rls", ignoreCase = true) == true -> {
-                        (rawNumber / 10L).coerceAtLeast(1L)
-                    }
-                    unit?.contains("تومان", ignoreCase = true) == true -> {
-                        rawNumber
-                    }
-                    rawNumber > 1_000_000_000L -> {
-                        // Usually large Iranian numbers without unit are Rials
-                        (rawNumber / 10L)
-                    }
-                    else -> rawNumber
+        while (txMatcher.find()) {
+            val numStr = cleanNumber(txMatcher.group(1) ?: continue)
+            val rawNumber = numStr.toLongOrNull() ?: continue
+            if (rawNumber <= 0L) continue
+
+            val unit = txMatcher.group(2)?.trim()
+            val toman = when {
+                unit?.contains("ریال", ignoreCase = true) == true ||
+                unit?.contains("Rls", ignoreCase = true) == true ||
+                unit?.contains("IRR", ignoreCase = true) == true -> {
+                    (rawNumber / 10L).coerceAtLeast(1L)
                 }
+                else -> rawNumber
+            }
+            candidateAmounts.add(toman)
+        }
+
+        // If candidates with explicit transaction prefixes are found:
+        if (candidateAmounts.isNotEmpty()) {
+            val distinctAmounts = candidateAmounts.distinct()
+            return if (distinctAmounts.size == 1) {
+                distinctAmounts.first()
+            } else {
+                // Multiple conflicting transaction amounts in the same SMS -> ambiguous, do not guess
+                null
             }
         }
+
+        // 2. Fallback: Search for numbers followed by explicit currency (ریال or تومان),
+        // excluding balance, card, or tracking code prefixes
+        val currencyPattern = Pattern.compile(
+            """([0-9,.\u060C\u066B]{3,15})\s*(ریال|تومان|Rls|IRR)""",
+            Pattern.CASE_INSENSITIVE
+        )
+        val curMatcher = currencyPattern.matcher(text)
+        val fallbackAmounts = mutableListOf<Long>()
+
+        while (curMatcher.find()) {
+            val startIdx = curMatcher.start()
+            val prefixWindow = text.substring((startIdx - 15).coerceAtLeast(0), startIdx)
+            // Exclude if prefixed with balance, tracking, card or account
+            if (prefixWindow.contains("مانده") || prefixWindow.contains("موجودی") ||
+                prefixWindow.contains("پیگیری") || prefixWindow.contains("مرجع") ||
+                prefixWindow.contains("ارجاع") || prefixWindow.contains("کارت") ||
+                prefixWindow.contains("حساب")
+            ) {
+                continue
+            }
+
+            val numStr = cleanNumber(curMatcher.group(1) ?: continue)
+            val rawNumber = numStr.toLongOrNull() ?: continue
+            if (rawNumber <= 0L) continue
+
+            val unit = curMatcher.group(2)?.trim()
+            val toman = when {
+                unit?.contains("ریال", ignoreCase = true) == true ||
+                unit?.contains("Rls", ignoreCase = true) == true ||
+                unit?.contains("IRR", ignoreCase = true) == true -> {
+                    (rawNumber / 10L).coerceAtLeast(1L)
+                }
+                else -> rawNumber
+            }
+            fallbackAmounts.add(toman)
+        }
+
+        if (fallbackAmounts.isNotEmpty()) {
+            val distinctFallback = fallbackAmounts.distinct()
+            return if (distinctFallback.size == 1) {
+                distinctFallback.first()
+            } else {
+                null
+            }
+        }
+
         return null
     }
 
@@ -217,21 +290,38 @@ object BankSmsParser {
         }
     }
 
-    private fun formatDateAndTime(timestampMillis: Long, cleanBody: String): Pair<String, String> {
-        val jalali = PersianCalendarHelper.fromEpochMillis(timestampMillis)
-        val date = jalali.toFormattedDate()
+    private fun formatDateAndTime(timestampMillis: Long, cleanBody: String): Triple<String, String, Long> {
+        val defaultPdt = PersianCalendarHelper.fromEpochMillis(timestampMillis)
 
-        // Check if SMS contains an explicit time like 14:30 or ساعت 14:30
-        val timePattern = Pattern.compile("""(?:ساعت[\s:]*)?([0-2]?[0-9]:[0-5][0-9])""")
-        val matcher = timePattern.matcher(cleanBody)
-        val time = if (matcher.find()) {
-            val t = matcher.group(1) ?: jalali.toFormattedTime()
-            IranianPhoneUtils.convertDigitsToPersian(t)
-        } else {
-            jalali.toFormattedTime()
+        // Try extracting reliable Jalali date (e.g. 1403/07/15) AND reliable time (e.g. ساعت 14:30)
+        val datePattern = Pattern.compile("""\b(140[0-9])[/-](0?[1-9]|1[0-2])[/-](0?[1-9]|[12][0-9]|3[01])\b""")
+        val timePattern = Pattern.compile("""(?:ساعت[\s:]+)([0-2]?[0-9]:[0-5][0-9])""")
+
+        val dateMatcher = datePattern.matcher(cleanBody)
+        val timeMatcher = timePattern.matcher(cleanBody)
+
+        if (dateMatcher.find() && timeMatcher.find()) {
+            val y = dateMatcher.group(1).toIntOrNull()
+            val m = dateMatcher.group(2).toIntOrNull()
+            val d = dateMatcher.group(3).toIntOrNull()
+            val rawTime = timeMatcher.group(1)
+            val timeParts = rawTime?.split(":")
+            val hour = timeParts?.getOrNull(0)?.toIntOrNull()
+            val minute = timeParts?.getOrNull(1)?.toIntOrNull()
+
+            if (y != null && m != null && d != null && hour != null && minute != null) {
+                try {
+                    val parsedEpoch = PersianCalendarHelper.jalaliToEpochMillis(y, m, d, hour, minute)
+                    val pdt = PersianCalendarHelper.fromEpochMillis(parsedEpoch)
+                    return Triple(pdt.toFormattedDate(), pdt.toFormattedTime(), parsedEpoch)
+                } catch (e: Exception) {
+                    // Fallback to timestampMillis
+                }
+            }
         }
 
-        return Pair(date, time)
+        // Reliable fallback: use SMS reception timestamp
+        return Triple(defaultPdt.toFormattedDate(), defaultPdt.toFormattedTime(), timestampMillis)
     }
 
     private fun extractAccounts(text: String, bankName: String): Pair<String?, String?> {

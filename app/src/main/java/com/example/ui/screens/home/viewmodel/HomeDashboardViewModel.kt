@@ -47,6 +47,8 @@ sealed class SmsAcceptResult {
     object Success : SmsAcceptResult()
     object AlreadyExists : SmsAcceptResult()
     object TypeNotSelected : SmsAcceptResult()
+    object AccountRequired : SmsAcceptResult()
+    object DestinationAccountRequired : SmsAcceptResult()
     object Failed : SmsAcceptResult()
 }
 
@@ -207,9 +209,46 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
+    private val smsProcessingMutex = Mutex()
+
+    private fun findMatchingAccount(
+        accounts: List<com.example.data.database.AccountEntity>,
+        targetNameOrId: String?,
+        bankNameHint: String?
+    ): com.example.data.database.AccountEntity? {
+        if (accounts.isEmpty()) return null
+        if (!targetNameOrId.isNullOrBlank()) {
+            val trimmed = targetNameOrId.trim()
+            accounts.find { it.stringId == trimmed }?.let { return it }
+            accounts.find { it.name.equals(trimmed, ignoreCase = true) }?.let { return it }
+            accounts.find {
+                it.name.contains(trimmed, ignoreCase = true) || trimmed.contains(it.name, ignoreCase = true)
+            }?.let { return it }
+            accounts.find {
+                !it.bankName.isNullOrBlank() && (it.bankName.equals(trimmed, ignoreCase = true) || trimmed.contains(it.bankName, ignoreCase = true))
+            }?.let { return it }
+        }
+        if (!bankNameHint.isNullOrBlank()) {
+            val cleanBank = bankNameHint.replace("بانک", "").trim()
+            if (cleanBank.isNotBlank()) {
+                accounts.find {
+                    (!it.bankName.isNullOrBlank() && it.bankName.contains(cleanBank, ignoreCase = true)) ||
+                    it.name.contains(cleanBank, ignoreCase = true)
+                }?.let { return it }
+            }
+        }
+        return null
+    }
+
     fun scanInboxSms() {
         if (!smsRepository.hasSmsPermission()) {
             _smsPermissionState.value = SmsPermissionState.DENIED
+            return
+        }
+
+        val userId = SessionManager.userId
+        if (userId.isNullOrBlank()) {
+            _pendingSmsQueue.value = emptyList()
             return
         }
 
@@ -217,7 +256,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
             _isScanningSms.value = true
             _smsErrorMessage.value = null
             try {
-                val userId = SessionManager.userId
                 val realSmsList = smsRepository.readInboxBankSms(userId)
                 val currentPending = _pendingSmsQueue.value
                 val existingIds = currentPending.map { it.id }.toSet()
@@ -273,39 +311,45 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         onResult: (SmsAcceptResult) -> Unit = {}
     ) {
         viewModelScope.launch {
-            val userId = SessionManager.userId ?: "user_default"
-
-            // 1. Check if SMS has already been processed or dismissed for this user
-            if (smsRepository.getProcessedSmsIds(userId).contains(id) || smsRepository.getDismissedSmsIds(userId).contains(id)) {
-                _pendingSmsQueue.update { list -> list.filter { it.id != id } }
-                onResult(SmsAcceptResult.AlreadyExists)
-                return@launch
-            }
-
-            val item = _pendingSmsQueue.value.find { id == it.id }
-            if (item == null) {
+            val userId = SessionManager.userId
+            // Strictly require authenticated user. No fake or default user fallback!
+            if (userId.isNullOrBlank()) {
                 onResult(SmsAcceptResult.Failed)
                 return@launch
             }
 
-            val finalType = customType ?: item.type
-            if (finalType == null || (customType == null && item.isTypeUncertain)) {
-                onResult(SmsAcceptResult.TypeNotSelected)
-                return@launch
-            }
+            smsProcessingMutex.withLock {
+                // 1. Check if SMS has already been processed or dismissed for this user
+                if (smsRepository.getProcessedSmsIds(userId).contains(id) || smsRepository.getDismissedSmsIds(userId).contains(id)) {
+                    _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+                    onResult(SmsAcceptResult.AlreadyExists)
+                    return@withLock
+                }
 
-            val txId = "tx_sms_$id"
-            try {
+                val item = _pendingSmsQueue.value.find { id == it.id }
+                if (item == null) {
+                    onResult(SmsAcceptResult.Failed)
+                    return@withLock
+                }
+
+                val finalType = customType ?: item.type
+                if (finalType == null || (customType == null && item.isTypeUncertain)) {
+                    onResult(SmsAcceptResult.TypeNotSelected)
+                    return@withLock
+                }
+
+                val txId = "tx_sms_$id"
                 val db = AppDatabase.getDatabase(getApplication())
 
-                // Idempotency check: check if transaction with this stable ID already exists in Room
+                // 2. Idempotency check: check if transaction with this stable ID already exists in Room
                 val existing = db.transactionDao().getTransactionIncludingDeleted(userId, txId)
                 if (existing != null) {
+                    // Do NOT revive soft-deleted transactions. Mark SMS processed and ignore duplicate.
                     smsRepository.markSmsProcessed(id, userId)
                     _pendingSmsQueue.update { list -> list.filter { it.id != id } }
                     loadDashboardData()
                     onResult(SmsAcceptResult.AlreadyExists)
-                    return@launch
+                    return@withLock
                 }
 
                 val finalCategory = customCategory?.trim()?.ifEmpty { null } ?: item.category
@@ -318,45 +362,28 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     }
                 }
 
-                // Link with user's financial accounts in Room database
-                val accounts = db.accountDao().getAllAccountsList(userId)
-                val sourceAcc = accounts.find {
-                    it.name.equals(finalAccount, ignoreCase = true) ||
-                    (!it.bankName.isNullOrBlank() && it.bankName.equals(item.bankName, ignoreCase = true)) ||
-                    it.name.contains(item.bankName, ignoreCase = true)
+                // 3. Resolve accounts strictly from user's active, valid accounts
+                val activeAccounts = db.accountDao().getAllAccountsList(userId).filter { it.isActive && it.deletedAt == null }
+                val sourceAcc = findMatchingAccount(activeAccounts, customAccount ?: finalAccount, item.bankName)
+                if (sourceAcc == null) {
+                    // Do NOT auto-select first account and do NOT auto-create account without user action!
+                    onResult(SmsAcceptResult.AccountRequired)
+                    return@withLock
                 }
 
-                val sourceAccId = if (sourceAcc != null) {
-                    sourceAcc.stringId
-                } else if (accounts.isNotEmpty()) {
-                    accounts.first().stringId
-                } else {
-                    val newAccId = "acc_${System.currentTimeMillis()}"
-                    val newAcc = com.example.data.database.AccountEntity(
-                        userId = userId,
-                        stringId = newAccId,
-                        name = finalAccount,
-                        type = "BANK",
-                        bankName = item.bankName,
-                        accountNumberMasked = null,
-                        initialBalance = 0L,
-                        isActive = true
+                val destAcc = if (finalType == TransactionType.TRANSFER) {
+                    val matchedDest = findMatchingAccount(
+                        activeAccounts.filter { it.stringId != sourceAcc.stringId },
+                        destAccount,
+                        null
                     )
-                    db.accountDao().insertAccount(newAcc)
-                    newAccId
-                }
-
-                var destAccId: String? = null
-                if (finalType == TransactionType.TRANSFER && !destAccount.isNullOrBlank()) {
-                    val destAcc = accounts.find {
-                        it.stringId != sourceAccId && (
-                            it.name.contains(destAccount, ignoreCase = true) ||
-                            destAccount.contains(it.name, ignoreCase = true) ||
-                            (!it.bankName.isNullOrBlank() && destAccount.contains(it.bankName, ignoreCase = true))
-                        )
+                    if (matchedDest == null) {
+                        // Transfer cannot be registered without a valid destination account!
+                        onResult(SmsAcceptResult.DestinationAccountRequired)
+                        return@withLock
                     }
-                    destAccId = destAcc?.stringId
-                }
+                    matchedDest
+                } else null
 
                 val txTitle = when (finalType) {
                     TransactionType.TRANSFER -> "انتقال وجه"
@@ -372,7 +399,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     amount = item.amount,
                     type = finalType.name,
                     category = finalCategory,
-                    accountName = finalAccount,
+                    accountName = sourceAcc.name,
                     description = finalDesc,
                     timestamp = item.timestampMillis,
                     timeFormatted = item.timeText,
@@ -380,37 +407,49 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     paymentMethod = "BANK_CARD",
                     sourceType = "BANK_SMS",
                     sourceId = id,
-                    accountId = if (finalType != TransactionType.TRANSFER) sourceAccId else null,
-                    transferSourceAccountId = if (finalType == TransactionType.TRANSFER) sourceAccId else null,
-                    transferDestinationAccountId = if (finalType == TransactionType.TRANSFER) destAccId else null
+                    accountId = if (finalType != TransactionType.TRANSFER) sourceAcc.stringId else null,
+                    transferSourceAccountId = if (finalType == TransactionType.TRANSFER) sourceAcc.stringId else null,
+                    transferDestinationAccountId = if (finalType == TransactionType.TRANSFER) destAcc?.stringId else null
                 )
-                db.transactionDao().insertTransaction(entity)
 
-                // Mark SMS as processed persistently ONLY after successful DB insert
-                smsRepository.markSmsProcessed(id, userId)
+                try {
+                    db.transactionDao().insertTransaction(entity)
 
-                // Remove from local queue
-                _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+                    // Mark SMS as processed persistently ONLY after successful DB insert
+                    smsRepository.markSmsProcessed(id, userId)
 
-                // Synchronize LocalFinanceRepository caches
-                LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                    // Remove from local queue
+                    _pendingSmsQueue.update { list -> list.filter { it.id != id } }
 
-                // Refresh dashboard
-                loadDashboardData()
+                    // Synchronize LocalFinanceRepository caches
+                    LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
 
-                onResult(SmsAcceptResult.Success)
-            } catch (e: Exception) {
-                e.printStackTrace()
-                // Transaction failed -> Processed = false, SMS remains pending in queue for retry!
-                onResult(SmsAcceptResult.Failed)
+                    // Refresh dashboard
+                    loadDashboardData()
+
+                    onResult(SmsAcceptResult.Success)
+                } catch (e: Exception) {
+                    // In case of conflict, verify if transaction is present
+                    val recheckExisting = db.transactionDao().getTransactionIncludingDeleted(userId, txId)
+                    if (recheckExisting != null) {
+                        smsRepository.markSmsProcessed(id, userId)
+                        _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+                        loadDashboardData()
+                        onResult(SmsAcceptResult.AlreadyExists)
+                    } else {
+                        // Real failure: leave SMS in queue for retry!
+                        onResult(SmsAcceptResult.Failed)
+                    }
+                }
             }
         }
     }
 
     fun dismissSmsSuggestion(id: String) {
         val userId = SessionManager.userId
-        // Mark SMS as dismissed persistently so it is never re-imported
-        smsRepository.markSmsDismissed(id, userId)
+        if (!userId.isNullOrBlank()) {
+            smsRepository.markSmsDismissed(id, userId)
+        }
         _pendingSmsQueue.update { list -> list.filter { it.id != id } }
     }
 

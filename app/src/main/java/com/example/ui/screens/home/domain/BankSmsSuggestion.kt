@@ -11,7 +11,7 @@ data class BankSmsSuggestion(
     val isTypeUncertain: Boolean = false,
     val smsText: String,
     val dateText: String,
-    val timeText: String = "۱۴:۳۰",
+    val timeText: String = "",
     val category: String = "سایر",
     val sourceAccount: String? = null,
     val destinationAccount: String? = null,
