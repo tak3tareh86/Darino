@@ -18,6 +18,7 @@ class ReminderScheduler(private val context: Context) {
 
     /**
      * Schedules all enabled triggers for a reminder.
+     * Propagates errors to caller and cancels newly registered alarms from this batch if any trigger fails.
      */
     fun schedule(reminder: ReminderEntity, schedules: List<ReminderScheduleEntity>) {
         if (!reminder.notificationEnabled && !reminder.smsEnabled) {
@@ -25,13 +26,19 @@ class ReminderScheduler(private val context: Context) {
             return
         }
 
+        val newlyScheduled = mutableListOf<ReminderScheduleEntity>()
         val now = System.currentTimeMillis()
-        schedules.forEach { schedule ->
+        for (schedule in schedules) {
             if (schedule.enabled && schedule.triggerDateTime > now) {
                 try {
                     scheduleSingle(reminder, schedule)
+                    newlyScheduled.add(schedule)
                 } catch (e: Exception) {
-                    Log.e("ReminderScheduler", "Failed to schedule trigger for reminder ${reminder.title}, schedule ${schedule.id}", e)
+                    Log.e("ReminderScheduler", "Failed to schedule trigger for reminder ${reminder.title}, schedule ${schedule.id}. Rolling back newly registered alarms in this batch.", e)
+                    newlyScheduled.forEach { scheduledItem ->
+                        cancelSchedule(scheduledItem.id)
+                    }
+                    throw e
                 }
             }
         }

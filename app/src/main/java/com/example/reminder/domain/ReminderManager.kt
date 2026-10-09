@@ -48,7 +48,17 @@ class ReminderManager(
         }
 
         repository.insertReminderWithSchedules(reminder, schedules)
-        scheduler.schedule(reminder, schedules)
+        try {
+            scheduler.schedule(reminder, schedules)
+        } catch (e: Exception) {
+            Log.e("ReminderManager", "Failed to schedule alarms for reminder ${reminder.id}. Performing compensation rollback.", e)
+            try {
+                repository.deleteReminderWithSchedules(reminder.id)
+            } catch (rollbackEx: Exception) {
+                Log.e("ReminderManager", "Failed to rollback reminder during creation failure", rollbackEx)
+            }
+            throw e
+        }
         Log.i("ReminderManager", "Created reminder ${reminder.title} with ${schedules.size} schedule triggers.")
         reminder
     }
@@ -62,6 +72,7 @@ class ReminderManager(
         repeatType: RepeatType = RepeatType.NONE,
         repeatInterval: Int = 1
     ) = withContext(Dispatchers.IO) {
+        val existingReminder = repository.getReminderById(reminder.id)
         val existingSchedules = repository.getSchedulesSync(reminder.id)
         scheduler.cancel(reminder.id, existingSchedules)
 
@@ -83,7 +94,20 @@ class ReminderManager(
         }
 
         repository.updateReminderWithSchedules(reminder, newSchedules)
-        scheduler.schedule(reminder, newSchedules)
+        try {
+            scheduler.schedule(reminder, newSchedules)
+        } catch (e: Exception) {
+            Log.e("ReminderManager", "Failed to schedule alarms during update for reminder ${reminder.id}. Rolling back to previous state.", e)
+            if (existingReminder != null) {
+                try {
+                    repository.updateReminderWithSchedules(existingReminder, existingSchedules)
+                    scheduler.schedule(existingReminder, existingSchedules)
+                } catch (rollbackEx: Exception) {
+                    Log.e("ReminderManager", "Failed to restore previous reminder during update rollback", rollbackEx)
+                }
+            }
+            throw e
+        }
         Log.i("ReminderManager", "Updated reminder ${reminder.title} and rescheduled.")
     }
 
@@ -120,10 +144,20 @@ class ReminderManager(
      * Enables a reminder and re-arms its future schedules.
      */
     suspend fun enableReminder(reminderId: String) = withContext(Dispatchers.IO) {
-        repository.updateStatus(reminderId, "ACTIVE")
         val reminder = repository.getReminderById(reminderId) ?: return@withContext
         val schedules = repository.getSchedulesSync(reminderId)
-        scheduler.schedule(reminder, schedules)
+        repository.updateStatus(reminderId, "ACTIVE")
+        try {
+            scheduler.schedule(reminder, schedules)
+        } catch (e: Exception) {
+            Log.e("ReminderManager", "Failed to schedule alarms when enabling reminder $reminderId. Rolling back status.", e)
+            try {
+                repository.updateStatus(reminderId, "DISABLED")
+            } catch (rollbackEx: Exception) {
+                Log.e("ReminderManager", "Failed to rollback status to DISABLED", rollbackEx)
+            }
+            throw e
+        }
     }
 
     /**
