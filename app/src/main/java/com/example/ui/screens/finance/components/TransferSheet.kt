@@ -59,21 +59,21 @@ fun TransferSheet(
     val activeAccounts = remember(accounts) { accounts.filter { it.isActive } }
     var selectedSource by remember(activeAccounts) {
         mutableStateOf<com.example.ui.screens.finance.model.Account?>(
-            activeAccounts.find { it.name == "کارت بانکی" } ?: activeAccounts.firstOrNull()
+            activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
         )
     }
     var selectedDestination by remember(activeAccounts) {
         mutableStateOf<com.example.ui.screens.finance.model.Account?>(
-            activeAccounts.find { it.name == "کیف پول" } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
+            activeAccounts.find { it.name == "کیف پول" || it.name.startsWith("کیف پول") } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
         )
     }
 
     LaunchedEffect(activeAccounts) {
         if (selectedSource == null && activeAccounts.isNotEmpty()) {
-            selectedSource = activeAccounts.find { it.name == "کارت بانکی" } ?: activeAccounts.firstOrNull()
+            selectedSource = activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
         }
         if (selectedDestination == null && activeAccounts.size >= 2) {
-            selectedDestination = activeAccounts.find { it.name == "کیف پول" } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
+            selectedDestination = activeAccounts.find { it.name == "کیف پول" || it.name.startsWith("کیف پول") } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
         }
     }
     var amountText by remember { mutableStateOf("") }

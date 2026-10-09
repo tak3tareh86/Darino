@@ -963,57 +963,99 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         ensureDefaultAccounts(db, userId)
     }
 
+    private data class DefaultAccountMeta(
+        val name: String,
+        val type: String,
+        val bankName: String?,
+        val slug: String
+    )
+
     suspend fun ensureDefaultAccounts(db: AppDatabase, userId: String) {
         if (userId.isBlank()) return
         defaultAccountsMutex.withLock {
             try {
-                val existingAccounts = db.accountDao().getAllAccountsRaw(userId)
+                val existingAccounts = db.accountDao().getAllAccountsRaw(userId).toMutableList()
 
                 val defaultAccounts = listOf(
-                    Triple("کارت بانکی", "CARD", "کارت بانکی"),
-                    Triple("کیف پول", "OTHER", null),
-                    Triple("پول نقد / متفرقه", "CASH", null)
+                    DefaultAccountMeta("کارت بانکی", "CARD", "کارت بانکی", "card"),
+                    DefaultAccountMeta("کیف پول", "OTHER", null, "wallet"),
+                    DefaultAccountMeta("پول نقد / متفرقه", "CASH", null, "cash_misc")
                 )
 
-                for ((name, type, bankName) in defaultAccounts) {
-                    val stringId = "default_${when (type) {
-                        "CARD" -> "card"
-                        "OTHER" -> "wallet"
-                        else -> "cash_misc"
-                    }}_${userId}"
+                for (def in defaultAccounts) {
+                    val primaryStringId = "default_${def.slug}_${userId}"
+                    val baseName = def.name
 
-                    // Check existing records of this user by name and ID
-                    val existingByName = existingAccounts.find { it.name == name }
-                    val existingById = existingAccounts.find { it.stringId == stringId }
+                    // Look for existing primary account by ID or exact name
+                    val primaryAccount = existingAccounts.find { it.stringId == primaryStringId || it.name == baseName }
 
-                    // If an account with the same name already exists for this user:
-                    // - If deleted (deletedAt != null): do not automatically restore or activate it, and do not create a duplicate.
-                    // - If inactive (isActive == false): keep untouched, do not automatically activate, and do not create duplicate active account.
-                    // - If active (isActive == true): keep untouched.
-                    if (existingByName != null) {
+                    // Condition 1: If primary default account exists, is active, and is not soft-deleted, keep it untouched.
+                    if (primaryAccount != null && primaryAccount.isActive && primaryAccount.deletedAt == null) {
                         continue
                     }
 
-                    // If an account with the same stringId already exists for this user:
-                    // Do not restore if deleted, and do not create duplicate records.
-                    if (existingById != null) {
-                        continue
+                    // Condition 4: If primary default account does not exist at all
+                    if (primaryAccount == null) {
+                        val hasConflict = existingAccounts.any { it.stringId == primaryStringId || it.name == baseName }
+                        if (!hasConflict) {
+                            val newPrimary = com.example.data.database.AccountEntity(
+                                userId = userId,
+                                stringId = primaryStringId,
+                                name = baseName,
+                                type = def.type,
+                                bankName = def.bankName,
+                                initialBalance = 0L,
+                                isActive = true,
+                                createdAt = System.currentTimeMillis(),
+                                updatedAt = System.currentTimeMillis(),
+                                deletedAt = null
+                            )
+                            db.accountDao().insertAccount(newPrimary)
+                            existingAccounts.add(newPrimary)
+                            continue
+                        }
                     }
 
-                    db.accountDao().insertAccount(
-                        com.example.data.database.AccountEntity(
-                            userId = userId,
-                            stringId = stringId,
-                            name = name,
-                            type = type,
-                            bankName = bankName,
-                            initialBalance = 0L,
-                            isActive = true,
-                            createdAt = System.currentTimeMillis(),
-                            updatedAt = System.currentTimeMillis(),
-                            deletedAt = null
+                    // Condition 2 & 3: Primary account exists, but is EITHER inactive (isActive == false) OR soft-deleted (deletedAt != null).
+                    // Do NOT automatically reactivate the inactive account.
+                    // Do NOT restore the soft-deleted account or reuse its deleted ID.
+                    // Instead, create a replacement account so the user has an active, selectable account.
+
+                    // Condition 5: Check if an active, non-deleted replacement account already exists for this type/name.
+                    val hasActiveReplacement = existingAccounts.any {
+                        it.deletedAt == null && it.isActive && (
+                            it.stringId.startsWith("default_${def.slug}_replacement_") ||
+                            it.name.startsWith("${baseName} (جایگزین")
                         )
+                    }
+                    if (hasActiveReplacement) {
+                        continue
+                    }
+
+                    // Determine a unique understandable replacement name and unique replacement ID
+                    var repName = "${baseName} (جایگزین)"
+                    var repId = "default_${def.slug}_replacement_${userId}"
+                    var counter = 2
+                    while (existingAccounts.any { it.stringId == repId || it.name == repName }) {
+                        repName = "${baseName} (جایگزین $counter)"
+                        repId = "default_${def.slug}_replacement_${counter}_${userId}"
+                        counter++
+                    }
+
+                    val replacementEntity = com.example.data.database.AccountEntity(
+                        userId = userId,
+                        stringId = repId,
+                        name = repName,
+                        type = def.type,
+                        bankName = def.bankName,
+                        initialBalance = 0L,
+                        isActive = true,
+                        createdAt = System.currentTimeMillis(),
+                        updatedAt = System.currentTimeMillis(),
+                        deletedAt = null
                     )
+                    db.accountDao().insertAccount(replacementEntity)
+                    existingAccounts.add(replacementEntity)
                 }
             } catch (e: Exception) {
                 android.util.Log.e("LocalFinanceRepository", "Failed to ensure default accounts for user $userId", e)

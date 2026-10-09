@@ -133,7 +133,7 @@ fun AddTransactionSheet(
         mutableStateOf(
             activeAccounts.find { it.id == initialTransaction?.accountId }
                 ?: if (initialTransaction == null) {
-                    activeAccounts.find { it.name == "کارت بانکی" } ?: activeAccounts.firstOrNull()
+                    activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
                 } else null
         )
     }
@@ -141,7 +141,7 @@ fun AddTransactionSheet(
         mutableStateOf(
             activeAccounts.find { it.id == initialTransaction?.transferSourceAccountId }
                 ?: if (initialTransaction == null) {
-                    activeAccounts.find { it.name == "کارت بانکی" } ?: activeAccounts.firstOrNull()
+                    activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
                 } else null
         )
     }
@@ -149,7 +149,7 @@ fun AddTransactionSheet(
         mutableStateOf(
             activeAccounts.find { it.id == initialTransaction?.transferDestinationAccountId }
                 ?: if (initialTransaction == null) {
-                    activeAccounts.find { it.name == "کیف پول" } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
+                    activeAccounts.find { it.name == "کیف پول" || it.name.startsWith("کیف پول") } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
                 } else null
         )
     }
@@ -157,13 +157,13 @@ fun AddTransactionSheet(
     LaunchedEffect(activeAccounts) {
         if (initialTransaction == null) {
             if (selectedAccount == null && activeAccounts.isNotEmpty()) {
-                selectedAccount = activeAccounts.find { it.name == "کارت بانکی" } ?: activeAccounts.firstOrNull()
+                selectedAccount = activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
             }
             if (selectedSourceAccount == null && activeAccounts.isNotEmpty()) {
-                selectedSourceAccount = activeAccounts.find { it.name == "کارت بانکی" } ?: activeAccounts.firstOrNull()
+                selectedSourceAccount = activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
             }
             if (selectedDestinationAccount == null && activeAccounts.size >= 2) {
-                selectedDestinationAccount = activeAccounts.find { it.name == "کیف پول" } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
+                selectedDestinationAccount = activeAccounts.find { it.name == "کیف پول" || it.name.startsWith("کیف پول") } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
             }
         }
     }
