@@ -425,15 +425,21 @@ object BankSmsParser {
             val hasDepositWord = lower.contains("واریز") || lower.contains("بستانکار")
             val hasWithdrawWord = lower.contains("برداشت") || lower.contains("کسر") || lower.contains("بدهکار")
 
-            // Explicit incoming transfer -> must clearly and unambiguously indicate a completed deposit
-            val isExplicitIncomingTransfer = lower.contains("انتقال به حساب شما") ||
+            // Explicit incoming transfer -> must clearly and unambiguously indicate a completed deposit (واریز or بستانکار)
+            // along with clear evidence of incoming transfer. "انتقال به حساب شما" alone is NOT sufficient without a valid deposit keyword.
+            val hasIncomingTransferEvidence = lower.contains("انتقال به حساب شما") ||
                     lower.contains("واریز از طریق پایا") ||
                     lower.contains("واریز از طریق ساتنا") ||
                     lower.contains("واریز پایا") ||
                     lower.contains("واریز ساتنا") ||
                     lower.contains("واریز از طریق انتقال") ||
                     lower.contains("واریز کارت به کارت") ||
-                    (hasDepositWord && lower.contains("انتقال از"))
+                    lower.contains("واریز حواله") ||
+                    lower.contains("انتقال از") ||
+                    lower.contains("به حساب شما") ||
+                    lower.contains("به کارت شما")
+
+            val isExplicitIncomingTransfer = hasDepositWord && hasIncomingTransferEvidence
 
             if (isExplicitIncomingTransfer && !hasWithdrawWord) {
                 return TransactionType.INCOME
