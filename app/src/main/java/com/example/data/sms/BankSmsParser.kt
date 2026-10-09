@@ -282,15 +282,15 @@ object BankSmsParser {
     fun isSenderRecognized(sender: String): Boolean {
         val clean = normalizeSender(sender)
         if (clean.isBlank()) return false
-        if (clean.contains("bank") || clean.contains("shaparak")) return true
 
         return ALL_BANKS.any { bank ->
             bank.senderTokens.any { token ->
                 val cleanToken = token.lowercase().replace(".", "")
                 if (cleanToken.all { it.isDigit() }) {
-                    clean == cleanToken || (clean.length > cleanToken.length && clean.endsWith(cleanToken))
+                    clean == cleanToken || clean.removePrefix("0") == cleanToken
                 } else {
-                    clean == cleanToken || clean.contains(cleanToken)
+                    clean == cleanToken || clean.replace(".", "") == cleanToken ||
+                            (cleanToken.length >= 4 && (clean == "bank$cleanToken" || clean == "b$cleanToken"))
                 }
             }
         }
@@ -346,16 +346,19 @@ object BankSmsParser {
         val lowerBody = cleanBody.lowercase()
 
         // 1. Check sender
-        for (bank in ALL_BANKS) {
-            if (bank.senderTokens.any { token ->
-                    val cleanToken = token.lowercase().replace(".", "")
-                    if (cleanToken.all { it.isDigit() }) {
-                        cleanSender == cleanToken || (cleanSender.length > cleanToken.length && cleanSender.endsWith(cleanToken))
-                    } else {
-                        cleanSender == cleanToken || cleanSender.contains(cleanToken)
-                    }
-                }) {
-                return bank.displayName
+        if (cleanSender.isNotBlank()) {
+            for (bank in ALL_BANKS) {
+                if (bank.senderTokens.any { token ->
+                        val cleanToken = token.lowercase().replace(".", "")
+                        if (cleanToken.all { it.isDigit() }) {
+                            cleanSender == cleanToken || cleanSender.removePrefix("0") == cleanToken
+                        } else {
+                            cleanSender == cleanToken || cleanSender.replace(".", "") == cleanToken ||
+                                    (cleanToken.length >= 4 && (cleanSender == "bank$cleanToken" || cleanSender == "b$cleanToken"))
+                        }
+                    }) {
+                    return bank.displayName
+                }
             }
         }
 
@@ -372,7 +375,7 @@ object BankSmsParser {
     /**
      * Context-aware detection of transaction type (EXPENSE, INCOME, TRANSFER).
      * Strictly verifies that the message represents a completed financial debit or credit.
-     * Rejects ambiguous, failed, or contradictory messages.
+     * Rejects ambiguous, failed, pending, or contradictory messages.
      */
     fun detectTransactionType(text: String): TransactionType? {
         val lower = text.lowercase()
@@ -385,7 +388,27 @@ object BankSmsParser {
             return null
         }
 
-        // 2. Clear POS or Merchant Purchases -> Unambiguous Expense
+        // 2. Requests, In-Progress, Pending, or Unconfirmed operations -> reject definitively
+        if (lower.contains("درخواست انتقال") ||
+            lower.contains("درخواست پایا") ||
+            lower.contains("درخواست ساتنا") ||
+            lower.contains("درخواست پرداخت") ||
+            lower.contains("درخواست شما") ||
+            lower.contains("در حال انجام") ||
+            lower.contains("در حال بررسی") ||
+            lower.contains("در حال پردازش") ||
+            lower.contains("در صف انجام") ||
+            lower.contains("در صف ارسال") ||
+            lower.contains("در صف") ||
+            lower.contains("ثبت شد و در حال") ||
+            lower.contains("دستور پایا ثبت") ||
+            lower.contains("دستور پرداخت ثبت") ||
+            lower.contains("دستور انتقال ثبت")
+        ) {
+            return null
+        }
+
+        // 3. Clear POS or Merchant Purchases -> Unambiguous Expense
         if (lower.contains("خرید از پایانه") || lower.contains("خرید پایانه") ||
             lower.contains("خرید اینترنتی") || lower.contains("خرید شارژ") ||
             lower.contains("خرید کالا") || lower.contains("خرید خدمات") ||
@@ -394,44 +417,56 @@ object BankSmsParser {
             return TransactionType.EXPENSE
         }
 
-        // 3. Clear Transfers (کارت به کارت، پایا، ساتنا)
+        // 4. Transfers (کارت به کارت، پایا، ساتنا، انتقال وجه)
         val hasTransferWord = lower.contains("انتقال") || lower.contains("کارت به کارت") ||
                 lower.contains("پایا") || lower.contains("ساتنا")
 
         if (hasTransferWord) {
-            // Explicit incoming transfer to user's account -> Income
-            if (lower.contains("انتقال به حساب شما") || lower.contains("واریز از طریق پایا") ||
-                lower.contains("واریز از طریق ساتنا") || lower.contains("واریز پایا") ||
-                lower.contains("واریز ساتنا") || lower.contains("واریز از طریق انتقال") ||
-                lower.contains("واریز کارت به کارت")
-            ) {
+            // Explicit incoming transfer to user's account -> Unambiguous Income
+            val isExplicitIncomingTransfer = lower.contains("انتقال به حساب شما") ||
+                    lower.contains("واریز از طریق پایا") ||
+                    lower.contains("واریز از طریق ساتنا") ||
+                    lower.contains("واریز پایا") ||
+                    lower.contains("واریز ساتنا") ||
+                    lower.contains("واریز از طریق انتقال") ||
+                    lower.contains("واریز کارت به کارت") ||
+                    (lower.contains("واریز") && lower.contains("انتقال از"))
+
+            if (isExplicitIncomingTransfer) {
                 return TransactionType.INCOME
             }
-            // Explicit outgoing transfer from user to another account -> Transfer
-            if (lower.contains("انتقال از حساب شما") || lower.contains("انتقال وجه به") ||
-                lower.contains("کارت به کارت به") || lower.contains("انتقال به کارت") ||
-                lower.contains("انتقال به حساب") ||
-                Regex("""انتقال[\s\S]{1,40}به\s*(?:کارت|حساب)""").containsMatchIn(lower)
-            ) {
+
+            // Explicit outgoing transfer / debit from user's account
+            val hasExplicitOutgoingPhrasing = lower.contains("انتقال از حساب شما") ||
+                    lower.contains("انتقال وجه به") ||
+                    lower.contains("کارت به کارت به") ||
+                    lower.contains("انتقال به کارت") ||
+                    lower.contains("انتقال به حساب") ||
+                    Regex("""انتقال[\s\S]{1,40}به\s*(?:کارت|حساب)""").containsMatchIn(lower)
+
+            val hasDebitIndicator = lower.contains("برداشت") || lower.contains("کسر") || lower.contains("بدهکار")
+            val hasLedgerProof = lower.contains("مانده") || lower.contains("موجودی") || lower.contains("موجودي") ||
+                    lower.contains("پیگیری") || lower.contains("مرجع") || lower.contains("ارجاع")
+
+            if (hasExplicitOutgoingPhrasing && (hasDebitIndicator || hasLedgerProof)) {
                 return TransactionType.TRANSFER
             }
-            // General "انتقال وجه" or "کارت به کارت"
-            if (lower.contains("انتقال وجه") || lower.contains("کارت به کارت")) {
-                if (lower.contains("برداشت") || lower.contains("کسر")) {
-                    return TransactionType.TRANSFER
-                } else if (lower.contains("واریز") || lower.contains("بستانکار")) {
-                    return TransactionType.INCOME
-                }
+
+            if (hasDebitIndicator && (lower.contains("انتقال") || lower.contains("کارت به کارت"))) {
                 return TransactionType.TRANSFER
             }
+
+            // If it contains transfer keywords ("انتقال", "پایا", "ساتنا", "کارت به کارت")
+            // but is NEITHER a clear incoming deposit NOR an explicit completed debit/transfer -> reject!
+            return null
         }
 
-        // 4. Deposits / Income
+        // 5. General Deposits / Income
         val hasDepositWord = lower.contains("واریز") || lower.contains("بستانکار") ||
                 lower.contains("سود سپرده") || lower.contains("واریز حقوق") ||
                 lower.contains("یارانه") || lower.contains("منظور شد")
 
-        // 5. Withdrawals / Expenses
+        // 6. General Withdrawals / Expenses
         val hasWithdrawWord = lower.contains("برداشت") || lower.contains("کسر") ||
                 lower.contains("بدهکار") || lower.contains("پرداخت قبض") ||
                 lower.contains("پرداخت قبوض") || lower.contains("پرداخت صورتحساب") ||
