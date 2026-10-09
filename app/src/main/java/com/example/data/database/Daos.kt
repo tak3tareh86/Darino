@@ -452,3 +452,18 @@ data class VehicleStoreEntity(
     val insurancesJson: String = "",
     val inspectionsJson: String = ""
 )
+
+@Dao
+interface UserPreferenceDao {
+    @Query("SELECT * FROM user_preferences WHERE userId = :userId LIMIT 1")
+    fun getPreferenceFlow(userId: String): Flow<UserPreferenceEntity?>
+
+    @Query("SELECT * FROM user_preferences WHERE userId = :userId LIMIT 1")
+    suspend fun getPreference(userId: String): UserPreferenceEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdate(preference: UserPreferenceEntity)
+
+    @Query("DELETE FROM user_preferences WHERE userId = :userId")
+    suspend fun clearPreference(userId: String)
+}

@@ -23,18 +23,12 @@ object MoneyFormatter {
     @Volatile
     var activeLanguage: AppLanguage = AppLanguage.PERSIAN
 
-    private val persianDigits = charArrayOf('۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹')
+    @Volatile
+    var activeNumberMode: com.example.ui.screens.settings.model.NumberDisplayMode =
+        com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN
 
     fun toPersianDigits(input: String): String {
-        val builder = java.lang.StringBuilder(input.length)
-        for (ch in input) {
-            if (ch in '0'..'9') {
-                builder.append(persianDigits[ch - '0'])
-            } else {
-                builder.append(ch)
-            }
-        }
-        return builder.toString()
+        return AppNumberFormatter.formatDigits(input, activeNumberMode)
     }
 
     fun getUnitLabel(currency: AppCurrency = activeCurrency, language: AppLanguage = activeLanguage): String {
@@ -80,7 +74,7 @@ object MoneyFormatter {
         val convertedAmount = convertFromToman(amount, currency)
         val absAmount = kotlin.math.abs(convertedAmount)
         val formattedNumber = formatNumberWithCommas(absAmount)
-        val displayFormatted = if (language == AppLanguage.PERSIAN) toPersianDigits(formattedNumber) else formattedNumber
+        val displayFormatted = AppNumberFormatter.formatDigits(formattedNumber, activeNumberMode)
         val prefix = if (convertedAmount < 0) "−" else ""
         val unit = getUnitLabel(currency, language)
 

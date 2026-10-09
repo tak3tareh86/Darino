@@ -19,6 +19,11 @@ enum class AppLanguage(val title: String, val nativeName: String, val code: Stri
     ENGLISH("انگلیسی", "English (US)", "en")
 }
 
+enum class NumberDisplayMode(val title: String, val sample: String) {
+    PERSIAN("فارسی: ۰۱۲۳۴۵۶۷۸۹", "۰۱۲۳۴۵۶۷۸۹"),
+    ENGLISH("انگلیسی: 0123456789", "0123456789")
+}
+
 enum class AppCurrency(val title: String, val symbol: String, val code: String) {
     TOMAN("تومان", "تومان", "IRT"),
     RIAL("ریال", "ریال", "IRR"),

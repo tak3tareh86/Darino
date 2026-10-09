@@ -261,3 +261,13 @@ data class UserNotificationSettingsEntity(
     val quietHoursEnd: String = "08:00",
     val allowImportantDuringQuietHours: Boolean = true
 )
+
+@Entity(
+    tableName = "user_preferences",
+    indices = [Index(value = ["userId"], unique = true)]
+)
+data class UserPreferenceEntity(
+    @PrimaryKey val userId: String,
+    val numberDisplayMode: String = "PERSIAN",
+    val updatedAt: Long = System.currentTimeMillis()
+)

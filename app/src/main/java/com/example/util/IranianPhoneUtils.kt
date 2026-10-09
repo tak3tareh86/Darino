@@ -33,10 +33,25 @@ object IranianPhoneUtils {
         return sb.toString()
     }
 
+    @Volatile
+    var activeNumberDisplayMode: com.example.ui.screens.settings.model.NumberDisplayMode =
+        com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN
+
     /**
-     * Converts standard English digits to Persian digits for display.
+     * Converts standard English digits to Persian digits for display,
+     * or to English digits if the global activeNumberDisplayMode is ENGLISH.
      */
     fun convertDigitsToPersian(input: String): String {
+        if (activeNumberDisplayMode == com.example.ui.screens.settings.model.NumberDisplayMode.ENGLISH) {
+            return convertDigitsToEnglish(input)
+        }
+        return forceConvertDigitsToPersian(input)
+    }
+
+    /**
+     * Always converts English digits to Persian digits unconditionally.
+     */
+    fun forceConvertDigitsToPersian(input: String): String {
         val persianDigits = charArrayOf('۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹')
         val sb = StringBuilder()
         for (char in input) {
