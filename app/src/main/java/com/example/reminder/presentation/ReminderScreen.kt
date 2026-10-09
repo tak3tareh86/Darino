@@ -95,8 +95,8 @@ fun ReminderScreen(
                             viewModel.completeReminder(rem.id)
                         }
                     },
-                    onSnooze = { option ->
-                        viewModel.snoozeReminder(rem.id, option)
+                    onSnooze = { option, customMillis ->
+                        viewModel.snoozeReminder(rem.id, option, customMillis)
                     },
                     onDelete = {
                         viewModel.deleteReminder(rem.id)
@@ -121,9 +121,25 @@ fun ReminderScreen(
         ReminderSubScreen.LIST -> {
             var isSuggestionsExpanded by remember { mutableStateOf(false) }
             var isCompletedExpanded by remember { mutableStateOf(false) }
+            val snackbarHostState = remember { SnackbarHostState() }
+
+            LaunchedEffect(uiState.userMessage) {
+                uiState.userMessage?.let { msg ->
+                    snackbarHostState.showSnackbar(msg)
+                    viewModel.clearUserMessage()
+                }
+            }
+
+            LaunchedEffect(uiState.errorMessage) {
+                uiState.errorMessage?.let { err ->
+                    snackbarHostState.showSnackbar(err)
+                    viewModel.clearErrorMessage()
+                }
+            }
 
             Scaffold(
                 modifier = modifier.fillMaxSize(),
+                snackbarHost = { SnackbarHost(snackbarHostState) },
                 bottomBar = bottomBar,
                 topBar = {
                     Surface(
@@ -596,52 +612,19 @@ fun ReminderScreen(
                 }
             }
 
-            // Snooze Bottom Sheet Dialog
+            // Snooze Dialog
             val snoozeReminder = showSnoozeSheetForReminder
             if (snoozeReminder != null) {
-                AlertDialog(
-                    onDismissRequest = { showSnoozeSheetForReminder = null },
-                    icon = {
-                        Icon(Icons.Rounded.Snooze, contentDescription = null, tint = WarningAmberLight)
+                SnoozeReminderDialog(
+                    reminderTitle = snoozeReminder.title,
+                    onDismiss = { showSnoozeSheetForReminder = null },
+                    onSnoozePreset = { option ->
+                        viewModel.snoozeReminder(snoozeReminder.id, option, null)
+                        showSnoozeSheetForReminder = null
                     },
-                    title = {
-                        Text("به تعویق انداختن یادآور", fontWeight = FontWeight.Bold)
-                    },
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                text = "زمان تعویق برای «${snoozeReminder.title}» را انتخاب کنید:",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            listOf(
-                                SnoozeOption.MINUTES_15,
-                                SnoozeOption.HOUR_1,
-                                SnoozeOption.TOMORROW,
-                                SnoozeOption.THREE_DAYS
-                            ).forEach { option ->
-                                Surface(
-                                    shape = RoundedCornerShape(RadiusSM),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            viewModel.snoozeReminder(snoozeReminder.id, option)
-                                            showSnoozeSheetForReminder = null
-                                        }
-                                ) {
-                                    Text(
-                                        text = option.title,
-                                        modifier = Modifier.padding(12.dp),
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = { showSnoozeSheetForReminder = null }) {
-                            Text("انصراف")
-                        }
+                    onSnoozeCustom = { targetMillis ->
+                        viewModel.snoozeReminder(snoozeReminder.id, SnoozeOption.CUSTOM, targetMillis)
+                        showSnoozeSheetForReminder = null
                     }
                 )
             }

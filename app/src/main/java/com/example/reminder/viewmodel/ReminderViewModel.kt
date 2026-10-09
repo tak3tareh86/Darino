@@ -38,6 +38,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
     private val _activeSuggestions = MutableStateFlow(ReminderManager.getSmartSuggestions())
     private val _isLoading = MutableStateFlow(false)
     private val _errorMessage = MutableStateFlow<String?>(null)
+    private val _userMessage = MutableStateFlow<String?>(null)
 
     private val filterParams = combine(_selectedTab, _selectedFilterChip, _searchQuery) { tab, chip, query ->
         FilterParams(tab, chip, query)
@@ -48,10 +49,13 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         filterParams,
         _activeSuggestions,
         _isLoading,
-        combine(_errorMessage, notificationRepository.getUnreadCount()) { error, unreadCount -> Pair(error, unreadCount) }
-    ) { allReminders: List<ReminderEntity>, filters: FilterParams, suggestions: List<SmartSuggestion>, isLoading: Boolean, pair: Pair<String?, Int> ->
-        val error = pair.first
-        val unreadCount = pair.second
+        combine(_errorMessage, _userMessage, notificationRepository.getUnreadCount()) { error, userMsg, unreadCount ->
+            Triple(error, userMsg, unreadCount)
+        }
+    ) { allReminders: List<ReminderEntity>, filters: FilterParams, suggestions: List<SmartSuggestion>, isLoading: Boolean, triple: Triple<String?, String?, Int> ->
+        val error = triple.first
+        val userMsg = triple.second
+        val unreadCount = triple.third
 
         val todayPersian = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
 
@@ -114,7 +118,8 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             nearestReminder = nearest,
             smartSuggestions = suggestions,
             isLoading = isLoading,
-            errorMessage = error
+            errorMessage = error,
+            userMessage = userMsg
         )
     }.stateIn(
         scope = viewModelScope,
@@ -194,14 +199,37 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun snoozeReminder(reminderId: String, option: SnoozeOption, customMinutes: Int? = null) {
+    fun snoozeReminder(
+        reminderId: String,
+        option: SnoozeOption,
+        customTargetMillis: Long? = null,
+        onResult: ((Result<Long>) -> Unit)? = null
+    ) {
         viewModelScope.launch {
             try {
-                manager.snoozeReminder(reminderId, option, customMinutes)
+                val result = manager.snoozeReminder(reminderId, option, customTargetMillis)
+                result.onSuccess { triggerMillis ->
+                    val relativeTime = PersianCalendarHelper.formatRelativeTimePersian(triggerMillis)
+                    val pdt = PersianCalendarHelper.fromEpochMillis(triggerMillis)
+                    _userMessage.value = "یادآور تا ${pdt.toFormattedDate()} ساعت ${pdt.toFormattedTime()} ($relativeTime) به تعویق افتاد."
+                }.onFailure { err ->
+                    _errorMessage.value = err.message ?: "خطا در ثبت تعویق یادآور"
+                }
+                onResult?.invoke(result)
             } catch (e: Exception) {
-                _errorMessage.value = "خطا در تعویق یادآور"
+                val err = "خطا در تعویق یادآور: ${e.localizedMessage}"
+                _errorMessage.value = err
+                onResult?.invoke(Result.failure(e))
             }
         }
+    }
+
+    fun clearErrorMessage() {
+        _errorMessage.value = null
+    }
+
+    fun clearUserMessage() {
+        _userMessage.value = null
     }
 
     fun toggleReminderEnabled(reminderId: String, enabled: Boolean) {

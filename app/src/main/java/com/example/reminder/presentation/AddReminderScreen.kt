@@ -33,6 +33,7 @@ import com.example.reminder.domain.RepeatType
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.PersianDateInputField
+import com.example.ui.screens.reminder.components.PersianTimeInputField
 import com.example.util.MoneyFormatter
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.theme.EmeraldPrimaryLight
@@ -205,16 +206,13 @@ fun AddReminderScreen(
                         .testTag("input_reminder_date")
                 )
 
-                OutlinedTextField(
+                PersianTimeInputField(
                     value = time,
                     onValueChange = { time = it },
-                    label = { Text("ساعت هشدار") },
+                    label = "ساعت هشدار",
                     modifier = Modifier
                         .weight(1f)
-                        .testTag("input_reminder_time"),
-                    shape = RoundedCornerShape(RadiusMD),
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Rounded.AccessTime, contentDescription = null, tint = WarningAmberLight) }
+                        .testTag("input_reminder_time")
                 )
             }
 

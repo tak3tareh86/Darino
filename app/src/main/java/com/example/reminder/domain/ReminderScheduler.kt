@@ -128,20 +128,27 @@ class ReminderScheduler(private val context: Context) {
      */
     fun snooze(reminder: ReminderEntity, snoozeMinutes: Int = 15): ReminderScheduleEntity {
         val snoozeTime = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
+        return snoozeToMillis(reminder, snoozeTime, snoozeMinutes)
+    }
+
+    /**
+     * Schedules an independent snooze trigger at an exact future epoch millisecond timestamp.
+     */
+    fun snoozeToMillis(reminder: ReminderEntity, triggerMillis: Long, offsetMinutes: Int = 0): ReminderScheduleEntity {
         val snoozeSchedule = ReminderScheduleEntity(
             id = "snooze_${UUID.randomUUID()}",
             reminderId = reminder.id,
             triggerType = "EXACT",
-            offsetValue = snoozeMinutes,
+            offsetValue = offsetMinutes,
             offsetUnit = "MINUTE",
-            triggerDateTime = snoozeTime,
+            triggerDateTime = triggerMillis,
             repeatType = "NONE",
             enabled = true,
             createdAt = System.currentTimeMillis()
         )
 
         scheduleSingle(reminder, snoozeSchedule)
-        Log.i("ReminderScheduler", "Created independent snooze trigger for ${reminder.title} in $snoozeMinutes minutes.")
+        Log.i("ReminderScheduler", "Created independent snooze trigger for ${reminder.title} at $triggerMillis.")
         return snoozeSchedule
     }
 

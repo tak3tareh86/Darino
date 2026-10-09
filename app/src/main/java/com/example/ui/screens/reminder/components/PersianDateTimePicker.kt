@@ -353,7 +353,7 @@ fun PersianDatePickerDialog(
 }
 
 /**
- * Dedicated Time Picker Dialog for Hour & Minute with Quick Presets.
+ * Dedicated Time Picker Dialog for Hour (0-23) & Minute (0-59) with Quick Presets.
  */
 @Composable
 fun PersianTimePickerDialog(
@@ -362,8 +362,8 @@ fun PersianTimePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (hour: Int, minute: Int) -> Unit
 ) {
-    var hour by remember { mutableStateOf(initialHour) }
-    var minute by remember { mutableStateOf(initialMinute) }
+    var hour by remember { mutableIntStateOf(initialHour.coerceIn(0, 23)) }
+    var minute by remember { mutableIntStateOf(initialMinute.coerceIn(0, 59)) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -387,11 +387,22 @@ fun PersianTimePickerDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "تنظیم ساعت یادآوری",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Schedule,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "تنظیم ساعت یادآوری (۲۴ ساعته)",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                         Icon(Icons.Rounded.Close, contentDescription = "بستن")
                     }
@@ -412,40 +423,177 @@ fun PersianTimePickerDialog(
                             text = "$hStr:$mStr",
                             style = MaterialTheme.typography.displayMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = 32.sp
+                                fontSize = 34.sp
                             ),
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
 
-                // Hour Adjuster (+1/-1)
+                // Quick Hour Presets
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    IconButton(onClick = { hour = (hour - 1 + 24) % 24 }) {
-                        Icon(Icons.Rounded.Remove, contentDescription = "-1 ساعت")
-                    }
-                    Text("ساعت", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp))
-                    IconButton(onClick = { hour = (hour + 1) % 24 }) {
-                        Icon(Icons.Rounded.Add, contentDescription = "+1 ساعت")
+                    listOf(
+                        "۰۸:۰۰" to 8,
+                        "۰۹:۰۰" to 9,
+                        "۱۲:۰۰" to 12,
+                        "۱۵:۰۰" to 15,
+                        "۱۸:۰۰" to 18,
+                        "۲۱:۰۰" to 21
+                    ).forEach { (label, hVal) ->
+                        val isSelected = (hour == hVal && minute == 0)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                hour = hVal
+                                minute = 0
+                            },
+                            label = {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
 
-                // Minute Adjuster (+5/-5)
+                // Hour Adjuster (+1/-1) with 24-hour wrap
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    IconButton(onClick = { minute = (minute - 5 + 60) % 60 }) {
-                        Icon(Icons.Rounded.Remove, contentDescription = "-5 دقیقه")
+                    Text(
+                        text = "ساعت (۰۰ تا ۲۳):",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilledTonalIconButton(
+                            onClick = { hour = (hour - 1 + 24) % 24 },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(Icons.Rounded.Remove, contentDescription = "-1 ساعت")
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.width(46.dp).height(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = IranianPhoneUtils.convertDigitsToPersian(hour.toString().padStart(2, '0')),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
+
+                        FilledTonalIconButton(
+                            onClick = { hour = (hour + 1) % 24 },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(Icons.Rounded.Add, contentDescription = "+1 ساعت")
+                        }
                     }
-                    Text("دقیقه", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp))
-                    IconButton(onClick = { minute = (minute + 5) % 60 }) {
-                        Icon(Icons.Rounded.Add, contentDescription = "+5 دقیقه")
+                }
+
+                // Minute Adjuster (+1/-1 and +5/-5) with 60-minute wrap
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "دقیقه (۰۰ تا ۵۹):",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        FilledTonalIconButton(
+                            onClick = { minute = (minute - 5 + 60) % 60 },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Text("-۵", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        FilledTonalIconButton(
+                            onClick = { minute = (minute - 1 + 60) % 60 },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Rounded.Remove, contentDescription = "-1 دقیقه", modifier = Modifier.size(16.dp))
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.width(44.dp).height(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = IranianPhoneUtils.convertDigitsToPersian(minute.toString().padStart(2, '0')),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
+
+                        FilledTonalIconButton(
+                            onClick = { minute = (minute + 1) % 60 },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Rounded.Add, contentDescription = "+1 دقیقه", modifier = Modifier.size(16.dp))
+                        }
+
+                        FilledTonalIconButton(
+                            onClick = { minute = (minute + 5) % 60 },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Text("+۵", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // Quick Minute Presets
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(
+                        ":۰۰" to 0,
+                        ":۱۵" to 15,
+                        ":۳۰" to 30,
+                        ":۴۵" to 45
+                    ).forEach { (label, minVal) ->
+                        val isSelected = (minute == minVal)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { minute = minVal },
+                            label = {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
 
@@ -470,5 +618,98 @@ fun PersianTimePickerDialog(
                 }
             }
         }
+    }
+}
+
+/**
+ * Interactive Standard Persian & 24-hour Time Input Field.
+ * Replaces manual text entry with an interactive picker dialog.
+ * Preserves HH:mm standard format.
+ */
+@Composable
+fun PersianTimeInputField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    label: String = "ساعت هشدار",
+    enabled: Boolean = true,
+    testTag: String = "input_reminder_time"
+) {
+    var showTimePickerDialog by remember { mutableStateOf(false) }
+
+    val (currentHour, currentMinute) = remember(value) {
+        try {
+            val clean = IranianPhoneUtils.convertDigitsToEnglish(value).trim()
+            val parts = clean.split(":")
+            val h = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 9
+            val m = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
+            Pair(h, m)
+        } catch (e: Exception) {
+            Pair(9, 0)
+        }
+    }
+
+    val displayTime = remember(value) {
+        val clean = IranianPhoneUtils.convertDigitsToEnglish(value).trim()
+        val parts = clean.split(":")
+        val h = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 9
+        val m = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
+        val formatted = "%02d:%02d".format(h, m)
+        IranianPhoneUtils.convertDigitsToPersian(formatted)
+    }
+
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = displayTime,
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text(label) },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Rounded.AccessTime,
+                    contentDescription = "انتخاب ساعت",
+                    tint = WarningAmberLight
+                )
+            },
+            trailingIcon = {
+                IconButton(
+                    onClick = { if (enabled) showTimePickerDialog = true },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Schedule,
+                        contentDescription = "تنظیم ساعت",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            shape = RoundedCornerShape(RadiusMD),
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(testTag)
+        )
+
+        // Transparent overlay to ensure entire touch area triggers the dialog without opening keyboard
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(RadiusMD))
+                .clickable(enabled = enabled) { showTimePickerDialog = true }
+        )
+    }
+
+    if (showTimePickerDialog) {
+        PersianTimePickerDialog(
+            initialHour = currentHour,
+            initialMinute = currentMinute,
+            onDismiss = { showTimePickerDialog = false },
+            onConfirm = { newH, newMin ->
+                val formatted = "%02d:%02d".format(newH, newMin)
+                onValueChange(formatted)
+                showTimePickerDialog = false
+            }
+        )
     }
 }

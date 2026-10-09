@@ -25,7 +25,9 @@ import com.example.reminder.data.ReminderEntity
 import com.example.reminder.domain.ReminderType
 import com.example.reminder.domain.SnoozeOption
 import com.example.ui.components.Layered3DCard
+import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
+import com.example.ui.screens.reminder.components.PersianTimeInputField
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
@@ -42,7 +44,7 @@ fun ReminderDetailScreen(
     reminder: ReminderEntity,
     onBackClick: () -> Unit,
     onToggleCompleted: () -> Unit,
-    onSnooze: (SnoozeOption) -> Unit,
+    onSnooze: (option: SnoozeOption, customTargetMillis: Long?) -> Unit,
     onDelete: () -> Unit,
     onUpdateDateTime: (newDate: String, newTime: String) -> Unit,
     modifier: Modifier = Modifier
@@ -294,52 +296,18 @@ fun ReminderDetailScreen(
 
     // Snooze Dialog
     if (showSnoozeDialog) {
-        AlertDialog(
-            onDismissRequest = { showSnoozeDialog = false },
-            title = { Text("تعویق زمان یادآوری", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "یادآوری را به چه زمانی به تعویق می‌اندازید؟",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    SnoozeOption.values().forEach { option ->
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(RadiusSM))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                .clickable {
-                                    onSnooze(option)
-                                    showSnoozeDialog = false
-                                    onBackClick()
-                                }
-                                .padding(12.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Schedule,
-                                    contentDescription = null,
-                                    tint = WarningAmberLight,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(
-                                    text = option.title,
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium)
-                                )
-                            }
-                        }
-                    }
-                }
+        SnoozeReminderDialog(
+            reminderTitle = reminder.title,
+            onDismiss = { showSnoozeDialog = false },
+            onSnoozePreset = { option ->
+                onSnooze(option, null)
+                showSnoozeDialog = false
+                onBackClick()
             },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showSnoozeDialog = false }) {
-                    Text("انصراف")
-                }
+            onSnoozeCustom = { targetMillis ->
+                onSnooze(SnoozeOption.CUSTOM, targetMillis)
+                showSnoozeDialog = false
+                onBackClick()
             }
         )
     }
@@ -351,19 +319,17 @@ fun ReminderDetailScreen(
             title = { Text("تغییر زمان سررسید", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
+                    PersianDateInputField(
                         value = editDate,
                         onValueChange = { editDate = it },
-                        label = { Text("تاریخ جدید") },
-                        shape = RoundedCornerShape(RadiusSM),
-                        singleLine = true
+                        label = "تاریخ جدید (شمسی)",
+                        placeholder = "۱۴۰۴/۰۱/۰۱"
                     )
-                    OutlinedTextField(
+                    PersianTimeInputField(
                         value = editTime,
                         onValueChange = { editTime = it },
-                        label = { Text("ساعت جدید") },
-                        shape = RoundedCornerShape(RadiusSM),
-                        singleLine = true
+                        label = "ساعت جدید",
+                        testTag = "input_edit_reminder_time"
                     )
                 }
             },

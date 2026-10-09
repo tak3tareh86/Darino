@@ -39,5 +39,6 @@ data class ReminderState(
     val nearestReminder: ReminderEntity? = null,
     val smartSuggestions: List<SmartSuggestion> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val userMessage: String? = null
 )

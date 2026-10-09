@@ -179,8 +179,22 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         val reminder = dao.getReminderById(userId, reminderId) ?: return
         if (!reminder.status.equals("ACTIVE", ignoreCase = true)) return
 
-        val schedule = ReminderScheduler(context).snooze(reminder, snoozeMinutes)
+        val triggerTime = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
+        val schedule = com.example.reminder.data.ReminderScheduleEntity(
+            id = "snooze_${java.util.UUID.randomUUID()}",
+            reminderId = reminder.id,
+            triggerType = "EXACT",
+            offsetValue = snoozeMinutes,
+            offsetUnit = "MINUTE",
+            triggerDateTime = triggerTime,
+            repeatType = "NONE",
+            enabled = true,
+            createdAt = System.currentTimeMillis()
+        )
+        // 1. Insert into database FIRST so it is guaranteed available when alarm triggers
         dao.insertSchedule(schedule)
+        // 2. Schedule alarm SECOND
+        ReminderScheduler(context).scheduleSingle(reminder, schedule)
         if (notificationId != -1) NotificationDispatcher(context).cancelNotification(notificationId)
     }
 

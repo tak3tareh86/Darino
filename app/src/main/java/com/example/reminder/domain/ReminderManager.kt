@@ -137,24 +137,56 @@ class ReminderManager(
 
     /**
      * Snoozes a reminder by scheduling a non-destructive temporary trigger.
+     * Orders Room persistence BEFORE AlarmManager registration to prevent premature triggers.
+     * Supports both preset durations and exact custom future timestamps.
      */
     suspend fun snoozeReminder(
         reminderId: String,
         option: SnoozeOption,
-        customMinutes: Int? = null
-    ) = withContext(Dispatchers.IO) {
-        val reminder = repository.getReminderById(reminderId) ?: return@withContext
-        val minutes = when (option) {
-            SnoozeOption.MINUTES_15 -> 15
-            SnoozeOption.HOUR_1 -> 60
-            SnoozeOption.TOMORROW -> 24 * 60
-            SnoozeOption.THREE_DAYS -> 3 * 24 * 60
-            SnoozeOption.CUSTOM -> customMinutes ?: 15
+        customTargetMillis: Long? = null
+    ): Result<Long> = withContext(Dispatchers.IO) {
+        val reminder = repository.getReminderById(reminderId)
+            ?: return@withContext Result.failure(IllegalStateException("یادآور با شناسه موردنظر یافت نشد."))
+
+        val now = System.currentTimeMillis()
+        val triggerMillis = when (option) {
+            SnoozeOption.MINUTES_15 -> now + (15 * 60 * 1000L)
+            SnoozeOption.HOUR_1 -> now + (60 * 60 * 1000L)
+            SnoozeOption.TOMORROW -> now + (24 * 60 * 60 * 1000L)
+            SnoozeOption.THREE_DAYS -> now + (3 * 24 * 60 * 60 * 1000L)
+            SnoozeOption.CUSTOM -> {
+                if (customTargetMillis == null || customTargetMillis <= now) {
+                    return@withContext Result.failure(IllegalArgumentException("زمان انتخابی برای تعویق نامعتبر یا در گذشته است."))
+                }
+                customTargetMillis
+            }
         }
 
-        val snoozeSchedule = scheduler.snooze(reminder, minutes)
+        if (triggerMillis <= now) {
+            return@withContext Result.failure(IllegalArgumentException("زمان تعیین‌شده برای تعویق در گذشته است."))
+        }
+
+        val snoozeMinutes = (((triggerMillis - now) / 60000L).coerceAtLeast(1L)).toInt()
+        val snoozeSchedule = ReminderScheduleEntity(
+            id = "snooze_${UUID.randomUUID()}",
+            reminderId = reminder.id,
+            triggerType = "EXACT",
+            offsetValue = snoozeMinutes,
+            offsetUnit = "MINUTE",
+            triggerDateTime = triggerMillis,
+            repeatType = "NONE",
+            enabled = true,
+            createdAt = now
+        )
+
+        // 1. SAFE ORDERING: Insert schedule in Room database FIRST so it is guaranteed available to receiver
         repository.insertSchedule(snoozeSchedule)
-        Log.i("ReminderManager", "Snoozed reminder ${reminder.title} for $minutes minutes.")
+
+        // 2. Register alarm with AlarmManager SECOND
+        scheduler.scheduleSingle(reminder, snoozeSchedule)
+
+        Log.i("ReminderManager", "Snoozed reminder ${reminder.title} to $triggerMillis ($snoozeMinutes min).")
+        Result.success(triggerMillis)
     }
 
     /**
