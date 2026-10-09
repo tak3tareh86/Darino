@@ -45,6 +45,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -131,17 +132,40 @@ fun AddTransactionSheet(
     var selectedAccount by remember(activeAccounts, initialTransaction) {
         mutableStateOf(
             activeAccounts.find { it.id == initialTransaction?.accountId }
+                ?: if (initialTransaction == null) {
+                    activeAccounts.find { it.name == "کارت بانکی" } ?: activeAccounts.firstOrNull()
+                } else null
         )
     }
     var selectedSourceAccount by remember(activeAccounts, initialTransaction) {
         mutableStateOf(
             activeAccounts.find { it.id == initialTransaction?.transferSourceAccountId }
+                ?: if (initialTransaction == null) {
+                    activeAccounts.find { it.name == "کارت بانکی" } ?: activeAccounts.firstOrNull()
+                } else null
         )
     }
     var selectedDestinationAccount by remember(activeAccounts, initialTransaction) {
         mutableStateOf(
             activeAccounts.find { it.id == initialTransaction?.transferDestinationAccountId }
+                ?: if (initialTransaction == null) {
+                    activeAccounts.find { it.name == "کیف پول" } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
+                } else null
         )
+    }
+
+    LaunchedEffect(activeAccounts) {
+        if (initialTransaction == null) {
+            if (selectedAccount == null && activeAccounts.isNotEmpty()) {
+                selectedAccount = activeAccounts.find { it.name == "کارت بانکی" } ?: activeAccounts.firstOrNull()
+            }
+            if (selectedSourceAccount == null && activeAccounts.isNotEmpty()) {
+                selectedSourceAccount = activeAccounts.find { it.name == "کارت بانکی" } ?: activeAccounts.firstOrNull()
+            }
+            if (selectedDestinationAccount == null && activeAccounts.size >= 2) {
+                selectedDestinationAccount = activeAccounts.find { it.name == "کیف پول" } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
+            }
+        }
     }
     var isRecurring by remember { mutableStateOf(initialTransaction?.isRecurring ?: false) }
     var recurringFrequency by remember { mutableStateOf(initialTransaction?.recurringFrequency ?: RecurringFrequency.MONTHLY) }

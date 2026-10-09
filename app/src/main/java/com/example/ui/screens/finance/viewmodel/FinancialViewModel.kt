@@ -27,6 +27,14 @@ class FinancialViewModel(
     private val repository: FinanceRepository = LocalFinanceRepository.instance
 ) : ViewModel() {
 
+    init {
+        viewModelScope.launch {
+            com.example.data.security.SessionManager.userId?.let { uid ->
+                repository.ensureDefaultAccounts(uid)
+            }
+        }
+    }
+
     private val _selectedPeriod = MutableStateFlow(FinanceFilterPeriod.THIS_MONTH)
     val selectedPeriod: StateFlow<FinanceFilterPeriod> = _selectedPeriod
 

@@ -37,6 +37,7 @@ interface FinanceRepository {
     suspend fun updateAccountResult(account: com.example.ui.screens.finance.model.Account): TransactionOperationResult
     suspend fun deleteAccountResult(id: String): TransactionOperationResult
     suspend fun calculateAccountBalance(accountId: String): Long
+    suspend fun ensureDefaultAccounts(userId: String)
 
     fun addCategory(category: TransactionCategory)
     fun updateCategory(category: TransactionCategory)

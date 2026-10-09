@@ -73,6 +73,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 loadMetadataFromDisk(appCtx, authenticatedUserId)
 
                 try {
+                    // Ensure default active accounts exist in Room DB for authenticated user
+                    ensureDefaultAccounts(db, authenticatedUserId)
+
                     // Collect accounts
                     launch {
                         db.accountDao().getAllAccountsFlow(authenticatedUserId).collectLatest { entities ->
@@ -948,6 +951,78 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             }
         }
         return balance
+    }
+
+    override suspend fun ensureDefaultAccounts(userId: String) {
+        val ctx = appContext ?: return
+        val db = AppDatabase.getDatabase(ctx)
+        ensureDefaultAccounts(db, userId)
+    }
+
+    suspend fun ensureDefaultAccounts(db: AppDatabase, userId: String) {
+        if (userId.isBlank()) return
+        try {
+            val existingAccounts = db.accountDao().getAllAccountsRaw(userId)
+            val activeNames = existingAccounts.filter { it.deletedAt == null && it.isActive }.map { it.name }.toSet()
+
+            val defaultAccounts = listOf(
+                Triple("کارت بانکی", "CARD", "کارت بانکی"),
+                Triple("کیف پول", "OTHER", null),
+                Triple("پول نقد / متفرقه", "CASH", null)
+            )
+
+            for ((name, type, bankName) in defaultAccounts) {
+                if (name !in activeNames) {
+                    val softDeleted = existingAccounts.find { it.name == name && it.deletedAt != null }
+                    if (softDeleted != null) {
+                        db.accountDao().updateAccount(
+                            softDeleted.copy(
+                                deletedAt = null,
+                                isActive = true,
+                                updatedAt = System.currentTimeMillis()
+                            )
+                        )
+                    } else {
+                        val stringId = "default_${when (type) {
+                            "CARD" -> "card"
+                            "OTHER" -> "wallet"
+                            else -> "cash_misc"
+                        }}_${userId}"
+
+                        val existingWithId = existingAccounts.find { it.stringId == stringId }
+                        if (existingWithId != null) {
+                            db.accountDao().updateAccount(
+                                existingWithId.copy(
+                                    name = name,
+                                    type = type,
+                                    bankName = bankName,
+                                    isActive = true,
+                                    deletedAt = null,
+                                    updatedAt = System.currentTimeMillis()
+                                )
+                            )
+                        } else {
+                            db.accountDao().insertAccount(
+                                com.example.data.database.AccountEntity(
+                                    userId = userId,
+                                    stringId = stringId,
+                                    name = name,
+                                    type = type,
+                                    bankName = bankName,
+                                    initialBalance = 0L,
+                                    isActive = true,
+                                    createdAt = System.currentTimeMillis(),
+                                    updatedAt = System.currentTimeMillis(),
+                                    deletedAt = null
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("LocalFinanceRepository", "Failed to ensure default accounts for user $userId", e)
+        }
     }
 
     companion object {

@@ -67,6 +67,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -1002,7 +1003,7 @@ fun EditSmsTransactionDialog(
                 }
                 if (matches.size == 1) matches.first() else null
             } else null
-        }
+        } ?: (activeUserAccounts.find { it.name == "کارت بانکی" } ?: activeUserAccounts.firstOrNull())
         mutableStateOf(initial?.stringId)
     }
 
@@ -1012,8 +1013,19 @@ fun EditSmsTransactionDialog(
             acc.stringId == suggestion.destinationAccount
         } ?: activeUserAccounts.firstOrNull { acc ->
             !suggestion.destinationAccount.isNullOrBlank() && acc.name.equals(suggestion.destinationAccount, ignoreCase = true)
-        }
+        } ?: (activeUserAccounts.firstOrNull { it.stringId != selectedSourceAccountId && it.name == "کیف پول" }
+            ?: activeUserAccounts.firstOrNull { it.stringId != selectedSourceAccountId })
         mutableStateOf(initial?.stringId)
+    }
+
+    LaunchedEffect(activeUserAccounts) {
+        if (selectedSourceAccountId == null && activeUserAccounts.isNotEmpty()) {
+            selectedSourceAccountId = (activeUserAccounts.find { it.name == "کارت بانکی" } ?: activeUserAccounts.firstOrNull())?.stringId
+        }
+        if (selectedDestAccountId == null && activeUserAccounts.size >= 2) {
+            selectedDestAccountId = (activeUserAccounts.firstOrNull { it.stringId != selectedSourceAccountId && it.name == "کیف پول" }
+                ?: activeUserAccounts.firstOrNull { it.stringId != selectedSourceAccountId })?.stringId
+        }
     }
 
     var isSubmitting by remember { mutableStateOf(false) }

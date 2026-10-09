@@ -423,6 +423,12 @@ interface AccountDao {
     @Query("SELECT * FROM accounts WHERE userId = :userId AND stringId = :stringId AND deletedAt IS NULL LIMIT 1")
     suspend fun getAccountByStringId(userId: String, stringId: String): AccountEntity?
 
+    @Query("SELECT * FROM accounts WHERE userId = :userId AND name = :name AND deletedAt IS NULL LIMIT 1")
+    suspend fun getAccountByName(userId: String, name: String): AccountEntity?
+
+    @Query("SELECT * FROM accounts WHERE userId = :userId")
+    suspend fun getAllAccountsRaw(userId: String): List<AccountEntity>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertAccount(account: AccountEntity)
 

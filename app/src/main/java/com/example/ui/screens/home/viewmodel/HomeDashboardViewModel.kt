@@ -151,6 +151,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     launch {
                         try {
                             val db = AppDatabase.getDatabase(application)
+                            com.example.ui.screens.finance.data.LocalFinanceRepository.instance.ensureDefaultAccounts(db, userId)
                             db.accountDao().getAllAccountsFlow(userId).collectLatest { accList ->
                                 _userAccounts.value = accList.filter { it.isActive && it.deletedAt == null }
                             }
@@ -478,6 +479,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 val finalAccount = customAccount?.trim()?.ifEmpty { null } ?: item.bankName
 
                 // 5. Resolve accounts strictly from user's active, valid accounts
+                com.example.ui.screens.finance.data.LocalFinanceRepository.instance.ensureDefaultAccounts(db, userId)
                 val activeAccounts = db.accountDao().getAllAccountsList(userId).filter { it.isActive && it.deletedAt == null }
                 val sourceAcc = findMatchingAccount(activeAccounts, customAccount ?: finalAccount, item.bankName)
                 if (sourceAcc == null) {
