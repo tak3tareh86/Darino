@@ -11,9 +11,9 @@ class MockSmsDispatcher : SmsDispatcher {
         message: String,
         reminderType: String
     ): SmsDispatchResult {
-        val mockId = "sms_mock_${UUID.randomUUID().toString().substring(0, 8)}"
+        val mockId = "sms_${UUID.randomUUID().toString().substring(0, 8)}"
         println("SmsDispatcher: Simulated successful SMS to $phoneNumber with ID $mockId: $message")
-        sentMessages[mockId] = DeliveryStatus.DELIVERED
+        sentMessages[mockId] = DeliveryStatus.SENT
         return SmsDispatchResult(
             success = true,
             providerMessageId = mockId,

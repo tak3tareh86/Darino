@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -953,6 +955,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         return balance
     }
 
+    private val defaultAccountsMutex = Mutex()
+
     override suspend fun ensureDefaultAccounts(userId: String) {
         val ctx = appContext ?: return
         val db = AppDatabase.getDatabase(ctx)
@@ -961,56 +965,59 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
     suspend fun ensureDefaultAccounts(db: AppDatabase, userId: String) {
         if (userId.isBlank()) return
-        try {
-            val existingAccounts = db.accountDao().getAllAccountsRaw(userId)
+        defaultAccountsMutex.withLock {
+            try {
+                val existingAccounts = db.accountDao().getAllAccountsRaw(userId)
 
-            val defaultAccounts = listOf(
-                Triple("کارت بانکی", "CARD", "کارت بانکی"),
-                Triple("کیف پول", "OTHER", null),
-                Triple("پول نقد / متفرقه", "CASH", null)
-            )
-
-            for ((name, type, bankName) in defaultAccounts) {
-                val stringId = "default_${when (type) {
-                    "CARD" -> "card"
-                    "OTHER" -> "wallet"
-                    else -> "cash_misc"
-                }}_${userId}"
-
-                // Check existing records of this user by name and ID
-                val existingByName = existingAccounts.find { it.name == name }
-                val existingById = existingAccounts.find { it.stringId == stringId }
-
-                // If an account with the same name already exists:
-                // - If deleted (deletedAt != null): do not automatically restore or activate it, and do not create a duplicate.
-                // - If not deleted (active or inactive, or different stringId): do not create duplicate records.
-                if (existingByName != null) {
-                    continue
-                }
-
-                // If an account with the same stringId already exists:
-                // Do not restore if deleted, and do not create duplicate records.
-                if (existingById != null) {
-                    continue
-                }
-
-                db.accountDao().insertAccount(
-                    com.example.data.database.AccountEntity(
-                        userId = userId,
-                        stringId = stringId,
-                        name = name,
-                        type = type,
-                        bankName = bankName,
-                        initialBalance = 0L,
-                        isActive = true,
-                        createdAt = System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis(),
-                        deletedAt = null
-                    )
+                val defaultAccounts = listOf(
+                    Triple("کارت بانکی", "CARD", "کارت بانکی"),
+                    Triple("کیف پول", "OTHER", null),
+                    Triple("پول نقد / متفرقه", "CASH", null)
                 )
+
+                for ((name, type, bankName) in defaultAccounts) {
+                    val stringId = "default_${when (type) {
+                        "CARD" -> "card"
+                        "OTHER" -> "wallet"
+                        else -> "cash_misc"
+                    }}_${userId}"
+
+                    // Check existing records of this user by name and ID
+                    val existingByName = existingAccounts.find { it.name == name }
+                    val existingById = existingAccounts.find { it.stringId == stringId }
+
+                    // If an account with the same name already exists for this user:
+                    // - If deleted (deletedAt != null): do not automatically restore or activate it, and do not create a duplicate.
+                    // - If inactive (isActive == false): keep untouched, do not automatically activate, and do not create duplicate active account.
+                    // - If active (isActive == true): keep untouched.
+                    if (existingByName != null) {
+                        continue
+                    }
+
+                    // If an account with the same stringId already exists for this user:
+                    // Do not restore if deleted, and do not create duplicate records.
+                    if (existingById != null) {
+                        continue
+                    }
+
+                    db.accountDao().insertAccount(
+                        com.example.data.database.AccountEntity(
+                            userId = userId,
+                            stringId = stringId,
+                            name = name,
+                            type = type,
+                            bankName = bankName,
+                            initialBalance = 0L,
+                            isActive = true,
+                            createdAt = System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis(),
+                            deletedAt = null
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("LocalFinanceRepository", "Failed to ensure default accounts for user $userId", e)
             }
-        } catch (e: Exception) {
-            android.util.Log.e("LocalFinanceRepository", "Failed to ensure default accounts for user $userId", e)
         }
     }
 
