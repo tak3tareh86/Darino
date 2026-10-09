@@ -25,24 +25,33 @@ class ReminderScheduler(private val context: Context) {
             return
         }
 
+        val now = System.currentTimeMillis()
         schedules.forEach { schedule ->
-            if (schedule.enabled) {
-                scheduleSingle(reminder, schedule)
+            if (schedule.enabled && schedule.triggerDateTime > now) {
+                try {
+                    scheduleSingle(reminder, schedule)
+                } catch (e: Exception) {
+                    Log.e("ReminderScheduler", "Failed to schedule trigger for reminder ${reminder.title}, schedule ${schedule.id}", e)
+                }
             }
         }
     }
 
     /**
      * Schedules a single schedule trigger using AlarmManager exact alarm (with fallback).
+     * Throws an exception on failure so caller can detect failure and perform compensation if needed.
      */
     fun scheduleSingle(reminder: ReminderEntity, schedule: ReminderScheduleEntity) {
         val triggerTime = schedule.triggerDateTime
         val now = System.currentTimeMillis()
 
         if (triggerTime <= now) {
-            Log.i("ReminderScheduler", "Trigger time $triggerTime is in the past for schedule ${schedule.id}. Skipping.")
-            return
+            Log.w("ReminderScheduler", "Trigger time $triggerTime is in the past for schedule ${schedule.id}. Cannot schedule.")
+            throw IllegalArgumentException("زمان اجرای هشدار در گذشته است ($triggerTime <= $now).")
         }
+
+        val manager = alarmManager
+            ?: throw IllegalStateException("سرویس AlarmManager در سیستم در دسترس نیست.")
 
         val requestCode = NotificationIdGenerator.generateAlarmRequestCode(schedule.id)
         val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
@@ -59,34 +68,33 @@ class ReminderScheduler(private val context: Context) {
         )
 
         try {
-            if (alarmManager != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (alarmManager.canScheduleExactAlarms()) {
-                        alarmManager.setExactAndAllowWhileIdle(
-                            AlarmManager.RTC_WAKEUP,
-                            triggerTime,
-                            pendingIntent
-                        )
-                        Log.i("ReminderScheduler", "Set exact alarm for ${reminder.title} (Schedule ${schedule.id}) at $triggerTime")
-                    } else {
-                        alarmManager.set(
-                            AlarmManager.RTC_WAKEUP,
-                            triggerTime,
-                            pendingIntent
-                        )
-                        Log.i("ReminderScheduler", "Fallback inexact alarm for ${reminder.title} (Schedule ${schedule.id}) at $triggerTime")
-                    }
-                } else {
-                    alarmManager.setExactAndAllowWhileIdle(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (manager.canScheduleExactAlarms()) {
+                    manager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
                         triggerTime,
                         pendingIntent
                     )
-                    Log.i("ReminderScheduler", "Set exact alarm on pre-API 31 for ${reminder.title} at $triggerTime")
+                    Log.i("ReminderScheduler", "Set exact alarm for ${reminder.title} (Schedule ${schedule.id}) at $triggerTime")
+                } else {
+                    manager.set(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerTime,
+                        pendingIntent
+                    )
+                    Log.i("ReminderScheduler", "Fallback inexact alarm for ${reminder.title} (Schedule ${schedule.id}) at $triggerTime")
                 }
+            } else {
+                manager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerTime,
+                    pendingIntent
+                )
+                Log.i("ReminderScheduler", "Set exact alarm on pre-API 31 for ${reminder.title} at $triggerTime")
             }
         } catch (e: Exception) {
             Log.e("ReminderScheduler", "Failed to schedule alarm for reminder ${reminder.title}", e)
+            throw e
         }
     }
 
@@ -170,8 +178,12 @@ class ReminderScheduler(private val context: Context) {
                 val schedules = db.smartReminderDao().getSchedulesForReminderSync(reminder.userId, reminder.id)
                 schedules.forEach { schedule ->
                     if (schedule.enabled && schedule.triggerDateTime > System.currentTimeMillis()) {
-                        scheduleSingle(reminder, schedule)
-                        count++
+                        try {
+                            scheduleSingle(reminder, schedule)
+                            count++
+                        } catch (e: Exception) {
+                            Log.e("ReminderScheduler", "Failed to re-arm schedule ${schedule.id} during rebuild", e)
+                        }
                     }
                 }
             }

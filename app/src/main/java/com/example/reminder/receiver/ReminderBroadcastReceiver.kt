@@ -193,8 +193,18 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         )
         // 1. Insert into database FIRST so it is guaranteed available when alarm triggers
         dao.insertSchedule(schedule)
-        // 2. Schedule alarm SECOND
-        ReminderScheduler(context).scheduleSingle(reminder, schedule)
+        // 2. Schedule alarm SECOND; rollback if alarm registration fails
+        try {
+            ReminderScheduler(context).scheduleSingle(reminder, schedule)
+        } catch (e: Exception) {
+            Log.e("ReminderBroadcastReceiver", "Failed to schedule alarm for snooze in receiver. Performing rollback.", e)
+            try {
+                dao.deleteSchedule(schedule)
+            } catch (delEx: Exception) {
+                Log.e("ReminderBroadcastReceiver", "Failed to rollback schedule in receiver", delEx)
+            }
+            return
+        }
         if (notificationId != -1) NotificationDispatcher(context).cancelNotification(notificationId)
     }
 

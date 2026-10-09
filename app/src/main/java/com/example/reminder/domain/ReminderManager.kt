@@ -182,8 +182,20 @@ class ReminderManager(
         // 1. SAFE ORDERING: Insert schedule in Room database FIRST so it is guaranteed available to receiver
         repository.insertSchedule(snoozeSchedule)
 
-        // 2. Register alarm with AlarmManager SECOND
-        scheduler.scheduleSingle(reminder, snoozeSchedule)
+        // 2. Register alarm with AlarmManager SECOND; perform compensation rollback if scheduling fails
+        try {
+            scheduler.scheduleSingle(reminder, snoozeSchedule)
+        } catch (e: Exception) {
+            Log.e("ReminderManager", "Failed to schedule alarm in AlarmManager for snooze. Rolling back Room schedule.", e)
+            try {
+                repository.deleteSchedule(snoozeSchedule)
+            } catch (rollbackEx: Exception) {
+                Log.e("ReminderManager", "Failed to delete schedule during rollback", rollbackEx)
+            }
+            return@withContext Result.failure(
+                IllegalStateException("خطا در زمان‌بندی هشدار در سیستم: ${e.message ?: "عدم امکان ثبت هشدار"}", e)
+            )
+        }
 
         Log.i("ReminderManager", "Snoozed reminder ${reminder.title} to $triggerMillis ($snoozeMinutes min).")
         Result.success(triggerMillis)
