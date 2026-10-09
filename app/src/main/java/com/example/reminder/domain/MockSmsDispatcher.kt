@@ -1,6 +1,5 @@
 package com.example.reminder.domain
 
-import com.example.util.IranianPhoneUtils
 import java.util.UUID
 
 class MockSmsDispatcher : SmsDispatcher {

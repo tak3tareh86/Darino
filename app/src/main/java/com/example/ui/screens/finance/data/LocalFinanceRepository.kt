@@ -963,7 +963,6 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         if (userId.isBlank()) return
         try {
             val existingAccounts = db.accountDao().getAllAccountsRaw(userId)
-            val activeNames = existingAccounts.filter { it.deletedAt == null && it.isActive }.map { it.name }.toSet()
 
             val defaultAccounts = listOf(
                 Triple("کارت بانکی", "CARD", "کارت بانکی"),
@@ -972,53 +971,43 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             )
 
             for ((name, type, bankName) in defaultAccounts) {
-                if (name !in activeNames) {
-                    val softDeleted = existingAccounts.find { it.name == name && it.deletedAt != null }
-                    if (softDeleted != null) {
-                        db.accountDao().updateAccount(
-                            softDeleted.copy(
-                                deletedAt = null,
-                                isActive = true,
-                                updatedAt = System.currentTimeMillis()
-                            )
-                        )
-                    } else {
-                        val stringId = "default_${when (type) {
-                            "CARD" -> "card"
-                            "OTHER" -> "wallet"
-                            else -> "cash_misc"
-                        }}_${userId}"
+                val stringId = "default_${when (type) {
+                    "CARD" -> "card"
+                    "OTHER" -> "wallet"
+                    else -> "cash_misc"
+                }}_${userId}"
 
-                        val existingWithId = existingAccounts.find { it.stringId == stringId }
-                        if (existingWithId != null) {
-                            db.accountDao().updateAccount(
-                                existingWithId.copy(
-                                    name = name,
-                                    type = type,
-                                    bankName = bankName,
-                                    isActive = true,
-                                    deletedAt = null,
-                                    updatedAt = System.currentTimeMillis()
-                                )
-                            )
-                        } else {
-                            db.accountDao().insertAccount(
-                                com.example.data.database.AccountEntity(
-                                    userId = userId,
-                                    stringId = stringId,
-                                    name = name,
-                                    type = type,
-                                    bankName = bankName,
-                                    initialBalance = 0L,
-                                    isActive = true,
-                                    createdAt = System.currentTimeMillis(),
-                                    updatedAt = System.currentTimeMillis(),
-                                    deletedAt = null
-                                )
-                            )
-                        }
-                    }
+                // Check existing records of this user by name and ID
+                val existingByName = existingAccounts.find { it.name == name }
+                val existingById = existingAccounts.find { it.stringId == stringId }
+
+                // If an account with the same name already exists:
+                // - If deleted (deletedAt != null): do not automatically restore or activate it, and do not create a duplicate.
+                // - If not deleted (active or inactive, or different stringId): do not create duplicate records.
+                if (existingByName != null) {
+                    continue
                 }
+
+                // If an account with the same stringId already exists:
+                // Do not restore if deleted, and do not create duplicate records.
+                if (existingById != null) {
+                    continue
+                }
+
+                db.accountDao().insertAccount(
+                    com.example.data.database.AccountEntity(
+                        userId = userId,
+                        stringId = stringId,
+                        name = name,
+                        type = type,
+                        bankName = bankName,
+                        initialBalance = 0L,
+                        isActive = true,
+                        createdAt = System.currentTimeMillis(),
+                        updatedAt = System.currentTimeMillis(),
+                        deletedAt = null
+                    )
+                )
             }
         } catch (e: Exception) {
             android.util.Log.e("LocalFinanceRepository", "Failed to ensure default accounts for user $userId", e)
