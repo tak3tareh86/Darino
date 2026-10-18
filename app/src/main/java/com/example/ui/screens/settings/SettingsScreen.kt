@@ -108,6 +108,7 @@ fun SettingsScreen(
     val currentNavTransition by prefsRepo.navTransition.collectAsState()
     val currentCurrency by prefsRepo.currency.collectAsState()
     val currentLanguage by prefsRepo.language.collectAsState()
+    val currentNumberMode by prefsRepo.numberDisplayMode.collectAsState()
 
     // Settings States
     var currentCalendar by remember { mutableStateOf(AppCalendar.SHAMSI) }
@@ -183,6 +184,7 @@ fun SettingsScreen(
                     currentTheme = currentTheme,
                     currentAccent = currentAccent,
                     currentLockType = currentLockType,
+                    currentNumberMode = currentNumberMode,
                     monthlyIncome = healthState.monthlyIncome,
                     pressurePercentage = healthState.pressurePercentage,
                     healthStatusTitle = healthState.healthStatus.title,
@@ -206,6 +208,8 @@ fun SettingsScreen(
                     onCurrencySelected = { prefsRepo.setCurrency(it) },
                     currentTheme = currentTheme,
                     onThemeChanged = onThemeChanged,
+                    currentNumberMode = currentNumberMode,
+                    onNumberModeChanged = { prefsRepo.setNumberDisplayMode(it) },
                     currentDeliveryMode = currentDeliveryMode,
                     onDeliveryModeChanged = { currentDeliveryMode = it },
                     currentNavTransition = currentNavTransition,
@@ -363,6 +367,7 @@ private fun SettingsMainView(
     currentTheme: AppThemeMode,
     currentAccent: AccentColorOption,
     currentLockType: AppLockType,
+    currentNumberMode: com.example.ui.screens.settings.model.NumberDisplayMode = com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN,
     monthlyIncome: Long = 25_000_000L,
     pressurePercentage: Float = 35f,
     healthStatusTitle: String = "مناسب",
@@ -478,7 +483,7 @@ private fun SettingsMainView(
                         SettingsSectionCard(title = "تنظیمات و امکانات") {
                             SettingsItem(
                                 title = "تنظیمات عمومی",
-                                subtitle = "زبان (${currentLanguage.title})، واحد پول (${currentCurrency.title})، حالت شب و روز (${currentTheme.title})",
+                                subtitle = "زبان (${currentLanguage.title})، واحد پول (${currentCurrency.title})، ارقام (${if (currentNumberMode == com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN) "فارسی" else "انگلیسی"})، تم (${currentTheme.title})",
                                 vectorIcon = Icons.Rounded.Tune,
                                 iconAccentColor = Color(0xFF0EA5E9),
                                 onClick = { onNavigate(SettingsDestination.GENERAL) }

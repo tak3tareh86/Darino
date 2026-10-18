@@ -49,16 +49,22 @@ object IranianPhoneUtils {
     }
 
     /**
-     * Always converts English digits to Persian digits unconditionally.
+     * Always converts English and Arabic digits to Persian digits unconditionally.
      */
     fun forceConvertDigitsToPersian(input: String): String {
         val persianDigits = charArrayOf('۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹')
+        val arabicDigits = charArrayOf('٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩')
         val sb = StringBuilder()
         for (char in input) {
             if (char in '0'..'9') {
                 sb.append(persianDigits[char - '0'])
             } else {
-                sb.append(char)
+                val aIndex = arabicDigits.indexOf(char)
+                if (aIndex != -1) {
+                    sb.append(persianDigits[aIndex])
+                } else {
+                    sb.append(char)
+                }
             }
         }
         return sb.toString()

@@ -103,7 +103,7 @@ object MoneyFormatter {
         val convertedAmount = convertFromToman(amount, currency)
         val absAmount = kotlin.math.abs(convertedAmount)
         val formattedNumber = formatNumberWithCommas(absAmount)
-        val displayFormatted = if (language == AppLanguage.PERSIAN) toPersianDigits(formattedNumber) else formattedNumber
+        val displayFormatted = AppNumberFormatter.formatDigits(formattedNumber, activeNumberMode)
         val sign = if (isExpense || convertedAmount < 0) "−" else "+"
         val unit = getUnitLabel(currency, language)
 
@@ -125,7 +125,7 @@ object MoneyFormatter {
         val convertedAmount = convertFromToman(amount, currency)
         val absAmount = kotlin.math.abs(convertedAmount)
         val formattedNumber = formatNumberWithCommas(absAmount)
-        val displayFormatted = if (language == AppLanguage.PERSIAN) toPersianDigits(formattedNumber) else formattedNumber
+        val displayFormatted = AppNumberFormatter.formatDigits(formattedNumber, activeNumberMode)
         return if (convertedAmount < 0) "−$displayFormatted" else displayFormatted
     }
 
@@ -151,26 +151,26 @@ object MoneyFormatter {
             abs >= 1_000_000_000L -> {
                 val b = abs / 1_000_000_000.0
                 val formatted = String.format(Locale.US, "%.1f", b).trimEnd('0').trimEnd('.')
-                val num = if (language == AppLanguage.PERSIAN) toPersianDigits(formatted) else formatted
+                val num = AppNumberFormatter.formatDigits(formatted, activeNumberMode)
                 val suffix = if (language == AppLanguage.ENGLISH) "B" else "میلیارد"
                 "$sign$num $suffix $unitShort"
             }
             abs >= 1_000_000L -> {
                 val m = abs / 1_000_000.0
                 val formatted = String.format(Locale.US, "%.1f", m).trimEnd('0').trimEnd('.')
-                val num = if (language == AppLanguage.PERSIAN) toPersianDigits(formatted) else formatted
+                val num = AppNumberFormatter.formatDigits(formatted, activeNumberMode)
                 val suffix = if (language == AppLanguage.ENGLISH) "M" else "م"
                 "$sign$num $suffix $unitShort"
             }
             abs >= 1_000L -> {
                 val k = abs / 1_000.0
                 val formatted = String.format(Locale.US, "%.0f", k)
-                val num = if (language == AppLanguage.PERSIAN) toPersianDigits(formatted) else formatted
+                val num = AppNumberFormatter.formatDigits(formatted, activeNumberMode)
                 val suffix = if (language == AppLanguage.ENGLISH) "K" else "هـ"
                 "$sign$num $suffix $unitShort"
             }
             else -> {
-                val num = if (language == AppLanguage.PERSIAN) toPersianDigits(abs.toString()) else abs.toString()
+                val num = AppNumberFormatter.formatDigits(abs.toString(), activeNumberMode)
                 "$sign$num $unitShort"
             }
         }

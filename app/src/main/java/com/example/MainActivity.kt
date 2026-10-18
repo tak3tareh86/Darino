@@ -147,14 +147,25 @@ fun AppNavigationContainer(
     val currentNavTransition by prefsRepo.navTransition.collectAsState()
     val currentCurrency by prefsRepo.currency.collectAsState()
     val currentLanguage by prefsRepo.language.collectAsState()
+    val currentNumberMode by prefsRepo.numberDisplayMode.collectAsState()
 
-    LaunchedEffect(currentCurrency, currentLanguage) {
+    LaunchedEffect(currentCurrency, currentLanguage, currentNumberMode) {
         MoneyFormatter.activeCurrency = currentCurrency
         MoneyFormatter.activeLanguage = currentLanguage
+        com.example.util.AppNumberFormatter.setMode(currentNumberMode)
     }
 
     val authViewModel: AuthViewModel = viewModel()
     val authUiState by authViewModel.uiState.collectAsState()
+
+    val currentUserId = authUiState.loggedInUser?.id ?: SessionManager.userId
+    LaunchedEffect(currentUserId) {
+        if (!currentUserId.isNullOrBlank()) {
+            prefsRepo.loadUserPreferences(currentUserId)
+        } else {
+            prefsRepo.resetUserPreferences()
+        }
+    }
 
     val lockViewModel: AppLockViewModel = viewModel()
     val lockUiState by lockViewModel.uiState.collectAsState()
@@ -223,7 +234,8 @@ fun AppNavigationContainer(
     // 4. Authenticated and Unlocked -> Main Application
     CompositionLocalProvider(
         LocalAppCurrency provides currentCurrency,
-        LocalAppLanguage provides currentLanguage
+        LocalAppLanguage provides currentLanguage,
+        com.example.util.LocalNumberDisplayMode provides currentNumberMode
     ) {
         SubscriptionGate(subscriptionViewModel = subscriptionViewModel) {
             // Back navigation interceptors

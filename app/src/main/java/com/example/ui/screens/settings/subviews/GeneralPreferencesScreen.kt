@@ -66,11 +66,13 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import kotlinx.coroutines.launch
 import com.example.ui.screens.settings.components.SettingsHeader
+import androidx.compose.material.icons.rounded.Calculate
 import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.ui.screens.settings.model.AppLanguage
 import com.example.ui.screens.settings.model.AppThemeMode
 import com.example.ui.screens.settings.model.NavigationTransitionAnimation
+import com.example.ui.screens.settings.model.NumberDisplayMode
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
@@ -84,6 +86,8 @@ fun GeneralPreferencesScreen(
     onCurrencySelected: (AppCurrency) -> Unit,
     currentTheme: AppThemeMode,
     onThemeChanged: (AppThemeMode) -> Unit,
+    currentNumberMode: NumberDisplayMode = NumberDisplayMode.PERSIAN,
+    onNumberModeChanged: (NumberDisplayMode) -> Unit = {},
     currentDeliveryMode: AlertDeliveryPreference = AlertDeliveryPreference.BOTH,
     onDeliveryModeChanged: (AlertDeliveryPreference) -> Unit = {},
     currentNavTransition: NavigationTransitionAnimation = NavigationTransitionAnimation.DYNAMIC,
@@ -194,7 +198,49 @@ fun GeneralPreferencesScreen(
                     }
                 }
 
-                // 3. Day & Night Mode (حالت شب و روز)
+                // 3. Number Display Setting (نحوه نمایش اعداد)
+                GeneralCompactCard(
+                    title = if (isEn) "Number Display" else "نحوه نمایش اعداد",
+                    subtitle = if (isEn) "Choose Persian or English numerals across the app" else "فارسی یا انگلیسی بودن ارقام در سراسر برنامه",
+                    icon = Icons.Rounded.Calculate,
+                    iconColor = Color(0xFFF59E0B)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CompactOptionChip(
+                            title = "فارسی: ۰۱۲۳۴۵۶۷۸۹",
+                            extra = "🇮🇷",
+                            isSelected = currentNumberMode == NumberDisplayMode.PERSIAN,
+                            onClick = {
+                                onNumberModeChanged(NumberDisplayMode.PERSIAN)
+                                Toast.makeText(
+                                    context,
+                                    if (isEn) "Number display set to Persian" else "نحوه نمایش اعداد به فارسی تنظیم شد",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        CompactOptionChip(
+                            title = "انگلیسی: 0123456789",
+                            extra = "🇬🇧",
+                            isSelected = currentNumberMode == NumberDisplayMode.ENGLISH,
+                            onClick = {
+                                onNumberModeChanged(NumberDisplayMode.ENGLISH)
+                                Toast.makeText(
+                                    context,
+                                    if (isEn) "Number display set to English" else "نحوه نمایش اعداد به انگلیسی تنظیم شد",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                // 4. Day & Night Mode (حالت شب و روز)
                 GeneralCompactCard(
                     title = if (isEn) "Day & Night Mode" else "حالت شب و روز",
                     subtitle = if (isEn) "Application visual theme" else "پوسته ظاهری برنامه",

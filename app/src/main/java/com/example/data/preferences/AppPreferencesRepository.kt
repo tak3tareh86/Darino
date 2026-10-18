@@ -2,20 +2,33 @@ package com.example.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.data.database.AppDatabase
+import com.example.data.database.UserPreferenceDao
+import com.example.data.database.UserPreferenceEntity
+import com.example.data.security.SessionManager
 import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.ui.screens.settings.model.AppLanguage
 import com.example.ui.screens.settings.model.AppThemeMode
 import com.example.ui.screens.settings.model.NavigationTransitionAnimation
+import com.example.ui.screens.settings.model.NumberDisplayMode
+import com.example.util.AppNumberFormatter
 import com.example.util.MoneyFormatter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Central repository for all application general preferences:
  * - Language (Persian / English)
  * - Currency (Toman / Rial)
+ * - Number Display Mode (Persian / English - Persisted in Room user_preferences)
  * - Theme Mode (Light / Dark / System)
  * - Alert Delivery Preference (Both / Notification Only / SMS Only)
  */
@@ -26,6 +39,13 @@ class AppPreferencesRepository private constructor(context: Context) {
         Context.MODE_PRIVATE
     )
 
+    private val userPreferenceDao: UserPreferenceDao by lazy {
+        AppDatabase.getDatabase(context).userPreferenceDao()
+    }
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var observePreferenceJob: Job? = null
+    private var currentActiveUserId: String? = null
+
     private val _themeMode = MutableStateFlow(loadThemeMode())
     val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
 
@@ -34,6 +54,9 @@ class AppPreferencesRepository private constructor(context: Context) {
 
     private val _currency = MutableStateFlow(loadCurrency())
     val currency: StateFlow<AppCurrency> = _currency.asStateFlow()
+
+    private val _numberDisplayMode = MutableStateFlow(NumberDisplayMode.PERSIAN)
+    val numberDisplayMode: StateFlow<NumberDisplayMode> = _numberDisplayMode.asStateFlow()
 
     private val _alertDelivery = MutableStateFlow(loadAlertDelivery())
     val alertDelivery: StateFlow<AlertDeliveryPreference> = _alertDelivery.asStateFlow()
@@ -50,9 +73,15 @@ class AppPreferencesRepository private constructor(context: Context) {
     }
 
     init {
-        // Synchronize MoneyFormatter with persisted preferences
+        // Synchronize MoneyFormatter & AppNumberFormatter with active preferences
         MoneyFormatter.activeCurrency = _currency.value
         MoneyFormatter.activeLanguage = _language.value
+        AppNumberFormatter.setMode(_numberDisplayMode.value)
+
+        val initialUserId = SessionManager.userId
+        if (!initialUserId.isNullOrBlank()) {
+            loadUserPreferences(initialUserId)
+        }
     }
 
     private fun loadThemeMode(): AppThemeMode {
@@ -125,6 +154,78 @@ class AppPreferencesRepository private constructor(context: Context) {
     fun setNavTransition(transition: NavigationTransitionAnimation) {
         prefs.edit().putString(KEY_NAV_TRANSITION, transition.name).apply()
         _navTransition.value = transition
+    }
+
+    /**
+     * Connects reactively to the Room "user_preferences" table for the specified [userId].
+     * Loads the saved NumberDisplayMode (defaulting to PERSIAN if none saved).
+     * Automatically reacts to updates without leaking across different users.
+     */
+    fun loadUserPreferences(userId: String) {
+        if (userId.isBlank()) {
+            resetUserPreferences()
+            return
+        }
+        if (currentActiveUserId == userId && observePreferenceJob?.isActive == true) {
+            return
+        }
+        currentActiveUserId = userId
+        observePreferenceJob?.cancel()
+        observePreferenceJob = scope.launch {
+            userPreferenceDao.getPreferenceFlow(userId).collect { entity ->
+                val mode = entity?.numberDisplayMode?.let { modeName ->
+                    try {
+                        NumberDisplayMode.valueOf(modeName)
+                    } catch (e: Exception) {
+                        NumberDisplayMode.PERSIAN
+                    }
+                } ?: NumberDisplayMode.PERSIAN
+
+                _numberDisplayMode.value = mode
+                withContext(Dispatchers.Main) {
+                    AppNumberFormatter.setMode(mode)
+                }
+            }
+        }
+    }
+
+    /**
+     * Persists the selected [NumberDisplayMode] directly into the Room database
+     * for the active user ([userId]), and applies it immediately to the reactive state
+     * and global formatters (0ms UI lag).
+     */
+    fun setNumberDisplayMode(mode: NumberDisplayMode, userId: String? = null) {
+        val effectiveUserId = userId ?: currentActiveUserId ?: SessionManager.userId
+        _numberDisplayMode.value = mode
+        AppNumberFormatter.setMode(mode)
+
+        if (!effectiveUserId.isNullOrBlank()) {
+            currentActiveUserId = effectiveUserId
+            scope.launch {
+                try {
+                    userPreferenceDao.insertOrUpdate(
+                        UserPreferenceEntity(
+                            userId = effectiveUserId,
+                            numberDisplayMode = mode.name,
+                            updatedAt = System.currentTimeMillis()
+                        )
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("AppPreferencesRepo", "Failed to persist numberDisplayMode to Room", e)
+                }
+            }
+        }
+    }
+
+    /**
+     * Resets reactive number display state to default (PERSIAN) on logout or session reset.
+     */
+    fun resetUserPreferences() {
+        observePreferenceJob?.cancel()
+        observePreferenceJob = null
+        currentActiveUserId = null
+        _numberDisplayMode.value = NumberDisplayMode.PERSIAN
+        AppNumberFormatter.setMode(NumberDisplayMode.PERSIAN)
     }
 
     companion object {
