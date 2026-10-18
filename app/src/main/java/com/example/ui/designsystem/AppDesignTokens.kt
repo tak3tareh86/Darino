@@ -175,7 +175,15 @@ object AppFormatters {
     private val persianDigits = charArrayOf('۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹')
 
     fun toPersianDigits(input: String): String {
-        return com.example.util.AppNumberFormatter.formatDigits(input)
+        val sb = java.lang.StringBuilder()
+        for (char in input) {
+            if (char in '0'..'9') {
+                sb.append(persianDigits[char - '0'])
+            } else {
+                sb.append(char)
+            }
+        }
+        return sb.toString()
     }
 
     fun toPersianDigits(number: Number): String {

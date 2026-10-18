@@ -27,7 +27,10 @@ object IranianDateUtils {
      * - "1403071" -> "1403/07/1" (or "۱۴۰۳/۰۷/۱")
      * - "14030715" -> "1403/07/15" (or "۱۴۰۳/۰۷/۱۵")
      */
-    fun formatWithSlashes(input: String, inPersian: Boolean = true): String {
+    fun formatWithSlashes(
+        input: String,
+        inPersian: Boolean = (AppNumberFormatter.currentMode == com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN)
+    ): String {
         val digits = cleanDateDigits(input)
         if (digits.isEmpty()) return ""
 
@@ -42,10 +45,11 @@ object IranianDateUtils {
         }
 
         val result = builder.toString()
-        return if (inPersian) {
+        val isPersian = inPersian && (AppNumberFormatter.currentMode == com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN)
+        return if (isPersian) {
             IranianPhoneUtils.convertDigitsToPersian(result)
         } else {
-            result
+            IranianPhoneUtils.convertDigitsToEnglish(result)
         }
     }
 
@@ -73,12 +77,18 @@ object IranianDateUtils {
     /**
      * Formats (year, month, day) into standard Persian date string: "۱۴۰۴/۰۷/۱۵"
      */
-    fun createFormattedDate(year: Int, month: Int, day: Int, inPersian: Boolean = true): String {
+    fun createFormattedDate(
+        year: Int,
+        month: Int,
+        day: Int,
+        inPersian: Boolean = (AppNumberFormatter.currentMode == com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN)
+    ): String {
         val y = year.toString().padStart(4, '0')
         val m = month.toString().padStart(2, '0')
         val d = day.toString().padStart(2, '0')
         val str = "$y/$m/$d"
-        return if (inPersian) IranianPhoneUtils.convertDigitsToPersian(str) else str
+        val isPersian = inPersian && (AppNumberFormatter.currentMode == com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN)
+        return if (isPersian) IranianPhoneUtils.convertDigitsToPersian(str) else IranianPhoneUtils.convertDigitsToEnglish(str)
     }
 
     /**

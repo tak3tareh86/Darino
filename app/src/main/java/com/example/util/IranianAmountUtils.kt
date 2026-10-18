@@ -32,7 +32,10 @@ object IranianAmountUtils {
      * Formats a raw digit string or number with 3-digit comma grouping.
      * Example: "1250000" -> "1,250,000" (or in Persian: "۱,۲۵۰,۰۰۰")
      */
-    fun formatWithCommas(rawDigits: String, inPersian: Boolean = true): String {
+    fun formatWithCommas(
+        rawDigits: String,
+        inPersian: Boolean = (AppNumberFormatter.currentMode == com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN)
+    ): String {
         val clean = cleanAmountDigits(rawDigits)
         if (clean.isEmpty()) return ""
         val parsed = clean.toLongOrNull() ?: return clean
@@ -43,10 +46,11 @@ object IranianAmountUtils {
         val formatter = DecimalFormat("#,###", symbols)
         val formattedEnglish = formatter.format(parsed)
         
-        return if (inPersian) {
+        val isPersian = inPersian && (AppNumberFormatter.currentMode == com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN)
+        return if (isPersian) {
             IranianPhoneUtils.convertDigitsToPersian(formattedEnglish)
         } else {
-            formattedEnglish
+            IranianPhoneUtils.convertDigitsToEnglish(formattedEnglish)
         }
     }
 
@@ -63,7 +67,7 @@ object IranianAmountUtils {
      */
     fun formatDisplayAmount(amount: Long, unit: String? = null): String {
         return if (unit != null) {
-            val formatted = formatWithCommas(amount.toString(), inPersian = true)
+            val formatted = formatWithCommas(amount.toString())
             "$formatted $unit"
         } else {
             MoneyFormatter.formatToman(amount, includeUnit = true)
