@@ -106,6 +106,8 @@ class VehicleRepository {
                                 notes = v.color,
                                 vin = v.vin,
                                 estimatedValue = v.estimatedValue,
+                                engine = v.engine,
+                                transmission = v.transmission,
                                 updatedAt = v.createdAt
                             )
                         )
@@ -213,7 +215,9 @@ class VehicleRepository {
                             vin = v.vin,
                             currentMileage = v.currentMileage,
                             estimatedValue = v.estimatedValue,
-                            createdAt = v.updatedAt
+                            createdAt = v.updatedAt,
+                            engine = v.engine,
+                            transmission = v.transmission
                         )
                     }
                 }
@@ -381,7 +385,9 @@ class VehicleRepository {
         plate: String,
         vin: String = "",
         currentMileage: Int = 0,
-        estimatedValue: Long = 0L
+        estimatedValue: Long = 0L,
+        engine: String = "",
+        transmission: String = ""
     ): Result<VehicleEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
@@ -408,6 +414,8 @@ class VehicleRepository {
                 notes = color.trim().ifBlank { "سفید" },
                 vin = vin.trim(),
                 estimatedValue = estimatedValue,
+                engine = engine.trim(),
+                transmission = transmission.trim(),
                 updatedAt = System.currentTimeMillis()
             )
 
@@ -423,7 +431,9 @@ class VehicleRepository {
                 vin = entity.vin,
                 currentMileage = entity.currentMileage,
                 estimatedValue = entity.estimatedValue,
-                createdAt = entity.updatedAt
+                createdAt = entity.updatedAt,
+                engine = entity.engine,
+                transmission = entity.transmission
             )
             Result.success(createdDomain)
         } catch (e: Exception) {
@@ -457,6 +467,8 @@ class VehicleRepository {
                 vin = updated.vin.trim(),
                 currentMileage = updated.currentMileage,
                 estimatedValue = updated.estimatedValue,
+                engine = updated.engine.trim(),
+                transmission = updated.transmission.trim(),
                 updatedAt = System.currentTimeMillis()
             )
 
