@@ -104,9 +104,11 @@ internal object ReportDateRangeCalculator {
                     endPersian.day,
                     PersianCalendarHelper.getDaysInMonth(previousYear, endPersian.month)
                 )
-                val previousEnd = PersianCalendarHelper.jalaliToEpochMillis(
+                val previousEndMinute = PersianCalendarHelper.jalaliToEpochMillis(
                     previousYear, endPersian.month, matchingDay, endPersian.hour, endPersian.minute
-                ) + 60_000L - 1L
+                )
+                // Keep the same second/millisecond offset as the current period's end.
+                val previousEnd = previousEndMinute + (endTime % 60_000L)
                 Pair(previousStart, maxOf(previousStart, previousEnd))
             }
             ReportPeriod.CUSTOM -> {
