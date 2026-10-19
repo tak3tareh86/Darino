@@ -166,7 +166,7 @@ private fun TimelineItemRow(
                             text = IranianPhoneUtils.convertDigitsToPersian(event.date),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp
+                                fontSize = 12.sp
                             ),
                             color = eventColor,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -176,7 +176,7 @@ private fun TimelineItemRow(
 
                 Text(
                     text = event.subtitle,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
