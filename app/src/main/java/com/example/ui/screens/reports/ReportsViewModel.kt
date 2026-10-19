@@ -28,6 +28,7 @@ data class ReportsState(
     val previousPeriodExpense: Long = 0,
     val expenseChangePercent: Double = 0.0,
     val isExpenseIncreased: Boolean = false,
+    val hasComparisonBaseline: Boolean = false,
     
     // Category Analysis
     val topExpenseCategory: String = "نامشخص",
@@ -242,6 +243,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             previousPeriodExpense = previousCompExpense,
             expenseChangePercent = finalExpenseChangePercent,
             isExpenseIncreased = finalExpenseDiff > 0,
+            hasComparisonBaseline = previousCompExpense > 0L,
             topExpenseCategory = topCategory?.key ?: "نامشخص",
             topExpenseCategoryAmount = topCategory?.value ?: 0,
             categoryBreakdown = categoryGroups,
