@@ -79,11 +79,8 @@ fun DarinoVehicleMainDashboard(
         VehicleProfileScreen(
             vehicle = state.selectedVehicle!!,
             onBack = { viewModel.closeProfile() },
-            onSaveSpecs = { b, m, y, c, p, v, e ->
-                viewModel.updateVehicleSpecs(b, m, y, c, p, v, e)
-            },
-            onUpdateMileage = { km ->
-                viewModel.updateCurrentMileage(km)
+            onSaveSpecs = { b, m, y, c, p, v, e, engine, transmission, km ->
+                viewModel.updateVehicleSpecs(b, m, y, c, p, v, e, engine, transmission, km)
             }
         )
         return
@@ -134,7 +131,7 @@ fun DarinoVehicleMainDashboard(
                         )
                         Text(
                             text = "دستیار هوشمند نگهداری، سرویس و هزینه‌ها",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -154,7 +151,7 @@ fun DarinoVehicleMainDashboard(
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "ثبت خودرو",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 8.5.sp)
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     )
                 }
             }
@@ -579,7 +576,7 @@ private fun VehicleServicesTabContent(
                                     )
                                     Text(
                                         text = "شاخص سلامت قطعات، روغن و لنت‌ها",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
@@ -683,7 +680,7 @@ private fun QuickActionButton(
             Icon(imageVector = icon, contentDescription = title, tint = color, modifier = Modifier.size(20.dp))
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
                 color = color
             )
         }
@@ -766,7 +763,7 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
                     Text(
                         text = "موعد بعدی: ${service.nextReminderMileage?.let { "${IranianPhoneUtils.convertDigitsToPersian(it.toString())} کیلومتر" } ?: ""} ${service.nextReminderDate?.let { "(${IranianPhoneUtils.convertDigitsToPersian(it)})" } ?: ""}",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 10.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         ),
                         color = MaterialTheme.colorScheme.primary
@@ -865,7 +862,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                                 text = "دارای اعتبار",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
+                                    fontSize = 12.sp
                                 ),
                                 color = Color(0xFF10B981),
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -932,7 +929,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                                 text = insp.status,
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
+                                    fontSize = 12.sp
                                 ),
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
