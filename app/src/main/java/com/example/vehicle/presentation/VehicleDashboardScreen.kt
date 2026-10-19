@@ -360,8 +360,8 @@ fun DarinoVehicleMainDashboard(
     // Bottom Sheets & Dialogs
     if (state.showAddVehicleSheet) {
         AddVehicleSheet(
-            onAddVehicle = { b: String, m: String, y: String, c: String, p: String, v: String, km: Int, est: Long ->
-                viewModel.addVehicle(b, m, y, c, p, v, km, est)
+            onAddVehicle = { b: String, m: String, y: String, c: String, p: String, v: String, km: Int, est: Long, engine: String, transmission: String ->
+                viewModel.addVehicle(b, m, y, c, p, v, km, est, engine, transmission)
             },
             onDismiss = { viewModel.closeAddVehicle() }
         )
