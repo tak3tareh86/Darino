@@ -225,16 +225,64 @@ object VehicleAnalyzer {
             score -= 25
         }
 
-        // 3. Brake Pads & Safety
+        // 3. Brake Pads & Safety: a reminder is for inspection, not an automatic replacement.
         if (lastBrakeService != null) {
-            checklist.add(
-                VehicleHealthCheckItem(
+            val brakeInterval = VehicleMaintenanceCatalog.resolve(vehicle, ServiceType.BRAKE_PADS)
+            val nextBrakeKm = lastBrakeService.nextReminderMileage
+                ?: brakeInterval.intervalKm.takeIf { it > 0 }?.let { lastBrakeService.mileage + it }
+            val nextBrakeDate = lastBrakeService.nextReminderDate?.takeIf { it.isNotBlank() }
+                ?: brakeInterval.intervalMonths.takeIf { it > 0 }?.let {
+                    com.example.util.PersianCalendarHelper.addMonthsToPersianDate(lastBrakeService.date, it)
+                }
+            val brakeKmRemaining = nextBrakeKm?.minus(vehicle.currentMileage)
+            val brakeDueByKm = brakeKmRemaining != null && brakeKmRemaining <= 0
+            val brakeDueByDate = !nextBrakeDate.isNullOrBlank() && dateKey(nextBrakeDate) <= todayJalali
+            when {
+                brakeDueByKm || brakeDueByDate -> {
+                    checklist.add(VehicleHealthCheckItem(
+                        title = "لنت و سیستم ترمز",
+                        statusText = if (brakeDueByKm && brakeDueByDate) "موعد بازدید کیلومتری و زمانی گذشته است"
+                            else if (brakeDueByDate) "موعد بازدید زمانی گذشته است"
+                            else "موعد بازدید در کیلومتر ${nextBrakeKm} فرا رسیده است",
+                        isOk = false,
+                        isWarning = true,
+                        iconRes = R.drawable.img_3d_tire
+                    ))
+                    score -= 20
+                }
+                brakeKmRemaining != null && brakeKmRemaining in 1..500 -> {
+                    checklist.add(VehicleHealthCheckItem(
+                        title = "لنت و سیستم ترمز",
+                        statusText = "بازدید نزدیک است؛ ${brakeKmRemaining} کیلومتر باقی مانده",
+                        isOk = true,
+                        isWarning = true,
+                        iconRes = R.drawable.img_3d_tire
+                    ))
+                    score -= 10
+                }
+                nextBrakeKm != null -> checklist.add(VehicleHealthCheckItem(
                     title = "لنت و سیستم ترمز",
-                    statusText = "بررسی شده در کیلومتر ${lastBrakeService.mileage}",
+                    statusText = "بازدید قبلی در کیلومتر ${lastBrakeService.mileage}؛ ${brakeKmRemaining} کیلومتر تا بازدید بعدی",
                     isOk = true,
                     iconRes = R.drawable.img_3d_tire
-                )
-            )
+                ))
+                !nextBrakeDate.isNullOrBlank() -> checklist.add(VehicleHealthCheckItem(
+                    title = "لنت و سیستم ترمز",
+                    statusText = "موعد بازدید بعدی: ${nextBrakeDate}",
+                    isOk = true,
+                    iconRes = R.drawable.img_3d_tire
+                ))
+                else -> {
+                    checklist.add(VehicleHealthCheckItem(
+                        title = "لنت و سیستم ترمز",
+                        statusText = "آخرین بازدید در کیلومتر ${lastBrakeService.mileage}؛ موعد بعدی مشخص نیست",
+                        isOk = false,
+                        isWarning = false,
+                        iconRes = R.drawable.img_3d_tire
+                    ))
+                    score -= 5
+                }
+            }
         } else {
             checklist.add(
                 VehicleHealthCheckItem(
@@ -276,11 +324,13 @@ object VehicleAnalyzer {
             checklist.add(
                 VehicleHealthCheckItem(
                     title = "معاینه فنی و آلایندگی",
-                    statusText = "معاف از معاینه / استعلام ثبت نشده",
-                    isOk = true,
+                    statusText = "اطلاعات معاینه فنی ثبت نشده؛ وضعیت معافیت را بررسی کنید",
+                    isOk = false,
+                    isWarning = false,
                     iconRes = R.drawable.img_3d_settings_gear
                 )
             )
+            score -= 5
         }
 
         val clampedScore = score.coerceIn(10, 100)
