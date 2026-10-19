@@ -266,88 +266,25 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
-    private fun parsePersianDateToMillis(persianDate: String): Long {
-        if (persianDate.isBlank()) return 0L
-        val cleanDate = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(persianDate)
-        val parts = cleanDate.split("/")
-        if (parts.size != 3) return 0L
-        return try {
-            val y = parts[0].toInt()
-            val m = parts[1].toInt()
-            val d = parts[2].toInt()
-            PersianCalendarHelper.jalaliToEpochMillis(y, m, d, 9, 0)
-        } catch (e: Exception) {
-            0L
-        }
-    }
+    private fun parsePersianDateToMillis(persianDate: String): Long =
+        ReportDateRangeCalculator.parsePersianDateToMillis(persianDate)
 
-    private fun getPeriodBounds(period: ReportPeriod, customStart: ShamsiDate, customEnd: ShamsiDate): Pair<Long, Long> {
-        val nowMillis = System.currentTimeMillis()
-        val currentPersian = PersianCalendarHelper.fromEpochMillis(nowMillis)
-        return when (period) {
-            ReportPeriod.WEEK -> Pair(nowMillis - (7 * 24 * 60 * 60 * 1000L), nowMillis)
-            ReportPeriod.MONTH -> {
-                val start = PersianCalendarHelper.jalaliToEpochMillis(currentPersian.year, currentPersian.month, 1, 0, 0)
-                Pair(start, nowMillis)
-            }
-            ReportPeriod.YEAR -> {
-                val start = PersianCalendarHelper.jalaliToEpochMillis(currentPersian.year, 1, 1, 0, 0)
-                Pair(start, nowMillis)
-            }
-            ReportPeriod.CUSTOM -> {
-                val startDate = if (compareShamsiDates(customStart, customEnd) <= 0) customStart else customEnd
-                val endDate = if (compareShamsiDates(customStart, customEnd) <= 0) customEnd else customStart
-                val start = PersianCalendarHelper.jalaliToEpochMillis(startDate.year, startDate.month, startDate.day, 0, 0)
-                val end = PersianCalendarHelper.jalaliToEpochMillis(endDate.year, endDate.month, endDate.day, 23, 59) +
-                    60_000L - 1L
-                Pair(start, end)
-            }
-        }
-    }
+    private fun getPeriodBounds(
+        period: ReportPeriod,
+        customStart: ShamsiDate,
+        customEnd: ShamsiDate
+    ): Pair<Long, Long> =
+        ReportDateRangeCalculator.getPeriodBounds(period, customStart, customEnd)
+
+    private fun getPreviousPeriodBounds(
+        period: ReportPeriod,
+        startTime: Long,
+        endTime: Long
+    ): Pair<Long, Long> =
+        ReportDateRangeCalculator.getPreviousPeriodBounds(period, startTime, endTime)
 
     private fun compareShamsiDates(first: ShamsiDate, second: ShamsiDate): Int =
-        compareValuesBy(first, second, ShamsiDate::year, ShamsiDate::month, ShamsiDate::day)
-
-    private fun getPreviousPeriodBounds(period: ReportPeriod, startTime: Long, endTime: Long): Pair<Long, Long> {
-        return when (period) {
-            ReportPeriod.WEEK -> {
-                val duration = 7 * 24 * 60 * 60 * 1000L
-                Pair(startTime - duration, startTime - 1L)
-            }
-            ReportPeriod.MONTH -> {
-                val startPersian = PersianCalendarHelper.fromEpochMillis(startTime)
-                var prevYear = startPersian.year
-                var prevMonth = startPersian.month - 1
-                if (prevMonth == 0) { prevMonth = 12; prevYear -= 1 }
-                val prevStart = PersianCalendarHelper.jalaliToEpochMillis(prevYear, prevMonth, 1, 0, 0)
-                val prevMonthEnd = PersianCalendarHelper.jalaliToEpochMillis(
-                    prevYear, prevMonth, PersianCalendarHelper.getDaysInMonth(prevYear, prevMonth), 23, 59
-                ) + 60_000L - 1L
-                val elapsed = (endTime - startTime).coerceAtLeast(0L)
-                Pair(prevStart, minOf(prevStart + elapsed, prevMonthEnd))
-            }
-            ReportPeriod.YEAR -> {
-                val startPersian = PersianCalendarHelper.fromEpochMillis(startTime)
-                val endPersian = PersianCalendarHelper.fromEpochMillis(endTime)
-                val previousYear = startPersian.year - 1
-                val prevStart = PersianCalendarHelper.jalaliToEpochMillis(previousYear, 1, 1, 0, 0)
-                val matchingDay = minOf(
-                    endPersian.day,
-                    PersianCalendarHelper.getDaysInMonth(previousYear, endPersian.month)
-                )
-                // Compare year-to-date through the equivalent Jalali date/time last year,
-                // safely handling leap-year differences.
-                val prevEnd = PersianCalendarHelper.jalaliToEpochMillis(
-                    previousYear, endPersian.month, matchingDay, endPersian.hour, endPersian.minute
-                ) + 60_000L - 1L
-                Pair(prevStart, maxOf(prevStart, prevEnd))
-            }
-            ReportPeriod.CUSTOM -> {
-                val durationInclusive = (endTime - startTime + 1L).coerceAtLeast(1L)
-                Pair(startTime - durationInclusive, startTime - 1L)
-            }
-        }
-    }
+        ReportDateRangeCalculator.compareShamsiDates(first, second)
 
     fun setPeriod(period: ReportPeriod) {
         _selectedPeriod.value = period
