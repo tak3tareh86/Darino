@@ -3,7 +3,11 @@ name: Darino Verification
 on:
   push:
     branches:
-      - hardening/world-class-baseline
+      - main
+      - fix/vehicle-menu-audit
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
