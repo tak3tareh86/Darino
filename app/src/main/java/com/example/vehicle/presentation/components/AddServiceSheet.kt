@@ -32,7 +32,7 @@ import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.ServiceType
 import com.example.vehicle.data.VehicleEntity
-import com.example.vehicle.domain.VehicleManager
+import com.example.vehicle.domain.VehicleMaintenanceCatalog
 
 /**
  * Bottom sheet to record a vehicle service and schedule next smart reminder
@@ -69,17 +69,20 @@ fun AddServiceSheet(
     // Next Reminder settings
     var isReminderEnabled by remember { mutableStateOf(true) }
     val currentKm = mileageText.toIntOrNull() ?: vehicle.currentMileage
-    val (recommendedKm, recommendedDate) = VehicleManager.calculateRecommendedReminder(
-        serviceType = selectedType,
-        currentMileage = currentKm,
-        currentShamsiDate = date
-    )
+    val interval = remember(vehicle.brand, vehicle.model, vehicle.year, selectedType) {
+        VehicleMaintenanceCatalog.resolve(vehicle, selectedType)
+    }
+    val recommendedKm = if (interval.intervalKm > 0) currentKm.coerceAtLeast(0) + interval.intervalKm else 0
+    val recommendedDate = if (interval.intervalMonths > 0) {
+        com.example.util.PersianCalendarHelper.addMonthsToPersianDate(date, interval.intervalMonths)
+    } else ""
     val customIntervalKm = IranianPhoneUtils.convertDigitsToEnglish(customIntervalKmText).toIntOrNull()?.coerceAtLeast(0) ?: 0
     val customIntervalMonths = IranianPhoneUtils.convertDigitsToEnglish(customIntervalMonthsText).toIntOrNull()?.coerceAtLeast(0) ?: 0
-    val calcKm = if (selectedType == ServiceType.CUSTOM) {
-        if (customIntervalKm > 0) currentKm + customIntervalKm else 0
+    val requiresManualInterval = selectedType == ServiceType.CUSTOM || !interval.isUsable
+    val calcKm = if (requiresManualInterval) {
+        if (customIntervalKm > 0) currentKm.coerceAtLeast(0) + customIntervalKm else 0
     } else recommendedKm
-    val calcDate = if (selectedType == ServiceType.CUSTOM) {
+    val calcDate = if (requiresManualInterval) {
         if (customIntervalMonths > 0) com.example.util.PersianCalendarHelper.addMonthsToPersianDate(date, customIntervalMonths) else ""
     } else recommendedDate
 
@@ -162,6 +165,8 @@ fun AddServiceSheet(
                         onClick = {
                             selectedType = type
                             title = type.title
+                            customIntervalKmText = ""
+                            customIntervalMonthsText = ""
                         },
                         label = { Text(type.title, fontSize = 11.sp) }
                     )
@@ -267,9 +272,9 @@ fun AddServiceSheet(
                     }
 
                     if (isReminderEnabled) {
-                        if (selectedType == ServiceType.CUSTOM) {
+                        if (requiresManualInterval) {
                             Text(
-                                text = "فاصلهٔ یادآوری سرویس سفارشی را مطابق دفترچهٔ خودرو یا نظر متخصص وارد کنید.",
+                                text = if (selectedType == ServiceType.CUSTOM) "فاصلهٔ یادآوری سرویس سفارشی را مطابق دفترچهٔ خودرو یا نظر متخصص وارد کنید." else "برای این مدل و سرویس، بازهٔ اختصاصیِ مستند در بانک دارینو موجود نیست. فاصله را از دفترچهٔ همان خودرو وارد کنید؛ از بازهٔ خودروی دیگری استفاده نکنید.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -315,7 +320,7 @@ fun AddServiceSheet(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "مبنای بازه: " + selectedType.intervalSource + "\nاگر دفترچهٔ خودروی شما بازهٔ دیگری دارد، همان ملاک نهایی است.",
+                            text = "مبنای بازه: " + interval.source + "\nاگر دفترچهٔ خودروی شما بازهٔ دیگری دارد، همان ملاک نهایی است.",
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
