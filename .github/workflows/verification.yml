@@ -23,7 +23,8 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
       - name: Android verification
-        run: ./gradlew :app:assembleDebug --stacktrace
+        # Compile and run unit tests without requiring the repository's local debug.keystore.
+        run: ./gradlew :app:compileDebugKotlin :app:testDebugUnitTest --stacktrace
 
   backend:
     runs-on: ubuntu-latest
