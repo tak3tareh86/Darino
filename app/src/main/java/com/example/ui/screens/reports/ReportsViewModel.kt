@@ -128,8 +128,9 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE ||
                 it.category.id == "vehicle" || it.category.id == "fuel"
             }
-            ReportCategory.INSTALLMENTS -> periodTransactions.filter { 
-                it.category.id == "installment" || it.category.id == "loan"
+            ReportCategory.INSTALLMENTS -> periodTransactions.filter {
+                it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.INSTALLMENT ||
+                it.category.id == "installment" || it.category.id == "installments" || it.category.id == "loan"
             }
             ReportCategory.SMART_ANALYSIS -> periodTransactions
         }
@@ -152,8 +153,9 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE ||
                 it.category.id == "vehicle" || it.category.id == "fuel"
             }
-            ReportCategory.INSTALLMENTS -> prevTransactions.filter { 
-                it.category.id == "installment" || it.category.id == "loan"
+            ReportCategory.INSTALLMENTS -> prevTransactions.filter {
+                it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.INSTALLMENT ||
+                it.category.id == "installment" || it.category.id == "installments" || it.category.id == "loan"
             }
             ReportCategory.SMART_ANALYSIS -> prevTransactions
         }
@@ -288,7 +290,8 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 val startDate = if (compareShamsiDates(customStart, customEnd) <= 0) customStart else customEnd
                 val endDate = if (compareShamsiDates(customStart, customEnd) <= 0) customEnd else customStart
                 val start = PersianCalendarHelper.jalaliToEpochMillis(startDate.year, startDate.month, startDate.day, 0, 0)
-                val end = PersianCalendarHelper.jalaliToEpochMillis(endDate.year, endDate.month, endDate.day, 23, 59)
+                val end = PersianCalendarHelper.jalaliToEpochMillis(endDate.year, endDate.month, endDate.day, 23, 59) +
+                    60_000L - 1L
                 Pair(start, end)
             }
         }
