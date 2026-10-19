@@ -719,7 +719,8 @@ class VehicleRepository {
                     currentKilometer = currentMileage.toLong()
                 )
                 val updatedReminder = baseReminder.copy(currentKilometer = currentMileage.toLong())
-                if (storedReminder != null) dao.insertReminder(updatedReminder)
+                // Persist mileage-only reminders at the moment they become due so notification actions work.
+                dao.insertReminder(updatedReminder)
                 val thresholdSchedule = com.example.reminder.data.ReminderScheduleEntity(
                     id = "mileage_${reminderId}_${service.dueMileage}",
                     reminderId = reminderId,
