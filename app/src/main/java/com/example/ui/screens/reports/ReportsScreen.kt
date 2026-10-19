@@ -331,7 +331,7 @@ fun ReportsScreen(
                         topExpenseCategory = uiState.topExpenseCategory,
                         expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
                         previousPeriodExpense = uiState.previousPeriodExpense,
-                        expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
+                        expenseChangePercent = comparisonDisplay,
                         isExpenseIncreased = uiState.isExpenseIncreased,
                         reportCategory = uiState.selectedCategory
                     )
@@ -350,7 +350,7 @@ fun ReportsScreen(
                         topCategoryAmount = MoneyFormatter.formatToman(uiState.topExpenseCategoryAmount),
                         expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
                         previousPeriodExpense = uiState.previousPeriodExpense,
-                        expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
+                        expenseChangePercent = comparisonDisplay,
                         isExpenseIncreased = uiState.isExpenseIncreased,
                         reportCategory = uiState.selectedCategory
                     )
