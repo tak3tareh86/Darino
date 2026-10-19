@@ -208,10 +208,26 @@ object ReportExportUtils {
                 canvas.drawText(value, 55f, y, valuePaint)
             }
 
-            drawDetailRow(detailY + 75f, "• نسبت ذخیره و پس‌انداز به درآمد:", savingsPercent)
-            drawDetailRow(detailY + 110f, "• بیشترین شاخه هزینه در این دوره:", topExpenseCategory.ifBlank { "نامشخص" })
-            drawDetailRow(detailY + 145f, "• مجموع هزینه دوره قبل:", "${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان")
-            drawDetailRow(detailY + 180f, "• وضعیت تراز مالی:", if (savings < 0) "دارای کسری بودجه" else if (savings == 0L) "تراز خنثی" else "مثبت و در حال رشد")
+            when {
+                reportTitle.contains("خودرو") -> {
+                    drawDetailRow(detailY + 75f, "• تغییر هزینه نسبت به دوره قبل:", expenseChangePercent)
+                    drawDetailRow(detailY + 110f, "• مجموع هزینه‌های خودرو:", "${MoneyFormatter.formatToman(totalExpense, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 145f, "• هزینه دوره قبل:", "${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 180f, "• روند هزینه:", if (isExpenseIncreased) "افزایشی" else "کاهشی یا بدون تغییر")
+                }
+                reportTitle.contains("اقساط") -> {
+                    drawDetailRow(detailY + 75f, "• مبلغ اقساط در این بازه:", "${MoneyFormatter.formatToman(totalInstallmentAmount, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 110f, "• مبلغ پرداخت‌شده:", "${MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 145f, "• مانده اقساط این بازه:", "${MoneyFormatter.formatToman((totalInstallmentAmount - paidInstallmentAmount).coerceAtLeast(0L), includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 180f, "• وضعیت پرداخت:", if (totalInstallmentAmount > 0 && paidInstallmentAmount >= totalInstallmentAmount) "پرداخت کامل" else "دارای مانده")
+                }
+                else -> {
+                    drawDetailRow(detailY + 75f, "• نسبت ذخیره و پس‌انداز به درآمد:", savingsPercent)
+                    drawDetailRow(detailY + 110f, "• بیشترین شاخه هزینه در این دوره:", topExpenseCategory.ifBlank { "نامشخص" })
+                    drawDetailRow(detailY + 145f, "• مجموع هزینه دوره قبل:", "${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 180f, "• وضعیت تراز مالی:", if (savings < 0) "دارای کسری بودجه" else if (savings == 0L) "تراز خنثی" else "مثبت و در حال رشد")
+                }
+            }
 
             // Watermark / Footer
             val footerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -456,21 +472,36 @@ object ReportExportUtils {
                 textSize = 23f
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("نسبت مصارف به درآمد کل: $expenseRatio", width - 100f, 780f, ratioPaint)
+            val ratioLabel = when {
+                reportTitle.contains("خودرو") -> "تغییر هزینه نسبت به دوره قبل: $expenseChangePercent"
+                reportTitle.contains("اقساط") -> "پرداخت‌شده از اقساط این بازه: ${MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false)} تومان"
+                else -> "نسبت مصارف به درآمد کل: $expenseRatio"
+            }
+            canvas.drawText(ratioLabel, width - 100f, 780f, ratioPaint)
 
             val topExpPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CBD5E1")
                 textSize = 23f
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("بیشترین هزینه: ${topExpenseCategory.ifBlank { "نامشخص" }} ($topCategoryAmount تومان)", width - 100f, 830f, topExpPaint)
+            val topExpenseLabel = when {
+                reportTitle.contains("خودرو") -> "مجموع هزینه‌های خودرو: ${MoneyFormatter.formatToman(totalExpense, includeUnit = false)} تومان"
+                reportTitle.contains("اقساط") -> "مجموع اقساط در این بازه: ${MoneyFormatter.formatToman(totalInstallmentAmount, includeUnit = false)} تومان"
+                else -> "بیشترین هزینه: ${topExpenseCategory.ifBlank { "نامشخص" }} ($topCategoryAmount تومان)"
+            }
+            canvas.drawText(topExpenseLabel, width - 100f, 830f, topExpPaint)
 
             val compPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CBD5E1")
                 textSize = 23f
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("دوره قبل: ${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان ($expenseChangePercent ${if(isExpenseIncreased) "افزایش" else "کاهش"})", width - 100f, 880f, compPaint)
+            val comparisonLabel = if (reportTitle.contains("اقساط")) {
+                "مانده اقساط این بازه: ${MoneyFormatter.formatToman((totalInstallmentAmount - paidInstallmentAmount).coerceAtLeast(0L), includeUnit = false)} تومان"
+            } else {
+                "دوره قبل: ${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان ($expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"})"
+            }
+            canvas.drawText(comparisonLabel, width - 100f, 880f, compPaint)
 
             // Darino Official Seal Card
             val sealRect = RectF(60f, 990f, width - 60f, 1250f)
@@ -492,7 +523,13 @@ object ReportExportUtils {
                 textSize = 22f
                 textAlign = Paint.Align.CENTER
             }
-            val statusText = if (savings < 0) "وضعیت حساب: دارای کسری بودجه" else if (savings == 0L) "وضعیت حساب: تراز شده (بدون پس‌انداز)" else "وضعیت حساب: متعادل و پایدار | دارای پس‌انداز"
+            val statusText = when {
+                reportTitle.contains("خودرو") -> if (isExpenseIncreased) "روند هزینه خودرو: افزایشی" else "روند هزینه خودرو: کاهشی یا بدون تغییر"
+                reportTitle.contains("اقساط") -> if (totalInstallmentAmount > 0 && paidInstallmentAmount >= totalInstallmentAmount) "وضعیت اقساط: پرداخت کامل در این بازه" else "وضعیت اقساط: دارای مانده در این بازه"
+                savings < 0 -> "وضعیت حساب: دارای کسری بودجه"
+                savings == 0L -> "وضعیت حساب: تراز شده (بدون پس‌انداز)"
+                else -> "وضعیت حساب: متعادل و پایدار | دارای پس‌انداز"
+            }
             canvas.drawText(statusText, (width / 2).toFloat(), 1130f, sealDescPaint)
             canvas.drawText("ذخیره شده در گالری گوشی شما", (width / 2).toFloat(), 1180f, sealDescPaint)
 
