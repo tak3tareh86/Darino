@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -319,11 +320,15 @@ class VehicleRepository {
         id: String,
         title: String,
         description: String,
-        date: String,
+        date: String?,
         type: String = "VEHICLE",
+        targetKilometer: Int? = null,
+        currentKilometer: Int? = null,
         offsets: List<com.example.reminder.domain.PredefinedOffset> = listOf(com.example.reminder.domain.PredefinedOffset.AT_TIME)
     ) {
-        val persianDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(date)
+        val effectiveDate = date?.takeIf { it.isNotBlank() }
+            ?: PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+        val persianDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(effectiveDate)
         val reminder = com.example.reminder.data.ReminderEntity(
             id = id,
             userId = userId,
@@ -333,7 +338,9 @@ class VehicleRepository {
             sourceType = "VEHICLE",
             sourceId = id,
             date = persianDate,
-            time = "۰۹:۰۰"
+            time = "۰۹:۰۰",
+            targetKilometer = targetKilometer?.toLong(),
+            currentKilometer = currentKilometer?.toLong()
         )
         
         // Delete any existing reminder & schedules first (for idempotency and clean updates)
@@ -344,22 +351,24 @@ class VehicleRepository {
         db.smartReminderDao().insertReminder(reminder)
         
         // Generate and insert schedules
-        val baseMillis = com.example.reminder.domain.ReminderManager.parsePersianDateTimeToMillis(persianDate, "۰۹:۰۰")
-        val schedules = offsets.map { offset ->
-            val triggerMillis = baseMillis - (offset.value * offset.unit.millisMultiplier)
-            com.example.reminder.data.ReminderScheduleEntity(
-                id = java.util.UUID.randomUUID().toString(),
-                reminderId = id,
-                triggerType = if (offset == com.example.reminder.domain.PredefinedOffset.AT_TIME) "EXACT" else "BEFORE_EVENT",
-                offsetValue = offset.value,
-                offsetUnit = offset.unit.name,
-                triggerDateTime = triggerMillis,
-                repeatType = com.example.reminder.domain.RepeatType.NONE.name,
-                repeatInterval = 1,
-                enabled = true,
-                createdAt = System.currentTimeMillis()
-            )
-        }
+        val schedules = if (!date.isNullOrBlank()) {
+            val baseMillis = com.example.reminder.domain.ReminderManager.parsePersianDateTimeToMillis(persianDate, "۰۹:۰۰")
+            offsets.map { offset ->
+                val triggerMillis = baseMillis - (offset.value * offset.unit.millisMultiplier)
+                com.example.reminder.data.ReminderScheduleEntity(
+                    id = java.util.UUID.randomUUID().toString(),
+                    reminderId = id,
+                    triggerType = if (offset == com.example.reminder.domain.PredefinedOffset.AT_TIME) "EXACT" else "BEFORE_EVENT",
+                    offsetValue = offset.value,
+                    offsetUnit = offset.unit.name,
+                    triggerDateTime = triggerMillis,
+                    repeatType = com.example.reminder.domain.RepeatType.NONE.name,
+                    repeatInterval = 1,
+                    enabled = true,
+                    createdAt = System.currentTimeMillis()
+                )
+            }
+        } else emptyList()
         db.smartReminderDao().insertSchedules(schedules)
     }
 
@@ -625,16 +634,21 @@ class VehicleRepository {
                     db.vehicleDao().updateMileage(userId, vehicleId, mileage)
                 }
 
-                // Sync Reminder persistence inside the same transaction
-                if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+                // Persist the reminder if either a date or a mileage threshold exists.
+                if (isReminderEnabled && (!nextReminderDate.isNullOrBlank() || nextReminderMileage != null)) {
                     syncReminderPersistenceInternal(
                         db = db,
                         userId = userId,
                         id = serviceId,
                         title = "یادآور سرویس: ${vehicle.brand} ${vehicle.model}",
-                        description = "موعد تعویض و سرویس دوره‌ای: $title (${description.trim()})",
-                        date = nextReminderDate.trim(),
-                        type = "VEHICLE"
+                        description = buildString {
+                            append("موعد سرویس دوره‌ای: $title (${description.trim()})")
+                            nextReminderMileage?.let { append("؛ کیلومتر هدف: $it") }
+                        },
+                        date = nextReminderDate?.trim(),
+                        type = "VEHICLE",
+                        targetKilometer = nextReminderMileage,
+                        currentKilometer = mileage
                     )
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
