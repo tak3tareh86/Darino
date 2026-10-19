@@ -308,7 +308,10 @@ fun ReportsScreen(
                         expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
                         previousPeriodExpense = uiState.previousPeriodExpense,
                         expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
-                        isExpenseIncreased = uiState.isExpenseIncreased
+                        isExpenseIncreased = uiState.isExpenseIncreased,
+                        reportTitle = uiState.selectedCategory.title,
+                        totalInstallmentAmount = uiState.totalInstallmentAmount,
+                        paidInstallmentAmount = uiState.paidInstallmentAmount
                     )
                     showExportSheet = false
                 },
@@ -326,7 +329,10 @@ fun ReportsScreen(
                         expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
                         previousPeriodExpense = uiState.previousPeriodExpense,
                         expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
-                        isExpenseIncreased = uiState.isExpenseIncreased
+                        isExpenseIncreased = uiState.isExpenseIncreased,
+                        reportTitle = uiState.selectedCategory.title,
+                        totalInstallmentAmount = uiState.totalInstallmentAmount,
+                        paidInstallmentAmount = uiState.paidInstallmentAmount
                     )
                     showExportSheet = false
                 }
