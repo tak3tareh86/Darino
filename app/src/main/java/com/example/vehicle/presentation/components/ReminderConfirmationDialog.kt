@@ -57,7 +57,7 @@ fun ReminderConfirmationDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "سرویس «${service.title}» با موفقیت در پرونده خودرو ثبت شد. مایلید یادآور موعد بعدی در تقویم مالی و بخش یادآورها فعال شود؟",
+                    text = "سرویس «${service.title}» با موفقیت در پرونده خودرو ثبت شد. مایلید یادآوری بر اساس کیلومتر و/یا تاریخ موعد بعدی فعال باشد؟",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
