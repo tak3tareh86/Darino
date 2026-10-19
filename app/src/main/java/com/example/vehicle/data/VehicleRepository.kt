@@ -766,6 +766,17 @@ class VehicleRepository {
             val vehicle = db.vehicleDao().getVehicleByServerId(userId, existingSvc.vehicleId)
                 ?: return@withContext Result.failure(NoSuchElementException("خودروی مربوط به سرویس یافت نشد."))
 
+            val crossedMileageReminders = if (mileage > vehicle.currentMileage) {
+                db.vehicleDao().getAllServices(userId).first().filter { service ->
+                    service.vehicleId == (vehicle.serverId ?: vehicle.id.toString()) &&
+                        service.id != existingSvc.id &&
+                        service.status != "COMPLETED" &&
+                        service.dueMileage != null &&
+                        service.dueMileage > vehicle.currentMileage &&
+                        service.dueMileage <= mileage
+                }
+            } else emptyList()
+
             val encodedNotes = if (cost > 0L) "COST:$cost|$description" else description
 
             val updatedService = VehicleServiceEntity(
@@ -865,6 +876,15 @@ class VehicleRepository {
             if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
                 val reminderManager = com.example.reminder.domain.ReminderManager(context)
                 reminderManager.enableReminder(serviceId)
+            }
+
+            if (crossedMileageReminders.isNotEmpty()) {
+                dispatchMileageThresholdNotifications(
+                    context = context,
+                    userId = userId,
+                    crossedServices = crossedMileageReminders,
+                    currentMileage = mileage
+                )
             }
 
             Result.success(updatedService)
