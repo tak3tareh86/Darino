@@ -111,6 +111,9 @@ interface ReminderDao {
     @Query("SELECT * FROM smart_reminders WHERE id = :reminderId LIMIT 1")
     suspend fun getReminderByIdGlobal(reminderId: String): ReminderEntity?
 
+    @Query("SELECT * FROM smart_reminder_schedules WHERE id = :id LIMIT 1")
+    suspend fun getScheduleByIdGlobal(id: String): ReminderScheduleEntity?
+
     @Query("SELECT s.* FROM smart_reminder_schedules s WHERE s.reminderId = :reminderId ORDER BY s.triggerDateTime ASC")
     suspend fun getSchedulesForReminderGlobal(reminderId: String): List<ReminderScheduleEntity>
 }
