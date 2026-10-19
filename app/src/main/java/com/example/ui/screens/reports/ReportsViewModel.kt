@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import com.example.util.PersianCalendarHelper
 import com.example.util.MoneyFormatter
@@ -56,7 +57,7 @@ data class ReportsState(
 )
 
 class ReportsViewModel(application: Application) : AndroidViewModel(application) {
-    private val _uiState = MutableStateFlow(ReportsState())
+    private val _uiState = MutableStateFlow(ReportsState(isLoading = true))
     val uiState: StateFlow<ReportsState> = _uiState.asStateFlow()
 
     private val financeRepo = LocalFinanceRepository.instance
@@ -100,8 +101,14 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                     customStart = array[8] as ShamsiDate,
                     customEnd = array[9] as ShamsiDate
                 )
+            }.catch { error ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = error.localizedMessage?.takeIf { it.isNotBlank() }
+                        ?: "محاسبه گزارش‌ها با خطا مواجه شد."
+                )
             }.collect { newState ->
-                _uiState.value = newState
+                _uiState.value = newState.copy(isLoading = false, errorMessage = null)
             }
         }
     }
