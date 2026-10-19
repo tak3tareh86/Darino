@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
@@ -77,6 +78,7 @@ import com.example.ui.theme.FinanceManagerTheme
 import com.example.util.LocalAppCurrency
 import com.example.util.LocalAppLanguage
 import com.example.util.MoneyFormatter
+import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
 
@@ -127,7 +129,7 @@ class MainActivity : FragmentActivity() {
             alarmManager?.canScheduleExactAlarms() == true
         if (exactAlarmAllowed) {
             // Re-arm persisted reminders after returning from system settings or process recreation.
-            androidx.lifecycle.lifecycleScope.launch {
+            lifecycleScope.launch {
                 com.example.reminder.domain.ReminderScheduler(applicationContext).rebuildAllSchedules()
             }
         }
