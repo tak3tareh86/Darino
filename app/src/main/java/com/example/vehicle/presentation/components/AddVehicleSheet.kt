@@ -2,6 +2,7 @@ package com.example.vehicle.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -42,13 +43,17 @@ fun AddVehicleSheet(
         plate: String,
         vin: String,
         currentMileage: Int,
-        estimatedValue: Long
+        estimatedValue: Long,
+        engine: String,
+        transmission: String
     ) -> Unit,
     onDismiss: () -> Unit
 ) {
     val currentYear = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year.toString()
     var brand by remember { mutableStateOf("ایران‌خودرو") }
     var model by remember { mutableStateOf("") }
+    var engine by remember { mutableStateOf("") }
+    var transmission by remember { mutableStateOf("") }
     var year by remember { mutableStateOf(currentYear) }
     var color by remember { mutableStateOf("سفید") }
     var platePart1 by remember { mutableStateOf("") }
@@ -124,10 +129,10 @@ fun AddVehicleSheet(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                brands.take(4).forEach { b ->
+                brands.forEach { b ->
                     FilterChip(
                         selected = brand == b,
                         onClick = { brand = b },
@@ -157,6 +162,29 @@ fun AddVehicleSheet(
                     placeholder = { Text("1402") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+            }
+
+            // Engine and transmission are needed to distinguish service schedules for variants.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = engine,
+                    onValueChange = { engine = it },
+                    label = { Text("نوع / کد موتور (در صورت اطلاع)") },
+                    placeholder = { Text("مثلاً TU5، EF7، 1.5T") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = transmission,
+                    onValueChange = { transmission = it },
+                    label = { Text("نوع گیربکس") },
+                    placeholder = { Text("دنده‌ای، اتوماتیک، CVT") },
+                    modifier = Modifier.weight(1f),
                     singleLine = true
                 )
             }
@@ -260,7 +288,7 @@ fun AddVehicleSheet(
                         val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: 0
                         val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
                         val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
-                        onAddVehicle(brand, model, year, color, plate, vin, mileage, estVal)
+                        onAddVehicle(brand, model, year, color, plate, vin, mileage, estVal, engine.trim(), transmission.trim())
                     }
                 },
                 enabled = model.isNotBlank(),
