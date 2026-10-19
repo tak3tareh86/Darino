@@ -161,7 +161,7 @@ class VehicleAssistantTest {
             vehicleId = vehicle.id,
             title = "تعویض روغن جدید",
             serviceType = ServiceType.OIL_CHANGE,
-            date = "۱۴۰۵/۰۱/۰۱",
+            date = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
             mileage = 20000,
             cost = 0L,
             nextReminderMileage = 60000
