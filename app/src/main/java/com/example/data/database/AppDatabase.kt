@@ -30,7 +30,7 @@ import androidx.room.RoomDatabase
         VehicleStoreEntity::class,
         UserPreferenceEntity::class
     ],
-    version = 24,
+    version = 25,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -393,6 +393,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_24_25 = object : androidx.room.migration.Migration(24, 25) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `vehicles` ADD COLUMN `engine` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `vehicles` ADD COLUMN `transmission` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -404,7 +411,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
                          MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
-                         MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24
+                         MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25
                      )
                     .build()
                 INSTANCE = instance
