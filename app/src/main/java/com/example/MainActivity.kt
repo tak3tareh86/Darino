@@ -200,11 +200,25 @@ fun AppNavigationContainer(
 
     // Request notification permission for Android 13+ (API 33+) once app launches/unlocks
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+        val localContext = androidx.compose.ui.platform.LocalContext.current
+        val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+            localContext,
+            android.Manifest.permission.POST_NOTIFICATIONS
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
         val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
             contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-        ) { /* no-op or handle state if needed */ }
+        ) { isGranted ->
+            if (!isGranted) {
+                android.util.Log.w("MainActivity", "POST_NOTIFICATIONS permission denied by user.")
+            } else {
+                android.util.Log.i("MainActivity", "POST_NOTIFICATIONS permission granted.")
+            }
+        }
         androidx.compose.runtime.LaunchedEffect(Unit) {
-            permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            if (!hasPermission) {
+                permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
     }
 

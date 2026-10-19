@@ -52,8 +52,10 @@ class ReminderScheduler(private val context: Context) {
         val triggerTime = schedule.triggerDateTime
         val now = System.currentTimeMillis()
 
+        Log.i("ReminderScheduler", "Attempting scheduleSingle for reminder: ${reminder.title} (ID: ${reminder.id}), schedule ID: ${schedule.id}, triggerTime: $triggerTime, now: $now")
+
         if (triggerTime <= now) {
-            Log.w("ReminderScheduler", "Trigger time $triggerTime is in the past for schedule ${schedule.id}. Cannot schedule.")
+            Log.w("ReminderScheduler", "Trigger time $triggerTime is in the past for schedule ${schedule.id} (now: $now). Cannot schedule.")
             throw IllegalArgumentException("زمان اجرای هشدار در گذشته است ($triggerTime <= $now).")
         }
 

@@ -42,6 +42,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             ACTION_TRIGGER_REMINDER -> {
                 val reminderId = intent.getStringExtra(EXTRA_REMINDER_ID) ?: return
                 val scheduleId = intent.getStringExtra(EXTRA_SCHEDULE_ID) ?: return
+                Log.i(TAG, "Received ACTION_TRIGGER_REMINDER broadcast for reminderId: $reminderId, scheduleId: $scheduleId")
                 goAsyncWork { handleTrigger(context.applicationContext, reminderId, scheduleId) }
             }
 
@@ -74,21 +75,35 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
     }
 
     private suspend fun handleTrigger(context: Context, reminderId: String, scheduleId: String) {
-        val userId = SessionManager.userId ?: return
+        if (SessionManager.userId == null) {
+            SessionManager.init(context)
+        }
+        val userId = SessionManager.userId ?: run {
+            Log.e(TAG, "Cannot handle trigger: SessionManager.userId is null after init.")
+            return
+        }
         val db = AppDatabase.getDatabase(context)
         val dao = db.smartReminderDao()
 
         val reminder = dao.getReminderById(userId, reminderId) ?: run {
-            Log.w(TAG, "Reminder $reminderId not found for current user.")
+            Log.w(TAG, "Reminder $reminderId not found for current user $userId.")
             return
         }
-        if (!reminder.status.equals("ACTIVE", ignoreCase = true)) return
+        Log.i(TAG, "Retrieved reminder ${reminder.id} (${reminder.title}), status: ${reminder.status}")
+        if (!reminder.status.equals("ACTIVE", ignoreCase = true)) {
+            Log.w(TAG, "Reminder ${reminder.id} is not ACTIVE (status: ${reminder.status}); skipping.")
+            return
+        }
 
         val schedule = dao.getScheduleById(userId, scheduleId) ?: run {
-            Log.w(TAG, "Schedule $scheduleId not found for current user.")
+            Log.w(TAG, "Schedule $scheduleId not found for current user $userId.")
             return
         }
-        if (schedule.reminderId != reminder.id || !schedule.enabled) return
+        Log.i(TAG, "Retrieved schedule ${schedule.id}, triggerDateTime: ${schedule.triggerDateTime}, enabled: ${schedule.enabled}")
+        if (schedule.reminderId != reminder.id || !schedule.enabled) {
+            Log.w(TAG, "Schedule ${schedule.id} mismatch or disabled.")
+            return
+        }
 
         val decision = ReminderPolicyEngine.evaluateDispatch(
             reminder,
