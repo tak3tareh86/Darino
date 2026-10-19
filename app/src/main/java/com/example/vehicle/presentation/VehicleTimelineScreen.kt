@@ -31,6 +31,8 @@ import java.util.Locale
 @Composable
 fun VehicleTimelineScreen(
     events: List<VehicleTimelineEvent>,
+    onEditExpense: (VehicleTimelineEvent.ExpenseEvent) -> Unit,
+    onDeleteExpense: (VehicleTimelineEvent.ExpenseEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (events.isEmpty()) {
@@ -72,7 +74,12 @@ fun VehicleTimelineScreen(
         ) {
             itemsIndexed(events, key = { _, item -> item.id }) { index, event ->
                 val isLast = index == events.size - 1
-                TimelineItemRow(event = event, isLast = isLast)
+                TimelineItemRow(
+                    event = event,
+                    isLast = isLast,
+                    onEditExpense = { expense -> onEditExpense(expense) },
+                    onDeleteExpense = { expense -> onDeleteExpense(expense) }
+                )
             }
         }
     }
@@ -81,8 +88,11 @@ fun VehicleTimelineScreen(
 @Composable
 private fun TimelineItemRow(
     event: VehicleTimelineEvent,
-    isLast: Boolean
+    isLast: Boolean,
+    onEditExpense: (VehicleTimelineEvent.ExpenseEvent) -> Unit,
+    onDeleteExpense: (VehicleTimelineEvent.ExpenseEvent) -> Unit
 ) {
+    var showDeleteConfirmation by androidx.compose.runtime.remember(event.id) { androidx.compose.runtime.mutableStateOf(false) }
     val amountFormatted = IranianPhoneUtils.convertDigitsToPersian(
         NumberFormat.getNumberInstance(Locale.US).format(event.amount)
     )
@@ -185,7 +195,39 @@ private fun TimelineItemRow(
                         )
                     }
                 }
+
+                if (event is VehicleTimelineEvent.ExpenseEvent) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { onEditExpense(event) }) {
+                            Text("ویرایش هزینه", fontSize = 12.sp)
+                        }
+                        TextButton(onClick = { showDeleteConfirmation = true }) {
+                            Text("حذف", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
             }
         }
+    }
+
+    if (showDeleteConfirmation && event is VehicleTimelineEvent.ExpenseEvent) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("حذف هزینه") },
+            text = { Text("هزینه «${event.title}» حذف شود؟ این کار قابل بازگشت نیست.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirmation = false
+                    onDeleteExpense(event)
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+            }
+        )
     }
 }
