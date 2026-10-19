@@ -64,9 +64,13 @@ fun DarinoVehicleMainDashboard(
     val snackbarHostState = remember { SnackbarHostState() }
     val context = androidx.compose.ui.platform.LocalContext.current
     var editingService by remember { mutableStateOf<VehicleServiceEntity?>(null) }
+    var editingExpense by remember { mutableStateOf<com.example.vehicle.data.VehicleExpenseEntity?>(null) }
 
     LaunchedEffect(state.showAddServiceSheet) {
         if (!state.showAddServiceSheet) editingService = null
+    }
+    LaunchedEffect(state.showAddExpenseSheet) {
+        if (!state.showAddExpenseSheet) editingExpense = null
     }
 
     LaunchedEffect(Unit) {
@@ -289,7 +293,7 @@ fun DarinoVehicleMainDashboard(
                                 onEditProfile = { viewModel.openProfile() },
                                 onMileageClick = { viewModel.openMileageDialog() },
                                 onAddService = { editingService = null; viewModel.openAddService() },
-                                onAddExpense = { viewModel.openAddExpense() },
+                                onAddExpense = { editingExpense = null; viewModel.openAddExpense() },
                                 onInsuranceClick = { viewModel.openInsuranceSheet() },
                                 onEditService = { service -> editingService = service; viewModel.openAddService() },
                                 onCompleteService = { service ->
@@ -304,7 +308,12 @@ fun DarinoVehicleMainDashboard(
                         }
                         VehicleTab.TIMELINE -> {
                             VehicleTimelineScreen(
-                                events = state.timelineEvents
+                                events = state.timelineEvents,
+                                onEditExpense = { event ->
+                                    editingExpense = state.expenses.firstOrNull { it.id == event.id }
+                                    if (editingExpense != null) viewModel.openAddExpense()
+                                },
+                                onDeleteExpense = { event -> viewModel.deleteExpenseRecord(event.id) }
                             )
                         }
                         VehicleTab.REPORTS -> {
@@ -395,8 +404,12 @@ fun DarinoVehicleMainDashboard(
     if (state.showAddExpenseSheet && state.selectedVehicle != null) {
         AddVehicleExpenseSheet(
             vehicle = state.selectedVehicle!!,
+            existingExpense = editingExpense,
             onAddExpense = { t: String, cat: com.example.vehicle.data.VehicleExpenseCategory, amt: Long, d: String, desc: String ->
                 viewModel.addExpenseRecord(t, cat, amt, d, desc)
+            },
+            onUpdateExpense = { id: String, t: String, cat: com.example.vehicle.data.VehicleExpenseCategory, amt: Long, d: String, desc: String ->
+                viewModel.updateExpenseRecord(id, t, cat, amt, d, desc)
             },
             onDismiss = { viewModel.closeAddExpense() }
         )
