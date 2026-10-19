@@ -50,6 +50,24 @@ class VehicleRepository {
     private var sessionObserverStarted = false
     private var roomCollectorsJob: Job? = null
 
+    private fun normalizedDigits(value: String): String = buildString(value.length) {
+        value.forEach { ch ->
+            append(
+                when (ch) {
+                    in '۰'..'۹' -> ('0'.code + (ch.code - '۰'.code)).toChar()
+                    in '٠'..'٩' -> ('0'.code + (ch.code - '٠'.code)).toChar()
+                    else -> ch
+                }
+            )
+        }
+    }.filter { it in '0'..'9' }
+
+    private fun isValidVehicleYear(value: String): Boolean {
+        val year = normalizedDigits(value).toIntOrNull() ?: return false
+        val currentYear = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year
+        return year in 1300..(currentYear + 1)
+    }
+
     /**
      * Initializes the Room SQLite database and loads user-specific vehicle records.
      */
@@ -395,7 +413,7 @@ class VehicleRepository {
         // Validation
         if (brand.isBlank()) return@withContext Result.failure(IllegalArgumentException("نام برند خودرو نمی‌تواند خالی باشد."))
         if (model.isBlank()) return@withContext Result.failure(IllegalArgumentException("مدل خودرو نمی‌تواند خالی باشد."))
-        if (year.isBlank()) return@withContext Result.failure(IllegalArgumentException("سال ساخت خودرو نمی‌تواند خالی باشد."))
+        if (!isValidVehicleYear(year)) return@withContext Result.failure(IllegalArgumentException("سال ساخت خودرو معتبر نیست."))
         if (plate.isBlank()) return@withContext Result.failure(IllegalArgumentException("شماره پلاک خودرو الزامی است."))
         if (currentMileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر کارکرد نمی‌تواند منفی باشد."))
         if (estimatedValue < 0L) return@withContext Result.failure(IllegalArgumentException("ارزش تقریبی خودرو نمی‌تواند منفی باشد."))
@@ -448,7 +466,7 @@ class VehicleRepository {
 
         if (updated.brand.isBlank()) return@withContext Result.failure(IllegalArgumentException("برند خودرو نمی‌تواند خالی باشد."))
         if (updated.model.isBlank()) return@withContext Result.failure(IllegalArgumentException("مدل خودرو نمی‌تواند خالی باشد."))
-        if (updated.year.isBlank()) return@withContext Result.failure(IllegalArgumentException("سال ساخت خودرو نمی‌تواند خالی باشد."))
+        if (!isValidVehicleYear(updated.year)) return@withContext Result.failure(IllegalArgumentException("سال ساخت خودرو معتبر نیست."))
         if (updated.plate.isBlank()) return@withContext Result.failure(IllegalArgumentException("شماره پلاک خودرو الزامی است."))
         if (updated.currentMileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر کارکرد نمی‌تواند منفی باشد."))
         if (updated.estimatedValue < 0L) return@withContext Result.failure(IllegalArgumentException("ارزش تقریبی خودرو نمی‌تواند منفی باشد."))
