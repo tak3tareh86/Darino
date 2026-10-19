@@ -863,7 +863,7 @@ class VehicleRepository {
                 }
 
                 // Update date- and/or mileage-based reminder persistence atomically.
-                if (isReminderEnabled && (!nextReminderDate.isNullOrBlank() || nextReminderMileage != null)) {
+                if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
                     syncReminderPersistenceInternal(
                         db = db,
                         userId = userId,
