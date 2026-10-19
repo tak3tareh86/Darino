@@ -54,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -629,31 +630,74 @@ fun AddTransactionSheet(
                     }
 
                     // Date & Time Row
+                    val context = LocalContext.current
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top
                     ) {
                         PersianDateInputField(
                             value = datePersian,
                             onValueChange = { datePersian = it },
                             modifier = Modifier.weight(1.3f),
                             label = "تاریخ",
+                            useOuterHeader = true,
                             placeholder = "۱۴۰۴/۰۷/۱۵",
                             dialogTitle = "انتخاب تاریخ تراکنش"
                         )
 
-                        Column(modifier = Modifier.weight(0.7f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(
+                            modifier = Modifier.weight(0.7f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
                             Text(
                                 text = "ساعت",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             OutlinedTextField(
                                 value = timePersian,
-                                onValueChange = { timePersian = it },
-                                modifier = Modifier.fillMaxWidth(),
+                                onValueChange = {},
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val asciiTime = timePersian
+                                            .replace('۰', '0').replace('۱', '1').replace('۲', '2')
+                                            .replace('۳', '3').replace('۴', '4').replace('۵', '5')
+                                            .replace('۶', '6').replace('۷', '7').replace('۸', '8')
+                                            .replace('۹', '9')
+                                        val parts = asciiTime.split(":")
+                                        val hour = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23)
+                                            ?: java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+                                        val minute = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59)
+                                            ?: java.util.Calendar.getInstance().get(java.util.Calendar.MINUTE)
+                                        android.app.TimePickerDialog(
+                                            context,
+                                            { _, selectedHour, selectedMinute ->
+                                                timePersian = PersianCalendarHelper.fromEpochMillis(
+                                                    java.util.Calendar.getInstance().apply {
+                                                        set(java.util.Calendar.HOUR_OF_DAY, selectedHour)
+                                                        set(java.util.Calendar.MINUTE, selectedMinute)
+                                                        set(java.util.Calendar.SECOND, 0)
+                                                        set(java.util.Calendar.MILLISECOND, 0)
+                                                    }.timeInMillis
+                                                ).toFormattedTime()
+                                            },
+                                            hour,
+                                            minute,
+                                            true
+                                        ).show()
+                                    },
+                                readOnly = true,
                                 singleLine = true,
-                                shape = RoundedCornerShape(RadiusMD)
+                                shape = RoundedCornerShape(RadiusMD),
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ExpandMore,
+                                        contentDescription = "انتخاب ساعت",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             )
                         }
                     }
