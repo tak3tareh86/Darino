@@ -51,13 +51,13 @@ class ReminderManager(
         val scheduledCount = try {
             scheduler.schedule(reminder, schedules)
         } catch (e: Exception) {
-            Log.e("ReminderManager", "Failed to schedule alarms for reminder ${reminder.id}. Performing compensation rollback.", e)
-            try {
-                repository.deleteReminderWithSchedules(reminder.id)
-            } catch (rollbackEx: Exception) {
-                Log.e("ReminderManager", "Failed to rollback reminder during creation failure", rollbackEx)
-            }
-            throw e
+            // Keep the reminder and its schedules in Room. Removing them here made a
+            // missing exact-alarm permission silently destroy user data.
+            Log.e("ReminderManager", "Reminder ${reminder.id} was saved locally but alarm registration failed. Keeping it for recovery/retry.", e)
+            throw IllegalStateException(
+                "یادآور ذخیره شد، اما ثبت هشدار در سیستم ناموفق بود. مجوز آلارم دقیق را در تنظیمات فعال کنید و دوباره برنامه را باز کنید. جزئیات: ${e.message ?: "خطای نامشخص"}",
+                e
+            )
         }
         Log.i("ReminderManager", "Created reminder ${reminder.title} with $scheduledCount future alarms scheduled.")
         scheduledCount
