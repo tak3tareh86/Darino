@@ -62,14 +62,26 @@ fun AddServiceSheet(
     var costText by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
 
+    // Custom service intervals must be entered explicitly; no universal default is assumed.
+    var customIntervalKmText by remember { mutableStateOf("") }
+    var customIntervalMonthsText by remember { mutableStateOf("") }
+
     // Next Reminder settings
     var isReminderEnabled by remember { mutableStateOf(true) }
     val currentKm = mileageText.toIntOrNull() ?: vehicle.currentMileage
-    val (calcKm, calcDate) = VehicleManager.calculateRecommendedReminder(
+    val (recommendedKm, recommendedDate) = VehicleManager.calculateRecommendedReminder(
         serviceType = selectedType,
         currentMileage = currentKm,
         currentShamsiDate = date
     )
+    val customIntervalKm = IranianPhoneUtils.convertDigitsToEnglish(customIntervalKmText).toIntOrNull()?.coerceAtLeast(0) ?: 0
+    val customIntervalMonths = IranianPhoneUtils.convertDigitsToEnglish(customIntervalMonthsText).toIntOrNull()?.coerceAtLeast(0) ?: 0
+    val calcKm = if (selectedType == ServiceType.CUSTOM) {
+        if (customIntervalKm > 0) currentKm + customIntervalKm else 0
+    } else recommendedKm
+    val calcDate = if (selectedType == ServiceType.CUSTOM) {
+        if (customIntervalMonths > 0) com.example.util.PersianCalendarHelper.addMonthsToPersianDate(date, customIntervalMonths) else ""
+    } else recommendedDate
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -255,6 +267,36 @@ fun AddServiceSheet(
                     }
 
                     if (isReminderEnabled) {
+                        if (selectedType == ServiceType.CUSTOM) {
+                            Text(
+                                text = "فاصلهٔ یادآوری سرویس سفارشی را مطابق دفترچهٔ خودرو یا نظر متخصص وارد کنید.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = IranianPhoneUtils.convertDigitsToPersian(customIntervalKmText),
+                                    onValueChange = { customIntervalKmText = IranianPhoneUtils.convertDigitsToEnglish(it).filter(Char::isDigit) },
+                                    label = { Text("فاصله (کیلومتر)") },
+                                    placeholder = { Text("مثلاً ۵۰۰۰") },
+                                    modifier = Modifier.weight(1f),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true
+                                )
+                                OutlinedTextField(
+                                    value = IranianPhoneUtils.convertDigitsToPersian(customIntervalMonthsText),
+                                    onValueChange = { customIntervalMonthsText = IranianPhoneUtils.convertDigitsToEnglish(it).filter(Char::isDigit) },
+                                    label = { Text("فاصله (ماه)") },
+                                    placeholder = { Text("مثلاً ۶") },
+                                    modifier = Modifier.weight(1f),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true
+                                )
+                            }
+                        }
                         Text(
                             text = buildString {
                                 if (calcKm > 0) {
@@ -300,7 +342,7 @@ fun AddServiceSheet(
                         )
                     }
                 },
-                enabled = title.isNotBlank(),
+                enabled = title.isNotBlank() && (!isReminderEnabled || calcKm > 0 || calcDate.isNotBlank()),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
