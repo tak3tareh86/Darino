@@ -194,7 +194,10 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             }
         }
         
-        val activeInstallmentsCount = allInstallments.count { it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED }
+        val activeInstallmentsCount = allInstallments.count {
+            it.remainingAmount > 0L &&
+                it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED
+        }
 
         // 5. Vehicle Report (Canonical data from VehicleRepository)
         fun calculateVehicleSum(start: Long, end: Long): Long {
