@@ -131,6 +131,7 @@ data class VehicleServiceEntity(
     val serviceDate: Long? = null,
     val dueDate: Long? = null,
     val cost: Long = 0L,
+    val serviceMileage: Int? = null,
     val dueMileage: Int? = null,
     val status: String = "PENDING", // "PENDING", "COMPLETED"
     val notes: String? = null,
