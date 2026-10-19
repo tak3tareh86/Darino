@@ -345,7 +345,8 @@ fun ReportsScreen(
                         expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
                         previousPeriodExpense = uiState.previousPeriodExpense,
                         expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
-                        isExpenseIncreased = uiState.isExpenseIncreased
+                        isExpenseIncreased = uiState.isExpenseIncreased,
+                        reportCategory = uiState.selectedCategory
                     )
                     showExportSheet = false
                 }
