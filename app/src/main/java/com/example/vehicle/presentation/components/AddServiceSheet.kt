@@ -89,12 +89,14 @@ fun AddServiceSheet(
     val recommendedKm = when {
         existingService != null && currentKm == existingService.mileage && existingService.nextReminderMileage != null -> existingService.nextReminderMileage
         existingService != null && savedIntervalKm > 0 -> currentKm.coerceAtLeast(0) + savedIntervalKm
+        existingService != null -> 0
         interval.intervalKm > 0 -> currentKm.coerceAtLeast(0) + interval.intervalKm
         else -> 0
     }
     val recommendedDate = when {
         existingService != null && date == existingService.date && !existingService.nextReminderDate.isNullOrBlank() -> existingService.nextReminderDate!!
         existingService != null && savedIntervalMonths > 0 -> com.example.util.PersianCalendarHelper.addMonthsToPersianDate(date, savedIntervalMonths)
+        existingService != null -> ""
         interval.intervalMonths > 0 -> com.example.util.PersianCalendarHelper.addMonthsToPersianDate(date, interval.intervalMonths)
         else -> ""
     }
