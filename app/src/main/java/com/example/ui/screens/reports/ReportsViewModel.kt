@@ -317,13 +317,19 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             }
             ReportPeriod.YEAR -> {
                 val startPersian = PersianCalendarHelper.fromEpochMillis(startTime)
+                val endPersian = PersianCalendarHelper.fromEpochMillis(endTime)
                 val previousYear = startPersian.year - 1
                 val prevStart = PersianCalendarHelper.jalaliToEpochMillis(previousYear, 1, 1, 0, 0)
-                val prevYearEnd = PersianCalendarHelper.jalaliToEpochMillis(
-                    previousYear, 12, PersianCalendarHelper.getDaysInMonth(previousYear, 12), 23, 59
+                val matchingDay = minOf(
+                    endPersian.day,
+                    PersianCalendarHelper.getDaysInMonth(previousYear, endPersian.month)
                 )
-                val elapsed = (endTime - startTime).coerceAtLeast(0L)
-                Pair(prevStart, minOf(prevStart + elapsed, prevYearEnd))
+                // Compare year-to-date through the equivalent Jalali date/time last year,
+                // safely handling leap-year differences.
+                val prevEnd = PersianCalendarHelper.jalaliToEpochMillis(
+                    previousYear, endPersian.month, matchingDay, endPersian.hour, endPersian.minute
+                )
+                Pair(prevStart, maxOf(prevStart, prevEnd))
             }
             ReportPeriod.CUSTOM -> {
                 val durationInclusive = (endTime - startTime + 1L).coerceAtLeast(1L)
