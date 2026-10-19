@@ -46,7 +46,10 @@ object ReportExportUtils {
         expenseRatio: String,
         previousPeriodExpense: Long,
         expenseChangePercent: String,
-        isExpenseIncreased: Boolean
+        isExpenseIncreased: Boolean,
+        reportTitle: String = "گزارش مالی",
+        totalInstallmentAmount: Long = 0L,
+        paidInstallmentAmount: Long = 0L
     ) {
         try {
             val totalIncomeStr = MoneyFormatter.formatToman(totalIncome)
@@ -86,7 +89,7 @@ object ReportExportUtils {
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("گزارش جامع تحلیلی مالی دارینو", (pageWidth / 2).toFloat(), 55f, titlePaint)
+            canvas.drawText("$reportTitle دارینو", (pageWidth / 2).toFloat(), 55f, titlePaint)
 
             val subtitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CCFBF1")
@@ -124,7 +127,7 @@ object ReportExportUtils {
             val cardY = 220f
             val cardHeight = 100f
 
-            fun drawSummaryBox(x: Float, title: String, amount: String, colorHex: String) {
+            fun drawSummaryBox(x: Float, title: String, amount: String, colorHex: String, unit: String = "تومان") {
                 val boxPaint = Paint().apply {
                     color = AndroidColor.parseColor("#131D33")
                 }
@@ -150,12 +153,26 @@ object ReportExportUtils {
                     typeface = Typeface.DEFAULT_BOLD
                     textAlign = Paint.Align.CENTER
                 }
-                canvas.drawText("$amount تومان", x + (cardWidth / 2), cardY + 66f, amtPaint)
+                canvas.drawText(if (unit.isBlank()) amount else "$amount $unit", x + (cardWidth / 2), cardY + 66f, amtPaint)
             }
 
-            drawSummaryBox(30f, "میزان پس‌انداز", MoneyFormatter.formatToman(savings, includeUnit = false), "#38BDF8")
-            drawSummaryBox(30f + cardWidth + 15f, "مجموع هزینه", MoneyFormatter.formatToman(totalExpense, includeUnit = false), "#EF4444")
-            drawSummaryBox(30f + (cardWidth + 15f) * 2, "مجموع درآمد", MoneyFormatter.formatToman(totalIncome, includeUnit = false), "#10B981")
+            when {
+                reportTitle.contains("خودرو") -> {
+                    drawSummaryBox(30f, "هزینه خودرو", MoneyFormatter.formatToman(totalExpense, includeUnit = false), "#EF4444")
+                    drawSummaryBox(30f + cardWidth + 15f, "هزینه دوره قبل", MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false), "#38BDF8")
+                    drawSummaryBox(30f + (cardWidth + 15f) * 2, "تغییر هزینه", expenseChangePercent, "#10B981", "")
+                }
+                reportTitle.contains("اقساط") -> {
+                    drawSummaryBox(30f, "مبلغ اقساط", MoneyFormatter.formatToman(totalInstallmentAmount, includeUnit = false), "#38BDF8")
+                    drawSummaryBox(30f + cardWidth + 15f, "پرداخت‌شده", MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false), "#10B981")
+                    drawSummaryBox(30f + (cardWidth + 15f) * 2, "باقی‌مانده", MoneyFormatter.formatToman((totalInstallmentAmount - paidInstallmentAmount).coerceAtLeast(0L), includeUnit = false), "#EF4444")
+                }
+                else -> {
+                    drawSummaryBox(30f, "میزان پس‌انداز", MoneyFormatter.formatToman(savings, includeUnit = false), "#38BDF8")
+                    drawSummaryBox(30f + cardWidth + 15f, "مجموع هزینه", MoneyFormatter.formatToman(totalExpense, includeUnit = false), "#EF4444")
+                    drawSummaryBox(30f + (cardWidth + 15f) * 2, "مجموع درآمد", MoneyFormatter.formatToman(totalIncome, includeUnit = false), "#10B981")
+                }
+            }
 
             // Detail Section Card
             val detailY = 345f
@@ -267,7 +284,10 @@ object ReportExportUtils {
         expenseRatio: String,
         previousPeriodExpense: Long,
         expenseChangePercent: String,
-        isExpenseIncreased: Boolean
+        isExpenseIncreased: Boolean,
+        reportTitle: String = "گزارش مالی",
+        totalInstallmentAmount: Long = 0L,
+        paidInstallmentAmount: Long = 0L
     ) {
         try {
             val totalIncomeStr = MoneyFormatter.formatToman(totalIncome, includeUnit = false)
@@ -314,7 +334,7 @@ object ReportExportUtils {
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("مرکز تحلیل مالی دارینو", (width / 2).toFloat(), 115f, titlePaint)
+            canvas.drawText("$reportTitle دارینو", (width / 2).toFloat(), 115f, titlePaint)
 
             val subTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#5EEAD4")
@@ -343,7 +363,7 @@ object ReportExportUtils {
             val cardH = 210f
             val cardW = (width - 120 - 40) / 3f
 
-            fun drawMetricBox(x: Float, label: String, amount: String, colorHex: String) {
+            fun drawMetricBox(x: Float, label: String, amount: String, colorHex: String, unit: String = "تومان") {
                 val boxRect = RectF(x, cardY, x + cardW, cardY + cardH)
                 val boxPaint = Paint().apply {
                     color = AndroidColor.parseColor("#131D33")
@@ -376,12 +396,26 @@ object ReportExportUtils {
                     textSize = 19f
                     textAlign = Paint.Align.CENTER
                 }
-                canvas.drawText("تومان", x + (cardW / 2), cardY + 175f, cPaint)
+                if (unit.isNotBlank()) canvas.drawText(unit, x + (cardW / 2), cardY + 175f, cPaint)
             }
 
-            drawMetricBox(60f, "میزان پس‌انداز", savingsStr, "#38BDF8")
-            drawMetricBox(60f + cardW + 20f, "مجموع هزینه", totalExpenseStr, "#EF4444")
-            drawMetricBox(60f + (cardW + 20f) * 2, "مجموع درآمد", totalIncomeStr, "#10B981")
+            when {
+                reportTitle.contains("خودرو") -> {
+                    drawMetricBox(60f, "هزینه خودرو", totalExpenseStr, "#EF4444")
+                    drawMetricBox(60f + cardW + 20f, "هزینه دوره قبل", MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false), "#38BDF8")
+                    drawMetricBox(60f + (cardW + 20f) * 2, "تغییر هزینه", expenseChangePercent, "#10B981", "")
+                }
+                reportTitle.contains("اقساط") -> {
+                    drawMetricBox(60f, "مبلغ اقساط", MoneyFormatter.formatToman(totalInstallmentAmount, includeUnit = false), "#38BDF8")
+                    drawMetricBox(60f + cardW + 20f, "پرداخت‌شده", MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false), "#10B981")
+                    drawMetricBox(60f + (cardW + 20f) * 2, "باقی‌مانده", MoneyFormatter.formatToman((totalInstallmentAmount - paidInstallmentAmount).coerceAtLeast(0L), includeUnit = false), "#EF4444")
+                }
+                else -> {
+                    drawMetricBox(60f, "میزان پس‌انداز", savingsStr, "#38BDF8")
+                    drawMetricBox(60f + cardW + 20f, "مجموع هزینه", totalExpenseStr, "#EF4444")
+                    drawMetricBox(60f + (cardW + 20f) * 2, "مجموع درآمد", totalIncomeStr, "#10B981")
+                }
+            }
 
             // Breakdown Card
             val breakRect = RectF(60f, 600f, width - 60f, 960f)
