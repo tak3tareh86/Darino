@@ -237,10 +237,11 @@ fun ReportsScreen(
                             previousValue = uiState.previousPeriodExpense,
                             percent = uiState.expenseChangePercent,
                             isIncrease = uiState.isExpenseIncreased,
+                            hasComparisonBaseline = uiState.hasComparisonBaseline,
                             label = when(uiState.selectedPeriod) {
-                                ReportPeriod.WEEK -> "مقایسه با هفته قبل"
-                                ReportPeriod.MONTH -> "مقایسه با ماه قبل"
-                                ReportPeriod.YEAR -> "مقایسه با سال قبل"
+                                ReportPeriod.WEEK -> "مقایسه با ۷ روز قبل"
+                                ReportPeriod.MONTH -> "مقایسه با بازه مشابه ماه قبل"
+                                ReportPeriod.YEAR -> "مقایسه با بازه مشابه سال قبل"
                                 ReportPeriod.CUSTOM -> "مقایسه با دوره معادل قبل"
                             }
                         )
@@ -321,7 +322,7 @@ fun ReportsScreen(
                 topCategoryAmount = MoneyFormatter.formatToman(uiState.topExpenseCategoryAmount),
                 expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
                 previousPeriodExpense = uiState.previousPeriodExpense,
-                expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
+                expenseChangePercent = if (uiState.hasComparisonBaseline) String.format("%.1f٪", uiState.expenseChangePercent) else "بدون مبنای مقایسه",
                 isExpenseIncreased = uiState.isExpenseIncreased,
                 reportTitle = uiState.selectedCategory.title,
                 totalInstallmentAmount = uiState.totalInstallmentAmount,
@@ -864,6 +865,7 @@ private fun MonthComparisonCard(
     previousValue: Long,
     percent: Double,
     isIncrease: Boolean,
+    hasComparisonBaseline: Boolean,
     label: String
 ) {
     Surface(
@@ -883,7 +885,11 @@ private fun MonthComparisonCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val semanticColor = if (isIncrease) Color(0xFFEF4444) else Color(0xFF10B981)
+                val semanticColor = when {
+                    !hasComparisonBaseline -> Color(0xFF64748B)
+                    isIncrease -> Color(0xFFEF4444)
+                    else -> Color(0xFF10B981)
+                }
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = semanticColor.copy(alpha = 0.15f),
@@ -895,19 +901,25 @@ private fun MonthComparisonCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = String.format("%.1f٪ %s", percent, if(isIncrease) "افزایش" else "کاهش"),
+                            text = if (hasComparisonBaseline) {
+                                String.format("%.1f٪ %s", percent, if (isIncrease) "افزایش" else "کاهش")
+                            } else {
+                                "بدون مبنای مقایسه"
+                            },
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
                             ),
                             color = if (isIncrease) Color(0xFFF87171) else Color(0xFF34D399)
                         )
-                        Icon(
-                            imageVector = if (isIncrease) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
-                            contentDescription = null,
-                            tint = if (isIncrease) Color(0xFFF87171) else Color(0xFF34D399),
-                            modifier = Modifier.size(12.dp)
-                        )
+                        if (hasComparisonBaseline) {
+                            Icon(
+                                imageVector = if (isIncrease) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
+                                contentDescription = null,
+                                tint = if (isIncrease) Color(0xFFF87171) else Color(0xFF34D399),
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
                     }
                 }
 
