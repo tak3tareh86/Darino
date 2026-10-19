@@ -180,25 +180,19 @@ fun AddServiceSheet(
                     testTag = "service_cost_input"
                 )
 
-                Column(modifier = Modifier.weight(0.9f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = "کیلومتر خودرو",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = IranianPhoneUtils.convertDigitsToPersian(mileageText),
-                        onValueChange = {
-                            val digits = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
-                            mileageText = digits
-                        },
-                        placeholder = { Text("45000") },
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true
-                    )
-                }
+                OutlinedTextField(
+                    value = IranianPhoneUtils.convertDigitsToPersian(mileageText),
+                    onValueChange = {
+                        val digits = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
+                        mileageText = digits
+                    },
+                    label = { Text("کیلومتر خودرو") },
+                    placeholder = { Text("۴۵۰۰۰") },
+                    modifier = Modifier.weight(0.9f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
             }
 
             // Date & Description
