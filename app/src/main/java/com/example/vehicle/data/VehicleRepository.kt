@@ -962,7 +962,8 @@ class VehicleRepository {
             // Editing a reminder to a target already behind the odometer is immediately due.
             val effectiveCurrentMileage = maxOf(mileage, vehicle.currentMileage)
             if (isReminderEnabled && nextReminderMileage != null &&
-                nextReminderMileage <= effectiveCurrentMileage
+                nextReminderMileage <= effectiveCurrentMileage &&
+                (existingSvc.dueMileage != nextReminderMileage || existingSvc.status == "COMPLETED")
             ) {
                 val newlyDueService = db.vehicleDao().getServiceByServerId(userId, serviceId)
                 if (newlyDueService != null) {
