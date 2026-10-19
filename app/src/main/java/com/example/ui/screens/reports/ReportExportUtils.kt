@@ -454,8 +454,20 @@ object ReportExportUtils {
             }
             canvas.drawRoundRect(RectF(100f, 700f, width - 100f, 730f), 12f, 12f, barBgPaint)
             
-            // We need a ratio float here for the bar
-            val ratioFloat = try { expenseRatio.replace("٪", "").toFloat() / 100f } catch(_: Exception) { 0.5f }
+            // The bar represents expense/income for financial reports, vehicle cost change
+            // for vehicle reports, and paid/total installments for installment reports.
+            val ratioFloat = try {
+                when {
+                    reportTitle.contains("خودرو") ->
+                        com.example.util.IranianPhoneUtils.convertDigitsToEnglish(expenseChangePercent.replace("٪", "").replace(",", ".")).toFloat() / 100f
+                    reportTitle.contains("اقساط") ->
+                        if (totalInstallmentAmount > 0L) paidInstallmentAmount.toFloat() / totalInstallmentAmount.toFloat() else 0f
+                    else ->
+                        com.example.util.IranianPhoneUtils.convertDigitsToEnglish(expenseRatio.replace("٪", "").replace(",", ".")).toFloat() / 100f
+                }.coerceIn(0f, 1f)
+            } catch (_: Exception) {
+                0f
+            }
 
             val barFillPaint = Paint().apply {
                 shader = LinearGradient(
@@ -474,7 +486,7 @@ object ReportExportUtils {
             }
             val ratioLabel = when {
                 reportTitle.contains("خودرو") -> "تغییر هزینه نسبت به دوره قبل: $expenseChangePercent"
-                reportTitle.contains("اقساط") -> "پرداخت‌شده از اقساط این بازه: ${MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false)} تومان"
+                reportTitle.contains("اقساط") -> "درصد پرداخت اقساط در این بازه: ${(ratioFloat * 100).toInt()}٪"
                 else -> "نسبت مصارف به درآمد کل: $expenseRatio"
             }
             canvas.drawText(ratioLabel, width - 100f, 780f, ratioPaint)
@@ -516,7 +528,7 @@ object ReportExportUtils {
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("تأییدیه مدیریت مالی شخصی دارینو", (width / 2).toFloat(), 1070f, sealTitlePaint)
+            canvas.drawText("$reportTitle دارینو", (width / 2).toFloat(), 1070f, sealTitlePaint)
 
             val sealDescPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#A7F3D0")
