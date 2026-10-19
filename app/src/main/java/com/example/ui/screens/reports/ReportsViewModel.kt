@@ -199,14 +199,17 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED
         }
 
-        // 5. Vehicle Report (Canonical data from VehicleRepository)
-        fun calculateVehicleSum(start: Long, end: Long): Long {
-            val vExp = vExpenses.filter { parsePersianDateToMillis(it.date) in start..end }.sumOf { it.amount }
-            val vSer = vServices.filter { parsePersianDateToMillis(it.date) in start..end }.sumOf { it.cost }
-            val vInsp = vInspections.filter { parsePersianDateToMillis(it.lastInspectionDate) in start..end }.sumOf { it.cost }
-            val vIns = vInsurances.filter { parsePersianDateToMillis(it.startDate) in start..end }.sumOf { it.amount }
-            return vExp + vSer + vInsp + vIns
-        }
+        // 5. Vehicle Report. Repository-generated expense entries mirror service,
+        // insurance and inspection records; deduplicate those mirrors to avoid double counting.
+        fun calculateVehicleSum(start: Long, end: Long): Long =
+            ReportVehicleExpenseCalculator.totalForRange(
+                startTime = start,
+                endTime = end,
+                expenses = vExpenses,
+                services = vServices,
+                insurances = vInsurances,
+                inspections = vInspections
+            )
 
         val totalVehicleExpense = calculateVehicleSum(startTime, endTime)
         val prevVehicleExpense = calculateVehicleSum(prevStartTime, prevEndTime)
