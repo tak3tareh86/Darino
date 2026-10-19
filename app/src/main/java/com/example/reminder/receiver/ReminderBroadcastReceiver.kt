@@ -29,7 +29,8 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             "android.intent.action.QUICKBOOT_POWERON",
             Intent.ACTION_MY_PACKAGE_REPLACED,
             Intent.ACTION_TIME_CHANGED,
-            Intent.ACTION_TIMEZONE_CHANGED -> {
+            Intent.ACTION_TIMEZONE_CHANGED,
+            AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED -> {
                 goAsyncWork {
                     // Rebuild must also run after boot when no in-memory user session exists.
                     // ReminderScheduler initializes the session and can recover local schedules globally.
@@ -83,7 +84,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         val dao = db.smartReminderDao()
 
         val reminder = if (userId != null) {
-            dao.getReminderById(userId, reminderId) ?: dao.getReminderByIdGlobal(reminderId)
+            dao.getReminderById(userId, reminderId)
         } else {
             dao.getReminderByIdGlobal(reminderId)
         } ?: run {
@@ -96,7 +97,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         }
 
         val schedule = if (userId != null) {
-            dao.getScheduleById(userId, scheduleId) ?: dao.getScheduleByIdGlobal(scheduleId)
+            dao.getScheduleById(userId, scheduleId)
         } else {
             dao.getScheduleByIdGlobal(scheduleId)
         } ?: run {
