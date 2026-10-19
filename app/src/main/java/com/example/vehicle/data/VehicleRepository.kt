@@ -715,6 +715,23 @@ class VehicleRepository {
                 )
             }
 
+            // A historical service entry can already be overdue relative to the vehicle's
+            // current odometer. Notify immediately instead of waiting for another mileage edit.
+            val effectiveCurrentMileage = maxOf(mileage, vehicle.currentMileage)
+            if (isReminderEnabled && nextReminderMileage != null &&
+                nextReminderMileage <= effectiveCurrentMileage
+            ) {
+                val newlyDueService = db.vehicleDao().getServiceByServerId(userId, serviceId)
+                if (newlyDueService != null) {
+                    dispatchMileageThresholdNotifications(
+                        context = context,
+                        userId = userId,
+                        crossedServices = listOf(newlyDueService),
+                        currentMileage = effectiveCurrentMileage
+                    )
+                }
+            }
+
             Result.success(newService)
         } catch (e: Exception) {
             Result.failure(e)
@@ -940,6 +957,22 @@ class VehicleRepository {
                     crossedServices = crossedMileageReminders,
                     currentMileage = mileage
                 )
+            }
+
+            // Editing a reminder to a target already behind the odometer is immediately due.
+            val effectiveCurrentMileage = maxOf(mileage, vehicle.currentMileage)
+            if (isReminderEnabled && nextReminderMileage != null &&
+                nextReminderMileage <= effectiveCurrentMileage
+            ) {
+                val newlyDueService = db.vehicleDao().getServiceByServerId(userId, serviceId)
+                if (newlyDueService != null) {
+                    dispatchMileageThresholdNotifications(
+                        context = context,
+                        userId = userId,
+                        crossedServices = listOf(newlyDueService),
+                        currentMileage = effectiveCurrentMileage
+                    )
+                }
             }
 
             Result.success(updatedService)
