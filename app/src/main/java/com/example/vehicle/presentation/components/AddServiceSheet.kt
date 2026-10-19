@@ -64,11 +64,7 @@ fun AddServiceSheet(
 
     // Next Reminder settings
     var isReminderEnabled by remember { mutableStateOf(true) }
-    var reminderIntervalKm by remember { mutableIntStateOf(5000) }
-    var reminderIntervalMonths by remember { mutableIntStateOf(6) }
-
     val currentKm = mileageText.toIntOrNull() ?: vehicle.currentMileage
-    val nextKm = currentKm + reminderIntervalKm
     val (calcKm, calcDate) = VehicleManager.calculateRecommendedReminder(
         serviceType = selectedType,
         currentMileage = currentKm,
@@ -148,8 +144,6 @@ fun AddServiceSheet(
                         onClick = {
                             selectedType = type
                             title = type.title
-                            reminderIntervalKm = type.defaultIntervalKm
-                            reminderIntervalMonths = type.defaultIntervalMonths
                         },
                         label = { Text(type.title, fontSize = 11.sp) }
                     )
