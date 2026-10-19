@@ -36,7 +36,7 @@ internal object ReportDateRangeCalculator {
     ): Pair<Long, Long> {
         val currentPersian = PersianCalendarHelper.fromEpochMillis(nowMillis)
         return when (period) {
-            ReportPeriod.WEEK -> Pair(nowMillis - (7 * 24 * 60 * 60 * 1000L), nowMillis)
+            ReportPeriod.WEEK -> Pair(nowMillis - (7 * 24 * 60 * 60 * 1000L) + 1L, nowMillis)
             ReportPeriod.MONTH -> {
                 val start = PersianCalendarHelper.jalaliToEpochMillis(
                     currentPersian.year, currentPersian.month, 1, 0, 0
