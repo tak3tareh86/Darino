@@ -30,7 +30,7 @@ object VehicleMaintenanceCatalog {
     fun resolve(vehicle: VehicleEntity, serviceType: ServiceType): VehicleServiceInterval {
         val identity = normalize("${vehicle.brand} ${vehicle.model}")
         val isTara = identity.contains("تارا") || identity.contains("tara")
-        val isAutomaticTara = isTara && listOf("اتومات", "automatic", "auto", "dae", "at").any(identity::contains)
+        val isAutomaticTara = isTara && listOf("اتومات", "automatic", "auto", "dae").any { token -> identity.contains(token) }
 
         return when (serviceType) {
             // Conservative app default requested for engine oil. The exact owner-manual,
