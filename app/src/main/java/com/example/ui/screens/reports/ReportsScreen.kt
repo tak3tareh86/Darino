@@ -116,12 +116,10 @@ fun ReportsScreen(
         ShamsiDate(now.year, now.month, PersianCalendarHelper.getDaysInMonth(now.year, now.month))
     }
 
-    val exportStartDate: ShamsiDate
-    val exportEndDate: ShamsiDate
-    run {
+    val exportRange = run {
         val nowMillis = System.currentTimeMillis()
         val now = PersianCalendarHelper.fromEpochMillis(nowMillis)
-        exportStartDate = when (uiState.selectedPeriod) {
+        val reportStart = when (uiState.selectedPeriod) {
             ReportPeriod.WEEK -> {
                 val d = PersianCalendarHelper.fromEpochMillis(nowMillis - 7 * 24 * 60 * 60 * 1000L)
                 ShamsiDate(d.year, d.month, d.day)
@@ -130,9 +128,12 @@ fun ReportsScreen(
             ReportPeriod.YEAR -> ShamsiDate(now.year, 1, 1)
             ReportPeriod.CUSTOM -> startDate
         }
-        exportEndDate = if (uiState.selectedPeriod == ReportPeriod.CUSTOM) endDate
+        val reportEnd = if (uiState.selectedPeriod == ReportPeriod.CUSTOM) endDate
             else ShamsiDate(now.year, now.month, now.day)
+        reportStart to reportEnd
     }
+    val exportStartDate = exportRange.first
+    val exportEndDate = exportRange.second
 
     var showCustomDateSheet by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
@@ -149,7 +150,7 @@ fun ReportsScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                // ۱. نوار بالای صفحه با دکمه خروجی (فریز شده)
+                // ۱. نوار بالای صفحه با خروجی و انتخاب بازه زمانی
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -396,7 +397,7 @@ private fun ReportsHeader(
                 IconButton(onClick = onFilterClick) {
                     Icon(
                         imageVector = Icons.Rounded.FilterList,
-                        contentDescription = "فیلترها",
+                        contentDescription = "انتخاب بازه زمانی",
                         tint = Color(0xFF94A3B8),
                         modifier = Modifier.size(20.dp)
                     )
