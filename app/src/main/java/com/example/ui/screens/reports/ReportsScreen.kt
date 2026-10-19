@@ -396,7 +396,7 @@ private fun ReportsHeader(
             ) {
                 IconButton(onClick = onFilterClick) {
                     Icon(
-                        imageVector = Icons.Rounded.FilterList,
+                        imageVector = Icons.Rounded.DateRange,
                         contentDescription = "انتخاب بازه زمانی",
                         tint = Color(0xFF94A3B8),
                         modifier = Modifier.size(20.dp)
