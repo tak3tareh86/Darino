@@ -124,9 +124,13 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         
         val filteredTransactions = when (category) {
             ReportCategory.FINANCIAL -> periodTransactions
-            ReportCategory.VEHICLE -> periodTransactions.filter { 
-                it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE ||
-                it.category.id == "vehicle" || it.category.id == "fuel"
+            ReportCategory.VEHICLE -> periodTransactions.filter {
+                it.sourceType in setOf(
+                    com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE,
+                    com.example.ui.screens.finance.model.TransactionSourceType.FUEL,
+                    com.example.ui.screens.finance.model.TransactionSourceType.MAINTENANCE,
+                    com.example.ui.screens.finance.model.TransactionSourceType.INSURANCE
+                ) || it.category.id in setOf("vehicle", "fuel", "insurance")
             }
             ReportCategory.INSTALLMENTS -> periodTransactions.filter {
                 it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.INSTALLMENT ||
@@ -149,9 +153,13 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         val prevTransactions = allTransactions.filter { it.dateMillis in prevStartTime..prevEndTime }
         val prevFilteredTransactions = when (category) {
             ReportCategory.FINANCIAL -> prevTransactions
-            ReportCategory.VEHICLE -> prevTransactions.filter { 
-                it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE ||
-                it.category.id == "vehicle" || it.category.id == "fuel"
+            ReportCategory.VEHICLE -> prevTransactions.filter {
+                it.sourceType in setOf(
+                    com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE,
+                    com.example.ui.screens.finance.model.TransactionSourceType.FUEL,
+                    com.example.ui.screens.finance.model.TransactionSourceType.MAINTENANCE,
+                    com.example.ui.screens.finance.model.TransactionSourceType.INSURANCE
+                ) || it.category.id in setOf("vehicle", "fuel", "insurance")
             }
             ReportCategory.INSTALLMENTS -> prevTransactions.filter {
                 it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.INSTALLMENT ||
