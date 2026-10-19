@@ -295,7 +295,8 @@ fun DarinoVehicleMainDashboard(
                                 onCompleteService = { service ->
                                     viewModel.completeServiceRecord(
                                         service.id,
-                                        com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                                        com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
+                                        currentCar.currentMileage
                                     )
                                 },
                                 onDeleteService = { service -> viewModel.deleteServiceRecord(service.id) }
