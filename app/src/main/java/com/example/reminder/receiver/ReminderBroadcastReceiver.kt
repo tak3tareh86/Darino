@@ -31,10 +31,9 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED -> {
                 goAsyncWork {
-                    if (SessionManager.userId == null) {
-                        Log.i(TAG, "No authenticated user; skipping reminder rebuild.")
-                        return@goAsyncWork
-                    }
+                    // Rebuild must also run after boot when no in-memory user session exists.
+                    // ReminderScheduler initializes the session and can recover local schedules globally.
+                    SessionManager.init(context.applicationContext)
                     ReminderScheduler(context.applicationContext).rebuildAllSchedules()
                 }
             }
@@ -79,15 +78,16 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         if (SessionManager.userId == null) {
             SessionManager.init(context)
         }
-        val userId = SessionManager.userId ?: run {
-            Log.e(TAG, "Cannot handle trigger: SessionManager.userId is null after init for reminderId: $reminderId, scheduleId: $scheduleId.")
-            return
-        }
+        val userId = SessionManager.userId
         val db = AppDatabase.getDatabase(context)
         val dao = db.smartReminderDao()
 
-        val reminder = dao.getReminderById(userId, reminderId) ?: run {
-            Log.w(TAG, "Reminder $reminderId not found for current user $userId.")
+        val reminder = if (userId != null) {
+            dao.getReminderById(userId, reminderId) ?: dao.getReminderByIdGlobal(reminderId)
+        } else {
+            dao.getReminderByIdGlobal(reminderId)
+        } ?: run {
+            Log.w(TAG, "Reminder $reminderId not found for current session or local database.")
             return
         }
         if (!reminder.status.equals("ACTIVE", ignoreCase = true)) {
@@ -95,8 +95,12 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             return
         }
 
-        val schedule = dao.getScheduleById(userId, scheduleId) ?: run {
-            Log.w(TAG, "Schedule $scheduleId not found for current user $userId.")
+        val schedule = if (userId != null) {
+            dao.getScheduleById(userId, scheduleId) ?: dao.getScheduleByIdGlobal(scheduleId)
+        } else {
+            dao.getScheduleByIdGlobal(scheduleId)
+        } ?: run {
+            Log.w(TAG, "Schedule $scheduleId not found for current session or local database.")
             return
         }
         val expectedTime = schedule.triggerDateTime
