@@ -256,9 +256,26 @@ fun AddServiceSheet(
 
                     if (isReminderEnabled) {
                         Text(
-                            text = "یادآوری در کیلومتر ${IranianPhoneUtils.convertDigitsToPersian(calcKm.toString())} (معادل ${IranianPhoneUtils.convertDigitsToPersian(reminderIntervalKm.toString())} کیلومتر بعد) یا تاریخ ${IranianPhoneUtils.convertDigitsToPersian(calcDate)} فعال خواهد شد.",
+                            text = buildString {
+                                if (calcKm > 0) {
+                                    append("یادآوری کیلومتری: ")
+                                    append(IranianPhoneUtils.convertDigitsToPersian(calcKm.toString()))
+                                    append(" کیلومتر")
+                                }
+                                if (calcDate.isNotBlank()) {
+                                    if (isNotEmpty()) append(" یا ")
+                                    append("تاریخ تقریبی: ")
+                                    append(IranianPhoneUtils.convertDigitsToPersian(calcDate))
+                                }
+                                append(" فعال خواهد شد.")
+                            },
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = selectedType.intervalSource + " این بازه مرجع است و در صورت تفاوت، دفترچهٔ خودروی شما ملاک نهایی است.",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -277,8 +294,8 @@ fun AddServiceSheet(
                             mileage,
                             cost,
                             description,
-                            if (isReminderEnabled) calcDate else null,
-                            if (isReminderEnabled) calcKm else null,
+                            if (isReminderEnabled && calcDate.isNotBlank()) calcDate else null,
+                            if (isReminderEnabled && calcKm > 0) calcKm else null,
                             isReminderEnabled
                         )
                     }
