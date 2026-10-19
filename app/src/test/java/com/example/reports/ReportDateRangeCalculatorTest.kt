@@ -44,7 +44,7 @@ class ReportDateRangeCalculatorTest {
         )
 
         assertEquals(current.first - 1L, previous.second)
-        assertEquals(current.second - current.first, previous.second - previous.first)
+        assertEquals(current.second - current.first + 1L, previous.second - previous.first + 1L)
     }
 
     @Test
