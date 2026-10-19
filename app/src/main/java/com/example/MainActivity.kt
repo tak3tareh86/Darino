@@ -120,6 +120,19 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        val alarmManager = getSystemService(android.content.Context.ALARM_SERVICE) as? android.app.AlarmManager
+        val exactAlarmAllowed = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S ||
+            alarmManager?.canScheduleExactAlarms() == true
+        if (exactAlarmAllowed) {
+            // Re-arm persisted reminders after returning from system settings or process recreation.
+            androidx.lifecycle.lifecycleScope.launch {
+                com.example.reminder.domain.ReminderScheduler(applicationContext).rebuildAllSchedules()
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         networkMonitor?.unregister()
