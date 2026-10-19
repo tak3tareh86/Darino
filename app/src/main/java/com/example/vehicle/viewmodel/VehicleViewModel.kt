@@ -420,9 +420,9 @@ class VehicleViewModel(
         }
     }
 
-    fun completeServiceRecord(serviceId: String, completedDate: String) {
+    fun completeServiceRecord(serviceId: String, completedDate: String, completedMileage: Int) {
         viewModelScope.launch {
-            val result = repository.completeService(serviceId, completedDate)
+            val result = repository.completeService(serviceId, completedDate, completedMileage)
             result.onSuccess {
                 _uiState.update {
                     it.copy(
