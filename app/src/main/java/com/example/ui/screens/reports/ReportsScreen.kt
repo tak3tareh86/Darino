@@ -113,9 +113,11 @@ fun ReportsScreen(
     }
     val endDate = uiState.customEndDate ?: remember {
         val now = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
-        ShamsiDate(now.year, now.month, PersianCalendarHelper.getDaysInMonth(now.year, now.month))
+        ShamsiDate(now.year, now.month, now.day)
     }
-    
+    val reportStartDate = uiState.reportStartDate ?: startDate
+    val reportEndDate = uiState.reportEndDate ?: endDate
+
     var showCustomDateSheet by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
 
@@ -151,6 +153,34 @@ fun ReportsScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    if (uiState.isLoading) {
+                        item {
+                            Text(
+                                text = "در حال محاسبه گزارش‌ها...",
+                                color = Color(0xFF94A3B8),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                            )
+                        }
+                    }
+                    uiState.errorMessage?.let { message ->
+                        item {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFF451A1A),
+                                border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.4f))
+                            ) {
+                                Text(
+                                    text = message,
+                                    color = Color(0xFFFECACA),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(14.dp)
+                                )
+                            }
+                        }
+                    }
+
                     // ۲. کارت خلاصه وضعیت مالی
                     item {
                         FinancialOverviewCard(
@@ -207,10 +237,11 @@ fun ReportsScreen(
                             previousValue = uiState.previousPeriodExpense,
                             percent = uiState.expenseChangePercent,
                             isIncrease = uiState.isExpenseIncreased,
+                            hasComparisonBaseline = uiState.hasComparisonBaseline,
                             label = when(uiState.selectedPeriod) {
-                                ReportPeriod.WEEK -> "مقایسه با هفته قبل"
-                                ReportPeriod.MONTH -> "مقایسه با ماه قبل"
-                                ReportPeriod.YEAR -> "مقایسه با سال قبل"
+                                ReportPeriod.WEEK -> "مقایسه با ۷ روز قبل"
+                                ReportPeriod.MONTH -> "مقایسه با بازه مشابه ماه قبل"
+                                ReportPeriod.YEAR -> "مقایسه با بازه مشابه سال قبل"
                                 ReportPeriod.CUSTOM -> "مقایسه با دوره معادل قبل"
                             }
                         )
@@ -280,8 +311,8 @@ fun ReportsScreen(
         // باتم‌شیت خروجی و اشتراک‌گذاری گزارش (PDF واقعی و ذخیره در گالری)
         if (showExportSheet) {
             ExportReportBottomSheet(
-                startDate = startDate,
-                endDate = endDate,
+                startDate = reportStartDate,
+                endDate = reportEndDate,
                 onDismiss = { showExportSheet = false },
                 totalIncome = uiState.totalIncome,
                 totalExpense = uiState.totalExpense,
@@ -291,13 +322,16 @@ fun ReportsScreen(
                 topCategoryAmount = MoneyFormatter.formatToman(uiState.topExpenseCategoryAmount),
                 expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
                 previousPeriodExpense = uiState.previousPeriodExpense,
-                expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
+                expenseChangePercent = if (uiState.hasComparisonBaseline) String.format("%.1f٪", uiState.expenseChangePercent) else "بدون مبنای مقایسه",
                 isExpenseIncreased = uiState.isExpenseIncreased,
+                reportTitle = uiState.selectedCategory.title,
+                totalInstallmentAmount = uiState.totalInstallmentAmount,
+                paidInstallmentAmount = uiState.paidInstallmentAmount,
                 onExportPdf = {
                     ReportExportUtils.exportReportAsPdf(
                         context = context,
-                        startDate = startDate,
-                        endDate = endDate,
+                        startDate = reportStartDate,
+                        endDate = reportEndDate,
                         totalIncome = uiState.totalIncome,
                         totalExpense = uiState.totalExpense,
                         savings = uiState.savings,
@@ -305,16 +339,19 @@ fun ReportsScreen(
                         topExpenseCategory = uiState.topExpenseCategory,
                         expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
                         previousPeriodExpense = uiState.previousPeriodExpense,
-                        expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
-                        isExpenseIncreased = uiState.isExpenseIncreased
+                        expenseChangePercent = if (uiState.hasComparisonBaseline) String.format("%.1f٪", uiState.expenseChangePercent) else "بدون مبنای مقایسه",
+                        isExpenseIncreased = uiState.isExpenseIncreased,
+                        reportTitle = uiState.selectedCategory.title,
+                        totalInstallmentAmount = uiState.totalInstallmentAmount,
+                        paidInstallmentAmount = uiState.paidInstallmentAmount
                     )
                     showExportSheet = false
                 },
                 onSaveImage = {
                     ReportExportUtils.saveReportImageToGallery(
                         context = context,
-                        startDate = startDate,
-                        endDate = endDate,
+                        startDate = reportStartDate,
+                        endDate = reportEndDate,
                         totalIncome = uiState.totalIncome,
                         totalExpense = uiState.totalExpense,
                         savings = uiState.savings,
@@ -323,8 +360,11 @@ fun ReportsScreen(
                         topCategoryAmount = MoneyFormatter.formatToman(uiState.topExpenseCategoryAmount),
                         expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
                         previousPeriodExpense = uiState.previousPeriodExpense,
-                        expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
-                        isExpenseIncreased = uiState.isExpenseIncreased
+                        expenseChangePercent = if (uiState.hasComparisonBaseline) String.format("%.1f٪", uiState.expenseChangePercent) else "بدون مبنای مقایسه",
+                        isExpenseIncreased = uiState.isExpenseIncreased,
+                        reportTitle = uiState.selectedCategory.title,
+                        totalInstallmentAmount = uiState.totalInstallmentAmount,
+                        paidInstallmentAmount = uiState.paidInstallmentAmount
                     )
                     showExportSheet = false
                 }
@@ -377,8 +417,8 @@ private fun ReportsHeader(
             ) {
                 IconButton(onClick = onFilterClick) {
                     Icon(
-                        imageVector = Icons.Rounded.FilterList,
-                        contentDescription = "فیلترها",
+                        imageVector = Icons.Rounded.DateRange,
+                        contentDescription = "انتخاب بازه زمانی",
                         tint = Color(0xFF94A3B8),
                         modifier = Modifier.size(20.dp)
                     )
@@ -597,7 +637,7 @@ private fun FinancialOverviewCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(expenseRatio)
+                            .fillMaxWidth(expenseRatio.coerceIn(0f, 1f))
                             .height(8.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .background(
@@ -825,6 +865,7 @@ private fun MonthComparisonCard(
     previousValue: Long,
     percent: Double,
     isIncrease: Boolean,
+    hasComparisonBaseline: Boolean,
     label: String
 ) {
     Surface(
@@ -844,7 +885,11 @@ private fun MonthComparisonCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val semanticColor = if (isIncrease) Color(0xFFEF4444) else Color(0xFF10B981)
+                val semanticColor = when {
+                    !hasComparisonBaseline -> Color(0xFF64748B)
+                    isIncrease -> Color(0xFFEF4444)
+                    else -> Color(0xFF10B981)
+                }
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = semanticColor.copy(alpha = 0.15f),
@@ -856,19 +901,25 @@ private fun MonthComparisonCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = String.format("%.1f٪ %s", percent, if(isIncrease) "افزایش" else "کاهش"),
+                            text = if (hasComparisonBaseline) {
+                                String.format("%.1f٪ %s", percent, if (isIncrease) "افزایش" else "کاهش")
+                            } else {
+                                "بدون مبنای مقایسه"
+                            },
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
                             ),
-                            color = if (isIncrease) Color(0xFFF87171) else Color(0xFF34D399)
+                            color = if (!hasComparisonBaseline) Color(0xFF94A3B8) else if (isIncrease) Color(0xFFF87171) else Color(0xFF34D399)
                         )
-                        Icon(
-                            imageVector = if (isIncrease) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
-                            contentDescription = null,
-                            tint = if (isIncrease) Color(0xFFF87171) else Color(0xFF34D399),
-                            modifier = Modifier.size(12.dp)
-                        )
+                        if (hasComparisonBaseline) {
+                            Icon(
+                                imageVector = if (isIncrease) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
+                                contentDescription = null,
+                                tint = if (isIncrease) Color(0xFFF87171) else Color(0xFF34D399),
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
                     }
                 }
 
@@ -1220,6 +1271,9 @@ fun ExportReportBottomSheet(
     previousPeriodExpense: Long,
     expenseChangePercent: String,
     isExpenseIncreased: Boolean,
+    reportTitle: String = "گزارش مالی",
+    totalInstallmentAmount: Long = 0L,
+    paidInstallmentAmount: Long = 0L,
     onExportPdf: () -> Unit,
     onSaveImage: () -> Unit
 ) {
@@ -1293,7 +1347,7 @@ fun ExportReportBottomSheet(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "پیش‌نمایش خروجی بازه انتخابی",
+                            text = "پیش‌نمایش ${reportTitle} • بازه انتخابی",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.5.sp
@@ -1301,26 +1355,43 @@ fun ExportReportBottomSheet(
                             color = Color.White
                         )
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "مجموع درآمد: ${MoneyFormatter.formatToman(totalIncome)} تومان",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp
-                                ),
-                                color = Color(0xFF34D399)
-                            )
-                            Text(
-                                text = "مجموع هزینه: ${MoneyFormatter.formatToman(totalExpense)} تومان",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp
-                                ),
-                                color = Color(0xFFF87171)
-                            )
+                        when {
+                            reportTitle.contains("خودرو") -> {
+                                Text(
+                                    text = "مجموع هزینه خودرو: ${MoneyFormatter.formatToman(totalExpense)} تومان",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+                                    color = Color(0xFFF87171)
+                                )
+                            }
+                            reportTitle.contains("اقساط") -> {
+                                Text(
+                                    text = "اقساط این بازه: ${MoneyFormatter.formatToman(totalInstallmentAmount)} تومان",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+                                    color = Color(0xFF38BDF8)
+                                )
+                                Text(
+                                    text = "پرداخت‌شده: ${MoneyFormatter.formatToman(paidInstallmentAmount)} تومان",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+                                    color = Color(0xFF34D399)
+                                )
+                            }
+                            else -> {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "مجموع درآمد: ${MoneyFormatter.formatToman(totalIncome)} تومان",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+                                        color = Color(0xFF34D399)
+                                    )
+                                    Text(
+                                        text = "مجموع هزینه: ${MoneyFormatter.formatToman(totalExpense)} تومان",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+                                        color = Color(0xFFF87171)
+                                    )
+                                }
+                            }
                         }
 
                         Text(
@@ -1419,6 +1490,10 @@ fun CustomDateRangeBottomSheet(
 ) {
     var tempStart by remember { mutableStateOf(initialStartDate) }
     var tempEnd by remember { mutableStateOf(initialEndDate) }
+    val isDateRangeValid = (tempStart.year * 10000 + tempStart.month * 100 + tempStart.day) <=
+        (tempEnd.year * 10000 + tempEnd.month * 100 + tempEnd.day) &&
+        tempStart.day in 1..PersianCalendarHelper.getDaysInMonth(tempStart.year, tempStart.month) &&
+        tempEnd.day in 1..PersianCalendarHelper.getDaysInMonth(tempEnd.year, tempEnd.month)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1488,20 +1563,20 @@ fun CustomDateRangeBottomSheet(
                     val now = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
                     
                     PresetChip("۷ روز اخیر") {
-                        val startMillis = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L)
+                        val startMillis = System.currentTimeMillis() - (6 * 24 * 60 * 60 * 1000L)
                         val start = PersianCalendarHelper.fromEpochMillis(startMillis)
                         tempStart = ShamsiDate(start.year, start.month, start.day)
                         tempEnd = ShamsiDate(now.year, now.month, now.day)
                     }
                     PresetChip("۳۰ روز اخیر") {
-                        val startMillis = System.currentTimeMillis() - (30 * 24 * 60 * 60 * 1000L)
+                        val startMillis = System.currentTimeMillis() - (29 * 24 * 60 * 60 * 1000L)
                         val start = PersianCalendarHelper.fromEpochMillis(startMillis)
                         tempStart = ShamsiDate(start.year, start.month, start.day)
                         tempEnd = ShamsiDate(now.year, now.month, now.day)
                     }
                     PresetChip("ماه جاری") {
                         tempStart = ShamsiDate(now.year, now.month, 1)
-                        tempEnd = ShamsiDate(now.year, now.month, PersianCalendarHelper.getDaysInMonth(now.year, now.month))
+                        tempEnd = ShamsiDate(now.year, now.month, now.day)
                     }
                     PresetChip("۳ ماه اخیر") {
                         var startMonth = now.month - 2
@@ -1538,7 +1613,15 @@ fun CustomDateRangeBottomSheet(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 // دکمه اعمال بازه
+                if (!isDateRangeValid) {
+                    Text(
+                        text = "تاریخ شروع باید قبل یا برابر تاریخ پایان باشد.",
+                        color = Color(0xFFF87171),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Button(
+                    enabled = isDateRangeValid,
                     onClick = { onApply(tempStart, tempEnd) },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1634,7 +1717,7 @@ private fun PersianDateSelectorRow(
                     onDismissRequest = { dayExpanded = false },
                     modifier = Modifier.background(Color(0xFF1E293B))
                 ) {
-                    val maxDays = if (date.month <= 6) 31 else if (date.month <= 11) 30 else 29
+                    val maxDays = PersianCalendarHelper.getDaysInMonth(date.year, date.month)
                     for (d in 1..maxDays) {
                         DropdownMenuItem(
                             text = { Text("$d", color = Color.White) },
@@ -1669,7 +1752,7 @@ private fun PersianDateSelectorRow(
                         DropdownMenuItem(
                             text = { Text(mName, color = Color.White) },
                             onClick = {
-                                val maxDays = if (mNum <= 6) 31 else if (mNum <= 11) 30 else 29
+                                val maxDays = PersianCalendarHelper.getDaysInMonth(date.year, mNum)
                                 val safeDay = if (date.day > maxDays) maxDays else date.day
                                 onDateChanged(date.copy(month = mNum, day = safeDay))
                                 monthExpanded = false
