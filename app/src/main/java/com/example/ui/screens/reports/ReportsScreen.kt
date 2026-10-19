@@ -910,7 +910,7 @@ private fun MonthComparisonCard(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
                             ),
-                            color = if (isIncrease) Color(0xFFF87171) else Color(0xFF34D399)
+                            color = if (!hasComparisonBaseline) Color(0xFF94A3B8) else if (isIncrease) Color(0xFFF87171) else Color(0xFF34D399)
                         )
                         if (hasComparisonBaseline) {
                             Icon(
