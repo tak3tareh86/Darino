@@ -245,9 +245,16 @@ class VehicleViewModel(
         color: String,
         plate: String,
         vin: String,
-        estimatedValue: Long
+        estimatedValue: Long,
+        engine: String = "",
+        transmission: String = "",
+        currentMileage: Int
     ) {
         val current = _uiState.value.selectedVehicle ?: return
+        if (currentMileage < 0 || estimatedValue < 0L) {
+            _uiState.update { it.copy(snackBarMessage = "کیلومتر و ارزش خودرو نمی‌توانند منفی باشند.") }
+            return
+        }
         val updated = current.copy(
             brand = brand,
             model = model,
@@ -255,7 +262,10 @@ class VehicleViewModel(
             color = color,
             plate = plate,
             vin = vin,
-            estimatedValue = estimatedValue
+            estimatedValue = estimatedValue,
+            engine = engine,
+            transmission = transmission,
+            currentMileage = currentMileage
         )
         viewModelScope.launch {
             val result = repository.updateVehicle(updated)
