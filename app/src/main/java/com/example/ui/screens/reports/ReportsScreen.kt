@@ -301,6 +301,7 @@ fun ReportsScreen(
             ExportReportBottomSheet(
                 startDate = exportStartDate,
                 endDate = exportEndDate,
+                reportCategory = uiState.selectedCategory,
                 onDismiss = { showExportSheet = false },
                 totalIncome = uiState.totalIncome,
                 totalExpense = uiState.totalExpense,
@@ -325,7 +326,8 @@ fun ReportsScreen(
                         expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
                         previousPeriodExpense = uiState.previousPeriodExpense,
                         expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
-                        isExpenseIncreased = uiState.isExpenseIncreased
+                        isExpenseIncreased = uiState.isExpenseIncreased,
+                        reportCategory = uiState.selectedCategory
                     )
                     showExportSheet = false
                 },
@@ -1241,6 +1243,7 @@ private fun ExpenseCategoryCard(
 fun ExportReportBottomSheet(
     startDate: ShamsiDate,
     endDate: ShamsiDate,
+    reportCategory: ReportCategory = ReportCategory.FINANCIAL,
     onDismiss: () -> Unit,
     totalIncome: Long,
     totalExpense: Long,
@@ -1325,7 +1328,7 @@ fun ExportReportBottomSheet(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "پیش‌نمایش خروجی بازه انتخابی",
+                            text = "پیش‌نمایش ${reportCategory.title} در بازه انتخابی",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.5.sp
@@ -1333,20 +1336,31 @@ fun ExportReportBottomSheet(
                             color = Color.White
                         )
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
+                        if (reportCategory == ReportCategory.FINANCIAL || reportCategory == ReportCategory.SMART_ANALYSIS) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "مجموع درآمد: ${MoneyFormatter.formatToman(totalIncome)} تومان",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp
+                                    ),
+                                    color = Color(0xFF34D399)
+                                )
+                                Text(
+                                    text = "مجموع هزینه: ${MoneyFormatter.formatToman(totalExpense)} تومان",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp
+                                    ),
+                                    color = Color(0xFFF87171)
+                                )
+                            }
+                        } else {
                             Text(
-                                text = "مجموع درآمد: ${MoneyFormatter.formatToman(totalIncome)} تومان",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp
-                                ),
-                                color = Color(0xFF34D399)
-                            )
-                            Text(
-                                text = "مجموع هزینه: ${MoneyFormatter.formatToman(totalExpense)} تومان",
+                                text = "${if (reportCategory == ReportCategory.VEHICLE) "مجموع هزینه خودرو" else "هزینه ثبت‌شده اقساط"}: ${MoneyFormatter.formatToman(totalExpense)} تومان",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp
@@ -1356,7 +1370,7 @@ fun ExportReportBottomSheet(
                         }
 
                         Text(
-                            text = "تحلیل شامل: نمودارهای دایره‌ای، میله‌ای، وضعیت اقساط و خودرو",
+                            text = "خلاصه آمار ${reportCategory.title} برای بازه انتخابی",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 11.sp
                             ),
