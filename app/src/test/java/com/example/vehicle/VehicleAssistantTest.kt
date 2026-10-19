@@ -136,6 +136,71 @@ class VehicleAssistantTest {
     }
 
     @Test
+    fun healthUsesMostRecentOilServiceAndChecksSavedDueDate() {
+        val vehicle = com.example.vehicle.data.VehicleEntity(
+            id = "health-car",
+            brand = "سایپا",
+            model = "تیبا",
+            year = "1402",
+            color = "سفید",
+            plate = "",
+            currentMileage = 25000
+        )
+        val olderService = com.example.vehicle.data.VehicleServiceEntity(
+            id = "old-oil",
+            vehicleId = vehicle.id,
+            title = "تعویض روغن قدیمی",
+            serviceType = ServiceType.OIL_CHANGE,
+            date = "۱۴۰۴/۰۱/۰۱",
+            mileage = 10000,
+            cost = 0L,
+            nextReminderMileage = 20000
+        )
+        val newerService = com.example.vehicle.data.VehicleServiceEntity(
+            id = "new-oil",
+            vehicleId = vehicle.id,
+            title = "تعویض روغن جدید",
+            serviceType = ServiceType.OIL_CHANGE,
+            date = "۱۴۰۵/۰۱/۰۱",
+            mileage = 20000,
+            cost = 0L,
+            nextReminderMileage = 60000
+        )
+
+        val report = VehicleAnalyzer.analyzeHealth(
+            vehicle = vehicle,
+            services = listOf(olderService, newerService),
+            insurances = emptyList(),
+            inspections = emptyList()
+        )
+        val oilCheck = report.checklist.first { it.title == "روغن و فیلتر موتور" }
+
+        assertTrue("باید سرویس جدیدتر مبنا قرار بگیرد", oilCheck.statusText.contains("35000"))
+    }
+
+    @Test
+    fun yearlyExpenseDoesNotFallBackToLifetimeTotalWhenCurrentYearIsZero() {
+        val currentYear = com.example.util.PersianCalendarHelper
+            .fromEpochMillis(System.currentTimeMillis()).year
+        val oldExpense = com.example.vehicle.data.VehicleExpenseEntity(
+            id = "old-expense",
+            vehicleId = "stats-car",
+            title = "تعمیر سال قبل",
+            category = VehicleExpenseCategory.REPAIRS,
+            amount = 80_000_000L,
+            date = "${currentYear - 1}/01/01"
+        )
+
+        val stats = VehicleAnalyzer.computeStatistics(
+            vehicleId = "stats-car",
+            expenses = listOf(oldExpense),
+            services = emptyList()
+        )
+
+        assertEquals(0L, stats.yearlyCost)
+    }
+
+    @Test
     fun testSmartReminderCalculation() {
         val (nextKm, nextDate) = VehicleManager.calculateRecommendedReminder(
             serviceType = ServiceType.OIL_CHANGE,
