@@ -116,7 +116,9 @@ data class VehicleEntity(
     val vin: String = "",
     val estimatedValue: Long = 0L,
     val updatedAt: Long = System.currentTimeMillis(),
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val engine: String = "",
+    val transmission: String = ""
 )
 
 @Entity(tableName = "vehicle_services")
