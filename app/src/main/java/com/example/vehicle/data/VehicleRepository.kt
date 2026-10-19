@@ -481,10 +481,32 @@ class VehicleRepository {
             val db = AppDatabase.getDatabase(context)
             val existing = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
                 ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
+            val canonicalVehicleId = existing.serverId ?: existing.id.toString()
+
+            // Mileage-based service reminders have no calendar alarm. Detect the exact
+            // odometer crossing here, when the user records a new mileage, and notify once.
+            val crossedMileageReminders = if (newMileage > existing.currentMileage) {
+                db.vehicleDao().getAllServices(userId).first().filter { service ->
+                    service.vehicleId == canonicalVehicleId &&
+                        service.status != "COMPLETED" &&
+                        service.dueMileage != null &&
+                        service.dueMileage > existing.currentMileage &&
+                        service.dueMileage <= newMileage
+                }
+            } else emptyList()
 
             val affectedRows = db.vehicleDao().updateMileage(userId, vehicleId, newMileage)
             if (affectedRows == 0) {
                 return@withContext Result.failure(IllegalStateException("به‌روزرسانی کیلومتر خودرو انجام نشد."))
+            }
+
+            if (crossedMileageReminders.isNotEmpty()) {
+                dispatchMileageThresholdNotifications(
+                    context = context,
+                    userId = userId,
+                    crossedServices = crossedMileageReminders,
+                    currentMileage = newMileage
+                )
             }
             Result.success(newMileage)
         } catch (e: Exception) {
