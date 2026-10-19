@@ -67,6 +67,22 @@ class ReportDateRangeCalculatorTest {
     }
 
     @Test
+    fun yearToDateComparisonPreservesTheSameClockOffsetWithoutOverlap() {
+        val now = PersianCalendarHelper.jalaliToEpochMillis(1405, 7, 20, 12, 34) + 25_123L
+        val current = ReportDateRangeCalculator.getPeriodBounds(
+            ReportPeriod.YEAR, ShamsiDate(1405, 1, 1), ShamsiDate(1405, 7, 20), now
+        )
+        val previous = ReportDateRangeCalculator.getPreviousPeriodBounds(
+            ReportPeriod.YEAR, current.first, current.second
+        )
+        val expectedPreviousEnd = PersianCalendarHelper.jalaliToEpochMillis(1404, 7, 20, 12, 34) + 25_123L
+
+        assertEquals(current.first - 1L, previous.second.coerceAtMost(current.first - 1L))
+        assertEquals(expectedPreviousEnd, previous.second)
+        assertEquals(current.second - current.first + 1L, previous.second - previous.first + 1L)
+    }
+
+    @Test
     fun monthToDateComparisonDoesNotExtendBeyondPreviousMonth() {
         val now = PersianCalendarHelper.jalaliToEpochMillis(1405, 7, 20, 12, 34)
         val current = ReportDateRangeCalculator.getPeriodBounds(
