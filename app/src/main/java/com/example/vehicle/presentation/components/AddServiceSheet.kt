@@ -134,6 +134,12 @@ fun AddServiceSheet(
                 color = MaterialTheme.colorScheme.onSurface
             )
 
+            Text(
+                text = "برای دیدن انواع دیگر سرویس، فهرست را افقی حرکت دهید.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -267,7 +273,7 @@ fun AddServiceSheet(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = selectedType.intervalSource + " این بازه مرجع است و در صورت تفاوت، دفترچهٔ خودروی شما ملاک نهایی است.",
+                            text = "مبنای بازه: " + selectedType.intervalSource + "\nاگر دفترچهٔ خودروی شما بازهٔ دیگری دارد، همان ملاک نهایی است.",
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
