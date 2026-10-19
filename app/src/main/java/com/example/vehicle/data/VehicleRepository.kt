@@ -645,7 +645,7 @@ class VehicleRepository {
                 }
 
                 // Persist the reminder if either a date or a mileage threshold exists.
-                if (isReminderEnabled && (!nextReminderDate.isNullOrBlank() || nextReminderMileage != null)) {
+                if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
                     syncReminderPersistenceInternal(
                         db = db,
                         userId = userId,
@@ -698,13 +698,28 @@ class VehicleRepository {
         crossedServices.forEach { service ->
             val reminderId = service.serverId ?: service.id.toString()
             try {
-                val reminder = dao.getReminderById(userId, reminderId) ?: return@forEach
-                if (!reminder.status.equals("ACTIVE", ignoreCase = true) || !reminder.notificationEnabled) {
+                val storedReminder = dao.getReminderById(userId, reminderId)
+                if (storedReminder != null &&
+                    (!storedReminder.status.equals("ACTIVE", ignoreCase = true) || !storedReminder.notificationEnabled)
+                ) {
                     return@forEach
                 }
-                val updatedReminder = reminder.copy(currentKilometer = currentMileage.toLong())
-                dao.insertReminder(updatedReminder)
                 val now = System.currentTimeMillis()
+                val baseReminder = storedReminder ?: com.example.reminder.data.ReminderEntity(
+                    id = reminderId,
+                    userId = userId,
+                    title = "یادآور سرویس خودرو",
+                    description = service.title,
+                    type = "VEHICLE",
+                    sourceType = "VEHICLE",
+                    sourceId = reminderId,
+                    date = PersianCalendarHelper.fromEpochMillis(now).toFormattedDate(),
+                    time = "۰۹:۰۰",
+                    targetKilometer = service.dueMileage?.toLong(),
+                    currentKilometer = currentMileage.toLong()
+                )
+                val updatedReminder = baseReminder.copy(currentKilometer = currentMileage.toLong())
+                if (storedReminder != null) dao.insertReminder(updatedReminder)
                 val thresholdSchedule = com.example.reminder.data.ReminderScheduleEntity(
                     id = "mileage_${reminderId}_${service.dueMileage}",
                     reminderId = reminderId,
@@ -720,7 +735,7 @@ class VehicleRepository {
                 dispatcher.dispatchNotification(
                     updatedReminder.copy(
                         title = "موعد سرویس خودرو فرا رسیده است",
-                        description = "${reminder.description}؛ کیلومتر فعلی: $currentMileage، کیلومتر سرویس: ${service.dueMileage}"
+                        description = "${baseReminder.description}؛ کیلومتر فعلی: $currentMileage، کیلومتر سرویس: ${service.dueMileage}"
                     ),
                     thresholdSchedule
                 )
