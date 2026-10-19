@@ -192,7 +192,7 @@ fun AddServiceSheet(
                             customIntervalKmText = ""
                             customIntervalMonthsText = ""
                         },
-                        label = { Text(type.title, fontSize = 11.sp) }
+                        label = { Text(type.title, fontSize = 12.sp) }
                     )
                 }
             }
@@ -340,12 +340,12 @@ fun AddServiceSheet(
                                 }
                                 append(" فعال خواهد شد.")
                             },
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "مبنای بازه: " + interval.source + "\nاگر دفترچهٔ خودروی شما بازهٔ دیگری دارد، همان ملاک نهایی است.",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
