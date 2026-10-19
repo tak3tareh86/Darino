@@ -134,6 +134,12 @@ fun ReportsScreen(
     }
     val exportStartDate = exportRange.first
     val exportEndDate = exportRange.second
+    val comparisonDisplay = when {
+        uiState.previousPeriodExpense > 0L ->
+            String.format("%.1f٪", uiState.expenseChangePercent)
+        uiState.currentPeriodExpense > 0L -> "شروع از صفر"
+        else -> "بدون هزینه در دو دوره"
+    }
 
     var showCustomDateSheet by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
@@ -311,7 +317,7 @@ fun ReportsScreen(
                 topCategoryAmount = MoneyFormatter.formatToman(uiState.topExpenseCategoryAmount),
                 expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
                 previousPeriodExpense = uiState.previousPeriodExpense,
-                expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
+                expenseChangePercent = comparisonDisplay,
                 isExpenseIncreased = uiState.isExpenseIncreased,
                 onExportPdf = {
                     ReportExportUtils.exportReportAsPdf(
@@ -879,7 +885,12 @@ private fun MonthComparisonCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val semanticColor = if (isIncrease) Color(0xFFEF4444) else Color(0xFF10B981)
+                val noComparisonBaseline = previousValue <= 0L
+                val semanticColor = when {
+                    noComparisonBaseline && currentValue <= 0L -> Color(0xFF94A3B8)
+                    isIncrease -> Color(0xFFEF4444)
+                    else -> Color(0xFF10B981)
+                }
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = semanticColor.copy(alpha = 0.15f),
@@ -891,7 +902,11 @@ private fun MonthComparisonCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = String.format("%.1f٪ %s", percent, if(isIncrease) "افزایش" else "کاهش"),
+                            text = when {
+                                noComparisonBaseline && currentValue > 0L -> "شروع از صفر"
+                                noComparisonBaseline -> "بدون هزینه در دو دوره"
+                                else -> String.format("%.1f٪ %s", percent, if (isIncrease) "افزایش" else "کاهش")
+                            },
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
@@ -899,9 +914,17 @@ private fun MonthComparisonCard(
                             color = if (isIncrease) Color(0xFFF87171) else Color(0xFF34D399)
                         )
                         Icon(
-                            imageVector = if (isIncrease) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
+                            imageVector = when {
+                                noComparisonBaseline && currentValue <= 0L -> Icons.Rounded.Remove
+                                isIncrease -> Icons.Rounded.ArrowUpward
+                                else -> Icons.Rounded.ArrowDownward
+                            },
                             contentDescription = null,
-                            tint = if (isIncrease) Color(0xFFF87171) else Color(0xFF34D399),
+                            tint = when {
+                                noComparisonBaseline && currentValue <= 0L -> Color(0xFF94A3B8)
+                                isIncrease -> Color(0xFFF87171)
+                                else -> Color(0xFF34D399)
+                            },
                             modifier = Modifier.size(12.dp)
                         )
                     }
