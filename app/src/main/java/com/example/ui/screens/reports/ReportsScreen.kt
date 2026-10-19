@@ -153,6 +153,34 @@ fun ReportsScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    if (uiState.isLoading) {
+                        item {
+                            Text(
+                                text = "در حال محاسبه گزارش‌ها...",
+                                color = Color(0xFF94A3B8),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                            )
+                        }
+                    }
+                    uiState.errorMessage?.let { message ->
+                        item {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFF451A1A),
+                                border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.4f))
+                            ) {
+                                Text(
+                                    text = message,
+                                    color = Color(0xFFFECACA),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(14.dp)
+                                )
+                            }
+                        }
+                    }
+
                     // ۲. کارت خلاصه وضعیت مالی
                     item {
                         FinancialOverviewCard(
