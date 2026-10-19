@@ -278,12 +278,19 @@ class ReminderManager(
             smsEnabled = false
         )
 
-        val offsets = selectedOffsets?.takeIf { it.isNotEmpty() } ?: listOf(
+        val offsets = selectedOffsets ?: listOf(
             PredefinedOffset.BEFORE_7_DAYS,
             PredefinedOffset.BEFORE_3_DAYS,
             PredefinedOffset.BEFORE_1_DAY,
             PredefinedOffset.AT_TIME
         )
+
+        if (offsets.isEmpty()) {
+            if (existing != null) {
+                deleteReminder(existing.id)
+            }
+            return@withContext
+        }
 
         if (existing == null) {
             createReminder(reminder, offsets)
