@@ -16,7 +16,9 @@ data class VehicleEntity(
     val vin: String = "",
     val currentMileage: Int, // e.g. 45000
     val estimatedValue: Long = 0L, // e.g. 750_000_000L
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val engine: String = "",
+    val transmission: String = ""
 )
 
 /**
