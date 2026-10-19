@@ -196,7 +196,7 @@ fun VehicleManagementScreen(
         AddEditVehicleSheet(
             vehicle = editingVehicle,
             onDismiss = { isAddSheetOpen = false },
-            onSave = { brand, model, year, color, plate, vin, mileage, estValue ->
+            onSave = { brand, model, year, color, plate, vin, mileage, estValue, engine, transmission ->
                 scope.launch {
                     val result = if (editingVehicle != null) {
                         val current = editingVehicle!!
@@ -209,7 +209,9 @@ fun VehicleManagementScreen(
                                 plate = plate,
                                 vin = vin,
                                 currentMileage = mileage,
-                                estimatedValue = estValue
+                                estimatedValue = estValue,
+                                engine = engine,
+                                transmission = transmission
                             )
                         )
                     } else {
@@ -221,7 +223,9 @@ fun VehicleManagementScreen(
                             plate = plate,
                             vin = vin,
                             currentMileage = mileage,
-                            estimatedValue = estValue
+                            estimatedValue = estValue,
+                            engine = engine,
+                            transmission = transmission
                         )
                     }
                     result.onSuccess {
@@ -432,12 +436,14 @@ fun VehicleManageCard(
 fun AddEditVehicleSheet(
     vehicle: VehicleEntity?,
     onDismiss: () -> Unit,
-    onSave: (brand: String, model: String, year: String, color: String, plate: String, vin: String, mileage: Int, estimatedValue: Long) -> Unit
+    onSave: (brand: String, model: String, year: String, color: String, plate: String, vin: String, mileage: Int, estimatedValue: Long, engine: String, transmission: String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var brand by remember { mutableStateOf(vehicle?.brand ?: "") }
     var model by remember { mutableStateOf(vehicle?.model ?: "") }
+    var engine by remember { mutableStateOf(vehicle?.engine ?: "") }
+    var transmission by remember { mutableStateOf(vehicle?.transmission ?: "") }
     var modelYear by remember { mutableStateOf(vehicle?.year ?: "") }
     var color by remember { mutableStateOf(vehicle?.color ?: "سفید") }
     var mileage by remember { mutableStateOf(vehicle?.currentMileage?.toString() ?: "") }
@@ -493,6 +499,30 @@ fun AddEditVehicleSheet(
                     value = model,
                     onValueChange = { model = it; errorMessage = null },
                     label = { Text("مدل (مثلاً ۲۰۶ تیپ ۵)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    shape = RoundedCornerShape(RadiusMD)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = engine,
+                    onValueChange = { engine = it; errorMessage = null },
+                    label = { Text("نوع / کد موتور") },
+                    placeholder = { Text("TU5، EF7، 1.5T") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    shape = RoundedCornerShape(RadiusMD)
+                )
+                OutlinedTextField(
+                    value = transmission,
+                    onValueChange = { transmission = it; errorMessage = null },
+                    label = { Text("نوع گیربکس") },
+                    placeholder = { Text("دنده‌ای، اتوماتیک، CVT") },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     shape = RoundedCornerShape(RadiusMD)
@@ -573,7 +603,9 @@ fun AddEditVehicleSheet(
                         plate.trim(),
                         vin.trim(),
                         mileageInt,
-                        estValueLong
+                        estValueLong,
+                        engine.trim(),
+                        transmission.trim()
                     )
                 },
                 modifier = Modifier
