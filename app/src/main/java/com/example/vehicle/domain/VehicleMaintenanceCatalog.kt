@@ -28,7 +28,7 @@ object VehicleMaintenanceCatalog {
     private const val INSPECTION_MONTHS = 6
 
     fun resolve(vehicle: VehicleEntity, serviceType: ServiceType): VehicleServiceInterval {
-        val identity = normalize("${vehicle.brand} ${vehicle.model}")
+        val identity = normalize("${vehicle.brand} ${vehicle.model} ${vehicle.engine} ${vehicle.transmission}")
         val isTara = identity.contains("تارا") || identity.contains("tara")
         val isAutomaticTara = isTara && listOf("اتومات", "automatic", "auto", "dae").any { token -> identity.contains(token) }
 
