@@ -51,6 +51,7 @@ fun AddVehicleSheet(
 ) {
     val currentYear = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year.toString()
     var brand by remember { mutableStateOf("ایران‌خودرو") }
+    var customBrand by remember { mutableStateOf("") }
     var model by remember { mutableStateOf("") }
     var engine by remember { mutableStateOf("") }
     var transmission by remember { mutableStateOf("") }
@@ -64,7 +65,12 @@ fun AddVehicleSheet(
     var mileageText by remember { mutableStateOf("") }
     var estimatedValueText by remember { mutableStateOf("") }
 
-    val brands = listOf("ایران‌خودرو", "سایپا", "مدیران‌خودرو", "کرمان‌موتور", "بهمن‌موتور", "هیوندای", "کیا", "تویوتا", "سایر")
+    val brands = listOf(
+        "ایران‌خودرو", "سایپا", "مدیران‌خودرو", "کرمان‌موتور", "بهمن‌موتور",
+        "چری", "جک", "ام‌وی‌ام", "فونیکس", "فیدلیتی", "دیگنیتی", "لاماری", "BYD",
+        "هیوندای", "کیا", "تویوتا", "نیسان", "مزدا", "هوندا", "رنو", "سوزوکی",
+        "میتسوبیشی", "لکسوس", "بنز", "بی‌ام‌و", "فولکس‌واگن", "سایر"
+    )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -139,6 +145,17 @@ fun AddVehicleSheet(
                         label = { Text(b, fontSize = 11.sp) }
                     )
                 }
+            }
+
+            if (brand == "سایر") {
+                OutlinedTextField(
+                    value = customBrand,
+                    onValueChange = { customBrand = it },
+                    label = { Text("نام سازنده / برند") },
+                    placeholder = { Text("نام دقیق برند خودرو") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
             }
 
             // Model & Year
@@ -288,10 +305,10 @@ fun AddVehicleSheet(
                         val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: 0
                         val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
                         val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
-                        onAddVehicle(brand, model, year, color, plate, vin, mileage, estVal, engine.trim(), transmission.trim())
+                        onAddVehicle(if (brand == "سایر") customBrand.trim() else brand, model, year, color, plate, vin, mileage, estVal, engine.trim(), transmission.trim())
                     }
                 },
-                enabled = model.isNotBlank(),
+                enabled = model.isNotBlank() && (brand != "سایر" || customBrand.isNotBlank()),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
