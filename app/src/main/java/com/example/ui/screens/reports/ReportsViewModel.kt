@@ -136,8 +136,12 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
 
         val income = filteredTransactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
         val expense = filteredTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
-        val savings = if (category == ReportCategory.FINANCIAL) income - expense else 0 
-        val savingsPercent = if (category == ReportCategory.FINANCIAL && income > 0) ((savings.toDouble() / income.toDouble()) * 100).toInt() else 0
+        // Financial health metrics must also be calculated for SMART_ANALYSIS.
+        val hasFinancialMetrics = category == ReportCategory.FINANCIAL || category == ReportCategory.SMART_ANALYSIS
+        val savings = if (hasFinancialMetrics) income - expense else 0L
+        val savingsPercent = if (hasFinancialMetrics && income > 0L) {
+            ((savings.toDouble() / income.toDouble()) * 100).toInt()
+        } else 0
 
         // 2. Comparison
         val currentCatExpense = filteredTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
@@ -216,9 +220,13 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             else -> "تراکنش‌های شما با موفقیت ثبت و تحلیل شد."
         }
 
-        val expenseRatio = if (category == ReportCategory.FINANCIAL && finalIncome > 0) {
-            (finalExpense.toDouble() / finalIncome.toDouble()).coerceIn(0.0, 1.0).toFloat()
-        } else if (category == ReportCategory.FINANCIAL && finalExpense > 0) 1.0f else 0.0f
+        // Preserve the true ratio when expenses exceed income; visual indicators
+        // can clamp their own drawing width without corrupting the reported metric.
+        val expenseRatio = if (hasFinancialMetrics && finalIncome > 0L) {
+            (finalExpense.toDouble() / finalIncome.toDouble()).toFloat()
+        } else if (hasFinancialMetrics && finalExpense > 0L) {
+            1.0f
+        } else 0.0f
 
         val finalExpenseDiff = currentCompExpense - previousCompExpense
         val finalExpenseChangePercent = if (previousCompExpense > 0) (Math.abs(finalExpenseDiff).toDouble() / previousCompExpense.toDouble()) * 100 else 0.0
@@ -264,15 +272,10 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun getPeriodBounds(period: ReportPeriod, customStart: ShamsiDate, customEnd: ShamsiDate): Pair<Long, Long> {
-        val cal = java.util.Calendar.getInstance()
         val nowMillis = System.currentTimeMillis()
         val currentPersian = PersianCalendarHelper.fromEpochMillis(nowMillis)
-        
         return when (period) {
-            ReportPeriod.WEEK -> {
-                val start = nowMillis - (7 * 24 * 60 * 60 * 1000L)
-                Pair(start, nowMillis)
-            }
+            ReportPeriod.WEEK -> Pair(nowMillis - (7 * 24 * 60 * 60 * 1000L), nowMillis)
             ReportPeriod.MONTH -> {
                 val start = PersianCalendarHelper.jalaliToEpochMillis(currentPersian.year, currentPersian.month, 1, 0, 0)
                 Pair(start, nowMillis)
@@ -282,37 +285,49 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 Pair(start, nowMillis)
             }
             ReportPeriod.CUSTOM -> {
-                val start = PersianCalendarHelper.jalaliToEpochMillis(customStart.year, customStart.month, customStart.day, 0, 0)
-                val end = PersianCalendarHelper.jalaliToEpochMillis(customEnd.year, customEnd.month, customEnd.day, 23, 59)
+                val startDate = if (compareShamsiDates(customStart, customEnd) <= 0) customStart else customEnd
+                val endDate = if (compareShamsiDates(customStart, customEnd) <= 0) customEnd else customStart
+                val start = PersianCalendarHelper.jalaliToEpochMillis(startDate.year, startDate.month, startDate.day, 0, 0)
+                val end = PersianCalendarHelper.jalaliToEpochMillis(endDate.year, endDate.month, endDate.day, 23, 59)
                 Pair(start, end)
             }
         }
     }
 
+    private fun compareShamsiDates(first: ShamsiDate, second: ShamsiDate): Int =
+        compareValuesBy(first, second, ShamsiDate::year, ShamsiDate::month, ShamsiDate::day)
+
     private fun getPreviousPeriodBounds(period: ReportPeriod, startTime: Long, endTime: Long): Pair<Long, Long> {
         return when (period) {
-            ReportPeriod.WEEK -> Pair(startTime - (7 * 24 * 60 * 60 * 1000L), startTime)
+            ReportPeriod.WEEK -> {
+                val duration = 7 * 24 * 60 * 60 * 1000L
+                Pair(startTime - duration, startTime - 1L)
+            }
             ReportPeriod.MONTH -> {
                 val startPersian = PersianCalendarHelper.fromEpochMillis(startTime)
                 var prevYear = startPersian.year
                 var prevMonth = startPersian.month - 1
-                if (prevMonth == 0) {
-                    prevMonth = 12
-                    prevYear -= 1
-                }
+                if (prevMonth == 0) { prevMonth = 12; prevYear -= 1 }
                 val prevStart = PersianCalendarHelper.jalaliToEpochMillis(prevYear, prevMonth, 1, 0, 0)
-                val prevEnd = startTime - 1
-                Pair(prevStart, prevEnd)
+                val prevMonthEnd = PersianCalendarHelper.jalaliToEpochMillis(
+                    prevYear, prevMonth, PersianCalendarHelper.getDaysInMonth(prevYear, prevMonth), 23, 59
+                )
+                val elapsed = (endTime - startTime).coerceAtLeast(0L)
+                Pair(prevStart, minOf(prevStart + elapsed, prevMonthEnd))
             }
             ReportPeriod.YEAR -> {
                 val startPersian = PersianCalendarHelper.fromEpochMillis(startTime)
-                val prevStart = PersianCalendarHelper.jalaliToEpochMillis(startPersian.year - 1, 1, 1, 0, 0)
-                val prevEnd = startTime - 1
-                Pair(prevStart, prevEnd)
+                val previousYear = startPersian.year - 1
+                val prevStart = PersianCalendarHelper.jalaliToEpochMillis(previousYear, 1, 1, 0, 0)
+                val prevYearEnd = PersianCalendarHelper.jalaliToEpochMillis(
+                    previousYear, 12, PersianCalendarHelper.getDaysInMonth(previousYear, 12), 23, 59
+                )
+                val elapsed = (endTime - startTime).coerceAtLeast(0L)
+                Pair(prevStart, minOf(prevStart + elapsed, prevYearEnd))
             }
             ReportPeriod.CUSTOM -> {
-                val duration = endTime - startTime
-                Pair(startTime - duration, startTime)
+                val durationInclusive = (endTime - startTime + 1L).coerceAtLeast(1L)
+                Pair(startTime - durationInclusive, startTime - 1L)
             }
         }
     }
@@ -326,8 +341,13 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun setCustomRange(start: ShamsiDate, end: ShamsiDate) {
-        _customStartDate.value = start
-        _customEndDate.value = end
+        if (compareShamsiDates(start, end) <= 0) {
+            _customStartDate.value = start
+            _customEndDate.value = end
+        } else {
+            _customStartDate.value = end
+            _customEndDate.value = start
+        }
         _selectedPeriod.value = ReportPeriod.CUSTOM
     }
 }
