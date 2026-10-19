@@ -322,7 +322,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 val prevStart = PersianCalendarHelper.jalaliToEpochMillis(prevYear, prevMonth, 1, 0, 0)
                 val prevMonthEnd = PersianCalendarHelper.jalaliToEpochMillis(
                     prevYear, prevMonth, PersianCalendarHelper.getDaysInMonth(prevYear, prevMonth), 23, 59
-                )
+                ) + 60_000L - 1L
                 val elapsed = (endTime - startTime).coerceAtLeast(0L)
                 Pair(prevStart, minOf(prevStart + elapsed, prevMonthEnd))
             }
@@ -339,7 +339,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 // safely handling leap-year differences.
                 val prevEnd = PersianCalendarHelper.jalaliToEpochMillis(
                     previousYear, endPersian.month, matchingDay, endPersian.hour, endPersian.minute
-                )
+                ) + 60_000L - 1L
                 Pair(prevStart, maxOf(prevStart, prevEnd))
             }
             ReportPeriod.CUSTOM -> {
