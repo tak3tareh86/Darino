@@ -77,7 +77,7 @@ class ReportDateRangeCalculatorTest {
         )
         val expectedPreviousEnd = PersianCalendarHelper.jalaliToEpochMillis(1404, 7, 20, 12, 34) + 25_123L
 
-        assertEquals(current.first - 1L, previous.second.coerceAtMost(current.first - 1L))
+        assertTrue(previous.second < current.first)
         assertEquals(expectedPreviousEnd, previous.second)
         assertEquals(current.second - current.first + 1L, previous.second - previous.first + 1L)
     }
