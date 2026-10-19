@@ -722,7 +722,8 @@ class VehicleRepository {
                         serviceDate = serviceDateMs,
                         dueDate = dueDateMs,
                         cost = cost,
-                        dueMileage = mileage,
+                        serviceMileage = mileage,
+                        dueMileage = nextReminderMileage,
                         status = if (isReminderEnabled) "PENDING" else "COMPLETED",
                         notes = encodedNotes
                     )
