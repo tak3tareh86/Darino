@@ -15,11 +15,19 @@ object VehicleManager {
         currentMileage: Int,
         currentShamsiDate: String = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
     ): Pair<Int, String> {
-        val nextKm = currentMileage + serviceType.defaultIntervalKm
-        val nextDate = com.example.util.PersianCalendarHelper.addMonthsToPersianDate(
-            currentShamsiDate,
-            serviceType.defaultIntervalMonths
-        )
+        val nextKm = if (serviceType.defaultIntervalKm > 0) {
+            (currentMileage.coerceAtLeast(0) + serviceType.defaultIntervalKm)
+        } else {
+            0 // This service type is time-based; do not fabricate a mileage target.
+        }
+        val nextDate = if (serviceType.defaultIntervalMonths > 0) {
+            com.example.util.PersianCalendarHelper.addMonthsToPersianDate(
+                currentShamsiDate,
+                serviceType.defaultIntervalMonths
+            )
+        } else {
+            "" // This service type has no sourced time interval.
+        }
         return Pair(nextKm, nextDate)
     }
 
