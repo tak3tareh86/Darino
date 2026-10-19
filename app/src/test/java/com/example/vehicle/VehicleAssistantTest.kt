@@ -6,6 +6,7 @@ import com.example.vehicle.data.VehicleRepository
 import com.example.vehicle.domain.VehicleAnalyzer
 import com.example.vehicle.domain.VehicleHealthLevel
 import com.example.vehicle.domain.VehicleManager
+import com.example.vehicle.domain.VehicleMaintenanceCatalog
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -92,6 +93,46 @@ class VehicleAssistantTest {
         )
 
         assertTrue(timeline.isNotEmpty())
+    }
+
+    @Test
+    fun serviceIntervalsUseVehicleProfileAndDoNotLeakTaraRules() {
+        val tara = com.example.vehicle.data.VehicleEntity(
+            id = "tara",
+            brand = "ایران‌خودرو",
+            model = "تارا",
+            year = "1403",
+            color = "سفید",
+            plate = "",
+            currentMileage = 30000
+        )
+        val peugeot = com.example.vehicle.data.VehicleEntity(
+            id = "207",
+            brand = "ایران‌خودرو",
+            model = "پژو 207i",
+            year = "1402",
+            color = "سفید",
+            plate = "",
+            currentMileage = 45000
+        )
+        val taraBrakeFluid = VehicleMaintenanceCatalog.resolve(tara, ServiceType.BRAKE_FLUID_CHANGE)
+        val peugeotBrakeFluid = VehicleMaintenanceCatalog.resolve(peugeot, ServiceType.BRAKE_FLUID_CHANGE)
+        val taraManualTransmission = VehicleMaintenanceCatalog.resolve(tara, ServiceType.TRANSMISSION_OIL_CHANGE)
+        val taraAutomatic = VehicleMaintenanceCatalog.resolve(
+            tara.copy(model = "تارا اتوماتیک"),
+            ServiceType.TRANSMISSION_OIL_CHANGE
+        )
+        val oil = VehicleMaintenanceCatalog.resolve(peugeot, ServiceType.OIL_CHANGE)
+
+        assertEquals(40000, taraBrakeFluid.intervalKm)
+        assertEquals(24, taraBrakeFluid.intervalMonths)
+        assertEquals(0, peugeotBrakeFluid.intervalKm)
+        assertEquals(0, peugeotBrakeFluid.intervalMonths)
+        assertEquals(0, taraManualTransmission.intervalKm)
+        assertEquals(60000, taraAutomatic.intervalKm)
+        assertEquals(60, taraAutomatic.intervalMonths)
+        assertEquals(5000, oil.intervalKm)
+        assertEquals(6, oil.intervalMonths)
     }
 
     @Test
