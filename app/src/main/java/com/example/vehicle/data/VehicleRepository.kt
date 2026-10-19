@@ -458,6 +458,17 @@ class VehicleRepository {
             val existing = db.vehicleDao().getVehicleByServerId(userId, updated.id)
                 ?: return@withContext Result.failure(NoSuchElementException("خودروی مورد نظر در پرونده یافت نشد."))
 
+            val canonicalVehicleId = existing.serverId ?: existing.id.toString()
+            val crossedMileageReminders = if (updated.currentMileage > existing.currentMileage) {
+                db.vehicleDao().getAllServices(userId).first().filter { service ->
+                    service.vehicleId == canonicalVehicleId &&
+                        service.status != "COMPLETED" &&
+                        service.dueMileage != null &&
+                        service.dueMileage > existing.currentMileage &&
+                        service.dueMileage <= updated.currentMileage
+                }
+            } else emptyList()
+
             val updatedEntity = existing.copy(
                 brand = updated.brand.trim(),
                 model = updated.model.trim(),
@@ -475,6 +486,14 @@ class VehicleRepository {
             val affectedRows = db.vehicleDao().updateVehicle(updatedEntity)
             if (affectedRows == 0) {
                 return@withContext Result.failure(IllegalStateException("بروزرسانی مشخصات خودرو در پایگاه داده شکست خورد."))
+            }
+            if (crossedMileageReminders.isNotEmpty()) {
+                dispatchMileageThresholdNotifications(
+                    context = context,
+                    userId = userId,
+                    crossedServices = crossedMileageReminders,
+                    currentMileage = updated.currentMileage
+                )
             }
             Result.success(updated)
         } catch (e: Exception) {
