@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
+import com.example.util.AppNumberFormatter
 
 /**
  * Master Spacing Scale - Strictly consistent across all screens.
@@ -175,15 +176,7 @@ object AppFormatters {
     private val persianDigits = charArrayOf('۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹')
 
     fun toPersianDigits(input: String): String {
-        val sb = java.lang.StringBuilder()
-        for (char in input) {
-            if (char in '0'..'9') {
-                sb.append(persianDigits[char - '0'])
-            } else {
-                sb.append(char)
-            }
-        }
-        return sb.toString()
+        return AppNumberFormatter.formatDigits(input)
     }
 
     fun toPersianDigits(number: Number): String {
