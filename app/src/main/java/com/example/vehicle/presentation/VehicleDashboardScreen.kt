@@ -63,6 +63,15 @@ fun DarinoVehicleMainDashboard(
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = androidx.compose.ui.platform.LocalContext.current
+    var editingService by remember { mutableStateOf<VehicleServiceEntity?>(null) }
+    var editingExpense by remember { mutableStateOf<com.example.vehicle.data.VehicleExpenseEntity?>(null) }
+
+    LaunchedEffect(state.showAddServiceSheet) {
+        if (!state.showAddServiceSheet) editingService = null
+    }
+    LaunchedEffect(state.showAddExpenseSheet) {
+        if (!state.showAddExpenseSheet) editingExpense = null
+    }
 
     LaunchedEffect(Unit) {
         viewModel.initRepository(context)
@@ -79,11 +88,8 @@ fun DarinoVehicleMainDashboard(
         VehicleProfileScreen(
             vehicle = state.selectedVehicle!!,
             onBack = { viewModel.closeProfile() },
-            onSaveSpecs = { b, m, y, c, p, v, e ->
-                viewModel.updateVehicleSpecs(b, m, y, c, p, v, e)
-            },
-            onUpdateMileage = { km ->
-                viewModel.updateCurrentMileage(km)
+            onSaveSpecs = { b, m, y, c, p, v, e, engine, transmission, km ->
+                viewModel.updateVehicleSpecs(b, m, y, c, p, v, e, engine, transmission, km)
             }
         )
         return
@@ -134,7 +140,7 @@ fun DarinoVehicleMainDashboard(
                         )
                         Text(
                             text = "دستیار هوشمند نگهداری، سرویس و هزینه‌ها",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -154,7 +160,7 @@ fun DarinoVehicleMainDashboard(
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "ثبت خودرو",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 8.5.sp)
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     )
                 }
             }
@@ -286,14 +292,28 @@ fun DarinoVehicleMainDashboard(
                                 services = state.services,
                                 onEditProfile = { viewModel.openProfile() },
                                 onMileageClick = { viewModel.openMileageDialog() },
-                                onAddService = { viewModel.openAddService() },
-                                onAddExpense = { viewModel.openAddExpense() },
-                                onInsuranceClick = { viewModel.openInsuranceSheet() }
+                                onAddService = { editingService = null; viewModel.openAddService() },
+                                onAddExpense = { editingExpense = null; viewModel.openAddExpense() },
+                                onInsuranceClick = { viewModel.openInsuranceSheet() },
+                                onEditService = { service -> editingService = service; viewModel.openAddService() },
+                                onCompleteService = { service ->
+                                    viewModel.completeServiceRecord(
+                                        service.id,
+                                        com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
+                                        currentCar.currentMileage
+                                    )
+                                },
+                                onDeleteService = { service -> viewModel.deleteServiceRecord(service.id) }
                             )
                         }
                         VehicleTab.TIMELINE -> {
                             VehicleTimelineScreen(
-                                events = state.timelineEvents
+                                events = state.timelineEvents,
+                                onEditExpense = { event ->
+                                    editingExpense = state.expenses.firstOrNull { it.id == event.id }
+                                    if (editingExpense != null) viewModel.openAddExpense()
+                                },
+                                onDeleteExpense = { event -> viewModel.deleteExpenseRecord(event.id) }
                             )
                         }
                         VehicleTab.REPORTS -> {
@@ -370,8 +390,12 @@ fun DarinoVehicleMainDashboard(
     if (state.showAddServiceSheet && state.selectedVehicle != null) {
         AddServiceSheet(
             vehicle = state.selectedVehicle!!,
+            existingService = editingService,
             onAddService = { t: String, type: com.example.vehicle.data.ServiceType, d: String, km: Int, c: Long, desc: String, remD: String?, remKm: Int?, en: Boolean ->
                 viewModel.addServiceRecord(t, type, d, km, c, desc, remD, remKm, en)
+            },
+            onUpdateService = { id: String, t: String, type: com.example.vehicle.data.ServiceType, d: String, km: Int, c: Long, desc: String, remD: String?, remKm: Int?, en: Boolean ->
+                viewModel.updateServiceRecord(id, t, type, d, km, c, desc, remD, remKm, en)
             },
             onDismiss = { viewModel.closeAddService() }
         )
@@ -380,8 +404,12 @@ fun DarinoVehicleMainDashboard(
     if (state.showAddExpenseSheet && state.selectedVehicle != null) {
         AddVehicleExpenseSheet(
             vehicle = state.selectedVehicle!!,
+            existingExpense = editingExpense,
             onAddExpense = { t: String, cat: com.example.vehicle.data.VehicleExpenseCategory, amt: Long, d: String, desc: String ->
                 viewModel.addExpenseRecord(t, cat, amt, d, desc)
+            },
+            onUpdateExpense = { id: String, t: String, cat: com.example.vehicle.data.VehicleExpenseCategory, amt: Long, d: String, desc: String ->
+                viewModel.updateExpenseRecord(id, t, cat, amt, d, desc)
             },
             onDismiss = { viewModel.closeAddExpense() }
         )
@@ -459,7 +487,7 @@ private fun VehicleTabRow(
                             text = tab.title,
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 11.sp
+                                fontSize = 12.sp
                             ),
                             color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -482,7 +510,10 @@ private fun VehicleServicesTabContent(
     onMileageClick: () -> Unit,
     onAddService: () -> Unit,
     onAddExpense: () -> Unit,
-    onInsuranceClick: () -> Unit
+    onInsuranceClick: () -> Unit,
+    onEditService: (VehicleServiceEntity) -> Unit,
+    onCompleteService: (VehicleServiceEntity) -> Unit,
+    onDeleteService: (VehicleServiceEntity) -> Unit
 ) {
     var isHealthExpanded by remember { mutableStateOf(false) }
     var isServicesExpanded by remember { mutableStateOf(true) }
@@ -503,38 +534,42 @@ private fun VehicleServicesTabContent(
 
         // 2. Quick Action Launchers (Clean & Compact)
         item {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                QuickActionButton(
-                    title = "ثبت سرویس",
-                    icon = Icons.Rounded.Build,
-                    color = MaterialTheme.colorScheme.primary,
-                    onClick = onAddService,
-                    modifier = Modifier.weight(1f)
-                )
-                QuickActionButton(
-                    title = "ثبت هزینه",
-                    icon = Icons.Rounded.LocalGasStation,
-                    color = Color(0xFF3B82F6),
-                    onClick = onAddExpense,
-                    modifier = Modifier.weight(1f)
-                )
-                QuickActionButton(
-                    title = "بیمه و مدارک",
-                    icon = Icons.Rounded.Shield,
-                    color = Color(0xFFF59E0B),
-                    onClick = onInsuranceClick,
-                    modifier = Modifier.weight(1f)
-                )
-                QuickActionButton(
-                    title = "پرونده فنی",
-                    icon = Icons.Rounded.Assignment,
-                    color = Color(0xFF8B5CF6),
-                    onClick = onEditProfile,
-                    modifier = Modifier.weight(1f)
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    QuickActionButton(
+                        title = "ثبت سرویس",
+                        icon = Icons.Rounded.Build,
+                        color = MaterialTheme.colorScheme.primary,
+                        onClick = onAddService,
+                        modifier = Modifier.weight(1f)
+                    )
+                    QuickActionButton(
+                        title = "ثبت هزینه",
+                        icon = Icons.Rounded.LocalGasStation,
+                        color = Color(0xFF3B82F6),
+                        onClick = onAddExpense,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    QuickActionButton(
+                        title = "بیمه و مدارک",
+                        icon = Icons.Rounded.Shield,
+                        color = Color(0xFFF59E0B),
+                        onClick = onInsuranceClick,
+                        modifier = Modifier.weight(1f)
+                    )
+                    QuickActionButton(
+                        title = "پرونده فنی",
+                        icon = Icons.Rounded.Assignment,
+                        color = Color(0xFF8B5CF6),
+                        onClick = onEditProfile,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
 
@@ -579,7 +614,7 @@ private fun VehicleServicesTabContent(
                                     )
                                     Text(
                                         text = "شاخص سلامت قطعات، روغن و لنت‌ها",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
@@ -653,7 +688,12 @@ private fun VehicleServicesTabContent(
         // 5. Service Records List
         if (isServicesExpanded) {
             items(services, key = { it.id }) { service ->
-                ServiceRecordCard(service = service)
+                ServiceRecordCard(
+                    service = service,
+                    onEdit = { onEditService(service) },
+                    onComplete = { onCompleteService(service) },
+                    onDelete = { onDeleteService(service) }
+                )
             }
         }
     }
@@ -683,7 +723,7 @@ private fun QuickActionButton(
             Icon(imageVector = icon, contentDescription = title, tint = color, modifier = Modifier.size(20.dp))
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
                 color = color
             )
         }
@@ -691,7 +731,13 @@ private fun QuickActionButton(
 }
 
 @Composable
-private fun ServiceRecordCard(service: VehicleServiceEntity) {
+private fun ServiceRecordCard(
+    service: VehicleServiceEntity,
+    onEdit: () -> Unit,
+    onComplete: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showDeleteConfirmation by remember(service.id) { mutableStateOf(false) }
     val costFormatted = IranianPhoneUtils.convertDigitsToPersian(
         NumberFormat.getNumberInstance(Locale.US).format(service.cost)
     )
@@ -745,7 +791,7 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
             if (service.description.isNotBlank()) {
                 Text(
                     text = service.description,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -766,14 +812,56 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
                     Text(
                         text = "موعد بعدی: ${service.nextReminderMileage?.let { "${IranianPhoneUtils.convertDigitsToPersian(it.toString())} کیلومتر" } ?: ""} ${service.nextReminderDate?.let { "(${IranianPhoneUtils.convertDigitsToPersian(it)})" } ?: ""}",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 10.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         ),
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onEdit, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("ویرایش", fontSize = 12.sp)
+                }
+                if (service.isReminderEnabled) {
+                    TextButton(onClick = onComplete, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("انجام شد", fontSize = 12.sp)
+                    }
+                }
+                TextButton(onClick = { showDeleteConfirmation = true }, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Rounded.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.width(4.dp))
+                    Text("حذف", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
+    }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("حذف سرویس") },
+            text = { Text("سوابق سرویس «${service.title}» حذف شود؟ این کار قابل بازگشت نیست.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirmation = false
+                    onDelete()
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+            }
+        )
     }
 }
 
@@ -865,7 +953,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                                 text = "دارای اعتبار",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
+                                    fontSize = 12.sp
                                 ),
                                 color = Color(0xFF10B981),
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -881,7 +969,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                     ) {
                         Text(
                             text = "اعتبار: ${IranianPhoneUtils.convertDigitsToPersian(ins.startDate)} تا ${IranianPhoneUtils.convertDigitsToPersian(ins.endDate)}",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
@@ -932,7 +1020,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                                 text = insp.status,
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
+                                    fontSize = 12.sp
                                 ),
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -942,7 +1030,7 @@ private fun VehicleInsuranceDocumentsTabContent(
 
                     Text(
                         text = "تاریخ معاینه: ${IranianPhoneUtils.convertDigitsToPersian(insp.lastInspectionDate)} • انقضا: ${IranianPhoneUtils.convertDigitsToPersian(insp.expiryDate)}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

@@ -51,9 +51,11 @@ fun VehicleProfileScreen(
         color: String,
         plate: String,
         vin: String,
-        estimatedValue: Long
+        estimatedValue: Long,
+        engine: String,
+        transmission: String,
+        currentMileage: Int
     ) -> Unit,
-    onUpdateMileage: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var brand by remember(vehicle) { mutableStateOf(vehicle.brand) }
@@ -62,6 +64,8 @@ fun VehicleProfileScreen(
     var color by remember(vehicle) { mutableStateOf(vehicle.color) }
     var plate by remember(vehicle) { mutableStateOf(vehicle.plate) }
     var vin by remember(vehicle) { mutableStateOf(vehicle.vin) }
+    var engine by remember(vehicle) { mutableStateOf(vehicle.engine) }
+    var transmission by remember(vehicle) { mutableStateOf(vehicle.transmission) }
     var estimatedValueText by remember(vehicle) {
         mutableStateOf(if (vehicle.estimatedValue > 0) vehicle.estimatedValue.toString() else "")
     }
@@ -222,6 +226,28 @@ fun VehicleProfileScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        OutlinedTextField(
+                            value = engine,
+                            onValueChange = { engine = it },
+                            label = { Text("نوع / کد موتور") },
+                            placeholder = { Text("TU5، EF7، 1.5T") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = transmission,
+                            onValueChange = { transmission = it },
+                            label = { Text("نوع گیربکس") },
+                            placeholder = { Text("دنده‌ای، اتوماتیک، CVT") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         Column(modifier = Modifier.weight(0.9f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
                                 text = "کیلومتر فعلی",
@@ -255,11 +281,19 @@ fun VehicleProfileScreen(
                     Button(
                         onClick = {
                             val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
-                            val km = IranianPhoneUtils.convertDigitsToEnglish(currentMileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
-                            onUpdateMileage(km)
-                            onSaveSpecs(brand, model, year, color, plate, vin, estVal)
+                            val km = IranianPhoneUtils.convertDigitsToEnglish(currentMileageText).filter { it.isDigit() }.toIntOrNull()
+                            val normalizedYear = IranianPhoneUtils.convertDigitsToEnglish(year).filter { it.isDigit() }.toIntOrNull()
+                            if (brand.isBlank() || model.isBlank() || plate.isBlank() || normalizedYear == null || normalizedYear !in 1300..(com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year + 1) || km == null || km < 0 || estVal < 0L) {
+                                return@Button
+                            }
+                            onSaveSpecs(brand.trim(), model.trim(), normalizedYear.toString(), color.trim(), plate.trim(), vin.trim(), estVal, engine.trim(), transmission.trim(), km)
                             onBack()
                         },
+                        enabled = brand.isNotBlank() && model.isNotBlank() && plate.isNotBlank() &&
+                            IranianPhoneUtils.convertDigitsToEnglish(year).filter { it.isDigit() }.toIntOrNull()
+                                ?.let { it in 1300..(com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year + 1) } == true &&
+                            IranianPhoneUtils.convertDigitsToEnglish(currentMileageText).filter { it.isDigit() }.toIntOrNull()?.let { it >= 0 } == true &&
+                            IranianAmountUtils.parseAmountToLong(estimatedValueText) >= 0L,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp)

@@ -9,6 +9,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +35,8 @@ import java.util.Locale
 @Composable
 fun VehicleTimelineScreen(
     events: List<VehicleTimelineEvent>,
+    onEditExpense: (VehicleTimelineEvent.ExpenseEvent) -> Unit,
+    onDeleteExpense: (VehicleTimelineEvent.ExpenseEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (events.isEmpty()) {
@@ -72,7 +78,12 @@ fun VehicleTimelineScreen(
         ) {
             itemsIndexed(events, key = { _, item -> item.id }) { index, event ->
                 val isLast = index == events.size - 1
-                TimelineItemRow(event = event, isLast = isLast)
+                TimelineItemRow(
+                    event = event,
+                    isLast = isLast,
+                    onEditExpense = { expense -> onEditExpense(expense) },
+                    onDeleteExpense = { expense -> onDeleteExpense(expense) }
+                )
             }
         }
     }
@@ -81,8 +92,11 @@ fun VehicleTimelineScreen(
 @Composable
 private fun TimelineItemRow(
     event: VehicleTimelineEvent,
-    isLast: Boolean
+    isLast: Boolean,
+    onEditExpense: (VehicleTimelineEvent.ExpenseEvent) -> Unit,
+    onDeleteExpense: (VehicleTimelineEvent.ExpenseEvent) -> Unit
 ) {
+    var showDeleteConfirmation by remember(event.id) { mutableStateOf(false) }
     val amountFormatted = IranianPhoneUtils.convertDigitsToPersian(
         NumberFormat.getNumberInstance(Locale.US).format(event.amount)
     )
@@ -156,7 +170,7 @@ private fun TimelineItemRow(
                             text = IranianPhoneUtils.convertDigitsToPersian(event.date),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp
+                                fontSize = 12.sp
                             ),
                             color = eventColor,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -166,7 +180,7 @@ private fun TimelineItemRow(
 
                 Text(
                     text = event.subtitle,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
@@ -185,7 +199,39 @@ private fun TimelineItemRow(
                         )
                     }
                 }
+
+                if (event is VehicleTimelineEvent.ExpenseEvent) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { onEditExpense(event) }) {
+                            Text("ویرایش هزینه", fontSize = 12.sp)
+                        }
+                        TextButton(onClick = { showDeleteConfirmation = true }) {
+                            Text("حذف", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
             }
         }
+    }
+
+    if (showDeleteConfirmation && event is VehicleTimelineEvent.ExpenseEvent) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("حذف هزینه") },
+            text = { Text("هزینه «${event.title}» حذف شود؟ این کار قابل بازگشت نیست.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirmation = false
+                    onDeleteExpense(event)
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+            }
+        )
     }
 }

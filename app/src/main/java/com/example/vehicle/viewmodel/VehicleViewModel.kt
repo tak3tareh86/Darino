@@ -245,9 +245,16 @@ class VehicleViewModel(
         color: String,
         plate: String,
         vin: String,
-        estimatedValue: Long
+        estimatedValue: Long,
+        engine: String = "",
+        transmission: String = "",
+        currentMileage: Int
     ) {
         val current = _uiState.value.selectedVehicle ?: return
+        if (currentMileage < 0 || estimatedValue < 0L) {
+            _uiState.update { it.copy(snackBarMessage = "کیلومتر و ارزش خودرو نمی‌توانند منفی باشند.") }
+            return
+        }
         val updated = current.copy(
             brand = brand,
             model = model,
@@ -255,7 +262,10 @@ class VehicleViewModel(
             color = color,
             plate = plate,
             vin = vin,
-            estimatedValue = estimatedValue
+            estimatedValue = estimatedValue,
+            engine = engine,
+            transmission = transmission,
+            currentMileage = currentMileage
         )
         viewModelScope.launch {
             val result = repository.updateVehicle(updated)
@@ -396,6 +406,7 @@ class VehicleViewModel(
             result.onSuccess {
                 _uiState.update {
                     it.copy(
+                        showAddServiceSheet = false,
                         snackBarMessage = "سرویس $title با موفقیت ویرایش شد."
                     )
                 }
@@ -409,9 +420,9 @@ class VehicleViewModel(
         }
     }
 
-    fun completeServiceRecord(serviceId: String, completedDate: String) {
+    fun completeServiceRecord(serviceId: String, completedDate: String, completedMileage: Int) {
         viewModelScope.launch {
-            val result = repository.completeService(serviceId, completedDate)
+            val result = repository.completeService(serviceId, completedDate, completedMileage)
             result.onSuccess {
                 _uiState.update {
                     it.copy(
@@ -476,6 +487,31 @@ class VehicleViewModel(
                     it.copy(
                         snackBarMessage = "خطا در ثبت هزینه: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}"
                     )
+                }
+            }
+        }
+    }
+
+    fun updateExpenseRecord(
+        expenseId: String,
+        title: String,
+        category: VehicleExpenseCategory,
+        amount: Long,
+        date: String,
+        description: String
+    ) {
+        viewModelScope.launch {
+            val result = repository.updateExpense(expenseId, title, category, amount, date, description)
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        showAddExpenseSheet = false,
+                        snackBarMessage = "هزینه «$title» ویرایش شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(snackBarMessage = "خطا در ویرایش هزینه: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}")
                 }
             }
         }

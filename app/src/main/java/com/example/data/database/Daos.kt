@@ -190,8 +190,8 @@ interface VehicleDao {
     @Update
     suspend fun updateService(service: VehicleServiceEntity): Int
 
-    @Query("UPDATE vehicle_services SET status = 'COMPLETED', serviceDate = :completedDateMs, dueDate = NULL, dueMileage = NULL, updatedAt = :updatedAt WHERE userId = :userId AND (serverId = :serviceId OR id = :serviceId)")
-    suspend fun completeService(userId: String, serviceId: String, completedDateMs: Long, updatedAt: Long = System.currentTimeMillis()): Int
+    @Query("UPDATE vehicle_services SET status = 'COMPLETED', serviceDate = :completedDateMs, serviceMileage = :completedMileage, dueDate = NULL, dueMileage = NULL, updatedAt = :updatedAt WHERE userId = :userId AND (serverId = :serviceId OR id = :serviceId)")
+    suspend fun completeService(userId: String, serviceId: String, completedDateMs: Long, completedMileage: Int, updatedAt: Long = System.currentTimeMillis()): Int
 
     @Query("DELETE FROM vehicle_services WHERE userId = :userId AND (serverId = :serviceId OR id = :serviceId)")
     suspend fun deleteServiceByServerId(userId: String, serviceId: String): Int

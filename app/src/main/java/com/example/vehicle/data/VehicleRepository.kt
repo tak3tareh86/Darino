@@ -50,6 +50,24 @@ class VehicleRepository {
     private var sessionObserverStarted = false
     private var roomCollectorsJob: Job? = null
 
+    private fun normalizedDigits(value: String): String = buildString(value.length) {
+        value.forEach { ch ->
+            append(
+                when (ch) {
+                    in '۰'..'۹' -> ('0'.code + (ch.code - '۰'.code)).toChar()
+                    in '٠'..'٩' -> ('0'.code + (ch.code - '٠'.code)).toChar()
+                    else -> ch
+                }
+            )
+        }
+    }.filter { it in '0'..'9' }
+
+    private fun isValidVehicleYear(value: String): Boolean {
+        val year = normalizedDigits(value).toIntOrNull() ?: return false
+        val currentYear = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year
+        return year in 1300..(currentYear + 1)
+    }
+
     /**
      * Initializes the Room SQLite database and loads user-specific vehicle records.
      */
@@ -395,7 +413,7 @@ class VehicleRepository {
         // Validation
         if (brand.isBlank()) return@withContext Result.failure(IllegalArgumentException("نام برند خودرو نمی‌تواند خالی باشد."))
         if (model.isBlank()) return@withContext Result.failure(IllegalArgumentException("مدل خودرو نمی‌تواند خالی باشد."))
-        if (year.isBlank()) return@withContext Result.failure(IllegalArgumentException("سال ساخت خودرو نمی‌تواند خالی باشد."))
+        if (!isValidVehicleYear(year)) return@withContext Result.failure(IllegalArgumentException("سال ساخت خودرو معتبر نیست."))
         if (plate.isBlank()) return@withContext Result.failure(IllegalArgumentException("شماره پلاک خودرو الزامی است."))
         if (currentMileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر کارکرد نمی‌تواند منفی باشد."))
         if (estimatedValue < 0L) return@withContext Result.failure(IllegalArgumentException("ارزش تقریبی خودرو نمی‌تواند منفی باشد."))
@@ -448,7 +466,7 @@ class VehicleRepository {
 
         if (updated.brand.isBlank()) return@withContext Result.failure(IllegalArgumentException("برند خودرو نمی‌تواند خالی باشد."))
         if (updated.model.isBlank()) return@withContext Result.failure(IllegalArgumentException("مدل خودرو نمی‌تواند خالی باشد."))
-        if (updated.year.isBlank()) return@withContext Result.failure(IllegalArgumentException("سال ساخت خودرو نمی‌تواند خالی باشد."))
+        if (!isValidVehicleYear(updated.year)) return@withContext Result.failure(IllegalArgumentException("سال ساخت خودرو معتبر نیست."))
         if (updated.plate.isBlank()) return@withContext Result.failure(IllegalArgumentException("شماره پلاک خودرو الزامی است."))
         if (updated.currentMileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر کارکرد نمی‌تواند منفی باشد."))
         if (updated.estimatedValue < 0L) return@withContext Result.failure(IllegalArgumentException("ارزش تقریبی خودرو نمی‌تواند منفی باشد."))
@@ -457,6 +475,17 @@ class VehicleRepository {
             val db = AppDatabase.getDatabase(context)
             val existing = db.vehicleDao().getVehicleByServerId(userId, updated.id)
                 ?: return@withContext Result.failure(NoSuchElementException("خودروی مورد نظر در پرونده یافت نشد."))
+
+            val canonicalVehicleId = existing.serverId ?: existing.id.toString()
+            val crossedMileageReminders = if (updated.currentMileage > existing.currentMileage) {
+                db.vehicleDao().getAllServices(userId).first().filter { service ->
+                    service.vehicleId == canonicalVehicleId &&
+                        service.status != "COMPLETED" &&
+                        service.dueMileage != null &&
+                        service.dueMileage > existing.currentMileage &&
+                        service.dueMileage <= updated.currentMileage
+                }
+            } else emptyList()
 
             val updatedEntity = existing.copy(
                 brand = updated.brand.trim(),
@@ -475,6 +504,14 @@ class VehicleRepository {
             val affectedRows = db.vehicleDao().updateVehicle(updatedEntity)
             if (affectedRows == 0) {
                 return@withContext Result.failure(IllegalStateException("بروزرسانی مشخصات خودرو در پایگاه داده شکست خورد."))
+            }
+            if (crossedMileageReminders.isNotEmpty()) {
+                dispatchMileageThresholdNotifications(
+                    context = context,
+                    userId = userId,
+                    crossedServices = crossedMileageReminders,
+                    currentMileage = updated.currentMileage
+                )
             }
             Result.success(updated)
         } catch (e: Exception) {
@@ -983,10 +1020,11 @@ class VehicleRepository {
     }
 
     // 6. Complete Service (Atomic Status update with proper reminder sync & affected rows check)
-    suspend fun completeService(serviceId: String, completedDate: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun completeService(serviceId: String, completedDate: String, completedMileage: Int? = null): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
+        if (completedMileage != null && completedMileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر سرویس نمی‌تواند منفی باشد."))
         val completedDateMs = parseJalaliToTimestamp(completedDate)
             ?: return@withContext Result.failure(IllegalArgumentException("تاریخ انجام سرویس نامعتبر است."))
 
@@ -994,9 +1032,13 @@ class VehicleRepository {
             val db = AppDatabase.getDatabase(context)
             val existing = db.vehicleDao().getServiceByServerId(userId, serviceId)
                 ?: return@withContext Result.failure(NoSuchElementException("سرویس دوره‌ای یافت نشد."))
+            val mileageToRecord = completedMileage
+                ?: db.vehicleDao().getVehicleByServerId(userId, existing.vehicleId)?.currentMileage
+                ?: existing.serviceMileage
+                ?: 0
 
             db.withTransaction {
-                val affectedRows = db.vehicleDao().completeService(userId, serviceId, completedDateMs)
+                val affectedRows = db.vehicleDao().completeService(userId, serviceId, completedDateMs, mileageToRecord)
                 if (affectedRows == 0) {
                     throw IllegalStateException("ثبت اتمام سرویس انجام نشد.")
                 }
@@ -1111,6 +1153,52 @@ class VehicleRepository {
             )
 
             Result.success(newExpense)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // Update a user-owned expense while preserving its identity and receipt attachment.
+    suspend fun updateExpense(
+        expenseId: String,
+        title: String,
+        category: VehicleExpenseCategory,
+        amount: Long,
+        date: String,
+        description: String = ""
+    ): Result<VehicleExpenseEntity> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+        if (title.isBlank()) return@withContext Result.failure(IllegalArgumentException("عنوان هزینه نمی‌تواند خالی باشد."))
+        if (amount <= 0L) return@withContext Result.failure(IllegalArgumentException("مبلغ هزینه باید بزرگتر از صفر باشد."))
+        if (parseJalaliToTimestamp(date) == null) return@withContext Result.failure(IllegalArgumentException("تاریخ هزینه نامعتبر است."))
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            val existing = db.vehicleDao().getExpenseById(userId, expenseId)
+                ?: return@withContext Result.failure(NoSuchElementException("هزینه موردنظر یافت نشد."))
+            val updated = existing.copy(
+                title = title.trim(),
+                category = category.name,
+                amount = amount,
+                date = date.trim(),
+                description = description.trim()
+            )
+            if (db.vehicleDao().updateExpense(updated) == 0) {
+                return@withContext Result.failure(IllegalStateException("ذخیره تغییرات هزینه انجام نشد."))
+            }
+            Result.success(
+                VehicleExpenseEntity(
+                    id = updated.id,
+                    vehicleId = updated.vehicleId,
+                    title = updated.title,
+                    category = category,
+                    amount = updated.amount,
+                    date = updated.date,
+                    description = updated.description,
+                    receiptImageUri = updated.receiptImageUri
+                )
+            )
         } catch (e: Exception) {
             Result.failure(e)
         }

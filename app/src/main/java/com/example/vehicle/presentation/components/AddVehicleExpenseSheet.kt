@@ -29,6 +29,7 @@ import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleExpenseCategory
+import com.example.vehicle.data.VehicleExpenseEntity
 
 /**
  * Bottom sheet to log a vehicle expense (سوخت، تعمیرات، سرویس، بیمه، قطعات، شستشو، پارکینگ، سایر)
@@ -44,15 +45,17 @@ fun AddVehicleExpenseSheet(
         date: String,
         description: String
     ) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    existingExpense: VehicleExpenseEntity? = null,
+    onUpdateExpense: ((String, String, VehicleExpenseCategory, Long, String, String) -> Unit)? = null
 ) {
     val todayJalali = remember { com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate() }
-    var selectedCategory by remember { mutableStateOf(VehicleExpenseCategory.FUEL) }
-    var title by remember { mutableStateOf("سوخت‌گیری بنزین") }
-    var amountText by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf(todayJalali) }
-    var description by remember { mutableStateOf("") }
-    var hasReceiptAttached by remember { mutableStateOf(false) }
+    var selectedCategory by remember(vehicle, existingExpense) { mutableStateOf(existingExpense?.category ?: VehicleExpenseCategory.FUEL) }
+    var title by remember(vehicle, existingExpense) { mutableStateOf(existingExpense?.title ?: "سوخت‌گیری بنزین") }
+    var amountText by remember(vehicle, existingExpense) { mutableStateOf(existingExpense?.amount?.toString() ?: "") }
+    var date by remember(vehicle, existingExpense) { mutableStateOf(existingExpense?.date ?: todayJalali) }
+    var description by remember(vehicle, existingExpense) { mutableStateOf(existingExpense?.description ?: "") }
+    var hasReceiptAttached by remember(vehicle, existingExpense) { mutableStateOf(existingExpense?.receiptImageUri != null) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -230,10 +233,14 @@ fun AddVehicleExpenseSheet(
                 onClick = {
                     if (title.isNotBlank()) {
                         val amount = IranianAmountUtils.parseAmountToLong(amountText)
-                        onAddExpense(title, selectedCategory, amount, date, description)
+                        if (existingExpense != null && onUpdateExpense != null) {
+                            onUpdateExpense(existingExpense.id, title.trim(), selectedCategory, amount, date, description.trim())
+                        } else {
+                            onAddExpense(title.trim(), selectedCategory, amount, date, description.trim())
+                        }
                     }
                 },
-                enabled = title.isNotBlank(),
+                enabled = title.isNotBlank() && IranianAmountUtils.parseAmountToLong(amountText) > 0L,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
@@ -243,7 +250,7 @@ fun AddVehicleExpenseSheet(
                 Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "ثبت در هزینه‌های خودرو",
+                    text = if (existingExpense == null) "ثبت در هزینه‌های خودرو" else "ذخیره تغییرات هزینه",
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                 )
             }
