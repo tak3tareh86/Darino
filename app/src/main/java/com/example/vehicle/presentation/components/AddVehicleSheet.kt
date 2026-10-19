@@ -71,6 +71,13 @@ fun AddVehicleSheet(
         "هیوندای", "کیا", "تویوتا", "نیسان", "مزدا", "هوندا", "رنو", "سوزوکی",
         "میتسوبیشی", "لکسوس", "بنز", "بی‌ام‌و", "فولکس‌واگن", "سایر"
     )
+    val normalizedYear = IranianPhoneUtils.convertDigitsToEnglish(year).filter { it.isDigit() }.toIntOrNull()
+    val parsedMileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull()
+    val validPlate = platePart1.length == 2 && plateLetter.isNotBlank() &&
+        platePart2.length == 3 && plateIranCode.length == 2 &&
+        listOf(platePart1, platePart2, plateIranCode).all { part -> part.all(Char::isDigit) }
+    val validYear = normalizedYear != null &&
+        normalizedYear in 1300..(com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year + 1)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -174,7 +181,7 @@ fun AddVehicleSheet(
 
                 OutlinedTextField(
                     value = year,
-                    onValueChange = { year = it },
+                    onValueChange = { year = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch.isDigit() }.take(4) },
                     label = { Text("سال ساخت") },
                     placeholder = { Text("1402") },
                     modifier = Modifier.weight(1f),
@@ -222,7 +229,7 @@ fun AddVehicleSheet(
 
                 OutlinedTextField(
                     value = mileageText,
-                    onValueChange = { mileageText = it },
+                    onValueChange = { mileageText = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch.isDigit() } },
                     label = { Text("کیلومتر فعلی") },
                     placeholder = { Text("45000") },
                     modifier = Modifier.weight(1f),
@@ -246,7 +253,7 @@ fun AddVehicleSheet(
                 ) {
                     OutlinedTextField(
                         value = platePart1,
-                        onValueChange = { if (it.length <= 2) platePart1 = it },
+                        onValueChange = { value -> platePart1 = IranianPhoneUtils.convertDigitsToEnglish(value).filter { it.isDigit() }.take(2) },
                         label = { Text("۲ رقم") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -254,14 +261,14 @@ fun AddVehicleSheet(
                     )
                     OutlinedTextField(
                         value = plateLetter,
-                        onValueChange = { if (it.length <= 1) plateLetter = it },
+                        onValueChange = { value -> plateLetter = value.filter { it.isLetter() }.take(1) },
                         label = { Text("حرف") },
                         modifier = Modifier.weight(0.8f),
                         singleLine = true
                     )
                     OutlinedTextField(
                         value = platePart2,
-                        onValueChange = { if (it.length <= 3) platePart2 = it },
+                        onValueChange = { value -> platePart2 = IranianPhoneUtils.convertDigitsToEnglish(value).filter { it.isDigit() }.take(3) },
                         label = { Text("۳ رقم") },
                         modifier = Modifier.weight(1.1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -269,7 +276,7 @@ fun AddVehicleSheet(
                     )
                     OutlinedTextField(
                         value = plateIranCode,
-                        onValueChange = { if (it.length <= 2) plateIranCode = it },
+                        onValueChange = { value -> plateIranCode = IranianPhoneUtils.convertDigitsToEnglish(value).filter { it.isDigit() }.take(2) },
                         label = { Text("ایران") },
                         modifier = Modifier.weight(0.9f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -298,17 +305,26 @@ fun AddVehicleSheet(
                 testTag = "vehicle_estimated_value_input"
             )
 
-            // Submit Button
+            // Required fields are validated before invoking the repository.
+            Text(
+                text = "مدل، سال ساخت معتبر و تمام بخش‌های پلاک الزامی هستند.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Button(
                 onClick = {
-                    if (model.isNotBlank()) {
-                        val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: 0
-                        val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
-                        val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
-                        onAddVehicle(if (brand == "سایر") customBrand.trim() else brand, model, year, color, plate, vin, mileage, estVal, engine.trim(), transmission.trim())
+                    val mileage = parsedMileage ?: 0
+                    val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
+                    val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
+                    if (model.isNotBlank() && validYear && validPlate && mileage >= 0 && estVal >= 0L &&
+                        (brand != "سایر" || customBrand.isNotBlank())) {
+                        onAddVehicle(if (brand == "سایر") customBrand.trim() else brand, model.trim(), normalizedYear.toString(), color, plate, vin, mileage, estVal, engine.trim(), transmission.trim())
                     }
                 },
-                enabled = model.isNotBlank() && (brand != "سایر" || customBrand.isNotBlank()),
+                enabled = model.isNotBlank() && validYear && validPlate &&
+                    (parsedMileage == null || parsedMileage >= 0) &&
+                    IranianAmountUtils.parseAmountToLong(estimatedValueText) >= 0L &&
+                    (brand != "سایر" || customBrand.isNotBlank()),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
