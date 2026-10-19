@@ -4,6 +4,11 @@ import com.example.ui.screens.reports.ReportDateRangeCalculator
 import com.example.ui.screens.reports.ReportPeriod
 import com.example.ui.screens.reports.ShamsiDate
 import com.example.util.PersianCalendarHelper
+import com.example.vehicle.data.VehicleExpenseCategory
+import com.example.vehicle.data.VehicleExpenseEntity
+import com.example.vehicle.data.VehicleInspectionEntity
+import com.example.vehicle.data.VehicleInsuranceEntity
+import com.example.vehicle.data.VehicleServiceEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -78,6 +83,60 @@ class ReportDateRangeCalculatorTest {
         assertEquals(1405, previousStartDate.year)
         assertEquals(6, previousEndDate.month)
         assertEquals(1405, previousEndDate.year)
+    }
+
+    @Test
+    fun vehicleReportDoesNotDoubleCountRepositoryMirroredServiceExpenses() {
+        val day = "1405/07/12"
+        val start = PersianCalendarHelper.jalaliToEpochMillis(1405, 7, 1, 0, 0)
+        val end = PersianCalendarHelper.jalaliToEpochMillis(1405, 7, 30, 23, 59) + 59_999L
+        val expenses = listOf(
+            VehicleExpenseEntity(
+                id = "exp_svc_service-1",
+                vehicleId = "vehicle-1",
+                title = "تعویض روغن",
+                category = VehicleExpenseCategory.SERVICE,
+                amount = 250_000L,
+                date = day
+            ),
+            VehicleExpenseEntity(
+                id = "ordinary-expense",
+                vehicleId = "vehicle-1",
+                title = "سوخت",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 100_000L,
+                date = day
+            )
+        )
+        val services = listOf(
+            VehicleServiceEntity(
+                id = "service-1",
+                vehicleId = "vehicle-1",
+                title = "تعویض روغن",
+                date = day,
+                mileage = 20_000,
+                cost = 250_000L
+            ),
+            VehicleServiceEntity(
+                id = "legacy-service",
+                vehicleId = "vehicle-1",
+                title = "سرویس قدیمی",
+                date = day,
+                mileage = 15_000,
+                cost = 75_000L
+            )
+        )
+
+        val total = ReportVehicleExpenseCalculator.totalForRange(
+            startTime = start,
+            endTime = end,
+            expenses = expenses,
+            services = services,
+            insurances = emptyList<VehicleInsuranceEntity>(),
+            inspections = emptyList<VehicleInspectionEntity>()
+        )
+
+        assertEquals(425_000L, total)
     }
 
     @Test
