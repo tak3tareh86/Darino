@@ -91,52 +91,82 @@ object VehicleAnalyzer {
     ): VehicleHealthReport {
         val carServices = services.filter { it.vehicleId == vehicle.id }
         val carInsurances = insurances.filter { it.vehicleId == vehicle.id }
-        val carInspection = inspections.find { it.vehicleId == vehicle.id }
+        val carInspection = inspections
+            .filter { it.vehicleId == vehicle.id }
+            .maxByOrNull { dateKey(it.expiryDate) }
 
-        val lastOilService = carServices.find { it.serviceType == ServiceType.OIL_CHANGE }
-        val lastBrakeService = carServices.find { it.serviceType == ServiceType.BRAKE_PADS }
+        // Select the most recently performed service by its actual date, not DAO order.
+        val lastOilService = carServices
+            .filter { it.serviceType == ServiceType.OIL_CHANGE }
+            .maxByOrNull { dateKey(it.date) }
+        val lastBrakeService = carServices
+            .filter { it.serviceType == ServiceType.BRAKE_PADS }
+            .maxByOrNull { dateKey(it.date) }
 
         val checklist = mutableListOf<VehicleHealthCheckItem>()
         var score = 100
 
         val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
-        val todayJalali = currentPdt.toFormattedDate()
+        val todayJalali = dateKey(currentPdt.toFormattedDate())
 
-        // 1. Oil & Filter Health
+        // Evaluate both the saved mileage target and saved calendar target.
         if (lastOilService != null) {
-            val nextKm = lastOilService.nextReminderMileage ?: (lastOilService.mileage + 5000)
-            val kmRemaining = nextKm - vehicle.currentMileage
-            if (kmRemaining < 0) {
-                checklist.add(
-                    VehicleHealthCheckItem(
+            val catalog = VehicleMaintenanceCatalog.resolve(vehicle, ServiceType.OIL_CHANGE)
+            val nextKm = lastOilService.nextReminderMileage
+                ?: catalog.intervalKm.takeIf { it > 0 }?.let { lastOilService.mileage + it }
+            val kmRemaining = nextKm?.minus(vehicle.currentMileage)
+            val dueByMileage = kmRemaining != null && kmRemaining <= 0
+            val dueByDate = !lastOilService.nextReminderDate.isNullOrBlank() &&
+                dateKey(lastOilService.nextReminderDate!!) <= todayJalali
+            val nearByMileage = kmRemaining != null && kmRemaining in 1..500
+            when {
+                dueByMileage || dueByDate -> {
+                    val reason = when {
+                        dueByMileage && dueByDate -> "موعد کیلومتری و زمانی گذشته است"
+                        dueByDate -> "موعد زمانی سرویس گذشته است"
+                        else -> "موعد سرویس در کیلومتر ${nextKm} فرا رسیده است"
+                    }
+                    checklist.add(VehicleHealthCheckItem(
                         title = "روغن و فیلتر موتور",
-                        statusText = "تعویض معوق (${Math.abs(kmRemaining)} کیلومتر گذشته)",
+                        statusText = reason,
                         isOk = false,
                         isWarning = true,
                         iconRes = R.drawable.img_3d_oil
-                    )
-                )
-                score -= 30
-            } else if (kmRemaining <= 500) {
-                checklist.add(
-                    VehicleHealthCheckItem(
+                    ))
+                    score -= 30
+                }
+                nearByMileage -> {
+                    checklist.add(VehicleHealthCheckItem(
                         title = "روغن و فیلتر موتور",
                         statusText = "سررسید نزدیک ($kmRemaining کیلومتر باقیمانده)",
                         isOk = true,
                         isWarning = true,
                         iconRes = R.drawable.img_3d_oil
-                    )
-                )
-                score -= 15
-            } else {
-                checklist.add(
-                    VehicleHealthCheckItem(
+                    ))
+                    score -= 15
+                }
+                nextKm != null -> checklist.add(VehicleHealthCheckItem(
+                    title = "روغن و فیلتر موتور",
+                    statusText = "تا سرویس بعدی ${kmRemaining} کیلومتر باقی مانده",
+                    isOk = true,
+                    iconRes = R.drawable.img_3d_oil
+                ))
+                !lastOilService.nextReminderDate.isNullOrBlank() -> checklist.add(VehicleHealthCheckItem(
+                    title = "روغن و فیلتر موتور",
+                    statusText = "موعد بعدی: ${lastOilService.nextReminderDate}",
+                    isOk = true,
+                    iconRes = R.drawable.img_3d_oil
+                ))
+                else -> {
+                    checklist.add(VehicleHealthCheckItem(
                         title = "روغن و فیلتر موتور",
-                        statusText = "سالم و استاندارد ($kmRemaining کیلومتر تا سرویس بعدی)",
-                        isOk = true,
+                        statusText = "سابقه ثبت شده؛ موعد بعدی نیاز به تعیین دارد",
+                        isOk = false,
+                        isWarning = false,
                         iconRes = R.drawable.img_3d_oil
-                    )
-                )
+                    ))
+                    score -= 10
+                }
             }
         } else {
             checklist.add(
@@ -152,9 +182,12 @@ object VehicleAnalyzer {
         }
 
         // 2. Insurance Status
-        val thirdPartyInsurance = carInsurances.find { it.type.contains("ثالث") } ?: carInsurances.firstOrNull()
+        val thirdPartyInsurance = carInsurances
+            .filter { it.type.contains("ثالث") }
+            .maxByOrNull { dateKey(it.endDate) }
+            ?: carInsurances.maxByOrNull { dateKey(it.endDate) }
         if (thirdPartyInsurance != null) {
-            val isExpired = thirdPartyInsurance.endDate.isNotBlank() && thirdPartyInsurance.endDate < todayJalali
+            val isExpired = thirdPartyInsurance.endDate.isNotBlank() && dateKey(thirdPartyInsurance.endDate) < todayJalali
             if (isExpired) {
                 checklist.add(
                     VehicleHealthCheckItem(
@@ -214,7 +247,7 @@ object VehicleAnalyzer {
 
         // 4. Technical Inspection
         if (carInspection != null) {
-            val isInspectionExpired = carInspection.expiryDate.isNotBlank() && carInspection.expiryDate < todayJalali
+            val isInspectionExpired = carInspection.expiryDate.isNotBlank() && dateKey(carInspection.expiryDate) < todayJalali
             if (isInspectionExpired) {
                 checklist.add(
                     VehicleHealthCheckItem(
@@ -282,10 +315,13 @@ object VehicleAnalyzer {
         val currentYearMonth = "%04d/%02d".format(currentYear, currentMonth)
         val currentYearStr = "%04d".format(currentYear)
 
-        val currentMonthCost = carExpenses.filter { it.date.startsWith(currentYearMonth) }.sumOf { it.amount }
-        val yearlyCost = carExpenses.filter { it.date.startsWith(currentYearStr) }.sumOf { it.amount }.let {
-            if (it == 0L && carExpenses.isNotEmpty()) carExpenses.sumOf { exp -> exp.amount } else it
-        }
+        val currentMonthCost = carExpenses
+            .filter { dateKey(it.date).startsWith(currentYearMonth.replace("/", "")) }
+            .sumOf { it.amount }
+        // Zero is a valid current-year total; never replace it with lifetime spending.
+        val yearlyCost = carExpenses
+            .filter { dateKey(it.date).startsWith(currentYearStr) }
+            .sumOf { it.amount }
 
         val categoryTotals = VehicleExpenseCategory.values().map { cat ->
             val total = carExpenses.filter { it.category == cat }.sumOf { it.amount }
@@ -296,7 +332,9 @@ object VehicleAnalyzer {
 
         val topCategory = categoryTotals.firstOrNull() ?: VehicleCostCategoryStat(VehicleExpenseCategory.SERVICE, 0L, 0)
 
-        val lastRepair = carExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS }.firstOrNull()
+        val lastRepair = carExpenses
+            .filter { it.category == VehicleExpenseCategory.REPAIRS }
+            .maxByOrNull { dateKey(it.date) }
         val lastRepairTitle = lastRepair?.title ?: "بدون تعمیرات سنگین"
         val lastRepairDate = lastRepair?.date ?: "—"
 
@@ -312,7 +350,7 @@ object VehicleAnalyzer {
                 y -= 1
             }
             val prefix = "%04d/%02d".format(y, m)
-            val monthExpenses = carExpenses.filter { it.date.startsWith(prefix) }
+            val monthExpenses = carExpenses.filter { dateKey(it.date).startsWith(prefix.replace("/", "")) }
             val fuel = monthExpenses.filter { it.category == VehicleExpenseCategory.FUEL }.sumOf { it.amount }
             val repair = monthExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS || it.category == VehicleExpenseCategory.PARTS }.sumOf { it.amount }
             val service = monthExpenses.filter { it.category == VehicleExpenseCategory.SERVICE }.sumOf { it.amount }
@@ -345,6 +383,21 @@ object VehicleAnalyzer {
             categoryBreakdown = categoryTotals,
             monthlyChartData = monthlyBars
         )
+    }
+
+    private fun dateKey(value: String): String {
+        val normalized = buildString(value.length) {
+            value.forEach { ch ->
+                append(
+                    when (ch) {
+                        in '۰'..'۹' -> ('0'.code + (ch.code - '۰'.code)).toChar()
+                        in '٠'..'٩' -> ('0'.code + (ch.code - '٠'.code)).toChar()
+                        else -> ch
+                    }
+                )
+            }
+        }
+        return normalized.filter { it in '0'..'9' }
     }
 
     fun buildTimeline(
