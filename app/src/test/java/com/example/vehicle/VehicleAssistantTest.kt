@@ -136,7 +136,7 @@ class VehicleAssistantTest {
     }
 
     @Test
-    fun healthUsesMostRecentOilServiceAndChecksSavedDueDate() {
+    fun healthUsesMostRecentOilServiceByPerformedDate() {
         val vehicle = com.example.vehicle.data.VehicleEntity(
             id = "health-car",
             brand = "سایپا",
@@ -176,6 +176,40 @@ class VehicleAssistantTest {
         val oilCheck = report.checklist.first { it.title == "روغن و فیلتر موتور" }
 
         assertTrue("باید سرویس جدیدتر مبنا قرار بگیرد", oilCheck.statusText.contains("35000"))
+    }
+
+    @Test
+    fun healthFlagsAnOverdueCalendarReminderEvenWhenMileageTargetIsFarAway() {
+        val vehicle = com.example.vehicle.data.VehicleEntity(
+            id = "date-health-car",
+            brand = "سایپا",
+            model = "پراید",
+            year = "1400",
+            color = "سفید",
+            plate = "",
+            currentMileage = 10000
+        )
+        val service = com.example.vehicle.data.VehicleServiceEntity(
+            id = "date-oil",
+            vehicleId = vehicle.id,
+            title = "تعویض روغن",
+            serviceType = ServiceType.OIL_CHANGE,
+            date = "1405/01/01",
+            mileage = 9000,
+            cost = 0L,
+            nextReminderDate = "1400/01/01",
+            nextReminderMileage = 90000
+        )
+        val report = VehicleAnalyzer.analyzeHealth(
+            vehicle = vehicle,
+            services = listOf(service),
+            insurances = emptyList(),
+            inspections = emptyList()
+        )
+        val oilCheck = report.checklist.first { it.title == "روغن و فیلتر موتور" }
+
+        assertFalse(oilCheck.isOk)
+        assertTrue(oilCheck.statusText.contains("زمانی"))
     }
 
     @Test
