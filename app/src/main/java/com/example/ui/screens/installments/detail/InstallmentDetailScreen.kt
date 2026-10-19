@@ -29,7 +29,12 @@ import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
+import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -370,6 +375,9 @@ fun InstallmentDetailScreen(
                 }
             }
 
+            val context = LocalContext.current
+            var showDeleteDialog by remember { mutableStateOf(false) }
+
             // Schedule Navigation Button
             Button(
                 onClick = { onViewScheduleClick(item) },
@@ -389,6 +397,59 @@ fun InstallmentDetailScreen(
                     text = "مشاهده جدول زمان‌بندی کامل اقساط",
                     style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.5.sp),
                     modifier = Modifier.padding(start = 6.dp)
+                )
+            }
+
+            // Delete Loan Button
+            Button(
+                onClick = { showDeleteDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag("delete_installment_btn"),
+                shape = RoundedCornerShape(RadiusMD),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.DeleteOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = "حذف وام",
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.5.sp),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(start = 6.dp)
+                )
+            }
+
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("حذف وام", fontWeight = FontWeight.Bold) },
+                    text = { Text("آیا از حذف وام \"${item.title}\" و سوابق پرداخت مرتبط با آن اطمینان دارید؟") },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showDeleteDialog = false
+                                try {
+                                    LocalInstallmentRepository.instance.deleteInstallment(item.id, context)
+                                    onBackClick()
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text("بله، حذف شود")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) {
+                            Text("انصراف")
+                        }
+                    }
                 )
             }
 

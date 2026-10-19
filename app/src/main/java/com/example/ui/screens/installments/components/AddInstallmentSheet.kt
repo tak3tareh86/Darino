@@ -49,6 +49,7 @@ import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.installments.model.InstallmentCategory
 import com.example.ui.screens.reminder.components.PersianTimePickerDialog
 import com.example.util.IranianAmountUtils
+import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 
@@ -365,6 +366,29 @@ fun AddInstallmentSheet(
             onConfirm = { updatedList ->
                 customScheduleItems = updatedList
                 showCustomScheduleDialog = false
+            }
+        )
+    }
+
+    if (showTimePicker) {
+        val parsedHour = remember(reminderTime) {
+            val eng = IranianPhoneUtils.convertDigitsToEnglish(reminderTime)
+            eng.substringBefore(":").toIntOrNull() ?: 9
+        }
+        val parsedMinute = remember(reminderTime) {
+            val eng = IranianPhoneUtils.convertDigitsToEnglish(reminderTime)
+            eng.substringAfter(":", "0").toIntOrNull() ?: 0
+        }
+
+        PersianTimePickerDialog(
+            initialHour = parsedHour,
+            initialMinute = parsedMinute,
+            onDismiss = { showTimePicker = false },
+            onConfirm = { h, m ->
+                val hStr = h.toString().padStart(2, '0')
+                val mStr = m.toString().padStart(2, '0')
+                reminderTime = IranianPhoneUtils.convertDigitsToPersian("$hStr:$mStr")
+                showTimePicker = false
             }
         )
     }
