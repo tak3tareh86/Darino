@@ -1154,6 +1154,52 @@ class VehicleRepository {
         }
     }
 
+    // Update a user-owned expense while preserving its identity and receipt attachment.
+    suspend fun updateExpense(
+        expenseId: String,
+        title: String,
+        category: VehicleExpenseCategory,
+        amount: Long,
+        date: String,
+        description: String = ""
+    ): Result<VehicleExpenseEntity> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+        if (title.isBlank()) return@withContext Result.failure(IllegalArgumentException("عنوان هزینه نمی‌تواند خالی باشد."))
+        if (amount <= 0L) return@withContext Result.failure(IllegalArgumentException("مبلغ هزینه باید بزرگتر از صفر باشد."))
+        if (parseJalaliToTimestamp(date) == null) return@withContext Result.failure(IllegalArgumentException("تاریخ هزینه نامعتبر است."))
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            val existing = db.vehicleDao().getExpenseById(userId, expenseId)
+                ?: return@withContext Result.failure(NoSuchElementException("هزینه موردنظر یافت نشد."))
+            val updated = existing.copy(
+                title = title.trim(),
+                category = category.name,
+                amount = amount,
+                date = date.trim(),
+                description = description.trim()
+            )
+            if (db.vehicleDao().updateExpense(updated) == 0) {
+                return@withContext Result.failure(IllegalStateException("ذخیره تغییرات هزینه انجام نشد."))
+            }
+            Result.success(
+                VehicleExpenseEntity(
+                    id = updated.id,
+                    vehicleId = updated.vehicleId,
+                    title = updated.title,
+                    category = category,
+                    amount = updated.amount,
+                    date = updated.date,
+                    description = updated.description,
+                    receiptImageUri = updated.receiptImageUri
+                )
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     // 9. Delete Expense (Robust affected rows and ownership checks)
     suspend fun deleteExpense(expenseId: String): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
