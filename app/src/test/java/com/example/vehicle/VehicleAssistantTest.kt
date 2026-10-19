@@ -119,7 +119,7 @@ class VehicleAssistantTest {
         val peugeotBrakeFluid = VehicleMaintenanceCatalog.resolve(peugeot, ServiceType.BRAKE_FLUID_CHANGE)
         val taraManualTransmission = VehicleMaintenanceCatalog.resolve(tara, ServiceType.TRANSMISSION_OIL_CHANGE)
         val taraAutomatic = VehicleMaintenanceCatalog.resolve(
-            tara.copy(model = "تارا اتوماتیک"),
+            tara.copy(transmission = "اتوماتیک DAE شش‌سرعته"),
             ServiceType.TRANSMISSION_OIL_CHANGE
         )
         val oil = VehicleMaintenanceCatalog.resolve(peugeot, ServiceType.OIL_CHANGE)
