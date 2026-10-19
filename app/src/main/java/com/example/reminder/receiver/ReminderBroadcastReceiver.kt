@@ -75,11 +75,12 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
     }
 
     private suspend fun handleTrigger(context: Context, reminderId: String, scheduleId: String) {
+        val receiveTime = System.currentTimeMillis()
         if (SessionManager.userId == null) {
             SessionManager.init(context)
         }
         val userId = SessionManager.userId ?: run {
-            Log.e(TAG, "Cannot handle trigger: SessionManager.userId is null after init.")
+            Log.e(TAG, "Cannot handle trigger: SessionManager.userId is null after init for reminderId: $reminderId, scheduleId: $scheduleId.")
             return
         }
         val db = AppDatabase.getDatabase(context)
@@ -89,9 +90,8 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             Log.w(TAG, "Reminder $reminderId not found for current user $userId.")
             return
         }
-        Log.i(TAG, "Retrieved reminder ${reminder.id} (${reminder.title}), status: ${reminder.status}")
         if (!reminder.status.equals("ACTIVE", ignoreCase = true)) {
-            Log.w(TAG, "Reminder ${reminder.id} is not ACTIVE (status: ${reminder.status}); skipping.")
+            Log.w(TAG, "Reminder ${reminder.id} is not ACTIVE (status: ${reminder.status}); skipping dispatch.")
             return
         }
 
@@ -99,7 +99,10 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             Log.w(TAG, "Schedule $scheduleId not found for current user $userId.")
             return
         }
-        Log.i(TAG, "Retrieved schedule ${schedule.id}, triggerDateTime: ${schedule.triggerDateTime}, enabled: ${schedule.enabled}")
+        val expectedTime = schedule.triggerDateTime
+        val delayMs = receiveTime - expectedTime
+        Log.i(TAG, "Trigger processed - ReminderID: ${reminder.id}, ScheduleID: ${schedule.id}, ExpectedTime: $expectedTime, ReceiveTime: $receiveTime, DelayMs: $delayMs, Status: ${reminder.status}, Enabled: ${schedule.enabled}")
+
         if (schedule.reminderId != reminder.id || !schedule.enabled) {
             Log.w(TAG, "Schedule ${schedule.id} mismatch or disabled.")
             return

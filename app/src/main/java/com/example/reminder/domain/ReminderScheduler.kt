@@ -182,27 +182,36 @@ class ReminderScheduler(private val context: Context) {
     suspend fun rebuildAllSchedules() {
         try {
             val db = AppDatabase.getDatabase(context)
-            val userId = com.example.data.security.SessionManager.userId ?: run {
-                Log.i("ReminderScheduler", "No authenticated user; skipping schedule rebuild.")
-                return
+            if (com.example.data.security.SessionManager.userId == null) {
+                com.example.data.security.SessionManager.init(context)
             }
-            val activeReminders = db.smartReminderDao().getActiveRemindersList(userId)
+            val userId = com.example.data.security.SessionManager.userId
             var count = 0
+            val activeReminders = if (userId != null) {
+                db.smartReminderDao().getActiveRemindersList(userId)
+            } else {
+                Log.w("ReminderScheduler", "SessionManager.userId is null during rebuild; querying all active reminders globally.")
+                db.smartReminderDao().getAllActiveRemindersGlobal()
+            }
 
             activeReminders.forEach { reminder ->
-                val schedules = db.smartReminderDao().getSchedulesForReminderSync(reminder.userId, reminder.id)
+                val schedules = if (userId != null) {
+                    db.smartReminderDao().getSchedulesForReminderSync(userId, reminder.id)
+                } else {
+                    db.smartReminderDao().getSchedulesForReminderGlobal(reminder.id)
+                }
                 schedules.forEach { schedule ->
                     if (schedule.enabled && schedule.triggerDateTime > System.currentTimeMillis()) {
                         try {
                             scheduleSingle(reminder, schedule)
                             count++
                         } catch (e: Exception) {
-                            Log.e("ReminderScheduler", "Failed to re-arm schedule ${schedule.id} during rebuild", e)
+                            Log.e("ReminderScheduler", "Failed to re-arm schedule ${schedule.id} during rebuild: ${e.message}", e)
                         }
                     }
                 }
             }
-            Log.i("ReminderScheduler", "Rebuilt $count persistent active schedules after boot / reset.")
+            Log.i("ReminderScheduler", "Rebuilt $count persistent active schedules after boot / reset successfully.")
         } catch (e: Exception) {
             Log.e("ReminderScheduler", "Error rebuilding schedules from database", e)
         }
