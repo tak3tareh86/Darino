@@ -113,9 +113,11 @@ fun ReportsScreen(
     }
     val endDate = uiState.customEndDate ?: remember {
         val now = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
-        ShamsiDate(now.year, now.month, PersianCalendarHelper.getDaysInMonth(now.year, now.month))
+        ShamsiDate(now.year, now.month, now.day)
     }
-    
+    val reportStartDate = uiState.reportStartDate ?: startDate
+    val reportEndDate = uiState.reportEndDate ?: endDate
+
     var showCustomDateSheet by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
 
@@ -280,8 +282,8 @@ fun ReportsScreen(
         // باتم‌شیت خروجی و اشتراک‌گذاری گزارش (PDF واقعی و ذخیره در گالری)
         if (showExportSheet) {
             ExportReportBottomSheet(
-                startDate = startDate,
-                endDate = endDate,
+                startDate = reportStartDate,
+                endDate = reportEndDate,
                 onDismiss = { showExportSheet = false },
                 totalIncome = uiState.totalIncome,
                 totalExpense = uiState.totalExpense,
@@ -296,8 +298,8 @@ fun ReportsScreen(
                 onExportPdf = {
                     ReportExportUtils.exportReportAsPdf(
                         context = context,
-                        startDate = startDate,
-                        endDate = endDate,
+                        startDate = reportStartDate,
+                        endDate = reportEndDate,
                         totalIncome = uiState.totalIncome,
                         totalExpense = uiState.totalExpense,
                         savings = uiState.savings,
@@ -313,8 +315,8 @@ fun ReportsScreen(
                 onSaveImage = {
                     ReportExportUtils.saveReportImageToGallery(
                         context = context,
-                        startDate = startDate,
-                        endDate = endDate,
+                        startDate = reportStartDate,
+                        endDate = reportEndDate,
                         totalIncome = uiState.totalIncome,
                         totalExpense = uiState.totalExpense,
                         savings = uiState.savings,
@@ -377,8 +379,8 @@ private fun ReportsHeader(
             ) {
                 IconButton(onClick = onFilterClick) {
                     Icon(
-                        imageVector = Icons.Rounded.FilterList,
-                        contentDescription = "فیلترها",
+                        imageVector = Icons.Rounded.DateRange,
+                        contentDescription = "انتخاب بازه زمانی",
                         tint = Color(0xFF94A3B8),
                         modifier = Modifier.size(20.dp)
                     )
@@ -1419,6 +1421,10 @@ fun CustomDateRangeBottomSheet(
 ) {
     var tempStart by remember { mutableStateOf(initialStartDate) }
     var tempEnd by remember { mutableStateOf(initialEndDate) }
+    val isDateRangeValid = (tempStart.year * 10000 + tempStart.month * 100 + tempStart.day) <=
+        (tempEnd.year * 10000 + tempEnd.month * 100 + tempEnd.day) &&
+        tempStart.day in 1..PersianCalendarHelper.getDaysInMonth(tempStart.year, tempStart.month) &&
+        tempEnd.day in 1..PersianCalendarHelper.getDaysInMonth(tempEnd.year, tempEnd.month)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1538,7 +1544,15 @@ fun CustomDateRangeBottomSheet(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 // دکمه اعمال بازه
+                if (!isDateRangeValid) {
+                    Text(
+                        text = "تاریخ شروع باید قبل یا برابر تاریخ پایان باشد.",
+                        color = Color(0xFFF87171),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Button(
+                    enabled = isDateRangeValid,
                     onClick = { onApply(tempStart, tempEnd) },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1634,7 +1648,7 @@ private fun PersianDateSelectorRow(
                     onDismissRequest = { dayExpanded = false },
                     modifier = Modifier.background(Color(0xFF1E293B))
                 ) {
-                    val maxDays = if (date.month <= 6) 31 else if (date.month <= 11) 30 else 29
+                    val maxDays = PersianCalendarHelper.getDaysInMonth(date.year, date.month)
                     for (d in 1..maxDays) {
                         DropdownMenuItem(
                             text = { Text("$d", color = Color.White) },
@@ -1669,7 +1683,7 @@ private fun PersianDateSelectorRow(
                         DropdownMenuItem(
                             text = { Text(mName, color = Color.White) },
                             onClick = {
-                                val maxDays = if (mNum <= 6) 31 else if (mNum <= 11) 30 else 29
+                                val maxDays = PersianCalendarHelper.getDaysInMonth(date.year, mNum)
                                 val safeDay = if (date.day > maxDays) maxDays else date.day
                                 onDateChanged(date.copy(month = mNum, day = safeDay))
                                 monthExpanded = false
