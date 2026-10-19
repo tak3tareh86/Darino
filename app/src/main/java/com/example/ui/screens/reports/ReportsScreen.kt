@@ -115,7 +115,25 @@ fun ReportsScreen(
         val now = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
         ShamsiDate(now.year, now.month, PersianCalendarHelper.getDaysInMonth(now.year, now.month))
     }
-    
+
+    val exportStartDate: ShamsiDate
+    val exportEndDate: ShamsiDate
+    run {
+        val nowMillis = System.currentTimeMillis()
+        val now = PersianCalendarHelper.fromEpochMillis(nowMillis)
+        exportStartDate = when (uiState.selectedPeriod) {
+            ReportPeriod.WEEK -> {
+                val d = PersianCalendarHelper.fromEpochMillis(nowMillis - 7 * 24 * 60 * 60 * 1000L)
+                ShamsiDate(d.year, d.month, d.day)
+            }
+            ReportPeriod.MONTH -> ShamsiDate(now.year, now.month, 1)
+            ReportPeriod.YEAR -> ShamsiDate(now.year, 1, 1)
+            ReportPeriod.CUSTOM -> startDate
+        }
+        exportEndDate = if (uiState.selectedPeriod == ReportPeriod.CUSTOM) endDate
+            else ShamsiDate(now.year, now.month, now.day)
+    }
+
     var showCustomDateSheet by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
 
@@ -280,8 +298,8 @@ fun ReportsScreen(
         // باتم‌شیت خروجی و اشتراک‌گذاری گزارش (PDF واقعی و ذخیره در گالری)
         if (showExportSheet) {
             ExportReportBottomSheet(
-                startDate = startDate,
-                endDate = endDate,
+                startDate = exportStartDate,
+                endDate = exportEndDate,
                 onDismiss = { showExportSheet = false },
                 totalIncome = uiState.totalIncome,
                 totalExpense = uiState.totalExpense,
@@ -296,8 +314,8 @@ fun ReportsScreen(
                 onExportPdf = {
                     ReportExportUtils.exportReportAsPdf(
                         context = context,
-                        startDate = startDate,
-                        endDate = endDate,
+                        startDate = exportStartDate,
+                        endDate = exportEndDate,
                         totalIncome = uiState.totalIncome,
                         totalExpense = uiState.totalExpense,
                         savings = uiState.savings,
@@ -313,8 +331,8 @@ fun ReportsScreen(
                 onSaveImage = {
                     ReportExportUtils.saveReportImageToGallery(
                         context = context,
-                        startDate = startDate,
-                        endDate = endDate,
+                        startDate = exportStartDate,
+                        endDate = exportEndDate,
                         totalIncome = uiState.totalIncome,
                         totalExpense = uiState.totalExpense,
                         savings = uiState.savings,
@@ -1634,7 +1652,7 @@ private fun PersianDateSelectorRow(
                     onDismissRequest = { dayExpanded = false },
                     modifier = Modifier.background(Color(0xFF1E293B))
                 ) {
-                    val maxDays = if (date.month <= 6) 31 else if (date.month <= 11) 30 else 29
+                    val maxDays = PersianCalendarHelper.getDaysInMonth(date.year, date.month)
                     for (d in 1..maxDays) {
                         DropdownMenuItem(
                             text = { Text("$d", color = Color.White) },
@@ -1669,7 +1687,7 @@ private fun PersianDateSelectorRow(
                         DropdownMenuItem(
                             text = { Text(mName, color = Color.White) },
                             onClick = {
-                                val maxDays = if (mNum <= 6) 31 else if (mNum <= 11) 30 else 29
+                                val maxDays = PersianCalendarHelper.getDaysInMonth(date.year, mNum)
                                 val safeDay = if (date.day > maxDays) maxDays else date.day
                                 onDateChanged(date.copy(month = mNum, day = safeDay))
                                 monthExpanded = false
@@ -1696,7 +1714,8 @@ private fun PersianDateSelectorRow(
                         DropdownMenuItem(
                             text = { Text("$y", color = Color.White) },
                             onClick = {
-                                onDateChanged(date.copy(year = y))
+                                val maxDays = PersianCalendarHelper.getDaysInMonth(y, date.month)
+                                onDateChanged(date.copy(year = y, day = minOf(date.day, maxDays)))
                                 yearExpanded = false
                             }
                         )
