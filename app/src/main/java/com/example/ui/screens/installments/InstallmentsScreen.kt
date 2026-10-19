@@ -589,9 +589,16 @@ fun InstallmentsScreen(
                                 dueTimePersian = reminderTime,
                                 selectedOffsets = selectedOffsets
                             )
+                            snackbarHostState.showSnackbar("قسط و یادآور با موفقیت ثبت شدند.")
                         } catch (e: Exception) {
                             e.printStackTrace()
+                            android.util.Log.e("InstallmentsScreen", "Failed to sync reminder for installment ${newItem.id}", e)
+                            snackbarHostState.showSnackbar("قسط ثبت شد، اما ثبت یادآور با خطا مواجه شد: ${e.localizedMessage ?: "خطای ناشناخته"}")
                         }
+                    }
+                } else {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("قسط با موفقیت ثبت شد.")
                     }
                 }
             }

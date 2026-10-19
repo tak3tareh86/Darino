@@ -28,20 +28,30 @@ class ReminderScheduler(private val context: Context) {
 
         val newlyScheduled = mutableListOf<ReminderScheduleEntity>()
         val now = System.currentTimeMillis()
+        var pastCount = 0
+        var scheduledCount = 0
+
         for (schedule in schedules) {
-            if (schedule.enabled && schedule.triggerDateTime > now) {
-                try {
-                    scheduleSingle(reminder, schedule)
-                    newlyScheduled.add(schedule)
-                } catch (e: Exception) {
-                    Log.e("ReminderScheduler", "Failed to schedule trigger for reminder ${reminder.title}, schedule ${schedule.id}. Rolling back newly registered alarms in this batch.", e)
-                    newlyScheduled.forEach { scheduledItem ->
-                        cancelSchedule(scheduledItem.id)
+            if (schedule.enabled) {
+                if (schedule.triggerDateTime > now) {
+                    try {
+                        scheduleSingle(reminder, schedule)
+                        newlyScheduled.add(schedule)
+                        scheduledCount++
+                    } catch (e: Exception) {
+                        Log.e("ReminderScheduler", "Failed to schedule trigger for reminder ${reminder.title}, schedule ${schedule.id}. Rolling back newly registered alarms in this batch.", e)
+                        newlyScheduled.forEach { scheduledItem ->
+                            cancelSchedule(scheduledItem.id)
+                        }
+                        throw e
                     }
-                    throw e
+                } else {
+                    pastCount++
+                    Log.w("ReminderScheduler", "Skipping past trigger time ${schedule.triggerDateTime} (now: $now) for schedule ${schedule.id}")
                 }
             }
         }
+        Log.i("ReminderScheduler", "Schedule summary for reminder '${reminder.title}': totalSchedules=${schedules.size}, successfullyScheduled=$scheduledCount, skippedPast=$pastCount")
     }
 
     /**
