@@ -63,6 +63,11 @@ fun DarinoVehicleMainDashboard(
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = androidx.compose.ui.platform.LocalContext.current
+    var editingService by remember { mutableStateOf<VehicleServiceEntity?>(null) }
+
+    LaunchedEffect(state.showAddServiceSheet) {
+        if (!state.showAddServiceSheet) editingService = null
+    }
 
     LaunchedEffect(Unit) {
         viewModel.initRepository(context)
@@ -283,9 +288,17 @@ fun DarinoVehicleMainDashboard(
                                 services = state.services,
                                 onEditProfile = { viewModel.openProfile() },
                                 onMileageClick = { viewModel.openMileageDialog() },
-                                onAddService = { viewModel.openAddService() },
+                                onAddService = { editingService = null; viewModel.openAddService() },
                                 onAddExpense = { viewModel.openAddExpense() },
-                                onInsuranceClick = { viewModel.openInsuranceSheet() }
+                                onInsuranceClick = { viewModel.openInsuranceSheet() },
+                                onEditService = { service -> editingService = service; viewModel.openAddService() },
+                                onCompleteService = { service ->
+                                    viewModel.completeServiceRecord(
+                                        service.id,
+                                        com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                                    )
+                                },
+                                onDeleteService = { service -> viewModel.deleteServiceRecord(service.id) }
                             )
                         }
                         VehicleTab.TIMELINE -> {
@@ -367,8 +380,12 @@ fun DarinoVehicleMainDashboard(
     if (state.showAddServiceSheet && state.selectedVehicle != null) {
         AddServiceSheet(
             vehicle = state.selectedVehicle!!,
+            existingService = editingService,
             onAddService = { t: String, type: com.example.vehicle.data.ServiceType, d: String, km: Int, c: Long, desc: String, remD: String?, remKm: Int?, en: Boolean ->
                 viewModel.addServiceRecord(t, type, d, km, c, desc, remD, remKm, en)
+            },
+            onUpdateService = { id: String, t: String, type: com.example.vehicle.data.ServiceType, d: String, km: Int, c: Long, desc: String, remD: String?, remKm: Int?, en: Boolean ->
+                viewModel.updateServiceRecord(id, t, type, d, km, c, desc, remD, remKm, en)
             },
             onDismiss = { viewModel.closeAddService() }
         )
@@ -479,7 +496,10 @@ private fun VehicleServicesTabContent(
     onMileageClick: () -> Unit,
     onAddService: () -> Unit,
     onAddExpense: () -> Unit,
-    onInsuranceClick: () -> Unit
+    onInsuranceClick: () -> Unit,
+    onEditService: (VehicleServiceEntity) -> Unit,
+    onCompleteService: (VehicleServiceEntity) -> Unit,
+    onDeleteService: (VehicleServiceEntity) -> Unit
 ) {
     var isHealthExpanded by remember { mutableStateOf(false) }
     var isServicesExpanded by remember { mutableStateOf(true) }
@@ -650,7 +670,12 @@ private fun VehicleServicesTabContent(
         // 5. Service Records List
         if (isServicesExpanded) {
             items(services, key = { it.id }) { service ->
-                ServiceRecordCard(service = service)
+                ServiceRecordCard(
+                    service = service,
+                    onEdit = { onEditService(service) },
+                    onComplete = { onCompleteService(service) },
+                    onDelete = { onDeleteService(service) }
+                )
             }
         }
     }
@@ -688,7 +713,13 @@ private fun QuickActionButton(
 }
 
 @Composable
-private fun ServiceRecordCard(service: VehicleServiceEntity) {
+private fun ServiceRecordCard(
+    service: VehicleServiceEntity,
+    onEdit: () -> Unit,
+    onComplete: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showDeleteConfirmation by remember(service.id) { mutableStateOf(false) }
     val costFormatted = IranianPhoneUtils.convertDigitsToPersian(
         NumberFormat.getNumberInstance(Locale.US).format(service.cost)
     )
@@ -770,7 +801,49 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
                     )
                 }
             }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onEdit, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("ویرایش", fontSize = 12.sp)
+                }
+                if (service.isReminderEnabled) {
+                    TextButton(onClick = onComplete, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("انجام شد", fontSize = 12.sp)
+                    }
+                }
+                TextButton(onClick = { showDeleteConfirmation = true }, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Rounded.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.width(4.dp))
+                    Text("حذف", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
+    }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("حذف سرویس") },
+            text = { Text("سوابق سرویس «${service.title}» حذف شود؟ این کار قابل بازگشت نیست.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirmation = false
+                    onDelete()
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+            }
+        )
     }
 }
 
