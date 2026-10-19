@@ -90,7 +90,7 @@ fun VehicleReportTab(
                             ) {
                                 Text(
                                     text = "هزینه این ماه",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
@@ -116,7 +116,7 @@ fun VehicleReportTab(
                             ) {
                                 Text(
                                     text = "هزینه امسال",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
@@ -147,7 +147,7 @@ fun VehicleReportTab(
                             ) {
                                 Text(
                                     text = "تعداد سرویس‌ها",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
@@ -173,14 +173,14 @@ fun VehicleReportTab(
                             ) {
                                 Text(
                                     text = "بیشترین هزینه",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
                                     text = "${statistics.topCostCategoryTitle} ($topCostAmountFormatted تومان)",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp
+                                        fontSize = 12.sp
                                     ),
                                     color = Color(0xFFEF4444)
                                 )
@@ -323,7 +323,7 @@ fun VehicleReportTab(
                                         text = "${IranianPhoneUtils.convertDigitsToPersian(item.percentage.toString())}٪",
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 10.sp
+                                            fontSize = 12.sp
                                         ),
                                         color = Color(item.category.colorHex),
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
