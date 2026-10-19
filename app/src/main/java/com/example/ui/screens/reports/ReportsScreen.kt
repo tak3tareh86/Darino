@@ -295,6 +295,9 @@ fun ReportsScreen(
                 previousPeriodExpense = uiState.previousPeriodExpense,
                 expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
                 isExpenseIncreased = uiState.isExpenseIncreased,
+                reportTitle = uiState.selectedCategory.title,
+                totalInstallmentAmount = uiState.totalInstallmentAmount,
+                paidInstallmentAmount = uiState.paidInstallmentAmount,
                 onExportPdf = {
                     ReportExportUtils.exportReportAsPdf(
                         context = context,
@@ -605,7 +608,7 @@ private fun FinancialOverviewCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(expenseRatio)
+                            .fillMaxWidth(expenseRatio.coerceIn(0f, 1f))
                             .height(8.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .background(
@@ -1228,6 +1231,9 @@ fun ExportReportBottomSheet(
     previousPeriodExpense: Long,
     expenseChangePercent: String,
     isExpenseIncreased: Boolean,
+    reportTitle: String = "گزارش مالی",
+    totalInstallmentAmount: Long = 0L,
+    paidInstallmentAmount: Long = 0L,
     onExportPdf: () -> Unit,
     onSaveImage: () -> Unit
 ) {
@@ -1301,7 +1307,7 @@ fun ExportReportBottomSheet(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "پیش‌نمایش خروجی بازه انتخابی",
+                            text = "پیش‌نمایش ${reportTitle} • بازه انتخابی",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.5.sp
@@ -1309,26 +1315,43 @@ fun ExportReportBottomSheet(
                             color = Color.White
                         )
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "مجموع درآمد: ${MoneyFormatter.formatToman(totalIncome)} تومان",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp
-                                ),
-                                color = Color(0xFF34D399)
-                            )
-                            Text(
-                                text = "مجموع هزینه: ${MoneyFormatter.formatToman(totalExpense)} تومان",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp
-                                ),
-                                color = Color(0xFFF87171)
-                            )
+                        when {
+                            reportTitle.contains("خودرو") -> {
+                                Text(
+                                    text = "مجموع هزینه خودرو: ${MoneyFormatter.formatToman(totalExpense)} تومان",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+                                    color = Color(0xFFF87171)
+                                )
+                            }
+                            reportTitle.contains("اقساط") -> {
+                                Text(
+                                    text = "اقساط این بازه: ${MoneyFormatter.formatToman(totalInstallmentAmount)} تومان",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+                                    color = Color(0xFF38BDF8)
+                                )
+                                Text(
+                                    text = "پرداخت‌شده: ${MoneyFormatter.formatToman(paidInstallmentAmount)} تومان",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+                                    color = Color(0xFF34D399)
+                                )
+                            }
+                            else -> {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "مجموع درآمد: ${MoneyFormatter.formatToman(totalIncome)} تومان",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+                                        color = Color(0xFF34D399)
+                                    )
+                                    Text(
+                                        text = "مجموع هزینه: ${MoneyFormatter.formatToman(totalExpense)} تومان",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+                                        color = Color(0xFFF87171)
+                                    )
+                                }
+                            }
                         }
 
                         Text(
@@ -1500,20 +1523,20 @@ fun CustomDateRangeBottomSheet(
                     val now = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
                     
                     PresetChip("۷ روز اخیر") {
-                        val startMillis = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L)
+                        val startMillis = System.currentTimeMillis() - (6 * 24 * 60 * 60 * 1000L)
                         val start = PersianCalendarHelper.fromEpochMillis(startMillis)
                         tempStart = ShamsiDate(start.year, start.month, start.day)
                         tempEnd = ShamsiDate(now.year, now.month, now.day)
                     }
                     PresetChip("۳۰ روز اخیر") {
-                        val startMillis = System.currentTimeMillis() - (30 * 24 * 60 * 60 * 1000L)
+                        val startMillis = System.currentTimeMillis() - (29 * 24 * 60 * 60 * 1000L)
                         val start = PersianCalendarHelper.fromEpochMillis(startMillis)
                         tempStart = ShamsiDate(start.year, start.month, start.day)
                         tempEnd = ShamsiDate(now.year, now.month, now.day)
                     }
                     PresetChip("ماه جاری") {
                         tempStart = ShamsiDate(now.year, now.month, 1)
-                        tempEnd = ShamsiDate(now.year, now.month, PersianCalendarHelper.getDaysInMonth(now.year, now.month))
+                        tempEnd = ShamsiDate(now.year, now.month, now.day)
                     }
                     PresetChip("۳ ماه اخیر") {
                         var startMonth = now.month - 2
