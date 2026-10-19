@@ -474,7 +474,7 @@ private fun VehicleTabRow(
                             text = tab.title,
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 11.sp
+                                fontSize = 12.sp
                             ),
                             color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -521,38 +521,42 @@ private fun VehicleServicesTabContent(
 
         // 2. Quick Action Launchers (Clean & Compact)
         item {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                QuickActionButton(
-                    title = "ثبت سرویس",
-                    icon = Icons.Rounded.Build,
-                    color = MaterialTheme.colorScheme.primary,
-                    onClick = onAddService,
-                    modifier = Modifier.weight(1f)
-                )
-                QuickActionButton(
-                    title = "ثبت هزینه",
-                    icon = Icons.Rounded.LocalGasStation,
-                    color = Color(0xFF3B82F6),
-                    onClick = onAddExpense,
-                    modifier = Modifier.weight(1f)
-                )
-                QuickActionButton(
-                    title = "بیمه و مدارک",
-                    icon = Icons.Rounded.Shield,
-                    color = Color(0xFFF59E0B),
-                    onClick = onInsuranceClick,
-                    modifier = Modifier.weight(1f)
-                )
-                QuickActionButton(
-                    title = "پرونده فنی",
-                    icon = Icons.Rounded.Assignment,
-                    color = Color(0xFF8B5CF6),
-                    onClick = onEditProfile,
-                    modifier = Modifier.weight(1f)
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    QuickActionButton(
+                        title = "ثبت سرویس",
+                        icon = Icons.Rounded.Build,
+                        color = MaterialTheme.colorScheme.primary,
+                        onClick = onAddService,
+                        modifier = Modifier.weight(1f)
+                    )
+                    QuickActionButton(
+                        title = "ثبت هزینه",
+                        icon = Icons.Rounded.LocalGasStation,
+                        color = Color(0xFF3B82F6),
+                        onClick = onAddExpense,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    QuickActionButton(
+                        title = "بیمه و مدارک",
+                        icon = Icons.Rounded.Shield,
+                        color = Color(0xFFF59E0B),
+                        onClick = onInsuranceClick,
+                        modifier = Modifier.weight(1f)
+                    )
+                    QuickActionButton(
+                        title = "پرونده فنی",
+                        icon = Icons.Rounded.Assignment,
+                        color = Color(0xFF8B5CF6),
+                        onClick = onEditProfile,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
 
@@ -774,7 +778,7 @@ private fun ServiceRecordCard(
             if (service.description.isNotBlank()) {
                 Text(
                     text = service.description,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -952,7 +956,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                     ) {
                         Text(
                             text = "اعتبار: ${IranianPhoneUtils.convertDigitsToPersian(ins.startDate)} تا ${IranianPhoneUtils.convertDigitsToPersian(ins.endDate)}",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
@@ -1013,7 +1017,7 @@ private fun VehicleInsuranceDocumentsTabContent(
 
                     Text(
                         text = "تاریخ معاینه: ${IranianPhoneUtils.convertDigitsToPersian(insp.lastInspectionDate)} • انقضا: ${IranianPhoneUtils.convertDigitsToPersian(insp.expiryDate)}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
