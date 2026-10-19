@@ -577,6 +577,16 @@ class VehicleRepository {
             val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
                 ?: return@withContext Result.failure(NoSuchElementException("خودروی مورد نظر یافت نشد."))
 
+            val crossedMileageReminders = if (mileage > vehicle.currentMileage) {
+                db.vehicleDao().getAllServices(userId).first().filter { service ->
+                    service.vehicleId == vehicleId &&
+                        service.status != "COMPLETED" &&
+                        service.dueMileage != null &&
+                        service.dueMileage > vehicle.currentMileage &&
+                        service.dueMileage <= mileage
+                }
+            } else emptyList()
+
             val serviceId = UUID.randomUUID().toString()
             val encodedNotes = if (cost > 0L) "COST:$cost|$description" else description
 
@@ -662,9 +672,61 @@ class VehicleRepository {
                 reminderManager.enableReminder(serviceId)
             }
 
+            if (crossedMileageReminders.isNotEmpty()) {
+                dispatchMileageThresholdNotifications(
+                    context = context,
+                    userId = userId,
+                    crossedServices = crossedMileageReminders,
+                    currentMileage = mileage
+                )
+            }
+
             Result.success(newService)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    private suspend fun dispatchMileageThresholdNotifications(
+        context: Context,
+        userId: String,
+        crossedServices: List<com.example.data.database.VehicleServiceEntity>,
+        currentMileage: Int
+    ) {
+        val dao = AppDatabase.getDatabase(context).smartReminderDao()
+        val dispatcher = com.example.reminder.domain.NotificationDispatcher(context)
+        crossedServices.forEach { service ->
+            val reminderId = service.serverId ?: service.id.toString()
+            try {
+                val reminder = dao.getReminderById(userId, reminderId) ?: return@forEach
+                if (!reminder.status.equals("ACTIVE", ignoreCase = true) || !reminder.notificationEnabled) {
+                    return@forEach
+                }
+                val updatedReminder = reminder.copy(currentKilometer = currentMileage.toLong())
+                dao.insertReminder(updatedReminder)
+                val now = System.currentTimeMillis()
+                val thresholdSchedule = com.example.reminder.data.ReminderScheduleEntity(
+                    id = "mileage_${reminderId}_${service.dueMileage}",
+                    reminderId = reminderId,
+                    triggerType = "MILEAGE_THRESHOLD",
+                    offsetValue = 0,
+                    offsetUnit = "KILOMETER",
+                    triggerDateTime = now,
+                    repeatType = com.example.reminder.domain.RepeatType.NONE.name,
+                    repeatInterval = 1,
+                    enabled = true,
+                    createdAt = now
+                )
+                dispatcher.dispatchNotification(
+                    updatedReminder.copy(
+                        title = "موعد سرویس خودرو فرا رسیده است",
+                        description = "${reminder.description}؛ کیلومتر فعلی: $currentMileage، کیلومتر سرویس: ${service.dueMileage}"
+                    ),
+                    thresholdSchedule
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("VehicleRepository", "Mileage reminder notification failed for $reminderId", e)
+            }
         }
     }
 
