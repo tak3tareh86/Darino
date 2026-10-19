@@ -185,24 +185,63 @@ class NotificationDispatcher(private val context: Context) {
         val showNotification = deliveryPref == AlertDeliveryPreference.BOTH ||
                 deliveryPref == AlertDeliveryPreference.NOTIFICATION_ONLY
 
+        var notificationPosted = false
+        var deliveryFailure: String? = null
         if (showNotification) {
-            notificationManager.notify(notifId, notification)
-            Log.i("NotificationDispatcher", "Dispatched notification id $notifId for reminder ${reminder.title}")
+            val hasRuntimePermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            val channelEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+                notificationManager.getNotificationChannel(channelId)?.importance != NotificationManager.IMPORTANCE_NONE
+
+            when {
+                !hasRuntimePermission -> {
+                    deliveryFailure = "POST_NOTIFICATIONS permission is not granted"
+                    Log.w("NotificationDispatcher", "Cannot post notification $notifId: notification permission denied.")
+                }
+                !channelEnabled -> {
+                    deliveryFailure = "Notification channel $channelId is disabled"
+                    Log.w("NotificationDispatcher", "Cannot post notification $notifId: channel $channelId is disabled.")
+                }
+                else -> {
+                    try {
+                        notificationManager.notify(notifId, notification)
+                        notificationPosted = true
+                        Log.i("NotificationDispatcher", "Notification posted to Android notification manager: id=$notifId, reminderId=${reminder.id}")
+                    } catch (e: SecurityException) {
+                        deliveryFailure = "Notification permission/security exception: ${e.message}"
+                        Log.e("NotificationDispatcher", "Android rejected notification $notifId", e)
+                    } catch (e: Exception) {
+                        deliveryFailure = "Notification post failed: ${e.message}"
+                        Log.e("NotificationDispatcher", "Failed to post notification $notifId", e)
+                    }
+                }
+            }
         } else {
-            Log.i("NotificationDispatcher", "Notification banner skipped due to delivery preference: $deliveryPref (SMS Only active)")
+            Log.i("NotificationDispatcher", "Notification skipped due to delivery preference: $deliveryPref")
         }
 
-        // Save delivery logs in database
+        // "POSTED" means accepted by Android's notification manager, not proof that
+        // the notification was visibly shown to the user.
+        val deliveryStatus = when {
+            notificationPosted -> "POSTED"
+            deliveryFailure != null -> "FAILED"
+            else -> "SKIPPED"
+        }
+
         try {
             val db = AppDatabase.getDatabase(context)
             db.smartReminderDao().insertDeliveryLog(
                 ReminderDeliveryLogEntity(
                     reminderId = reminder.id,
                     scheduleId = schedule?.id,
-                    channel = if (showNotification) "NOTIFICATION" else "SMS",
+                    channel = "NOTIFICATION",
                     scheduledAt = triggerTime,
                     triggeredAt = System.currentTimeMillis(),
-                    status = "DELIVERED"
+                    status = deliveryStatus,
+                    errorMessage = deliveryFailure
                 )
             )
 
@@ -216,7 +255,7 @@ class NotificationDispatcher(private val context: Context) {
                     timestamp = System.currentTimeMillis(),
                     isRead = false,
                     source = "SMART_REMINDER",
-                    status = "DELIVERED"
+                    status = deliveryStatus
                 )
             )
         } catch (e: Exception) {
