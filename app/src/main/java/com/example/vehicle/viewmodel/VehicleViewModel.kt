@@ -406,6 +406,7 @@ class VehicleViewModel(
             result.onSuccess {
                 _uiState.update {
                     it.copy(
+                        showAddServiceSheet = false,
                         snackBarMessage = "سرویس $title با موفقیت ویرایش شد."
                     )
                 }
