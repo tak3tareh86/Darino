@@ -26,7 +26,7 @@ class ReminderManager(
         offsets: List<PredefinedOffset> = listOf(PredefinedOffset.AT_TIME),
         repeatType: RepeatType = RepeatType.NONE,
         repeatInterval: Int = 1
-    ): ReminderEntity = withContext(Dispatchers.IO) {
+    ): Int = withContext(Dispatchers.IO) {
         // Parse reminder date & time to base epoch millis
         val baseMillis = parsePersianDateTimeToMillis(reminder.date, reminder.time)
 
@@ -48,7 +48,7 @@ class ReminderManager(
         }
 
         repository.insertReminderWithSchedules(reminder, schedules)
-        try {
+        val scheduledCount = try {
             scheduler.schedule(reminder, schedules)
         } catch (e: Exception) {
             Log.e("ReminderManager", "Failed to schedule alarms for reminder ${reminder.id}. Performing compensation rollback.", e)
@@ -59,8 +59,8 @@ class ReminderManager(
             }
             throw e
         }
-        Log.i("ReminderManager", "Created reminder ${reminder.title} with ${schedules.size} schedule triggers.")
-        reminder
+        Log.i("ReminderManager", "Created reminder ${reminder.title} with $scheduledCount future alarms scheduled.")
+        scheduledCount
     }
 
     /**
@@ -71,7 +71,7 @@ class ReminderManager(
         offsets: List<PredefinedOffset> = listOf(PredefinedOffset.AT_TIME),
         repeatType: RepeatType = RepeatType.NONE,
         repeatInterval: Int = 1
-    ) = withContext(Dispatchers.IO) {
+    ): Int = withContext(Dispatchers.IO) {
         val existingReminder = repository.getReminderById(reminder.id)
         val existingSchedules = repository.getSchedulesSync(reminder.id)
         scheduler.cancel(reminder.id, existingSchedules)
@@ -94,7 +94,7 @@ class ReminderManager(
         }
 
         repository.updateReminderWithSchedules(reminder, newSchedules)
-        try {
+        val scheduledCount = try {
             scheduler.schedule(reminder, newSchedules)
         } catch (e: Exception) {
             Log.e("ReminderManager", "Failed to schedule alarms during update for reminder ${reminder.id}. Rolling back to previous state.", e)
@@ -108,7 +108,8 @@ class ReminderManager(
             }
             throw e
         }
-        Log.i("ReminderManager", "Updated reminder ${reminder.title} and rescheduled.")
+        Log.i("ReminderManager", "Updated reminder ${reminder.title} and rescheduled with $scheduledCount future alarms.")
+        scheduledCount
     }
 
     /**
@@ -254,8 +255,23 @@ class ReminderManager(
         dueDatePersian: String,
         dueTimePersian: String = "۰۹:۰۰",
         selectedOffsets: List<PredefinedOffset>? = null
-    ) = withContext(Dispatchers.IO) {
+    ): Int = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(installmentId)
+        val offsets = selectedOffsets ?: listOf(
+            PredefinedOffset.BEFORE_7_DAYS,
+            PredefinedOffset.BEFORE_3_DAYS,
+            PredefinedOffset.BEFORE_1_DAY,
+            PredefinedOffset.AT_TIME
+        )
+
+        if (offsets.isEmpty()) {
+            if (existing != null) {
+                deleteReminder(existing.id)
+            }
+            Log.i("ReminderManager", "syncInstallmentReminder: offsets is empty for $installmentId. Deleted existing reminder if any, 0 alarms scheduled.")
+            return@withContext 0
+        }
+
         val reminder = existing?.copy(
             title = "سررسید قسط: $title",
             amount = amount,
@@ -278,25 +294,13 @@ class ReminderManager(
             smsEnabled = false
         )
 
-        val offsets = selectedOffsets ?: listOf(
-            PredefinedOffset.BEFORE_7_DAYS,
-            PredefinedOffset.BEFORE_3_DAYS,
-            PredefinedOffset.BEFORE_1_DAY,
-            PredefinedOffset.AT_TIME
-        )
-
-        if (offsets.isEmpty()) {
-            if (existing != null) {
-                deleteReminder(existing.id)
-            }
-            return@withContext
-        }
-
-        if (existing == null) {
+        val scheduledCount = if (existing == null) {
             createReminder(reminder, offsets)
         } else {
             updateReminder(reminder, offsets)
         }
+
+        return@withContext scheduledCount
     }
 
     /**

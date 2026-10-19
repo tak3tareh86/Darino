@@ -20,10 +20,10 @@ class ReminderScheduler(private val context: Context) {
      * Schedules all enabled triggers for a reminder.
      * Propagates errors to caller and cancels newly registered alarms from this batch if any trigger fails.
      */
-    fun schedule(reminder: ReminderEntity, schedules: List<ReminderScheduleEntity>) {
+    fun schedule(reminder: ReminderEntity, schedules: List<ReminderScheduleEntity>): Int {
         if (!reminder.notificationEnabled && !reminder.smsEnabled) {
             Log.i("ReminderScheduler", "Skipping schedule for reminder ${reminder.id} because all channels are disabled.")
-            return
+            return 0
         }
 
         val newlyScheduled = mutableListOf<ReminderScheduleEntity>()
@@ -52,6 +52,7 @@ class ReminderScheduler(private val context: Context) {
             }
         }
         Log.i("ReminderScheduler", "Schedule summary for reminder '${reminder.title}': totalSchedules=${schedules.size}, successfullyScheduled=$scheduledCount, skippedPast=$pastCount")
+        return scheduledCount
     }
 
     /**

@@ -581,7 +581,7 @@ fun InstallmentsScreen(
                 if (reminderEnabled) {
                     coroutineScope.launch {
                         try {
-                            com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
+                            val scheduledCount = com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
                                 installmentId = newItem.id,
                                 title = newItem.title,
                                 amount = parsedMonthly,
@@ -589,7 +589,11 @@ fun InstallmentsScreen(
                                 dueTimePersian = reminderTime,
                                 selectedOffsets = selectedOffsets
                             )
-                            snackbarHostState.showSnackbar("قسط و یادآور با موفقیت ثبت شدند.")
+                            if (scheduledCount > 0) {
+                                snackbarHostState.showSnackbar("قسط و یادآور با موفقیت ثبت شدند ($scheduledCount یادآور فعال تنظیم شد).")
+                            } else {
+                                snackbarHostState.showSnackbar("قسط ثبت شد، اما هیچ یادآور آینده‌ای تنظیم نشد (زمان‌های سررسید انتخاب‌شده در گذشته بودند یا گزینه‌ای انتخاب نشده بود).")
+                            }
                         } catch (e: Exception) {
                             e.printStackTrace()
                             android.util.Log.e("InstallmentsScreen", "Failed to sync reminder for installment ${newItem.id}", e)
@@ -598,7 +602,7 @@ fun InstallmentsScreen(
                     }
                 } else {
                     coroutineScope.launch {
-                        snackbarHostState.showSnackbar("قسط با موفقیت ثبت شد.")
+                        snackbarHostState.showSnackbar("قسط با موفقیت ثبت شد (یادآور غیرفعال است).")
                     }
                 }
             }
