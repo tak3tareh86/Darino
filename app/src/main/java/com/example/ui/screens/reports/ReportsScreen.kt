@@ -1535,13 +1535,13 @@ fun CustomDateRangeBottomSheet(
                     val now = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
                     
                     PresetChip("۷ روز اخیر") {
-                        val startMillis = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L)
+                        val startMillis = System.currentTimeMillis() - (6 * 24 * 60 * 60 * 1000L)
                         val start = PersianCalendarHelper.fromEpochMillis(startMillis)
                         tempStart = ShamsiDate(start.year, start.month, start.day)
                         tempEnd = ShamsiDate(now.year, now.month, now.day)
                     }
                     PresetChip("۳۰ روز اخیر") {
-                        val startMillis = System.currentTimeMillis() - (30 * 24 * 60 * 60 * 1000L)
+                        val startMillis = System.currentTimeMillis() - (29 * 24 * 60 * 60 * 1000L)
                         val start = PersianCalendarHelper.fromEpochMillis(startMillis)
                         tempStart = ShamsiDate(start.year, start.month, start.day)
                         tempEnd = ShamsiDate(now.year, now.month, now.day)
