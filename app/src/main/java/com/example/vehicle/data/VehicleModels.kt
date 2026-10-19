@@ -22,14 +22,26 @@ data class VehicleEntity(
 /**
  * Service Type Enum
  */
-enum class ServiceType(val title: String, val defaultIntervalKm: Int, val defaultIntervalMonths: Int, @DrawableRes val iconRes: Int) {
-    OIL_CHANGE("تعویض روغن موتور", 5000, 6, R.drawable.img_3d_oil),
-    FILTERS("تعویض فیلترها (هوا و روغن)", 5000, 6, R.drawable.img_3d_oil),
-    BRAKE_PADS("تعویض لنت ترمز", 20000, 12, R.drawable.img_3d_tire),
-    ENGINE_TUNE("تنظیم موتور و شمع‌ها", 25000, 12, R.drawable.img_3d_settings_gear),
-    TIRE_CHANGE("تعویض یا جابجایی لاستیک", 40000, 24, R.drawable.img_3d_tire),
-    BATTERY("سرویس یا تعویض باتری", 40000, 24, R.drawable.img_3d_battery),
-    CUSTOM("سرویس سفارشی", 10000, 6, R.drawable.img_3d_car)
+enum class ServiceType(
+    val title: String,
+    val defaultIntervalKm: Int,
+    val defaultIntervalMonths: Int,
+    @DrawableRes val iconRes: Int,
+    val intervalSource: String
+) {
+    OIL_CHANGE("تعویض روغن موتور", 10000, 12, R.drawable.img_3d_oil, "راهنمای محصول و گارانتی تارا، جدول سرویس‌های دوره‌ای؛ دفترچه مدل خودروی شما اولویت دارد."),
+    FILTERS("تعویض فیلترها (هوا و روغن)", 10000, 12, R.drawable.img_3d_oil, "راهنمای محصول و گارانتی تارا، جدول سرویس‌های دوره‌ای؛ نوع فیلتر و مدل خودرو مؤثر است."),
+    BRAKE_PADS("بازدید لنت ترمز", 10000, 12, R.drawable.img_3d_tire, "بازدید در سرویس‌های دوره‌ای طبق راهنمای محصول تارا؛ تعویض بر اساس میزان فرسودگی است."),
+    ENGINE_TUNE("تنظیم موتور و شمع‌ها", 20000, 12, R.drawable.img_3d_settings_gear, "جدول سرویس دوره‌ای دناکار ایرانیان برای برخی محصولات ایران‌خودرو؛ دفترچه خودرو ملاک نهایی است."),
+    TIRE_CHANGE("بازدید یا جابه‌جایی لاستیک", 10000, 12, R.drawable.img_3d_tire, "یادآور بازدید دوره‌ای است، نه عمر قطعی لاستیک؛ تعویض بر اساس وضعیت و دستور سازنده."),
+    BATTERY("بازدید یا تعویض باتری", 10000, 12, R.drawable.img_3d_battery, "یادآور بازدید دوره‌ای است؛ زمان تعویض به تست باتری و توصیه سازنده وابسته است."),
+    TRANSMISSION_OIL_CHANGE("تعویض روغن گیربکس", 60000, 60, R.drawable.img_3d_oil, "راهنمای محصول و گارانتی تارا، جدول سرویس EF7P-TC: هر ۶۰٬۰۰۰ کیلومتر یا ۵ سال؛ برای گیربکس و مدل‌های دیگر دفترچه اختصاصی را ملاک بگیرید."),
+    HYDRAULIC_STEERING_OIL_CHANGE("تعویض روغن هیدرولیک فرمان", 120000, 0, R.drawable.img_3d_settings_gear, "خودرو (car.ir): توصیهٔ تعویض پس از ۱۲۰٬۰۰۰ کیلومتر در صورت نداشتن دستور متفاوت سازنده؛ خودروهای فرمان برقی روغن هیدرولیک ندارند."),
+    BRAKE_FLUID_CHANGE("تعویض روغن ترمز", 40000, 24, R.drawable.img_3d_settings_gear, "راهنمای محصول و گارانتی تارا: هر ۴۰٬۰۰۰ کیلومتر یا ۲ سال؛ هرکدام زودتر برسد."),
+    ALTERNATOR_BELT_CHANGE("تعویض تسمه دینام", 80000, 36, R.drawable.img_3d_settings_gear, "راهنمای محصول و گارانتی تارا: هر ۸۰٬۰۰۰ کیلومتر یا ۳ سال؛ هرکدام زودتر برسد."),
+    TIMING_BELT_CHANGE("تعویض تسمه تایم", 80000, 36, R.drawable.img_3d_settings_gear, "راهنمای محصول و گارانتی تارا: هر ۸۰٬۰۰۰ کیلومتر یا ۳ سال؛ بازه در موتورهای دیگر متفاوت است."),
+    COOLANT_CHANGE("تعویض مایع خنک‌کننده و ضدیخ", 0, 24, R.drawable.img_3d_oil, "راهنمای محصول و گارانتی تارا: هر ۲ سال؛ در این مرجع فاصلهٔ کیلومتری جداگانه تعیین نشده است."),
+    CUSTOM("سرویس سفارشی", 10000, 12, R.drawable.img_3d_car, "فاصلهٔ پیش‌فرض عمومی برای یادآوری قابل تنظیم است؛ عدد دفترچهٔ خودرو را وارد کنید.")
 }
 
 /**
