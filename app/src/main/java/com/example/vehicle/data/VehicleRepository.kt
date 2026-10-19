@@ -644,7 +644,7 @@ class VehicleRepository {
                     db.vehicleDao().updateMileage(userId, vehicleId, mileage)
                 }
 
-                // Persist the reminder if either a date or a mileage threshold exists.
+                // Date-based reminders are scheduled here; mileage-only reminders are triggered when the odometer crosses their target.
                 if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
                     syncReminderPersistenceInternal(
                         db = db,
@@ -719,8 +719,13 @@ class VehicleRepository {
                     currentKilometer = currentMileage.toLong()
                 )
                 val updatedReminder = baseReminder.copy(currentKilometer = currentMileage.toLong())
-                // Persist mileage-only reminders at the moment they become due so notification actions work.
-                dao.insertReminder(updatedReminder)
+                // Update in place to preserve any existing date-based alarm schedules.
+                if (storedReminder != null) {
+                    dao.updateReminder(updatedReminder)
+                } else {
+                    // Persist mileage-only reminders only when due, so notification actions work without a fake future date.
+                    dao.insertReminder(updatedReminder)
+                }
                 val thresholdSchedule = com.example.reminder.data.ReminderScheduleEntity(
                     id = "mileage_${reminderId}_${service.dueMileage}",
                     reminderId = reminderId,
@@ -863,7 +868,7 @@ class VehicleRepository {
                     db.vehicleDao().updateMileage(userId, vehicle.serverId ?: vehicle.id.toString(), mileage)
                 }
 
-                // Update date- and/or mileage-based reminder persistence atomically.
+                // Update date-based alarm persistence and retain the mileage target in reminder metadata.
                 if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
                     syncReminderPersistenceInternal(
                         db = db,
