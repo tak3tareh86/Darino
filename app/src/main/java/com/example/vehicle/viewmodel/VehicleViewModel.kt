@@ -203,7 +203,9 @@ class VehicleViewModel(
         plate: String,
         vin: String,
         currentMileage: Int,
-        estimatedValue: Long
+        estimatedValue: Long,
+        engine: String = "",
+        transmission: String = ""
     ) {
         viewModelScope.launch {
             val result = repository.addVehicle(
@@ -214,7 +216,9 @@ class VehicleViewModel(
                 plate = plate,
                 vin = vin,
                 currentMileage = currentMileage,
-                estimatedValue = estimatedValue
+                estimatedValue = estimatedValue,
+                engine = engine,
+                transmission = transmission
             )
             result.onSuccess { created ->
                 selectVehicle(created)
