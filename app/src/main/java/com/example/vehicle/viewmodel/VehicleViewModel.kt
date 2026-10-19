@@ -492,6 +492,31 @@ class VehicleViewModel(
         }
     }
 
+    fun updateExpenseRecord(
+        expenseId: String,
+        title: String,
+        category: VehicleExpenseCategory,
+        amount: Long,
+        date: String,
+        description: String
+    ) {
+        viewModelScope.launch {
+            val result = repository.updateExpense(expenseId, title, category, amount, date, description)
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        showAddExpenseSheet = false,
+                        snackBarMessage = "هزینه «$title» ویرایش شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(snackBarMessage = "خطا در ویرایش هزینه: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}")
+                }
+            }
+        }
+    }
+
     fun deleteExpenseRecord(expenseId: String) {
         viewModelScope.launch {
             val result = repository.deleteExpense(expenseId)
