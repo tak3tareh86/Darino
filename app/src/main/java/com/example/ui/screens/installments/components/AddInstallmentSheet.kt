@@ -222,45 +222,49 @@ fun AddInstallmentSheet(
                 tonalElevation = 8.dp,
                 shadowElevation = 12.dp,
                 modifier = Modifier
-                    .widthIn(max = 340.dp)
-                    .fillMaxWidth(0.92f)
-                    .padding(16.dp)
+                    .widthIn(min = 300.dp, max = 360.dp)
+                    .fillMaxWidth(0.94f)
+                    .heightIn(max = 440.dp)
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(20.dp)
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Header Icon & Title
-                    Box(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
+                    // Compact header keeps the reminder settings as a centered dialog.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.NotificationsActive,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.NotificationsActive,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(21.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "تنظیمات یادآور و نوتیفیکیشن",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "تنظیمات یادآور و نوتیفیکیشن",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
 
                     Text(
                         text = "زمان‌های اطلاع‌رسانی پیش از سررسید را انتخاب کنید:",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                        modifier = Modifier.padding(top = 6.dp, bottom = 8.dp)
                     )
 
                     // Enable/Disable Switch
@@ -287,29 +291,47 @@ fun AddInstallmentSheet(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     if (reminderEnabled) {
-                        // Checkbox Options
-                        ReminderOptionRow(
-                            title = "روز سررسید قسط",
-                            checked = remindAtTime,
-                            onCheckedChange = { remindAtTime = it }
-                        )
-                        ReminderOptionRow(
-                            title = "۱ روز قبل از سررسید",
-                            checked = remind1DayBefore,
-                            onCheckedChange = { remind1DayBefore = it }
-                        )
-                        ReminderOptionRow(
-                            title = "۲ روز قبل از سررسید",
-                            checked = remind2DaysBefore,
-                            onCheckedChange = { remind2DaysBefore = it }
-                        )
-                        ReminderOptionRow(
-                            title = "۱ هفته قبل از سررسید",
-                            checked = remind1WeekBefore,
-                            onCheckedChange = { remind1WeekBefore = it }
-                        )
+                        // Two-column reminder choices reduce the dialog's vertical height.
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                ReminderOptionRow(
+                                    title = "روز سررسید",
+                                    checked = remindAtTime,
+                                    onCheckedChange = { remindAtTime = it }
+                                )
+                            }
+                            Box(modifier = Modifier.weight(1f)) {
+                                ReminderOptionRow(
+                                    title = "۱ روز قبل",
+                                    checked = remind1DayBefore,
+                                    onCheckedChange = { remind1DayBefore = it }
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                ReminderOptionRow(
+                                    title = "۲ روز قبل",
+                                    checked = remind2DaysBefore,
+                                    onCheckedChange = { remind2DaysBefore = it }
+                                )
+                            }
+                            Box(modifier = Modifier.weight(1f)) {
+                                ReminderOptionRow(
+                                    title = "۱ هفته قبل",
+                                    checked = remind1WeekBefore,
+                                    onCheckedChange = { remind1WeekBefore = it }
+                                )
+                            }
+                        }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         // Time Picker Button
                         OutlinedButton(
@@ -328,7 +350,7 @@ fun AddInstallmentSheet(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Dialog Buttons
                     Row(
