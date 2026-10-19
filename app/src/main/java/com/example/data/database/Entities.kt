@@ -1,5 +1,6 @@
 package com.example.data.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -117,8 +118,8 @@ data class VehicleEntity(
     val estimatedValue: Long = 0L,
     val updatedAt: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null,
-    val engine: String = "",
-    val transmission: String = ""
+    @ColumnInfo(defaultValue = "''") val engine: String = "",
+    @ColumnInfo(defaultValue = "''") val transmission: String = ""
 )
 
 @Entity(tableName = "vehicle_services")
