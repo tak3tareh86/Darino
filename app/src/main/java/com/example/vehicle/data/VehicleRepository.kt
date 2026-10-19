@@ -774,16 +774,21 @@ class VehicleRepository {
                     db.vehicleDao().updateMileage(userId, vehicle.serverId ?: vehicle.id.toString(), mileage)
                 }
 
-                // Update Reminder Persistence inside the same transaction
-                if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+                // Update date- and/or mileage-based reminder persistence atomically.
+                if (isReminderEnabled && (!nextReminderDate.isNullOrBlank() || nextReminderMileage != null)) {
                     syncReminderPersistenceInternal(
                         db = db,
                         userId = userId,
                         id = serviceId,
                         title = "یادآور سرویس: ${vehicle.brand} ${vehicle.model}",
-                        description = "موعد تعویض و سرویس دوره‌ای: $title (${description.trim()})",
-                        date = nextReminderDate.trim(),
-                        type = "VEHICLE"
+                        description = buildString {
+                            append("موعد سرویس دوره‌ای: $title (${description.trim()})")
+                            nextReminderMileage?.let { append("؛ کیلومتر هدف: $it") }
+                        },
+                        date = nextReminderDate?.trim(),
+                        type = "VEHICLE",
+                        targetKilometer = nextReminderMileage,
+                        currentKilometer = mileage
                     )
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
