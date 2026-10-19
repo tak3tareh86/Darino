@@ -286,7 +286,7 @@ fun VehicleProfileScreen(
                             if (brand.isBlank() || model.isBlank() || plate.isBlank() || normalizedYear == null || normalizedYear !in 1300..(com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year + 1) || km == null || km < 0 || estVal < 0L) {
                                 return@Button
                             }
-                            onSaveSpecs(brand.trim(), model.trim(), year.trim(), color.trim(), plate.trim(), vin.trim(), estVal, engine.trim(), transmission.trim(), km)
+                            onSaveSpecs(brand.trim(), model.trim(), normalizedYear.toString(), color.trim(), plate.trim(), vin.trim(), estVal, engine.trim(), transmission.trim(), km)
                             onBack()
                         },
                         enabled = brand.isNotBlank() && model.isNotBlank() && plate.isNotBlank() &&
