@@ -124,7 +124,8 @@ class VehicleRepository {
                                 serviceDate = serviceDateMs,
                                 dueDate = dueDateMs,
                                 cost = s.cost,
-                                dueMileage = s.mileage,
+                                serviceMileage = s.mileage,
+                                dueMileage = s.nextReminderMileage,
                                 status = if (s.isReminderEnabled) "PENDING" else "COMPLETED",
                                 notes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
                             )
@@ -241,7 +242,7 @@ class VehicleRepository {
                             title = s.title,
                             serviceType = try { ServiceType.valueOf(s.type) } catch (e: Exception) { ServiceType.OIL_CHANGE },
                             date = realServiceDate,
-                            mileage = s.dueMileage ?: 0,
+                            mileage = s.serviceMileage ?: 0,
                             cost = realCost,
                             description = cleanDescription,
                             nextReminderDate = realNextReminderDate,
@@ -596,7 +597,8 @@ class VehicleRepository {
                         serviceDate = serviceDateMs,
                         dueDate = dueDateMs,
                         cost = cost,
-                        dueMileage = mileage,
+                        serviceMileage = mileage,
+                        dueMileage = nextReminderMileage,
                         status = if (isReminderEnabled) "PENDING" else "COMPLETED",
                         notes = encodedNotes
                     )
