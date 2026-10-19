@@ -1020,10 +1020,11 @@ class VehicleRepository {
     }
 
     // 6. Complete Service (Atomic Status update with proper reminder sync & affected rows check)
-    suspend fun completeService(serviceId: String, completedDate: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun completeService(serviceId: String, completedDate: String, completedMileage: Int): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
+        if (completedMileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر سرویس نمی‌تواند منفی باشد."))
         val completedDateMs = parseJalaliToTimestamp(completedDate)
             ?: return@withContext Result.failure(IllegalArgumentException("تاریخ انجام سرویس نامعتبر است."))
 
@@ -1033,7 +1034,7 @@ class VehicleRepository {
                 ?: return@withContext Result.failure(NoSuchElementException("سرویس دوره‌ای یافت نشد."))
 
             db.withTransaction {
-                val affectedRows = db.vehicleDao().completeService(userId, serviceId, completedDateMs)
+                val affectedRows = db.vehicleDao().completeService(userId, serviceId, completedDateMs, completedMileage)
                 if (affectedRows == 0) {
                     throw IllegalStateException("ثبت اتمام سرویس انجام نشد.")
                 }
