@@ -154,6 +154,7 @@ fun AppNavigationContainer(
     var isSubscriptionOpen by remember { mutableStateOf(false) }
     var showAuthSheet by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
+    var showExactAlarmPermissionDialog by remember { mutableStateOf(false) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = remember(context) { context as? android.app.Activity }
@@ -172,6 +173,16 @@ fun AppNavigationContainer(
 
     val authViewModel: AuthViewModel = viewModel()
     val authUiState by authViewModel.uiState.collectAsState()
+
+    LaunchedEffect(isSplashFinished, authUiState.isAuthenticated) {
+        if (isSplashFinished && authUiState.isAuthenticated &&
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            val alarmManager = context.getSystemService(android.content.Context.ALARM_SERVICE) as? android.app.AlarmManager
+            if (alarmManager?.canScheduleExactAlarms() != true) {
+                showExactAlarmPermissionDialog = true
+            }
+        }
+    }
 
     val currentUserId = authUiState.loggedInUser?.id ?: SessionManager.userId
     LaunchedEffect(currentUserId) {
@@ -496,6 +507,48 @@ fun AppNavigationContainer(
                     AuthBottomSheet(
                         authViewModel = authViewModel,
                         onDismissRequest = { showAuthSheet = false }
+                    )
+                }
+
+                if (showExactAlarmPermissionDialog) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { showExactAlarmPermissionDialog = false },
+                        title = {
+                            androidx.compose.material3.Text(
+                                text = "فعال‌سازی هشدار دقیق",
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                        },
+                        text = {
+                            androidx.compose.material3.Text(
+                                text = "برای نمایش اعلان اقساط در ساعت تعیین‌شده، دسترسی آلارم دقیق باید در تنظیمات اندروید فعال باشد. پس از بازگشت به دارینو، زمان‌بندی‌ها دوباره ثبت می‌شوند."
+                            )
+                        },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = {
+                                    showExactAlarmPermissionDialog = false
+                                    try {
+                                        val settingsIntent = android.content.Intent(
+                                            android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                            android.net.Uri.parse("package:" + context.packageName)
+                                        )
+                                        context.startActivity(settingsIntent)
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("MainActivity", "Unable to open exact alarm settings", e)
+                                    }
+                                }
+                            ) {
+                                androidx.compose.material3.Text("باز کردن تنظیمات")
+                            }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = { showExactAlarmPermissionDialog = false }
+                            ) {
+                                androidx.compose.material3.Text("بعداً")
+                            }
+                        }
                     )
                 }
 
