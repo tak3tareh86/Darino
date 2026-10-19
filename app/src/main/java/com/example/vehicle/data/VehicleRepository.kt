@@ -1035,6 +1035,7 @@ class VehicleRepository {
             val mileageToRecord = completedMileage
                 ?: db.vehicleDao().getVehicleByServerId(userId, existing.vehicleId)?.currentMileage
                 ?: existing.serviceMileage
+                ?: 0
 
             db.withTransaction {
                 val affectedRows = db.vehicleDao().completeService(userId, serviceId, completedDateMs, mileageToRecord)
