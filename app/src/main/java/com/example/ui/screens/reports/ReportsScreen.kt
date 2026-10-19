@@ -1080,14 +1080,14 @@ private fun InstallmentSummaryCard(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricBox(
                     modifier = Modifier.weight(1f),
-                    title = "کل تعهدات",
+                    title = "سررسیدشده در بازه",
                     amount = MoneyFormatter.formatToman(totalAmount, includeUnit = false),
                     currency = "تومان",
                     accentColor = Color.White
                 )
                 MetricBox(
                     modifier = Modifier.weight(1f),
-                    title = "پرداخت شده",
+                    title = "پرداخت‌شده در بازه",
                     amount = MoneyFormatter.formatToman(paidAmount, includeUnit = false),
                     currency = "تومان",
                     accentColor = Color(0xFF10B981)
