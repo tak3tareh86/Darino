@@ -114,10 +114,13 @@ object VehicleAnalyzer {
             val catalog = VehicleMaintenanceCatalog.resolve(vehicle, ServiceType.OIL_CHANGE)
             val nextKm = lastOilService.nextReminderMileage
                 ?: catalog.intervalKm.takeIf { it > 0 }?.let { lastOilService.mileage + it }
+            val nextDate = lastOilService.nextReminderDate?.takeIf { it.isNotBlank() }
+                ?: catalog.intervalMonths.takeIf { it > 0 }?.let {
+                    com.example.util.PersianCalendarHelper.addMonthsToPersianDate(lastOilService.date, it)
+                }
             val kmRemaining = nextKm?.minus(vehicle.currentMileage)
             val dueByMileage = kmRemaining != null && kmRemaining <= 0
-            val dueByDate = !lastOilService.nextReminderDate.isNullOrBlank() &&
-                dateKey(lastOilService.nextReminderDate!!) <= todayJalali
+            val dueByDate = !nextDate.isNullOrBlank() && dateKey(nextDate) <= todayJalali
             val nearByMileage = kmRemaining != null && kmRemaining in 1..500
             when {
                 dueByMileage || dueByDate -> {
@@ -151,9 +154,9 @@ object VehicleAnalyzer {
                     isOk = true,
                     iconRes = R.drawable.img_3d_oil
                 ))
-                !lastOilService.nextReminderDate.isNullOrBlank() -> checklist.add(VehicleHealthCheckItem(
+                !nextDate.isNullOrBlank() -> checklist.add(VehicleHealthCheckItem(
                     title = "روغن و فیلتر موتور",
-                    statusText = "موعد بعدی: ${lastOilService.nextReminderDate}",
+                    statusText = "موعد بعدی: ${nextDate}",
                     isOk = true,
                     iconRes = R.drawable.img_3d_oil
                 ))
