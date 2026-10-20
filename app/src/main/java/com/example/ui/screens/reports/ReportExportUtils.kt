@@ -491,24 +491,31 @@ object ReportExportUtils {
             }
             canvas.drawText("خلاصه تحلیل و مخارج", width - 100f, 660f, breakTitlePaint)
 
-            // Progress bar
-            val barBgPaint = Paint().apply {
-                color = AndroidColor.parseColor("#1E293B")
-            }
-            canvas.drawRoundRect(RectF(100f, 700f, width - 100f, 730f), 12f, 12f, barBgPaint)
-            
-            // We need a ratio float here for the bar
-            val ratioFloat = try { expenseRatio.replace("٪", "").replace(",", ".").toFloat() / 100f } catch(_: Exception) { 0f }
+            // Expense-to-income ratio is meaningful only for financial and smart-analysis reports.
+            if (reportCategory == ReportCategory.FINANCIAL || reportCategory == ReportCategory.SMART_ANALYSIS) {
+                val barBgPaint = Paint().apply {
+                    color = AndroidColor.parseColor("#1E293B")
+                }
+                canvas.drawRoundRect(RectF(100f, 700f, width - 100f, 730f), 12f, 12f, barBgPaint)
 
-            val barFillPaint = Paint().apply {
-                shader = LinearGradient(
-                    100f, 700f, width * ratioFloat, 730f,
-                    AndroidColor.parseColor("#0284C7"),
-                    AndroidColor.parseColor("#38BDF8"),
-                    Shader.TileMode.CLAMP
+                val ratioFloat = try {
+                    expenseRatio.replace("٪", "").replace(",", ".").toFloat() / 100f
+                } catch (_: Exception) {
+                    0f
+                }
+                val barFillPaint = Paint().apply {
+                    shader = LinearGradient(
+                        100f, 700f, width * ratioFloat, 730f,
+                        AndroidColor.parseColor("#0284C7"),
+                        AndroidColor.parseColor("#38BDF8"),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRoundRect(
+                    RectF(100f, 700f, 100f + (width - 200f) * ratioFloat.coerceIn(0f, 1f), 730f),
+                    12f, 12f, barFillPaint
                 )
             }
-            canvas.drawRoundRect(RectF(100f, 700f, 100f + (width - 200f) * ratioFloat.coerceIn(0f, 1f), 730f), 12f, 12f, barFillPaint)
 
             val ratioPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CBD5E1")
