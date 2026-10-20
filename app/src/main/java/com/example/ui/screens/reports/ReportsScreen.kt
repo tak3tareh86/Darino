@@ -192,7 +192,11 @@ fun ReportsScreen(
                             savingsPercent = uiState.savingsPercent,
                             onEditCustomRange = { showCustomDateSheet = true },
                             selectedCategory = uiState.selectedCategory,
-                            expenseRatio = uiState.expenseRatio
+                            expenseRatio = uiState.expenseRatio,
+                            totalInstallmentAmount = uiState.totalInstallmentAmount,
+                            paidInstallmentAmount = uiState.paidInstallmentAmount,
+                            activeInstallmentsCount = uiState.activeInstallmentsCount,
+                            vehicleExpenseTotal = uiState.vehicleExpenseTotal
                         )
                     }
 
@@ -480,7 +484,11 @@ private fun FinancialOverviewCard(
     savingsPercent: Int,
     onEditCustomRange: () -> Unit,
     selectedCategory: ReportCategory,
-    expenseRatio: Float
+    expenseRatio: Float,
+    totalInstallmentAmount: Long,
+    paidInstallmentAmount: Long,
+    activeInstallmentsCount: Int,
+    vehicleExpenseTotal: Long
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -500,7 +508,7 @@ private fun FinancialOverviewCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (selectedCategory == ReportCategory.FINANCIAL) {
+                if (selectedCategory == ReportCategory.FINANCIAL || selectedCategory == ReportCategory.SMART_ANALYSIS) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = Color(0xFF064E3B).copy(alpha = 0.4f),
@@ -540,7 +548,7 @@ private fun FinancialOverviewCard(
                 ) {
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = "خلاصه وضعیت مالی",
+                            text = selectedCategory.title,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
@@ -579,76 +587,100 @@ private fun FinancialOverviewCard(
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                MetricBox(
-                    modifier = Modifier.weight(1f),
-                    title = "مجموع درآمد",
-                    amount = MoneyFormatter.formatToman(totalIncome, includeUnit = false),
-                    currency = "تومان",
-                    accentColor = Color(0xFF10B981),
-                    icon = Icons.Rounded.ArrowDownward
-                )
-                MetricBox(
-                    modifier = Modifier.weight(1f),
-                    title = "مجموع هزینه",
-                    amount = MoneyFormatter.formatToman(totalExpense, includeUnit = false),
-                    currency = "تومان",
-                    accentColor = Color(0xFFEF4444),
-                    icon = Icons.Rounded.ArrowUpward
-                )
-                MetricBox(
-                    modifier = Modifier.weight(1f),
-                    title = "میزان پس‌انداز",
-                    amount = MoneyFormatter.formatToman(savings, includeUnit = false),
-                    currency = "تومان",
-                    accentColor = Color(0xFF38BDF8)
-                )
-            }
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "نسبت مصارف به درآمد کل",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                        color = Color(0xFF94A3B8)
-                    )
-                    Text(
-                        text = "${(expenseRatio * 100).toInt()}٪",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        ),
-                        color = Color(0xFF38BDF8)
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF1E293B))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(expenseRatio.coerceIn(0f, 1f))
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(Color(0xFF0284C7), Color(0xFF38BDF8))
-                                )
+            when (selectedCategory) {
+                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        MetricBox(
+                            modifier = Modifier.weight(1f),
+                            title = "مجموع درآمد",
+                            amount = MoneyFormatter.formatToman(totalIncome, includeUnit = false),
+                            currency = "تومان",
+                            accentColor = Color(0xFF10B981),
+                            icon = Icons.Rounded.ArrowDownward
+                        )
+                        MetricBox(
+                            modifier = Modifier.weight(1f),
+                            title = "مجموع هزینه",
+                            amount = MoneyFormatter.formatToman(totalExpense, includeUnit = false),
+                            currency = "تومان",
+                            accentColor = Color(0xFFEF4444),
+                            icon = Icons.Rounded.ArrowUpward
+                        )
+                        MetricBox(
+                            modifier = Modifier.weight(1f),
+                            title = "میزان پس‌انداز",
+                            amount = MoneyFormatter.formatToman(savings, includeUnit = false),
+                            currency = "تومان",
+                            accentColor = Color(0xFF38BDF8)
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "نسبت مصارف به درآمد کل",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                color = Color(0xFF94A3B8)
                             )
+                            Text(
+                                text = "${(expenseRatio * 100).toInt()}٪",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
+                                color = Color(0xFF38BDF8)
+                            )
+                        }
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF1E293B))
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(expenseRatio.coerceIn(0f, 1f)).height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Brush.horizontalGradient(colors = listOf(Color(0xFF0284C7), Color(0xFF38BDF8))))
+                            )
+                        }
+                    }
+                }
+                ReportCategory.INSTALLMENTS -> {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        MetricBox(
+                            modifier = Modifier.weight(1f),
+                            title = "تعهدات بازه",
+                            amount = MoneyFormatter.formatToman(totalInstallmentAmount, includeUnit = false),
+                            currency = "تومان",
+                            accentColor = Color(0xFF38BDF8)
+                        )
+                        MetricBox(
+                            modifier = Modifier.weight(1f),
+                            title = "پرداخت‌شده",
+                            amount = MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false),
+                            currency = "تومان",
+                            accentColor = Color(0xFF10B981)
+                        )
+                        MetricBox(
+                            modifier = Modifier.weight(1f),
+                            title = "اقساط فعال",
+                            amount = activeInstallmentsCount.toString(),
+                            currency = "مورد",
+                            accentColor = Color(0xFFF59E0B)
+                        )
+                    }
+                }
+                ReportCategory.VEHICLE -> {
+                    MetricBox(
+                        modifier = Modifier.fillMaxWidth(),
+                        title = "مجموع هزینه خودرو",
+                        amount = MoneyFormatter.formatToman(vehicleExpenseTotal, includeUnit = false),
+                        currency = "تومان",
+                        accentColor = Color(0xFFEF4444),
+                        icon = Icons.Rounded.DirectionsCar
                     )
                 }
             }
