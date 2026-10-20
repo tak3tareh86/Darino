@@ -118,18 +118,16 @@ fun ReportsScreen(
 
     val exportRange = run {
         val nowMillis = System.currentTimeMillis()
-        val now = PersianCalendarHelper.fromEpochMillis(nowMillis)
-        val reportStart = when (uiState.selectedPeriod) {
-            ReportPeriod.WEEK -> {
-                val d = PersianCalendarHelper.fromEpochMillis(nowMillis - 7 * 24 * 60 * 60 * 1000L)
-                ShamsiDate(d.year, d.month, d.day)
-            }
-            ReportPeriod.MONTH -> ShamsiDate(now.year, now.month, 1)
-            ReportPeriod.YEAR -> ShamsiDate(now.year, 1, 1)
-            ReportPeriod.CUSTOM -> startDate
-        }
-        val reportEnd = if (uiState.selectedPeriod == ReportPeriod.CUSTOM) endDate
-            else ShamsiDate(now.year, now.month, now.day)
+        val bounds = ReportDateRangeCalculator.getPeriodBounds(
+            uiState.selectedPeriod,
+            startDate,
+            endDate,
+            nowMillis
+        )
+        val reportStart = PersianCalendarHelper.fromEpochMillis(bounds.first)
+            .let { ShamsiDate(it.year, it.month, it.day) }
+        val reportEnd = PersianCalendarHelper.fromEpochMillis(bounds.second)
+            .let { ShamsiDate(it.year, it.month, it.day) }
         reportStart to reportEnd
     }
     val exportStartDate = exportRange.first
@@ -180,8 +178,8 @@ fun ReportsScreen(
                     item {
                         FinancialOverviewCard(
                             selectedPeriod = uiState.selectedPeriod,
-                            startDate = startDate,
-                            endDate = endDate,
+                            startDate = exportStartDate,
+                            endDate = exportEndDate,
                             totalIncome = uiState.totalIncome,
                             totalExpense = uiState.totalExpense,
                             savings = uiState.savings,
