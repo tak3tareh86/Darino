@@ -74,6 +74,16 @@ object ReportExportUtils {
                 ReportCategory.VEHICLE -> MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)
                 else -> MoneyFormatter.formatToman(totalExpense, includeUnit = false)
             }
+            val comparisonCurrentExpense = when (reportCategory) {
+                ReportCategory.VEHICLE -> vehicleExpenseTotal
+                ReportCategory.INSTALLMENTS -> totalInstallmentAmount
+                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> totalExpense
+            }
+            val comparisonLabel = when {
+                previousPeriodExpense <= 0L && comparisonCurrentExpense > 0L -> "هزینه جدید"
+                previousPeriodExpense <= 0L -> "بدون تغییر"
+                else -> "$expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"}"
+            }
             val metricThreeLabel = when (reportCategory) {
                 ReportCategory.INSTALLMENTS -> "اقساط فعال"
                 ReportCategory.VEHICLE -> "تغییر دوره"
@@ -88,16 +98,6 @@ object ReportExportUtils {
                 ReportCategory.INSTALLMENTS -> "مورد"
                 ReportCategory.VEHICLE -> ""
                 else -> "تومان"
-            }
-            val comparisonCurrentExpense = when (reportCategory) {
-                ReportCategory.VEHICLE -> vehicleExpenseTotal
-                ReportCategory.INSTALLMENTS -> totalInstallmentAmount
-                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> totalExpense
-            }
-            val comparisonLabel = when {
-                previousPeriodExpense <= 0L && comparisonCurrentExpense > 0L -> "هزینه جدید"
-                previousPeriodExpense <= 0L -> "بدون تغییر"
-                else -> "$expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"}"
             }
             
             val pdfDocument = PdfDocument()
@@ -361,21 +361,6 @@ object ReportExportUtils {
                 ReportCategory.VEHICLE -> MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)
                 else -> totalExpenseStr
             }
-            val metricThreeLabel = when (reportCategory) {
-                ReportCategory.INSTALLMENTS -> "اقساط فعال"
-                ReportCategory.VEHICLE -> "تغییر دوره"
-                else -> "پس‌انداز"
-            }
-            val metricThreeValue = when (reportCategory) {
-                ReportCategory.INSTALLMENTS -> activeInstallmentsCount.toString()
-                ReportCategory.VEHICLE -> "$expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"}"
-                else -> savingsStr
-            }
-            val metricThreeUnit = when (reportCategory) {
-                ReportCategory.INSTALLMENTS -> "مورد"
-                ReportCategory.VEHICLE -> ""
-                else -> "تومان"
-            }
             val comparisonCurrentExpense = when (reportCategory) {
                 ReportCategory.VEHICLE -> vehicleExpenseTotal
                 ReportCategory.INSTALLMENTS -> totalInstallmentAmount
@@ -385,6 +370,21 @@ object ReportExportUtils {
                 previousPeriodExpense <= 0L && comparisonCurrentExpense > 0L -> "هزینه جدید"
                 previousPeriodExpense <= 0L -> "بدون تغییر"
                 else -> "$expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"}"
+            }
+            val metricThreeLabel = when (reportCategory) {
+                ReportCategory.INSTALLMENTS -> "اقساط فعال"
+                ReportCategory.VEHICLE -> "تغییر دوره"
+                else -> "پس‌انداز"
+            }
+            val metricThreeValue = when (reportCategory) {
+                ReportCategory.INSTALLMENTS -> activeInstallmentsCount.toString()
+                ReportCategory.VEHICLE -> comparisonLabel
+                else -> savingsStr
+            }
+            val metricThreeUnit = when (reportCategory) {
+                ReportCategory.INSTALLMENTS -> "مورد"
+                ReportCategory.VEHICLE -> ""
+                else -> "تومان"
             }
             
             val width = 1080
