@@ -165,8 +165,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             ReportCategory.SMART_ANALYSIS -> prevTransactions
         }
         val prevExpense = prevFilteredTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
-        val expenseDiff = currentCatExpense - prevExpense
-        val expenseChangePercent = if (prevExpense > 0) (Math.abs(expenseDiff).toDouble() / prevExpense.toDouble()) * 100 else 0.0
+
 
         // 3. Category Analysis
         val categoryGroups = filteredTransactions
@@ -247,7 +246,10 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         } else 0.0f
 
         val finalExpenseDiff = currentCompExpense - previousCompExpense
-        val finalExpenseChangePercent = if (previousCompExpense > 0) (Math.abs(finalExpenseDiff).toDouble() / previousCompExpense.toDouble()) * 100 else 0.0
+        val finalExpenseChangePercent = ReportCalculationUtils.calculateExpenseChangePercent(
+            current = currentCompExpense,
+            previous = previousCompExpense
+        )
 
         return ReportsState(
             totalIncome = finalIncome,
@@ -365,9 +367,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
 
     fun setCustomRange(start: ShamsiDate, end: ShamsiDate) {
         // The UI validates ordering before invoking this method; keep a defensive guard here too.
-        val startKey = start.year * 10_000 + start.month * 100 + start.day
-        val endKey = end.year * 10_000 + end.month * 100 + end.day
-        if (startKey > endKey) return
+        if (!ReportCalculationUtils.isValidDateRange(start, end)) return
         _customStartDate.value = start
         _customEndDate.value = end
         _selectedPeriod.value = ReportPeriod.CUSTOM
