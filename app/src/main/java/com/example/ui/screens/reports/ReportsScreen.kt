@@ -641,7 +641,7 @@ private fun FinancialOverviewCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(expenseRatio)
+                            .fillMaxWidth(expenseRatio.coerceIn(0f, 1f))
                             .height(8.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .background(
