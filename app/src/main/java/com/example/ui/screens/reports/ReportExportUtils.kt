@@ -248,7 +248,7 @@ object ReportExportUtils {
                     drawDetailRow(detailY + 75f, "• مجموع هزینه خودرو:", "${MoneyFormatter.formatToman(vehicleExpenseTotal, includeUnit = false)} تومان")
                     drawDetailRow(detailY + 110f, "• هزینه دوره قبل:", "${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان")
                     drawDetailRow(detailY + 145f, "• تغییر نسبت به دوره قبل:", "$expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"}")
-                    drawDetailRow(detailY + 180f, "• دسته هزینه شاخص:", topExpenseCategory.ifBlank { "نامشخص" })
+                    drawDetailRow(detailY + 180f, "• منابع محاسبه:", "هزینه، سرویس، بیمه و بازرسی خودرو")
                 }
             }
 
