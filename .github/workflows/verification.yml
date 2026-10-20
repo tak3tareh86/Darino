@@ -6,7 +6,6 @@ on:
       - main
       - hardening/world-class-baseline
       - fix/vehicle-menu-audit
-      - fix/reports-menu-correctness-20261020
   pull_request:
     branches:
       - main
