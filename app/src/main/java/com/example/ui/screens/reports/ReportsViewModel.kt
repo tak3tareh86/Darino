@@ -228,6 +228,12 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         }
 
         val smartAdvice = when {
+            category == ReportCategory.SMART_ANALYSIS && filteredTransactions.isEmpty() ->
+                "در این بازه تراکنشی برای تحلیل ثبت نشده است."
+            category == ReportCategory.INSTALLMENTS && totalInstAmountInPeriod == 0L ->
+                "در این بازه پرداخت یا سررسید قسطی ثبت نشده است."
+            category == ReportCategory.VEHICLE && totalVehicleExpense == 0L ->
+                "در این بازه هزینه‌ای برای خودرو ثبت نشده است."
             category == ReportCategory.SMART_ANALYSIS && savings < 0 -> "هزینه‌های شما در این دوره بیشتر از درآمد بوده است. پیشنهاد می‌شود هزینه‌های غیرضروری را کاهش دهید."
             category == ReportCategory.SMART_ANALYSIS && savingsPercent > 30 -> "وضعیت پس‌انداز شما عالی است! بیش از ۳۰٪ درآمد خود را ذخیره کرده‌اید."
             category == ReportCategory.SMART_ANALYSIS && topCategory != null && expense > 0 && (topCategory.value.toDouble() / expense.toDouble()) > 0.5 -> "بیش از نیمی از هزینه‌های شما صرف ${topCategory.key} شده است. بررسی کنید آیا امکان کاهش در این بخش وجود دارد؟"
