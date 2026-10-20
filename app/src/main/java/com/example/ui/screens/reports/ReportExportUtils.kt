@@ -46,7 +46,11 @@ object ReportExportUtils {
         expenseRatio: String,
         previousPeriodExpense: Long,
         expenseChangePercent: String,
-        isExpenseIncreased: Boolean
+        isExpenseIncreased: Boolean,
+        reportCategory: ReportCategory = ReportCategory.FINANCIAL,
+        totalInstallmentAmount: Long = 0L,
+        paidInstallmentAmount: Long = 0L,
+        activeInstallmentsCount: Int = 0
     ) {
         try {
             val totalIncomeStr = MoneyFormatter.formatToman(totalIncome)
@@ -86,7 +90,7 @@ object ReportExportUtils {
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("گزارش جامع تحلیلی مالی دارینو", (pageWidth / 2).toFloat(), 55f, titlePaint)
+            canvas.drawText("${reportCategory.title} دارینو", (pageWidth / 2).toFloat(), 55f, titlePaint)
 
             val subtitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CCFBF1")
@@ -124,7 +128,7 @@ object ReportExportUtils {
             val cardY = 220f
             val cardHeight = 100f
 
-            fun drawSummaryBox(x: Float, title: String, amount: String, colorHex: String) {
+            fun drawSummaryBox(x: Float, title: String, amount: String, colorHex: String, unit: String = "تومان") {
                 val boxPaint = Paint().apply {
                     color = AndroidColor.parseColor("#131D33")
                 }
@@ -150,12 +154,26 @@ object ReportExportUtils {
                     typeface = Typeface.DEFAULT_BOLD
                     textAlign = Paint.Align.CENTER
                 }
-                canvas.drawText("$amount تومان", x + (cardWidth / 2), cardY + 66f, amtPaint)
+                canvas.drawText(if (unit.isBlank()) amount else "$amount $unit", x + (cardWidth / 2), cardY + 66f, amtPaint)
             }
 
-            drawSummaryBox(30f, "میزان پس‌انداز", MoneyFormatter.formatToman(savings, includeUnit = false), "#38BDF8")
-            drawSummaryBox(30f + cardWidth + 15f, "مجموع هزینه", MoneyFormatter.formatToman(totalExpense, includeUnit = false), "#EF4444")
-            drawSummaryBox(30f + (cardWidth + 15f) * 2, "مجموع درآمد", MoneyFormatter.formatToman(totalIncome, includeUnit = false), "#10B981")
+            when (reportCategory) {
+                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> {
+                    drawSummaryBox(30f, "میزان پس‌انداز", MoneyFormatter.formatToman(savings, includeUnit = false), "#38BDF8")
+                    drawSummaryBox(30f + cardWidth + 15f, "مجموع هزینه", MoneyFormatter.formatToman(totalExpense, includeUnit = false), "#EF4444")
+                    drawSummaryBox(30f + (cardWidth + 15f) * 2, "مجموع درآمد", MoneyFormatter.formatToman(totalIncome, includeUnit = false), "#10B981")
+                }
+                ReportCategory.VEHICLE -> {
+                    drawSummaryBox(30f, "هزینه دوره قبل", MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false), "#38BDF8")
+                    drawSummaryBox(30f + cardWidth + 15f, "هزینه این دوره", MoneyFormatter.formatToman(totalExpense, includeUnit = false), "#EF4444")
+                    drawSummaryBox(30f + (cardWidth + 15f) * 2, "تغییر نسبت به قبل", expenseChangePercent, "#10B981", "")
+                }
+                ReportCategory.INSTALLMENTS -> {
+                    drawSummaryBox(30f, "اقساط در این بازه", MoneyFormatter.formatToman(totalInstallmentAmount, includeUnit = false), "#38BDF8")
+                    drawSummaryBox(30f + cardWidth + 15f, "پرداخت‌شده", MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false), "#10B981")
+                    drawSummaryBox(30f + (cardWidth + 15f) * 2, "اقساط فعال", activeInstallmentsCount.toString(), "#F59E0B", "")
+                }
+            }
 
             // Detail Section Card
             val detailY = 345f
@@ -191,10 +209,26 @@ object ReportExportUtils {
                 canvas.drawText(value, 55f, y, valuePaint)
             }
 
-            drawDetailRow(detailY + 75f, "• نسبت ذخیره و پس‌انداز به درآمد:", savingsPercent)
-            drawDetailRow(detailY + 110f, "• بیشترین شاخه هزینه در این دوره:", topExpenseCategory.ifBlank { "نامشخص" })
-            drawDetailRow(detailY + 145f, "• مجموع هزینه دوره قبل:", "${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان")
-            drawDetailRow(detailY + 180f, "• وضعیت تراز مالی:", if (savings < 0) "دارای کسری بودجه" else if (savings == 0L) "تراز خنثی" else "مثبت و در حال رشد")
+            when (reportCategory) {
+                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> {
+                    drawDetailRow(detailY + 75f, "• نسبت ذخیره و پس‌انداز به درآمد:", savingsPercent)
+                    drawDetailRow(detailY + 110f, "• بیشترین دسته هزینه در این دوره:", topExpenseCategory.ifBlank { "نامشخص" })
+                    drawDetailRow(detailY + 145f, "• مجموع هزینه دوره قبل:", "${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 180f, "• وضعیت تراز مالی:", if (savings < 0) "دارای کسری بودجه" else if (savings == 0L) "تراز خنثی" else "مثبت")
+                }
+                ReportCategory.VEHICLE -> {
+                    drawDetailRow(detailY + 75f, "• مجموع هزینه خودرو در این دوره:", "${MoneyFormatter.formatToman(totalExpense, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 110f, "• هزینه دوره قبل:", "${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 145f, "• تغییر نسبت به دوره قبل:", expenseChangePercent)
+                    drawDetailRow(detailY + 180f, "• دسته‌بندی:", "هزینه‌های ثبت‌شده خودرو")
+                }
+                ReportCategory.INSTALLMENTS -> {
+                    drawDetailRow(detailY + 75f, "• مجموع اقساط در این بازه:", "${MoneyFormatter.formatToman(totalInstallmentAmount, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 110f, "• مبلغ پرداخت‌شده:", "${MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 145f, "• تعداد اقساط فعال:", activeInstallmentsCount.toString())
+                    drawDetailRow(detailY + 180f, "• وضعیت:", "گزارش اقساط در بازه انتخابی")
+                }
+            }
 
             // Watermark / Footer
             val footerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -207,7 +241,7 @@ object ReportExportUtils {
             pdfDocument.finishPage(page)
 
             // Save PDF to cache or external files directory
-            val fileName = "Darino_Financial_Report_${System.currentTimeMillis()}.pdf"
+            val fileName = "Darino_${reportCategory.name}_Report_${System.currentTimeMillis()}.pdf"
             val file = File(context.cacheDir, fileName)
             val outputStream = FileOutputStream(file)
             pdfDocument.writeTo(outputStream)
@@ -231,7 +265,7 @@ object ReportExportUtils {
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/pdf"
                     putExtra(Intent.EXTRA_STREAM, contentUri)
-                    putExtra(Intent.EXTRA_SUBJECT, "گزارش مالی دارینو")
+                    putExtra(Intent.EXTRA_SUBJECT, "${reportCategory.title} دارینو")
                     putExtra(Intent.EXTRA_TEXT, "گزارش تحلیلی مالی دارینو (${startDate.formatDisplay()} تا ${endDate.formatDisplay()})")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -314,7 +348,7 @@ object ReportExportUtils {
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("مرکز تحلیل مالی دارینو", (width / 2).toFloat(), 115f, titlePaint)
+            canvas.drawText("${reportCategory.title} دارینو", (width / 2).toFloat(), 115f, titlePaint)
 
             val subTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#5EEAD4")
@@ -343,7 +377,7 @@ object ReportExportUtils {
             val cardH = 210f
             val cardW = (width - 120 - 40) / 3f
 
-            fun drawMetricBox(x: Float, label: String, amount: String, colorHex: String) {
+            fun drawMetricBox(x: Float, label: String, amount: String, colorHex: String, unit: String = "تومان") {
                 val boxRect = RectF(x, cardY, x + cardW, cardY + cardH)
                 val boxPaint = Paint().apply {
                     color = AndroidColor.parseColor("#131D33")
@@ -376,12 +410,26 @@ object ReportExportUtils {
                     textSize = 19f
                     textAlign = Paint.Align.CENTER
                 }
-                canvas.drawText("تومان", x + (cardW / 2), cardY + 175f, cPaint)
+                if (unit.isNotBlank()) canvas.drawText(unit, x + (cardW / 2), cardY + 175f, cPaint)
             }
 
-            drawMetricBox(60f, "میزان پس‌انداز", savingsStr, "#38BDF8")
-            drawMetricBox(60f + cardW + 20f, "مجموع هزینه", totalExpenseStr, "#EF4444")
-            drawMetricBox(60f + (cardW + 20f) * 2, "مجموع درآمد", totalIncomeStr, "#10B981")
+            when (reportCategory) {
+                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> {
+                    drawMetricBox(60f, "میزان پس‌انداز", savingsStr, "#38BDF8")
+                    drawMetricBox(60f + cardW + 20f, "مجموع هزینه", totalExpenseStr, "#EF4444")
+                    drawMetricBox(60f + (cardW + 20f) * 2, "مجموع درآمد", totalIncomeStr, "#10B981")
+                }
+                ReportCategory.VEHICLE -> {
+                    drawMetricBox(60f, "هزینه دوره قبل", MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false), "#38BDF8")
+                    drawMetricBox(60f + cardW + 20f, "هزینه این دوره", totalExpenseStr, "#EF4444")
+                    drawMetricBox(60f + (cardW + 20f) * 2, "تغییر نسبت به قبل", expenseChangePercent, "#10B981", "")
+                }
+                ReportCategory.INSTALLMENTS -> {
+                    drawMetricBox(60f, "اقساط این بازه", MoneyFormatter.formatToman(totalInstallmentAmount, includeUnit = false), "#38BDF8")
+                    drawMetricBox(60f + cardW + 20f, "پرداخت‌شده", MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false), "#10B981")
+                    drawMetricBox(60f + (cardW + 20f) * 2, "اقساط فعال", activeInstallmentsCount.toString(), "#F59E0B", "")
+                }
+            }
 
             // Breakdown Card
             val breakRect = RectF(60f, 600f, width - 60f, 960f)
@@ -396,7 +444,7 @@ object ReportExportUtils {
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("خلاصه تحلیل و مخارج", width - 100f, 660f, breakTitlePaint)
+            canvas.drawText("${reportCategory.title} - خلاصه گزارش", width - 100f, 660f, breakTitlePaint)
 
             // Progress bar
             val barBgPaint = Paint().apply {
@@ -422,14 +470,24 @@ object ReportExportUtils {
                 textSize = 23f
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("نسبت مصارف به درآمد کل: $expenseRatio", width - 100f, 780f, ratioPaint)
+            val firstDetail = when (reportCategory) {
+                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> "نسبت مصارف به درآمد کل: $expenseRatio"
+                ReportCategory.VEHICLE -> "هزینه خودرو در این دوره: ${MoneyFormatter.formatToman(totalExpense, includeUnit = false)} تومان"
+                ReportCategory.INSTALLMENTS -> "مجموع اقساط این بازه: ${MoneyFormatter.formatToman(totalInstallmentAmount, includeUnit = false)} تومان"
+            }
+            canvas.drawText(firstDetail, width - 100f, 780f, ratioPaint)
 
             val topExpPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CBD5E1")
                 textSize = 23f
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("بیشترین هزینه: ${topExpenseCategory.ifBlank { "نامشخص" }} ($topCategoryAmount تومان)", width - 100f, 830f, topExpPaint)
+            val secondDetail = when (reportCategory) {
+                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> "بیشترین هزینه: ${topExpenseCategory.ifBlank { "نامشخص" }} ($topCategoryAmount تومان)"
+                ReportCategory.VEHICLE -> "مجموع هزینه خودرو بر اساس سوابق خودرو"
+                ReportCategory.INSTALLMENTS -> "مبلغ پرداخت‌شده: ${MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false)} تومان"
+            }
+            canvas.drawText(secondDetail, width - 100f, 830f, topExpPaint)
 
             val compPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CBD5E1")
@@ -458,7 +516,12 @@ object ReportExportUtils {
                 textSize = 22f
                 textAlign = Paint.Align.CENTER
             }
-            val statusText = if (savings < 0) "وضعیت حساب: دارای کسری بودجه" else if (savings == 0L) "وضعیت حساب: تراز شده (بدون پس‌انداز)" else "وضعیت حساب: متعادل و پایدار | دارای پس‌انداز"
+            val statusText = when (reportCategory) {
+                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS ->
+                    if (savings < 0) "وضعیت حساب: دارای کسری بودجه" else if (savings == 0L) "وضعیت حساب: تراز شده (بدون پس‌انداز)" else "وضعیت حساب: دارای پس‌انداز"
+                ReportCategory.VEHICLE -> "وضعیت گزارش: هزینه‌های ثبت‌شده خودرو"
+                ReportCategory.INSTALLMENTS -> "وضعیت گزارش: تعهدات و پرداخت‌های اقساط"
+            }
             canvas.drawText(statusText, (width / 2).toFloat(), 1130f, sealDescPaint)
             canvas.drawText("ذخیره شده در گالری گوشی شما", (width / 2).toFloat(), 1180f, sealDescPaint)
 
@@ -479,7 +542,7 @@ object ReportExportUtils {
             }
 
             val imageDetails = ContentValues().apply {
-                val imgName = "Darino_Report_${System.currentTimeMillis()}.png"
+                val imgName = "Darino_${reportCategory.name}_Report_${System.currentTimeMillis()}.png"
                 put(MediaStore.Images.Media.DISPLAY_NAME, imgName)
                 put(MediaStore.Images.Media.MIME_TYPE, "image/png")
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
