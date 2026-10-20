@@ -22,9 +22,6 @@ import androidx.core.content.FileProvider
 import com.example.util.MoneyFormatter
 import java.io.File
 import java.io.FileOutputStream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Utility class to generate real PDF documents and save high-resolution report images to the phone gallery.
@@ -156,7 +153,7 @@ object ReportExportUtils {
                 textSize = 11f
                 textAlign = Paint.Align.LEFT
             }
-            val nowStr = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date())
+            val nowStr = ShamsiDate.now().formatDisplay()
             canvas.drawText("تاریخ صدور گزارش: $nowStr", 50f, 180f, issueDatePaint)
 
             // 3 Summary Cards
