@@ -222,7 +222,7 @@ object ReportExportUtils {
             pdfDocument.finishPage(page)
 
             // Save PDF to cache or external files directory
-            val fileName = "Darino_Financial_Report_${System.currentTimeMillis()}.pdf"
+            val fileName = "Darino_${reportCategory.name}_Report_${System.currentTimeMillis()}.pdf"
             val file = File(context.cacheDir, fileName)
             val outputStream = FileOutputStream(file)
             pdfDocument.writeTo(outputStream)
@@ -246,7 +246,7 @@ object ReportExportUtils {
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/pdf"
                     putExtra(Intent.EXTRA_STREAM, contentUri)
-                    putExtra(Intent.EXTRA_SUBJECT, "گزارش مالی دارینو")
+                    putExtra(Intent.EXTRA_SUBJECT, "${reportCategory.title} دارینو")
                     putExtra(Intent.EXTRA_TEXT, "گزارش تحلیلی مالی دارینو (${startDate.formatDisplay()} تا ${endDate.formatDisplay()})")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -518,7 +518,7 @@ object ReportExportUtils {
             }
 
             val imageDetails = ContentValues().apply {
-                val imgName = "Darino_Report_${System.currentTimeMillis()}.png"
+                val imgName = "Darino_${reportCategory.name}_Report_${System.currentTimeMillis()}.png"
                 put(MediaStore.Images.Media.DISPLAY_NAME, imgName)
                 put(MediaStore.Images.Media.MIME_TYPE, "image/png")
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -548,7 +548,7 @@ object ReportExportUtils {
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "image/png"
                     putExtra(Intent.EXTRA_STREAM, imageUri)
-                    putExtra(Intent.EXTRA_SUBJECT, "تصویر خلاصه گزارش دارینو")
+                    putExtra(Intent.EXTRA_SUBJECT, "تصویر ${reportCategory.title} دارینو")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
