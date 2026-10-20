@@ -1656,9 +1656,7 @@ fun CustomDateRangeBottomSheet(
                 // دکمه اعمال بازه
                 Button(
                     onClick = {
-                        val startKey = tempStart.year * 10_000 + tempStart.month * 100 + tempStart.day
-                        val endKey = tempEnd.year * 10_000 + tempEnd.month * 100 + tempEnd.day
-                        if (startKey > endKey) {
+                        if (!ReportCalculationUtils.isValidDateRange(tempStart, tempEnd)) {
                             validationError = true
                         } else {
                             validationError = false
