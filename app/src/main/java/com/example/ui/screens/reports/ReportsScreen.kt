@@ -992,7 +992,7 @@ private fun MonthComparisonCard(
                         color = Color(0xFF94A3B8)
                     )
                     Text(
-                        text = "${MoneyFormatter.formatToman(currentValue)} تومان",
+                        text = "${MoneyFormatter.formatToman(currentValue, includeUnit = false)} تومان",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
@@ -1008,7 +1008,7 @@ private fun MonthComparisonCard(
                         color = Color(0xFF94A3B8)
                     )
                     Text(
-                        text = "${MoneyFormatter.formatToman(previousValue)} تومان",
+                        text = "${MoneyFormatter.formatToman(previousValue, includeUnit = false)} تومان",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
@@ -1225,7 +1225,7 @@ private fun ExpenseCategoryCard(
                 ) {
                     Column(horizontalAlignment = Alignment.Start) {
                         Text(
-                            text = "${MoneyFormatter.formatToman(totalExpense)} تومان",
+                            text = "${MoneyFormatter.formatToman(totalExpense, includeUnit = false)} تومان",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
@@ -1389,24 +1389,24 @@ fun ExportReportBottomSheet(
                         when (reportCategory) {
                             ReportCategory.INSTALLMENTS -> {
                                 Text(
-                                    text = "مجموع تعهدات در بازه: ${MoneyFormatter.formatToman(totalInstallmentAmount)} تومان",
+                                    text = "مجموع تعهدات در بازه: ${MoneyFormatter.formatToman(totalInstallmentAmount, includeUnit = false)} تومان",
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
                                     color = Color(0xFF38BDF8)
                                 )
                                 Text(
-                                    text = "پرداخت‌شده: ${MoneyFormatter.formatToman(paidInstallmentAmount)} تومان • اقساط فعال: $activeInstallmentsCount",
+                                    text = "پرداخت‌شده: ${MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false)} تومان • اقساط فعال: $activeInstallmentsCount",
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
                                     color = Color(0xFF34D399)
                                 )
                             }
                             ReportCategory.VEHICLE -> {
                                 Text(
-                                    text = "مجموع هزینه خودرو: ${MoneyFormatter.formatToman(vehicleExpenseTotal)} تومان",
+                                    text = "مجموع هزینه خودرو: ${MoneyFormatter.formatToman(vehicleExpenseTotal, includeUnit = false)} تومان",
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
                                     color = Color(0xFFF87171)
                                 )
                                 Text(
-                                    text = "هزینه دوره قبل: ${MoneyFormatter.formatToman(previousPeriodExpense)} تومان",
+                                    text = "هزینه دوره قبل: ${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان",
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
                                     color = Color(0xFF38BDF8)
                                 )
@@ -1417,12 +1417,12 @@ fun ExportReportBottomSheet(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
-                                        text = "مجموع درآمد: ${MoneyFormatter.formatToman(totalIncome)} تومان",
+                                        text = "مجموع درآمد: ${MoneyFormatter.formatToman(totalIncome, includeUnit = false)} تومان",
                                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
                                         color = Color(0xFF34D399)
                                     )
                                     Text(
-                                        text = "مجموع هزینه: ${MoneyFormatter.formatToman(totalExpense)} تومان",
+                                        text = "مجموع هزینه: ${MoneyFormatter.formatToman(totalExpense, includeUnit = false)} تومان",
                                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
                                         color = Color(0xFFF87171)
                                     )
