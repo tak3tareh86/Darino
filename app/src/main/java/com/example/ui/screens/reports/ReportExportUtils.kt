@@ -81,13 +81,23 @@ object ReportExportUtils {
             }
             val metricThreeValue = when (reportCategory) {
                 ReportCategory.INSTALLMENTS -> activeInstallmentsCount.toString()
-                ReportCategory.VEHICLE -> "$expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"}"
+                ReportCategory.VEHICLE -> comparisonLabel
                 else -> MoneyFormatter.formatToman(savings, includeUnit = false)
             }
             val metricThreeUnit = when (reportCategory) {
                 ReportCategory.INSTALLMENTS -> "مورد"
                 ReportCategory.VEHICLE -> ""
                 else -> "تومان"
+            }
+            val comparisonCurrentExpense = when (reportCategory) {
+                ReportCategory.VEHICLE -> vehicleExpenseTotal
+                ReportCategory.INSTALLMENTS -> totalInstallmentAmount
+                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> totalExpense
+            }
+            val comparisonLabel = when {
+                previousPeriodExpense <= 0L && comparisonCurrentExpense > 0L -> "هزینه جدید"
+                previousPeriodExpense <= 0L -> "بدون تغییر"
+                else -> "$expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"}"
             }
             
             val pdfDocument = PdfDocument()
@@ -244,7 +254,7 @@ object ReportExportUtils {
                 ReportCategory.VEHICLE -> {
                     drawDetailRow(detailY + 75f, "• مجموع هزینه خودرو:", "${MoneyFormatter.formatToman(vehicleExpenseTotal, includeUnit = false)} تومان")
                     drawDetailRow(detailY + 110f, "• هزینه دوره قبل:", "${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان")
-                    drawDetailRow(detailY + 145f, "• تغییر نسبت به دوره قبل:", "$expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"}")
+                    drawDetailRow(detailY + 145f, "• تغییر نسبت به دوره قبل:", comparisonLabel)
                     drawDetailRow(detailY + 180f, "• منابع محاسبه:", "هزینه، سرویس، بیمه و بازرسی خودرو")
                 }
             }
@@ -365,6 +375,16 @@ object ReportExportUtils {
                 ReportCategory.INSTALLMENTS -> "مورد"
                 ReportCategory.VEHICLE -> ""
                 else -> "تومان"
+            }
+            val comparisonCurrentExpense = when (reportCategory) {
+                ReportCategory.VEHICLE -> vehicleExpenseTotal
+                ReportCategory.INSTALLMENTS -> totalInstallmentAmount
+                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> totalExpense
+            }
+            val comparisonLabel = when {
+                previousPeriodExpense <= 0L && comparisonCurrentExpense > 0L -> "هزینه جدید"
+                previousPeriodExpense <= 0L -> "بدون تغییر"
+                else -> "$expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"}"
             }
             
             val width = 1080
@@ -541,7 +561,7 @@ object ReportExportUtils {
                 ReportCategory.VEHICLE -> {
                     canvas.drawText("مجموع هزینه خودرو: ${MoneyFormatter.formatToman(vehicleExpenseTotal, includeUnit = false)} تومان", width - 100f, 780f, ratioPaint)
                     canvas.drawText("هزینه دوره قبل: ${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان", width - 100f, 830f, topExpPaint)
-                    canvas.drawText("تغییر دوره: $expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"}", width - 100f, 880f, compPaint)
+                    canvas.drawText("تغییر دوره: $comparisonLabel", width - 100f, 880f, compPaint)
                 }
                 ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> {
                     canvas.drawText("نسبت مصارف به درآمد کل: $expenseRatio", width - 100f, 780f, ratioPaint)
