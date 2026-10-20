@@ -285,6 +285,10 @@ fun ReportsScreen(
                 startDate = startDate,
                 endDate = endDate,
                 onDismiss = { showExportSheet = false },
+                selectedCategory = uiState.selectedCategory,
+                totalInstallmentAmount = uiState.totalInstallmentAmount,
+                paidInstallmentAmount = uiState.paidInstallmentAmount,
+                activeInstallmentsCount = uiState.activeInstallmentsCount,
                 totalIncome = uiState.totalIncome,
                 totalExpense = uiState.totalExpense,
                 savings = uiState.savings,
@@ -308,7 +312,11 @@ fun ReportsScreen(
                         expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
                         previousPeriodExpense = uiState.previousPeriodExpense,
                         expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
-                        isExpenseIncreased = uiState.isExpenseIncreased
+                        isExpenseIncreased = uiState.isExpenseIncreased,
+                        reportCategory = uiState.selectedCategory,
+                        totalInstallmentAmount = uiState.totalInstallmentAmount,
+                        paidInstallmentAmount = uiState.paidInstallmentAmount,
+                        activeInstallmentsCount = uiState.activeInstallmentsCount
                     )
                     showExportSheet = false
                 },
@@ -1212,6 +1220,10 @@ fun ExportReportBottomSheet(
     startDate: ShamsiDate,
     endDate: ShamsiDate,
     onDismiss: () -> Unit,
+    selectedCategory: ReportCategory = ReportCategory.FINANCIAL,
+    totalInstallmentAmount: Long = 0L,
+    paidInstallmentAmount: Long = 0L,
+    activeInstallmentsCount: Int = 0,
     totalIncome: Long,
     totalExpense: Long,
     savings: Long,
@@ -1295,7 +1307,7 @@ fun ExportReportBottomSheet(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "پیش‌نمایش خروجی بازه انتخابی",
+                            text = "پیش‌نمایش ${selectedCategory.title} (${startDate.formatDisplay()} تا ${endDate.formatDisplay()})",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.5.sp
@@ -1308,7 +1320,13 @@ fun ExportReportBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "مجموع درآمد: ${MoneyFormatter.formatToman(totalIncome)} تومان",
+                                text = if (selectedCategory == ReportCategory.VEHICLE) {
+                                    "هزینه خودرو: ${MoneyFormatter.formatToman(totalExpense)} تومان"
+                                } else if (selectedCategory == ReportCategory.INSTALLMENTS) {
+                                    "اقساط دوره: ${MoneyFormatter.formatToman(totalInstallmentAmount)} تومان"
+                                } else {
+                                    "مجموع درآمد: ${MoneyFormatter.formatToman(totalIncome)} تومان"
+                                },
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp
@@ -1316,7 +1334,11 @@ fun ExportReportBottomSheet(
                                 color = Color(0xFF34D399)
                             )
                             Text(
-                                text = "مجموع هزینه: ${MoneyFormatter.formatToman(totalExpense)} تومان",
+                                text = if (selectedCategory == ReportCategory.INSTALLMENTS) {
+                                    "پرداخت‌شده: ${MoneyFormatter.formatToman(paidInstallmentAmount)} تومان"
+                                } else {
+                                    "مجموع هزینه: ${MoneyFormatter.formatToman(totalExpense)} تومان"
+                                },
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp
@@ -1326,7 +1348,12 @@ fun ExportReportBottomSheet(
                         }
 
                         Text(
-                            text = "تحلیل شامل: نمودارهای دایره‌ای، میله‌ای، وضعیت اقساط و خودرو",
+                            text = when (selectedCategory) {
+                                ReportCategory.FINANCIAL -> "خلاصه درآمد، هزینه، پس‌انداز و مقایسه با دوره قبل"
+                                ReportCategory.SMART_ANALYSIS -> "تحلیل تراز مالی و بیشترین دسته هزینه"
+                                ReportCategory.INSTALLMENTS -> "مبلغ اقساط این بازه، مبلغ پرداخت‌شده و ${activeInstallmentsCount} قسط فعال"
+                                ReportCategory.VEHICLE -> "هزینه‌های ثبت‌شده خودرو و مقایسه با دوره قبل"
+                            },
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 11.sp
                             ),
