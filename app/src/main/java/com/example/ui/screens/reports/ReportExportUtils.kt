@@ -301,7 +301,11 @@ object ReportExportUtils {
         expenseRatio: String,
         previousPeriodExpense: Long,
         expenseChangePercent: String,
-        isExpenseIncreased: Boolean
+        isExpenseIncreased: Boolean,
+        reportCategory: ReportCategory = ReportCategory.FINANCIAL,
+        totalInstallmentAmount: Long = 0L,
+        paidInstallmentAmount: Long = 0L,
+        activeInstallmentsCount: Int = 0
     ) {
         try {
             val totalIncomeStr = MoneyFormatter.formatToman(totalIncome, includeUnit = false)
