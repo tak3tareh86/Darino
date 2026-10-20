@@ -277,7 +277,6 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun getPeriodBounds(period: ReportPeriod, customStart: ShamsiDate, customEnd: ShamsiDate): Pair<Long, Long> {
-        val cal = java.util.Calendar.getInstance()
         val nowMillis = System.currentTimeMillis()
         val currentPersian = PersianCalendarHelper.fromEpochMillis(nowMillis)
         
@@ -307,8 +306,9 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     private fun getPreviousPeriodBounds(period: ReportPeriod, startTime: Long, endTime: Long): Pair<Long, Long> {
         return when (period) {
             ReportPeriod.WEEK -> {
-                val duration = endTime - startTime + 1L
-                Pair(startTime - duration, startTime - 1L)
+                // Compare the seven preceding calendar days and exclude the current start boundary.
+                val previousStart = startTime - (7 * 24 * 60 * 60 * 1000L)
+                Pair(previousStart, startTime - 1L)
             }
             ReportPeriod.MONTH -> {
                 val startPersian = PersianCalendarHelper.fromEpochMillis(startTime)
