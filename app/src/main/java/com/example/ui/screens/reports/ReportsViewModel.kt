@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import com.example.util.PersianCalendarHelper
 import com.example.util.MoneyFormatter
@@ -50,7 +51,7 @@ data class ReportsState(
     val reportStartDate: ShamsiDate? = null,
     val reportEndDate: ShamsiDate? = null,
     
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val smartAdvice: String = ""
 )
@@ -100,8 +101,13 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                     customStart = array[8] as ShamsiDate,
                     customEnd = array[9] as ShamsiDate
                 )
+            }.catch { throwable ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = throwable.localizedMessage ?: "بارگذاری گزارشات با خطا مواجه شد."
+                )
             }.collect { newState ->
-                _uiState.value = newState
+                _uiState.value = newState.copy(isLoading = false, errorMessage = null)
             }
         }
     }
