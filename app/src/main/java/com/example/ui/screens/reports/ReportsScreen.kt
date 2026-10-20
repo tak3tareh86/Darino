@@ -154,6 +154,32 @@ fun ReportsScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    if (uiState.isLoading) {
+                        item {
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFF14B8A6),
+                                trackColor = Color(0xFF1E293B)
+                            )
+                        }
+                    }
+                    uiState.errorMessage?.let { message ->
+                        item {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFF7F1D1D).copy(alpha = 0.35f),
+                                border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.45f))
+                            ) {
+                                Text(
+                                    text = "بارگذاری گزارشات ناموفق بود: $message",
+                                    modifier = Modifier.padding(12.dp),
+                                    color = Color(0xFFFCA5A5),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    }
                     // ۲. کارت خلاصه وضعیت مالی
                     item {
                         FinancialOverviewCard(
@@ -1369,7 +1395,7 @@ fun ExportReportBottomSheet(
                         }
 
                         Text(
-                            text = "تحلیل شامل: نمودارهای دایره‌ای، میله‌ای، وضعیت اقساط و خودرو",
+                            text = "خلاصه آمار و شاخص‌های دسته انتخاب‌شده در بازه گزارش",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 11.sp
                             ),
