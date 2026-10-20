@@ -185,6 +185,13 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             }
         }
         
+        val previousInstallmentAmountInPeriod = allInstallments.sumOf { installment ->
+            installment.paymentHistory.filter { payment ->
+                val dueMillis = parsePersianDateToMillis(payment.dueDate)
+                dueMillis in prevStartTime..prevEndTime
+            }.sumOf { it.amount }
+        }
+
         val activeInstallmentsCount = allInstallments.count { it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED }
 
         // 5. Vehicle Report (Canonical data from VehicleRepository)
@@ -205,11 +212,19 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         var currentCompExpense = currentCatExpense
         var previousCompExpense = prevExpense
 
-        if (category == ReportCategory.VEHICLE) {
-            finalIncome = 0 // Vehicle category is expense-focused
-            finalExpense = totalVehicleExpense
-            currentCompExpense = totalVehicleExpense
-            previousCompExpense = prevVehicleExpense
+        when (category) {
+            ReportCategory.VEHICLE -> {
+                finalIncome = 0 // Vehicle category is expense-focused
+                finalExpense = totalVehicleExpense
+                currentCompExpense = totalVehicleExpense
+                previousCompExpense = prevVehicleExpense
+            }
+            ReportCategory.INSTALLMENTS -> {
+                // Compare installment commitments from the same canonical payment-history source.
+                currentCompExpense = totalInstAmountInPeriod
+                previousCompExpense = previousInstallmentAmountInPeriod
+            }
+            ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> Unit
         }
 
         val smartAdvice = when {
