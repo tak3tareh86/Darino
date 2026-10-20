@@ -126,7 +126,7 @@ object ReportExportUtils {
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("گزارش ${reportCategory.title} دارینو", (pageWidth / 2).toFloat(), 55f, titlePaint)
+            canvas.drawText("${reportCategory.title} دارینو", (pageWidth / 2).toFloat(), 55f, titlePaint)
 
             val subtitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CCFBF1")
@@ -231,10 +231,26 @@ object ReportExportUtils {
                 canvas.drawText(value, 55f, y, valuePaint)
             }
 
-            drawDetailRow(detailY + 75f, "• نسبت ذخیره و پس‌انداز به درآمد:", savingsPercent)
-            drawDetailRow(detailY + 110f, "• بیشترین شاخه هزینه در این دوره:", topExpenseCategory.ifBlank { "نامشخص" })
-            drawDetailRow(detailY + 145f, "• مجموع هزینه دوره قبل:", "${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان")
-            drawDetailRow(detailY + 180f, "• وضعیت تراز مالی:", if (savings < 0) "دارای کسری بودجه" else if (savings == 0L) "تراز خنثی" else "مثبت و در حال رشد")
+            when (reportCategory) {
+                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> {
+                    drawDetailRow(detailY + 75f, "• نسبت پس‌انداز به درآمد:", savingsPercent)
+                    drawDetailRow(detailY + 110f, "• بیشترین دسته هزینه:", topExpenseCategory.ifBlank { "نامشخص" })
+                    drawDetailRow(detailY + 145f, "• هزینه دوره قبل:", "${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 180f, "• وضعیت تراز مالی:", if (savings < 0) "دارای کسری بودجه" else if (savings == 0L) "تراز خنثی" else "مثبت و در حال رشد")
+                }
+                ReportCategory.INSTALLMENTS -> {
+                    drawDetailRow(detailY + 75f, "• تعهدات ثبت‌شده در بازه:", "${MoneyFormatter.formatToman(totalInstallmentAmount, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 110f, "• پرداخت‌شده در بازه:", "${MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 145f, "• اقساط فعال:", "$activeInstallmentsCount مورد")
+                    drawDetailRow(detailY + 180f, "• مانده پرداخت این بازه:", "${MoneyFormatter.formatToman((totalInstallmentAmount - paidInstallmentAmount).coerceAtLeast(0L), includeUnit = false)} تومان")
+                }
+                ReportCategory.VEHICLE -> {
+                    drawDetailRow(detailY + 75f, "• مجموع هزینه خودرو:", "${MoneyFormatter.formatToman(vehicleExpenseTotal, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 110f, "• هزینه دوره قبل:", "${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان")
+                    drawDetailRow(detailY + 145f, "• تغییر نسبت به دوره قبل:", "$expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"}")
+                    drawDetailRow(detailY + 180f, "• دسته هزینه شاخص:", topExpenseCategory.ifBlank { "نامشخص" })
+                }
+            }
 
             // Watermark / Footer
             val footerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -394,7 +410,7 @@ object ReportExportUtils {
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("گزارش ${reportCategory.title} دارینو", (width / 2).toFloat(), 115f, titlePaint)
+            canvas.drawText("${reportCategory.title} دارینو", (width / 2).toFloat(), 115f, titlePaint)
 
             val subTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#5EEAD4")
@@ -502,21 +518,33 @@ object ReportExportUtils {
                 textSize = 23f
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("نسبت مصارف به درآمد کل: $expenseRatio", width - 100f, 780f, ratioPaint)
-
             val topExpPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CBD5E1")
                 textSize = 23f
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("بیشترین هزینه: ${topExpenseCategory.ifBlank { "نامشخص" }} ($topCategoryAmount تومان)", width - 100f, 830f, topExpPaint)
-
             val compPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CBD5E1")
                 textSize = 23f
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("دوره قبل: ${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان ($expenseChangePercent ${if(isExpenseIncreased) "افزایش" else "کاهش"})", width - 100f, 880f, compPaint)
+            when (reportCategory) {
+                ReportCategory.INSTALLMENTS -> {
+                    canvas.drawText("تعهدات این بازه: ${MoneyFormatter.formatToman(totalInstallmentAmount, includeUnit = false)} تومان", width - 100f, 780f, ratioPaint)
+                    canvas.drawText("پرداخت‌شده: ${MoneyFormatter.formatToman(paidInstallmentAmount, includeUnit = false)} تومان • اقساط فعال: $activeInstallmentsCount", width - 100f, 830f, topExpPaint)
+                    canvas.drawText("مانده این بازه: ${MoneyFormatter.formatToman((totalInstallmentAmount - paidInstallmentAmount).coerceAtLeast(0L), includeUnit = false)} تومان", width - 100f, 880f, compPaint)
+                }
+                ReportCategory.VEHICLE -> {
+                    canvas.drawText("مجموع هزینه خودرو: ${MoneyFormatter.formatToman(vehicleExpenseTotal, includeUnit = false)} تومان", width - 100f, 780f, ratioPaint)
+                    canvas.drawText("هزینه دوره قبل: ${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان", width - 100f, 830f, topExpPaint)
+                    canvas.drawText("تغییر دوره: $expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"}", width - 100f, 880f, compPaint)
+                }
+                ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> {
+                    canvas.drawText("نسبت مصارف به درآمد کل: $expenseRatio", width - 100f, 780f, ratioPaint)
+                    canvas.drawText("بیشترین هزینه: ${topExpenseCategory.ifBlank { "نامشخص" }} ($topCategoryAmount تومان)", width - 100f, 830f, topExpPaint)
+                    canvas.drawText("دوره قبل: ${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان ($expenseChangePercent ${if (isExpenseIncreased) "افزایش" else "کاهش"})", width - 100f, 880f, compPaint)
+                }
+            }
 
             // Darino Official Seal Card
             val sealRect = RectF(60f, 990f, width - 60f, 1250f)
