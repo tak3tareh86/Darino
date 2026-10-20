@@ -106,15 +106,17 @@ fun ReportsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    // وضعیت بازه تاریخی دلخواه
-    val startDate = uiState.customStartDate ?: remember {
+    // تاریخ‌های سفارشی برای ویرایش بازه، جدا از بازه واقعی گزارش جاری
+    val customStartDate = uiState.customStartDate ?: remember {
         val now = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
         ShamsiDate(now.year, now.month, 1)
     }
-    val endDate = uiState.customEndDate ?: remember {
+    val customEndDate = uiState.customEndDate ?: remember {
         val now = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
         ShamsiDate(now.year, now.month, PersianCalendarHelper.getDaysInMonth(now.year, now.month))
     }
+    val startDate = uiState.reportStartDate ?: customStartDate
+    val endDate = uiState.reportEndDate ?: customEndDate
     
     var showCustomDateSheet by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
@@ -193,8 +195,8 @@ fun ReportsScreen(
                     if (uiState.selectedPeriod == ReportPeriod.CUSTOM) {
                         item {
                             ActiveCustomRangeBanner(
-                                startDate = startDate,
-                                endDate = endDate,
+                                startDate = customStartDate,
+                                endDate = customEndDate,
                                 onClick = { showCustomDateSheet = true }
                             )
                         }
@@ -267,8 +269,8 @@ fun ReportsScreen(
         // باتم‌شیت انتخاب تاریخ شمسی دلخواه
         if (showCustomDateSheet) {
             CustomDateRangeBottomSheet(
-                initialStartDate = startDate,
-                initialEndDate = endDate,
+                initialStartDate = customStartDate,
+                initialEndDate = customEndDate,
                 onDismiss = { showCustomDateSheet = false },
                 onApply = { start, end ->
                     viewModel.setCustomRange(start, end)
@@ -377,8 +379,8 @@ private fun ReportsHeader(
             ) {
                 IconButton(onClick = onFilterClick) {
                     Icon(
-                        imageVector = Icons.Rounded.FilterList,
-                        contentDescription = "فیلترها",
+                        imageVector = Icons.Rounded.DateRange,
+                        contentDescription = "انتخاب بازه زمانی",
                         tint = Color(0xFF94A3B8),
                         modifier = Modifier.size(20.dp)
                     )
@@ -1488,13 +1490,13 @@ fun CustomDateRangeBottomSheet(
                     val now = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
                     
                     PresetChip("۷ روز اخیر") {
-                        val startMillis = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L)
+                        val startMillis = System.currentTimeMillis() - (6 * 24 * 60 * 60 * 1000L)
                         val start = PersianCalendarHelper.fromEpochMillis(startMillis)
                         tempStart = ShamsiDate(start.year, start.month, start.day)
                         tempEnd = ShamsiDate(now.year, now.month, now.day)
                     }
                     PresetChip("۳۰ روز اخیر") {
-                        val startMillis = System.currentTimeMillis() - (30 * 24 * 60 * 60 * 1000L)
+                        val startMillis = System.currentTimeMillis() - (29 * 24 * 60 * 60 * 1000L)
                         val start = PersianCalendarHelper.fromEpochMillis(startMillis)
                         tempStart = ShamsiDate(start.year, start.month, start.day)
                         tempEnd = ShamsiDate(now.year, now.month, now.day)
@@ -1539,7 +1541,10 @@ fun CustomDateRangeBottomSheet(
 
                 // دکمه اعمال بازه
                 Button(
-                    onClick = { onApply(tempStart, tempEnd) },
+                    onClick = {
+                        val order = compareValuesBy(tempStart, tempEnd, { it.year }, { it.month }, { it.day })
+                        if (order <= 0) onApply(tempStart, tempEnd) else onApply(tempEnd, tempStart)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
@@ -1634,7 +1639,7 @@ private fun PersianDateSelectorRow(
                     onDismissRequest = { dayExpanded = false },
                     modifier = Modifier.background(Color(0xFF1E293B))
                 ) {
-                    val maxDays = if (date.month <= 6) 31 else if (date.month <= 11) 30 else 29
+                    val maxDays = PersianCalendarHelper.getDaysInMonth(date.year, date.month)
                     for (d in 1..maxDays) {
                         DropdownMenuItem(
                             text = { Text("$d", color = Color.White) },
@@ -1669,7 +1674,7 @@ private fun PersianDateSelectorRow(
                         DropdownMenuItem(
                             text = { Text(mName, color = Color.White) },
                             onClick = {
-                                val maxDays = if (mNum <= 6) 31 else if (mNum <= 11) 30 else 29
+                                val maxDays = PersianCalendarHelper.getDaysInMonth(date.year, mNum)
                                 val safeDay = if (date.day > maxDays) maxDays else date.day
                                 onDateChanged(date.copy(month = mNum, day = safeDay))
                                 monthExpanded = false
@@ -1696,7 +1701,8 @@ private fun PersianDateSelectorRow(
                         DropdownMenuItem(
                             text = { Text("$y", color = Color.White) },
                             onClick = {
-                                onDateChanged(date.copy(year = y))
+                                val maxDays = PersianCalendarHelper.getDaysInMonth(y, date.month)
+                                onDateChanged(date.copy(year = y, day = date.day.coerceAtMost(maxDays)))
                                 yearExpanded = false
                             }
                         )
