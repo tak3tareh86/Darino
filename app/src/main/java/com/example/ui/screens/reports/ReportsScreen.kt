@@ -322,7 +322,7 @@ fun ReportsScreen(
                 savingsPercent = "${uiState.savingsPercent}٪",
                 topExpenseCategory = uiState.topExpenseCategory,
                 topCategoryAmount = MoneyFormatter.formatToman(uiState.topExpenseCategoryAmount),
-                expenseRatio = "${(uiState.expenseRatio * 100).toInt()}٪",
+                expenseRatio = if (uiState.totalIncome > 0L) "${(uiState.expenseRatio * 100).toInt()}٪" else "بدون درآمد",
                 previousPeriodExpense = uiState.previousPeriodExpense,
                 expenseChangePercent = String.format("%.1f٪", uiState.expenseChangePercent),
                 isExpenseIncreased = uiState.isExpenseIncreased,
@@ -515,7 +515,7 @@ private fun FinancialOverviewCard(
                         border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.4f))
                     ) {
                         Text(
-                            text = "پس‌انداز: $savingsPercent٪",
+                            text = if (totalIncome > 0L) "پس‌انداز: $savingsPercent٪" else "پس‌انداز: —",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.5.sp
@@ -632,7 +632,7 @@ private fun FinancialOverviewCard(
                                 color = Color(0xFF94A3B8)
                             )
                             Text(
-                                text = "${(expenseRatio * 100).toInt()}٪",
+                                text = if (totalIncome > 0L) "${(expenseRatio * 100).toInt()}٪" else "بدون درآمد",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
                                 color = Color(0xFF38BDF8)
                             )
@@ -932,7 +932,11 @@ private fun MonthComparisonCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = String.format("%.1f٪ %s", percent, if(isIncrease) "افزایش" else "کاهش"),
+                            text = when {
+                                previousValue == 0L && currentValue > 0L -> "هزینه جدید"
+                                previousValue == 0L && currentValue == 0L -> "بدون تغییر"
+                                else -> String.format("%.1f٪ %s", percent, if (isIncrease) "افزایش" else "کاهش")
+                            },
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
