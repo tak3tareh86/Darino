@@ -178,17 +178,24 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         // 4. Installments Report (Period-aware for amounts, global for count)
         var totalInstAmountInPeriod = 0L
         var paidInstAmountInPeriod = 0L
-        
+        var totalInstAmountInPreviousPeriod = 0L
+
         allInstallments.forEach { installment ->
             val paymentsInPeriod = installment.paymentHistory.filter { payment ->
                 val dueMillis = parsePersianDateToMillis(payment.dueDate)
                 dueMillis in startTime..endTime
             }
-            
-            if (paymentsInPeriod.isNotEmpty()) {
-                totalInstAmountInPeriod += paymentsInPeriod.sumOf { it.amount }
-                paidInstAmountInPeriod += paymentsInPeriod.filter { it.status == com.example.ui.screens.installments.model.InstallmentStatus.PAID || it.status == com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED }.sumOf { it.amount }
+            val paymentsInPreviousPeriod = installment.paymentHistory.filter { payment ->
+                val dueMillis = parsePersianDateToMillis(payment.dueDate)
+                dueMillis in prevStartTime..prevEndTime
             }
+
+            totalInstAmountInPeriod += paymentsInPeriod.sumOf { it.amount }
+            paidInstAmountInPeriod += paymentsInPeriod.filter {
+                it.status == com.example.ui.screens.installments.model.InstallmentStatus.PAID ||
+                    it.status == com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED
+            }.sumOf { it.amount }
+            totalInstAmountInPreviousPeriod += paymentsInPreviousPeriod.sumOf { it.amount }
         }
         
         val activeInstallmentsCount = allInstallments.count { it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED }
@@ -211,11 +218,19 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         var currentCompExpense = currentCatExpense
         var previousCompExpense = prevExpense
 
-        if (category == ReportCategory.VEHICLE) {
-            finalIncome = 0 // Vehicle category is expense-focused
-            finalExpense = totalVehicleExpense
-            currentCompExpense = totalVehicleExpense
-            previousCompExpense = prevVehicleExpense
+        when (category) {
+            ReportCategory.VEHICLE -> {
+                finalIncome = 0 // Vehicle category is expense-focused
+                finalExpense = totalVehicleExpense
+                currentCompExpense = totalVehicleExpense
+                previousCompExpense = prevVehicleExpense
+            }
+            ReportCategory.INSTALLMENTS -> {
+                // Compare the same due-payment metric shown by the installment summary card.
+                currentCompExpense = totalInstAmountInPeriod
+                previousCompExpense = totalInstAmountInPreviousPeriod
+            }
+            ReportCategory.FINANCIAL, ReportCategory.SMART_ANALYSIS -> Unit
         }
 
         val smartAdvice = when {
