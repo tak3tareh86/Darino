@@ -294,7 +294,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 val startDate = if (dateToMillis(customStart) <= dateToMillis(customEnd)) customStart else customEnd
                 val endDate = if (dateToMillis(customStart) <= dateToMillis(customEnd)) customEnd else customStart
                 val start = PersianCalendarHelper.jalaliToEpochMillis(startDate.year, startDate.month, startDate.day, 0, 0)
-                val end = PersianCalendarHelper.jalaliToEpochMillis(endDate.year, endDate.month, endDate.day, 23, 59, 59)
+                val end = PersianCalendarHelper.jalaliToEpochMillis(endDate.year, endDate.month, endDate.day, 23, 59)
                 Pair(start, end)
             }
         }
