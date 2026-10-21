@@ -440,7 +440,8 @@ object VehicleAnalyzer {
         vehicleId: String,
         services: List<VehicleServiceEntity>,
         expenses: List<VehicleExpenseEntity>,
-        insurances: List<VehicleInsuranceEntity>
+        insurances: List<VehicleInsuranceEntity>,
+        inspections: List<VehicleInspectionEntity> = emptyList()
     ): List<VehicleTimelineEvent> {
         val timeline = mutableListOf<VehicleTimelineEvent>()
 
@@ -462,7 +463,8 @@ object VehicleAnalyzer {
         expenses.filter { expense ->
             expense.vehicleId == vehicleId &&
                 !expense.id.startsWith("exp_svc_") &&
-                !expense.id.startsWith("exp_ins_")
+                !expense.id.startsWith("exp_ins_") &&
+                !expense.id.startsWith("exp_insp_")
         }.forEach { e ->
             timeline.add(
                 VehicleTimelineEvent.ExpenseEvent(
@@ -489,6 +491,22 @@ object VehicleAnalyzer {
                     iconRes = R.drawable.img_3d_insurance,
                     colorHex = 0xFFF59E0B,
                     company = ins.company
+                )
+            )
+        }
+
+        inspections.filter { it.vehicleId == vehicleId }.forEach { inspection ->
+            timeline.add(
+                VehicleTimelineEvent.InspectionEvent(
+                    id = inspection.id,
+                    date = inspection.lastInspectionDate,
+                    title = "معاینه فنی خودرو",
+                    amount = inspection.cost,
+                    subtitle = "مرکز: ${inspection.centerName.ifBlank { "ثبت نشده" }} • اعتبار تا ${inspection.expiryDate}",
+                    iconRes = R.drawable.img_3d_settings_gear,
+                    colorHex = 0xFF0D9488,
+                    centerName = inspection.centerName,
+                    expiryDate = inspection.expiryDate
                 )
             )
         }
