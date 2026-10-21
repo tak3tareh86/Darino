@@ -310,6 +310,7 @@ class VehicleViewModel(
         vin: String,
         engine: String,
         transmission: String,
+        currentMileage: Int,
         estimatedValue: Long
     ) {
         val current = _uiState.value.selectedVehicle ?: return
@@ -322,6 +323,7 @@ class VehicleViewModel(
             vin = vin,
             engine = engine,
             transmission = transmission,
+            currentMileage = currentMileage,
             estimatedValue = estimatedValue
         )
         viewModelScope.launch {
