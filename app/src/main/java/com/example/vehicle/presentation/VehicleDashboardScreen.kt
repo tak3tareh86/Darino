@@ -425,7 +425,8 @@ fun DarinoVehicleMainDashboard(
         ReminderConfirmationDialog(
             service = state.lastAddedService!!,
             onConfirm = { viewModel.confirmReminderSchedule() },
-            onDismiss = { viewModel.dismissReminderConfirmation() }
+            onDisable = { viewModel.dismissReminderConfirmation() },
+            onDismiss = { viewModel.closeReminderConfirmationDialog() }
         )
     }
 }
