@@ -172,7 +172,9 @@ private fun TimelineItemRow(
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
-                    if (event is VehicleTimelineEvent.ExpenseEvent) {
+                    if (event is VehicleTimelineEvent.ExpenseEvent &&
+                        !event.id.startsWith("exp_insp_")
+                    ) {
                         IconButton(
                             onClick = { showDeleteConfirmation = true },
                             modifier = Modifier.size(32.dp).testTag("timeline_delete_expense_${event.id}")
