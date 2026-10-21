@@ -404,22 +404,6 @@ class VehicleRepository {
         userId: String,
         expense: VehicleExpenseRoomEntity
     ) {
-        val accounts = db.accountDao().getAllAccountsRaw(userId)
-        val account = accounts.firstOrNull { it.isActive && it.deletedAt == null && it.type == "CARD" }
-            ?: accounts.firstOrNull { it.isActive && it.deletedAt == null }
-            ?: com.example.data.database.AccountEntity(
-                userId = userId,
-                stringId = "default_card_replacement_vehicle_${userId}_${UUID.randomUUID()}",
-                name = "کارت بانکی (جایگزین خودرو)",
-                type = "CARD",
-                bankName = "کارت بانکی",
-                initialBalance = 0L,
-                isActive = true,
-                createdAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis(),
-                deletedAt = null
-            ).also { db.accountDao().insertAccount(it) }
-
         val categoryTitle = runCatching {
             VehicleExpenseCategory.valueOf(expense.category).title
         }.getOrDefault("هزینه خودرو")
@@ -437,12 +421,7 @@ class VehicleRepository {
             existing.description == expense.description &&
             existing.timestamp == expenseTimestamp &&
             existing.datePersian == expense.date &&
-            existing.accountName == account.name &&
-            existing.paymentMethod == (when (account.type) {
-                "CASH" -> "CASH"
-                "OTHER" -> "OTHER"
-                else -> "BANK_CARD"
-            }) &&
+            existing.accountName == (existing.accountName.takeIf { it.isNotBlank() } ?: "حساب نامشخص") &&
             existing.sourceType == "VEHICLE" &&
             existing.sourceId == expense.id &&
             existing.accountId == account.stringId
@@ -457,19 +436,15 @@ class VehicleRepository {
             amount = expense.amount,
             type = "EXPENSE",
             category = categoryTitle,
-            accountName = account.name,
+            accountName = existing?.accountName?.takeIf { it.isNotBlank() } ?: "حساب نامشخص",
             description = expense.description,
             timestamp = expenseTimestamp,
             timeFormatted = "۰۹:۰۰",
             datePersian = expense.date,
-            paymentMethod = when (account.type) {
-                "CASH" -> "CASH"
-                "OTHER" -> "OTHER"
-                else -> "BANK_CARD"
-            },
+            paymentMethod = existing?.paymentMethod ?: "OTHER",
             sourceType = "VEHICLE",
             sourceId = expense.id,
-            accountId = account.stringId,
+            accountId = existing?.accountId,
             updatedAt = now,
             deletedAt = null,
             syncState = "PENDING_UPSERT"
