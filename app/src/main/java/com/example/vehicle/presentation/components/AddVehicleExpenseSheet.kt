@@ -1,5 +1,8 @@
 package com.example.vehicle.presentation.components
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -16,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -42,7 +46,8 @@ fun AddVehicleExpenseSheet(
         category: VehicleExpenseCategory,
         amount: Long,
         date: String,
-        description: String
+        description: String,
+        receiptImageUri: String?
     ) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -52,7 +57,18 @@ fun AddVehicleExpenseSheet(
     var amountText by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(todayJalali) }
     var description by remember { mutableStateOf("") }
-    var hasReceiptAttached by remember { mutableStateOf(false) }
+    var receiptImageUri by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val receiptPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            receiptImageUri = uri.toString()
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -213,14 +229,22 @@ fun AddVehicleExpenseSheet(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = if (hasReceiptAttached) "تصویر فاکتور ضمیمه شد" else "پیوست تصویر فاکتور (اختیاری)",
+                            text = if (receiptImageUri != null) "تصویر فاکتور ضمیمه شد" else "پیوست تصویر فاکتور (اختیاری)",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
-                    TextButton(onClick = { hasReceiptAttached = !hasReceiptAttached }) {
-                        Text(if (hasReceiptAttached) "حذف" else "انتخاب فایل")
+                    TextButton(
+                        onClick = {
+                            if (receiptImageUri != null) {
+                                receiptImageUri = null
+                            } else {
+                                receiptPickerLauncher.launch(arrayOf("image/*"))
+                            }
+                        }
+                    ) {
+                        Text(if (receiptImageUri != null) "حذف پیوست" else "انتخاب تصویر")
                     }
                 }
             }
@@ -230,7 +254,7 @@ fun AddVehicleExpenseSheet(
                 onClick = {
                     if (title.isNotBlank()) {
                         val amount = IranianAmountUtils.parseAmountToLong(amountText)
-                        onAddExpense(title, selectedCategory, amount, date, description)
+                        onAddExpense(title, selectedCategory, amount, date, description, receiptImageUri)
                     }
                 },
                 enabled = title.isNotBlank(),

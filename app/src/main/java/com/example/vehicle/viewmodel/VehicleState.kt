@@ -34,6 +34,7 @@ data class VehicleState(
     val errorMessage: String? = null,
     val showAddVehicleSheet: Boolean = false,
     val showAddServiceSheet: Boolean = false,
+    val editingService: VehicleServiceEntity? = null,
     val showAddExpenseSheet: Boolean = false,
     val showInsuranceSheet: Boolean = false,
     val showProfileScreen: Boolean = false,

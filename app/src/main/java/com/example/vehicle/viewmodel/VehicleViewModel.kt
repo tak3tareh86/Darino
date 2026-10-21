@@ -138,11 +138,15 @@ class VehicleViewModel(
     }
 
     fun openAddService() {
-        _uiState.update { it.copy(showAddServiceSheet = true) }
+        _uiState.update { it.copy(showAddServiceSheet = true, editingService = null) }
+    }
+
+    fun openEditService(service: com.example.vehicle.data.VehicleServiceEntity) {
+        _uiState.update { it.copy(showAddServiceSheet = true, editingService = service) }
     }
 
     fun closeAddService() {
-        _uiState.update { it.copy(showAddServiceSheet = false) }
+        _uiState.update { it.copy(showAddServiceSheet = false, editingService = null) }
     }
 
     fun openAddExpense() {
@@ -245,6 +249,9 @@ class VehicleViewModel(
         color: String,
         plate: String,
         vin: String,
+        engine: String,
+        transmission: String,
+        currentMileage: Int,
         estimatedValue: Long
     ) {
         val current = _uiState.value.selectedVehicle ?: return
@@ -255,6 +262,9 @@ class VehicleViewModel(
             color = color,
             plate = plate,
             vin = vin,
+            engine = engine,
+            transmission = transmission,
+            currentMileage = currentMileage,
             estimatedValue = estimatedValue
         )
         viewModelScope.launch {
@@ -284,12 +294,18 @@ class VehicleViewModel(
                 val nextSelected = remaining.firstOrNull()
                 if (nextSelected != null) {
                     selectVehicle(nextSelected)
+                    _uiState.update {
+                        it.copy(
+                            showProfileScreen = false,
+                            snackBarMessage = "پرونده خودرو حذف شد."
+                        )
+                    }
                 } else {
                     _uiState.update {
                         it.copy(
                             selectedVehicle = null,
                             showProfileScreen = false,
-                            snackBarMessage = "خودرو از پرونده حذف شد."
+                            snackBarMessage = "پرونده خودرو حذف شد."
                         )
                     }
                 }
@@ -396,6 +412,8 @@ class VehicleViewModel(
             result.onSuccess {
                 _uiState.update {
                     it.copy(
+                        showAddServiceSheet = false,
+                        editingService = null,
                         snackBarMessage = "سرویس $title با موفقیت ویرایش شد."
                     )
                 }
@@ -452,7 +470,8 @@ class VehicleViewModel(
         category: VehicleExpenseCategory,
         amount: Long,
         date: String,
-        description: String
+        description: String,
+        receiptImageUri: String? = null
     ) {
         val current = _uiState.value.selectedVehicle ?: return
         viewModelScope.launch {
@@ -462,7 +481,8 @@ class VehicleViewModel(
                 category = category,
                 amount = amount,
                 date = date,
-                description = description
+                description = description,
+                receiptImageUri = receiptImageUri
             )
             result.onSuccess {
                 _uiState.update {
