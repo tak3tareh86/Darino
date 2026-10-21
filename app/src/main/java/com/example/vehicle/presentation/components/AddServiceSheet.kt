@@ -32,15 +32,17 @@ import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.ServiceType
 import com.example.vehicle.data.VehicleEntity
+import com.example.vehicle.data.VehicleServiceEntity
 import com.example.vehicle.domain.VehicleMaintenanceCatalog
 
 /**
- * Bottom sheet to record a vehicle service and schedule next smart reminder
+ * Bottom sheet to record or edit a vehicle service and its next reminder.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddServiceSheet(
     vehicle: VehicleEntity,
+    initialService: VehicleServiceEntity? = null,
     onAddService: (
         title: String,
         serviceType: ServiceType,
@@ -52,22 +54,45 @@ fun AddServiceSheet(
         nextReminderMileage: Int?,
         isReminderEnabled: Boolean
     ) -> Unit,
+    onUpdateService: ((
+        serviceId: String,
+        title: String,
+        serviceType: ServiceType,
+        date: String,
+        mileage: Int,
+        cost: Long,
+        description: String,
+        nextReminderDate: String?,
+        nextReminderMileage: Int?,
+        isReminderEnabled: Boolean
+    ) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val todayJalali = remember { com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate() }
-    var selectedType by remember { mutableStateOf(ServiceType.OIL_CHANGE) }
-    var title by remember { mutableStateOf(ServiceType.OIL_CHANGE.title) }
-    var date by remember { mutableStateOf(todayJalali) }
-    var mileageText by remember { mutableStateOf(if (vehicle.currentMileage > 0) vehicle.currentMileage.toString() else "") }
-    var costText by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
+    var selectedType by remember(initialService?.id) { mutableStateOf(initialService?.serviceType ?: ServiceType.OIL_CHANGE) }
+    var title by remember(initialService?.id) { mutableStateOf(initialService?.title ?: ServiceType.OIL_CHANGE.title) }
+    var date by remember(initialService?.id) { mutableStateOf(initialService?.date ?: todayJalali) }
+    var mileageText by remember(initialService?.id) {
+        mutableStateOf((initialService?.mileage ?: vehicle.currentMileage).takeIf { it > 0 }?.toString() ?: "")
+    }
+    var costText by remember(initialService?.id) { mutableStateOf(initialService?.cost?.toString() ?: "") }
+    var description by remember(initialService?.id) { mutableStateOf(initialService?.description ?: "") }
 
     // Custom service intervals must be entered explicitly; no universal default is assumed.
-    var customIntervalKmText by remember { mutableStateOf("") }
-    var customIntervalMonthsText by remember { mutableStateOf("") }
+    var customIntervalKmText by remember(initialService?.id) {
+        mutableStateOf(
+            initialService?.let { service ->
+                val resolved = VehicleMaintenanceCatalog.resolve(vehicle, service.serviceType)
+                if (resolved.intervalKm == 0 && service.nextReminderMileage != null) {
+                    (service.nextReminderMileage - service.mileage).coerceAtLeast(0).toString()
+                } else ""
+            } ?: ""
+        )
+    }
+    var customIntervalMonthsText by remember(initialService?.id) { mutableStateOf("") }
 
     // Next Reminder settings
-    var isReminderEnabled by remember { mutableStateOf(true) }
+    var isReminderEnabled by remember(initialService?.id) { mutableStateOf(initialService?.isReminderEnabled ?: true) }
     val currentKm = mileageText.toIntOrNull() ?: vehicle.currentMileage
     val interval = remember(vehicle.brand, vehicle.model, vehicle.year, selectedType) {
         VehicleMaintenanceCatalog.resolve(vehicle, selectedType)
@@ -79,12 +104,18 @@ fun AddServiceSheet(
     val customIntervalKm = IranianPhoneUtils.convertDigitsToEnglish(customIntervalKmText).toIntOrNull()?.coerceAtLeast(0) ?: 0
     val customIntervalMonths = IranianPhoneUtils.convertDigitsToEnglish(customIntervalMonthsText).toIntOrNull()?.coerceAtLeast(0) ?: 0
     val requiresManualInterval = selectedType == ServiceType.CUSTOM || !interval.isUsable
-    val calcKm = if (requiresManualInterval) {
+    val preserveExistingReminder = initialService != null &&
+        selectedType == initialService.serviceType &&
+        date == initialService.date &&
+        currentKm == initialService.mileage
+    val calculatedKm = if (requiresManualInterval) {
         if (customIntervalKm > 0) currentKm.coerceAtLeast(0) + customIntervalKm else 0
     } else recommendedKm
-    val calcDate = if (requiresManualInterval) {
+    val calculatedDate = if (requiresManualInterval) {
         if (customIntervalMonths > 0) com.example.util.PersianCalendarHelper.addMonthsToPersianDate(date, customIntervalMonths) else ""
     } else recommendedDate
+    val calcKm = if (preserveExistingReminder) initialService?.nextReminderMileage ?: calculatedKm else calculatedKm
+    val calcDate = if (preserveExistingReminder) initialService?.nextReminderDate ?: calculatedDate else calculatedDate
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -334,30 +365,47 @@ fun AddServiceSheet(
                     if (title.isNotBlank()) {
                         val cost = IranianAmountUtils.parseAmountToLong(costText)
                         val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
-                        onAddService(
-                            title,
-                            selectedType,
-                            date,
-                            mileage,
-                            cost,
-                            description,
-                            if (isReminderEnabled && calcDate.isNotBlank()) calcDate else null,
-                            if (isReminderEnabled && calcKm > 0) calcKm else null,
-                            isReminderEnabled
-                        )
+                        val reminderDate = if (isReminderEnabled && calcDate.isNotBlank()) calcDate else null
+                        val reminderMileage = if (isReminderEnabled && calcKm > 0) calcKm else null
+                        if (initialService != null && onUpdateService != null) {
+                            onUpdateService(
+                                initialService.id,
+                                title,
+                                selectedType,
+                                date,
+                                mileage,
+                                cost,
+                                description,
+                                reminderDate,
+                                reminderMileage,
+                                isReminderEnabled
+                            )
+                        } else {
+                            onAddService(
+                                title,
+                                selectedType,
+                                date,
+                                mileage,
+                                cost,
+                                description,
+                                reminderDate,
+                                reminderMileage,
+                                isReminderEnabled
+                            )
+                        }
                     }
                 },
                 enabled = title.isNotBlank() && (!isReminderEnabled || calcKm > 0 || calcDate.isNotBlank()),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
-                    .testTag("submit_add_service_btn"),
+                    .testTag(if (initialService == null) "submit_add_service_btn" else "submit_edit_service_btn"),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "ثبت سرویس در پرونده خودرو",
+                    text = if (initialService == null) "ثبت سرویس در پرونده خودرو" else "ذخیره تغییرات سرویس",
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                 )
             }
