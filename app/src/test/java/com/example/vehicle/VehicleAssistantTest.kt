@@ -211,6 +211,15 @@ class VehicleAssistantTest {
         assertTrue(report.checklist.first { it.title == "روغن و فیلتر موتور" }.statusText.contains("15000"))
         assertTrue(report.checklist.first { it.title == "بیمه‌نامه خودرو" }.statusText.contains("بیمه معتبر"))
         assertTrue(report.checklist.first { it.title == "معاینه فنی و آلایندگی" }.isOk)
+
+        val timeline = VehicleAnalyzer.buildTimeline(
+            vehicleId = vehicle.id,
+            services = services,
+            expenses = emptyList(),
+            insurances = insurances,
+            inspections = inspections
+        )
+        assertTrue(timeline.any { it is com.example.vehicle.data.VehicleTimelineEvent.InspectionEvent })
     }
 
     @Test
