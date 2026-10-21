@@ -407,6 +407,9 @@ abstract class AppDatabase : RoomDatabase() {
                 // Preserve that old toggle value while leaving the status column available
                 // for the actual service lifecycle going forward.
                 db.execSQL("UPDATE `vehicle_services` SET `reminderEnabled` = CASE WHEN `status` = 'COMPLETED' THEN 0 ELSE 1 END")
+                // Legacy status was overloaded as the reminder toggle, not a service lifecycle.
+                // Existing rows represent recorded service history, so normalize them as completed.
+                db.execSQL("UPDATE `vehicle_services` SET `status` = 'COMPLETED' WHERE `status` IN ('PENDING', 'COMPLETED')")
             }
         }
 
