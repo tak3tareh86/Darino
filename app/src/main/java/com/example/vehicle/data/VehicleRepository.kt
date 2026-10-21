@@ -727,6 +727,7 @@ class VehicleRepository {
                 (serviceIds + insuranceIds + inspectionIds + listOf(vehicleId)).forEach { id ->
                     db.smartReminderDao().deleteReminderById(userId, id)
                     db.smartReminderDao().deleteSchedulesByReminderId(userId, id)
+                    deleteVehicleCalendarEvent(db, userId, id)
                 }
                 
                 vehicleAffected
