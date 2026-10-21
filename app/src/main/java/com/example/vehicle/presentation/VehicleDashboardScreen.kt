@@ -390,8 +390,8 @@ fun DarinoVehicleMainDashboard(
     if (state.showAddExpenseSheet && state.selectedVehicle != null) {
         AddVehicleExpenseSheet(
             vehicle = state.selectedVehicle!!,
-            onAddExpense = { t: String, cat: com.example.vehicle.data.VehicleExpenseCategory, amt: Long, d: String, desc: String ->
-                viewModel.addExpenseRecord(t, cat, amt, d, desc)
+            onAddExpense = { t: String, cat: com.example.vehicle.data.VehicleExpenseCategory, amt: Long, d: String, desc: String, receiptUri: String? ->
+                viewModel.addExpenseRecord(t, cat, amt, d, desc, receiptUri)
             },
             onDismiss = { viewModel.closeAddExpense() }
         )
