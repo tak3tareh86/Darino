@@ -394,6 +394,54 @@ class VehicleRepository {
             }
         } else emptyList()
         db.smartReminderDao().insertSchedules(schedules)
+        syncVehicleCalendarEvent(
+            db = db,
+            userId = userId,
+            id = id,
+            title = title,
+            description = description,
+            date = date
+        )
+    }
+
+    /**
+     * Mirrors a date-based vehicle reminder into the finance calendar with a stable ID.
+     */
+    private suspend fun syncVehicleCalendarEvent(
+        db: AppDatabase,
+        userId: String,
+        id: String,
+        title: String,
+        description: String,
+        date: String?
+    ) {
+        val eventId = "vehicle_event_$id"
+        if (date.isNullOrBlank()) {
+            db.financialEventDao().deleteEventById(userId, eventId)
+            return
+        }
+
+        db.financialEventDao().deleteEventById(userId, eventId)
+        db.financialEventDao().insertEvent(
+            com.example.calendar.data.FinancialEventEntity(
+                id = eventId,
+                userId = userId,
+                title = title,
+                description = description,
+                type = "VEHICLE",
+                amount = null,
+                date = com.example.util.IranianPhoneUtils.convertDigitsToPersian(date.trim()),
+                time = "۰۹:۰۰",
+                repeatType = "NONE",
+                reminderBefore = "1_DAY",
+                sourceId = id,
+                status = "PENDING"
+            )
+        )
+    }
+
+    private suspend fun deleteVehicleCalendarEvent(db: AppDatabase, userId: String, id: String) {
+        db.financialEventDao().deleteEventById(userId, "vehicle_event_$id")
     }
 
     /**
@@ -820,6 +868,7 @@ class VehicleRepository {
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
                     db.smartReminderDao().deleteSchedulesByReminderId(userId, serviceId)
+                    deleteVehicleCalendarEvent(db, userId, serviceId)
                 }
             }
 
@@ -867,7 +916,8 @@ class VehicleRepository {
         crossedServices: List<com.example.data.database.VehicleServiceEntity>,
         currentMileage: Int
     ) {
-        val dao = AppDatabase.getDatabase(context).smartReminderDao()
+        val db = AppDatabase.getDatabase(context)
+        val dao = db.smartReminderDao()
         val dispatcher = com.example.reminder.domain.NotificationDispatcher(context)
         crossedServices.forEach { service ->
             val reminderId = service.serverId ?: service.id.toString()
@@ -900,6 +950,14 @@ class VehicleRepository {
                     // Persist mileage-only reminders only when due, so notification actions work without a fake future date.
                     dao.insertReminder(updatedReminder)
                 }
+                syncVehicleCalendarEvent(
+                    db = db,
+                    userId = userId,
+                    id = reminderId,
+                    title = "موعد سرویس خودرو فرا رسیده است",
+                    description = "${baseReminder.description}؛ کیلومتر فعلی: $currentMileage، کیلومتر سرویس: ${service.dueMileage}",
+                    date = PersianCalendarHelper.fromEpochMillis(now).toFormattedDate()
+                )
                 val thresholdSchedule = com.example.reminder.data.ReminderScheduleEntity(
                     id = "mileage_${reminderId}_${service.dueMileage}",
                     reminderId = reminderId,
@@ -1064,6 +1122,7 @@ class VehicleRepository {
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
                     db.smartReminderDao().deleteSchedulesByReminderId(userId, serviceId)
+                    deleteVehicleCalendarEvent(db, userId, serviceId)
                 }
             }
 
@@ -1142,6 +1201,7 @@ class VehicleRepository {
                     status = "COMPLETED",
                     completedAt = System.currentTimeMillis()
                 )
+                deleteVehicleCalendarEvent(db, userId, serviceId)
             }
 
             // Cancel alarm in system AlarmManager after successful database commit
@@ -1174,6 +1234,7 @@ class VehicleRepository {
                 
                 db.smartReminderDao().deleteReminderById(userId, serviceId)
                 db.smartReminderDao().deleteSchedulesByReminderId(userId, serviceId)
+                deleteVehicleCalendarEvent(db, userId, serviceId)
                 
                 serviceAffected
             }
@@ -1466,6 +1527,7 @@ class VehicleRepository {
                 
                 db.smartReminderDao().deleteReminderById(userId, insuranceId)
                 db.smartReminderDao().deleteSchedulesByReminderId(userId, insuranceId)
+                deleteVehicleCalendarEvent(db, userId, insuranceId)
                 
                 insAffected
             }
@@ -1591,6 +1653,7 @@ class VehicleRepository {
                 
                 db.smartReminderDao().deleteReminderById(userId, inspectionId)
                 db.smartReminderDao().deleteSchedulesByReminderId(userId, inspectionId)
+                deleteVehicleCalendarEvent(db, userId, inspectionId)
                 
                 inspAffected
             }
