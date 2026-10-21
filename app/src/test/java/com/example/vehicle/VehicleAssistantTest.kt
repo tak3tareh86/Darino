@@ -140,6 +140,70 @@ class VehicleAssistantTest {
     }
 
     @Test
+    fun vehicleHealthUsesLatestServiceAndNormalizesExpiryDates() {
+        val vehicle = com.example.vehicle.data.VehicleEntity(
+            id = "health-car",
+            brand = "برند",
+            model = "مدل",
+            year = "1402",
+            color = "سفید",
+            plate = "",
+            currentMileage = 57000
+        )
+        val services = listOf(
+            com.example.vehicle.data.VehicleServiceEntity(
+                id = "older-oil",
+                vehicleId = vehicle.id,
+                title = "سرویس قدیمی",
+                serviceType = ServiceType.OIL_CHANGE,
+                date = "1405/01/01",
+                mileage = 45000,
+                cost = 100L,
+                nextReminderMileage = 50000
+            ),
+            com.example.vehicle.data.VehicleServiceEntity(
+                id = "latest-oil",
+                vehicleId = vehicle.id,
+                title = "سرویس جدید",
+                serviceType = ServiceType.OIL_CHANGE,
+                date = "۱۴۰۵/۰۶/۰۱",
+                mileage = 55000,
+                cost = 100L,
+                nextReminderMileage = 60000
+            )
+        )
+        val insurance = com.example.vehicle.data.VehicleInsuranceEntity(
+            id = "expired-insurance",
+            vehicleId = vehicle.id,
+            company = "بیمه",
+            type = "شخص ثالث",
+            startDate = "۱۳۹۹/۰۱/۰۱",
+            endDate = "۱۴۰۰/۰۱/۰۱",
+            amount = 1000L
+        )
+        val inspection = com.example.vehicle.data.VehicleInspectionEntity(
+            id = "expired-inspection",
+            vehicleId = vehicle.id,
+            lastInspectionDate = "1399/01/01",
+            expiryDate = "1400/01/01",
+            cost = 100L
+        )
+
+        val report = VehicleAnalyzer.analyzeHealth(
+            vehicle = vehicle,
+            services = services,
+            insurances = listOf(insurance),
+            inspections = listOf(inspection)
+        )
+
+        val oilCheck = report.checklist.first { it.title == "روغن و فیلتر موتور" }
+        assertTrue(oilCheck.statusText.contains("3000"))
+        assertFalse(oilCheck.statusText.contains("معوق"))
+        assertTrue(report.checklist.first { it.title == "بیمه‌نامه خودرو" }.statusText.contains("منقضی شده"))
+        assertTrue(report.checklist.first { it.title == "معاینه فنی و آلایندگی" }.statusText.contains("منقضی شده"))
+    }
+
+    @Test
     fun vehicleStatisticsReturnZeroForYearWithoutExpenses() {
         val currentYear = com.example.util.PersianCalendarHelper
             .fromEpochMillis(System.currentTimeMillis())
