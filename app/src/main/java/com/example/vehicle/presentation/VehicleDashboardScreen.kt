@@ -288,7 +288,11 @@ fun DarinoVehicleMainDashboard(
                                 onMileageClick = { viewModel.openMileageDialog() },
                                 onAddService = { viewModel.openAddService() },
                                 onAddExpense = { viewModel.openAddExpense() },
-                                onInsuranceClick = { viewModel.openInsuranceSheet() }
+                                onInsuranceClick = { viewModel.openInsuranceSheet() },
+                                onUpdateService = { id, title, type, date, mileage, cost, description, reminderDate, reminderMileage, reminderEnabled ->
+                                    viewModel.updateServiceRecord(id, title, type, date, mileage, cost, description, reminderDate, reminderMileage, reminderEnabled)
+                                },
+                                onDeleteService = { id -> viewModel.deleteServiceRecord(id) }
                             )
                         }
                         VehicleTab.TIMELINE -> {
@@ -482,7 +486,20 @@ private fun VehicleServicesTabContent(
     onMileageClick: () -> Unit,
     onAddService: () -> Unit,
     onAddExpense: () -> Unit,
-    onInsuranceClick: () -> Unit
+    onInsuranceClick: () -> Unit,
+    onUpdateService: (
+        serviceId: String,
+        title: String,
+        serviceType: com.example.vehicle.data.ServiceType,
+        date: String,
+        mileage: Int,
+        cost: Long,
+        description: String,
+        nextReminderDate: String?,
+        nextReminderMileage: Int?,
+        isReminderEnabled: Boolean
+    ) -> Unit,
+    onDeleteService: (serviceId: String) -> Unit
 ) {
     var isHealthExpanded by remember { mutableStateOf(false) }
     var isServicesExpanded by remember { mutableStateOf(true) }
@@ -653,7 +670,11 @@ private fun VehicleServicesTabContent(
         // 5. Service Records List
         if (isServicesExpanded) {
             items(services, key = { it.id }) { service ->
-                ServiceRecordCard(service = service)
+                ServiceRecordCard(
+                    service = service,
+                    onUpdateService = onUpdateService,
+                    onDeleteService = onDeleteService
+                )
             }
         }
     }
@@ -691,7 +712,24 @@ private fun QuickActionButton(
 }
 
 @Composable
-private fun ServiceRecordCard(service: VehicleServiceEntity) {
+private fun ServiceRecordCard(
+    service: VehicleServiceEntity,
+    onUpdateService: (
+        serviceId: String,
+        title: String,
+        serviceType: com.example.vehicle.data.ServiceType,
+        date: String,
+        mileage: Int,
+        cost: Long,
+        description: String,
+        nextReminderDate: String?,
+        nextReminderMileage: Int?,
+        isReminderEnabled: Boolean
+    ) -> Unit,
+    onDeleteService: (serviceId: String) -> Unit
+) {
+    var showEditor by remember(service.id) { mutableStateOf(false) }
+    var showDeleteConfirmation by remember(service.id) { mutableStateOf(false) }
     val costFormatted = IranianPhoneUtils.convertDigitsToPersian(
         NumberFormat.getNumberInstance(Locale.US).format(service.cost)
     )
@@ -733,13 +771,27 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
                     }
                 }
 
-                Text(
-                    text = "$costFormatted تومان",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "$costFormatted تومان",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     )
-                )
+                    IconButton(
+                        onClick = { showEditor = true },
+                        modifier = Modifier.size(36.dp).testTag("service_edit_btn_${service.id}")
+                    ) {
+                        Icon(Icons.Rounded.Edit, contentDescription = "ویرایش سرویس", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(
+                        onClick = { showDeleteConfirmation = true },
+                        modifier = Modifier.size(36.dp).testTag("service_delete_btn_${service.id}")
+                    ) {
+                        Icon(Icons.Rounded.DeleteOutline, contentDescription = "حذف سرویس", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
             }
 
             if (service.description.isNotBlank()) {
@@ -774,6 +826,82 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
                 }
             }
         }
+    }
+
+    if (showEditor) {
+        var title by remember(service.id) { mutableStateOf(service.title) }
+        var date by remember(service.id) { mutableStateOf(service.date) }
+        var mileageText by remember(service.id) { mutableStateOf(service.mileage.toString()) }
+        var costText by remember(service.id) { mutableStateOf(service.cost.toString()) }
+        var description by remember(service.id) { mutableStateOf(service.description) }
+        var nextDate by remember(service.id) { mutableStateOf(service.nextReminderDate.orEmpty()) }
+        var nextMileageText by remember(service.id) { mutableStateOf(service.nextReminderMileage?.toString().orEmpty()) }
+        var reminderEnabled by remember(service.id) { mutableStateOf(service.isReminderEnabled) }
+
+        AlertDialog(
+            onDismissRequest = { showEditor = false },
+            title = { Text("ویرایش سرویس خودرو") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("عنوان سرویس") }, singleLine = true)
+                    OutlinedTextField(value = date, onValueChange = { date = it }, label = { Text("تاریخ انجام (شمسی)") }, singleLine = true)
+                    OutlinedTextField(value = mileageText, onValueChange = { mileageText = it }, label = { Text("کیلومتر انجام سرویس") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                    OutlinedTextField(value = costText, onValueChange = { costText = it }, label = { Text("هزینه (تومان)") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                    OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("توضیحات") })
+                    HorizontalDivider()
+                    Text("یادآور بعدی", style = MaterialTheme.typography.titleSmall)
+                    OutlinedTextField(value = nextDate, onValueChange = { nextDate = it }, label = { Text("تاریخ سررسید (اختیاری)") }, singleLine = true)
+                    OutlinedTextField(value = nextMileageText, onValueChange = { nextMileageText = it }, label = { Text("کیلومتر هدف (اختیاری)") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("فعال‌بودن یادآور", modifier = Modifier.weight(1f))
+                        Switch(checked = reminderEnabled, onCheckedChange = { reminderEnabled = it })
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = title.isNotBlank() && date.isNotBlank() &&
+                        (!reminderEnabled || nextDate.isNotBlank() || nextMileageText.isNotBlank()),
+                    onClick = {
+                        val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter(Char::isDigit).toIntOrNull() ?: -1
+                        val cost = IranianAmountUtils.parseAmountToLong(costText)
+                        val nextMileage = IranianPhoneUtils.convertDigitsToEnglish(nextMileageText).filter(Char::isDigit).toIntOrNull()
+                        if (mileage >= 0 && cost >= 0L) {
+                            onUpdateService(
+                                service.id, title.trim(), service.serviceType, date.trim(), mileage, cost,
+                                description.trim(), nextDate.trim().takeIf { it.isNotBlank() }, nextMileage, reminderEnabled
+                            )
+                            showEditor = false
+                        }
+                    }
+                ) { Text("ذخیره تغییرات") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditor = false }) { Text("انصراف") }
+            }
+        )
+    }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("حذف سرویس") },
+            text = { Text("سرویس «${service.title}» و هزینه متصل به آن حذف شود؟ این کار قابل بازگشت نیست.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteService(service.id)
+                        showDeleteConfirmation = false
+                    }
+                ) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+            }
+        )
     }
 }
 
