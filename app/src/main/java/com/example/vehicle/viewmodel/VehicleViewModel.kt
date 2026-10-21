@@ -186,11 +186,24 @@ class VehicleViewModel(
     }
 
     fun confirmReminderSchedule() {
+        val service = _uiState.value.lastAddedService
+        val hasDateReminder = !service?.nextReminderDate.isNullOrBlank()
+        val hasMileageReminder = service?.nextReminderMileage != null
+        val message = when {
+            hasDateReminder && hasMileageReminder ->
+                "یادآور تاریخ‌دار در تقویم و بخش یادآورها ثبت شد؛ هشدار کیلومتری نیز با ثبت کیلومتر جدید بررسی می‌شود."
+            hasDateReminder ->
+                "یادآور تاریخ‌دار در تقویم و بخش یادآورها ثبت شد."
+            hasMileageReminder ->
+                "یادآور کیلومتری ذخیره شد و هنگام ثبت کیلومترِ رسیده به هدف، هشدار داده می‌شود."
+            else ->
+                "سرویس ثبت شد؛ برای فعال‌سازی یادآور، تاریخ یا کیلومتر هدف وارد کنید."
+        }
         _uiState.update {
             it.copy(
                 showReminderConfirmationDialog = false,
                 lastAddedService = null,
-                snackBarMessage = "یادآور سرویس بعدی با موفقیت در تقویم مالی و بخش یادآورها فعال شد."
+                snackBarMessage = message
             )
         }
     }
