@@ -778,6 +778,29 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
 }
 
 /**
+ * Returns true/false for an expired/valid Jalali date, or null when the date is invalid.
+ * Date digits are normalized so Persian and ASCII input produce identical status.
+ */
+private fun jalaliDateExpired(expiryDate: String): Boolean? {
+    fun normalize(date: String): String? {
+        val ascii = IranianPhoneUtils.convertDigitsToEnglish(date.trim()).replace('-', '/')
+        val parts = ascii.split('/')
+        if (parts.size != 3) return null
+        val year = parts[0].toIntOrNull() ?: return null
+        val month = parts[1].toIntOrNull() ?: return null
+        val day = parts[2].toIntOrNull() ?: return null
+        if (year <= 0 || month !in 1..12 || day !in 1..31) return null
+        return "%04d/%02d/%02d".format(year, month, day)
+    }
+
+    val expiry = normalize(expiryDate) ?: return null
+    val today = normalize(
+        com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+    ) ?: return null
+    return expiry < today
+}
+
+/**
  * Tab 4: Insurance Policies & Technical Inspection View
  */
 @Composable
@@ -818,6 +841,7 @@ private fun VehicleInsuranceDocumentsTabContent(
             val costStr = IranianPhoneUtils.convertDigitsToPersian(
                 NumberFormat.getNumberInstance(Locale.US).format(ins.amount)
             )
+            val expiryState = jalaliDateExpired(ins.endDate)
 
             Layered3DCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -859,15 +883,27 @@ private fun VehicleInsuranceDocumentsTabContent(
 
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF10B981).copy(alpha = 0.12f)
+                            color = when (expiryState) {
+                                true -> Color(0xFFEF4444).copy(alpha = 0.12f)
+                                false -> Color(0xFF10B981).copy(alpha = 0.12f)
+                                null -> MaterialTheme.colorScheme.surfaceVariant
+                            }
                         ) {
                             Text(
-                                text = "دارای اعتبار",
+                                text = when (expiryState) {
+                                    true -> "منقضی شده"
+                                    false -> "دارای اعتبار"
+                                    null -> "تاریخ نامعتبر"
+                                },
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 10.sp
                                 ),
-                                color = Color(0xFF10B981),
+                                color = when (expiryState) {
+                                    true -> Color(0xFFEF4444)
+                                    false -> Color(0xFF10B981)
+                                    null -> MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -906,6 +942,7 @@ private fun VehicleInsuranceDocumentsTabContent(
         }
 
         items(inspections, key = { it.id }) { insp ->
+            val expiryState = jalaliDateExpired(insp.expiryDate)
             Layered3DCard(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = 2.dp
@@ -926,15 +963,27 @@ private fun VehicleInsuranceDocumentsTabContent(
                         )
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            color = when (expiryState) {
+                                true -> Color(0xFFEF4444).copy(alpha = 0.12f)
+                                false -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                null -> MaterialTheme.colorScheme.surfaceVariant
+                            }
                         ) {
                             Text(
-                                text = insp.status,
+                                text = when (expiryState) {
+                                    true -> "منقضی شده"
+                                    false -> insp.status.ifBlank { "معتبر" }
+                                    null -> "تاریخ نامعتبر"
+                                },
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 10.sp
                                 ),
-                                color = MaterialTheme.colorScheme.primary,
+                                color = when (expiryState) {
+                                    true -> Color(0xFFEF4444)
+                                    false -> MaterialTheme.colorScheme.primary
+                                    null -> MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
