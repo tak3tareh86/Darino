@@ -244,7 +244,7 @@ fun VehicleInsuranceSheet(
                     color = Color(0xFFF59E0B).copy(alpha = 0.1f)
                 ) {
                     Text(
-                        text = "🔔 یادآور خودکار ۳۰ روز، ۱۵ روز و ۷ روز قبل از پایان بیمه برای شما فعال خواهد بود.",
+                        text = "🔔 یادآورهای خودکار ۳۰، ۱۴، ۷ و ۱ روز پیش از انقضا و در روز انقضا فعال خواهند شد.",
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(10.dp)
