@@ -470,7 +470,8 @@ class VehicleViewModel(
         category: VehicleExpenseCategory,
         amount: Long,
         date: String,
-        description: String
+        description: String,
+        receiptImageUri: String? = null
     ) {
         val current = _uiState.value.selectedVehicle ?: return
         viewModelScope.launch {
@@ -480,7 +481,8 @@ class VehicleViewModel(
                 category = category,
                 amount = amount,
                 date = date,
-                description = description
+                description = description,
+                receiptImageUri = receiptImageUri
             )
             result.onSuccess {
                 _uiState.update {
