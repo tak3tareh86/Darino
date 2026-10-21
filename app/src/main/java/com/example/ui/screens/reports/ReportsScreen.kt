@@ -251,7 +251,8 @@ fun ReportsScreen(
                         ReportCategory.VEHICLE -> {
                             item {
                                 VehicleExpenseCard(
-                                    totalVehicleExpense = uiState.vehicleExpenseTotal
+                                    totalVehicleExpense = uiState.vehicleExpenseTotal,
+                                    onClick = onNavigateToVehicles
                                 )
                             }
                         }
@@ -1041,10 +1042,11 @@ private fun InstallmentSummaryCard(
 
 @Composable
 private fun VehicleExpenseCard(
-    totalVehicleExpense: Long
+    totalVehicleExpense: Long,
+    onClick: () -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         color = Color(0xFF10192D),
         border = BorderStroke(1.dp, Color(0xFF1E293B))
