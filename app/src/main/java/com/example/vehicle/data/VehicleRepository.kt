@@ -1366,6 +1366,9 @@ class VehicleRepository {
             ?: return@withContext Result.failure(IllegalArgumentException("تاریخ آخرین معاینه فنی نامعتبر است."))
         val expMs = parseJalaliToTimestamp(expiryDate)
             ?: return@withContext Result.failure(IllegalArgumentException("تاریخ انقضای معاینه فنی نامعتبر است."))
+        if (expMs < lastMs) {
+            return@withContext Result.failure(IllegalArgumentException("تاریخ انقضای معاینه فنی نمی‌تواند قبل از تاریخ آخرین معاینه باشد."))
+        }
 
         try {
             val db = AppDatabase.getDatabase(context)

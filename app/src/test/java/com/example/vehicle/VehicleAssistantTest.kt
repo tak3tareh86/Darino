@@ -96,6 +96,178 @@ class VehicleAssistantTest {
     }
 
     @Test
+    fun vehicleStatisticsNormalizePersianAndAsciiDatesAndDoNotUseLifetimeTotalAsYearlyTotal() {
+        val currentDate = com.example.util.PersianCalendarHelper
+            .fromEpochMillis(System.currentTimeMillis())
+            .toFormattedDate()
+        val asciiDate = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(currentDate)
+        val vehicleId = "stats-car"
+        val expenses = listOf(
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "current-persian",
+                vehicleId = vehicleId,
+                title = "هزینه با ارقام فارسی",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 100L,
+                date = currentDate
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "current-ascii",
+                vehicleId = vehicleId,
+                title = "هزینه با ارقام لاتین",
+                category = VehicleExpenseCategory.REPAIRS,
+                amount = 200L,
+                date = asciiDate
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "historical",
+                vehicleId = vehicleId,
+                title = "هزینه سال‌های قبل",
+                category = VehicleExpenseCategory.OTHER,
+                amount = 900L,
+                date = "1400/01/01"
+            )
+        )
+
+        val stats = VehicleAnalyzer.computeStatistics(
+            vehicleId = vehicleId,
+            expenses = expenses,
+            services = emptyList()
+        )
+
+        assertEquals(300L, stats.currentMonthCost)
+        assertEquals(300L, stats.yearlyCost)
+    }
+
+    @Test
+    fun vehicleHealthUsesLatestServiceAndNormalizesExpiryDates() {
+        val vehicle = com.example.vehicle.data.VehicleEntity(
+            id = "health-car",
+            brand = "برند",
+            model = "مدل",
+            year = "1402",
+            color = "سفید",
+            plate = "",
+            currentMileage = 57000
+        )
+        val services = listOf(
+            com.example.vehicle.data.VehicleServiceEntity(
+                id = "older-oil",
+                vehicleId = vehicle.id,
+                title = "سرویس قدیمی",
+                serviceType = ServiceType.OIL_CHANGE,
+                date = "1405/01/01",
+                mileage = 45000,
+                cost = 100L,
+                nextReminderMileage = 50000
+            ),
+            com.example.vehicle.data.VehicleServiceEntity(
+                id = "latest-oil",
+                vehicleId = vehicle.id,
+                title = "سرویس جدید",
+                serviceType = ServiceType.OIL_CHANGE,
+                date = "۱۴۰۵/۰۶/۰۱",
+                mileage = 55000,
+                cost = 100L,
+                nextReminderMileage = 60000
+            )
+        )
+        val insurance = com.example.vehicle.data.VehicleInsuranceEntity(
+            id = "expired-insurance",
+            vehicleId = vehicle.id,
+            company = "بیمه",
+            type = "شخص ثالث",
+            startDate = "۱۳۹۹/۰۱/۰۱",
+            endDate = "۱۴۰۰/۰۱/۰۱",
+            amount = 1000L
+        )
+        val inspection = com.example.vehicle.data.VehicleInspectionEntity(
+            id = "expired-inspection",
+            vehicleId = vehicle.id,
+            lastInspectionDate = "1399/01/01",
+            expiryDate = "1400/01/01",
+            cost = 100L
+        )
+
+        val report = VehicleAnalyzer.analyzeHealth(
+            vehicle = vehicle,
+            services = services,
+            insurances = listOf(insurance),
+            inspections = listOf(inspection)
+        )
+
+        val oilCheck = report.checklist.first { it.title == "روغن و فیلتر موتور" }
+        assertTrue(oilCheck.statusText.contains("3000"))
+        assertFalse(oilCheck.statusText.contains("معوق"))
+        assertTrue(report.checklist.first { it.title == "بیمه‌نامه خودرو" }.statusText.contains("منقضی شده"))
+        assertTrue(report.checklist.first { it.title == "معاینه فنی و آلایندگی" }.statusText.contains("منقضی شده"))
+    }
+
+    @Test
+    fun vehicleHealthDoesNotTreatInvalidExpiryDatesAsValid() {
+        val vehicle = com.example.vehicle.data.VehicleEntity(
+            id = "invalid-dates-car",
+            brand = "برند",
+            model = "مدل",
+            year = "1402",
+            color = "سفید",
+            plate = "",
+            currentMileage = 10000
+        )
+        val insurance = com.example.vehicle.data.VehicleInsuranceEntity(
+            id = "invalid-insurance",
+            vehicleId = vehicle.id,
+            company = "بیمه",
+            type = "شخص ثالث",
+            startDate = "۱۴۰۵/۰۱/۰۱",
+            endDate = "تاریخ نامشخص",
+            amount = 1000L
+        )
+        val inspection = com.example.vehicle.data.VehicleInspectionEntity(
+            id = "invalid-inspection",
+            vehicleId = vehicle.id,
+            lastInspectionDate = "1405/01/01",
+            expiryDate = "نامشخص",
+            cost = 100L
+        )
+
+        val report = VehicleAnalyzer.analyzeHealth(
+            vehicle = vehicle,
+            services = emptyList(),
+            insurances = listOf(insurance),
+            inspections = listOf(inspection)
+        )
+
+        assertTrue(report.checklist.first { it.title == "بیمه‌نامه خودرو" }.statusText.contains("نامعتبر"))
+        assertTrue(report.checklist.first { it.title == "معاینه فنی و آلایندگی" }.statusText.contains("نامعتبر"))
+    }
+
+    @Test
+    fun vehicleStatisticsReturnZeroForYearWithoutExpenses() {
+        val currentYear = com.example.util.PersianCalendarHelper
+            .fromEpochMillis(System.currentTimeMillis())
+            .year
+        val expenses = listOf(
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "old-expense",
+                vehicleId = "stats-car",
+                title = "هزینه قدیمی",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 900L,
+                date = "${currentYear - 1}/01/01"
+            )
+        )
+
+        val stats = VehicleAnalyzer.computeStatistics(
+            vehicleId = "stats-car",
+            expenses = expenses,
+            services = emptyList()
+        )
+
+        assertEquals(0L, stats.yearlyCost)
+    }
+
+    @Test
     fun serviceIntervalsUseVehicleProfileAndDoNotLeakTaraRules() {
         val tara = com.example.vehicle.data.VehicleEntity(
             id = "tara",
