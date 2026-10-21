@@ -214,6 +214,29 @@ class VehicleAssistantTest {
     }
 
     @Test
+    fun missingInspectionAndInsuranceAreNotReportedAsCompliant() {
+        val vehicle = com.example.vehicle.data.VehicleEntity(
+            id = "unknown-docs-car",
+            brand = "Test",
+            model = "Vehicle",
+            year = "1402",
+            color = "سفید",
+            plate = "TEST",
+            currentMileage = 0
+        )
+
+        val report = VehicleAnalyzer.analyzeHealth(
+            vehicle = vehicle,
+            services = emptyList(),
+            insurances = emptyList(),
+            inspections = emptyList()
+        )
+
+        assertFalse(report.checklist.first { it.title == "بیمه‌نامه خودرو" }.isOk)
+        assertFalse(report.checklist.first { it.title == "معاینه فنی و آلایندگی" }.isOk)
+    }
+
+    @Test
     fun yearlyCostDoesNotFallBackToAllTimeExpensesWhenCurrentYearIsZero() {
         val currentYear = com.example.util.PersianCalendarHelper
             .fromEpochMillis(System.currentTimeMillis()).year
