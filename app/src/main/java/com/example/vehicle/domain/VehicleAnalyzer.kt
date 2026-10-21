@@ -192,8 +192,8 @@ object VehicleAnalyzer {
             .filter { policy ->
                 val startKey = dateSortKey(policy.startDate)
                 val endKey = dateSortKey(policy.endDate)
-                endKey.isNotEmpty() && endKey >= todayKey &&
-                    (startKey.isEmpty() || startKey <= todayKey)
+                startKey.isNotEmpty() && startKey <= todayKey &&
+                    endKey.isNotEmpty() && endKey >= todayKey
             }
             .maxByOrNull { dateSortKey(it.endDate) }
             ?: policiesToConsider.maxWithOrNull(
@@ -205,6 +205,7 @@ object VehicleAnalyzer {
             val endKey = dateSortKey(thirdPartyInsurance.endDate)
             val isNotYetValid = startKey.isNotEmpty() && startKey > todayKey
             val isExpired = endKey.isNotEmpty() && endKey < todayKey
+            val hasUnknownStart = startKey.isEmpty()
             val hasUnknownExpiry = endKey.isEmpty()
 
             when {
@@ -232,11 +233,15 @@ object VehicleAnalyzer {
                     )
                     score -= 35
                 }
-                hasUnknownExpiry -> {
+                hasUnknownStart || hasUnknownExpiry -> {
+                    val missingDates = buildList {
+                        if (hasUnknownStart) add("شروع")
+                        if (hasUnknownExpiry) add("پایان")
+                    }.joinToString(" و ")
                     checklist.add(
                         VehicleHealthCheckItem(
                             title = "بیمه‌نامه خودرو",
-                            statusText = "تاریخ پایان اعتبار ثبت نشده؛ اعتبار بیمه تأیید نمی‌شود",
+                            statusText = "تاریخ $missingDates اعتبار ثبت نشده؛ اعتبار بیمه تأیید نمی‌شود",
                             isOk = false,
                             isWarning = true,
                             iconRes = R.drawable.img_3d_insurance
