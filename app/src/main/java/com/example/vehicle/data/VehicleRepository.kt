@@ -376,6 +376,79 @@ class VehicleRepository {
         db.smartReminderDao().insertSchedules(schedules)
     }
 
+    /**
+     * Mirrors a vehicle expense into the main finance ledger using a stable source-linked ID.
+     * Keeping both writes in the caller's Room transaction prevents half-saved expenses.
+     */
+    private suspend fun syncVehicleExpenseToFinance(
+        db: AppDatabase,
+        userId: String,
+        expense: VehicleExpenseRoomEntity
+    ) {
+        com.example.ui.screens.finance.data.LocalFinanceRepository.instance
+            .ensureDefaultAccounts(db, userId)
+
+        val account = db.accountDao().getAllAccountsRaw(userId)
+            .firstOrNull { it.isActive && it.deletedAt == null && it.type == "CARD" }
+            ?: db.accountDao().getAllAccountsRaw(userId)
+                .firstOrNull { it.isActive && it.deletedAt == null }
+            ?: throw IllegalStateException("برای ثبت هزینه خودرو، حساب مالی فعال پیدا نشد.")
+
+        val categoryTitle = runCatching {
+            VehicleExpenseCategory.valueOf(expense.category).title
+        }.getOrDefault("هزینه خودرو")
+        val financeTransactionId = "vehicle_expense_${expense.id}"
+        val existing = db.transactionDao()
+            .getTransactionIncludingDeleted(userId, financeTransactionId)
+        val now = System.currentTimeMillis()
+        val transaction = com.example.data.database.TransactionEntity(
+            id = existing?.id ?: 0,
+            userId = userId,
+            stringId = financeTransactionId,
+            title = expense.title,
+            amount = expense.amount,
+            type = "EXPENSE",
+            category = categoryTitle,
+            accountName = account.name,
+            description = expense.description,
+            timestamp = parseJalaliToTimestamp(expense.date) ?: now,
+            timeFormatted = "۰۹:۰۰",
+            datePersian = expense.date,
+            paymentMethod = when (account.type) {
+                "CASH" -> "CASH"
+                "OTHER" -> "OTHER"
+                else -> "BANK_CARD"
+            },
+            sourceType = "VEHICLE",
+            sourceId = expense.id,
+            accountId = account.stringId,
+            updatedAt = now,
+            deletedAt = null,
+            syncState = "PENDING_UPSERT"
+        )
+
+        if (existing == null) {
+            db.transactionDao().insertTransaction(transaction)
+        } else {
+            db.transactionDao().updateTransaction(transaction)
+        }
+    }
+
+    /** Soft-delete the linked ledger row so finance history and sync semantics stay consistent. */
+    private suspend fun deleteVehicleFinanceTransaction(
+        db: AppDatabase,
+        userId: String,
+        expenseId: String
+    ) {
+        val now = System.currentTimeMillis()
+        db.transactionDao().softDeleteByStringId(
+            userId = userId,
+            stringId = "vehicle_expense_$expenseId",
+            deletedAt = now,
+            updatedAt = now
+        )
+    }
+
     // 1. Add Vehicle (Synchronous suspend contract)
     suspend fun addVehicle(
         brand: String,
