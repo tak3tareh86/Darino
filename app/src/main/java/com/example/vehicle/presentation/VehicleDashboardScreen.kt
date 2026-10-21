@@ -879,7 +879,10 @@ private fun ServiceRecordCard(
                         if (mileage >= 0 && cost >= 0L) {
                             onUpdateService(
                                 service.id, title.trim(), service.serviceType, date.trim(), mileage, cost,
-                                description.trim(), nextDate.trim().takeIf { it.isNotBlank() }, nextMileage, reminderEnabled
+                                description.trim(),
+                                nextDate.trim().takeIf { reminderEnabled && it.isNotBlank() },
+                                nextMileage.takeIf { reminderEnabled },
+                                reminderEnabled
                             )
                             showEditor = false
                         }
