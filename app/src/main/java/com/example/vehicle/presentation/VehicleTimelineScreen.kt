@@ -31,6 +31,7 @@ import java.util.Locale
 @Composable
 fun VehicleTimelineScreen(
     events: List<VehicleTimelineEvent>,
+    onDeleteExpense: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (events.isEmpty()) {
@@ -72,7 +73,11 @@ fun VehicleTimelineScreen(
         ) {
             itemsIndexed(events, key = { _, item -> item.id }) { index, event ->
                 val isLast = index == events.size - 1
-                TimelineItemRow(event = event, isLast = isLast)
+                TimelineItemRow(
+                    event = event,
+                    isLast = isLast,
+                    onDeleteExpense = onDeleteExpense
+                )
             }
         }
     }
@@ -81,8 +86,12 @@ fun VehicleTimelineScreen(
 @Composable
 private fun TimelineItemRow(
     event: VehicleTimelineEvent,
-    isLast: Boolean
+    isLast: Boolean,
+    onDeleteExpense: (String) -> Unit
 ) {
+    var showDeleteConfirmation by androidx.compose.runtime.remember(event.id) {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
     val amountFormatted = IranianPhoneUtils.convertDigitsToPersian(
         NumberFormat.getNumberInstance(Locale.US).format(event.amount)
     )
@@ -185,7 +194,34 @@ private fun TimelineItemRow(
                         )
                     }
                 }
+                if (event is VehicleTimelineEvent.ExpenseEvent) {
+                    OutlinedButton(
+                        onClick = { showDeleteConfirmation = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) { Text("حذف هزینه") }
+                }
             }
+
+    if (showDeleteConfirmation && event is VehicleTimelineEvent.ExpenseEvent) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("حذف هزینه خودرو") },
+            text = { Text("این هزینه از پرونده خودرو و امور مالی حذف می‌شود. این کار قابل بازگشت نیست.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteExpense(event.id)
+                        showDeleteConfirmation = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("حذف") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+            }
+        )
+    }
         }
     }
 }
