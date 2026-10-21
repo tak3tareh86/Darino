@@ -181,8 +181,54 @@ class VehicleViewModel(
         _uiState.update { it.copy(showMileageDialog = false) }
     }
 
+    fun closeReminderConfirmationDialog() {
+        _uiState.update {
+            it.copy(
+                showReminderConfirmationDialog = false,
+                lastAddedService = null,
+                snackBarMessage = "یادآور تنظیم‌شده همچنان فعال است."
+            )
+        }
+    }
+
     fun dismissReminderConfirmation() {
-        _uiState.update { it.copy(showReminderConfirmationDialog = false, lastAddedService = null) }
+        val service = _uiState.value.lastAddedService
+        if (service == null) {
+            closeReminderConfirmationDialog()
+            return
+        }
+
+        viewModelScope.launch {
+            val result = repository.updateService(
+                serviceId = service.id,
+                title = service.title,
+                serviceType = service.serviceType,
+                date = service.date,
+                mileage = service.mileage,
+                cost = service.cost,
+                description = service.description,
+                nextReminderDate = service.nextReminderDate,
+                nextReminderMileage = service.nextReminderMileage,
+                isReminderEnabled = false
+            )
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        showReminderConfirmationDialog = false,
+                        lastAddedService = null,
+                        snackBarMessage = "سرویس ثبت شد؛ یادآور آن غیرفعال شد."
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(
+                        showReminderConfirmationDialog = false,
+                        lastAddedService = null,
+                        snackBarMessage = "سرویس ثبت شد اما غیرفعال‌کردن یادآور ناموفق بود: ${error.localizedMessage ?: "خطای پایگاه داده."}"
+                    )
+                }
+            }
+        }
     }
 
     fun confirmReminderSchedule() {
