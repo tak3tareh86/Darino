@@ -84,7 +84,7 @@ data class VehicleMonthlyExpenseBar(
 object VehicleAnalyzer {
 
     /**
-     * Produces a stable sortable key for zero-padded Jalali dates, accepting Persian,
+     * Produces a stable sortable key for padded or unpadded Jalali dates, accepting Persian,
      * Arabic-Indic, or Latin digits and ignoring separators/formatting.
      */
     private fun dateSortKey(value: String): String {
