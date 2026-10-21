@@ -69,9 +69,11 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     private val _customEndDate = MutableStateFlow(ShamsiDate(now.year, now.month, PersianCalendarHelper.getDaysInMonth(now.year, now.month)))
 
     init {
-        // Initialize repos if needed
+        // Initialize every source used by this screen; otherwise vehicle reports stay empty
+        // when the user opens Reports before visiting the Vehicle section.
         financeRepo.init(application)
-        
+        vehicleRepo.initDatabase(application)
+
         viewModelScope.launch {
             combine(
                 financeRepo.getTransactions(),
@@ -182,12 +184,32 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         
         val activeInstallmentsCount = allInstallments.count { it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED }
 
-        // 5. Vehicle Report (Canonical data from VehicleRepository)
+        // 5. Vehicle Report. Parent records are mirrored into vehicle_expenses using stable IDs.
+        // Count each linked cost once, but fall back to the parent record for older data that
+        // has not yet been reconciled by VehicleRepository.
         fun calculateVehicleSum(start: Long, end: Long): Long {
-            val vExp = vExpenses.filter { parsePersianDateToMillis(it.date) in start..end }.sumOf { it.amount }
-            val vSer = vServices.filter { parsePersianDateToMillis(it.date) in start..end }.sumOf { it.cost }
-            val vInsp = vInspections.filter { parsePersianDateToMillis(it.lastInspectionDate) in start..end }.sumOf { it.cost }
-            val vIns = vInsurances.filter { parsePersianDateToMillis(it.startDate) in start..end }.sumOf { it.amount }
+            val expenseIds = vExpenses.mapTo(mutableSetOf()) { it.id }
+            val vExp = vExpenses
+                .filter { parsePersianDateToMillis(it.date) in start..end }
+                .sumOf { it.amount }
+            val vSer = vServices
+                .filter {
+                    "exp_svc_${it.id}" !in expenseIds &&
+                        parsePersianDateToMillis(it.date) in start..end
+                }
+                .sumOf { it.cost }
+            val vInsp = vInspections
+                .filter {
+                    "exp_insp_${it.id}" !in expenseIds &&
+                        parsePersianDateToMillis(it.lastInspectionDate) in start..end
+                }
+                .sumOf { it.cost }
+            val vIns = vInsurances
+                .filter {
+                    "exp_ins_${it.id}" !in expenseIds &&
+                        parsePersianDateToMillis(it.startDate) in start..end
+                }
+                .sumOf { it.amount }
             return vExp + vSer + vInsp + vIns
         }
 
