@@ -204,6 +204,45 @@ class VehicleAssistantTest {
     }
 
     @Test
+    fun vehicleHealthDoesNotTreatInvalidExpiryDatesAsValid() {
+        val vehicle = com.example.vehicle.data.VehicleEntity(
+            id = "invalid-dates-car",
+            brand = "برند",
+            model = "مدل",
+            year = "1402",
+            color = "سفید",
+            plate = "",
+            currentMileage = 10000
+        )
+        val insurance = com.example.vehicle.data.VehicleInsuranceEntity(
+            id = "invalid-insurance",
+            vehicleId = vehicle.id,
+            company = "بیمه",
+            type = "شخص ثالث",
+            startDate = "۱۴۰۵/۰۱/۰۱",
+            endDate = "تاریخ نامشخص",
+            amount = 1000L
+        )
+        val inspection = com.example.vehicle.data.VehicleInspectionEntity(
+            id = "invalid-inspection",
+            vehicleId = vehicle.id,
+            lastInspectionDate = "1405/01/01",
+            expiryDate = "نامشخص",
+            cost = 100L
+        )
+
+        val report = VehicleAnalyzer.analyzeHealth(
+            vehicle = vehicle,
+            services = emptyList(),
+            insurances = listOf(insurance),
+            inspections = listOf(inspection)
+        )
+
+        assertTrue(report.checklist.first { it.title == "بیمه‌نامه خودرو" }.statusText.contains("نامعتبر"))
+        assertTrue(report.checklist.first { it.title == "معاینه فنی و آلایندگی" }.statusText.contains("نامعتبر"))
+    }
+
+    @Test
     fun vehicleStatisticsReturnZeroForYearWithoutExpenses() {
         val currentYear = com.example.util.PersianCalendarHelper
             .fromEpochMillis(System.currentTimeMillis())
