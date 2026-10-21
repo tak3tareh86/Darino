@@ -268,6 +268,25 @@ object VehicleAnalyzer {
         )
     }
 
+    /**
+     * Converts a Jalali year/month prefix to a stable ASCII `yyyy/MM` value.
+     * Accepts Persian, Arabic, or ASCII digits and either slash or hyphen separators.
+     * Invalid or incomplete dates return null rather than being counted in the wrong period.
+     */
+    private fun normalizedYearMonth(date: String): String? {
+        val asciiDate = com.example.util.IranianPhoneUtils
+            .convertDigitsToEnglish(date.trim())
+            .replace('-', '/')
+        val parts = asciiDate.split('/')
+        if (parts.size < 2) return null
+
+        val year = parts[0].toIntOrNull() ?: return null
+        val month = parts[1].toIntOrNull() ?: return null
+        if (year <= 0 || month !in 1..12) return null
+
+        return "%04d/%02d".format(year, month)
+    }
+
     fun computeStatistics(
         vehicleId: String,
         expenses: List<VehicleExpenseEntity>,
@@ -282,10 +301,18 @@ object VehicleAnalyzer {
         val currentYearMonth = "%04d/%02d".format(currentYear, currentMonth)
         val currentYearStr = "%04d".format(currentYear)
 
-        val currentMonthCost = carExpenses.filter { it.date.startsWith(currentYearMonth) }.sumOf { it.amount }
-        val yearlyCost = carExpenses.filter { it.date.startsWith(currentYearStr) }.sumOf { it.amount }.let {
-            if (it == 0L && carExpenses.isNotEmpty()) carExpenses.sumOf { exp -> exp.amount } else it
-        }
+        // Normalize Persian/Arabic/ASCII digits before comparing dates. Stored expense
+        // dates can come from different input paths and must not silently disappear
+        // from reports merely because their digits use a different script.
+        val currentMonthCost = carExpenses
+            .filter { normalizedYearMonth(it.date) == currentYearMonth }
+            .sumOf { it.amount }
+
+        // A zero-cost year is a valid result. Never substitute lifetime expenses
+        // for the selected year's total.
+        val yearlyCost = carExpenses
+            .filter { normalizedYearMonth(it.date)?.startsWith(currentYearStr) == true }
+            .sumOf { it.amount }
 
         val categoryTotals = VehicleExpenseCategory.values().map { cat ->
             val total = carExpenses.filter { it.category == cat }.sumOf { it.amount }
@@ -312,7 +339,7 @@ object VehicleAnalyzer {
                 y -= 1
             }
             val prefix = "%04d/%02d".format(y, m)
-            val monthExpenses = carExpenses.filter { it.date.startsWith(prefix) }
+            val monthExpenses = carExpenses.filter { normalizedYearMonth(it.date) == prefix }
             val fuel = monthExpenses.filter { it.category == VehicleExpenseCategory.FUEL }.sumOf { it.amount }
             val repair = monthExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS || it.category == VehicleExpenseCategory.PARTS }.sumOf { it.amount }
             val service = monthExpenses.filter { it.category == VehicleExpenseCategory.SERVICE }.sumOf { it.amount }
