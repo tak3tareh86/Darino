@@ -2,6 +2,8 @@ package com.example.vehicle.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -176,11 +178,12 @@ fun VehicleInsuranceSheet(
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Row(
+                // Keep every supported insurer selectable on narrow screens too.
+                LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    companies.take(3).forEach { comp ->
+                    items(companies) { comp ->
                         FilterChip(
                             selected = insuranceCompany == comp,
                             onClick = { insuranceCompany = comp },
