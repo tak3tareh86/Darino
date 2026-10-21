@@ -135,22 +135,22 @@ class VehicleRepository {
                         )
 
                         if (s.cost > 0L) {
-                            vDao.insertExpense(
-                                VehicleExpenseRoomEntity(
-                                    id = "exp_svc_${s.id}",
-                                    userId = userId,
-                                    vehicleId = s.vehicleId,
-                                    title = s.title,
-                                    category = VehicleExpenseCategory.SERVICE.name,
-                                    amount = s.cost,
-                                    date = s.date,
-                                    description = "سرویس دوره‌ای خودرو: ${s.description}"
-                                )
+                            val serviceExpense = VehicleExpenseRoomEntity(
+                                id = "exp_svc_${s.id}",
+                                userId = userId,
+                                vehicleId = s.vehicleId,
+                                title = s.title,
+                                category = VehicleExpenseCategory.SERVICE.name,
+                                amount = s.cost,
+                                date = s.date,
+                                description = "سرویس دوره‌ای خودرو: ${s.description}"
                             )
+                            vDao.insertExpense(serviceExpense)
+                            syncVehicleExpenseToFinance(db, userId, serviceExpense)
                         }
                     }
 
-                    vDao.insertExpenses(migratedExpenses.map { e ->
+                    val migratedExpenseEntities = migratedExpenses.map { e ->
                         VehicleExpenseRoomEntity(
                             id = e.id,
                             userId = userId,
@@ -162,7 +162,11 @@ class VehicleRepository {
                             description = e.description,
                             receiptImageUri = e.receiptImageUri
                         )
-                    })
+                    }
+                    vDao.insertExpenses(migratedExpenseEntities)
+                    migratedExpenseEntities.forEach { expense ->
+                        syncVehicleExpenseToFinance(db, userId, expense)
+                    }
 
                     vDao.insertInsurances(migratedInsurances.map { ins ->
                         VehicleInsuranceRoomEntity(
