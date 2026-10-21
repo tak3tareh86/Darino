@@ -30,7 +30,7 @@ import androidx.room.RoomDatabase
         VehicleStoreEntity::class,
         UserPreferenceEntity::class
     ],
-    version = 25,
+    version = 26,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -400,6 +400,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_25_26 = object : androidx.room.migration.Migration(25, 26) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `vehicle_services` ADD COLUMN `reminderEnabled` INTEGER NOT NULL DEFAULT 1")
+                // Before this migration, status was also being used as the reminder toggle.
+                // Preserve that old toggle value while leaving the status column available
+                // for the actual service lifecycle going forward.
+                db.execSQL("UPDATE `vehicle_services` SET `reminderEnabled` = CASE WHEN `status` = 'COMPLETED' THEN 0 ELSE 1 END")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -411,7 +421,8 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
                          MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
-                         MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25
+                         MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
+                         MIGRATION_25_26
                      )
                     .build()
                 INSTANCE = instance
