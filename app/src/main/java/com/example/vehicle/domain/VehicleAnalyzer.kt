@@ -448,7 +448,12 @@ object VehicleAnalyzer {
             )
         }
 
-        expenses.filter { it.vehicleId == vehicleId && it.category != VehicleExpenseCategory.SERVICE && it.category != VehicleExpenseCategory.INSURANCE }.forEach { e ->
+        expenses.filter { expense ->
+            expense.vehicleId == vehicleId &&
+                !expense.id.startsWith("exp_svc_") &&
+                !expense.id.startsWith("exp_ins_") &&
+                !expense.id.startsWith("exp_insp_")
+        }.forEach { e ->
             timeline.add(
                 VehicleTimelineEvent.ExpenseEvent(
                     id = e.id,
