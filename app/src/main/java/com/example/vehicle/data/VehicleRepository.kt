@@ -431,11 +431,11 @@ class VehicleRepository {
             existing.timestamp == expenseTimestamp &&
             existing.datePersian == expense.date &&
             existing.accountName == account.name &&
-            existing.paymentMethod == when (account.type) {
+            existing.paymentMethod == (when (account.type) {
                 "CASH" -> "CASH"
                 "OTHER" -> "OTHER"
                 else -> "BANK_CARD"
-            } &&
+            }) &&
             existing.sourceType == "VEHICLE" &&
             existing.sourceId == expense.id &&
             existing.accountId == account.stringId
