@@ -312,11 +312,14 @@ object VehicleAnalyzer {
             checklist.add(
                 VehicleHealthCheckItem(
                     title = "معاینه فنی و آلایندگی",
-                    statusText = "معاف از معاینه / استعلام ثبت نشده",
-                    isOk = true,
+                    statusText = "سابقه معاینه فنی ثبت نشده؛ اعتبار یا معافیت را بررسی کنید",
+                    isOk = false,
+                    isWarning = true,
                     iconRes = R.drawable.img_3d_settings_gear
                 )
             )
+            // Missing data is unknown, not proof that the vehicle is exempt or compliant.
+            score -= 10
         }
 
         val clampedScore = score.coerceIn(10, 100)
