@@ -249,6 +249,8 @@ class VehicleViewModel(
         color: String,
         plate: String,
         vin: String,
+        engine: String,
+        transmission: String,
         estimatedValue: Long
     ) {
         val current = _uiState.value.selectedVehicle ?: return
@@ -259,6 +261,8 @@ class VehicleViewModel(
             color = color,
             plate = plate,
             vin = vin,
+            engine = engine,
+            transmission = transmission,
             estimatedValue = estimatedValue
         )
         viewModelScope.launch {
