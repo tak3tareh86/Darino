@@ -312,7 +312,10 @@ fun DarinoVehicleMainDashboard(
                             VehicleInsuranceDocumentsTabContent(
                                 insurances = state.insurance,
                                 inspections = state.inspections,
-                                onOpenManage = { viewModel.openInsuranceSheet() }
+                                onOpenManage = { viewModel.openInsuranceSheet() },
+                                onRenewInsurance = { id, endDate -> viewModel.renewInsuranceRecord(id, endDate) },
+                                onDeleteInsurance = { id -> viewModel.deleteInsuranceRecord(id) },
+                                onDeleteInspection = { id -> viewModel.deleteInspectionRecord(id) }
                             )
                         }
                     }
@@ -926,7 +929,10 @@ private fun jalaliDateSortKey(value: String): String = buildString {
 private fun VehicleInsuranceDocumentsTabContent(
     insurances: List<VehicleInsuranceEntity>,
     inspections: List<VehicleInspectionEntity>,
-    onOpenManage: () -> Unit
+    onOpenManage: () -> Unit,
+    onRenewInsurance: (insuranceId: String, newEndDate: String) -> Unit,
+    onDeleteInsurance: (insuranceId: String) -> Unit,
+    onDeleteInspection: (inspectionId: String) -> Unit
 ) {
     val todayKey = remember {
         jalaliDateSortKey(com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate())
@@ -960,6 +966,9 @@ private fun VehicleInsuranceDocumentsTabContent(
 
         // Insurance List
         items(insurances, key = { it.id }) { ins ->
+            var showRenewDialog by remember(ins.id) { mutableStateOf(false) }
+            var showDeleteDialog by remember(ins.id) { mutableStateOf(false) }
+            var renewalEndDate by remember(ins.id) { mutableStateOf(ins.endDate) }
             val costStr = IranianPhoneUtils.convertDigitsToPersian(
                 NumberFormat.getNumberInstance(Locale.US).format(ins.amount)
             )
@@ -1050,7 +1059,60 @@ private fun VehicleInsuranceDocumentsTabContent(
                             )
                         )
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { showRenewDialog = true }) { Text("تمدید بیمه") }
+                        TextButton(onClick = { showDeleteDialog = true }) {
+                            Text("حذف بیمه‌نامه", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
+            }
+
+            if (showRenewDialog) {
+                AlertDialog(
+                    onDismissRequest = { showRenewDialog = false },
+                    title = { Text("تمدید بیمه‌نامه") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("تاریخ پایان جدید را به تقویم شمسی وارد کنید.")
+                            OutlinedTextField(
+                                value = renewalEndDate,
+                                onValueChange = { renewalEndDate = it },
+                                label = { Text("تاریخ پایان جدید") },
+                                singleLine = true
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            enabled = renewalEndDate.isNotBlank(),
+                            onClick = {
+                                onRenewInsurance(ins.id, renewalEndDate.trim())
+                                showRenewDialog = false
+                            }
+                        ) { Text("ثبت تمدید") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showRenewDialog = false }) { Text("انصراف") }
+                    }
+                )
+            }
+
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("حذف بیمه‌نامه") },
+                    text = { Text("بیمه‌نامه «${ins.type}» و هزینه متصل به آن حذف شود؟") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            onDeleteInsurance(ins.id)
+                            showDeleteDialog = false
+                        }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) { Text("انصراف") }
+                    }
+                )
             }
         }
 
@@ -1064,6 +1126,7 @@ private fun VehicleInsuranceDocumentsTabContent(
         }
 
         items(inspections, key = { it.id }) { insp ->
+            var showDeleteDialog by remember(insp.id) { mutableStateOf(false) }
             Layered3DCard(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = 2.dp
@@ -1114,7 +1177,29 @@ private fun VehicleInsuranceDocumentsTabContent(
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Row {
+                        TextButton(onClick = { showDeleteDialog = true }) {
+                            Text("حذف سابقه معاینه", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
+            }
+
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("حذف سابقه معاینه فنی") },
+                    text = { Text("سابقه معاینه فنی و هزینه متصل به آن حذف شود؟") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            onDeleteInspection(insp.id)
+                            showDeleteDialog = false
+                        }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) { Text("انصراف") }
+                    }
+                )
             }
         }
     }
