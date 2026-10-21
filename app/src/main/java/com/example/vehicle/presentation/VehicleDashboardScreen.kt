@@ -305,7 +305,10 @@ fun DarinoVehicleMainDashboard(
                             VehicleInsuranceDocumentsTabContent(
                                 insurances = state.insurance,
                                 inspections = state.inspections,
-                                onOpenManage = { viewModel.openInsuranceSheet() }
+                                onOpenManage = { viewModel.openInsuranceSheet() },
+                                onRenewInsurance = { id, date -> viewModel.renewInsuranceRecord(id, date) },
+                                onDeleteInsurance = { id -> viewModel.deleteInsuranceRecord(id) },
+                                onDeleteInspection = { id -> viewModel.deleteInspectionRecord(id) }
                             )
                         }
                     }
@@ -807,8 +810,15 @@ private fun jalaliDateExpired(expiryDate: String): Boolean? {
 private fun VehicleInsuranceDocumentsTabContent(
     insurances: List<VehicleInsuranceEntity>,
     inspections: List<VehicleInspectionEntity>,
-    onOpenManage: () -> Unit
+    onOpenManage: () -> Unit,
+    onRenewInsurance: (insuranceId: String, newEndDate: String) -> Unit,
+    onDeleteInsurance: (insuranceId: String) -> Unit,
+    onDeleteInspection: (inspectionId: String) -> Unit
 ) {
+    var renewingInsuranceId by remember { mutableStateOf<String?>(null) }
+    var renewalDate by remember { mutableStateOf("") }
+    var pendingDelete by remember { mutableStateOf<Pair<String, String>?>(null) }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -831,7 +841,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                     onClick = onOpenManage,
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("ثبت یا ویرایش", style = MaterialTheme.typography.labelSmall)
+                    Text("ثبت اطلاعات جدید", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
@@ -928,6 +938,26 @@ private fun VehicleInsuranceDocumentsTabContent(
                             )
                         )
                     }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val today = com.example.util.PersianCalendarHelper
+                                    .fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                                val baseDate = if (expiryState == true) today else ins.endDate
+                                renewalDate = com.example.util.PersianCalendarHelper.addMonthsToPersianDate(baseDate, 12)
+                                renewingInsuranceId = ins.id
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) { Text("تمدید بیمه") }
+                        OutlinedButton(
+                            onClick = { pendingDelete = "insurance" to ins.id },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) { Text("حذف بیمه‌نامه") }
+                    }
                 }
             }
         }
@@ -994,8 +1024,68 @@ private fun VehicleInsuranceDocumentsTabContent(
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    OutlinedButton(
+                        onClick = { pendingDelete = "inspection" to insp.id },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) { Text("حذف سابقه معاینه") }
                 }
             }
         }
     }
+    if (renewingInsuranceId != null) {
+        AlertDialog(
+            onDismissRequest = { renewingInsuranceId = null },
+            title = { Text("تمدید بیمه‌نامه") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("تاریخ پایان جدید بیمه‌نامه را انتخاب کنید.")
+                    com.example.ui.components.PersianDateInputField(
+                        value = renewalDate,
+                        onValueChange = { renewalDate = it },
+                        label = "تاریخ پایان جدید",
+                        placeholder = "۱۴۰۶/۰۱/۰۱",
+                        dialogTitle = "انتخاب تاریخ پایان جدید"
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val id = renewingInsuranceId
+                        if (id != null && renewalDate.isNotBlank()) {
+                            onRenewInsurance(id, renewalDate)
+                            renewingInsuranceId = null
+                        }
+                    },
+                    enabled = renewingInsuranceId != null && renewalDate.isNotBlank()
+                ) { Text("ثبت تمدید") }
+            },
+            dismissButton = {
+                TextButton(onClick = { renewingInsuranceId = null }) { Text("انصراف") }
+            }
+        )
+    }
+
+    pendingDelete?.let { (recordType, recordId) ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text(if (recordType == "insurance") "حذف بیمه‌نامه" else "حذف سابقه معاینه") },
+            text = { Text("این سابقه و یادآورهای مرتبط با آن حذف می‌شوند. این کار قابل بازگشت نیست.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (recordType == "insurance") onDeleteInsurance(recordId)
+                        else onDeleteInspection(recordId)
+                        pendingDelete = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("حذف") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("انصراف") }
+            }
+        )
+    }
+
 }
