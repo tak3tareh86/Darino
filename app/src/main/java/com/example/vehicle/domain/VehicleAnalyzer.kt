@@ -169,7 +169,18 @@ object VehicleAnalyzer {
         if (thirdPartyInsurance != null) {
             val insuranceEndDate = normalizedDate(thirdPartyInsurance.endDate)
             val isExpired = insuranceEndDate != null && todayJalali != null && insuranceEndDate < todayJalali
-            if (isExpired) {
+            if (insuranceEndDate == null || todayJalali == null) {
+                checklist.add(
+                    VehicleHealthCheckItem(
+                        title = "بیمه‌نامه خودرو",
+                        statusText = "تاریخ انقضا نامعتبر؛ اعتبار بیمه‌نامه را بررسی کنید",
+                        isOk = false,
+                        isWarning = true,
+                        iconRes = R.drawable.img_3d_insurance
+                    )
+                )
+                score -= 15
+            } else if (isExpired) {
                 checklist.add(
                     VehicleHealthCheckItem(
                         title = "بیمه‌نامه خودرو",
@@ -230,7 +241,18 @@ object VehicleAnalyzer {
         if (carInspection != null) {
             val inspectionExpiryDate = normalizedDate(carInspection.expiryDate)
             val isInspectionExpired = inspectionExpiryDate != null && todayJalali != null && inspectionExpiryDate < todayJalali
-            if (isInspectionExpired) {
+            if (inspectionExpiryDate == null || todayJalali == null) {
+                checklist.add(
+                    VehicleHealthCheckItem(
+                        title = "معاینه فنی و آلایندگی",
+                        statusText = "تاریخ انقضا نامعتبر؛ اعتبار معاینه فنی را بررسی کنید",
+                        isOk = false,
+                        isWarning = true,
+                        iconRes = R.drawable.img_3d_settings_gear
+                    )
+                )
+                score -= 10
+            } else if (isInspectionExpired) {
                 checklist.add(
                     VehicleHealthCheckItem(
                         title = "معاینه فنی و آلایندگی",
