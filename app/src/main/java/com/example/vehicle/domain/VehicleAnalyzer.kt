@@ -351,13 +351,17 @@ object VehicleAnalyzer {
         val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
         val currentYear = currentPdt.year
         val currentMonth = currentPdt.month
-        val currentYearMonth = "%04d/%02d".format(currentYear, currentMonth)
+        val currentYearMonth = "%04d%02d".format(currentYear, currentMonth)
         val currentYearStr = "%04d".format(currentYear)
 
-        val currentMonthCost = carExpenses.filter { it.date.startsWith(currentYearMonth) }.sumOf { it.amount }
-        val yearlyCost = carExpenses.filter { it.date.startsWith(currentYearStr) }.sumOf { it.amount }.let {
-            if (it == 0L && carExpenses.isNotEmpty()) carExpenses.sumOf { exp -> exp.amount } else it
-        }
+        // Normalize separators and Persian/Arabic digits before comparing dates.
+        val currentMonthCost = carExpenses
+            .filter { dateSortKey(it.date).startsWith(currentYearMonth) }
+            .sumOf { it.amount }
+        // A zero current-year total is real data; never silently replace it with all-time spending.
+        val yearlyCost = carExpenses
+            .filter { dateSortKey(it.date).startsWith(currentYearStr) }
+            .sumOf { it.amount }
 
         val categoryTotals = VehicleExpenseCategory.values().map { cat ->
             val total = carExpenses.filter { it.category == cat }.sumOf { it.amount }
@@ -368,7 +372,9 @@ object VehicleAnalyzer {
 
         val topCategory = categoryTotals.firstOrNull() ?: VehicleCostCategoryStat(VehicleExpenseCategory.SERVICE, 0L, 0)
 
-        val lastRepair = carExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS }.firstOrNull()
+        val lastRepair = carExpenses
+            .filter { it.category == VehicleExpenseCategory.REPAIRS }
+            .maxByOrNull { dateSortKey(it.date) }
         val lastRepairTitle = lastRepair?.title ?: "بدون تعمیرات سنگین"
         val lastRepairDate = lastRepair?.date ?: "—"
 
@@ -383,8 +389,8 @@ object VehicleAnalyzer {
                 m += 12
                 y -= 1
             }
-            val prefix = "%04d/%02d".format(y, m)
-            val monthExpenses = carExpenses.filter { it.date.startsWith(prefix) }
+            val prefix = "%04d%02d".format(y, m)
+            val monthExpenses = carExpenses.filter { dateSortKey(it.date).startsWith(prefix) }
             val fuel = monthExpenses.filter { it.category == VehicleExpenseCategory.FUEL }.sumOf { it.amount }
             val repair = monthExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS || it.category == VehicleExpenseCategory.PARTS }.sumOf { it.amount }
             val service = monthExpenses.filter { it.category == VehicleExpenseCategory.SERVICE }.sumOf { it.amount }
@@ -473,6 +479,6 @@ object VehicleAnalyzer {
         }
 
         // Sort descending by date
-        return timeline.sortedByDescending { it.date }
+        return timeline.sortedByDescending { dateSortKey(it.date) }
     }
 }
