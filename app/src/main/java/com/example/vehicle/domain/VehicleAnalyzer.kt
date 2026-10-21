@@ -83,6 +83,29 @@ data class VehicleMonthlyExpenseBar(
  */
 object VehicleAnalyzer {
 
+    /**
+     * Produces a stable sortable key for padded or unpadded Jalali dates, accepting Persian,
+     * Arabic-Indic, or Latin digits and ignoring separators/formatting.
+     */
+    private fun dateSortKey(value: String): String {
+        val normalized = buildString {
+            value.forEach { char ->
+                when (char) {
+                    in '0'..'9' -> append(char)
+                    in '۰'..'۹' -> append(('0'.code + (char.code - '۰'.code)).toChar())
+                    in '٠'..'٩' -> append(('0'.code + (char.code - '٠'.code)).toChar())
+                    else -> append('/')
+                }
+            }
+        }
+        val parts = normalized.split('/').filter { it.isNotEmpty() }
+        return if (parts.size >= 3) {
+            parts[0].padStart(4, '0') + parts[1].padStart(2, '0') + parts[2].padStart(2, '0')
+        } else {
+            normalized.filter { it.isDigit() }
+        }
+    }
+
     fun analyzeHealth(
         vehicle: VehicleEntity,
         services: List<VehicleServiceEntity>,
@@ -91,10 +114,17 @@ object VehicleAnalyzer {
     ): VehicleHealthReport {
         val carServices = services.filter { it.vehicleId == vehicle.id }
         val carInsurances = insurances.filter { it.vehicleId == vehicle.id }
-        val carInspection = inspections.find { it.vehicleId == vehicle.id }
+        // DAO order is not a reliable definition of "latest"; select by normalized Jalali date.
+        val carInspection = inspections
+            .filter { it.vehicleId == vehicle.id }
+            .maxByOrNull { dateSortKey(it.lastInspectionDate) }
 
-        val lastOilService = carServices.find { it.serviceType == ServiceType.OIL_CHANGE }
-        val lastBrakeService = carServices.find { it.serviceType == ServiceType.BRAKE_PADS }
+        val lastOilService = carServices
+            .filter { it.serviceType == ServiceType.OIL_CHANGE }
+            .maxWithOrNull(compareBy<VehicleServiceEntity> { dateSortKey(it.date) }.thenBy { it.mileage })
+        val lastBrakeService = carServices
+            .filter { it.serviceType == ServiceType.BRAKE_PADS }
+            .maxWithOrNull(compareBy<VehicleServiceEntity> { dateSortKey(it.date) }.thenBy { it.mileage })
 
         val checklist = mutableListOf<VehicleHealthCheckItem>()
         var score = 100
@@ -104,7 +134,9 @@ object VehicleAnalyzer {
 
         // 1. Oil & Filter Health
         if (lastOilService != null) {
-            val nextKm = lastOilService.nextReminderMileage ?: (lastOilService.mileage + 5000)
+            val configuredIntervalKm = lastOilService.serviceType.defaultIntervalKm
+            val fallbackIntervalKm = configuredIntervalKm.takeIf { it > 0 } ?: 5000
+            val nextKm = lastOilService.nextReminderMileage ?: (lastOilService.mileage + fallbackIntervalKm)
             val kmRemaining = nextKm - vehicle.currentMileage
             if (kmRemaining < 0) {
                 checklist.add(
@@ -152,29 +184,82 @@ object VehicleAnalyzer {
         }
 
         // 2. Insurance Status
-        val thirdPartyInsurance = carInsurances.find { it.type.contains("ثالث") } ?: carInsurances.firstOrNull()
+        val todayKey = dateSortKey(todayJalali)
+        val thirdPartyPolicies = carInsurances.filter { it.type.contains("ثالث") }
+        val policiesToConsider = thirdPartyPolicies.ifEmpty { carInsurances }
+        // Prefer a currently valid policy; if none is valid, show the most recently relevant policy.
+        val thirdPartyInsurance = policiesToConsider
+            .filter { policy ->
+                val startKey = dateSortKey(policy.startDate)
+                val endKey = dateSortKey(policy.endDate)
+                startKey.isNotEmpty() && startKey <= todayKey &&
+                    endKey.isNotEmpty() && endKey >= todayKey
+            }
+            .maxByOrNull { dateSortKey(it.endDate) }
+            ?: policiesToConsider.maxWithOrNull(
+                compareBy<VehicleInsuranceEntity> { dateSortKey(it.endDate) }
+                    .thenBy { dateSortKey(it.startDate) }
+            )
         if (thirdPartyInsurance != null) {
-            val isExpired = thirdPartyInsurance.endDate.isNotBlank() && thirdPartyInsurance.endDate < todayJalali
-            if (isExpired) {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "بیمه‌نامه خودرو",
-                        statusText = "منقضی شده در ${thirdPartyInsurance.endDate} (${thirdPartyInsurance.company})",
-                        isOk = false,
-                        isWarning = true,
-                        iconRes = R.drawable.img_3d_insurance
+            val startKey = dateSortKey(thirdPartyInsurance.startDate)
+            val endKey = dateSortKey(thirdPartyInsurance.endDate)
+            val isNotYetValid = startKey.isNotEmpty() && startKey > todayKey
+            val isExpired = endKey.isNotEmpty() && endKey < todayKey
+            val hasUnknownStart = startKey.isEmpty()
+            val hasUnknownExpiry = endKey.isEmpty()
+
+            when {
+                isNotYetValid -> {
+                    checklist.add(
+                        VehicleHealthCheckItem(
+                            title = "بیمه‌نامه خودرو",
+                            statusText = "اعتبار از ${thirdPartyInsurance.startDate} آغاز می‌شود؛ هنوز فعال نیست",
+                            isOk = false,
+                            isWarning = true,
+                            iconRes = R.drawable.img_3d_insurance
+                        )
                     )
-                )
-                score -= 35
-            } else {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "بیمه‌نامه خودرو",
-                        statusText = "دارای اعتبار (${thirdPartyInsurance.company})",
-                        isOk = true,
-                        iconRes = R.drawable.img_3d_insurance
+                    score -= 35
+                }
+                isExpired -> {
+                    checklist.add(
+                        VehicleHealthCheckItem(
+                            title = "بیمه‌نامه خودرو",
+                            statusText = "منقضی شده در ${thirdPartyInsurance.endDate} (${thirdPartyInsurance.company})",
+                            isOk = false,
+                            isWarning = true,
+                            iconRes = R.drawable.img_3d_insurance
+                        )
                     )
-                )
+                    score -= 35
+                }
+                hasUnknownStart || hasUnknownExpiry -> {
+                    val missingDates = when {
+                        hasUnknownStart && hasUnknownExpiry -> "شروع و پایان"
+                        hasUnknownStart -> "شروع"
+                        else -> "پایان"
+                    }
+                    checklist.add(
+                        VehicleHealthCheckItem(
+                            title = "بیمه‌نامه خودرو",
+                            statusText = "تاریخ $missingDates اعتبار ثبت نشده؛ اعتبار بیمه تأیید نمی‌شود",
+                            isOk = false,
+                            isWarning = true,
+                            iconRes = R.drawable.img_3d_insurance
+                        )
+                    )
+                    score -= 20
+                }
+                else -> {
+                    checklist.add(
+                        VehicleHealthCheckItem(
+                            title = "بیمه‌نامه خودرو",
+                            statusText = "دارای اعتبار (${thirdPartyInsurance.company})",
+                            isOk = true,
+                            iconRes = R.drawable.img_3d_insurance
+                        )
+                    )
+                }
             }
         } else {
             checklist.add(
@@ -214,7 +299,8 @@ object VehicleAnalyzer {
 
         // 4. Technical Inspection
         if (carInspection != null) {
-            val isInspectionExpired = carInspection.expiryDate.isNotBlank() && carInspection.expiryDate < todayJalali
+            val expiryKey = dateSortKey(carInspection.expiryDate)
+            val isInspectionExpired = expiryKey.isNotEmpty() && expiryKey < todayKey
             if (isInspectionExpired) {
                 checklist.add(
                     VehicleHealthCheckItem(
@@ -240,11 +326,14 @@ object VehicleAnalyzer {
             checklist.add(
                 VehicleHealthCheckItem(
                     title = "معاینه فنی و آلایندگی",
-                    statusText = "معاف از معاینه / استعلام ثبت نشده",
-                    isOk = true,
+                    statusText = "سابقه معاینه فنی ثبت نشده؛ اعتبار یا معافیت را بررسی کنید",
+                    isOk = false,
+                    isWarning = true,
                     iconRes = R.drawable.img_3d_settings_gear
                 )
             )
+            // Missing data is unknown, not proof that the vehicle is exempt or compliant.
+            score -= 10
         }
 
         val clampedScore = score.coerceIn(10, 100)
@@ -279,13 +368,17 @@ object VehicleAnalyzer {
         val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
         val currentYear = currentPdt.year
         val currentMonth = currentPdt.month
-        val currentYearMonth = "%04d/%02d".format(currentYear, currentMonth)
+        val currentYearMonth = "%04d%02d".format(currentYear, currentMonth)
         val currentYearStr = "%04d".format(currentYear)
 
-        val currentMonthCost = carExpenses.filter { it.date.startsWith(currentYearMonth) }.sumOf { it.amount }
-        val yearlyCost = carExpenses.filter { it.date.startsWith(currentYearStr) }.sumOf { it.amount }.let {
-            if (it == 0L && carExpenses.isNotEmpty()) carExpenses.sumOf { exp -> exp.amount } else it
-        }
+        // Normalize separators and Persian/Arabic digits before comparing dates.
+        val currentMonthCost = carExpenses
+            .filter { dateSortKey(it.date).startsWith(currentYearMonth) }
+            .sumOf { it.amount }
+        // A zero current-year total is real data; never silently replace it with all-time spending.
+        val yearlyCost = carExpenses
+            .filter { dateSortKey(it.date).startsWith(currentYearStr) }
+            .sumOf { it.amount }
 
         val categoryTotals = VehicleExpenseCategory.values().map { cat ->
             val total = carExpenses.filter { it.category == cat }.sumOf { it.amount }
@@ -296,7 +389,9 @@ object VehicleAnalyzer {
 
         val topCategory = categoryTotals.firstOrNull() ?: VehicleCostCategoryStat(VehicleExpenseCategory.SERVICE, 0L, 0)
 
-        val lastRepair = carExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS }.firstOrNull()
+        val lastRepair = carExpenses
+            .filter { it.category == VehicleExpenseCategory.REPAIRS }
+            .maxByOrNull { dateSortKey(it.date) }
         val lastRepairTitle = lastRepair?.title ?: "بدون تعمیرات سنگین"
         val lastRepairDate = lastRepair?.date ?: "—"
 
@@ -311,8 +406,8 @@ object VehicleAnalyzer {
                 m += 12
                 y -= 1
             }
-            val prefix = "%04d/%02d".format(y, m)
-            val monthExpenses = carExpenses.filter { it.date.startsWith(prefix) }
+            val prefix = "%04d%02d".format(y, m)
+            val monthExpenses = carExpenses.filter { dateSortKey(it.date).startsWith(prefix) }
             val fuel = monthExpenses.filter { it.category == VehicleExpenseCategory.FUEL }.sumOf { it.amount }
             val repair = monthExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS || it.category == VehicleExpenseCategory.PARTS }.sumOf { it.amount }
             val service = monthExpenses.filter { it.category == VehicleExpenseCategory.SERVICE }.sumOf { it.amount }
@@ -351,7 +446,8 @@ object VehicleAnalyzer {
         vehicleId: String,
         services: List<VehicleServiceEntity>,
         expenses: List<VehicleExpenseEntity>,
-        insurances: List<VehicleInsuranceEntity>
+        insurances: List<VehicleInsuranceEntity>,
+        inspections: List<VehicleInspectionEntity> = emptyList()
     ): List<VehicleTimelineEvent> {
         val timeline = mutableListOf<VehicleTimelineEvent>()
 
@@ -370,7 +466,12 @@ object VehicleAnalyzer {
             )
         }
 
-        expenses.filter { it.vehicleId == vehicleId && it.category != VehicleExpenseCategory.SERVICE && it.category != VehicleExpenseCategory.INSURANCE }.forEach { e ->
+        expenses.filter { expense ->
+            expense.vehicleId == vehicleId &&
+                !expense.id.startsWith("exp_svc_") &&
+                !expense.id.startsWith("exp_ins_") &&
+                !expense.id.startsWith("exp_insp_")
+        }.forEach { e ->
             timeline.add(
                 VehicleTimelineEvent.ExpenseEvent(
                     id = e.id,
@@ -400,7 +501,23 @@ object VehicleAnalyzer {
             )
         }
 
+        inspections.filter { it.vehicleId == vehicleId }.forEach { inspection ->
+            timeline.add(
+                VehicleTimelineEvent.InspectionEvent(
+                    id = inspection.id,
+                    date = inspection.lastInspectionDate,
+                    title = "معاینه فنی خودرو",
+                    amount = inspection.cost,
+                    subtitle = "مرکز: ${inspection.centerName.ifBlank { "ثبت نشده" }} • اعتبار تا ${inspection.expiryDate}",
+                    iconRes = R.drawable.img_3d_settings_gear,
+                    colorHex = 0xFF0D9488,
+                    centerName = inspection.centerName,
+                    expiryDate = inspection.expiryDate
+                )
+            )
+        }
+
         // Sort descending by date
-        return timeline.sortedByDescending { it.date }
+        return timeline.sortedByDescending { dateSortKey(it.date) }
     }
 }

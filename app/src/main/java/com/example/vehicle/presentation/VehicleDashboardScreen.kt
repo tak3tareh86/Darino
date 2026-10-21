@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -35,6 +37,7 @@ import com.example.R
 import com.example.ui.components.IranianLicensePlate
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
+import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleInspectionEntity
@@ -288,12 +291,17 @@ fun DarinoVehicleMainDashboard(
                                 onMileageClick = { viewModel.openMileageDialog() },
                                 onAddService = { viewModel.openAddService() },
                                 onAddExpense = { viewModel.openAddExpense() },
-                                onInsuranceClick = { viewModel.openInsuranceSheet() }
+                                onInsuranceClick = { viewModel.openInsuranceSheet() },
+                                onUpdateService = { id, title, type, date, mileage, cost, description, reminderDate, reminderMileage, reminderEnabled ->
+                                    viewModel.updateServiceRecord(id, title, type, date, mileage, cost, description, reminderDate, reminderMileage, reminderEnabled)
+                                },
+                                onDeleteService = { id -> viewModel.deleteServiceRecord(id) }
                             )
                         }
                         VehicleTab.TIMELINE -> {
                             VehicleTimelineScreen(
-                                events = state.timelineEvents
+                                events = state.timelineEvents,
+                                onDeleteExpense = { id -> viewModel.deleteExpenseRecord(id) }
                             )
                         }
                         VehicleTab.REPORTS -> {
@@ -305,7 +313,10 @@ fun DarinoVehicleMainDashboard(
                             VehicleInsuranceDocumentsTabContent(
                                 insurances = state.insurance,
                                 inspections = state.inspections,
-                                onOpenManage = { viewModel.openInsuranceSheet() }
+                                onOpenManage = { viewModel.openInsuranceSheet() },
+                                onRenewInsurance = { id, endDate -> viewModel.renewInsuranceRecord(id, endDate) },
+                                onDeleteInsurance = { id -> viewModel.deleteInsuranceRecord(id) },
+                                onDeleteInspection = { id -> viewModel.deleteInspectionRecord(id) }
                             )
                         }
                     }
@@ -482,7 +493,20 @@ private fun VehicleServicesTabContent(
     onMileageClick: () -> Unit,
     onAddService: () -> Unit,
     onAddExpense: () -> Unit,
-    onInsuranceClick: () -> Unit
+    onInsuranceClick: () -> Unit,
+    onUpdateService: (
+        serviceId: String,
+        title: String,
+        serviceType: com.example.vehicle.data.ServiceType,
+        date: String,
+        mileage: Int,
+        cost: Long,
+        description: String,
+        nextReminderDate: String?,
+        nextReminderMileage: Int?,
+        isReminderEnabled: Boolean
+    ) -> Unit,
+    onDeleteService: (serviceId: String) -> Unit
 ) {
     var isHealthExpanded by remember { mutableStateOf(false) }
     var isServicesExpanded by remember { mutableStateOf(true) }
@@ -653,7 +677,11 @@ private fun VehicleServicesTabContent(
         // 5. Service Records List
         if (isServicesExpanded) {
             items(services, key = { it.id }) { service ->
-                ServiceRecordCard(service = service)
+                ServiceRecordCard(
+                    service = service,
+                    onUpdateService = onUpdateService,
+                    onDeleteService = onDeleteService
+                )
             }
         }
     }
@@ -691,7 +719,24 @@ private fun QuickActionButton(
 }
 
 @Composable
-private fun ServiceRecordCard(service: VehicleServiceEntity) {
+private fun ServiceRecordCard(
+    service: VehicleServiceEntity,
+    onUpdateService: (
+        serviceId: String,
+        title: String,
+        serviceType: com.example.vehicle.data.ServiceType,
+        date: String,
+        mileage: Int,
+        cost: Long,
+        description: String,
+        nextReminderDate: String?,
+        nextReminderMileage: Int?,
+        isReminderEnabled: Boolean
+    ) -> Unit,
+    onDeleteService: (serviceId: String) -> Unit
+) {
+    var showEditor by remember(service.id) { mutableStateOf(false) }
+    var showDeleteConfirmation by remember(service.id) { mutableStateOf(false) }
     val costFormatted = IranianPhoneUtils.convertDigitsToPersian(
         NumberFormat.getNumberInstance(Locale.US).format(service.cost)
     )
@@ -733,13 +778,27 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
                     }
                 }
 
-                Text(
-                    text = "$costFormatted تومان",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "$costFormatted تومان",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     )
-                )
+                    IconButton(
+                        onClick = { showEditor = true },
+                        modifier = Modifier.size(36.dp).testTag("service_edit_btn_${service.id}")
+                    ) {
+                        Icon(Icons.Rounded.Edit, contentDescription = "ویرایش سرویس", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(
+                        onClick = { showDeleteConfirmation = true },
+                        modifier = Modifier.size(36.dp).testTag("service_delete_btn_${service.id}")
+                    ) {
+                        Icon(Icons.Rounded.DeleteOutline, contentDescription = "حذف سرویس", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
             }
 
             if (service.description.isNotBlank()) {
@@ -775,6 +834,104 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
             }
         }
     }
+
+    if (showEditor) {
+        var title by remember(service.id) { mutableStateOf(service.title) }
+        var date by remember(service.id) { mutableStateOf(service.date) }
+        var mileageText by remember(service.id) { mutableStateOf(service.mileage.toString()) }
+        var costText by remember(service.id) { mutableStateOf(service.cost.toString()) }
+        var description by remember(service.id) { mutableStateOf(service.description) }
+        var nextDate by remember(service.id) { mutableStateOf(service.nextReminderDate.orEmpty()) }
+        var nextMileageText by remember(service.id) { mutableStateOf(service.nextReminderMileage?.toString().orEmpty()) }
+        var reminderEnabled by remember(service.id) { mutableStateOf(service.isReminderEnabled) }
+
+        AlertDialog(
+            onDismissRequest = { showEditor = false },
+            title = { Text("ویرایش سرویس خودرو") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("عنوان سرویس") }, singleLine = true)
+                    OutlinedTextField(value = date, onValueChange = { date = it }, label = { Text("تاریخ انجام (شمسی)") }, singleLine = true)
+                    OutlinedTextField(value = IranianPhoneUtils.convertDigitsToPersian(mileageText), onValueChange = { mileageText = IranianPhoneUtils.convertDigitsToEnglish(it).filter(Char::isDigit) }, label = { Text("کیلومتر انجام سرویس") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                    OutlinedTextField(value = IranianPhoneUtils.convertDigitsToPersian(costText), onValueChange = { costText = IranianPhoneUtils.convertDigitsToEnglish(it).filter(Char::isDigit) }, label = { Text("هزینه (تومان)") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                    OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("توضیحات") })
+                    HorizontalDivider()
+                    Text("یادآور بعدی", style = MaterialTheme.typography.titleSmall)
+                    OutlinedTextField(value = nextDate, onValueChange = { nextDate = it }, label = { Text("تاریخ سررسید (اختیاری)") }, singleLine = true)
+                    OutlinedTextField(value = IranianPhoneUtils.convertDigitsToPersian(nextMileageText), onValueChange = { nextMileageText = IranianPhoneUtils.convertDigitsToEnglish(it).filter(Char::isDigit) }, label = { Text("کیلومتر هدف (اختیاری)") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("فعال‌بودن یادآور", modifier = Modifier.weight(1f))
+                        Switch(checked = reminderEnabled, onCheckedChange = { reminderEnabled = it })
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = title.isNotBlank() && date.isNotBlank() && mileageText.isNotBlank() &&
+                        (!reminderEnabled || nextDate.isNotBlank() || nextMileageText.isNotBlank()),
+                    onClick = {
+                        val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter(Char::isDigit).toIntOrNull() ?: -1
+                        val cost = IranianAmountUtils.parseAmountToLong(costText)
+                        val nextMileage = IranianPhoneUtils.convertDigitsToEnglish(nextMileageText).filter(Char::isDigit).toIntOrNull()
+                        if (mileage >= 0 && cost >= 0L) {
+                            onUpdateService(
+                                service.id, title.trim(), service.serviceType, date.trim(), mileage, cost,
+                                description.trim(),
+                                nextDate.trim().takeIf { reminderEnabled && it.isNotBlank() },
+                                nextMileage.takeIf { reminderEnabled },
+                                reminderEnabled
+                            )
+                            showEditor = false
+                        }
+                    }
+                ) { Text("ذخیره تغییرات") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditor = false }) { Text("انصراف") }
+            }
+        )
+    }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("حذف سرویس") },
+            text = { Text("سرویس «${service.title}» و هزینه متصل به آن حذف شود؟ این کار قابل بازگشت نیست.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteService(service.id)
+                        showDeleteConfirmation = false
+                    }
+                ) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+            }
+        )
+    }
+}
+
+private fun jalaliDateSortKey(value: String): String {
+    val normalized = buildString {
+        value.forEach { char ->
+            when (char) {
+                in '0'..'9' -> append(char)
+                in '۰'..'۹' -> append(('0'.code + (char.code - '۰'.code)).toChar())
+                in '٠'..'٩' -> append(('0'.code + (char.code - '٠'.code)).toChar())
+                else -> append('/')
+            }
+        }
+    }
+    val parts = normalized.split('/').filter { it.isNotEmpty() }
+    return if (parts.size >= 3) {
+        parts[0].padStart(4, '0') + parts[1].padStart(2, '0') + parts[2].padStart(2, '0')
+    } else {
+        normalized.filter { it.isDigit() }
+    }
 }
 
 /**
@@ -784,8 +941,14 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
 private fun VehicleInsuranceDocumentsTabContent(
     insurances: List<VehicleInsuranceEntity>,
     inspections: List<VehicleInspectionEntity>,
-    onOpenManage: () -> Unit
+    onOpenManage: () -> Unit,
+    onRenewInsurance: (insuranceId: String, newEndDate: String) -> Unit,
+    onDeleteInsurance: (insuranceId: String) -> Unit,
+    onDeleteInspection: (inspectionId: String) -> Unit
 ) {
+    val todayKey = remember {
+        jalaliDateSortKey(com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate())
+    }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -808,13 +971,16 @@ private fun VehicleInsuranceDocumentsTabContent(
                     onClick = onOpenManage,
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("ثبت یا ویرایش", style = MaterialTheme.typography.labelSmall)
+                    Text("ثبت بیمه یا معاینه جدید", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
 
         // Insurance List
         items(insurances, key = { it.id }) { ins ->
+            var showRenewDialog by remember(ins.id) { mutableStateOf(false) }
+            var showDeleteDialog by remember(ins.id) { mutableStateOf(false) }
+            var renewalEndDate by remember(ins.id) { mutableStateOf(ins.endDate) }
             val costStr = IranianPhoneUtils.convertDigitsToPersian(
                 NumberFormat.getNumberInstance(Locale.US).format(ins.amount)
             )
@@ -857,17 +1023,32 @@ private fun VehicleInsuranceDocumentsTabContent(
                             }
                         }
 
+                        val startKey = jalaliDateSortKey(ins.startDate)
+                        val endKey = jalaliDateSortKey(ins.endDate)
+                        val insuranceStatus = when {
+                            startKey.isEmpty() && endKey.isEmpty() -> "تاریخ اعتبار نامشخص"
+                            startKey.isEmpty() -> "شروع اعتبار نامشخص"
+                            endKey.isEmpty() -> "پایان اعتبار نامشخص"
+                            startKey > todayKey -> "هنوز شروع نشده"
+                            endKey < todayKey -> "منقضی شده"
+                            else -> "دارای اعتبار"
+                        }
+                        val insuranceStatusColor = when (insuranceStatus) {
+                            "دارای اعتبار" -> Color(0xFF10B981)
+                            "منقضی شده" -> MaterialTheme.colorScheme.error
+                            else -> Color(0xFFF59E0B)
+                        }
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF10B981).copy(alpha = 0.12f)
+                            color = insuranceStatusColor.copy(alpha = 0.12f)
                         ) {
                             Text(
-                                text = "دارای اعتبار",
+                                text = insuranceStatus,
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 10.sp
                                 ),
-                                color = Color(0xFF10B981),
+                                color = insuranceStatusColor,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -892,7 +1073,60 @@ private fun VehicleInsuranceDocumentsTabContent(
                             )
                         )
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { showRenewDialog = true }) { Text("تمدید بیمه") }
+                        TextButton(onClick = { showDeleteDialog = true }) {
+                            Text("حذف بیمه‌نامه", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
+            }
+
+            if (showRenewDialog) {
+                AlertDialog(
+                    onDismissRequest = { showRenewDialog = false },
+                    title = { Text("تمدید بیمه‌نامه") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("تاریخ پایان جدید را به تقویم شمسی وارد کنید.")
+                            OutlinedTextField(
+                                value = renewalEndDate,
+                                onValueChange = { renewalEndDate = it },
+                                label = { Text("تاریخ پایان جدید") },
+                                singleLine = true
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            enabled = renewalEndDate.isNotBlank(),
+                            onClick = {
+                                onRenewInsurance(ins.id, renewalEndDate.trim())
+                                showRenewDialog = false
+                            }
+                        ) { Text("ثبت تمدید") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showRenewDialog = false }) { Text("انصراف") }
+                    }
+                )
+            }
+
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("حذف بیمه‌نامه") },
+                    text = { Text("بیمه‌نامه «${ins.type}» و هزینه متصل به آن حذف شود؟") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            onDeleteInsurance(ins.id)
+                            showDeleteDialog = false
+                        }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) { Text("انصراف") }
+                    }
+                )
             }
         }
 
@@ -906,6 +1140,7 @@ private fun VehicleInsuranceDocumentsTabContent(
         }
 
         items(inspections, key = { it.id }) { insp ->
+            var showDeleteDialog by remember(insp.id) { mutableStateOf(false) }
             Layered3DCard(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = 2.dp
@@ -924,17 +1159,28 @@ private fun VehicleInsuranceDocumentsTabContent(
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
+                        val inspectionExpiryKey = jalaliDateSortKey(insp.expiryDate)
+                        val inspectionStatus = when {
+                            inspectionExpiryKey.isEmpty() -> "انقضا نامشخص"
+                            inspectionExpiryKey < todayKey -> "منقضی شده"
+                            else -> "دارای اعتبار"
+                        }
+                        val inspectionStatusColor = if (inspectionStatus == "دارای اعتبار") {
+                            Color(0xFF10B981)
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        }
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            color = inspectionStatusColor.copy(alpha = 0.12f)
                         ) {
                             Text(
-                                text = insp.status,
+                                text = inspectionStatus,
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 10.sp
                                 ),
-                                color = MaterialTheme.colorScheme.primary,
+                                color = inspectionStatusColor,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -945,7 +1191,29 @@ private fun VehicleInsuranceDocumentsTabContent(
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Row {
+                        TextButton(onClick = { showDeleteDialog = true }) {
+                            Text("حذف سابقه معاینه", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
+            }
+
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("حذف سابقه معاینه فنی") },
+                    text = { Text("سابقه معاینه فنی و هزینه متصل به آن حذف شود؟") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            onDeleteInspection(insp.id)
+                            showDeleteDialog = false
+                        }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) { Text("انصراف") }
+                    }
+                )
             }
         }
     }

@@ -136,6 +136,137 @@ class VehicleAssistantTest {
     }
 
     @Test
+    fun healthAnalysisUsesLatestServicePolicyAndInspection() {
+        val vehicle = com.example.vehicle.data.VehicleEntity(
+            id = "health-car",
+            brand = "Test",
+            model = "Vehicle",
+            year = "1402",
+            color = "سفید",
+            plate = "TEST",
+            currentMileage = 45_000
+        )
+        val services = listOf(
+            com.example.vehicle.data.VehicleServiceEntity(
+                id = "old-oil",
+                vehicleId = vehicle.id,
+                title = "سرویس قدیمی",
+                serviceType = ServiceType.OIL_CHANGE,
+                date = "1404/01/01",
+                mileage = 30_000,
+                cost = 100_000,
+                nextReminderMileage = 35_000
+            ),
+            com.example.vehicle.data.VehicleServiceEntity(
+                id = "latest-oil",
+                vehicleId = vehicle.id,
+                title = "سرویس جدید",
+                serviceType = ServiceType.OIL_CHANGE,
+                date = "۱۴۰۵/۶/۱",
+                mileage = 40_000,
+                cost = 200_000,
+                nextReminderMileage = 60_000
+            )
+        )
+        val insurances = listOf(
+            com.example.vehicle.data.VehicleInsuranceEntity(
+                id = "expired-policy",
+                vehicleId = vehicle.id,
+                company = "بیمه قدیمی",
+                type = "شخص ثالث",
+                startDate = "1403/01/01",
+                endDate = "1404/01/01",
+                amount = 100_000
+            ),
+            com.example.vehicle.data.VehicleInsuranceEntity(
+                id = "active-policy",
+                vehicleId = vehicle.id,
+                company = "بیمه معتبر",
+                type = "شخص ثالث",
+                startDate = "1405/01/01",
+                endDate = "1406/01/01",
+                amount = 200_000
+            )
+        )
+        val inspections = listOf(
+            com.example.vehicle.data.VehicleInspectionEntity(
+                id = "old-inspection",
+                vehicleId = vehicle.id,
+                lastInspectionDate = "1404/01/01",
+                expiryDate = "1404/12/29",
+                cost = 50_000
+            ),
+            com.example.vehicle.data.VehicleInspectionEntity(
+                id = "latest-inspection",
+                vehicleId = vehicle.id,
+                lastInspectionDate = "1405/05/01",
+                expiryDate = "1406/05/01",
+                cost = 60_000,
+                status = "معتبر"
+            )
+        )
+
+        val report = VehicleAnalyzer.analyzeHealth(vehicle, services, insurances, inspections)
+
+        assertTrue(report.checklist.first { it.title == "روغن و فیلتر موتور" }.statusText.contains("15000"))
+        assertTrue(report.checklist.first { it.title == "بیمه‌نامه خودرو" }.statusText.contains("بیمه معتبر"))
+        assertTrue(report.checklist.first { it.title == "معاینه فنی و آلایندگی" }.isOk)
+
+        val timeline = VehicleAnalyzer.buildTimeline(
+            vehicleId = vehicle.id,
+            services = services,
+            expenses = emptyList(),
+            insurances = insurances,
+            inspections = inspections
+        )
+        assertTrue(timeline.any { it is com.example.vehicle.data.VehicleTimelineEvent.InspectionEvent })
+    }
+
+    @Test
+    fun missingInspectionAndInsuranceAreNotReportedAsCompliant() {
+        val vehicle = com.example.vehicle.data.VehicleEntity(
+            id = "unknown-docs-car",
+            brand = "Test",
+            model = "Vehicle",
+            year = "1402",
+            color = "سفید",
+            plate = "TEST",
+            currentMileage = 0
+        )
+
+        val report = VehicleAnalyzer.analyzeHealth(
+            vehicle = vehicle,
+            services = emptyList(),
+            insurances = emptyList(),
+            inspections = emptyList()
+        )
+
+        assertFalse(report.checklist.first { it.title == "بیمه‌نامه خودرو" }.isOk)
+        assertFalse(report.checklist.first { it.title == "معاینه فنی و آلایندگی" }.isOk)
+    }
+
+    @Test
+    fun yearlyCostDoesNotFallBackToAllTimeExpensesWhenCurrentYearIsZero() {
+        val currentYear = com.example.util.PersianCalendarHelper
+            .fromEpochMillis(System.currentTimeMillis()).year
+        val vehicleId = "stats-car"
+        val expenses = listOf(
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "old-expense",
+                vehicleId = vehicleId,
+                title = "هزینه سال قبل",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 123_000L,
+                date = "${currentYear - 1}/12/29"
+            )
+        )
+
+        val stats = VehicleAnalyzer.computeStatistics(vehicleId, expenses, emptyList())
+
+        assertEquals(0L, stats.yearlyCost)
+    }
+
+    @Test
     fun testSmartReminderCalculation() {
         val (nextKm, nextDate) = VehicleManager.calculateRecommendedReminder(
             serviceType = ServiceType.OIL_CHANGE,

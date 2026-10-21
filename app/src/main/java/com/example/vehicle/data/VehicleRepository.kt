@@ -197,7 +197,15 @@ class VehicleRepository {
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("VehicleRepository", "Legacy vehicle data migration failed; source data was retained.", e)
+        }
+
+        // Reconcile linked costs for users whose vehicle records were migrated by an older app
+        // version before insurance/inspection expenses were mirrored into vehicle_expenses.
+        try {
+            reconcileLinkedExpenses(db, userId)
+        } catch (e: Exception) {
+            android.util.Log.e("VehicleRepository", "Failed to reconcile linked vehicle expenses.", e)
         }
 
         // 2. Observe Room DAOs as authoritative Source of Truth
@@ -306,6 +314,82 @@ class VehicleRepository {
                             centerName = insp.centerName
                         )
                     }
+                }
+            }
+        }
+    }
+
+    private suspend fun reconcileLinkedExpenses(
+        db: AppDatabase,
+        userId: String
+    ) {
+        val vDao = db.vehicleDao()
+        val serviceRecords = vDao.getAllServicesList(userId)
+        val insuranceRecords = vDao.getAllInsurancesList(userId)
+        val inspectionRecords = vDao.getAllInspectionsList(userId)
+        val existingExpenseIds = vDao.getAllExpensesList(userId).mapTo(mutableSetOf()) { it.id }
+
+        db.withTransaction {
+            serviceRecords.forEach { service ->
+                val serviceId = service.serverId ?: service.id.toString()
+                val expenseId = "exp_svc_$serviceId"
+                val parsedCost = parseCostAndDescription(service.notes).first
+                val amount = if (service.cost > 0L) service.cost else parsedCost
+                val date = service.serviceDate?.takeIf { it > 0L }
+                    ?.let { PersianCalendarHelper.fromEpochMillis(it).toFormattedDate() }
+                    .orEmpty()
+                if (amount > 0L && date.isNotBlank() && expenseId !in existingExpenseIds) {
+                    vDao.insertExpense(
+                        VehicleExpenseRoomEntity(
+                            id = expenseId,
+                            userId = userId,
+                            vehicleId = service.vehicleId,
+                            title = service.title,
+                            category = VehicleExpenseCategory.SERVICE.name,
+                            amount = amount,
+                            date = date,
+                            description = "سرویس دوره‌ای خودرو: ${parseCostAndDescription(service.notes).second}"
+                        )
+                    )
+                    existingExpenseIds.add(expenseId)
+                }
+            }
+
+            insuranceRecords.forEach { insurance ->
+                val expenseId = "exp_ins_${insurance.id}"
+                if (insurance.amount > 0L && insurance.startDate.isNotBlank() && expenseId !in existingExpenseIds) {
+                    vDao.insertExpense(
+                        VehicleExpenseRoomEntity(
+                            id = expenseId,
+                            userId = userId,
+                            vehicleId = insurance.vehicleId,
+                            title = "تمدید ${insurance.type} (${insurance.company})",
+                            category = VehicleExpenseCategory.INSURANCE.name,
+                            amount = insurance.amount,
+                            date = insurance.startDate,
+                            description = "شماره بیمه‌نامه: ${insurance.policyNumber}"
+                        )
+                    )
+                    existingExpenseIds.add(expenseId)
+                }
+            }
+
+            inspectionRecords.forEach { inspection ->
+                val expenseId = "exp_insp_${inspection.id}"
+                if (inspection.cost > 0L && inspection.lastInspectionDate.isNotBlank() && expenseId !in existingExpenseIds) {
+                    vDao.insertExpense(
+                        VehicleExpenseRoomEntity(
+                            id = expenseId,
+                            userId = userId,
+                            vehicleId = inspection.vehicleId,
+                            title = "معاینه فنی خودرو (${inspection.centerName})",
+                            category = VehicleExpenseCategory.INSPECTION.name,
+                            amount = inspection.cost,
+                            date = inspection.lastInspectionDate,
+                            description = "مرکز معاینه فنی: ${inspection.centerName}"
+                        )
+                    )
+                    existingExpenseIds.add(expenseId)
                 }
             }
         }
@@ -601,10 +685,26 @@ class VehicleRepository {
         val serviceDateMs = parseJalaliToTimestamp(date)
             ?: return@withContext Result.failure(IllegalArgumentException("تاریخ سرویس وارد شده نامعتبر است."))
 
-        val dueDateMs = if (!nextReminderDate.isNullOrBlank()) {
+        val dueDateMs = if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
             parseJalaliToTimestamp(nextReminderDate)
                 ?: return@withContext Result.failure(IllegalArgumentException("تاریخ یادآور سرویس نامعتبر است."))
         } else null
+
+        if (isReminderEnabled && dueDateMs == null && nextReminderMileage == null) {
+            return@withContext Result.failure(
+                IllegalArgumentException("برای فعال‌کردن یادآور، تاریخ سررسید یا کیلومتر هدف را وارد کنید.")
+            )
+        }
+        if (isReminderEnabled && dueDateMs != null && dueDateMs < serviceDateMs) {
+            return@withContext Result.failure(
+                IllegalArgumentException("تاریخ یادآور نمی‌تواند قبل از تاریخ انجام سرویس باشد.")
+            )
+        }
+        if (isReminderEnabled && nextReminderMileage != null && nextReminderMileage < mileage) {
+            return@withContext Result.failure(
+                IllegalArgumentException("کیلومتر یادآور نمی‌تواند کمتر از کیلومتر ثبت‌شده برای سرویس باشد.")
+            )
+        }
 
         try {
             val db = AppDatabase.getDatabase(context)
@@ -633,8 +733,8 @@ class VehicleRepository {
                 mileage = mileage,
                 cost = cost,
                 description = description.trim(),
-                nextReminderDate = nextReminderDate?.trim(),
-                nextReminderMileage = nextReminderMileage,
+                nextReminderDate = if (isReminderEnabled) nextReminderDate?.trim() else null,
+                nextReminderMileage = if (isReminderEnabled) nextReminderMileage else null,
                 isReminderEnabled = isReminderEnabled
             )
 
@@ -648,10 +748,10 @@ class VehicleRepository {
                         type = serviceType.name,
                         title = title.trim(),
                         serviceDate = serviceDateMs,
-                        dueDate = dueDateMs,
+                        dueDate = if (isReminderEnabled) dueDateMs else null,
                         cost = cost,
                         serviceMileage = mileage,
-                        dueMileage = nextReminderMileage,
+                        dueMileage = if (isReminderEnabled) nextReminderMileage else null,
                         status = if (isReminderEnabled) "PENDING" else "COMPLETED",
                         notes = encodedNotes
                     )
@@ -860,8 +960,8 @@ class VehicleRepository {
                 mileage = mileage,
                 cost = cost,
                 description = description.trim(),
-                nextReminderDate = nextReminderDate?.trim(),
-                nextReminderMileage = nextReminderMileage,
+                nextReminderDate = if (isReminderEnabled) nextReminderDate?.trim() else null,
+                nextReminderMileage = if (isReminderEnabled) nextReminderMileage else null,
                 isReminderEnabled = isReminderEnabled
             )
 
@@ -879,10 +979,10 @@ class VehicleRepository {
                         type = serviceType.name,
                         title = title.trim(),
                         serviceDate = serviceDateMs,
-                        dueDate = dueDateMs,
+                        dueDate = if (isReminderEnabled) dueDateMs else null,
                         cost = cost,
                         serviceMileage = mileage,
-                        dueMileage = nextReminderMileage,
+                        dueMileage = if (isReminderEnabled) nextReminderMileage else null,
                         status = if (isReminderEnabled) "PENDING" else "COMPLETED",
                         notes = encodedNotes
                     )
@@ -1120,6 +1220,18 @@ class VehicleRepository {
     suspend fun deleteExpense(expenseId: String): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+
+        // Service, insurance, and inspection expenses are derived records linked to their
+        // parent dossier. Deleting them independently would make reports disagree with
+        // the saved service/policy/inspection and can recreate them on the next edit.
+        if (expenseId.startsWith("exp_svc_") ||
+            expenseId.startsWith("exp_ins_") ||
+            expenseId.startsWith("exp_insp_")
+        ) {
+            return@withContext Result.failure(
+                IllegalStateException("این هزینه به سرویس، بیمه یا معاینه فنی متصل است؛ آن را از بخش مربوط به همان پرونده ویرایش یا حذف کنید.")
+            )
+        }
 
         try {
             val db = AppDatabase.getDatabase(context)
