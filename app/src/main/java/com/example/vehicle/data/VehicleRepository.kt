@@ -732,18 +732,18 @@ class VehicleRepository {
 
                 // Atomic Expense Record for Service
                 if (cost > 0L) {
-                    db.vehicleDao().insertExpense(
-                        VehicleExpenseRoomEntity(
-                            id = "exp_svc_$serviceId",
-                            userId = userId,
-                            vehicleId = vehicleId,
-                            title = title.trim(),
-                            category = VehicleExpenseCategory.SERVICE.name,
-                            amount = cost,
-                            date = date.trim(),
-                            description = "سرویس دوره‌ای خودرو: ${description.trim()}"
-                        )
+                    val serviceExpense = VehicleExpenseRoomEntity(
+                        id = "exp_svc_$serviceId",
+                        userId = userId,
+                        vehicleId = vehicleId,
+                        title = title.trim(),
+                        category = VehicleExpenseCategory.SERVICE.name,
+                        amount = cost,
+                        date = date.trim(),
+                        description = "سرویس دوره‌ای خودرو: ${description.trim()}"
                     )
+                    db.vehicleDao().insertExpense(serviceExpense)
+                    syncVehicleExpenseToFinance(db, userId, serviceExpense)
                 }
 
                 // Update Vehicle Mileage if higher
@@ -983,8 +983,10 @@ class VehicleRepository {
                     } else {
                         db.vehicleDao().insertExpense(expEntity)
                     }
+                    syncVehicleExpenseToFinance(db, userId, expEntity)
                 } else {
                     db.vehicleDao().deleteExpenseById(userId, "exp_svc_$serviceId")
+                    deleteVehicleFinanceTransaction(db, userId, "exp_svc_$serviceId")
                 }
 
                 // Update Vehicle Mileage if higher
@@ -1077,7 +1079,9 @@ class VehicleRepository {
                 // Sync expense date to completed date
                 val expense = db.vehicleDao().getExpenseById(userId, "exp_svc_$serviceId")
                 if (expense != null) {
-                    db.vehicleDao().updateExpense(expense.copy(date = completedDate.trim()))
+                    val completedExpense = expense.copy(date = completedDate.trim())
+                    db.vehicleDao().updateExpense(completedExpense)
+                    syncVehicleExpenseToFinance(db, userId, completedExpense)
                 }
 
                 // Mark associated reminder as completed in Room database inside transaction
@@ -1115,6 +1119,7 @@ class VehicleRepository {
             val affectedRows = db.withTransaction {
                 val serviceAffected = db.vehicleDao().deleteServiceByServerId(userId, serviceId)
                 db.vehicleDao().deleteExpenseById(userId, "exp_svc_$serviceId")
+                deleteVehicleFinanceTransaction(db, userId, "exp_svc_$serviceId")
                 
                 db.smartReminderDao().deleteReminderById(userId, serviceId)
                 db.smartReminderDao().deleteSchedulesByReminderId(userId, serviceId)
@@ -1170,8 +1175,8 @@ class VehicleRepository {
                 description = description.trim()
             )
 
-            db.vehicleDao().insertExpense(
-                VehicleExpenseRoomEntity(
+            db.withTransaction {
+                val expenseEntity = VehicleExpenseRoomEntity(
                     id = expenseId,
                     userId = userId,
                     vehicleId = vehicleId,
@@ -1181,7 +1186,9 @@ class VehicleRepository {
                     date = date.trim(),
                     description = description.trim()
                 )
-            )
+                db.vehicleDao().insertExpense(expenseEntity)
+                syncVehicleExpenseToFinance(db, userId, expenseEntity)
+            }
 
             Result.success(newExpense)
         } catch (e: Exception) {
@@ -1196,7 +1203,11 @@ class VehicleRepository {
 
         try {
             val db = AppDatabase.getDatabase(context)
-            val affectedRows = db.vehicleDao().deleteExpenseById(userId, expenseId)
+            val affectedRows = db.withTransaction {
+                val deleted = db.vehicleDao().deleteExpenseById(userId, expenseId)
+                if (deleted > 0) deleteVehicleFinanceTransaction(db, userId, expenseId)
+                deleted
+            }
             if (affectedRows == 0) {
                 return@withContext Result.failure(IllegalStateException("هیچ هزینه‌ای برای حذف یافت نشد."))
             }
@@ -1265,18 +1276,18 @@ class VehicleRepository {
                 )
 
                 if (amount > 0L) {
-                    db.vehicleDao().insertExpense(
-                        VehicleExpenseRoomEntity(
-                            id = "exp_ins_$insuranceId",
-                            userId = userId,
-                            vehicleId = vehicleId,
-                            title = "تمدید ${type.trim()} (${company.trim()})",
-                            category = VehicleExpenseCategory.INSURANCE.name,
-                            amount = amount,
-                            date = startDate.trim(),
-                            description = "شماره بیمه‌نامه: ${policyNumber.trim()}"
-                        )
+                    val insuranceExpense = VehicleExpenseRoomEntity(
+                        id = "exp_ins_$insuranceId",
+                        userId = userId,
+                        vehicleId = vehicleId,
+                        title = "تمدید ${type.trim()} (${company.trim()})",
+                        category = VehicleExpenseCategory.INSURANCE.name,
+                        amount = amount,
+                        date = startDate.trim(),
+                        description = "شماره بیمه‌نامه: ${policyNumber.trim()}"
                     )
+                    db.vehicleDao().insertExpense(insuranceExpense)
+                    syncVehicleExpenseToFinance(db, userId, insuranceExpense)
                 }
 
                 // Sync Reminder for Insurance in the same database transaction
@@ -1344,14 +1355,14 @@ class VehicleRepository {
                 // Sync Expense associated with Insurance to today's date and keep all metadata consistent
                 val expense = db.vehicleDao().getExpenseById(userId, "exp_ins_$insuranceId")
                 if (expense != null) {
-                    db.vehicleDao().updateExpense(
-                        expense.copy(
-                            title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
-                            category = VehicleExpenseCategory.INSURANCE.name,
-                            date = today,
-                            description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
-                        )
+                    val renewedExpense = expense.copy(
+                        title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
+                        category = VehicleExpenseCategory.INSURANCE.name,
+                        date = today,
+                        description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
                     )
+                    db.vehicleDao().updateExpense(renewedExpense)
+                    syncVehicleExpenseToFinance(db, userId, renewedExpense)
                 }
 
                 // Sync Reminder for Insurance in the same database transaction
@@ -1400,6 +1411,7 @@ class VehicleRepository {
             val affectedRows = db.withTransaction {
                 val insAffected = db.vehicleDao().deleteInsuranceById(userId, insuranceId)
                 db.vehicleDao().deleteExpenseById(userId, "exp_ins_$insuranceId")
+                deleteVehicleFinanceTransaction(db, userId, "exp_ins_$insuranceId")
                 
                 db.smartReminderDao().deleteReminderById(userId, insuranceId)
                 db.smartReminderDao().deleteSchedulesByReminderId(userId, insuranceId)
@@ -1474,18 +1486,18 @@ class VehicleRepository {
                 )
 
                 if (cost > 0L) {
-                    db.vehicleDao().insertExpense(
-                        VehicleExpenseRoomEntity(
-                            id = "exp_insp_$inspectionId",
-                            userId = userId,
-                            vehicleId = vehicleId,
-                            title = "معاینه فنی خودرو ($centerName)",
-                            category = VehicleExpenseCategory.INSPECTION.name,
-                            amount = cost,
-                            date = lastInspectionDate.trim(),
-                            description = "مرکز معاینه فنی: $centerName"
-                        )
+                    val inspectionExpense = VehicleExpenseRoomEntity(
+                        id = "exp_insp_$inspectionId",
+                        userId = userId,
+                        vehicleId = vehicleId,
+                        title = "معاینه فنی خودرو ($centerName)",
+                        category = VehicleExpenseCategory.INSPECTION.name,
+                        amount = cost,
+                        date = lastInspectionDate.trim(),
+                        description = "مرکز معاینه فنی: $centerName"
                     )
+                    db.vehicleDao().insertExpense(inspectionExpense)
+                    syncVehicleExpenseToFinance(db, userId, inspectionExpense)
                 }
 
                 // Sync Reminder for Inspection in the same database transaction
@@ -1524,6 +1536,7 @@ class VehicleRepository {
             val affectedRows = db.withTransaction {
                 val inspAffected = db.vehicleDao().deleteInspectionById(userId, inspectionId)
                 db.vehicleDao().deleteExpenseById(userId, "exp_insp_$inspectionId")
+                deleteVehicleFinanceTransaction(db, userId, "exp_insp_$inspectionId")
                 
                 db.smartReminderDao().deleteReminderById(userId, inspectionId)
                 db.smartReminderDao().deleteSchedulesByReminderId(userId, inspectionId)
