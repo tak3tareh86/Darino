@@ -96,6 +96,75 @@ class VehicleAssistantTest {
     }
 
     @Test
+    fun vehicleStatisticsNormalizePersianAndAsciiDatesAndDoNotUseLifetimeTotalAsYearlyTotal() {
+        val currentDate = com.example.util.PersianCalendarHelper
+            .fromEpochMillis(System.currentTimeMillis())
+            .toFormattedDate()
+        val asciiDate = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(currentDate)
+        val vehicleId = "stats-car"
+        val expenses = listOf(
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "current-persian",
+                vehicleId = vehicleId,
+                title = "هزینه با ارقام فارسی",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 100L,
+                date = currentDate
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "current-ascii",
+                vehicleId = vehicleId,
+                title = "هزینه با ارقام لاتین",
+                category = VehicleExpenseCategory.REPAIRS,
+                amount = 200L,
+                date = asciiDate
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "historical",
+                vehicleId = vehicleId,
+                title = "هزینه سال‌های قبل",
+                category = VehicleExpenseCategory.OTHER,
+                amount = 900L,
+                date = "1400/01/01"
+            )
+        )
+
+        val stats = VehicleAnalyzer.computeStatistics(
+            vehicleId = vehicleId,
+            expenses = expenses,
+            services = emptyList()
+        )
+
+        assertEquals(300L, stats.currentMonthCost)
+        assertEquals(300L, stats.yearlyCost)
+    }
+
+    @Test
+    fun vehicleStatisticsReturnZeroForYearWithoutExpenses() {
+        val currentYear = com.example.util.PersianCalendarHelper
+            .fromEpochMillis(System.currentTimeMillis())
+            .year
+        val expenses = listOf(
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "old-expense",
+                vehicleId = "stats-car",
+                title = "هزینه قدیمی",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 900L,
+                date = "${currentYear - 1}/01/01"
+            )
+        )
+
+        val stats = VehicleAnalyzer.computeStatistics(
+            vehicleId = "stats-car",
+            expenses = expenses,
+            services = emptyList()
+        )
+
+        assertEquals(0L, stats.yearlyCost)
+    }
+
+    @Test
     fun serviceIntervalsUseVehicleProfileAndDoNotLeakTaraRules() {
         val tara = com.example.vehicle.data.VehicleEntity(
             id = "tara",
