@@ -54,9 +54,9 @@ fun VehicleProfileScreen(
         vin: String,
         engine: String,
         transmission: String,
+        currentMileage: Int,
         estimatedValue: Long
     ) -> Unit,
-    onUpdateMileage: (Int) -> Unit,
     onDeleteVehicle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -283,8 +283,7 @@ fun VehicleProfileScreen(
                         onClick = {
                             val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
                             val km = IranianPhoneUtils.convertDigitsToEnglish(currentMileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
-                            onUpdateMileage(km)
-                            onSaveSpecs(brand, model, year, color, plate, vin, engine, transmission, estVal)
+                            onSaveSpecs(brand, model, year, color, plate, vin, engine, transmission, km, estVal)
                             onBack()
                         },
                         modifier = Modifier
