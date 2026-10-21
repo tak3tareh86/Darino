@@ -606,6 +606,22 @@ class VehicleRepository {
                 ?: return@withContext Result.failure(IllegalArgumentException("تاریخ یادآور سرویس نامعتبر است."))
         } else null
 
+        if (isReminderEnabled && dueDateMs == null && nextReminderMileage == null) {
+            return@withContext Result.failure(
+                IllegalArgumentException("برای فعال‌کردن یادآور، تاریخ سررسید یا کیلومتر هدف را وارد کنید.")
+            )
+        }
+        if (dueDateMs != null && dueDateMs < serviceDateMs) {
+            return@withContext Result.failure(
+                IllegalArgumentException("تاریخ یادآور نمی‌تواند قبل از تاریخ انجام سرویس باشد.")
+            )
+        }
+        if (nextReminderMileage != null && nextReminderMileage < mileage) {
+            return@withContext Result.failure(
+                IllegalArgumentException("کیلومتر یادآور نمی‌تواند کمتر از کیلومتر ثبت‌شده برای سرویس باشد.")
+            )
+        }
+
         try {
             val db = AppDatabase.getDatabase(context)
             val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
