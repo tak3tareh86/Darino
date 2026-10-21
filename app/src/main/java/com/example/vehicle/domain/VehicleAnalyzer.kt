@@ -193,28 +193,59 @@ object VehicleAnalyzer {
                     .thenBy { dateSortKey(it.endDate) }
             )
         if (thirdPartyInsurance != null) {
+            val startKey = dateSortKey(thirdPartyInsurance.startDate)
             val endKey = dateSortKey(thirdPartyInsurance.endDate)
+            val isNotYetValid = startKey.isNotEmpty() && startKey > todayKey
             val isExpired = endKey.isNotEmpty() && endKey < todayKey
-            if (isExpired) {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "بیمه‌نامه خودرو",
-                        statusText = "منقضی شده در ${thirdPartyInsurance.endDate} (${thirdPartyInsurance.company})",
-                        isOk = false,
-                        isWarning = true,
-                        iconRes = R.drawable.img_3d_insurance
+            val hasUnknownExpiry = endKey.isEmpty()
+
+            when {
+                isNotYetValid -> {
+                    checklist.add(
+                        VehicleHealthCheckItem(
+                            title = "بیمه‌نامه خودرو",
+                            statusText = "اعتبار از ${thirdPartyInsurance.startDate} آغاز می‌شود؛ هنوز فعال نیست",
+                            isOk = false,
+                            isWarning = true,
+                            iconRes = R.drawable.img_3d_insurance
+                        )
                     )
-                )
-                score -= 35
-            } else {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "بیمه‌نامه خودرو",
-                        statusText = "دارای اعتبار (${thirdPartyInsurance.company})",
-                        isOk = true,
-                        iconRes = R.drawable.img_3d_insurance
+                    score -= 35
+                }
+                isExpired -> {
+                    checklist.add(
+                        VehicleHealthCheckItem(
+                            title = "بیمه‌نامه خودرو",
+                            statusText = "منقضی شده در ${thirdPartyInsurance.endDate} (${thirdPartyInsurance.company})",
+                            isOk = false,
+                            isWarning = true,
+                            iconRes = R.drawable.img_3d_insurance
+                        )
                     )
-                )
+                    score -= 35
+                }
+                hasUnknownExpiry -> {
+                    checklist.add(
+                        VehicleHealthCheckItem(
+                            title = "بیمه‌نامه خودرو",
+                            statusText = "تاریخ پایان اعتبار ثبت نشده؛ اعتبار بیمه تأیید نمی‌شود",
+                            isOk = false,
+                            isWarning = true,
+                            iconRes = R.drawable.img_3d_insurance
+                        )
+                    )
+                    score -= 20
+                }
+                else -> {
+                    checklist.add(
+                        VehicleHealthCheckItem(
+                            title = "بیمه‌نامه خودرو",
+                            statusText = "دارای اعتبار (${thirdPartyInsurance.company})",
+                            isOk = true,
+                            iconRes = R.drawable.img_3d_insurance
+                        )
+                    )
+                }
             }
         } else {
             checklist.add(
