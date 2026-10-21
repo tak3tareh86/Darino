@@ -908,6 +908,17 @@ private fun ServiceRecordCard(
     }
 }
 
+private fun jalaliDateSortKey(value: String): String = buildString {
+    value.forEach { char ->
+        when (char) {
+            in '0'..'9' -> append(char)
+            in '۰'..'۹' -> append(('0'.code + (char.code - '۰'.code)).toChar())
+            in '٠'..'٩' -> append(('0'.code + (char.code - '٠'.code)).toChar())
+            else -> Unit
+        }
+    }
+}
+
 /**
  * Tab 4: Insurance Policies & Technical Inspection View
  */
@@ -917,6 +928,9 @@ private fun VehicleInsuranceDocumentsTabContent(
     inspections: List<VehicleInspectionEntity>,
     onOpenManage: () -> Unit
 ) {
+    val todayKey = remember {
+        jalaliDateSortKey(com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate())
+    }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -939,7 +953,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                     onClick = onOpenManage,
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("ثبت یا ویرایش", style = MaterialTheme.typography.labelSmall)
+                    Text("ثبت بیمه یا معاینه جدید", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
@@ -988,17 +1002,30 @@ private fun VehicleInsuranceDocumentsTabContent(
                             }
                         }
 
+                        val startKey = jalaliDateSortKey(ins.startDate)
+                        val endKey = jalaliDateSortKey(ins.endDate)
+                        val insuranceStatus = when {
+                            endKey.isEmpty() -> "اعتبار نامشخص"
+                            startKey.isNotEmpty() && startKey > todayKey -> "هنوز شروع نشده"
+                            endKey < todayKey -> "منقضی شده"
+                            else -> "دارای اعتبار"
+                        }
+                        val insuranceStatusColor = when (insuranceStatus) {
+                            "دارای اعتبار" -> Color(0xFF10B981)
+                            "منقضی شده" -> MaterialTheme.colorScheme.error
+                            else -> Color(0xFFF59E0B)
+                        }
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF10B981).copy(alpha = 0.12f)
+                            color = insuranceStatusColor.copy(alpha = 0.12f)
                         ) {
                             Text(
-                                text = "دارای اعتبار",
+                                text = insuranceStatus,
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 10.sp
                                 ),
-                                color = Color(0xFF10B981),
+                                color = insuranceStatusColor,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -1055,17 +1082,28 @@ private fun VehicleInsuranceDocumentsTabContent(
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
+                        val inspectionExpiryKey = jalaliDateSortKey(insp.expiryDate)
+                        val inspectionStatus = when {
+                            inspectionExpiryKey.isEmpty() -> "انقضا نامشخص"
+                            inspectionExpiryKey < todayKey -> "منقضی شده"
+                            else -> "دارای اعتبار"
+                        }
+                        val inspectionStatusColor = if (inspectionStatus == "دارای اعتبار") {
+                            Color(0xFF10B981)
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        }
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            color = inspectionStatusColor.copy(alpha = 0.12f)
                         ) {
                             Text(
-                                text = insp.status,
+                                text = inspectionStatus,
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 10.sp
                                 ),
-                                color = MaterialTheme.colorScheme.primary,
+                                color = inspectionStatusColor,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
