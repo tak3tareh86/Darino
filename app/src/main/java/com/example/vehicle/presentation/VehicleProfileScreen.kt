@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.*
@@ -51,9 +52,12 @@ fun VehicleProfileScreen(
         color: String,
         plate: String,
         vin: String,
+        engine: String,
+        transmission: String,
         estimatedValue: Long
     ) -> Unit,
     onUpdateMileage: (Int) -> Unit,
+    onDeleteVehicle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var brand by remember(vehicle) { mutableStateOf(vehicle.brand) }
@@ -62,6 +66,9 @@ fun VehicleProfileScreen(
     var color by remember(vehicle) { mutableStateOf(vehicle.color) }
     var plate by remember(vehicle) { mutableStateOf(vehicle.plate) }
     var vin by remember(vehicle) { mutableStateOf(vehicle.vin) }
+    var engine by remember(vehicle) { mutableStateOf(vehicle.engine) }
+    var transmission by remember(vehicle) { mutableStateOf(vehicle.transmission) }
+    var showDeleteConfirmation by remember(vehicle.id) { mutableStateOf(false) }
     var estimatedValueText by remember(vehicle) {
         mutableStateOf(if (vehicle.estimatedValue > 0) vehicle.estimatedValue.toString() else "")
     }
@@ -209,6 +216,26 @@ fun VehicleProfileScreen(
                         singleLine = true
                     )
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = engine,
+                            onValueChange = { engine = it },
+                            label = { Text("حجم / کد موتور") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = transmission,
+                            onValueChange = { transmission = it },
+                            label = { Text("نوع گیربکس") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+
                     OutlinedTextField(
                         value = vin,
                         onValueChange = { vin = it },
@@ -257,7 +284,7 @@ fun VehicleProfileScreen(
                             val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
                             val km = IranianPhoneUtils.convertDigitsToEnglish(currentMileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onUpdateMileage(km)
-                            onSaveSpecs(brand, model, year, color, plate, vin, estVal)
+                            onSaveSpecs(brand, model, year, color, plate, vin, engine, transmission, estVal)
                             onBack()
                         },
                         modifier = Modifier
@@ -270,8 +297,36 @@ fun VehicleProfileScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("ذخیره تغییرات پرونده", fontWeight = FontWeight.Bold)
                     }
+                    OutlinedButton(
+                        onClick = { showDeleteConfirmation = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Rounded.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("حذف پرونده خودرو")
+                    }
                 }
             }
         }
+    }
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("حذف پرونده خودرو") },
+            text = { Text("پرونده خودرو، سرویس‌ها، بیمه‌ها و هزینه‌های داخل بخش خودرو حذف می‌شوند. تراکنش‌های ثبت‌شده در امور مالی برای حفظ تاریخچه مالی باقی می‌مانند.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteVehicle()
+                        showDeleteConfirmation = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("حذف خودرو") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+            }
+        )
     }
 }
