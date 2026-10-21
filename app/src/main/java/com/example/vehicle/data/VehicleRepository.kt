@@ -404,14 +404,21 @@ class VehicleRepository {
         userId: String,
         expense: VehicleExpenseRoomEntity
     ) {
-        com.example.ui.screens.finance.data.LocalFinanceRepository.instance
-            .ensureDefaultAccounts(db, userId)
-
-        val account = db.accountDao().getAllAccountsRaw(userId)
-            .firstOrNull { it.isActive && it.deletedAt == null && it.type == "CARD" }
-            ?: db.accountDao().getAllAccountsRaw(userId)
-                .firstOrNull { it.isActive && it.deletedAt == null }
-            ?: throw IllegalStateException("برای ثبت هزینه خودرو، حساب مالی فعال پیدا نشد.")
+        val accounts = db.accountDao().getAllAccountsRaw(userId)
+        val account = accounts.firstOrNull { it.isActive && it.deletedAt == null && it.type == "CARD" }
+            ?: accounts.firstOrNull { it.isActive && it.deletedAt == null }
+            ?: com.example.data.database.AccountEntity(
+                userId = userId,
+                stringId = "default_card_replacement_vehicle_${userId}_${UUID.randomUUID()}",
+                name = "کارت بانکی (جایگزین خودرو)",
+                type = "CARD",
+                bankName = "کارت بانکی",
+                initialBalance = 0L,
+                isActive = true,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+                deletedAt = null
+            ).also { db.accountDao().insertAccount(it) }
 
         val categoryTitle = runCatching {
             VehicleExpenseCategory.valueOf(expense.category).title
