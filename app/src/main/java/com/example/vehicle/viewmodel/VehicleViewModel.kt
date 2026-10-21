@@ -351,12 +351,18 @@ class VehicleViewModel(
                 val nextSelected = remaining.firstOrNull()
                 if (nextSelected != null) {
                     selectVehicle(nextSelected)
+                    _uiState.update {
+                        it.copy(
+                            showProfileScreen = false,
+                            snackBarMessage = "پرونده خودرو حذف شد."
+                        )
+                    }
                 } else {
                     _uiState.update {
                         it.copy(
                             selectedVehicle = null,
                             showProfileScreen = false,
-                            snackBarMessage = "خودرو از پرونده حذف شد."
+                            snackBarMessage = "پرونده خودرو حذف شد."
                         )
                     }
                 }
