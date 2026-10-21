@@ -162,7 +162,7 @@ class VehicleAssistantTest {
                 vehicleId = vehicle.id,
                 title = "سرویس جدید",
                 serviceType = ServiceType.OIL_CHANGE,
-                date = "1405/06/01",
+                date = "۱۴۰۵/۶/۱",
                 mileage = 40_000,
                 cost = 200_000,
                 nextReminderMileage = 60_000
