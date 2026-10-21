@@ -288,7 +288,9 @@ fun DarinoVehicleMainDashboard(
                                 onMileageClick = { viewModel.openMileageDialog() },
                                 onAddService = { viewModel.openAddService() },
                                 onAddExpense = { viewModel.openAddExpense() },
-                                onInsuranceClick = { viewModel.openInsuranceSheet() }
+                                onInsuranceClick = { viewModel.openInsuranceSheet() },
+                                onEditService = { viewModel.openEditService(it) },
+                                onDeleteService = { viewModel.deleteServiceRecord(it) }
                             )
                         }
                         VehicleTab.TIMELINE -> {
@@ -373,8 +375,12 @@ fun DarinoVehicleMainDashboard(
     if (state.showAddServiceSheet && state.selectedVehicle != null) {
         AddServiceSheet(
             vehicle = state.selectedVehicle!!,
+            initialService = state.editingService,
             onAddService = { t: String, type: com.example.vehicle.data.ServiceType, d: String, km: Int, c: Long, desc: String, remD: String?, remKm: Int?, en: Boolean ->
                 viewModel.addServiceRecord(t, type, d, km, c, desc, remD, remKm, en)
+            },
+            onUpdateService = { id: String, t: String, type: com.example.vehicle.data.ServiceType, d: String, km: Int, c: Long, desc: String, remD: String?, remKm: Int?, en: Boolean ->
+                viewModel.updateServiceRecord(id, t, type, d, km, c, desc, remD, remKm, en)
             },
             onDismiss = { viewModel.closeAddService() }
         )
@@ -485,7 +491,9 @@ private fun VehicleServicesTabContent(
     onMileageClick: () -> Unit,
     onAddService: () -> Unit,
     onAddExpense: () -> Unit,
-    onInsuranceClick: () -> Unit
+    onInsuranceClick: () -> Unit,
+    onEditService: (VehicleServiceEntity) -> Unit,
+    onDeleteService: (String) -> Unit
 ) {
     var isHealthExpanded by remember { mutableStateOf(false) }
     var isServicesExpanded by remember { mutableStateOf(true) }
@@ -656,7 +664,11 @@ private fun VehicleServicesTabContent(
         // 5. Service Records List
         if (isServicesExpanded) {
             items(services, key = { it.id }) { service ->
-                ServiceRecordCard(service = service)
+                ServiceRecordCard(
+                    service = service,
+                    onEdit = { onEditService(service) },
+                    onDelete = { onDeleteService(service.id) }
+                )
             }
         }
     }
@@ -694,7 +706,12 @@ private fun QuickActionButton(
 }
 
 @Composable
-private fun ServiceRecordCard(service: VehicleServiceEntity) {
+private fun ServiceRecordCard(
+    service: VehicleServiceEntity,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showDeleteConfirmation by remember(service.id) { mutableStateOf(false) }
     val costFormatted = IranianPhoneUtils.convertDigitsToPersian(
         NumberFormat.getNumberInstance(Locale.US).format(service.cost)
     )
@@ -776,8 +793,42 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
                     )
                 }
             }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f)) {
+                    Text("ویرایش")
+                }
+                OutlinedButton(
+                    onClick = { showDeleteConfirmation = true },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("حذف") }
+            }
         }
     }
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("حذف سابقه سرویس") },
+            text = { Text("سرویس و هزینه مرتبط با آن از پرونده خودرو حذف می‌شوند. هزینه متناظر در امور مالی نیز حذف خواهد شد.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete()
+                        showDeleteConfirmation = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("حذف") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+            }
+        )
+    }
+
 }
 
 /**
