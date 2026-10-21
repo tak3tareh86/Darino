@@ -28,6 +28,7 @@ import com.example.vehicle.data.VehicleServiceEntity
 fun ReminderConfirmationDialog(
     service: VehicleServiceEntity,
     onConfirm: () -> Unit,
+    onDisable: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -123,8 +124,8 @@ fun ReminderConfirmationDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("خیر، نیازی نیست")
+            TextButton(onClick = onDisable) {
+                Text("غیرفعال‌کردن یادآور")
             }
         }
     )

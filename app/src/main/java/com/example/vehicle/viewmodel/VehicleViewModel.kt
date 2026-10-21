@@ -181,16 +181,75 @@ class VehicleViewModel(
         _uiState.update { it.copy(showMileageDialog = false) }
     }
 
-    fun dismissReminderConfirmation() {
-        _uiState.update { it.copy(showReminderConfirmationDialog = false, lastAddedService = null) }
-    }
-
-    fun confirmReminderSchedule() {
+    fun closeReminderConfirmationDialog() {
         _uiState.update {
             it.copy(
                 showReminderConfirmationDialog = false,
                 lastAddedService = null,
-                snackBarMessage = "یادآور سرویس بعدی با موفقیت در تقویم مالی و بخش یادآورها فعال شد."
+                snackBarMessage = "یادآور تنظیم‌شده همچنان فعال است."
+            )
+        }
+    }
+
+    fun dismissReminderConfirmation() {
+        val service = _uiState.value.lastAddedService
+        if (service == null) {
+            closeReminderConfirmationDialog()
+            return
+        }
+
+        viewModelScope.launch {
+            val result = repository.updateService(
+                serviceId = service.id,
+                title = service.title,
+                serviceType = service.serviceType,
+                date = service.date,
+                mileage = service.mileage,
+                cost = service.cost,
+                description = service.description,
+                nextReminderDate = service.nextReminderDate,
+                nextReminderMileage = service.nextReminderMileage,
+                isReminderEnabled = false
+            )
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        showReminderConfirmationDialog = false,
+                        lastAddedService = null,
+                        snackBarMessage = "سرویس ثبت شد؛ یادآور آن غیرفعال شد."
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(
+                        showReminderConfirmationDialog = false,
+                        lastAddedService = null,
+                        snackBarMessage = "سرویس ثبت شد اما غیرفعال‌کردن یادآور ناموفق بود: ${error.localizedMessage ?: "خطای پایگاه داده."}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun confirmReminderSchedule() {
+        val service = _uiState.value.lastAddedService
+        val hasDateReminder = !service?.nextReminderDate.isNullOrBlank()
+        val hasMileageReminder = service?.nextReminderMileage != null
+        val message = when {
+            hasDateReminder && hasMileageReminder ->
+                "یادآور تاریخ‌دار در تقویم و بخش یادآورها ثبت شد؛ هشدار کیلومتری نیز با ثبت کیلومتر جدید بررسی می‌شود."
+            hasDateReminder ->
+                "یادآور تاریخ‌دار در تقویم و بخش یادآورها ثبت شد."
+            hasMileageReminder ->
+                "یادآور کیلومتری ذخیره شد و هنگام ثبت کیلومترِ رسیده به هدف، هشدار داده می‌شود."
+            else ->
+                "سرویس ثبت شد؛ برای فعال‌سازی یادآور، تاریخ یا کیلومتر هدف وارد کنید."
+        }
+        _uiState.update {
+            it.copy(
+                showReminderConfirmationDialog = false,
+                lastAddedService = null,
+                snackBarMessage = message
             )
         }
     }

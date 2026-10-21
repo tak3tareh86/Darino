@@ -129,7 +129,8 @@ class VehicleRepository {
                                 cost = s.cost,
                                 serviceMileage = s.mileage,
                                 dueMileage = s.nextReminderMileage,
-                                status = if (s.isReminderEnabled) "PENDING" else "COMPLETED",
+                                status = "COMPLETED",
+                                reminderEnabled = s.isReminderEnabled,
                                 notes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
                             )
                         )
@@ -271,7 +272,7 @@ class VehicleRepository {
                             description = cleanDescription,
                             nextReminderDate = realNextReminderDate,
                             nextReminderMileage = s.dueMileage,
-                            isReminderEnabled = s.status != "COMPLETED"
+                            isReminderEnabled = s.reminderEnabled
                         )
                     }
                 }
@@ -393,6 +394,54 @@ class VehicleRepository {
             }
         } else emptyList()
         db.smartReminderDao().insertSchedules(schedules)
+        syncVehicleCalendarEvent(
+            db = db,
+            userId = userId,
+            id = id,
+            title = title,
+            description = description,
+            date = date
+        )
+    }
+
+    /**
+     * Mirrors a date-based vehicle reminder into the finance calendar with a stable ID.
+     */
+    private suspend fun syncVehicleCalendarEvent(
+        db: AppDatabase,
+        userId: String,
+        id: String,
+        title: String,
+        description: String,
+        date: String?
+    ) {
+        val eventId = "vehicle_event_$id"
+        if (date.isNullOrBlank()) {
+            db.financialEventDao().deleteEventById(userId, eventId)
+            return
+        }
+
+        db.financialEventDao().deleteEventById(userId, eventId)
+        db.financialEventDao().insertEvent(
+            com.example.calendar.data.FinancialEventEntity(
+                id = eventId,
+                userId = userId,
+                title = title,
+                description = description,
+                type = "VEHICLE",
+                amount = null,
+                date = com.example.util.IranianPhoneUtils.convertDigitsToPersian(date.trim()),
+                time = "۰۹:۰۰",
+                repeatType = "NONE",
+                reminderBefore = "1_DAY",
+                sourceId = id,
+                status = "PENDING"
+            )
+        )
+    }
+
+    private suspend fun deleteVehicleCalendarEvent(db: AppDatabase, userId: String, id: String) {
+        db.financialEventDao().deleteEventById(userId, "vehicle_event_$id")
     }
 
     /**
@@ -471,6 +520,19 @@ class VehicleRepository {
         )
     }
 
+    private fun validateJalaliVehicleYear(year: String): String? {
+        val parsedYear = com.example.util.IranianPhoneUtils
+            .convertDigitsToEnglish(year.trim())
+            .toIntOrNull()
+            ?: return "سال ساخت باید عدد معتبر شمسی باشد."
+        val currentJalaliYear = PersianCalendarHelper
+            .fromEpochMillis(System.currentTimeMillis()).year
+        if (parsedYear !in 1300..(currentJalaliYear + 1)) {
+            return "سال ساخت باید بین ۱۳۰۰ تا ${currentJalaliYear + 1} باشد."
+        }
+        return null
+    }
+
     // 1. Add Vehicle (Synchronous suspend contract)
     suspend fun addVehicle(
         brand: String,
@@ -491,6 +553,9 @@ class VehicleRepository {
         if (brand.isBlank()) return@withContext Result.failure(IllegalArgumentException("نام برند خودرو نمی‌تواند خالی باشد."))
         if (model.isBlank()) return@withContext Result.failure(IllegalArgumentException("مدل خودرو نمی‌تواند خالی باشد."))
         if (year.isBlank()) return@withContext Result.failure(IllegalArgumentException("سال ساخت خودرو نمی‌تواند خالی باشد."))
+        validateJalaliVehicleYear(year)?.let {
+            return@withContext Result.failure(IllegalArgumentException(it))
+        }
         if (plate.isBlank()) return@withContext Result.failure(IllegalArgumentException("شماره پلاک خودرو الزامی است."))
         if (currentMileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر کارکرد نمی‌تواند منفی باشد."))
         if (estimatedValue < 0L) return@withContext Result.failure(IllegalArgumentException("ارزش تقریبی خودرو نمی‌تواند منفی باشد."))
@@ -544,6 +609,9 @@ class VehicleRepository {
         if (updated.brand.isBlank()) return@withContext Result.failure(IllegalArgumentException("برند خودرو نمی‌تواند خالی باشد."))
         if (updated.model.isBlank()) return@withContext Result.failure(IllegalArgumentException("مدل خودرو نمی‌تواند خالی باشد."))
         if (updated.year.isBlank()) return@withContext Result.failure(IllegalArgumentException("سال ساخت خودرو نمی‌تواند خالی باشد."))
+        validateJalaliVehicleYear(updated.year)?.let {
+            return@withContext Result.failure(IllegalArgumentException(it))
+        }
         if (updated.plate.isBlank()) return@withContext Result.failure(IllegalArgumentException("شماره پلاک خودرو الزامی است."))
         if (updated.currentMileage < 0) return@withContext Result.failure(IllegalArgumentException("کیلومتر کارکرد نمی‌تواند منفی باشد."))
         if (updated.estimatedValue < 0L) return@withContext Result.failure(IllegalArgumentException("ارزش تقریبی خودرو نمی‌تواند منفی باشد."))
@@ -595,7 +663,7 @@ class VehicleRepository {
             val crossedMileageReminders = if (newMileage > existing.currentMileage) {
                 db.vehicleDao().getAllServices(userId).first().filter { service ->
                     service.vehicleId == canonicalVehicleId &&
-                        service.status != "COMPLETED" &&
+                        service.reminderEnabled &&
                         service.dueMileage != null &&
                         service.dueMileage > existing.currentMileage &&
                         service.dueMileage <= newMileage
@@ -652,6 +720,7 @@ class VehicleRepository {
                 (serviceIds + insuranceIds + inspectionIds + listOf(vehicleId)).forEach { id ->
                     db.smartReminderDao().deleteReminderById(userId, id)
                     db.smartReminderDao().deleteSchedulesByReminderId(userId, id)
+                    deleteVehicleCalendarEvent(db, userId, id)
                 }
                 
                 vehicleAffected
@@ -709,7 +778,7 @@ class VehicleRepository {
             val crossedMileageReminders = if (mileage > vehicle.currentMileage) {
                 db.vehicleDao().getAllServices(userId).first().filter { service ->
                     service.vehicleId == vehicleId &&
-                        service.status != "COMPLETED" &&
+                        service.reminderEnabled &&
                         service.dueMileage != null &&
                         service.dueMileage > vehicle.currentMileage &&
                         service.dueMileage <= mileage
@@ -747,7 +816,8 @@ class VehicleRepository {
                         cost = cost,
                         serviceMileage = mileage,
                         dueMileage = nextReminderMileage,
-                        status = if (isReminderEnabled) "PENDING" else "COMPLETED",
+                        status = "COMPLETED",
+                        reminderEnabled = isReminderEnabled,
                         notes = encodedNotes
                     )
                 )
@@ -792,6 +862,7 @@ class VehicleRepository {
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
                     db.smartReminderDao().deleteSchedulesByReminderId(userId, serviceId)
+                    deleteVehicleCalendarEvent(db, userId, serviceId)
                 }
             }
 
@@ -839,7 +910,8 @@ class VehicleRepository {
         crossedServices: List<com.example.data.database.VehicleServiceEntity>,
         currentMileage: Int
     ) {
-        val dao = AppDatabase.getDatabase(context).smartReminderDao()
+        val db = AppDatabase.getDatabase(context)
+        val dao = db.smartReminderDao()
         val dispatcher = com.example.reminder.domain.NotificationDispatcher(context)
         crossedServices.forEach { service ->
             val reminderId = service.serverId ?: service.id.toString()
@@ -871,6 +943,16 @@ class VehicleRepository {
                 } else {
                     // Persist mileage-only reminders only when due, so notification actions work without a fake future date.
                     dao.insertReminder(updatedReminder)
+                }
+                db.withTransaction {
+                    syncVehicleCalendarEvent(
+                        db = db,
+                        userId = userId,
+                        id = reminderId,
+                        title = "موعد سرویس خودرو فرا رسیده است",
+                        description = "${baseReminder.description}؛ کیلومتر فعلی: $currentMileage، کیلومتر سرویس: ${service.dueMileage}",
+                        date = PersianCalendarHelper.fromEpochMillis(now).toFormattedDate()
+                    )
                 }
                 val thresholdSchedule = com.example.reminder.data.ReminderScheduleEntity(
                     id = "mileage_${reminderId}_${service.dueMileage}",
@@ -937,7 +1019,7 @@ class VehicleRepository {
                 db.vehicleDao().getAllServices(userId).first().filter { service ->
                     service.vehicleId == (vehicle.serverId ?: vehicle.id.toString()) &&
                         service.id != existingSvc.id &&
-                        service.status != "COMPLETED" &&
+                        service.reminderEnabled &&
                         service.dueMileage != null &&
                         service.dueMileage > vehicle.currentMileage &&
                         service.dueMileage <= mileage
@@ -978,7 +1060,8 @@ class VehicleRepository {
                         cost = cost,
                         serviceMileage = mileage,
                         dueMileage = nextReminderMileage,
-                        status = if (isReminderEnabled) "PENDING" else "COMPLETED",
+                        status = existingSvc.status,
+                        reminderEnabled = isReminderEnabled,
                         notes = encodedNotes
                     )
                 )
@@ -1035,6 +1118,7 @@ class VehicleRepository {
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
                     db.smartReminderDao().deleteSchedulesByReminderId(userId, serviceId)
+                    deleteVehicleCalendarEvent(db, userId, serviceId)
                 }
             }
 
@@ -1060,7 +1144,7 @@ class VehicleRepository {
             val effectiveCurrentMileage = maxOf(mileage, vehicle.currentMileage)
             if (isReminderEnabled && nextReminderMileage != null &&
                 nextReminderMileage <= effectiveCurrentMileage &&
-                (existingSvc.dueMileage != nextReminderMileage || existingSvc.status == "COMPLETED")
+                (existingSvc.dueMileage != nextReminderMileage || !existingSvc.reminderEnabled)
             ) {
                 val newlyDueService = db.vehicleDao().getServiceByServerId(userId, serviceId)
                 if (newlyDueService != null) {
@@ -1113,6 +1197,7 @@ class VehicleRepository {
                     status = "COMPLETED",
                     completedAt = System.currentTimeMillis()
                 )
+                deleteVehicleCalendarEvent(db, userId, serviceId)
             }
 
             // Cancel alarm in system AlarmManager after successful database commit
@@ -1145,6 +1230,7 @@ class VehicleRepository {
                 
                 db.smartReminderDao().deleteReminderById(userId, serviceId)
                 db.smartReminderDao().deleteSchedulesByReminderId(userId, serviceId)
+                deleteVehicleCalendarEvent(db, userId, serviceId)
                 
                 serviceAffected
             }
@@ -1440,6 +1526,7 @@ class VehicleRepository {
                 
                 db.smartReminderDao().deleteReminderById(userId, insuranceId)
                 db.smartReminderDao().deleteSchedulesByReminderId(userId, insuranceId)
+                deleteVehicleCalendarEvent(db, userId, insuranceId)
                 
                 insAffected
             }
@@ -1565,6 +1652,7 @@ class VehicleRepository {
                 
                 db.smartReminderDao().deleteReminderById(userId, inspectionId)
                 db.smartReminderDao().deleteSchedulesByReminderId(userId, inspectionId)
+                deleteVehicleCalendarEvent(db, userId, inspectionId)
                 
                 inspAffected
             }

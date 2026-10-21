@@ -136,7 +136,8 @@ data class VehicleServiceEntity(
     val cost: Long = 0L,
     val serviceMileage: Int? = null,
     val dueMileage: Int? = null,
-    val status: String = "PENDING", // "PENDING", "COMPLETED"
+    val status: String = "PENDING", // "PENDING", "COMPLETED" service lifecycle
+    @ColumnInfo(defaultValue = "1") val reminderEnabled: Boolean = true,
     val notes: String? = null,
     val updatedAt: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null
