@@ -83,6 +83,21 @@ data class VehicleMonthlyExpenseBar(
  */
 object VehicleAnalyzer {
 
+    /**
+     * Produces a stable sortable key for zero-padded Jalali dates, accepting Persian,
+     * Arabic-Indic, or Latin digits and ignoring separators/formatting.
+     */
+    private fun dateSortKey(value: String): String = buildString {
+        value.forEach { char ->
+            when (char) {
+                in '0'..'9' -> append(char)
+                in '۰'..'۹' -> append(('0'.code + (char.code - '۰'.code)).toChar())
+                in '٠'..'٩' -> append(('0'.code + (char.code - '٠'.code)).toChar())
+                else -> Unit
+            }
+        }
+    }
+
     fun analyzeHealth(
         vehicle: VehicleEntity,
         services: List<VehicleServiceEntity>,
@@ -91,10 +106,17 @@ object VehicleAnalyzer {
     ): VehicleHealthReport {
         val carServices = services.filter { it.vehicleId == vehicle.id }
         val carInsurances = insurances.filter { it.vehicleId == vehicle.id }
-        val carInspection = inspections.find { it.vehicleId == vehicle.id }
+        // DAO order is not a reliable definition of "latest"; select by normalized Jalali date.
+        val carInspection = inspections
+            .filter { it.vehicleId == vehicle.id }
+            .maxByOrNull { dateSortKey(it.lastInspectionDate) }
 
-        val lastOilService = carServices.find { it.serviceType == ServiceType.OIL_CHANGE }
-        val lastBrakeService = carServices.find { it.serviceType == ServiceType.BRAKE_PADS }
+        val lastOilService = carServices
+            .filter { it.serviceType == ServiceType.OIL_CHANGE }
+            .maxWithOrNull(compareBy<VehicleServiceEntity> { dateSortKey(it.date) }.thenBy { it.mileage })
+        val lastBrakeService = carServices
+            .filter { it.serviceType == ServiceType.BRAKE_PADS }
+            .maxWithOrNull(compareBy<VehicleServiceEntity> { dateSortKey(it.date) }.thenBy { it.mileage })
 
         val checklist = mutableListOf<VehicleHealthCheckItem>()
         var score = 100
@@ -104,7 +126,9 @@ object VehicleAnalyzer {
 
         // 1. Oil & Filter Health
         if (lastOilService != null) {
-            val nextKm = lastOilService.nextReminderMileage ?: (lastOilService.mileage + 5000)
+            val configuredIntervalKm = lastOilService.serviceType.defaultIntervalKm
+            val fallbackIntervalKm = configuredIntervalKm.takeIf { it > 0 } ?: 5000
+            val nextKm = lastOilService.nextReminderMileage ?: (lastOilService.mileage + fallbackIntervalKm)
             val kmRemaining = nextKm - vehicle.currentMileage
             if (kmRemaining < 0) {
                 checklist.add(
@@ -152,9 +176,25 @@ object VehicleAnalyzer {
         }
 
         // 2. Insurance Status
-        val thirdPartyInsurance = carInsurances.find { it.type.contains("ثالث") } ?: carInsurances.firstOrNull()
+        val todayKey = dateSortKey(todayJalali)
+        val thirdPartyPolicies = carInsurances.filter { it.type.contains("ثالث") }
+        val policiesToConsider = thirdPartyPolicies.ifEmpty { carInsurances }
+        // Prefer a currently valid policy; if none is valid, show the most recently relevant policy.
+        val thirdPartyInsurance = policiesToConsider
+            .filter { policy ->
+                val startKey = dateSortKey(policy.startDate)
+                val endKey = dateSortKey(policy.endDate)
+                endKey.isNotEmpty() && endKey >= todayKey &&
+                    (startKey.isEmpty() || startKey <= todayKey)
+            }
+            .maxByOrNull { dateSortKey(it.endDate) }
+            ?: policiesToConsider.maxWithOrNull(
+                compareBy<VehicleInsuranceEntity> { dateSortKey(it.startDate) }
+                    .thenBy { dateSortKey(it.endDate) }
+            )
         if (thirdPartyInsurance != null) {
-            val isExpired = thirdPartyInsurance.endDate.isNotBlank() && thirdPartyInsurance.endDate < todayJalali
+            val endKey = dateSortKey(thirdPartyInsurance.endDate)
+            val isExpired = endKey.isNotEmpty() && endKey < todayKey
             if (isExpired) {
                 checklist.add(
                     VehicleHealthCheckItem(
@@ -214,7 +254,8 @@ object VehicleAnalyzer {
 
         // 4. Technical Inspection
         if (carInspection != null) {
-            val isInspectionExpired = carInspection.expiryDate.isNotBlank() && carInspection.expiryDate < todayJalali
+            val expiryKey = dateSortKey(carInspection.expiryDate)
+            val isInspectionExpired = expiryKey.isNotEmpty() && expiryKey < todayKey
             if (isInspectionExpired) {
                 checklist.add(
                     VehicleHealthCheckItem(
