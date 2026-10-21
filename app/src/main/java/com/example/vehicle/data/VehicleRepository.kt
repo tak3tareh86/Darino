@@ -204,6 +204,21 @@ class VehicleRepository {
             e.printStackTrace()
         }
 
+        // Backfill vehicle expenses created before the finance-ledger link existed.
+        // Stable IDs and idempotent upserts prevent duplicate transactions on later logins.
+        try {
+            val existingExpenses = vDao.getAllExpensesList(userId)
+            if (existingExpenses.isNotEmpty()) {
+                db.withTransaction {
+                    existingExpenses.forEach { expense ->
+                        syncVehicleExpenseToFinance(db, userId, expense)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("VehicleRepository", "Vehicle expense finance-ledger backfill failed", e)
+        }
+
         // 2. Observe Room DAOs as authoritative Source of Truth
         roomCollectorsJob = repositoryScope.launch {
             launch {
@@ -404,6 +419,21 @@ class VehicleRepository {
         val financeTransactionId = "vehicle_expense_${expense.id}"
         val existing = db.transactionDao()
             .getTransactionIncludingDeleted(userId, financeTransactionId)
+        val expenseTimestamp = parseJalaliToTimestamp(expense.date) ?: System.currentTimeMillis()
+
+        // Make login-time backfills idempotent: don't rewrite an already matching ledger row.
+        if (existing != null &&
+            existing.deletedAt == null &&
+            existing.title == expense.title &&
+            existing.amount == expense.amount &&
+            existing.category == categoryTitle &&
+            existing.description == expense.description &&
+            existing.timestamp == expenseTimestamp &&
+            existing.sourceType == "VEHICLE" &&
+            existing.sourceId == expense.id &&
+            existing.accountId == account.stringId
+        ) return
+
         val now = System.currentTimeMillis()
         val transaction = com.example.data.database.TransactionEntity(
             id = existing?.id ?: 0,
@@ -415,7 +445,7 @@ class VehicleRepository {
             category = categoryTitle,
             accountName = account.name,
             description = expense.description,
-            timestamp = parseJalaliToTimestamp(expense.date) ?: now,
+            timestamp = expenseTimestamp,
             timeFormatted = "۰۹:۰۰",
             datePersian = expense.date,
             paymentMethod = when (account.type) {
