@@ -685,7 +685,7 @@ class VehicleRepository {
         val serviceDateMs = parseJalaliToTimestamp(date)
             ?: return@withContext Result.failure(IllegalArgumentException("تاریخ سرویس وارد شده نامعتبر است."))
 
-        val dueDateMs = if (!nextReminderDate.isNullOrBlank()) {
+        val dueDateMs = if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
             parseJalaliToTimestamp(nextReminderDate)
                 ?: return@withContext Result.failure(IllegalArgumentException("تاریخ یادآور سرویس نامعتبر است."))
         } else null
@@ -695,12 +695,12 @@ class VehicleRepository {
                 IllegalArgumentException("برای فعال‌کردن یادآور، تاریخ سررسید یا کیلومتر هدف را وارد کنید.")
             )
         }
-        if (dueDateMs != null && dueDateMs < serviceDateMs) {
+        if (isReminderEnabled && dueDateMs != null && dueDateMs < serviceDateMs) {
             return@withContext Result.failure(
                 IllegalArgumentException("تاریخ یادآور نمی‌تواند قبل از تاریخ انجام سرویس باشد.")
             )
         }
-        if (nextReminderMileage != null && nextReminderMileage < mileage) {
+        if (isReminderEnabled && nextReminderMileage != null && nextReminderMileage < mileage) {
             return@withContext Result.failure(
                 IllegalArgumentException("کیلومتر یادآور نمی‌تواند کمتر از کیلومتر ثبت‌شده برای سرویس باشد.")
             )
@@ -733,8 +733,8 @@ class VehicleRepository {
                 mileage = mileage,
                 cost = cost,
                 description = description.trim(),
-                nextReminderDate = nextReminderDate?.trim(),
-                nextReminderMileage = nextReminderMileage,
+                nextReminderDate = if (isReminderEnabled) nextReminderDate?.trim() else null,
+                nextReminderMileage = if (isReminderEnabled) nextReminderMileage else null,
                 isReminderEnabled = isReminderEnabled
             )
 
@@ -748,10 +748,10 @@ class VehicleRepository {
                         type = serviceType.name,
                         title = title.trim(),
                         serviceDate = serviceDateMs,
-                        dueDate = dueDateMs,
+                        dueDate = if (isReminderEnabled) dueDateMs else null,
                         cost = cost,
                         serviceMileage = mileage,
-                        dueMileage = nextReminderMileage,
+                        dueMileage = if (isReminderEnabled) nextReminderMileage else null,
                         status = if (isReminderEnabled) "PENDING" else "COMPLETED",
                         notes = encodedNotes
                     )
@@ -960,8 +960,8 @@ class VehicleRepository {
                 mileage = mileage,
                 cost = cost,
                 description = description.trim(),
-                nextReminderDate = nextReminderDate?.trim(),
-                nextReminderMileage = nextReminderMileage,
+                nextReminderDate = if (isReminderEnabled) nextReminderDate?.trim() else null,
+                nextReminderMileage = if (isReminderEnabled) nextReminderMileage else null,
                 isReminderEnabled = isReminderEnabled
             )
 
@@ -979,10 +979,10 @@ class VehicleRepository {
                         type = serviceType.name,
                         title = title.trim(),
                         serviceDate = serviceDateMs,
-                        dueDate = dueDateMs,
+                        dueDate = if (isReminderEnabled) dueDateMs else null,
                         cost = cost,
                         serviceMileage = mileage,
-                        dueMileage = nextReminderMileage,
+                        dueMileage = if (isReminderEnabled) nextReminderMileage else null,
                         status = if (isReminderEnabled) "PENDING" else "COMPLETED",
                         notes = encodedNotes
                     )
