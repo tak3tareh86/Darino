@@ -91,16 +91,26 @@ object VehicleAnalyzer {
     ): VehicleHealthReport {
         val carServices = services.filter { it.vehicleId == vehicle.id }
         val carInsurances = insurances.filter { it.vehicleId == vehicle.id }
-        val carInspection = inspections.find { it.vehicleId == vehicle.id }
+        // Repository flows are ordered by due date, not by service date. Select the
+        // latest actual maintenance record instead of trusting incoming list order.
+        val carInspection = inspections
+            .filter { it.vehicleId == vehicle.id }
+            .maxByOrNull { normalizedDate(it.expiryDate) ?: "" }
 
-        val lastOilService = carServices.find { it.serviceType == ServiceType.OIL_CHANGE }
-        val lastBrakeService = carServices.find { it.serviceType == ServiceType.BRAKE_PADS }
+        val latestServiceComparator = compareBy<VehicleServiceEntity> { normalizedDate(it.date) ?: "" }
+            .thenBy { it.mileage }
+        val lastOilService = carServices
+            .filter { it.serviceType == ServiceType.OIL_CHANGE }
+            .maxWithOrNull(latestServiceComparator)
+        val lastBrakeService = carServices
+            .filter { it.serviceType == ServiceType.BRAKE_PADS }
+            .maxWithOrNull(latestServiceComparator)
 
         val checklist = mutableListOf<VehicleHealthCheckItem>()
         var score = 100
 
         val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
-        val todayJalali = currentPdt.toFormattedDate()
+        val todayJalali = normalizedDate(currentPdt.toFormattedDate())
 
         // 1. Oil & Filter Health
         if (lastOilService != null) {
@@ -152,9 +162,13 @@ object VehicleAnalyzer {
         }
 
         // 2. Insurance Status
-        val thirdPartyInsurance = carInsurances.find { it.type.contains("ثالث") } ?: carInsurances.firstOrNull()
+        val thirdPartyInsurance = carInsurances
+            .filter { it.type.contains("ثالث") }
+            .maxByOrNull { normalizedDate(it.endDate) ?: "" }
+            ?: carInsurances.maxByOrNull { normalizedDate(it.endDate) ?: "" }
         if (thirdPartyInsurance != null) {
-            val isExpired = thirdPartyInsurance.endDate.isNotBlank() && thirdPartyInsurance.endDate < todayJalali
+            val insuranceEndDate = normalizedDate(thirdPartyInsurance.endDate)
+            val isExpired = insuranceEndDate != null && todayJalali != null && insuranceEndDate < todayJalali
             if (isExpired) {
                 checklist.add(
                     VehicleHealthCheckItem(
@@ -214,7 +228,8 @@ object VehicleAnalyzer {
 
         // 4. Technical Inspection
         if (carInspection != null) {
-            val isInspectionExpired = carInspection.expiryDate.isNotBlank() && carInspection.expiryDate < todayJalali
+            val inspectionExpiryDate = normalizedDate(carInspection.expiryDate)
+            val isInspectionExpired = inspectionExpiryDate != null && todayJalali != null && inspectionExpiryDate < todayJalali
             if (isInspectionExpired) {
                 checklist.add(
                     VehicleHealthCheckItem(
@@ -266,6 +281,21 @@ object VehicleAnalyzer {
             checklist = checklist,
             recommendation = recommendation
         )
+    }
+
+    /** Normalize a full Jalali date to sortable ASCII `yyyy/MM/dd`; null for invalid dates. */
+    private fun normalizedDate(date: String): String? {
+        val asciiDate = com.example.util.IranianPhoneUtils
+            .convertDigitsToEnglish(date.trim())
+            .replace('-', '/')
+        val parts = asciiDate.split('/')
+        if (parts.size != 3) return null
+
+        val year = parts[0].toIntOrNull() ?: return null
+        val month = parts[1].toIntOrNull() ?: return null
+        val day = parts[2].toIntOrNull() ?: return null
+        if (year <= 0 || month !in 1..12 || day !in 1..31) return null
+        return "%04d/%02d/%02d".format(year, month, day)
     }
 
     /**
