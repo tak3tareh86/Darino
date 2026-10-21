@@ -7,8 +7,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +37,7 @@ import java.util.Locale
 @Composable
 fun VehicleTimelineScreen(
     events: List<VehicleTimelineEvent>,
+    onDeleteExpense: (expenseId: String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (events.isEmpty()) {
@@ -72,7 +79,7 @@ fun VehicleTimelineScreen(
         ) {
             itemsIndexed(events, key = { _, item -> item.id }) { index, event ->
                 val isLast = index == events.size - 1
-                TimelineItemRow(event = event, isLast = isLast)
+                TimelineItemRow(event = event, isLast = isLast, onDeleteExpense = onDeleteExpense)
             }
         }
     }
@@ -81,8 +88,10 @@ fun VehicleTimelineScreen(
 @Composable
 private fun TimelineItemRow(
     event: VehicleTimelineEvent,
-    isLast: Boolean
+    isLast: Boolean,
+    onDeleteExpense: (expenseId: String) -> Unit
 ) {
+    var showDeleteConfirmation by remember(event.id) { mutableStateOf(false) }
     val amountFormatted = IranianPhoneUtils.convertDigitsToPersian(
         NumberFormat.getNumberInstance(Locale.US).format(event.amount)
     )
@@ -146,7 +155,8 @@ private fun TimelineItemRow(
                     Text(
                         text = event.title,
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
                     )
                     Surface(
                         shape = RoundedCornerShape(6.dp),
@@ -161,6 +171,20 @@ private fun TimelineItemRow(
                             color = eventColor,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
+                    }
+                    if (event is VehicleTimelineEvent.ExpenseEvent &&
+                        event.category != com.example.vehicle.data.VehicleExpenseCategory.INSPECTION
+                    ) {
+                        IconButton(
+                            onClick = { showDeleteConfirmation = true },
+                            modifier = Modifier.size(32.dp).testTag("timeline_delete_expense_${event.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.DeleteOutline,
+                                contentDescription = "حذف هزینه",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
 
@@ -187,5 +211,22 @@ private fun TimelineItemRow(
                 }
             }
         }
+    }
+
+    if (showDeleteConfirmation && event is VehicleTimelineEvent.ExpenseEvent) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("حذف هزینه خودرو") },
+            text = { Text("هزینه «${event.title}» حذف شود؟ این کار قابل بازگشت نیست.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteExpense(event.id)
+                    showDeleteConfirmation = false
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+            }
+        )
     }
 }
