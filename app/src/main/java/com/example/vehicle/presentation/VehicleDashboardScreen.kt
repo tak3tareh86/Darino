@@ -1026,8 +1026,10 @@ private fun VehicleInsuranceDocumentsTabContent(
                         val startKey = jalaliDateSortKey(ins.startDate)
                         val endKey = jalaliDateSortKey(ins.endDate)
                         val insuranceStatus = when {
-                            endKey.isEmpty() -> "اعتبار نامشخص"
-                            startKey.isNotEmpty() && startKey > todayKey -> "هنوز شروع نشده"
+                            startKey.isEmpty() && endKey.isEmpty() -> "تاریخ اعتبار نامشخص"
+                            startKey.isEmpty() -> "شروع اعتبار نامشخص"
+                            endKey.isEmpty() -> "پایان اعتبار نامشخص"
+                            startKey > todayKey -> "هنوز شروع نشده"
                             endKey < todayKey -> "منقضی شده"
                             else -> "دارای اعتبار"
                         }
