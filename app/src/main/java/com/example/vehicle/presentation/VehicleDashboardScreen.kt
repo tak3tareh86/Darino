@@ -854,13 +854,13 @@ private fun ServiceRecordCard(
                 ) {
                     OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("عنوان سرویس") }, singleLine = true)
                     OutlinedTextField(value = date, onValueChange = { date = it }, label = { Text("تاریخ انجام (شمسی)") }, singleLine = true)
-                    OutlinedTextField(value = mileageText, onValueChange = { mileageText = it }, label = { Text("کیلومتر انجام سرویس") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
-                    OutlinedTextField(value = costText, onValueChange = { costText = it }, label = { Text("هزینه (تومان)") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                    OutlinedTextField(value = IranianPhoneUtils.convertDigitsToPersian(mileageText), onValueChange = { mileageText = IranianPhoneUtils.convertDigitsToEnglish(it).filter(Char::isDigit) }, label = { Text("کیلومتر انجام سرویس") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                    OutlinedTextField(value = IranianPhoneUtils.convertDigitsToPersian(costText), onValueChange = { costText = IranianPhoneUtils.convertDigitsToEnglish(it).filter(Char::isDigit) }, label = { Text("هزینه (تومان)") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
                     OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("توضیحات") })
                     HorizontalDivider()
                     Text("یادآور بعدی", style = MaterialTheme.typography.titleSmall)
                     OutlinedTextField(value = nextDate, onValueChange = { nextDate = it }, label = { Text("تاریخ سررسید (اختیاری)") }, singleLine = true)
-                    OutlinedTextField(value = nextMileageText, onValueChange = { nextMileageText = it }, label = { Text("کیلومتر هدف (اختیاری)") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                    OutlinedTextField(value = IranianPhoneUtils.convertDigitsToPersian(nextMileageText), onValueChange = { nextMileageText = IranianPhoneUtils.convertDigitsToEnglish(it).filter(Char::isDigit) }, label = { Text("کیلومتر هدف (اختیاری)") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("فعال‌بودن یادآور", modifier = Modifier.weight(1f))
                         Switch(checked = reminderEnabled, onCheckedChange = { reminderEnabled = it })
@@ -869,7 +869,7 @@ private fun ServiceRecordCard(
             },
             confirmButton = {
                 TextButton(
-                    enabled = title.isNotBlank() && date.isNotBlank() &&
+                    enabled = title.isNotBlank() && date.isNotBlank() && mileageText.isNotBlank() &&
                         (!reminderEnabled || nextDate.isNotBlank() || nextMileageText.isNotBlank()),
                     onClick = {
                         val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter(Char::isDigit).toIntOrNull() ?: -1
