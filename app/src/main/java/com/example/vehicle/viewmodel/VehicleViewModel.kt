@@ -138,11 +138,15 @@ class VehicleViewModel(
     }
 
     fun openAddService() {
-        _uiState.update { it.copy(showAddServiceSheet = true) }
+        _uiState.update { it.copy(showAddServiceSheet = true, editingService = null) }
+    }
+
+    fun openEditService(service: com.example.vehicle.data.VehicleServiceEntity) {
+        _uiState.update { it.copy(showAddServiceSheet = true, editingService = service) }
     }
 
     fun closeAddService() {
-        _uiState.update { it.copy(showAddServiceSheet = false) }
+        _uiState.update { it.copy(showAddServiceSheet = false, editingService = null) }
     }
 
     fun openAddExpense() {
@@ -396,6 +400,8 @@ class VehicleViewModel(
             result.onSuccess {
                 _uiState.update {
                     it.copy(
+                        showAddServiceSheet = false,
+                        editingService = null,
                         snackBarMessage = "سرویس $title با موفقیت ویرایش شد."
                     )
                 }
