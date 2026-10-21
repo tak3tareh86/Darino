@@ -915,14 +915,22 @@ private fun ServiceRecordCard(
     }
 }
 
-private fun jalaliDateSortKey(value: String): String = buildString {
-    value.forEach { char ->
-        when (char) {
-            in '0'..'9' -> append(char)
-            in '۰'..'۹' -> append(('0'.code + (char.code - '۰'.code)).toChar())
-            in '٠'..'٩' -> append(('0'.code + (char.code - '٠'.code)).toChar())
-            else -> Unit
+private fun jalaliDateSortKey(value: String): String {
+    val normalized = buildString {
+        value.forEach { char ->
+            when (char) {
+                in '0'..'9' -> append(char)
+                in '۰'..'۹' -> append(('0'.code + (char.code - '۰'.code)).toChar())
+                in '٠'..'٩' -> append(('0'.code + (char.code - '٠'.code)).toChar())
+                else -> append('/')
+            }
         }
+    }
+    val parts = normalized.split('/').filter { it.isNotEmpty() }
+    return if (parts.size >= 3) {
+        parts[0].padStart(4, '0') + parts[1].padStart(2, '0') + parts[2].padStart(2, '0')
+    } else {
+        normalized.filter { it.isDigit() }
     }
 }
 
