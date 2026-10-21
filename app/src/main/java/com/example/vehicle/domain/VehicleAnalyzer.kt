@@ -462,8 +462,7 @@ object VehicleAnalyzer {
         expenses.filter { expense ->
             expense.vehicleId == vehicleId &&
                 !expense.id.startsWith("exp_svc_") &&
-                !expense.id.startsWith("exp_ins_") &&
-                !expense.id.startsWith("exp_insp_")
+                !expense.id.startsWith("exp_ins_")
         }.forEach { e ->
             timeline.add(
                 VehicleTimelineEvent.ExpenseEvent(
