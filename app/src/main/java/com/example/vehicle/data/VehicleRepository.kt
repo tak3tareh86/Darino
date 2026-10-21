@@ -951,14 +951,16 @@ class VehicleRepository {
                     // Persist mileage-only reminders only when due, so notification actions work without a fake future date.
                     dao.insertReminder(updatedReminder)
                 }
-                syncVehicleCalendarEvent(
-                    db = db,
-                    userId = userId,
-                    id = reminderId,
-                    title = "موعد سرویس خودرو فرا رسیده است",
-                    description = "${baseReminder.description}؛ کیلومتر فعلی: $currentMileage، کیلومتر سرویس: ${service.dueMileage}",
-                    date = PersianCalendarHelper.fromEpochMillis(now).toFormattedDate()
-                )
+                db.withTransaction {
+                    syncVehicleCalendarEvent(
+                        db = db,
+                        userId = userId,
+                        id = reminderId,
+                        title = "موعد سرویس خودرو فرا رسیده است",
+                        description = "${baseReminder.description}؛ کیلومتر فعلی: $currentMileage، کیلومتر سرویس: ${service.dueMileage}",
+                        date = PersianCalendarHelper.fromEpochMillis(now).toFormattedDate()
+                    )
+                }
                 val thresholdSchedule = com.example.reminder.data.ReminderScheduleEntity(
                     id = "mileage_${reminderId}_${service.dueMileage}",
                     reminderId = reminderId,
