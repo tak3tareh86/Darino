@@ -472,8 +472,7 @@ class VehicleRepository {
             existing.datePersian == expense.date &&
             existing.accountName == (existing.accountName.takeIf { it.isNotBlank() } ?: "حساب نامشخص") &&
             existing.sourceType == "VEHICLE" &&
-            existing.sourceId == expense.id &&
-            existing.accountId == account.stringId
+            existing.sourceId == expense.id
         ) return
 
         val now = System.currentTimeMillis()
