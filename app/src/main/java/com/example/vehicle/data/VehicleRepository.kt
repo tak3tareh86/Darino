@@ -1121,6 +1121,18 @@ class VehicleRepository {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
+        // Service, insurance, and inspection expenses are derived records linked to their
+        // parent dossier. Deleting them independently would make reports disagree with
+        // the saved service/policy/inspection and can recreate them on the next edit.
+        if (expenseId.startsWith("exp_svc_") ||
+            expenseId.startsWith("exp_ins_") ||
+            expenseId.startsWith("exp_insp_")
+        ) {
+            return@withContext Result.failure(
+                IllegalStateException("این هزینه به سرویس، بیمه یا معاینه فنی متصل است؛ آن را از بخش مربوط به همان پرونده ویرایش یا حذف کنید.")
+            )
+        }
+
         try {
             val db = AppDatabase.getDatabase(context)
             val affectedRows = db.vehicleDao().deleteExpenseById(userId, expenseId)
