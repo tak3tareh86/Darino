@@ -234,10 +234,11 @@ object VehicleAnalyzer {
                     score -= 35
                 }
                 hasUnknownStart || hasUnknownExpiry -> {
-                    val missingDates = buildList {
-                        if (hasUnknownStart) add("شروع")
-                        if (hasUnknownExpiry) add("پایان")
-                    }.joinToString(" و ")
+                    val missingDates = when {
+                        hasUnknownStart && hasUnknownExpiry -> "شروع و پایان"
+                        hasUnknownStart -> "شروع"
+                        else -> "پایان"
+                    }
                     checklist.add(
                         VehicleHealthCheckItem(
                             title = "بیمه‌نامه خودرو",
