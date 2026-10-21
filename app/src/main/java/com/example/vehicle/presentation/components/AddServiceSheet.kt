@@ -73,7 +73,10 @@ fun AddServiceSheet(
     var title by remember(initialService?.id) { mutableStateOf(initialService?.title ?: ServiceType.OIL_CHANGE.title) }
     var date by remember(initialService?.id) { mutableStateOf(initialService?.date ?: todayJalali) }
     var mileageText by remember(initialService?.id) {
-        mutableStateOf((initialService?.mileage ?: vehicle.currentMileage).takeIf { it > 0 }?.toString() ?: "")
+        mutableStateOf(
+            initialService?.mileage?.toString()
+                ?: vehicle.currentMileage.takeIf { it > 0 }?.toString().orEmpty()
+        )
     }
     var costText by remember(initialService?.id) { mutableStateOf(initialService?.cost?.toString() ?: "") }
     var description by remember(initialService?.id) { mutableStateOf(initialService?.description ?: "") }
