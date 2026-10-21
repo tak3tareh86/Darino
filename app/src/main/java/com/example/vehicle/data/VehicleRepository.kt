@@ -1237,7 +1237,8 @@ class VehicleRepository {
         category: VehicleExpenseCategory,
         amount: Long,
         date: String,
-        description: String = ""
+        description: String = "",
+        receiptImageUri: String? = null
     ): Result<VehicleExpenseEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
@@ -1261,7 +1262,8 @@ class VehicleRepository {
                 category = category,
                 amount = amount,
                 date = date.trim(),
-                description = description.trim()
+                description = description.trim(),
+                receiptImageUri = receiptImageUri
             )
 
             db.withTransaction {
@@ -1273,7 +1275,8 @@ class VehicleRepository {
                     category = category.name,
                     amount = amount,
                     date = date.trim(),
-                    description = description.trim()
+                    description = description.trim(),
+                    receiptImageUri = receiptImageUri
                 )
                 db.vehicleDao().insertExpense(expenseEntity)
                 syncVehicleExpenseToFinance(db, userId, expenseEntity)
