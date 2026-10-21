@@ -197,8 +197,8 @@ object VehicleAnalyzer {
             }
             .maxByOrNull { dateSortKey(it.endDate) }
             ?: policiesToConsider.maxWithOrNull(
-                compareBy<VehicleInsuranceEntity> { dateSortKey(it.startDate) }
-                    .thenBy { dateSortKey(it.endDate) }
+                compareBy<VehicleInsuranceEntity> { dateSortKey(it.endDate) }
+                    .thenBy { dateSortKey(it.startDate) }
             )
         if (thirdPartyInsurance != null) {
             val startKey = dateSortKey(thirdPartyInsurance.startDate)
