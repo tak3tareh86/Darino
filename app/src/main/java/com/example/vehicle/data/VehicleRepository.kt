@@ -129,7 +129,8 @@ class VehicleRepository {
                                 cost = s.cost,
                                 serviceMileage = s.mileage,
                                 dueMileage = s.nextReminderMileage,
-                                status = if (s.isReminderEnabled) "PENDING" else "COMPLETED",
+                                status = "COMPLETED",
+                                reminderEnabled = s.isReminderEnabled,
                                 notes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
                             )
                         )
@@ -271,7 +272,7 @@ class VehicleRepository {
                             description = cleanDescription,
                             nextReminderDate = realNextReminderDate,
                             nextReminderMileage = s.dueMileage,
-                            isReminderEnabled = s.status != "COMPLETED"
+                            isReminderEnabled = s.reminderEnabled
                         )
                     }
                 }
@@ -614,7 +615,7 @@ class VehicleRepository {
             val crossedMileageReminders = if (newMileage > existing.currentMileage) {
                 db.vehicleDao().getAllServices(userId).first().filter { service ->
                     service.vehicleId == canonicalVehicleId &&
-                        service.status != "COMPLETED" &&
+                        service.reminderEnabled &&
                         service.dueMileage != null &&
                         service.dueMileage > existing.currentMileage &&
                         service.dueMileage <= newMileage
@@ -766,7 +767,8 @@ class VehicleRepository {
                         cost = cost,
                         serviceMileage = mileage,
                         dueMileage = nextReminderMileage,
-                        status = if (isReminderEnabled) "PENDING" else "COMPLETED",
+                        status = existingSvc.status,
+                        reminderEnabled = isReminderEnabled,
                         notes = encodedNotes
                     )
                 )
@@ -1079,7 +1081,7 @@ class VehicleRepository {
             val effectiveCurrentMileage = maxOf(mileage, vehicle.currentMileage)
             if (isReminderEnabled && nextReminderMileage != null &&
                 nextReminderMileage <= effectiveCurrentMileage &&
-                (existingSvc.dueMileage != nextReminderMileage || existingSvc.status == "COMPLETED")
+                (existingSvc.dueMileage != nextReminderMileage || !existingSvc.reminderEnabled)
             ) {
                 val newlyDueService = db.vehicleDao().getServiceByServerId(userId, serviceId)
                 if (newlyDueService != null) {
