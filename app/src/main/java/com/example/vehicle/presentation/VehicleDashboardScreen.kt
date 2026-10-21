@@ -295,7 +295,8 @@ fun DarinoVehicleMainDashboard(
                         }
                         VehicleTab.TIMELINE -> {
                             VehicleTimelineScreen(
-                                events = state.timelineEvents
+                                events = state.timelineEvents,
+                                onDeleteExpense = { viewModel.deleteExpenseRecord(it) }
                             )
                         }
                         VehicleTab.REPORTS -> {
