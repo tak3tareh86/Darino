@@ -9,6 +9,9 @@ import org.robolectric.shadows.ShadowAlarmManager
 import com.example.vehicle.data.ServiceType
 import com.example.vehicle.data.VehicleExpenseCategory
 import com.example.vehicle.data.VehicleRepository
+import com.example.vehicle.data.VehicleServiceEntity
+import com.example.vehicle.data.VehicleInsuranceEntity
+import com.example.vehicle.data.VehicleInspectionEntity
 import com.example.vehicle.domain.VehicleAnalyzer
 import com.example.vehicle.domain.VehicleHealthLevel
 import com.example.vehicle.domain.VehicleManager
@@ -285,6 +288,15 @@ class VehicleAssistantTest {
                 description = ""
             ),
             com.example.vehicle.data.VehicleExpenseEntity(
+                id = "m2_hyphen",
+                vehicleId = "car1",
+                title = "قطعات ماه جاری با خط تیره و فاصله",
+                category = VehicleExpenseCategory.PARTS,
+                amount = 1_500_000L,
+                date = " %04d-%02d-18 ".format(currentYear, currentMonth),
+                description = ""
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
                 id = "m3",
                 vehicleId = "car1",
                 title = "سرویس ماه قبل فارسی",
@@ -300,6 +312,15 @@ class VehicleAssistantTest {
                 category = VehicleExpenseCategory.SERVICE,
                 amount = 4_000_000L,
                 date = "%04d/%02d/20".format(prevYear, prevMonth),
+                description = ""
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "m4_hyphen",
+                vehicleId = "car1",
+                title = "تعمیرات ماه قبل با خط تیره",
+                category = VehicleExpenseCategory.REPAIRS,
+                amount = 2_500_000L,
+                date = "%04d-%02d-25".format(prevYear, prevMonth),
                 description = ""
             )
         )
@@ -317,15 +338,17 @@ class VehicleAssistantTest {
         val currentMonthBar = chartData.last()
         assertTrue(currentMonthBar.isCurrentMonth)
         assertEquals(3_000_000L, currentMonthBar.fuelAmount) // 1M Persian + 2M English
+        assertEquals(1_500_000L, currentMonthBar.repairAmount) // 1.5M Parts/Repairs with hyphen
         assertEquals(0L, currentMonthBar.serviceAmount)
-        assertEquals(3_000_000L, currentMonthBar.totalAmount)
+        assertEquals(4_500_000L, currentMonthBar.totalAmount)
 
         // The second to last item (index 4) is the previous month
         val prevMonthBar = chartData[4]
         assertFalse(prevMonthBar.isCurrentMonth)
         assertEquals(0L, prevMonthBar.fuelAmount)
+        assertEquals(2_500_000L, prevMonthBar.repairAmount)
         assertEquals(7_000_000L, prevMonthBar.serviceAmount) // 3M Persian + 4M English
-        assertEquals(7_000_000L, prevMonthBar.totalAmount)
+        assertEquals(9_500_000L, prevMonthBar.totalAmount)
     }
 
     @Test
@@ -1246,18 +1269,27 @@ class VehicleAssistantTest {
                 amount = 4_000_000L,
                 date = "$pastYearStr/05/20"
             ),
-            // Car 1 - Invalid date format
+            // Car 1 - Invalid day format (1405/02/99)
             com.example.vehicle.data.VehicleExpenseEntity(
-                id = "exp5",
+                id = "exp5_invalid_day",
                 vehicleId = car1Id,
-                title = "هزینه با تاریخ نامعتبر",
+                title = "هزینه با روز نامعتبر",
                 category = VehicleExpenseCategory.OTHER,
-                amount = 500_000L,
-                date = "invalid-date"
+                amount = 900_000L,
+                date = "$currentYearStr/$currentMonthPersian/99"
+            ),
+            // Car 1 - Invalid month format (1405/13/10)
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "exp6_invalid_month",
+                vehicleId = car1Id,
+                title = "هزینه با ماه نامعتبر",
+                category = VehicleExpenseCategory.OTHER,
+                amount = 600_000L,
+                date = "$currentYearStr/13/10"
             ),
             // Car 2 - Expense (must NOT leak into Car 1 stats)
             com.example.vehicle.data.VehicleExpenseEntity(
-                id = "exp6",
+                id = "exp7",
                 vehicleId = car2Id,
                 title = "سوخت خودرو دوم",
                 category = VehicleExpenseCategory.FUEL,
@@ -1273,15 +1305,15 @@ class VehicleAssistantTest {
             services = emptyList()
         )
 
-        // Current month cost for Car 1 = 400k (exp1) + 1.2M (exp2) + 150k (exp3) = 1,750,000L
-        assertEquals("Current month cost must accurately match all formatted current month expenses for Car 1", 1_750_000L, statsCar1.currentMonthCost)
+        // Current month cost for Car 1 = 400k (exp1) + 1.2M (exp2) + 150k (exp3) = 1,750,000L (Invalid dates exp5 & exp6 excluded)
+        assertEquals("Current month cost must match valid expenses and EXCLUDE invalid dates 99 and month 13", 1_750_000L, statsCar1.currentMonthCost)
 
-        // Yearly cost for Car 1 = 1,750,000L (current year expenses)
-        assertEquals("Yearly cost must include current year expenses for Car 1 and exclude past year", 1_750_000L, statsCar1.yearlyCost)
+        // Yearly cost for Car 1 = 1,750,000L (current year valid expenses, past year exp4 and invalid dates excluded)
+        assertEquals("Yearly cost must match valid current year expenses for Car 1", 1_750_000L, statsCar1.yearlyCost)
 
-        // Grand total of all expenses for Car 1 = 400k + 1.2M + 150k + 4M + 500k = 6,250,000L
+        // Grand total of all expenses for Car 1 = 400k + 1.2M + 150k + 4M + 900k + 600k = 7,250,000L
         val totalCategorySumCar1 = statsCar1.categoryBreakdown.sumOf { it.amount }
-        assertEquals("Sum of categories must match total expenses of Car 1", 6_250_000L, totalCategorySumCar1)
+        assertEquals("Sum of categories must match total expenses of Car 1", 7_250_000L, totalCategorySumCar1)
 
         // Verify Car 2 Stats isolation
         val statsCar2 = VehicleAnalyzer.computeStatistics(
@@ -1303,7 +1335,115 @@ class VehicleAssistantTest {
         assertEquals(0, statsEmpty.totalServicesCount)
         assertTrue(statsEmpty.categoryBreakdown.isEmpty())
     }
+
+    @Test
+    fun testDirectVehicleHealthScoreCalculation() {
+        val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val pastEnglish = "%04d/%02d/%02d".format(currentPdt.year - 1, currentPdt.month, currentPdt.day)
+        val futureEnglish = "%04d/%02d/%02d".format(currentPdt.year + 1, currentPdt.month, currentPdt.day)
+
+        val car = com.example.vehicle.data.VehicleEntity(
+            id = "car_health_direct",
+            brand = "پژو",
+            model = "207i",
+            year = "1402",
+            color = "سفید",
+            plate = "۱۲ الف ۳۴۵ ایران ۶۸",
+            currentMileage = 40000
+        )
+
+        // Scenario A: Perfect Health Score = 100
+        val perfectServices = listOf(
+            VehicleServiceEntity(
+                id = "svc_oil",
+                vehicleId = car.id,
+                title = "تعویض روغن",
+                serviceType = ServiceType.OIL_CHANGE,
+                date = pastEnglish,
+                mileage = 35000,
+                cost = 800_000L,
+                nextReminderMileage = 45000 // 5000 km remaining -> OK (0 deduction)
+            ),
+            VehicleServiceEntity(
+                id = "svc_brake",
+                vehicleId = car.id,
+                title = "تعویض لنت",
+                serviceType = ServiceType.BRAKE_PADS,
+                date = pastEnglish,
+                mileage = 35000,
+                cost = 600_000L
+            )
+        )
+        val perfectInsurance = listOf(
+            VehicleInsuranceEntity(
+                id = "ins_ok",
+                vehicleId = car.id,
+                company = "بیمه ایران",
+                type = "شخص ثالث",
+                startDate = pastEnglish,
+                endDate = futureEnglish,
+                amount = 5_000_000L
+            )
+        )
+        val perfectInspection = listOf(
+            VehicleInspectionEntity(
+                id = "insp_ok",
+                vehicleId = car.id,
+                lastInspectionDate = pastEnglish,
+                expiryDate = futureEnglish,
+                cost = 200_000L,
+                status = "معتبر"
+            )
+        )
+
+        val perfectHealth = VehicleAnalyzer.analyzeHealth(car, perfectServices, perfectInsurance, perfectInspection)
+        assertEquals("Perfect vehicle health score must be exactly 100", 100, perfectHealth.healthScorePercent)
+        assertEquals(VehicleHealthLevel.GOOD, perfectHealth.level)
+
+        // Scenario B: Deductions Scenario
+        // Overdue oil (-30), Expired insurance (-35), No brake service (-10), Expired inspection (-20)
+        // Calculated = 100 - 30 - 35 - 10 - 20 = 5, clamped to minimum 10
+        val overdueOilService = listOf(
+            VehicleServiceEntity(
+                id = "svc_oil_overdue",
+                vehicleId = car.id,
+                title = "تعویض روغن",
+                serviceType = ServiceType.OIL_CHANGE,
+                date = pastEnglish,
+                mileage = 30000,
+                cost = 800_000L,
+                nextReminderMileage = 35000 // Car mileage is 40000 -> 5000 km overdue -> -30
+            )
+        )
+        val expiredInsurance = listOf(
+            VehicleInsuranceEntity(
+                id = "ins_expired",
+                vehicleId = car.id,
+                company = "بیمه ایران",
+                type = "شخص ثالث",
+                startDate = pastEnglish,
+                endDate = pastEnglish, // Expired -> -35
+                amount = 5_000_000L
+            )
+        )
+        val expiredInspection = listOf(
+            VehicleInspectionEntity(
+                id = "insp_expired",
+                vehicleId = car.id,
+                lastInspectionDate = pastEnglish,
+                expiryDate = pastEnglish, // Expired -> -20
+                cost = 200_000L,
+                status = "منقضی"
+            )
+        )
+
+        val warningHealth = VehicleAnalyzer.analyzeHealth(car, overdueOilService, expiredInsurance, expiredInspection)
+        // Expected score: 100 - 30 (oil overdue) - 35 (insurance expired) - 10 (no brake service) - 20 (inspection expired) = 5 -> clamped to 10
+        assertEquals("Warning vehicle health score with all deductions must be clamped to minimum 10", 10, warningHealth.healthScorePercent)
+        assertEquals(VehicleHealthLevel.WARNING, warningHealth.level)
+    }
 }
+
 
 
 
