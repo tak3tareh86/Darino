@@ -1,8 +1,11 @@
 package com.example.vehicle
 
+import android.app.AlarmManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.security.SessionManager
+import org.robolectric.Shadows
+import org.robolectric.shadows.ShadowAlarmManager
 import com.example.vehicle.data.ServiceType
 import com.example.vehicle.data.VehicleExpenseCategory
 import com.example.vehicle.data.VehicleRepository
@@ -945,9 +948,13 @@ class VehicleAssistantTest {
     }
 
     @Test
+    @Config(sdk = [30])
     fun testReminderAndScheduleLifecycleOnServiceUpdateAndDelete() = kotlinx.coroutines.runBlocking {
         val db = com.example.data.database.AppDatabase.getDatabase(context)
         val userId = com.example.data.security.SessionManager.userId!!
+
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val shadowAlarmManager = Shadows.shadowOf(alarmManager)
 
         // 1. Add vehicle
         val car = repository.addVehicle(
@@ -974,13 +981,22 @@ class VehicleAssistantTest {
         )
         val service = serviceResult.getOrThrow()
 
-        // 3. Verify reminder and schedule created in DB
+        // 3. Verify reminder and schedule created in Room DB and scheduled in ShadowAlarmManager
         val reminderBefore = db.smartReminderDao().getReminderById(userId, service.id)
         assertNotNull("Reminder record must exist for service ID", reminderBefore)
         assertEquals(service.id, reminderBefore!!.id)
+        assertEquals("ACTIVE", reminderBefore.status)
 
         val schedulesBefore = db.smartReminderDao().getSchedulesForReminderSync(userId, service.id)
         assertFalse("Schedule records must be generated for future date reminder", schedulesBefore.isEmpty())
+
+        val scheduledAlarmsBefore = shadowAlarmManager.scheduledAlarms
+        assertFalse("Alarm must be registered in AlarmManager for future reminder", scheduledAlarmsBefore.isEmpty())
+        val initialScheduleId = schedulesBefore.first().id
+        assertTrue("Registered alarm must correspond to initial schedule ID", scheduledAlarmsBefore.any { alarm ->
+            val shadowPi = Shadows.shadowOf(alarm.operation)
+            shadowPi.savedIntent.getStringExtra(com.example.reminder.receiver.ReminderBroadcastReceiver.EXTRA_SCHEDULE_ID) == initialScheduleId
+        })
 
         // 4. Update service with new reminder date
         val updatedServiceResult = repository.updateService(
@@ -997,30 +1013,189 @@ class VehicleAssistantTest {
         )
         assertTrue(updatedServiceResult.isSuccess)
 
-        // 5. Verify old schedule replaced cleanly without orphan duplicate schedules
+        // 5. Verify old schedule replaced cleanly in Room without orphan duplicate schedules
         val schedulesAfterUpdate = db.smartReminderDao().getSchedulesForReminderSync(userId, service.id)
         assertFalse("Updated schedules must exist", schedulesAfterUpdate.isEmpty())
         val oldScheduleIds = schedulesBefore.map { it.id }.toSet()
         val newScheduleIds = schedulesAfterUpdate.map { it.id }.toSet()
-        assertTrue("Old schedule IDs must be purged and replaced by new schedule records", oldScheduleIds.intersect(newScheduleIds).isEmpty())
+        assertTrue("Old schedule IDs must be purged from Room and replaced by new schedule records", oldScheduleIds.intersect(newScheduleIds).isEmpty())
 
-        // 6. Delete service and verify reminder + schedule cleanup
+        // Verify ShadowAlarmManager has cancelled the old alarm ID and scheduled the new alarm ID
+        val newScheduleId = schedulesAfterUpdate.first().id
+        val scheduledAlarmsAfterUpdate = shadowAlarmManager.scheduledAlarms
+        assertFalse("Old schedule ID must no longer be present in scheduled alarms", scheduledAlarmsAfterUpdate.any { alarm ->
+            val shadowPi = Shadows.shadowOf(alarm.operation)
+            shadowPi.savedIntent.getStringExtra(com.example.reminder.receiver.ReminderBroadcastReceiver.EXTRA_SCHEDULE_ID) == initialScheduleId
+        })
+        assertTrue("New schedule ID must be present in scheduled alarms", scheduledAlarmsAfterUpdate.any { alarm ->
+            val shadowPi = Shadows.shadowOf(alarm.operation)
+            shadowPi.savedIntent.getStringExtra(com.example.reminder.receiver.ReminderBroadcastReceiver.EXTRA_SCHEDULE_ID) == newScheduleId
+        })
+
+        // 6. Delete service and verify reminder + schedule cleanup in Room DB and ShadowAlarmManager
         val deleteServiceResult = repository.deleteService(service.id)
         assertTrue(deleteServiceResult.isSuccess)
 
-        assertNull("Reminder must be deleted", db.smartReminderDao().getReminderById(userId, service.id))
-        assertTrue("Schedules must be deleted", db.smartReminderDao().getSchedulesForReminderSync(userId, service.id).isEmpty())
+        assertNull("Reminder must be deleted from Room", db.smartReminderDao().getReminderById(userId, service.id))
+        assertTrue("Schedules must be deleted from Room", db.smartReminderDao().getSchedulesForReminderSync(userId, service.id).isEmpty())
+
+        val scheduledAlarmsAfterDelete = shadowAlarmManager.scheduledAlarms
+        assertFalse("No scheduled alarms must remain for service ID", scheduledAlarmsAfterDelete.any { alarm ->
+            val shadowPi = Shadows.shadowOf(alarm.operation)
+            shadowPi.savedIntent.getStringExtra(com.example.reminder.receiver.ReminderBroadcastReceiver.EXTRA_REMINDER_ID) == service.id
+        })
     }
 
     @Test
+    @Config(sdk = [30])
     fun testRebuildAllSchedulesBootRecovery() = kotlinx.coroutines.runBlocking {
-        val scheduler = com.example.reminder.domain.ReminderScheduler(context)
+        val db = com.example.data.database.AppDatabase.getDatabase(context)
+        val userId = com.example.data.security.SessionManager.userId!!
 
-        // Execute rebuildAllSchedules which runs on boot / reboot recovery
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val shadowAlarmManager = Shadows.shadowOf(alarmManager)
+
+        val now = System.currentTimeMillis()
+        val futureTrigger = now + 86400000L // 1 day in future
+        val pastTrigger = now - 86400000L   // 1 day in past
+
+        // 1. Insert Active Reminder #1 with 3 schedules:
+        // - Active future schedule (Should be re-armed)
+        // - Disabled future schedule (Should NOT be re-armed)
+        // - Active past schedule (Should NOT be re-armed)
+        val activeReminder = com.example.reminder.data.ReminderEntity(
+            id = "rem_active_1",
+            userId = userId,
+            title = "یادآور فعال سرویس",
+            description = "توضیحات سرویس",
+            type = "VEHICLE",
+            status = "ACTIVE",
+            date = "1405/01/10",
+            notificationEnabled = true
+        )
+        val activeFutureSchedule = com.example.reminder.data.ReminderScheduleEntity(
+            id = "sched_active_future",
+            reminderId = activeReminder.id,
+            triggerType = "EXACT",
+            triggerDateTime = futureTrigger,
+            enabled = true
+        )
+        val disabledFutureSchedule = com.example.reminder.data.ReminderScheduleEntity(
+            id = "sched_disabled_future",
+            reminderId = activeReminder.id,
+            triggerType = "EXACT",
+            triggerDateTime = futureTrigger,
+            enabled = false
+        )
+        val activePastSchedule = com.example.reminder.data.ReminderScheduleEntity(
+            id = "sched_active_past",
+            reminderId = activeReminder.id,
+            triggerType = "EXACT",
+            triggerDateTime = pastTrigger,
+            enabled = true
+        )
+
+        db.smartReminderDao().insertReminder(activeReminder)
+        db.smartReminderDao().insertSchedule(activeFutureSchedule)
+        db.smartReminderDao().insertSchedule(disabledFutureSchedule)
+        db.smartReminderDao().insertSchedule(activePastSchedule)
+
+        // 2. Insert Inactive Reminder #2 (status = "DISABLED") with an active future schedule (Should NOT be re-armed)
+        val disabledReminder = com.example.reminder.data.ReminderEntity(
+            id = "rem_disabled_2",
+            userId = userId,
+            title = "یادآور غیرفعال سرویس",
+            description = "توضیحات غیرفعال",
+            type = "VEHICLE",
+            status = "DISABLED",
+            date = "1405/01/10",
+            notificationEnabled = true
+        )
+        val disabledReminderSchedule = com.example.reminder.data.ReminderScheduleEntity(
+            id = "sched_inactive_rem_future",
+            reminderId = disabledReminder.id,
+            triggerType = "EXACT",
+            triggerDateTime = futureTrigger,
+            enabled = true
+        )
+
+        db.smartReminderDao().insertReminder(disabledReminder)
+        db.smartReminderDao().insertSchedule(disabledReminderSchedule)
+
+        // Verify ShadowAlarmManager is empty initially
+        assertEquals(0, shadowAlarmManager.scheduledAlarms.size)
+
+        // 3. Execute rebuildAllSchedules
+        val scheduler = com.example.reminder.domain.ReminderScheduler(context)
         scheduler.rebuildAllSchedules()
 
-        // Ensure no exception was thrown and process executed cleanly
-        assertTrue("Rebuild all schedules completed successfully", true)
+        // 4. Directly assert ShadowAlarmManager state
+        val scheduledAlarms = shadowAlarmManager.scheduledAlarms
+        assertEquals("Exactly one active future schedule must be re-armed in AlarmManager", 1, scheduledAlarms.size)
+
+        val scheduledAlarm = scheduledAlarms.first()
+        assertEquals(futureTrigger, scheduledAlarm.triggerAtTime)
+
+        val shadowPendingIntent = Shadows.shadowOf(scheduledAlarm.operation)
+        val intent = shadowPendingIntent.savedIntent
+        assertNotNull(intent)
+        assertEquals(activeReminder.id, intent.getStringExtra(com.example.reminder.receiver.ReminderBroadcastReceiver.EXTRA_REMINDER_ID))
+        assertEquals(activeFutureSchedule.id, intent.getStringExtra(com.example.reminder.receiver.ReminderBroadcastReceiver.EXTRA_SCHEDULE_ID))
+    }
+
+    @Test
+    @Config(sdk = [36])
+    fun testServiceCreationWhenExactAlarmPermissionDenied_preservesServiceInRoomAndMarksReminderDisabled() = kotlinx.coroutines.runBlocking {
+        val db = com.example.data.database.AppDatabase.getDatabase(context)
+        val userId = com.example.data.security.SessionManager.userId!!
+
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val shadowAlarmManager = Shadows.shadowOf(alarmManager)
+
+        val car = repository.addVehicle(
+            brand = "سایپا",
+            model = "شاهین",
+            year = "1402",
+            color = "مشکی",
+            plate = "۱۲ الف ۳۴۵ ایران ۲۲",
+            currentMileage = 15000
+        ).getOrThrow()
+
+        // Attempt adding service with reminder enabled when exact alarm permission is denied
+        val serviceResult = repository.addService(
+            vehicleId = car.id,
+            title = "تعویض شمع",
+            serviceType = ServiceType.CUSTOM,
+            date = "1405/02/10",
+            mileage = 15000,
+            cost = 800_000L,
+            description = "شمع ایریدیوم",
+            nextReminderDate = "1407/02/10",
+            nextReminderMileage = 40000,
+            isReminderEnabled = true
+        )
+
+        // 1. Verify service creation succeeded despite alarm permission error
+        assertTrue("Service creation must succeed even if exact alarm permission is missing", serviceResult.isSuccess)
+        val service = serviceResult.getOrThrow()
+
+        // 2. Verify service record saved in Room DB
+        val dbServices = db.vehicleDao().getServicesForVehicle(userId, car.id).first()
+        assertTrue("Service record must be preserved in Room database", dbServices.any { it.serverId == service.id })
+
+        // 3. Verify reminder record status in Room is rolled back to DISABLED
+        val reminder = db.smartReminderDao().getReminderById(userId, service.id)
+        assertNotNull("Reminder data record must be preserved in Room", reminder)
+        assertEquals("DISABLED", reminder!!.status)
+
+        // 4. Verify no alarm was registered in ShadowAlarmManager
+        val scheduledAlarms = shadowAlarmManager.scheduledAlarms
+        assertFalse("No alarm should remain registered when permission was denied", scheduledAlarms.any { alarm ->
+            val shadowPi = Shadows.shadowOf(alarm.operation)
+            shadowPi.savedIntent.getStringExtra(com.example.reminder.receiver.ReminderBroadcastReceiver.EXTRA_REMINDER_ID) == service.id
+        })
     }
 }
+
+
 
