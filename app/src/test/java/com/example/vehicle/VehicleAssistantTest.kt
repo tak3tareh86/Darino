@@ -652,4 +652,148 @@ class VehicleAssistantTest {
         assertNull(VehicleAnalyzer.parseAndValidateJalaliDate("1405/05"))
         assertNull(VehicleAnalyzer.parseAndValidateJalaliDate("1405/05/05/05"))
     }
+
+    @Test
+    fun testVehicleCrudOperationsAndValidation() = kotlinx.coroutines.runBlocking {
+        // 1. Validation error states on Vehicle Creation
+        val blankBrand = repository.addVehicle("", "دنا", "1401", "سفید", "پلاک ۱")
+        assertTrue(blankBrand.isFailure)
+        assertTrue(blankBrand.exceptionOrNull() is IllegalArgumentException)
+
+        val blankPlate = repository.addVehicle("ایران خودرو", "دنا", "1401", "سفید", "")
+        assertTrue(blankPlate.isFailure)
+        assertTrue(blankPlate.exceptionOrNull() is IllegalArgumentException)
+
+        val negativeMileage = repository.addVehicle("ایران خودرو", "دنا", "1401", "سفید", "پلاک ۱", currentMileage = -100)
+        assertTrue(negativeMileage.isFailure)
+        assertTrue(negativeMileage.exceptionOrNull() is IllegalArgumentException)
+
+        // 2. Successful creation of first vehicle
+        val car1Result = repository.addVehicle(
+            brand = "ایران خودرو",
+            model = "دنا پلاس",
+            year = "1401",
+            color = "مشکی",
+            plate = "۴۴ ج ۶۷۸ ایران ۱۱",
+            currentMileage = 20000,
+            estimatedValue = 700_000_000L
+        )
+        assertTrue(car1Result.isSuccess)
+        val car1 = car1Result.getOrThrow()
+        assertNotNull(car1.id)
+        assertEquals("دنا پلاس", car1.model)
+
+        // 3. Duplicate plate prevention
+        val duplicatePlateResult = repository.addVehicle(
+            brand = "سایپا",
+            model = "شاهین",
+            year = "1402",
+            color = "سفید",
+            plate = "۴۴ ج ۶۷۸ ایران ۱۱" // Same plate as car1
+        )
+        assertTrue("Duplicate plate must be rejected", duplicatePlateResult.isFailure)
+        assertTrue(duplicatePlateResult.exceptionOrNull() is IllegalArgumentException)
+
+        // 4. Successful creation of second vehicle
+        val car2Result = repository.addVehicle(
+            brand = "سایپا",
+            model = "شاهین",
+            year = "1402",
+            color = "سفید",
+            plate = "۵۵ د ۷۸۹ ایران ۲۲"
+        )
+        assertTrue(car2Result.isSuccess)
+        val car2 = car2Result.getOrThrow()
+
+        // 5. Update vehicle: preserving ID and entity properties
+        val updatedCar1 = car1.copy(color = "آبی کاربنی", currentMileage = 22000)
+        val updateResult = repository.updateVehicle(updatedCar1)
+        assertTrue(updateResult.isSuccess)
+        assertEquals(car1.id, updateResult.getOrThrow().id)
+        assertEquals("آبی کاربنی", updateResult.getOrThrow().color)
+
+        // 6. Update vehicle: preventing duplicate plate of another vehicle
+        val invalidPlateUpdate = car2.copy(plate = "۴۴ ج ۶۷۸ ایران ۱۱") // car1's plate
+        val invalidPlateResult = repository.updateVehicle(invalidPlateUpdate)
+        assertTrue("Changing plate to existing plate of another car must fail", invalidPlateResult.isFailure)
+        assertTrue(invalidPlateResult.exceptionOrNull() is IllegalArgumentException)
+
+        // 7. Update non-existent vehicle
+        val nonExistentCar = car1.copy(id = "non_existent_id")
+        val updateNonExistent = repository.updateVehicle(nonExistentCar)
+        assertTrue(updateNonExistent.isFailure)
+        assertTrue(updateNonExistent.exceptionOrNull() is NoSuchElementException)
+
+        // 8. Delete vehicle and verify clean removal
+        val deleteResult = repository.deleteVehicle(car1.id)
+        assertTrue(deleteResult.isSuccess)
+
+        val deleteNonExistent = repository.deleteVehicle("non_existent_id")
+        assertTrue(deleteNonExistent.isFailure)
+    }
+
+    @Test
+    fun testExpenseCrudOperationsAndValidation() = kotlinx.coroutines.runBlocking {
+        // 1. Setup vehicle
+        val car = repository.addVehicle(
+            brand = "پژو",
+            model = "Pars LX",
+            year = "1400",
+            color = "خاکستری",
+            plate = "۱۲ الف ۳۴۵ ایران ۹۹",
+            currentMileage = 50000
+        ).getOrThrow()
+
+        // 2. Expense creation input validation
+        val blankTitle = repository.addExpense(car.id, "", VehicleExpenseCategory.FUEL, 500_000L, "1405/05/10")
+        assertTrue(blankTitle.isFailure)
+        assertTrue(blankTitle.exceptionOrNull() is IllegalArgumentException)
+
+        val zeroAmount = repository.addExpense(car.id, "بنزین", VehicleExpenseCategory.FUEL, 0L, "1405/05/10")
+        assertTrue(zeroAmount.isFailure)
+        assertTrue(zeroAmount.exceptionOrNull() is IllegalArgumentException)
+
+        val invalidDate = repository.addExpense(car.id, "بنزین", VehicleExpenseCategory.FUEL, 500_000L, "1405/07/31") // Month 7 max 30 days
+        assertTrue("Impossible date must be rejected", invalidDate.isFailure)
+        assertTrue(invalidDate.exceptionOrNull() is IllegalArgumentException)
+
+        val nonExistentCarExpense = repository.addExpense("fake_car_id", "بنزین", VehicleExpenseCategory.FUEL, 500_000L, "1405/05/10")
+        assertTrue(nonExistentCarExpense.isFailure)
+        assertTrue(nonExistentCarExpense.exceptionOrNull() is NoSuchElementException)
+
+        // 3. Successful expense creation
+        val exp1 = repository.addExpense(
+            vehicleId = car.id,
+            title = "سوخت‌گیری بنزین آزاد",
+            category = VehicleExpenseCategory.FUEL,
+            amount = 300_000L,
+            date = "1405/05/10",
+            description = "۶۰ لیتر"
+        ).getOrThrow()
+
+        assertNotNull(exp1.id)
+        assertEquals(car.id, exp1.vehicleId)
+
+        // 4. Update expense
+        val updateExp = repository.updateExpense(
+            expenseId = exp1.id,
+            title = "سوخت‌گیری بنزین سهمیه‌ای",
+            category = VehicleExpenseCategory.FUEL,
+            amount = 150_000L,
+            date = "1405/05/11",
+            description = "۳۰ لیتر"
+        )
+        assertTrue(updateExp.isSuccess)
+        val updated = updateExp.getOrThrow()
+        assertEquals("سوخت‌گیری بنزین سهمیه‌ای", updated.title)
+        assertEquals(150_000L, updated.amount)
+
+        // 5. Delete expense
+        val deleteExp = repository.deleteExpense(exp1.id)
+        assertTrue(deleteExp.isSuccess)
+
+        val deleteNonExistent = repository.deleteExpense("fake_exp_id")
+        assertTrue(deleteNonExistent.isFailure)
+        assertTrue(deleteNonExistent.exceptionOrNull() is NoSuchElementException)
+    }
 }

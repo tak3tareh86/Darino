@@ -402,6 +402,11 @@ class VehicleRepository {
 
         try {
             val db = AppDatabase.getDatabase(context)
+            val existingVehicles = db.vehicleDao().getAllVehiclesList(userId)
+            if (existingVehicles.any { it.plate.trim().equals(plate.trim(), ignoreCase = true) }) {
+                return@withContext Result.failure(IllegalArgumentException("خودرویی با این شماره پلاک قبلاً در پرونده ثبت شده است."))
+            }
+
             val newId = UUID.randomUUID().toString()
             val entity = com.example.data.database.VehicleEntity(
                 serverId = newId,
@@ -457,6 +462,11 @@ class VehicleRepository {
             val db = AppDatabase.getDatabase(context)
             val existing = db.vehicleDao().getVehicleByServerId(userId, updated.id)
                 ?: return@withContext Result.failure(NoSuchElementException("خودروی مورد نظر در پرونده یافت نشد."))
+
+            val existingVehicles = db.vehicleDao().getAllVehiclesList(userId)
+            if (existingVehicles.any { (it.serverId ?: it.id.toString()) != updated.id && it.plate.trim().equals(updated.plate.trim(), ignoreCase = true) }) {
+                return@withContext Result.failure(IllegalArgumentException("شماره پلاک وارد شده متعلق به خودروی دیگری در پرونده است."))
+            }
 
             val updatedEntity = existing.copy(
                 brand = updated.brand.trim(),
@@ -1124,6 +1134,58 @@ class VehicleRepository {
         }
     }
 
+    // 8.5 Update Expense (Synchronous suspend contract)
+    suspend fun updateExpense(
+        expenseId: String,
+        title: String,
+        category: VehicleExpenseCategory,
+        amount: Long,
+        date: String,
+        description: String = ""
+    ): Result<VehicleExpenseEntity> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+
+        if (title.isBlank()) return@withContext Result.failure(IllegalArgumentException("عنوان هزینه نمی‌تواند خالی باشد."))
+        if (amount <= 0L) return@withContext Result.failure(IllegalArgumentException("مبلغ هزینه باید بزرگتر از صفر باشد."))
+
+        val parsedMs = parseJalaliToTimestamp(date)
+            ?: return@withContext Result.failure(IllegalArgumentException("تاریخ هزینه نامعتبر است."))
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            val existing = db.vehicleDao().getExpenseById(userId, expenseId)
+                ?: return@withContext Result.failure(NoSuchElementException("هزینه مورد نظر یافت نشد."))
+
+            val updatedEntity = existing.copy(
+                title = title.trim(),
+                category = category.name,
+                amount = amount,
+                date = date.trim(),
+                description = description.trim()
+            )
+
+            val affectedRows = db.vehicleDao().updateExpense(updatedEntity)
+            if (affectedRows == 0) {
+                return@withContext Result.failure(IllegalStateException("ویرایش هزینه در پایگاه داده انجام نشد."))
+            }
+
+            val updatedDomain = VehicleExpenseEntity(
+                id = existing.id,
+                vehicleId = existing.vehicleId,
+                title = title.trim(),
+                category = category,
+                amount = amount,
+                date = date.trim(),
+                description = description.trim(),
+                receiptImageUri = existing.receiptImageUri
+            )
+            Result.success(updatedDomain)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     // 9. Delete Expense (Robust affected rows and ownership checks)
     suspend fun deleteExpense(expenseId: String): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
@@ -1133,7 +1195,7 @@ class VehicleRepository {
             val db = AppDatabase.getDatabase(context)
             val affectedRows = db.vehicleDao().deleteExpenseById(userId, expenseId)
             if (affectedRows == 0) {
-                return@withContext Result.failure(IllegalStateException("هیچ هزینه‌ای برای حذف یافت نشد."))
+                return@withContext Result.failure(NoSuchElementException("هیچ هزینه‌ای برای حذف یافت نشد."))
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -1507,6 +1569,7 @@ class VehicleRepository {
 
     private fun parseJalaliToTimestamp(dateStr: String?): Long? {
         if (dateStr.isNullOrBlank()) return null
+        if (!com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(dateStr)) return null
         val triple = com.example.calendar.domain.CalendarDateUtils.parseJalali(dateStr) ?: return null
         return runCatching {
             PersianCalendarHelper.jalaliToEpochMillis(triple.first, triple.second, triple.third, 9, 0)
