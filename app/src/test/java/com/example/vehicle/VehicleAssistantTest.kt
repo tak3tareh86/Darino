@@ -146,4 +146,68 @@ class VehicleAssistantTest {
         assertEquals(50000, nextKm)
         assertEquals("۱۴۰۵/۱۲/۱۰", nextDate)
     }
+
+    @Test
+    fun testComputeStatisticsYearlyCostNormalizationAndFallback() {
+        val currentYear = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year
+        val currentYearStrPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(currentYear.toString())
+        val pastYear = currentYear - 1
+        val pastYearStrPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(pastYear.toString())
+
+        val expenses = listOf(
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "1",
+                vehicleId = "car1",
+                title = "هزینه سال قبل",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 5_000_000L,
+                date = "$pastYearStrPersian/05/10",
+                description = ""
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "2",
+                vehicleId = "car1",
+                title = "هزینه سال جاری فارسی",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 2_000_000L,
+                date = "$currentYearStrPersian/02/10",
+                description = ""
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "3",
+                vehicleId = "car1",
+                title = "هزینه سال جاری انگلیسی",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 3_000_000L,
+                date = "$currentYear/03/10",
+                description = ""
+            )
+        )
+
+        val stats = VehicleAnalyzer.computeStatistics(
+            vehicleId = "car1",
+            expenses = expenses,
+            services = emptyList()
+        )
+
+        assertEquals(5_000_000L, stats.yearlyCost)
+
+        val pastOnlyExpenses = listOf(
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "1",
+                vehicleId = "car1",
+                title = "هزینه سال قبل",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 5_000_000L,
+                date = "$pastYearStrPersian/05/10",
+                description = ""
+            )
+        )
+        val statsPastOnly = VehicleAnalyzer.computeStatistics(
+            vehicleId = "car1",
+            expenses = pastOnlyExpenses,
+            services = emptyList()
+        )
+        assertEquals(0L, statsPastOnly.yearlyCost)
+    }
 }

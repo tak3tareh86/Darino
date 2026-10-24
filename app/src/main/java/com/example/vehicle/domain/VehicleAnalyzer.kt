@@ -9,6 +9,7 @@ import com.example.vehicle.data.VehicleInspectionEntity
 import com.example.vehicle.data.VehicleInsuranceEntity
 import com.example.vehicle.data.VehicleServiceEntity
 import com.example.vehicle.data.VehicleTimelineEvent
+import com.example.util.IranianPhoneUtils
 
 /**
  * Health Status Level of a Vehicle
@@ -282,10 +283,14 @@ object VehicleAnalyzer {
         val currentYearMonth = "%04d/%02d".format(currentYear, currentMonth)
         val currentYearStr = "%04d".format(currentYear)
 
-        val currentMonthCost = carExpenses.filter { it.date.startsWith(currentYearMonth) }.sumOf { it.amount }
-        val yearlyCost = carExpenses.filter { it.date.startsWith(currentYearStr) }.sumOf { it.amount }.let {
-            if (it == 0L && carExpenses.isNotEmpty()) carExpenses.sumOf { exp -> exp.amount } else it
-        }
+        val currentMonthCost = carExpenses.filter { 
+            val cleanDate = IranianPhoneUtils.convertDigitsToEnglish(it.date)
+            cleanDate.startsWith(currentYearMonth)
+        }.sumOf { it.amount }
+        val yearlyCost = carExpenses.filter { 
+            val cleanDate = IranianPhoneUtils.convertDigitsToEnglish(it.date)
+            cleanDate.startsWith(currentYearStr)
+        }.sumOf { it.amount }
 
         val categoryTotals = VehicleExpenseCategory.values().map { cat ->
             val total = carExpenses.filter { it.category == cat }.sumOf { it.amount }
