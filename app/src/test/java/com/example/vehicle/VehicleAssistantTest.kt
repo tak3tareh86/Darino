@@ -422,6 +422,41 @@ class VehicleAssistantTest {
         assertFalse(itemInvalid.isOk)
         assertTrue(itemInvalid.isWarning)
         assertEquals("تاریخ انقضا نامعتبر یا ثبت نشده (بیمه ایران)", itemInvalid.statusText)
+        assertEquals(45, healthInvalid.healthScorePercent) // 100 - 30 (services) - 25 (invalid insurance)
+
+        // 8. Impossible date: Month 7 with 31 days (Mehr has max 30 days)
+        val futureYear = currentPdt.year + 1
+        val impossibleDateStr = "%04d/07/31".format(futureYear)
+        val impossibleDateIns = listOf(
+            futureInsEnglish[0].copy(endDate = impossibleDateStr)
+        )
+        val healthImpossible = VehicleAnalyzer.analyzeHealth(car, emptyList(), impossibleDateIns, emptyList())
+        val itemImpossible = healthImpossible.checklist.first { it.title == "بیمه‌نامه خودرو" }
+        assertFalse("$impossibleDateStr must NOT be recognized as valid", itemImpossible.isOk)
+        assertTrue(itemImpossible.isWarning)
+        assertEquals("تاریخ انقضا نامعتبر یا ثبت نشده (بیمه ایران)", itemImpossible.statusText)
+        assertEquals(45, healthImpossible.healthScorePercent)
+
+        // 9. Valid day 31 date: Month 2 with 31 days (Ordibehesht has 31 days) in future year
+        val futureDay31 = "%04d/02/31".format(futureYear)
+        val validDay31Ins = listOf(
+            futureInsEnglish[0].copy(endDate = futureDay31)
+        )
+        val healthValidDay31 = VehicleAnalyzer.analyzeHealth(car, emptyList(), validDay31Ins, emptyList())
+        val itemValidDay31 = healthValidDay31.checklist.first { it.title == "بیمه‌نامه خودرو" }
+        assertTrue("$futureDay31 must be recognized as valid", itemValidDay31.isOk)
+        assertFalse(itemValidDay31.isWarning)
+        assertEquals(70, healthValidDay31.healthScorePercent) // 100 - 30 (services)
+
+        // 10. Non-leap year Esfand 30 (1405 is not leap, max 29 days)
+        val nonLeapEsfand30Ins = listOf(
+            futureInsEnglish[0].copy(endDate = "1405/12/30")
+        )
+        val healthNonLeap = VehicleAnalyzer.analyzeHealth(car, emptyList(), nonLeapEsfand30Ins, emptyList())
+        val itemNonLeap = healthNonLeap.checklist.first { it.title == "بیمه‌نامه خودرو" }
+        assertFalse("1405/12/30 is not a leap year, must be invalid", itemNonLeap.isOk)
+        assertTrue(itemNonLeap.isWarning)
+        assertEquals(45, healthNonLeap.healthScorePercent)
     }
 
     @Test
@@ -433,8 +468,11 @@ class VehicleAssistantTest {
         val pastEnglish = "%04d/%02d/%02d".format(currentPdt.year - 1, currentPdt.month, currentPdt.day)
         val pastPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(pastEnglish)
 
-        val futureEnglish = "%04d/%02d/%02d".format(currentPdt.year + 1, currentPdt.month, currentPdt.day)
+        val futureYear = currentPdt.year + 1
+        val futureEnglish = "%04d/%02d/%02d".format(futureYear, currentPdt.month, currentPdt.day)
         val futurePersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(futureEnglish)
+        val futureDay31 = "%04d/02/31".format(futureYear)
+        val impossibleDateStr = "%04d/07/31".format(futureYear)
 
         val car = com.example.vehicle.data.VehicleEntity(
             id = "car_insp_test",
@@ -444,6 +482,18 @@ class VehicleAssistantTest {
             color = "سفید",
             plate = "۱۲ الف ۳۴۵ ایران ۶۸",
             currentMileage = 40000
+        )
+
+        val validIns = listOf(
+            com.example.vehicle.data.VehicleInsuranceEntity(
+                id = "ins_mock",
+                vehicleId = car.id,
+                company = "بیمه ایران",
+                type = "شخص ثالث",
+                startDate = pastEnglish,
+                endDate = futureEnglish,
+                amount = 5_000_000L
+            )
         )
 
         // 1. Future date with English digits
@@ -456,16 +506,17 @@ class VehicleAssistantTest {
                 cost = 200_000L
             )
         )
-        val healthFutureEng = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), futureInspEnglish)
+        val healthFutureEng = VehicleAnalyzer.analyzeHealth(car, emptyList(), validIns, futureInspEnglish)
         val itemFutureEng = healthFutureEng.checklist.first { it.title == "معاینه فنی و آلایندگی" }
         assertTrue(itemFutureEng.isOk)
         assertFalse(itemFutureEng.isWarning)
+        assertEquals(70, healthFutureEng.healthScorePercent)
 
         // 2. Future date with Persian digits (must match English result)
         val futureInspPersian = listOf(
             futureInspEnglish[0].copy(expiryDate = futurePersian)
         )
-        val healthFuturePer = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), futureInspPersian)
+        val healthFuturePer = VehicleAnalyzer.analyzeHealth(car, emptyList(), validIns, futureInspPersian)
         val itemFuturePer = healthFuturePer.checklist.first { it.title == "معاینه فنی و آلایندگی" }
         assertTrue(itemFuturePer.isOk)
         assertFalse(itemFuturePer.isWarning)
@@ -476,17 +527,18 @@ class VehicleAssistantTest {
         val pastInspPersian = listOf(
             futureInspEnglish[0].copy(expiryDate = pastPersian)
         )
-        val healthPastPer = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), pastInspPersian)
+        val healthPastPer = VehicleAnalyzer.analyzeHealth(car, emptyList(), validIns, pastInspPersian)
         val itemPastPer = healthPastPer.checklist.first { it.title == "معاینه فنی و آلایندگی" }
         assertFalse(itemPastPer.isOk)
         assertTrue(itemPastPer.isWarning)
         assertTrue(itemPastPer.statusText.contains("معاینه فنی منقضی شده"))
+        assertEquals(50, healthPastPer.healthScorePercent) // 100 - 30 (services) - 20 (expired inspection)
 
         // 4. Past date with English digits (must match Persian result)
         val pastInspEnglish = listOf(
             futureInspEnglish[0].copy(expiryDate = pastEnglish)
         )
-        val healthPastEng = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), pastInspEnglish)
+        val healthPastEng = VehicleAnalyzer.analyzeHealth(car, emptyList(), validIns, pastInspEnglish)
         val itemPastEng = healthPastEng.checklist.first { it.title == "معاینه فنی و آلایندگی" }
         assertFalse(itemPastEng.isOk)
         assertTrue(itemPastEng.isWarning)
@@ -497,29 +549,107 @@ class VehicleAssistantTest {
         val todayInsp = listOf(
             futureInspEnglish[0].copy(expiryDate = todayPersian)
         )
-        val healthToday = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), todayInsp)
+        val healthToday = VehicleAnalyzer.analyzeHealth(car, emptyList(), validIns, todayInsp)
         val itemToday = healthToday.checklist.first { it.title == "معاینه فنی و آلایندگی" }
         assertTrue(itemToday.isOk)
         assertFalse(itemToday.isWarning)
+        assertEquals(70, healthToday.healthScorePercent)
 
         // 6. Blank / empty date
         val emptyDateInsp = listOf(
             futureInspEnglish[0].copy(expiryDate = "")
         )
-        val healthEmpty = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), emptyDateInsp)
+        val healthEmpty = VehicleAnalyzer.analyzeHealth(car, emptyList(), validIns, emptyDateInsp)
         val itemEmpty = healthEmpty.checklist.first { it.title == "معاینه فنی و آلایندگی" }
         assertFalse(itemEmpty.isOk)
         assertTrue(itemEmpty.isWarning)
         assertEquals("تاریخ انقضا نامعتبر یا ثبت نشده", itemEmpty.statusText)
+        assertEquals(55, healthEmpty.healthScorePercent) // 100 - 30 (services) - 15 (invalid inspection)
 
         // 7. Incomplete or invalid date format
         val invalidDateInsp = listOf(
             futureInspEnglish[0].copy(expiryDate = "invalid-date")
         )
-        val healthInvalid = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), invalidDateInsp)
+        val healthInvalid = VehicleAnalyzer.analyzeHealth(car, emptyList(), validIns, invalidDateInsp)
         val itemInvalid = healthInvalid.checklist.first { it.title == "معاینه فنی و آلایندگی" }
         assertFalse(itemInvalid.isOk)
         assertTrue(itemInvalid.isWarning)
         assertEquals("تاریخ انقضا نامعتبر یا ثبت نشده", itemInvalid.statusText)
+        assertEquals(55, healthInvalid.healthScorePercent)
+
+        // 8. Impossible date: Month 7 with 31 days
+        val impossibleDateInsp = listOf(
+            futureInspEnglish[0].copy(expiryDate = impossibleDateStr)
+        )
+        val healthImpossible = VehicleAnalyzer.analyzeHealth(car, emptyList(), validIns, impossibleDateInsp)
+        val itemImpossible = healthImpossible.checklist.first { it.title == "معاینه فنی و آلایندگی" }
+        assertFalse("$impossibleDateStr must NOT be recognized as valid", itemImpossible.isOk)
+        assertTrue(itemImpossible.isWarning)
+        assertEquals("تاریخ انقضا نامعتبر یا ثبت نشده", itemImpossible.statusText)
+        assertEquals(55, healthImpossible.healthScorePercent)
+
+        // 9. Valid day 31 date: Month 2 with 31 days
+        val validDay31Insp = listOf(
+            futureInspEnglish[0].copy(expiryDate = futureDay31)
+        )
+        val healthValidDay31 = VehicleAnalyzer.analyzeHealth(car, emptyList(), validIns, validDay31Insp)
+        val itemValidDay31 = healthValidDay31.checklist.first { it.title == "معاینه فنی و آلایندگی" }
+        assertTrue("$futureDay31 must be recognized as valid", itemValidDay31.isOk)
+        assertFalse(itemValidDay31.isWarning)
+        assertEquals(70, healthValidDay31.healthScorePercent)
+    }
+
+    @Test
+    fun testJalaliDateValidationEdgeCasesAndLeapYears() {
+        // 1. Persian and English digits equivalence
+        assertEquals("1405/02/31", VehicleAnalyzer.parseAndValidateJalaliDate("۱۴۰۵/۰۲/۳۱"))
+        assertEquals("1405/02/31", VehicleAnalyzer.parseAndValidateJalaliDate("1405/02/31"))
+
+        // 2. Delimiter support: '/' and '-'
+        assertEquals("1403/12/30", VehicleAnalyzer.parseAndValidateJalaliDate("1403-12-30"))
+        assertEquals("1403/12/30", VehicleAnalyzer.parseAndValidateJalaliDate("1403/12/30"))
+
+        // 3. Single-digit month and day padding
+        assertEquals("1404/01/05", VehicleAnalyzer.parseAndValidateJalaliDate("1404/1/5"))
+        assertEquals("1404/01/05", VehicleAnalyzer.parseAndValidateJalaliDate("۱۴۰۴/۱/۵"))
+
+        // 4. Month lengths: 1..6 have 31 days
+        assertEquals("1405/01/31", VehicleAnalyzer.parseAndValidateJalaliDate("1405/01/31"))
+        assertEquals("1405/06/31", VehicleAnalyzer.parseAndValidateJalaliDate("1405/06/31"))
+
+        // 5. Month lengths: 7..11 have 30 days (day 31 is impossible)
+        assertNull("Month 7 cannot have 31 days", VehicleAnalyzer.parseAndValidateJalaliDate("1405/07/31"))
+        assertEquals("1405/07/30", VehicleAnalyzer.parseAndValidateJalaliDate("1405/07/30"))
+        assertNull("Month 11 cannot have 31 days", VehicleAnalyzer.parseAndValidateJalaliDate("1405/11/31"))
+        assertEquals("1405/11/30", VehicleAnalyzer.parseAndValidateJalaliDate("1405/11/30"))
+
+        // 6. Esfand (Month 12) Leap Year vs Non-Leap Year
+        // 1403 is a leap Jalali year (1403 % 33 == 17)
+        assertTrue(com.example.util.PersianCalendarHelper.isLeapJalaliYear(1403))
+        assertEquals("1403/12/30", VehicleAnalyzer.parseAndValidateJalaliDate("1403/12/30"))
+        assertEquals("1403/12/29", VehicleAnalyzer.parseAndValidateJalaliDate("1403/12/29"))
+
+        // 1404 and 1405 are NOT leap Jalali years
+        assertFalse(com.example.util.PersianCalendarHelper.isLeapJalaliYear(1404))
+        assertFalse(com.example.util.PersianCalendarHelper.isLeapJalaliYear(1405))
+        assertNull("1404 is not a leap year, Esfand 30 is invalid", VehicleAnalyzer.parseAndValidateJalaliDate("1404/12/30"))
+        assertEquals("1404/12/29", VehicleAnalyzer.parseAndValidateJalaliDate("1404/12/29"))
+        assertNull("1405 is not a leap year, Esfand 30 is invalid", VehicleAnalyzer.parseAndValidateJalaliDate("1405/12/30"))
+
+        // 7. Invalid month bounds
+        assertNull(VehicleAnalyzer.parseAndValidateJalaliDate("1405/00/10"))
+        assertNull(VehicleAnalyzer.parseAndValidateJalaliDate("1405/13/10"))
+
+        // 8. Invalid day bounds (0, 32)
+        assertNull(VehicleAnalyzer.parseAndValidateJalaliDate("1405/05/00"))
+        assertNull(VehicleAnalyzer.parseAndValidateJalaliDate("1405/05/32"))
+
+        // 9. Blank, empty, null, and non-numeric formats
+        assertNull(VehicleAnalyzer.parseAndValidateJalaliDate(null))
+        assertNull(VehicleAnalyzer.parseAndValidateJalaliDate(""))
+        assertNull(VehicleAnalyzer.parseAndValidateJalaliDate("   "))
+        assertNull(VehicleAnalyzer.parseAndValidateJalaliDate("invalid"))
+        assertNull(VehicleAnalyzer.parseAndValidateJalaliDate("1405/05"))
+        assertNull(VehicleAnalyzer.parseAndValidateJalaliDate("1405/05/05/05"))
     }
 }

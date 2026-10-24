@@ -10,6 +10,7 @@ import com.example.vehicle.data.VehicleInsuranceEntity
 import com.example.vehicle.data.VehicleServiceEntity
 import com.example.vehicle.data.VehicleTimelineEvent
 import com.example.util.IranianPhoneUtils
+import com.example.util.PersianCalendarHelper
 
 /**
  * Health Status Level of a Vehicle
@@ -86,15 +87,21 @@ object VehicleAnalyzer {
 
     private val dateRegex = Regex("""^\d{4}/\d{2}/\d{2}$""")
 
-    private fun parseAndValidateJalaliDate(rawDate: String?): String? {
+    internal fun parseAndValidateJalaliDate(rawDate: String?): String? {
         if (rawDate.isNullOrBlank()) return null
         val clean = IranianPhoneUtils.convertDigitsToEnglish(rawDate.trim())
         val parts = clean.split('/', '-')
         if (parts.size == 3) {
-            val y = parts[0].toIntOrNull() ?: return null
-            val m = parts[1].toIntOrNull() ?: return null
-            val d = parts[2].toIntOrNull() ?: return null
-            if (y !in 1300..1500 || m !in 1..12 || d !in 1..31) return null
+            val p0 = parts[0].trim()
+            val p1 = parts[1].trim()
+            val p2 = parts[2].trim()
+            if (p0.length != 4 || p1.length !in 1..2 || p2.length !in 1..2) return null
+            val y = p0.toIntOrNull() ?: return null
+            val m = p1.toIntOrNull() ?: return null
+            val d = p2.toIntOrNull() ?: return null
+            if (y !in 1300..1500 || m !in 1..12) return null
+            val maxDays = PersianCalendarHelper.getDaysInMonth(y, m)
+            if (d !in 1..maxDays) return null
             val padded = "%04d/%02d/%02d".format(y, m, d)
             return if (dateRegex.matches(padded)) padded else null
         }
