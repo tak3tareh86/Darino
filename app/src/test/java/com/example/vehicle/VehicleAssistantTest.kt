@@ -1,5 +1,8 @@
 package com.example.vehicle
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import com.example.data.security.SessionManager
 import com.example.vehicle.data.ServiceType
 import com.example.vehicle.data.VehicleExpenseCategory
 import com.example.vehicle.data.VehicleRepository
@@ -7,17 +10,37 @@ import com.example.vehicle.domain.VehicleAnalyzer
 import com.example.vehicle.domain.VehicleHealthLevel
 import com.example.vehicle.domain.VehicleManager
 import com.example.vehicle.domain.VehicleMaintenanceCatalog
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
 class VehicleAssistantTest {
 
+    private lateinit var context: Context
     private lateinit var repository: VehicleRepository
 
     @Before
     fun setUp() {
+        context = ApplicationProvider.getApplicationContext()
+        SessionManager.init(context)
+        SessionManager.setAuthenticatedUser(
+            com.example.data.api.NetworkUserDto(
+                id = "test_user_vehicle",
+                fullName = "کاربر تست",
+                email = null,
+                phoneNumber = "09120000000",
+                phoneVerified = true
+            )
+        )
         repository = VehicleRepository()
+        repository.initDatabase(context)
     }
 
     @Test
@@ -57,6 +80,14 @@ class VehicleAssistantTest {
         assertNotNull(service)
         assertEquals(850_000L, service.cost)
         assertEquals(50000, service.nextReminderMileage)
+
+        // Allow Room flow collectors to emit updated entities to StateFlow
+        withTimeoutOrNull(2000) {
+            repository.expenses.first { list -> list.any { it.vehicleId == car.id } }
+        }
+        withTimeoutOrNull(2000) {
+            repository.services.first { list -> list.any { it.id == service.id } }
+        }
 
         // Verify that adding service automatically logged an expense
         val expenses = repository.expenses.value.filter { it.vehicleId == car.id }
