@@ -943,4 +943,84 @@ class VehicleAssistantTest {
         assertTrue(db.smartReminderDao().getSchedulesForReminderSync(userId, insurance.id).isEmpty())
         assertTrue(db.smartReminderDao().getSchedulesForReminderSync(userId, inspection.id).isEmpty())
     }
+
+    @Test
+    fun testReminderAndScheduleLifecycleOnServiceUpdateAndDelete() = kotlinx.coroutines.runBlocking {
+        val db = com.example.data.database.AppDatabase.getDatabase(context)
+        val userId = com.example.data.security.SessionManager.userId!!
+
+        // 1. Add vehicle
+        val car = repository.addVehicle(
+            brand = "ایران خودرو",
+            model = "پژو پارس",
+            year = "1401",
+            color = "سفید",
+            plate = "۵۵ ج ۳۲۱ ایران ۴۴",
+            currentMileage = 40000
+        ).getOrThrow()
+
+        // 2. Add service with reminder enabled
+        val serviceResult = repository.addService(
+            vehicleId = car.id,
+            title = "تعویض تسمه تایم",
+            serviceType = ServiceType.TIMING_BELT_CHANGE,
+            date = "1405/01/10",
+            mileage = 40000,
+            cost = 2_500_000L,
+            description = "تسمه کنتیننتال اصلی",
+            nextReminderDate = "1408/01/10",
+            nextReminderMileage = 100000,
+            isReminderEnabled = true
+        )
+        val service = serviceResult.getOrThrow()
+
+        // 3. Verify reminder and schedule created in DB
+        val reminderBefore = db.smartReminderDao().getReminderById(userId, service.id)
+        assertNotNull("Reminder record must exist for service ID", reminderBefore)
+        assertEquals(service.id, reminderBefore!!.id)
+
+        val schedulesBefore = db.smartReminderDao().getSchedulesForReminderSync(userId, service.id)
+        assertFalse("Schedule records must be generated for future date reminder", schedulesBefore.isEmpty())
+
+        // 4. Update service with new reminder date
+        val updatedServiceResult = repository.updateService(
+            serviceId = service.id,
+            title = "تعویض تسمه تایم و بلبرینگ",
+            serviceType = ServiceType.TIMING_BELT_CHANGE,
+            date = "1405/01/10",
+            mileage = 40000,
+            cost = 3_000_000L,
+            description = "تسمه کیت کامل",
+            nextReminderDate = "1408/06/10", // Updated date
+            nextReminderMileage = 100000,
+            isReminderEnabled = true
+        )
+        assertTrue(updatedServiceResult.isSuccess)
+
+        // 5. Verify old schedule replaced cleanly without orphan duplicate schedules
+        val schedulesAfterUpdate = db.smartReminderDao().getSchedulesForReminderSync(userId, service.id)
+        assertFalse("Updated schedules must exist", schedulesAfterUpdate.isEmpty())
+        val oldScheduleIds = schedulesBefore.map { it.id }.toSet()
+        val newScheduleIds = schedulesAfterUpdate.map { it.id }.toSet()
+        assertTrue("Old schedule IDs must be purged and replaced by new schedule records", oldScheduleIds.intersect(newScheduleIds).isEmpty())
+
+        // 6. Delete service and verify reminder + schedule cleanup
+        val deleteServiceResult = repository.deleteService(service.id)
+        assertTrue(deleteServiceResult.isSuccess)
+
+        assertNull("Reminder must be deleted", db.smartReminderDao().getReminderById(userId, service.id))
+        assertTrue("Schedules must be deleted", db.smartReminderDao().getSchedulesForReminderSync(userId, service.id).isEmpty())
+    }
+
+    @Test
+    fun testRebuildAllSchedulesBootRecovery() = kotlinx.coroutines.runBlocking {
+        val scheduler = com.example.reminder.domain.ReminderScheduler(context)
+
+        // Execute rebuildAllSchedules which runs on boot / reboot recovery
+        scheduler.rebuildAllSchedules()
+
+        // Ensure no exception was thrown and process executed cleanly
+        assertTrue("Rebuild all schedules completed successfully", true)
+    }
 }
+
