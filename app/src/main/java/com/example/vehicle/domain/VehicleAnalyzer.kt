@@ -317,7 +317,10 @@ object VehicleAnalyzer {
                 y -= 1
             }
             val prefix = "%04d/%02d".format(y, m)
-            val monthExpenses = carExpenses.filter { it.date.startsWith(prefix) }
+            val monthExpenses = carExpenses.filter { 
+                val cleanDate = IranianPhoneUtils.convertDigitsToEnglish(it.date)
+                cleanDate.startsWith(prefix)
+            }
             val fuel = monthExpenses.filter { it.category == VehicleExpenseCategory.FUEL }.sumOf { it.amount }
             val repair = monthExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS || it.category == VehicleExpenseCategory.PARTS }.sumOf { it.amount }
             val service = monthExpenses.filter { it.category == VehicleExpenseCategory.SERVICE }.sumOf { it.amount }

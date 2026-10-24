@@ -241,4 +241,84 @@ class VehicleAssistantTest {
         )
         assertEquals(0L, statsPastOnly.yearlyCost)
     }
+
+    @Test
+    fun testComputeStatisticsMonthlyChartDataDigitNormalization() {
+        val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val currentYear = currentPdt.year
+        val currentMonth = currentPdt.month
+        val currentYearPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(currentYear.toString())
+        val currentMonthPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian("%02d".format(currentMonth))
+
+        var prevMonth = currentMonth - 1
+        var prevYear = currentYear
+        if (prevMonth <= 0) {
+            prevMonth = 12
+            prevYear -= 1
+        }
+        val prevYearPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(prevYear.toString())
+        val prevMonthPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian("%02d".format(prevMonth))
+
+        val expenses = listOf(
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "m1",
+                vehicleId = "car1",
+                title = "بنزین ماه جاری فارسی",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 1_000_000L,
+                date = "$currentYearPersian/$currentMonthPersian/05",
+                description = ""
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "m2",
+                vehicleId = "car1",
+                title = "بنزین ماه جاری انگلیسی",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 2_000_000L,
+                date = "%04d/%02d/12".format(currentYear, currentMonth),
+                description = ""
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "m3",
+                vehicleId = "car1",
+                title = "سرویس ماه قبل فارسی",
+                category = VehicleExpenseCategory.SERVICE,
+                amount = 3_000_000L,
+                date = "$prevYearPersian/$prevMonthPersian/15",
+                description = ""
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "m4",
+                vehicleId = "car1",
+                title = "سرویس ماه قبل انگلیسی",
+                category = VehicleExpenseCategory.SERVICE,
+                amount = 4_000_000L,
+                date = "%04d/%02d/20".format(prevYear, prevMonth),
+                description = ""
+            )
+        )
+
+        val stats = VehicleAnalyzer.computeStatistics(
+            vehicleId = "car1",
+            expenses = expenses,
+            services = emptyList()
+        )
+
+        val chartData = stats.monthlyChartData
+        assertEquals(6, chartData.size)
+
+        // The last item in monthlyChartData (index 5) is the current month
+        val currentMonthBar = chartData.last()
+        assertTrue(currentMonthBar.isCurrentMonth)
+        assertEquals(3_000_000L, currentMonthBar.fuelAmount) // 1M Persian + 2M English
+        assertEquals(0L, currentMonthBar.serviceAmount)
+        assertEquals(3_000_000L, currentMonthBar.totalAmount)
+
+        // The second to last item (index 4) is the previous month
+        val prevMonthBar = chartData[4]
+        assertFalse(prevMonthBar.isCurrentMonth)
+        assertEquals(0L, prevMonthBar.fuelAmount)
+        assertEquals(7_000_000L, prevMonthBar.serviceAmount) // 3M Persian + 4M English
+        assertEquals(7_000_000L, prevMonthBar.totalAmount)
+    }
 }
