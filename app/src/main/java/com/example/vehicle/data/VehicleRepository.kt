@@ -702,8 +702,12 @@ class VehicleRepository {
 
             // Register system alarms AFTER successful database transaction commit
             if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
-                val reminderManager = com.example.reminder.domain.ReminderManager(context)
-                reminderManager.enableReminder(serviceId)
+                try {
+                    val reminderManager = com.example.reminder.domain.ReminderManager(context)
+                    reminderManager.enableReminder(serviceId)
+                } catch (e: Exception) {
+                    android.util.Log.w("VehicleRepository", "Alarm scheduling failed for service $serviceId, but service was successfully saved in Room.", e)
+                }
             }
 
             if (crossedMileageReminders.isNotEmpty()) {
@@ -942,12 +946,16 @@ class VehicleRepository {
             }
 
             // 2. Adjust system alarms outside of transaction after successful commit
-            val scheduler = com.example.reminder.domain.ReminderScheduler(context)
-            scheduler.cancel(serviceId, schedulesToCancel)
+            try {
+                val scheduler = com.example.reminder.domain.ReminderScheduler(context)
+                scheduler.cancel(serviceId, schedulesToCancel)
 
-            if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
-                val reminderManager = com.example.reminder.domain.ReminderManager(context)
-                reminderManager.enableReminder(serviceId)
+                if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+                    val reminderManager = com.example.reminder.domain.ReminderManager(context)
+                    reminderManager.enableReminder(serviceId)
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("VehicleRepository", "Alarm scheduling/cancellation failed for service $serviceId, but service was successfully updated in Room.", e)
             }
 
             if (crossedMileageReminders.isNotEmpty()) {
@@ -1226,8 +1234,12 @@ class VehicleRepository {
             }
 
             // Register system alarms AFTER successful database transaction commit
-            val reminderManager = com.example.reminder.domain.ReminderManager(context)
-            reminderManager.enableReminder(insuranceId)
+            try {
+                val reminderManager = com.example.reminder.domain.ReminderManager(context)
+                reminderManager.enableReminder(insuranceId)
+            } catch (e: Exception) {
+                android.util.Log.w("VehicleRepository", "Alarm scheduling failed for insurance $insuranceId, but insurance was successfully saved in Room.", e)
+            }
 
             Result.success(newInsurance)
         } catch (e: Exception) {
@@ -1301,11 +1313,15 @@ class VehicleRepository {
             }
 
             // 2. Adjust system alarms outside of transaction after successful commit
-            val scheduler = com.example.reminder.domain.ReminderScheduler(context)
-            scheduler.cancel(insuranceId, schedulesToCancel)
+            try {
+                val scheduler = com.example.reminder.domain.ReminderScheduler(context)
+                scheduler.cancel(insuranceId, schedulesToCancel)
 
-            val reminderManager = com.example.reminder.domain.ReminderManager(context)
-            reminderManager.enableReminder(insuranceId)
+                val reminderManager = com.example.reminder.domain.ReminderManager(context)
+                reminderManager.enableReminder(insuranceId)
+            } catch (e: Exception) {
+                android.util.Log.w("VehicleRepository", "Alarm scheduling/cancellation failed for insurance $insuranceId, but insurance was successfully renewed in Room.", e)
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
