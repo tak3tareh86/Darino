@@ -44,6 +44,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -655,39 +658,13 @@ fun AddTransactionSheet(
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            var showTimePicker by remember { mutableStateOf(false) }
                             OutlinedTextField(
                                 value = timePersian,
                                 onValueChange = {},
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
-                                        val asciiTime = timePersian
-                                            .replace('۰', '0').replace('۱', '1').replace('۲', '2')
-                                            .replace('۳', '3').replace('۴', '4').replace('۵', '5')
-                                            .replace('۶', '6').replace('۷', '7').replace('۸', '8')
-                                            .replace('۹', '9')
-                                        val parts = asciiTime.split(":")
-                                        val hour = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23)
-                                            ?: java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-                                        val minute = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59)
-                                            ?: java.util.Calendar.getInstance().get(java.util.Calendar.MINUTE)
-                                        android.app.TimePickerDialog(
-                                            context,
-                                            { _, selectedHour, selectedMinute ->
-                                                timePersian = PersianCalendarHelper.fromEpochMillis(
-                                                    java.util.Calendar.getInstance().apply {
-                                                        set(java.util.Calendar.HOUR_OF_DAY, selectedHour)
-                                                        set(java.util.Calendar.MINUTE, selectedMinute)
-                                                        set(java.util.Calendar.SECOND, 0)
-                                                        set(java.util.Calendar.MILLISECOND, 0)
-                                                    }.timeInMillis
-                                                ).toFormattedTime()
-                                            },
-                                            hour,
-                                            minute,
-                                            true
-                                        ).show()
-                                    },
+                                    .clickable { showTimePicker = true },
                                 readOnly = true,
                                 singleLine = true,
                                 shape = RoundedCornerShape(RadiusMD),
@@ -699,8 +676,47 @@ fun AddTransactionSheet(
                                     )
                                 }
                             )
+                            if (showTimePicker) {
+                                val timeParts = timePersian.replace('۰', '0').replace('۱', '1').replace('۲', '2')
+                                    .replace('۳', '3').replace('۴', '4').replace('۵', '5')
+                                    .replace('۶', '6').replace('۷', '7').replace('۸', '8')
+                                    .replace('۹', '9').split(":")
+                                val initialHour = timeParts.getOrNull(0)?.toIntOrNull() ?: 12
+                                val initialMinute = timeParts.getOrNull(1)?.toIntOrNull() ?: 0
+                                val timePickerState = rememberTimePickerState(
+                                    initialHour = initialHour,
+                                    initialMinute = initialMinute,
+                                    is24Hour = true
+                                )
+                                
+                                androidx.compose.ui.window.Dialog(onDismissRequest = { showTimePicker = false }) {
+                                    Surface(
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = MaterialTheme.colorScheme.surface,
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(16.dp)) {
+                                            TimePicker(state = timePickerState)
+                                            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                                                TextButton(onClick = { showTimePicker = false }) { Text("انصراف") }
+                                                TextButton(onClick = {
+                                                    val hour = timePickerState.hour
+                                                    val minute = timePickerState.minute
+                                                    timePersian = String.format("%02d:%02d", hour, minute)
+                                                        .replace('0', '۰').replace('1', '۱').replace('2', '۲')
+                                                        .replace('3', '۳').replace('4', '۴').replace('5', '۵')
+                                                        .replace('6', '۶').replace('7', '۷').replace('8', '۸')
+                                                        .replace('9', '۹')
+                                                    showTimePicker = false
+                                                }) { Text("تأیید") }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
+
 
                     // Description & Tags
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

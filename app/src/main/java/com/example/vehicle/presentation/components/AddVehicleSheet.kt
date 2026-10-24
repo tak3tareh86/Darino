@@ -252,13 +252,36 @@ fun AddVehicleSheet(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true
                     )
-                    OutlinedTextField(
-                        value = plateLetter,
-                        onValueChange = { if (it.length <= 1) plateLetter = it },
-                        label = { Text("حرف") },
-                        modifier = Modifier.weight(0.8f),
-                        singleLine = true
-                    )
+                    var expanded by remember { mutableStateOf(false) }
+                    val letters = listOf("الف", "ب", "پ", "ت", "ث", "ج", "چ", "ح", "د", "س", "ص", "ط", "ع", "ف", "ق", "ک", "گ", "ل", "م", "ن", "و", "ه", "ی")
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded },
+                        modifier = Modifier.weight(0.8f)
+                    ) {
+                        OutlinedTextField(
+                            value = plateLetter,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("حرف") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier.menuAnchor()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            letters.forEach { letter ->
+                                DropdownMenuItem(
+                                    text = { Text(letter) },
+                                    onClick = {
+                                        plateLetter = letter
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                     OutlinedTextField(
                         value = platePart2,
                         onValueChange = { if (it.length <= 3) platePart2 = it },
