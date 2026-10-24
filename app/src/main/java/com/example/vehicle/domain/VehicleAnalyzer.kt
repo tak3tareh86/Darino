@@ -84,6 +84,23 @@ data class VehicleMonthlyExpenseBar(
  */
 object VehicleAnalyzer {
 
+    private val dateRegex = Regex("""^\d{4}/\d{2}/\d{2}$""")
+
+    private fun parseAndValidateJalaliDate(rawDate: String?): String? {
+        if (rawDate.isNullOrBlank()) return null
+        val clean = IranianPhoneUtils.convertDigitsToEnglish(rawDate.trim())
+        val parts = clean.split('/', '-')
+        if (parts.size == 3) {
+            val y = parts[0].toIntOrNull() ?: return null
+            val m = parts[1].toIntOrNull() ?: return null
+            val d = parts[2].toIntOrNull() ?: return null
+            if (y !in 1300..1500 || m !in 1..12 || d !in 1..31) return null
+            val padded = "%04d/%02d/%02d".format(y, m, d)
+            return if (dateRegex.matches(padded)) padded else null
+        }
+        return null
+    }
+
     fun analyzeHealth(
         vehicle: VehicleEntity,
         services: List<VehicleServiceEntity>,
@@ -102,6 +119,7 @@ object VehicleAnalyzer {
 
         val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
         val todayJalali = currentPdt.toFormattedDate()
+        val cleanToday = parseAndValidateJalaliDate(todayJalali) ?: "%04d/%02d/%02d".format(currentPdt.year, currentPdt.month, currentPdt.day)
 
         // 1. Oil & Filter Health
         if (lastOilService != null) {
@@ -155,8 +173,19 @@ object VehicleAnalyzer {
         // 2. Insurance Status
         val thirdPartyInsurance = carInsurances.find { it.type.contains("ثالث") } ?: carInsurances.firstOrNull()
         if (thirdPartyInsurance != null) {
-            val isExpired = thirdPartyInsurance.endDate.isNotBlank() && thirdPartyInsurance.endDate < todayJalali
-            if (isExpired) {
+            val cleanEndDate = parseAndValidateJalaliDate(thirdPartyInsurance.endDate)
+            if (cleanEndDate == null) {
+                checklist.add(
+                    VehicleHealthCheckItem(
+                        title = "بیمه‌نامه خودرو",
+                        statusText = "تاریخ انقضا نامعتبر یا ثبت نشده (${thirdPartyInsurance.company})",
+                        isOk = false,
+                        isWarning = true,
+                        iconRes = R.drawable.img_3d_insurance
+                    )
+                )
+                score -= 25
+            } else if (cleanEndDate < cleanToday) {
                 checklist.add(
                     VehicleHealthCheckItem(
                         title = "بیمه‌نامه خودرو",
@@ -215,8 +244,19 @@ object VehicleAnalyzer {
 
         // 4. Technical Inspection
         if (carInspection != null) {
-            val isInspectionExpired = carInspection.expiryDate.isNotBlank() && carInspection.expiryDate < todayJalali
-            if (isInspectionExpired) {
+            val cleanInspectionExpiry = parseAndValidateJalaliDate(carInspection.expiryDate)
+            if (cleanInspectionExpiry == null) {
+                checklist.add(
+                    VehicleHealthCheckItem(
+                        title = "معاینه فنی و آلایندگی",
+                        statusText = "تاریخ انقضا نامعتبر یا ثبت نشده",
+                        isOk = false,
+                        isWarning = true,
+                        iconRes = R.drawable.img_3d_settings_gear
+                    )
+                )
+                score -= 15
+            } else if (cleanInspectionExpiry < cleanToday) {
                 checklist.add(
                     VehicleHealthCheckItem(
                         title = "معاینه فنی و آلایندگی",

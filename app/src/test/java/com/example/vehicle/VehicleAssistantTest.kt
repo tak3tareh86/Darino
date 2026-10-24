@@ -321,4 +321,205 @@ class VehicleAssistantTest {
         assertEquals(7_000_000L, prevMonthBar.serviceAmount) // 3M Persian + 4M English
         assertEquals(7_000_000L, prevMonthBar.totalAmount)
     }
+
+    @Test
+    fun testInsuranceHealthCheckVariations() {
+        val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val todayEnglish = "%04d/%02d/%02d".format(currentPdt.year, currentPdt.month, currentPdt.day)
+        val todayPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(todayEnglish)
+
+        val pastEnglish = "%04d/%02d/%02d".format(currentPdt.year - 1, currentPdt.month, currentPdt.day)
+        val pastPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(pastEnglish)
+
+        val futureEnglish = "%04d/%02d/%02d".format(currentPdt.year + 1, currentPdt.month, currentPdt.day)
+        val futurePersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(futureEnglish)
+
+        val car = com.example.vehicle.data.VehicleEntity(
+            id = "car_ins_test",
+            brand = "پژو",
+            model = "207",
+            year = "1402",
+            color = "سفید",
+            plate = "۱۲ الف ۳۴۵ ایران ۶۸",
+            currentMileage = 40000
+        )
+
+        // 1. Future date with English digits
+        val futureInsEnglish = listOf(
+            com.example.vehicle.data.VehicleInsuranceEntity(
+                id = "ins1",
+                vehicleId = car.id,
+                company = "بیمه ایران",
+                type = "شخص ثالث",
+                startDate = pastEnglish,
+                endDate = futureEnglish,
+                amount = 5_000_000L
+            )
+        )
+        val healthFutureEng = VehicleAnalyzer.analyzeHealth(car, emptyList(), futureInsEnglish, emptyList())
+        val itemFutureEng = healthFutureEng.checklist.first { it.title == "بیمه‌نامه خودرو" }
+        assertTrue(itemFutureEng.isOk)
+        assertFalse(itemFutureEng.isWarning)
+        assertEquals("دارای اعتبار (بیمه ایران)", itemFutureEng.statusText)
+
+        // 2. Future date with Persian digits (must match English result)
+        val futureInsPersian = listOf(
+            futureInsEnglish[0].copy(endDate = futurePersian)
+        )
+        val healthFuturePer = VehicleAnalyzer.analyzeHealth(car, emptyList(), futureInsPersian, emptyList())
+        val itemFuturePer = healthFuturePer.checklist.first { it.title == "بیمه‌نامه خودرو" }
+        assertTrue(itemFuturePer.isOk)
+        assertFalse(itemFuturePer.isWarning)
+        assertEquals(itemFutureEng.isOk, itemFuturePer.isOk)
+        assertEquals(healthFutureEng.healthScorePercent, healthFuturePer.healthScorePercent)
+
+        // 3. Past date with Persian digits
+        val pastInsPersian = listOf(
+            futureInsEnglish[0].copy(endDate = pastPersian)
+        )
+        val healthPastPer = VehicleAnalyzer.analyzeHealth(car, emptyList(), pastInsPersian, emptyList())
+        val itemPastPer = healthPastPer.checklist.first { it.title == "بیمه‌نامه خودرو" }
+        assertFalse(itemPastPer.isOk)
+        assertTrue(itemPastPer.isWarning)
+        assertTrue(itemPastPer.statusText.contains("منقضی شده"))
+
+        // 4. Past date with English digits (must match Persian result)
+        val pastInsEnglish = listOf(
+            futureInsEnglish[0].copy(endDate = pastEnglish)
+        )
+        val healthPastEng = VehicleAnalyzer.analyzeHealth(car, emptyList(), pastInsEnglish, emptyList())
+        val itemPastEng = healthPastEng.checklist.first { it.title == "بیمه‌نامه خودرو" }
+        assertFalse(itemPastEng.isOk)
+        assertTrue(itemPastEng.isWarning)
+        assertEquals(itemPastPer.isOk, itemPastEng.isOk)
+        assertEquals(healthPastPer.healthScorePercent, healthPastEng.healthScorePercent)
+
+        // 5. Date equal to today (valid until end of day)
+        val todayIns = listOf(
+            futureInsEnglish[0].copy(endDate = todayPersian)
+        )
+        val healthToday = VehicleAnalyzer.analyzeHealth(car, emptyList(), todayIns, emptyList())
+        val itemToday = healthToday.checklist.first { it.title == "بیمه‌نامه خودرو" }
+        assertTrue(itemToday.isOk)
+        assertFalse(itemToday.isWarning)
+
+        // 6. Blank / empty date
+        val emptyDateIns = listOf(
+            futureInsEnglish[0].copy(endDate = "")
+        )
+        val healthEmpty = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyDateIns, emptyList())
+        val itemEmpty = healthEmpty.checklist.first { it.title == "بیمه‌نامه خودرو" }
+        assertFalse(itemEmpty.isOk)
+        assertTrue(itemEmpty.isWarning)
+        assertEquals("تاریخ انقضا نامعتبر یا ثبت نشده (بیمه ایران)", itemEmpty.statusText)
+
+        // 7. Incomplete or invalid date format
+        val invalidDateIns = listOf(
+            futureInsEnglish[0].copy(endDate = "1405/99/99")
+        )
+        val healthInvalid = VehicleAnalyzer.analyzeHealth(car, emptyList(), invalidDateIns, emptyList())
+        val itemInvalid = healthInvalid.checklist.first { it.title == "بیمه‌نامه خودرو" }
+        assertFalse(itemInvalid.isOk)
+        assertTrue(itemInvalid.isWarning)
+        assertEquals("تاریخ انقضا نامعتبر یا ثبت نشده (بیمه ایران)", itemInvalid.statusText)
+    }
+
+    @Test
+    fun testInspectionHealthCheckVariations() {
+        val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val todayEnglish = "%04d/%02d/%02d".format(currentPdt.year, currentPdt.month, currentPdt.day)
+        val todayPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(todayEnglish)
+
+        val pastEnglish = "%04d/%02d/%02d".format(currentPdt.year - 1, currentPdt.month, currentPdt.day)
+        val pastPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(pastEnglish)
+
+        val futureEnglish = "%04d/%02d/%02d".format(currentPdt.year + 1, currentPdt.month, currentPdt.day)
+        val futurePersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(futureEnglish)
+
+        val car = com.example.vehicle.data.VehicleEntity(
+            id = "car_insp_test",
+            brand = "پژو",
+            model = "207",
+            year = "1402",
+            color = "سفید",
+            plate = "۱۲ الف ۳۴۵ ایران ۶۸",
+            currentMileage = 40000
+        )
+
+        // 1. Future date with English digits
+        val futureInspEnglish = listOf(
+            com.example.vehicle.data.VehicleInspectionEntity(
+                id = "insp1",
+                vehicleId = car.id,
+                lastInspectionDate = pastEnglish,
+                expiryDate = futureEnglish,
+                cost = 200_000L
+            )
+        )
+        val healthFutureEng = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), futureInspEnglish)
+        val itemFutureEng = healthFutureEng.checklist.first { it.title == "معاینه فنی و آلایندگی" }
+        assertTrue(itemFutureEng.isOk)
+        assertFalse(itemFutureEng.isWarning)
+
+        // 2. Future date with Persian digits (must match English result)
+        val futureInspPersian = listOf(
+            futureInspEnglish[0].copy(expiryDate = futurePersian)
+        )
+        val healthFuturePer = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), futureInspPersian)
+        val itemFuturePer = healthFuturePer.checklist.first { it.title == "معاینه فنی و آلایندگی" }
+        assertTrue(itemFuturePer.isOk)
+        assertFalse(itemFuturePer.isWarning)
+        assertEquals(itemFutureEng.isOk, itemFuturePer.isOk)
+        assertEquals(healthFutureEng.healthScorePercent, healthFuturePer.healthScorePercent)
+
+        // 3. Past date with Persian digits
+        val pastInspPersian = listOf(
+            futureInspEnglish[0].copy(expiryDate = pastPersian)
+        )
+        val healthPastPer = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), pastInspPersian)
+        val itemPastPer = healthPastPer.checklist.first { it.title == "معاینه فنی و آلایندگی" }
+        assertFalse(itemPastPer.isOk)
+        assertTrue(itemPastPer.isWarning)
+        assertTrue(itemPastPer.statusText.contains("معاینه فنی منقضی شده"))
+
+        // 4. Past date with English digits (must match Persian result)
+        val pastInspEnglish = listOf(
+            futureInspEnglish[0].copy(expiryDate = pastEnglish)
+        )
+        val healthPastEng = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), pastInspEnglish)
+        val itemPastEng = healthPastEng.checklist.first { it.title == "معاینه فنی و آلایندگی" }
+        assertFalse(itemPastEng.isOk)
+        assertTrue(itemPastEng.isWarning)
+        assertEquals(itemPastPer.isOk, itemPastEng.isOk)
+        assertEquals(healthPastPer.healthScorePercent, healthPastEng.healthScorePercent)
+
+        // 5. Date equal to today (valid until end of day)
+        val todayInsp = listOf(
+            futureInspEnglish[0].copy(expiryDate = todayPersian)
+        )
+        val healthToday = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), todayInsp)
+        val itemToday = healthToday.checklist.first { it.title == "معاینه فنی و آلایندگی" }
+        assertTrue(itemToday.isOk)
+        assertFalse(itemToday.isWarning)
+
+        // 6. Blank / empty date
+        val emptyDateInsp = listOf(
+            futureInspEnglish[0].copy(expiryDate = "")
+        )
+        val healthEmpty = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), emptyDateInsp)
+        val itemEmpty = healthEmpty.checklist.first { it.title == "معاینه فنی و آلایندگی" }
+        assertFalse(itemEmpty.isOk)
+        assertTrue(itemEmpty.isWarning)
+        assertEquals("تاریخ انقضا نامعتبر یا ثبت نشده", itemEmpty.statusText)
+
+        // 7. Incomplete or invalid date format
+        val invalidDateInsp = listOf(
+            futureInspEnglish[0].copy(expiryDate = "invalid-date")
+        )
+        val healthInvalid = VehicleAnalyzer.analyzeHealth(car, emptyList(), emptyList(), invalidDateInsp)
+        val itemInvalid = healthInvalid.checklist.first { it.title == "معاینه فنی و آلایندگی" }
+        assertFalse(itemInvalid.isOk)
+        assertTrue(itemInvalid.isWarning)
+        assertEquals("تاریخ انقضا نامعتبر یا ثبت نشده", itemInvalid.statusText)
+    }
 }
