@@ -29,6 +29,9 @@ class VehicleAssistantTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) {
+            com.example.data.database.AppDatabase.getDatabase(context).clearAllTables()
+        }
         SessionManager.init(context)
         SessionManager.setAuthenticatedUser(
             com.example.data.api.NetworkUserDto(
@@ -795,5 +798,149 @@ class VehicleAssistantTest {
         val deleteNonExistent = repository.deleteExpense("fake_exp_id")
         assertTrue(deleteNonExistent.isFailure)
         assertTrue(deleteNonExistent.exceptionOrNull() is NoSuchElementException)
+    }
+
+    @Test
+    fun testLicensePlateNormalizationAndDuplicates() = kotlinx.coroutines.runBlocking {
+        // 1. Add vehicle with Persian plate
+        val persianPlateCar = repository.addVehicle(
+            brand = "ایران خودرو",
+            model = "تارا",
+            year = "1403",
+            color = "مشکی",
+            plate = "۴۴ ج ۶۷۸ ایران ۱۱"
+        ).getOrThrow()
+
+        // 2. Attempt adding another vehicle with English digits equivalent plate
+        val englishDigitDuplicate = repository.addVehicle(
+            brand = "سایپا",
+            model = "کوئیک",
+            year = "1402",
+            color = "سفید",
+            plate = "44 ج 678 ایران 11"
+        )
+        assertTrue("English digit equivalent plate must be rejected as duplicate", englishDigitDuplicate.isFailure)
+        assertTrue(englishDigitDuplicate.exceptionOrNull() is IllegalArgumentException)
+
+        // 3. Attempt adding another vehicle with extra internal spaces
+        val extraSpacingDuplicate = repository.addVehicle(
+            brand = "پارس خودرو",
+            model = "سهند",
+            year = "1403",
+            color = "نقره‌ای",
+            plate = "۴۴   ج   ۶۷۸   ایران   ۱۱"
+        )
+        assertTrue("Extra spacing plate must be rejected as duplicate", extraSpacingDuplicate.isFailure)
+        assertTrue(extraSpacingDuplicate.exceptionOrNull() is IllegalArgumentException)
+
+        // 4. Update the SAME vehicle with formatted/English plate (permitted)
+        val selfPlateUpdate = repository.updateVehicle(
+            persianPlateCar.copy(plate = "44 ج 678 ایران 11", color = "سرمه‌ای")
+        )
+        assertTrue("Editing same vehicle with its own plate equivalent must be allowed", selfPlateUpdate.isSuccess)
+        assertEquals("سرمه‌ای", selfPlateUpdate.getOrThrow().color)
+
+        // 5. Add second vehicle and attempt changing its plate to first vehicle's plate
+        val car2 = repository.addVehicle(
+            brand = "کرمان موتور",
+            model = "J4",
+            year = "1401",
+            color = "سفید",
+            plate = "۸۸ د ۹۹۹ ایران ۳۳"
+        ).getOrThrow()
+
+        val illegalPlateTransfer = repository.updateVehicle(
+            car2.copy(plate = "۴۴  ج  ۶۷۸  ایران ۱۱")
+        )
+        assertTrue("Changing vehicle plate to another vehicle's plate must fail", illegalPlateTransfer.isFailure)
+        assertTrue(illegalPlateTransfer.exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test
+    fun testCascadingVehicleDeletionVerification() = kotlinx.coroutines.runBlocking {
+        val db = com.example.data.database.AppDatabase.getDatabase(context)
+        val userId = com.example.data.security.SessionManager.userId!!
+
+        // 1. Add vehicle
+        val car = repository.addVehicle(
+            brand = "پژو",
+            model = "206",
+            year = "1399",
+            color = "سفید",
+            plate = "۷۷ ط ۴۵۶ ایران ۵۵",
+            currentMileage = 60000
+        ).getOrThrow()
+
+        // 2. Add dependent entities: Service, Expense, Insurance, Inspection
+        val service = repository.addService(
+            vehicleId = car.id,
+            title = "تعویض شمع و وایر",
+            serviceType = ServiceType.CUSTOM,
+            date = "1405/04/10",
+            mileage = 60000,
+            cost = 1_200_000L,
+            description = "شمع انژکتوری نور",
+            nextReminderDate = "1405/10/10",
+            nextReminderMileage = 70000,
+            isReminderEnabled = true
+        ).getOrThrow()
+
+        val standaloneExpense = repository.addExpense(
+            vehicleId = car.id,
+            title = "کارواش نانو",
+            category = VehicleExpenseCategory.WASH,
+            amount = 120_000L,
+            date = "1405/04/11",
+            description = "نظافت کامل داخل و خارج"
+        ).getOrThrow()
+
+        val insurance = repository.saveInsurance(
+            vehicleId = car.id,
+            company = "بیمه البرز",
+            type = "شخص ثالث",
+            startDate = "1404/05/01",
+            endDate = "1405/05/01",
+            amount = 4_500_000L,
+            policyNumber = "ALB-998877"
+        ).getOrThrow()
+
+        val inspection = repository.saveInspection(
+            vehicleId = car.id,
+            lastInspectionDate = "1404/06/01",
+            expiryDate = "1405/06/01",
+            cost = 250_000L,
+            status = "معتبر",
+            centerName = "مرکز بیهقی"
+        ).getOrThrow()
+
+        // 3. Verify BEFORE deletion: DB records exist in Room
+        assertNotNull(db.vehicleDao().getVehicleByServerId(userId, car.id))
+        assertTrue(db.vehicleDao().getServicesForVehicle(userId, car.id).first().isNotEmpty())
+        assertTrue(db.vehicleDao().getAllExpensesList(userId).any { it.vehicleId == car.id })
+        assertTrue(db.vehicleDao().getAllInsurancesList(userId).any { it.vehicleId == car.id })
+        assertTrue(db.vehicleDao().getAllInspectionsList(userId).any { it.vehicleId == car.id })
+
+        assertNotNull(db.smartReminderDao().getReminderById(userId, service.id))
+        assertNotNull(db.smartReminderDao().getReminderById(userId, insurance.id))
+        assertNotNull(db.smartReminderDao().getReminderById(userId, inspection.id))
+
+        // 4. Perform atomic cascading delete
+        val deleteResult = repository.deleteVehicle(car.id)
+        assertTrue(deleteResult.isSuccess)
+
+        // 5. Verify AFTER deletion: DB records are completely wiped from Room
+        assertNull(db.vehicleDao().getVehicleByServerId(userId, car.id))
+        assertTrue(db.vehicleDao().getServicesForVehicle(userId, car.id).first().isEmpty())
+        assertFalse(db.vehicleDao().getAllExpensesList(userId).any { it.vehicleId == car.id })
+        assertFalse(db.vehicleDao().getAllInsurancesList(userId).any { it.vehicleId == car.id })
+        assertFalse(db.vehicleDao().getAllInspectionsList(userId).any { it.vehicleId == car.id })
+
+        assertNull(db.smartReminderDao().getReminderById(userId, service.id))
+        assertNull(db.smartReminderDao().getReminderById(userId, insurance.id))
+        assertNull(db.smartReminderDao().getReminderById(userId, inspection.id))
+
+        assertTrue(db.smartReminderDao().getSchedulesForReminderSync(userId, service.id).isEmpty())
+        assertTrue(db.smartReminderDao().getSchedulesForReminderSync(userId, insurance.id).isEmpty())
+        assertTrue(db.smartReminderDao().getSchedulesForReminderSync(userId, inspection.id).isEmpty())
     }
 }

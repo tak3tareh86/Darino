@@ -376,6 +376,11 @@ class VehicleRepository {
         db.smartReminderDao().insertSchedules(schedules)
     }
 
+    private fun normalizePlate(plate: String): String {
+        val englishDigits = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(plate)
+        return englishDigits.replace("\\s+".toRegex(), "").lowercase()
+    }
+
     // 1. Add Vehicle (Synchronous suspend contract)
     suspend fun addVehicle(
         brand: String,
@@ -402,8 +407,9 @@ class VehicleRepository {
 
         try {
             val db = AppDatabase.getDatabase(context)
+            val normPlate = normalizePlate(plate)
             val existingVehicles = db.vehicleDao().getAllVehiclesList(userId)
-            if (existingVehicles.any { it.plate.trim().equals(plate.trim(), ignoreCase = true) }) {
+            if (existingVehicles.any { normalizePlate(it.plate) == normPlate }) {
                 return@withContext Result.failure(IllegalArgumentException("خودرویی با این شماره پلاک قبلاً در پرونده ثبت شده است."))
             }
 
@@ -463,8 +469,9 @@ class VehicleRepository {
             val existing = db.vehicleDao().getVehicleByServerId(userId, updated.id)
                 ?: return@withContext Result.failure(NoSuchElementException("خودروی مورد نظر در پرونده یافت نشد."))
 
+            val normPlate = normalizePlate(updated.plate)
             val existingVehicles = db.vehicleDao().getAllVehiclesList(userId)
-            if (existingVehicles.any { (it.serverId ?: it.id.toString()) != updated.id && it.plate.trim().equals(updated.plate.trim(), ignoreCase = true) }) {
+            if (existingVehicles.any { (it.serverId ?: it.id.toString()) != updated.id && normalizePlate(it.plate) == normPlate }) {
                 return@withContext Result.failure(IllegalArgumentException("شماره پلاک وارد شده متعلق به خودروی دیگری در پرونده است."))
             }
 
