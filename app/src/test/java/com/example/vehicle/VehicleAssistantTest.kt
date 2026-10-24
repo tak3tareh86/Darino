@@ -1195,7 +1195,116 @@ class VehicleAssistantTest {
             shadowPi.savedIntent.getStringExtra(com.example.reminder.receiver.ReminderBroadcastReceiver.EXTRA_REMINDER_ID) == service.id
         })
     }
+
+    @Test
+    fun testVehicleExpenseReportsStatisticsAndHealthScoreConsistency() {
+        val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val currentYear = currentPdt.year
+        val currentMonth = currentPdt.month
+        val currentYearMonthStr = "%04d/%02d".format(currentYear, currentMonth)
+        val currentYearStr = "%04d".format(currentYear)
+        val pastYearStr = "%04d".format(currentYear - 1)
+
+        val currentYearPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian(currentYearStr)
+        val currentMonthPersian = com.example.util.IranianPhoneUtils.convertDigitsToPersian("%02d".format(currentMonth))
+
+        val car1Id = "car_stats_1"
+        val car2Id = "car_stats_2"
+
+        val expenses = listOf(
+            // Car 1 - Current month expenses with different digit / delimiter formats
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "exp1",
+                vehicleId = car1Id,
+                title = "بنزین سوپر",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 400_000L,
+                date = "$currentYearPersian/$currentMonthPersian/05" // Persian digits
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "exp2",
+                vehicleId = car1Id,
+                title = "تعویض روغن",
+                category = VehicleExpenseCategory.SERVICE,
+                amount = 1_200_000L,
+                date = "$currentYearStr-$currentMonth/10" // Hyphen delimiter
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "exp3",
+                vehicleId = car1Id,
+                title = "کارواش",
+                category = VehicleExpenseCategory.WASH,
+                amount = 150_000L,
+                date = " $currentYearStr/$currentMonth/15 " // Trailing spaces
+            ),
+            // Car 1 - Past year expense
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "exp4",
+                vehicleId = car1Id,
+                title = "بیمه سال قبل",
+                category = VehicleExpenseCategory.INSURANCE,
+                amount = 4_000_000L,
+                date = "$pastYearStr/05/20"
+            ),
+            // Car 1 - Invalid date format
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "exp5",
+                vehicleId = car1Id,
+                title = "هزینه با تاریخ نامعتبر",
+                category = VehicleExpenseCategory.OTHER,
+                amount = 500_000L,
+                date = "invalid-date"
+            ),
+            // Car 2 - Expense (must NOT leak into Car 1 stats)
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "exp6",
+                vehicleId = car2Id,
+                title = "سوخت خودرو دوم",
+                category = VehicleExpenseCategory.FUEL,
+                amount = 800_000L,
+                date = "$currentYearStr/$currentMonth/01"
+            )
+        )
+
+        // 1. Verify Car 1 Statistics
+        val statsCar1 = VehicleAnalyzer.computeStatistics(
+            vehicleId = car1Id,
+            expenses = expenses,
+            services = emptyList()
+        )
+
+        // Current month cost for Car 1 = 400k (exp1) + 1.2M (exp2) + 150k (exp3) = 1,750,000L
+        assertEquals("Current month cost must accurately match all formatted current month expenses for Car 1", 1_750_000L, statsCar1.currentMonthCost)
+
+        // Yearly cost for Car 1 = 1,750,000L (current year expenses)
+        assertEquals("Yearly cost must include current year expenses for Car 1 and exclude past year", 1_750_000L, statsCar1.yearlyCost)
+
+        // Grand total of all expenses for Car 1 = 400k + 1.2M + 150k + 4M + 500k = 6,250,000L
+        val totalCategorySumCar1 = statsCar1.categoryBreakdown.sumOf { it.amount }
+        assertEquals("Sum of categories must match total expenses of Car 1", 6_250_000L, totalCategorySumCar1)
+
+        // Verify Car 2 Stats isolation
+        val statsCar2 = VehicleAnalyzer.computeStatistics(
+            vehicleId = car2Id,
+            expenses = expenses,
+            services = emptyList()
+        )
+        assertEquals("Car 2 expenses must be isolated from Car 1", 800_000L, statsCar2.currentMonthCost)
+        assertEquals("Car 2 yearly cost must be isolated", 800_000L, statsCar2.yearlyCost)
+
+        // 2. Empty Expenses List Handling
+        val statsEmpty = VehicleAnalyzer.computeStatistics(
+            vehicleId = car1Id,
+            expenses = emptyList(),
+            services = emptyList()
+        )
+        assertEquals(0L, statsEmpty.currentMonthCost)
+        assertEquals(0L, statsEmpty.yearlyCost)
+        assertEquals(0, statsEmpty.totalServicesCount)
+        assertTrue(statsEmpty.categoryBreakdown.isEmpty())
+    }
 }
+
 
 
 

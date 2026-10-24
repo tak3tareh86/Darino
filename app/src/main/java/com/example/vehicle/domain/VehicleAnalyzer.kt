@@ -330,18 +330,21 @@ object VehicleAnalyzer {
         val currentYearMonth = "%04d/%02d".format(currentYear, currentMonth)
         val currentYearStr = "%04d".format(currentYear)
 
+        fun normalizeExpenseDate(rawDate: String): String {
+            return parseAndValidateJalaliDate(rawDate)
+                ?: IranianPhoneUtils.convertDigitsToEnglish(rawDate.trim()).replace('-', '/')
+        }
+
         val currentMonthCost = carExpenses.filter { 
-            val cleanDate = IranianPhoneUtils.convertDigitsToEnglish(it.date)
-            cleanDate.startsWith(currentYearMonth)
+            normalizeExpenseDate(it.date).startsWith(currentYearMonth)
         }.sumOf { it.amount }
         val yearlyCost = carExpenses.filter { 
-            val cleanDate = IranianPhoneUtils.convertDigitsToEnglish(it.date)
-            cleanDate.startsWith(currentYearStr)
+            normalizeExpenseDate(it.date).startsWith(currentYearStr)
         }.sumOf { it.amount }
 
+        val totalAll = carExpenses.sumOf { it.amount }
         val categoryTotals = VehicleExpenseCategory.values().map { cat ->
             val total = carExpenses.filter { it.category == cat }.sumOf { it.amount }
-            val totalAll = carExpenses.sumOf { it.amount }
             val percentage = if (totalAll > 0) ((total.toDouble() / totalAll.toDouble()) * 100).toInt() else 0
             VehicleCostCategoryStat(cat, total, percentage)
         }.filter { it.amount > 0 }.sortedByDescending { it.amount }
@@ -365,8 +368,7 @@ object VehicleAnalyzer {
             }
             val prefix = "%04d/%02d".format(y, m)
             val monthExpenses = carExpenses.filter { 
-                val cleanDate = IranianPhoneUtils.convertDigitsToEnglish(it.date)
-                cleanDate.startsWith(prefix)
+                normalizeExpenseDate(it.date).startsWith(prefix)
             }
             val fuel = monthExpenses.filter { it.category == VehicleExpenseCategory.FUEL }.sumOf { it.amount }
             val repair = monthExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS || it.category == VehicleExpenseCategory.PARTS }.sumOf { it.amount }
