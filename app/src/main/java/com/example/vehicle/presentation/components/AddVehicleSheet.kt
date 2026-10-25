@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -59,7 +60,7 @@ fun AddVehicleSheet(
     var year by remember { mutableStateOf(currentYear) }
     var color by remember { mutableStateOf("سفید") }
     var platePart1 by remember { mutableStateOf("") }
-    var plateLetter by remember { mutableStateOf("ب") }
+    var plateLetter by remember { mutableStateOf("الف") }
     var platePart2 by remember { mutableStateOf("") }
     var plateIranCode by remember { mutableStateOf("") }
     var vin by remember { mutableStateOf("") }
@@ -254,43 +255,46 @@ fun AddVehicleSheet(
                         singleLine = true
                     )
                     var expanded by remember { mutableStateOf(false) }
-                    val letters = listOf("ب", "ج", "د", "س", "ص", "ط", "ق", "ل", "م", "ن", "و", "ه", "ی", "الف", "ت", "ع", "گ", "ژ")
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = !expanded },
-                        modifier = Modifier.weight(0.8f)
-                    ) {
-                        OutlinedTextField(
-                            value = plateLetter,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("حرف") },
-                            trailingIcon = {
-                                Icon(
-                                    imageVector = Icons.Rounded.ArrowDropDown,
-                                    contentDescription = "انتخاب حرف پلاک",
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            singleLine = true,
-                            modifier = Modifier
-                                .menuAnchor()
-                                .fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
+                    val letters = listOf("الف", "ب", "ت", "ج", "د", "ژ", "س", "ص", "ط", "ع", "ق", "گ", "ل", "م", "ن", "و", "ه", "ی")
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                        ExposedDropdownMenuBox(
                             expanded = expanded,
-                            onDismissRequest = { expanded = false },
-                            modifier = Modifier.heightIn(max = 240.dp)
+                            onExpandedChange = { expanded = !expanded },
+                            modifier = Modifier.weight(0.8f)
                         ) {
-                            letters.forEach { letter ->
-                                DropdownMenuItem(
-                                    text = { Text(letter) },
-                                    onClick = {
-                                        plateLetter = letter
-                                        expanded = false
-                                    }
-                                )
+                            OutlinedTextField(
+                                value = plateLetter,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("حرف") },
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ArrowDropDown,
+                                        contentDescription = "انتخاب حرف پلاک",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                singleLine = true,
+                                textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false },
+                                modifier = Modifier.heightIn(max = 240.dp)
+                            ) {
+                                letters.forEach { letter ->
+                                    DropdownMenuItem(
+                                        text = { Text(letter) },
+                                        onClick = {
+                                            plateLetter = letter
+                                            expanded = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
