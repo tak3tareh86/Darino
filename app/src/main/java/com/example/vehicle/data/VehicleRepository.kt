@@ -709,7 +709,13 @@ class VehicleRepository {
                         date = nextReminderDate?.trim(),
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
-                        currentKilometer = mileage
+                        currentKilometer = mileage,
+                        offsets = listOf(
+                            com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
+                            com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS,
+                            com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
+                            com.example.reminder.domain.PredefinedOffset.AT_TIME
+                        )
                     )
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
@@ -954,7 +960,13 @@ class VehicleRepository {
                         date = nextReminderDate?.trim(),
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
-                        currentKilometer = mileage
+                        currentKilometer = mileage,
+                        offsets = listOf(
+                            com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
+                            com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS,
+                            com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
+                            com.example.reminder.domain.PredefinedOffset.AT_TIME
+                        )
                     )
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
