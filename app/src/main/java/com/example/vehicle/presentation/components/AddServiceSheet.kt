@@ -1,7 +1,9 @@
 package com.example.vehicle.presentation.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +36,8 @@ import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.ServiceType
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.domain.VehicleMaintenanceCatalog
+
+private data class ServiceOption(val title: String, val type: ServiceType)
 
 /**
  * Bottom sheet to record a vehicle service and schedule next smart reminder
@@ -85,6 +90,32 @@ fun AddServiceSheet(
     val calcDate = if (requiresManualInterval) {
         if (customIntervalMonths > 0) com.example.util.PersianCalendarHelper.addMonthsToPersianDate(date, customIntervalMonths) else ""
     } else recommendedDate
+
+    var nextServiceDateText by remember { mutableStateOf(calcDate) }
+    var isNextDateManuallyEdited by remember { mutableStateOf(false) }
+
+    LaunchedEffect(calcDate) {
+        if (!isNextDateManuallyEdited) {
+            nextServiceDateText = calcDate
+        }
+    }
+
+    val serviceTypeOptions: List<ServiceOption> = remember {
+        listOf(
+            ServiceOption("تعویض روغن موتور", ServiceType.OIL_CHANGE),
+            ServiceOption("تعویض فیلترها", ServiceType.FILTERS),
+            ServiceOption("تعویض لنت ترمز", ServiceType.BRAKE_PADS),
+            ServiceOption("تعویض لاستیک ها", ServiceType.TIRE_CHANGE),
+            ServiceOption("تعویض باتری", ServiceType.BATTERY),
+            ServiceOption("تعویض روغن گیربکس", ServiceType.TRANSMISSION_OIL_CHANGE),
+            ServiceOption("تعویض روغن هیدرولیک فرمان", ServiceType.HYDRAULIC_STEERING_OIL_CHANGE),
+            ServiceOption("تعویض روغن ترمز", ServiceType.BRAKE_FLUID_CHANGE),
+            ServiceOption("تعویض تسمه تایم", ServiceType.TIMING_BELT_CHANGE),
+            ServiceOption("تعویض تسمه دینام", ServiceType.ALTERNATOR_BELT_CHANGE),
+            ServiceOption("سرویس سفارشی", ServiceType.CUSTOM)
+        )
+    }
+    var showServiceTypeDialog by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -142,35 +173,110 @@ fun AddServiceSheet(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
 
-            // Service Type Selector Chips
+            // Service Type Selector
             Text(
                 text = "نوع سرویس انجام شده",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            Text(
-                text = "برای دیدن انواع دیگر سرویس، فهرست را افقی حرکت دهید.",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth()
+            OutlinedCard(
+                onClick = { showServiceTypeDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                items(ServiceType.values()) { type ->
-                    FilterChip(
-                        selected = selectedType == type,
-                        onClick = {
-                            selectedType = type
-                            title = type.title
-                            customIntervalKmText = ""
-                            customIntervalMonthsText = ""
-                        },
-                        label = { Text(type.title, fontSize = 11.sp) }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Soft3DIcon(
+                            imageRes = selectedType.iconRes,
+                            contentDescription = "نوع سرویس",
+                            size = 28.dp,
+                            accentColor = MaterialTheme.colorScheme.primary
+                        )
+                        val matchedOpt = serviceTypeOptions.find { it.type == selectedType }
+                        Text(
+                            text = matchedOpt?.title ?: selectedType.title,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Rounded.ExpandMore,
+                        contentDescription = "انتخاب نوع سرویس",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+
+            if (showServiceTypeDialog) {
+                AlertDialog(
+                    onDismissRequest = { showServiceTypeDialog = false },
+                    title = { Text("انتخاب نوع سرویس", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
+                    text = {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 380.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(serviceTypeOptions) { item ->
+                                val displayName = item.title
+                                val type = item.type
+                                val isSelected = selectedType == type
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            selectedType = type
+                                            title = displayName
+                                            customIntervalKmText = ""
+                                            customIntervalMonthsText = ""
+                                            showServiceTypeDialog = false
+                                        },
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Soft3DIcon(
+                                            imageRes = type.iconRes,
+                                            contentDescription = displayName,
+                                            size = 24.dp,
+                                            accentColor = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = displayName,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            ),
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showServiceTypeDialog = false }) {
+                            Text("بستن")
+                        }
+                    }
+                )
             }
 
             // Title & Cost
@@ -302,6 +408,18 @@ fun AddServiceSheet(
                                 )
                             }
                         }
+                        PersianDateInputField(
+                            value = nextServiceDateText,
+                            onValueChange = {
+                                nextServiceDateText = it
+                                isNextDateManuallyEdited = true
+                            },
+                            label = "تاریخ سرویس بعدی (شمسی)",
+                            placeholder = "۱۴۰۵/۰۷/۱۵",
+                            dialogTitle = "انتخاب تاریخ سرویس بعدی",
+                            testTag = "next_service_date_input"
+                        )
+
                         Text(
                             text = buildString {
                                 if (calcKm > 0) {
@@ -311,7 +429,7 @@ fun AddServiceSheet(
                                 }
                                 if (calcDate.isNotBlank()) {
                                     if (isNotEmpty()) append(" یا ")
-                                    append("تاریخ تقریبی: ")
+                                    append("تاریخ پیشنهادی: ")
                                     append(IranianPhoneUtils.convertDigitsToPersian(calcDate))
                                 }
                                 append(" فعال خواهد شد.")
@@ -341,13 +459,13 @@ fun AddServiceSheet(
                             mileage,
                             cost,
                             description,
-                            if (isReminderEnabled && calcDate.isNotBlank()) calcDate else null,
+                            if (isReminderEnabled && nextServiceDateText.isNotBlank()) nextServiceDateText else null,
                             if (isReminderEnabled && calcKm > 0) calcKm else null,
                             isReminderEnabled
                         )
                     }
                 },
-                enabled = title.isNotBlank() && (!isReminderEnabled || calcKm > 0 || calcDate.isNotBlank()),
+                enabled = title.isNotBlank() && (!isReminderEnabled || calcKm > 0 || nextServiceDateText.isNotBlank()),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
