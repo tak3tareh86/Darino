@@ -75,6 +75,42 @@ fun DarinoVehicleMainDashboard(
         }
     }
 
+    var serviceToDeleteDashboard by remember { mutableStateOf<VehicleServiceEntity?>(null) }
+
+    if (serviceToDeleteDashboard != null) {
+        val targetService = serviceToDeleteDashboard!!
+        AlertDialog(
+            onDismissRequest = { serviceToDeleteDashboard = null },
+            title = {
+                Text(
+                    text = "حذف سرویس دوره‌ای",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            text = {
+                Text(
+                    text = "آیا از حذف سرویس «${targetService.title}» اطمینان دارید؟ این عمل قابل بازگشت نیست.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteServiceRecord(targetService.id)
+                        serviceToDeleteDashboard = null
+                    }
+                ) {
+                    Text("حذف", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { serviceToDeleteDashboard = null }) {
+                    Text("انصراف")
+                }
+            }
+        )
+    }
+
     if (state.showProfileScreen && state.selectedVehicle != null) {
         VehicleProfileScreen(
             vehicle = state.selectedVehicle!!,
@@ -288,7 +324,8 @@ fun DarinoVehicleMainDashboard(
                                 onMileageClick = { viewModel.openMileageDialog() },
                                 onAddService = { viewModel.openAddService() },
                                 onAddExpense = { viewModel.openAddExpense() },
-                                onInsuranceClick = { viewModel.openInsuranceSheet() }
+                                onInsuranceClick = { viewModel.openInsuranceSheet() },
+                                onDeleteService = { serviceToDeleteDashboard = it }
                             )
                         }
                         VehicleTab.TIMELINE -> {
@@ -482,7 +519,8 @@ private fun VehicleServicesTabContent(
     onMileageClick: () -> Unit,
     onAddService: () -> Unit,
     onAddExpense: () -> Unit,
-    onInsuranceClick: () -> Unit
+    onInsuranceClick: () -> Unit,
+    onDeleteService: ((VehicleServiceEntity) -> Unit)? = null
 ) {
     var isHealthExpanded by remember { mutableStateOf(false) }
     var isServicesExpanded by remember { mutableStateOf(true) }
@@ -653,7 +691,10 @@ private fun VehicleServicesTabContent(
         // 5. Service Records List
         if (isServicesExpanded) {
             items(services, key = { it.id }) { service ->
-                ServiceRecordCard(service = service)
+                ServiceRecordCard(
+                    service = service,
+                    onDeleteService = onDeleteService
+                )
             }
         }
     }
@@ -691,7 +732,10 @@ private fun QuickActionButton(
 }
 
 @Composable
-private fun ServiceRecordCard(service: VehicleServiceEntity) {
+private fun ServiceRecordCard(
+    service: VehicleServiceEntity,
+    onDeleteService: ((VehicleServiceEntity) -> Unit)? = null
+) {
     val costFormatted = IranianPhoneUtils.convertDigitsToPersian(
         NumberFormat.getNumberInstance(Locale.US).format(service.cost)
     )
@@ -711,7 +755,8 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
                     Soft3DIcon(
                         imageRes = service.serviceType.iconRes,
@@ -733,13 +778,31 @@ private fun ServiceRecordCard(service: VehicleServiceEntity) {
                     }
                 }
 
-                Text(
-                    text = "$costFormatted تومان",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "$costFormatted تومان",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     )
-                )
+                    if (onDeleteService != null) {
+                        IconButton(
+                            onClick = { onDeleteService(service) },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.DeleteOutline,
+                                contentDescription = "حذف سرویس",
+                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
             }
 
             if (service.description.isNotBlank()) {

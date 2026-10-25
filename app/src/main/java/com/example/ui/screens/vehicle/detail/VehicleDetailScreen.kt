@@ -76,11 +76,48 @@ fun VehicleDetailScreen(
     onBackClick: () -> Unit,
     onAddFuelClick: () -> Unit,
     onAddServiceClick: () -> Unit,
+    onDeleteServiceClick: ((serviceId: String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(initialTab) }
     val tabTitles = listOf("خلاصه و سوابق", "سرویس‌ها", "هزینه‌ها", "تعمیرات", "بیمه")
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+
+    var serviceToDeleteDetail by remember { mutableStateOf<Pair<String, String>?>(null) }
+
+    if (serviceToDeleteDetail != null) {
+        val (targetId, targetTitle) = serviceToDeleteDetail!!
+        AlertDialog(
+            onDismissRequest = { serviceToDeleteDetail = null },
+            title = {
+                Text(
+                    text = "حذف سرویس دوره‌ای",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            text = {
+                Text(
+                    text = "آیا از حذف «$targetTitle» اطمینان دارید؟ این عمل قابل بازگشت نیست.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteServiceClick?.invoke(targetId)
+                        serviceToDeleteDetail = null
+                    }
+                ) {
+                    Text("حذف", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { serviceToDeleteDetail = null }) {
+                    Text("انصراف")
+                }
+            }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -195,7 +232,10 @@ fun VehicleDetailScreen(
 
                     // 3. History Section (بخش سوابق: کارت‌های تاریخچه)
                     item {
-                        VehicleHistorySection(vehicle = vehicle)
+                        VehicleHistorySection(
+                            vehicle = vehicle,
+                            onDeleteService = { id, title -> serviceToDeleteDetail = Pair(id, title) }
+                        )
                     }
                 }
 
@@ -406,7 +446,8 @@ private fun SummaryMetricCard(
 @Composable
 fun VehicleHistorySection(
     vehicle: VehicleData,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onDeleteService: ((serviceId: String, title: String) -> Unit)? = null
 ) {
     Layered3DCard(
         modifier = modifier.fillMaxWidth(),
@@ -437,12 +478,14 @@ fun VehicleHistorySection(
                     // Combine timeline records and expenses into clean history cards
                     vehicle.timelineRecords.forEach { record ->
                         HistoryCardItem(
+                            serviceId = record.id,
                             title = record.title,
                             datePersian = record.datePersian,
                             costFormatted = record.costFormatted,
                             details = "کیلومتر: ${record.odometerKmFormatted} • ${record.serviceCenter}",
                             iconRes = record.iconRes,
-                            accentColor = WarningAmberLight
+                            accentColor = WarningAmberLight,
+                            onDeleteService = onDeleteService
                         )
                     }
 
@@ -469,7 +512,9 @@ private fun HistoryCardItem(
     costFormatted: String,
     details: String,
     iconRes: Int,
-    accentColor: Color
+    accentColor: Color,
+    serviceId: String? = null,
+    onDeleteService: ((serviceId: String, title: String) -> Unit)? = null
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -515,20 +560,39 @@ private fun HistoryCardItem(
                 }
             }
 
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                Text(
-                    text = "مبلغ",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = costFormatted,
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 13.sp),
-                    color = accentColor
-                )
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "مبلغ",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = costFormatted,
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 13.sp),
+                        color = accentColor
+                    )
+                }
+
+                if (serviceId != null && onDeleteService != null) {
+                    IconButton(
+                        onClick = { onDeleteService(serviceId, title) },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.DeleteOutline,
+                            contentDescription = "حذف سرویس",
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
         }
     }
