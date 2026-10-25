@@ -443,8 +443,8 @@ fun DarinoVehicleMainDashboard(
     if (state.showAddServiceSheet && state.selectedVehicle != null) {
         AddServiceSheet(
             vehicle = state.selectedVehicle!!,
-            onAddService = { t, type, d, km, c, desc, remD, remKm, en, offsets ->
-                viewModel.addServiceRecord(t, type, d, km, c, desc, remD, remKm, en, offsets)
+            onAddService = { t, type, d, km, c, desc, remD, remKm, en, offsets, time ->
+                viewModel.addServiceRecord(t, type, d, km, c, desc, remD, remKm, en, offsets, time)
             },
             onDismiss = { viewModel.closeAddService() }
         )

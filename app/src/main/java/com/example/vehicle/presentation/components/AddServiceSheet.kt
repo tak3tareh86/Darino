@@ -31,6 +31,7 @@ import com.example.R
 import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
+import com.example.ui.screens.reminder.components.PersianTimeInputField
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.ServiceType
@@ -56,7 +57,8 @@ fun AddServiceSheet(
         nextReminderDate: String?,
         nextReminderMileage: Int?,
         isReminderEnabled: Boolean,
-        offsets: List<com.example.reminder.domain.PredefinedOffset>
+        offsets: List<com.example.reminder.domain.PredefinedOffset>,
+        time: String
     ) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -93,6 +95,7 @@ fun AddServiceSheet(
     } else recommendedDate
 
     var nextServiceDateText by remember { mutableStateOf(calcDate) }
+    var nextServiceTimeText by remember { mutableStateOf("09:00") }
     var isNextDateManuallyEdited by remember { mutableStateOf(false) }
 
     LaunchedEffect(calcDate) {
@@ -413,19 +416,35 @@ fun AddServiceSheet(
                             )
                         }
                     }
-                    PersianDateInputField(
-                        value = nextServiceDateText,
-                        onValueChange = {
-                            nextServiceDateText = it
-                            isNextDateManuallyEdited = true
-                        },
-                        label = "تاریخ سرویس بعدی (شمسی)",
-                        placeholder = "۱۴۰۵/۰۷/۱۵",
-                        dialogTitle = "انتخاب تاریخ سرویس بعدی",
-                        testTag = "next_service_date_input"
-                    )
-
                     if (isReminderEnabled) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(modifier = Modifier.weight(1.2f)) {
+                                PersianDateInputField(
+                                    value = nextServiceDateText,
+                                    onValueChange = {
+                                        nextServiceDateText = it
+                                        isNextDateManuallyEdited = true
+                                    },
+                                    label = "تاریخ سرویس بعدی",
+                                    placeholder = "۱۴۰۵/۰۷/۱۵",
+                                    dialogTitle = "انتخاب تاریخ سرویس بعدی",
+                                    testTag = "next_service_date_input"
+                                )
+                            }
+
+                            Box(modifier = Modifier.weight(0.9f)) {
+                                PersianTimeInputField(
+                                    value = nextServiceTimeText,
+                                    onValueChange = { nextServiceTimeText = it },
+                                    label = "ساعت اعلان",
+                                    testTag = "next_service_time_input"
+                                )
+                            }
+                        }
+
                         Text(
                             text = "زمان‌بندی ارسال اعلان‌های یادآور پیش از سررسید:",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
@@ -452,6 +471,18 @@ fun AddServiceSheet(
                                 label = { Text("۱ روز قبل", fontSize = 11.sp) }
                             )
                         }
+                    } else {
+                        PersianDateInputField(
+                            value = nextServiceDateText,
+                            onValueChange = {
+                                nextServiceDateText = it
+                                isNextDateManuallyEdited = true
+                            },
+                            label = "تاریخ سرویس بعدی (شمسی)",
+                            placeholder = "۱۴۰۵/۰۷/۱۵",
+                            dialogTitle = "انتخاب تاریخ سرویس بعدی",
+                            testTag = "next_service_date_input"
+                        )
                     }
 
                     Text(
@@ -501,7 +532,8 @@ fun AddServiceSheet(
                             if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
                             if (calcKm > 0) calcKm else null,
                             isReminderEnabled,
-                            selectedOffsets
+                            selectedOffsets,
+                            nextServiceTimeText
                         )
                     }
                 },

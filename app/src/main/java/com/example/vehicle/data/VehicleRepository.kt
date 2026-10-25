@@ -325,6 +325,7 @@ class VehicleRepository {
         title: String,
         description: String,
         date: String?,
+        time: String = "۰۹:۰۰",
         type: String = "VEHICLE",
         targetKilometer: Int? = null,
         currentKilometer: Int? = null,
@@ -333,6 +334,7 @@ class VehicleRepository {
         val effectiveDate = date?.takeIf { it.isNotBlank() }
             ?: PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
         val persianDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(effectiveDate)
+        val persianTime = com.example.util.IranianPhoneUtils.convertDigitsToPersian(time.ifBlank { "۰۹:۰۰" })
         val reminder = com.example.reminder.data.ReminderEntity(
             id = id,
             userId = userId,
@@ -342,7 +344,7 @@ class VehicleRepository {
             sourceType = "VEHICLE",
             sourceId = id,
             date = persianDate,
-            time = "۰۹:۰۰",
+            time = persianTime,
             targetKilometer = targetKilometer?.toLong(),
             currentKilometer = currentKilometer?.toLong()
         )
@@ -356,7 +358,7 @@ class VehicleRepository {
         
         // Generate and insert schedules
         val schedules = if (!date.isNullOrBlank()) {
-            val baseMillis = com.example.reminder.domain.ReminderManager.parsePersianDateTimeToMillis(persianDate, "۰۹:۰۰")
+            val baseMillis = com.example.reminder.domain.ReminderManager.parsePersianDateTimeToMillis(persianDate, persianTime)
             offsets.map { offset ->
                 val triggerMillis = baseMillis - (offset.value * offset.unit.millisMultiplier)
                 com.example.reminder.data.ReminderScheduleEntity(
@@ -607,6 +609,7 @@ class VehicleRepository {
         nextReminderDate: String?,
         nextReminderMileage: Int?,
         isReminderEnabled: Boolean,
+        time: String = "۰۹:۰۰",
         offsets: List<com.example.reminder.domain.PredefinedOffset> = listOf(
             com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
             com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS,
@@ -713,6 +716,7 @@ class VehicleRepository {
                             nextReminderMileage?.let { append("؛ کیلومتر هدف: $it") }
                         },
                         date = nextReminderDate?.trim(),
+                        time = time,
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
                         currentKilometer = mileage,
@@ -841,7 +845,8 @@ class VehicleRepository {
         description: String,
         nextReminderDate: String?,
         nextReminderMileage: Int?,
-        isReminderEnabled: Boolean
+        isReminderEnabled: Boolean,
+        time: String = "۰۹:۰۰"
     ): Result<VehicleServiceEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
@@ -959,6 +964,7 @@ class VehicleRepository {
                             nextReminderMileage?.let { append("؛ کیلومتر هدف: $it") }
                         },
                         date = nextReminderDate?.trim(),
+                        time = time,
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
                         currentKilometer = mileage,

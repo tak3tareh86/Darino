@@ -339,7 +339,8 @@ class VehicleViewModel(
             com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS,
             com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
             com.example.reminder.domain.PredefinedOffset.AT_TIME
-        )
+        ),
+        time: String = "۰۹:۰۰"
     ) {
         val current = _uiState.value.selectedVehicle ?: return
         viewModelScope.launch {
@@ -354,7 +355,8 @@ class VehicleViewModel(
                 nextReminderDate = nextReminderDate,
                 nextReminderMileage = nextReminderMileage,
                 isReminderEnabled = isReminderEnabled,
-                offsets = offsets
+                offsets = offsets,
+                time = time
             )
             result.onSuccess { created ->
                 _uiState.update {
@@ -385,7 +387,14 @@ class VehicleViewModel(
         description: String,
         nextReminderDate: String?,
         nextReminderMileage: Int?,
-        isReminderEnabled: Boolean
+        isReminderEnabled: Boolean,
+        offsets: List<com.example.reminder.domain.PredefinedOffset> = listOf(
+            com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
+            com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS,
+            com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
+            com.example.reminder.domain.PredefinedOffset.AT_TIME
+        ),
+        time: String = "۰۹:۰۰"
     ) {
         viewModelScope.launch {
             val result = repository.updateService(
@@ -398,7 +407,9 @@ class VehicleViewModel(
                 description = description,
                 nextReminderDate = nextReminderDate,
                 nextReminderMileage = nextReminderMileage,
-                isReminderEnabled = isReminderEnabled
+                isReminderEnabled = isReminderEnabled,
+                offsets = offsets,
+                time = time
             )
             result.onSuccess {
                 _uiState.update {
