@@ -1,8 +1,10 @@
 package com.example.vehicle.presentation.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -10,21 +12,25 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DirectionsCar
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 import com.example.R
 import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.Soft3DIcon
@@ -73,6 +79,8 @@ fun AddVehicleSheet(
         "هیوندای", "کیا", "تویوتا", "نیسان", "مزدا", "هوندا", "رنو", "سوزوکی",
         "میتسوبیشی", "لکسوس", "بنز", "بی‌ام‌و", "فولکس‌واگن", "سایر"
     )
+
+    var showBrandDialog by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -130,23 +138,113 @@ fun AddVehicleSheet(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
 
-            // Brand Selection Chips
+            // Full-width Brand Selector Field
             Text(
                 text = "برند یا سازنده خودرو",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+
+            OutlinedCard(
+                onClick = { showBrandDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("brand_selector_card"),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                brands.forEach { b ->
-                    FilterChip(
-                        selected = brand == b,
-                        onClick = { brand = b },
-                        label = { Text(b, fontSize = 11.sp) }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.DirectionsCar,
+                            contentDescription = "برند خودرو",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            text = if (brand == "سایر" && customBrand.isNotBlank()) "سایر ($customBrand)" else brand,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Rounded.ExpandMore,
+                        contentDescription = "انتخاب برند",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+
+            if (showBrandDialog) {
+                AlertDialog(
+                    onDismissRequest = { showBrandDialog = false },
+                    title = {
+                        Text(
+                            text = "انتخاب برند یا سازنده خودرو",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    text = {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 380.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(brands) { b ->
+                                val isSelected = brand == b
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            brand = b
+                                            showBrandDialog = false
+                                        },
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = b,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            ),
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showBrandDialog = false }) {
+                            Text("انصراف")
+                        }
+                    }
+                )
             }
 
             if (brand == "سایر") {
@@ -188,21 +286,22 @@ fun AddVehicleSheet(
             // Engine and transmission are needed to distinguish service schedules for variants.
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
                     value = engine,
                     onValueChange = { engine = it },
-                    label = { Text("نوع / کد موتور (در صورت اطلاع)") },
-                    placeholder = { Text("مثلاً TU5، EF7، 1.5T") },
+                    label = { Text("نوع / کد موتور (در صورت اطلاع)", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp) },
+                    placeholder = { Text("مثلاً TU5، EF7") },
                     modifier = Modifier.weight(1f),
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = transmission,
                     onValueChange = { transmission = it },
-                    label = { Text("نوع گیربکس") },
-                    placeholder = { Text("دنده‌ای، اتوماتیک، CVT") },
+                    label = { Text("نوع گیربکس", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp) },
+                    placeholder = { Text("دنده‌ای، اتوماتیک") },
                     modifier = Modifier.weight(1f),
                     singleLine = true
                 )
@@ -254,19 +353,17 @@ fun AddVehicleSheet(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true
                     )
-                    var expanded by remember { mutableStateOf(false) }
-                    val letters = listOf("الف", "ب", "ت", "ج", "د", "ژ", "س", "ص", "ط", "ع", "ق", "گ", "ل", "م", "ن", "و", "ه", "ی")
+                    var showLetterMenu by remember { mutableStateOf(false) }
+                    val letters = remember { listOf("الف", "ب", "ت", "ج", "د", "ژ", "س", "ص", "ط", "ع", "ق", "گ", "ل", "م", "ن", "و", "ه", "ی") }
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                        ExposedDropdownMenuBox(
-                            expanded = expanded,
-                            onExpandedChange = { expanded = !expanded },
+                        Box(
                             modifier = Modifier.weight(0.8f)
                         ) {
                             OutlinedTextField(
                                 value = plateLetter,
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("حرف") },
+                                label = { Text("حرف", maxLines = 1, fontSize = 11.sp) },
                                 trailingIcon = {
                                     Icon(
                                         imageVector = Icons.Rounded.ArrowDropDown,
@@ -277,21 +374,32 @@ fun AddVehicleSheet(
                                 },
                                 singleLine = true,
                                 textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth()
                             )
-                            ExposedDropdownMenu(
-                                expanded = expanded,
-                                onDismissRequest = { expanded = false },
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { showLetterMenu = true }
+                                    .testTag("plate_letter_selector")
+                            )
+                            DropdownMenu(
+                                expanded = showLetterMenu,
+                                onDismissRequest = { showLetterMenu = false },
                                 modifier = Modifier.heightIn(max = 240.dp)
                             ) {
                                 letters.forEach { letter ->
                                     DropdownMenuItem(
-                                        text = { Text(letter) },
+                                        text = {
+                                            Text(
+                                                text = letter,
+                                                modifier = Modifier.fillMaxWidth(),
+                                                textAlign = TextAlign.Center,
+                                                fontWeight = if (plateLetter == letter) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
                                         onClick = {
                                             plateLetter = letter
-                                            expanded = false
+                                            showLetterMenu = false
                                         }
                                     )
                                 }
