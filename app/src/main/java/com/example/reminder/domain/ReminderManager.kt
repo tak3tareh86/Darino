@@ -145,11 +145,20 @@ class ReminderManager(
      * Enables a reminder and re-arms its future schedules.
      */
     suspend fun enableReminder(reminderId: String) = withContext(Dispatchers.IO) {
-        val reminder = repository.getReminderById(reminderId) ?: return@withContext
+        val reminder = repository.getReminderById(reminderId)
+            ?: throw NoSuchElementException("یادآور با شناسه $reminderId یافت نشد.")
         val schedules = repository.getSchedulesSync(reminderId)
-        repository.updateStatus(reminderId, "ACTIVE")
+        if (schedules.isEmpty()) {
+            repository.updateStatus(reminderId, "DISABLED")
+            throw IllegalStateException("هیچ زمان‌بندی فعالی برای یادآور یافت نشد.")
+        }
         try {
-            scheduler.schedule(reminder, schedules)
+            val scheduledCount = scheduler.schedule(reminder, schedules)
+            if (scheduledCount > 0) {
+                repository.updateStatus(reminderId, "ACTIVE")
+            } else {
+                repository.updateStatus(reminderId, "DISABLED")
+            }
         } catch (e: Exception) {
             Log.e("ReminderManager", "Failed to schedule alarms when enabling reminder $reminderId. Rolling back status.", e)
             try {

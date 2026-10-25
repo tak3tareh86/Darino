@@ -52,6 +52,12 @@ class ReminderScheduler(private val context: Context) {
             }
         }
         Log.i("ReminderScheduler", "Schedule summary for reminder '${reminder.title}': totalSchedules=${schedules.size}, successfullyScheduled=$scheduledCount, skippedPast=$pastCount")
+        
+        val enabledSchedulesCount = schedules.count { it.enabled }
+        if (enabledSchedulesCount > 0 && scheduledCount == 0) {
+            throw IllegalStateException("زمان‌های یادآور در گذشته قرار دارند و هیچ آلارم آینده‌ای در سیستم ثبت نشد.")
+        }
+
         return scheduledCount
     }
 

@@ -226,8 +226,10 @@ class VehicleRepository {
             launch {
                 vDao.getAllServices(userId).collectLatest { dbServices ->
                     _services.value = dbServices.map { s ->
-                        val (parsedCost, cleanDescription) = parseCostAndDescription(s.notes)
-                        val realCost = if (s.cost > 0L) s.cost else parsedCost
+                        val parsed = parseServiceNotes(s.notes)
+                        val realCost = if (s.cost > 0L) s.cost else parsed.cost
+                        val cleanDescription = parsed.description
+                        val alarmError = parsed.alarmError
 
                         val realServiceDate = if (s.serviceDate != null && s.serviceDate > 0L) {
                             PersianCalendarHelper.fromEpochMillis(s.serviceDate).toFormattedDate()
@@ -252,7 +254,9 @@ class VehicleRepository {
                             description = cleanDescription,
                             nextReminderDate = realNextReminderDate,
                             nextReminderMileage = s.dueMileage,
-                            isReminderEnabled = s.status != "COMPLETED"
+                            isReminderEnabled = s.status != "COMPLETED",
+                            reminderAlarmFailed = alarmError != null,
+                            reminderAlarmErrorMessage = alarmError
                         )
                     }
                 }
@@ -774,6 +778,15 @@ class VehicleRepository {
                 }
             }
 
+            if (alarmFailed) {
+                try {
+                    val updatedNotes = encodeServiceNotes(cost, description, alarmErrorMsg)
+                    db.vehicleDao().updateServiceNotes(userId, serviceId, updatedNotes)
+                } catch (notesEx: Exception) {
+                    android.util.Log.e("VehicleRepository", "Failed to persist alarm error in service notes", notesEx)
+                }
+            }
+
             val resultService = newService.copy(
                 reminderAlarmFailed = alarmFailed,
                 reminderAlarmErrorMessage = alarmErrorMsg
@@ -996,27 +1009,54 @@ class VehicleRepository {
                 }
             }
 
+            var cancelFailed = false
+            var cancelErrorMsg: String? = null
+            if (schedulesToCancel.isNotEmpty()) {
+                try {
+                    val scheduler = com.example.reminder.domain.ReminderScheduler(context)
+                    scheduler.cancel(serviceId, schedulesToCancel)
+                } catch (ce: Exception) {
+                    android.util.Log.w("VehicleRepository", "Cancelling previous alarms failed for service $serviceId", ce)
+                    cancelFailed = true
+                    cancelErrorMsg = ce.message ?: "لغو هشدارهای قبلی ناموفق بود"
+                }
+            }
+
             var alarmFailed = false
             var alarmErrorMsg: String? = null
 
             // 2. Adjust system alarms outside of transaction after successful commit
-            try {
-                val scheduler = com.example.reminder.domain.ReminderScheduler(context)
-                scheduler.cancel(serviceId, schedulesToCancel)
-
-                if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+            if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+                try {
                     val reminderManager = com.example.reminder.domain.ReminderManager(context)
                     reminderManager.enableReminder(serviceId)
+                } catch (e: Exception) {
+                    android.util.Log.w("VehicleRepository", "Alarm scheduling failed for service $serviceId, but service was successfully updated in Room.", e)
+                    alarmFailed = true
+                    alarmErrorMsg = e.message ?: "ثبت هشدار سیستم ناموفق بود"
+                    try {
+                        db.smartReminderDao().updateStatus(userId = userId, id = serviceId, status = "DISABLED")
+                    } catch (dbEx: Exception) {
+                        android.util.Log.e("VehicleRepository", "Failed to update reminder status to DISABLED in Room", dbEx)
+                    }
                 }
-            } catch (e: Exception) {
-                android.util.Log.w("VehicleRepository", "Alarm scheduling/cancellation failed for service $serviceId, but service was successfully updated in Room.", e)
-                alarmFailed = true
-                alarmErrorMsg = e.message ?: "ثبت هشدار سیستم ناموفق بود"
-                try {
-                    db.smartReminderDao().updateStatus(userId = userId, id = serviceId, status = "DISABLED")
-                } catch (dbEx: Exception) {
-                    android.util.Log.e("VehicleRepository", "Failed to update reminder status to DISABLED in Room", dbEx)
+            }
+
+            // Distinguish cancellation failures from scheduling failures
+            if (cancelFailed) {
+                if (alarmFailed) {
+                    alarmErrorMsg = "لغو هشدارهای تاریخ قبلی و ثبت هشدار جدید هر دو با خطا مواجه شدند ($cancelErrorMsg)."
+                } else if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+                    alarmFailed = true
+                    alarmErrorMsg = "هشدار جدید ثبت شد، اما لغو هشدارهای تاریخ قبلی ناموفق بود ($cancelErrorMsg)."
                 }
+            }
+
+            try {
+                val updatedNotes = encodeServiceNotes(cost, description, if (alarmFailed) alarmErrorMsg else null)
+                db.vehicleDao().updateServiceNotes(userId, serviceId, updatedNotes)
+            } catch (notesEx: Exception) {
+                android.util.Log.e("VehicleRepository", "Failed to update service notes in Room", notesEx)
             }
 
             if (crossedMileageReminders.isNotEmpty()) {
@@ -1061,16 +1101,32 @@ class VehicleRepository {
     suspend fun retryServiceReminder(serviceId: String): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+        val db = AppDatabase.getDatabase(context)
+        val svc = db.vehicleDao().getServiceByServerId(userId, serviceId)
+            ?: return@withContext Result.failure(NoSuchElementException("سرویس مورد نظر یافت نشد."))
+
         try {
             val reminderManager = com.example.reminder.domain.ReminderManager(context)
             reminderManager.enableReminder(serviceId)
+
+            // Successfully enabled! Clear the error in Room database notes
+            val parsed = parseServiceNotes(svc.notes)
+            val cleanNotes = encodeServiceNotes(if (svc.cost > 0) svc.cost else parsed.cost, parsed.description, null)
+            db.vehicleDao().updateServiceNotes(userId, serviceId, cleanNotes)
+
             Result.success(Unit)
         } catch (e: Exception) {
+            val parsed = parseServiceNotes(svc.notes)
+            val errNotes = encodeServiceNotes(
+                if (svc.cost > 0) svc.cost else parsed.cost,
+                parsed.description,
+                e.message ?: "ثبت هشدار سیستم ناموفق بود"
+            )
             try {
-                val db = AppDatabase.getDatabase(context)
+                db.vehicleDao().updateServiceNotes(userId, serviceId, errNotes)
                 db.smartReminderDao().updateStatus(userId = userId, id = serviceId, status = "DISABLED")
             } catch (dbEx: Exception) {
-                // ignore
+                android.util.Log.e("VehicleRepository", "Failed to update service notes or status on retry failure", dbEx)
             }
             Result.failure(e)
         }
@@ -1631,16 +1687,49 @@ class VehicleRepository {
         _inspections.value = emptyList()
     }
 
-    private fun parseCostAndDescription(notes: String?): Pair<Long, String> {
-        if (notes.isNullOrBlank()) return Pair(0L, "")
-        if (notes.startsWith("COST:")) {
-            val parts = notes.split("|", limit = 2)
-            val costStr = parts[0].removePrefix("COST:")
-            val cost = costStr.toLongOrNull() ?: 0L
-            val desc = if (parts.size > 1) parts[1] else ""
-            return Pair(cost, desc)
+    data class ParsedServiceNotes(
+        val cost: Long,
+        val description: String,
+        val alarmError: String?
+    )
+
+    private fun encodeServiceNotes(cost: Long, description: String, alarmError: String? = null): String {
+        val cleanDesc = description.trim()
+        val errPart = if (!alarmError.isNullOrBlank()) "ALARM_ERR:${alarmError.trim()}|" else ""
+        return "COST:$cost|$errPart$cleanDesc"
+    }
+
+    private fun parseServiceNotes(notes: String?): ParsedServiceNotes {
+        if (notes.isNullOrBlank()) return ParsedServiceNotes(0L, "", null)
+        var remaining = notes
+        var cost = 0L
+        if (remaining.startsWith("COST:")) {
+            val idx = remaining.indexOf('|')
+            if (idx != -1) {
+                cost = remaining.substring(5, idx).toLongOrNull() ?: 0L
+                remaining = remaining.substring(idx + 1)
+            } else {
+                cost = remaining.substring(5).toLongOrNull() ?: 0L
+                remaining = ""
+            }
         }
-        return Pair(0L, notes)
+        var alarmError: String? = null
+        if (remaining.startsWith("ALARM_ERR:")) {
+            val idx = remaining.indexOf('|')
+            if (idx != -1) {
+                alarmError = remaining.substring(10, idx)
+                remaining = remaining.substring(idx + 1)
+            } else {
+                alarmError = remaining.substring(10)
+                remaining = ""
+            }
+        }
+        return ParsedServiceNotes(cost, remaining, alarmError)
+    }
+
+    private fun parseCostAndDescription(notes: String?): Pair<Long, String> {
+        val parsed = parseServiceNotes(notes)
+        return Pair(parsed.cost, parsed.description)
     }
 
     private fun parseJalaliToTimestamp(dateStr: String?): Long? {

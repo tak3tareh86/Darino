@@ -361,7 +361,8 @@ fun DarinoVehicleMainDashboard(
                                 onAddExpense = { viewModel.openAddExpense() },
                                 onInsuranceClick = { viewModel.openInsuranceSheet() },
                                 onDeleteService = { serviceToDeleteDashboard = it },
-                                onDeleteVehicle = { vehicleToDeleteDashboard = currentCar }
+                                onDeleteVehicle = { vehicleToDeleteDashboard = currentCar },
+                                onRetryReminder = { service -> viewModel.retryServiceReminder(service.id, service.title) }
                             )
                         }
                         VehicleTab.TIMELINE -> {
@@ -557,7 +558,8 @@ private fun VehicleServicesTabContent(
     onAddExpense: () -> Unit,
     onInsuranceClick: () -> Unit,
     onDeleteService: ((VehicleServiceEntity) -> Unit)? = null,
-    onDeleteVehicle: (() -> Unit)? = null
+    onDeleteVehicle: (() -> Unit)? = null,
+    onRetryReminder: ((VehicleServiceEntity) -> Unit)? = null
 ) {
     var isHealthExpanded by remember { mutableStateOf(false) }
     var isServicesExpanded by remember { mutableStateOf(true) }
@@ -731,7 +733,8 @@ private fun VehicleServicesTabContent(
             items(services, key = { it.id }) { service ->
                 ServiceRecordCard(
                     service = service,
-                    onDeleteService = onDeleteService
+                    onDeleteService = onDeleteService,
+                    onRetryReminder = onRetryReminder
                 )
             }
         }
@@ -772,7 +775,8 @@ private fun QuickActionButton(
 @Composable
 private fun ServiceRecordCard(
     service: VehicleServiceEntity,
-    onDeleteService: ((VehicleServiceEntity) -> Unit)? = null
+    onDeleteService: ((VehicleServiceEntity) -> Unit)? = null,
+    onRetryReminder: ((VehicleServiceEntity) -> Unit)? = null
 ) {
     val costFormatted = IranianPhoneUtils.convertDigitsToPersian(
         NumberFormat.getNumberInstance(Locale.US).format(service.cost)
@@ -872,6 +876,66 @@ private fun ServiceRecordCard(
                         ),
                         color = MaterialTheme.colorScheme.primary
                     )
+                }
+            }
+
+            if (service.reminderAlarmFailed) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.WarningAmber,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "فعال‌سازی هشدار ناموفق بود" + if (!service.reminderAlarmErrorMessage.isNullOrBlank()) ": ${service.reminderAlarmErrorMessage}" else "",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        if (onRetryReminder != null) {
+                            FilledTonalButton(
+                                onClick = { onRetryReminder(service) },
+                                modifier = Modifier
+                                    .height(28.dp)
+                                    .testTag("retry_reminder_${service.id}"),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Refresh,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "تلاش مجدد",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
