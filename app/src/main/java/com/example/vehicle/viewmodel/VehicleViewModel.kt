@@ -360,12 +360,21 @@ class VehicleViewModel(
             )
             result.onSuccess { created ->
                 _uiState.update {
-                    it.copy(
-                        showAddServiceSheet = false,
-                        lastAddedService = created,
-                        showReminderConfirmationDialog = isReminderEnabled,
-                        snackBarMessage = if (!isReminderEnabled) "سرویس $title با موفقیت در پرونده خودرو ثبت شد." else null
-                    )
+                    if (created.reminderAlarmFailed) {
+                        it.copy(
+                            showAddServiceSheet = false,
+                            lastAddedService = null,
+                            showReminderConfirmationDialog = false,
+                            snackBarMessage = "سرویس $title با موفقیت ذخیره شد، اما فعال‌سازی یادآور در سیستم ناموفق بود (${created.reminderAlarmErrorMessage ?: "خطای مجوز یا سیستم"})."
+                        )
+                    } else {
+                        it.copy(
+                            showAddServiceSheet = false,
+                            lastAddedService = created,
+                            showReminderConfirmationDialog = isReminderEnabled,
+                            snackBarMessage = if (!isReminderEnabled) "سرویس $title با موفقیت در پرونده خودرو ثبت شد." else null
+                        )
+                    }
                 }
             }.onFailure { err ->
                 _uiState.update {
@@ -411,16 +420,39 @@ class VehicleViewModel(
                 offsets = offsets,
                 time = time
             )
-            result.onSuccess {
+            result.onSuccess { updated ->
                 _uiState.update {
                     it.copy(
-                        snackBarMessage = "سرویس $title با موفقیت ویرایش شد."
+                        snackBarMessage = if (updated.reminderAlarmFailed) {
+                            "سرویس $title ویرایش شد، اما فعال‌سازی یادآور ناموفق بود (${updated.reminderAlarmErrorMessage ?: "خطای مجوز یا سیستم"})."
+                        } else {
+                            "سرویس $title با موفقیت ویرایش شد."
+                        }
                     )
                 }
             }.onFailure { err ->
                 _uiState.update {
                     it.copy(
                         snackBarMessage = "خطا در ویرایش سرویس: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun retryServiceReminder(serviceId: String, title: String) {
+        viewModelScope.launch {
+            val result = repository.retryServiceReminder(serviceId)
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "یادآور سرویس $title با موفقیت در سیستم فعال شد."
+                    )
+                }
+            }.onFailure { err ->
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "فعال‌سازی مجدد یادآور ناموفق بود: ${err.localizedMessage ?: "عدم دسترسی به هشدار سیستم"}"
                     )
                 }
             }

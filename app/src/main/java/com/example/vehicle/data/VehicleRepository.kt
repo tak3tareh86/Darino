@@ -728,6 +728,9 @@ class VehicleRepository {
                 }
             }
 
+            var alarmFailed = false
+            var alarmErrorMsg: String? = null
+
             // Register system alarms AFTER successful database transaction commit
             if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
                 try {
@@ -735,6 +738,13 @@ class VehicleRepository {
                     reminderManager.enableReminder(serviceId)
                 } catch (e: Exception) {
                     android.util.Log.w("VehicleRepository", "Alarm scheduling failed for service $serviceId, but service was successfully saved in Room.", e)
+                    alarmFailed = true
+                    alarmErrorMsg = e.message ?: "ثبت هشدار سیستم ناموفق بود"
+                    try {
+                        db.smartReminderDao().updateStatus(userId = userId, id = serviceId, status = "DISABLED")
+                    } catch (dbEx: Exception) {
+                        android.util.Log.e("VehicleRepository", "Failed to update reminder status to DISABLED in Room", dbEx)
+                    }
                 }
             }
 
@@ -764,7 +774,11 @@ class VehicleRepository {
                 }
             }
 
-            Result.success(newService)
+            val resultService = newService.copy(
+                reminderAlarmFailed = alarmFailed,
+                reminderAlarmErrorMessage = alarmErrorMsg
+            )
+            Result.success(resultService)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -846,7 +860,13 @@ class VehicleRepository {
         nextReminderDate: String?,
         nextReminderMileage: Int?,
         isReminderEnabled: Boolean,
-        time: String = "۰۹:۰۰"
+        time: String = "۰۹:۰۰",
+        offsets: List<com.example.reminder.domain.PredefinedOffset> = listOf(
+            com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
+            com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS,
+            com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
+            com.example.reminder.domain.PredefinedOffset.AT_TIME
+        )
     ): Result<VehicleServiceEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
@@ -968,18 +988,16 @@ class VehicleRepository {
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
                         currentKilometer = mileage,
-                        offsets = listOf(
-                            com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
-                            com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS,
-                            com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
-                            com.example.reminder.domain.PredefinedOffset.AT_TIME
-                        )
+                        offsets = offsets
                     )
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
                     db.smartReminderDao().deleteSchedulesByReminderId(userId, serviceId)
                 }
             }
+
+            var alarmFailed = false
+            var alarmErrorMsg: String? = null
 
             // 2. Adjust system alarms outside of transaction after successful commit
             try {
@@ -992,6 +1010,13 @@ class VehicleRepository {
                 }
             } catch (e: Exception) {
                 android.util.Log.w("VehicleRepository", "Alarm scheduling/cancellation failed for service $serviceId, but service was successfully updated in Room.", e)
+                alarmFailed = true
+                alarmErrorMsg = e.message ?: "ثبت هشدار سیستم ناموفق بود"
+                try {
+                    db.smartReminderDao().updateStatus(userId = userId, id = serviceId, status = "DISABLED")
+                } catch (dbEx: Exception) {
+                    android.util.Log.e("VehicleRepository", "Failed to update reminder status to DISABLED in Room", dbEx)
+                }
             }
 
             if (crossedMileageReminders.isNotEmpty()) {
@@ -1020,8 +1045,33 @@ class VehicleRepository {
                 }
             }
 
-            Result.success(updatedService)
+            val resultService = updatedService.copy(
+                reminderAlarmFailed = alarmFailed,
+                reminderAlarmErrorMessage = alarmErrorMsg
+            )
+            Result.success(resultService)
         } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Retries scheduling system alarms for an existing service reminder without duplicating data.
+     */
+    suspend fun retryServiceReminder(serviceId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+        try {
+            val reminderManager = com.example.reminder.domain.ReminderManager(context)
+            reminderManager.enableReminder(serviceId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            try {
+                val db = AppDatabase.getDatabase(context)
+                db.smartReminderDao().updateStatus(userId = userId, id = serviceId, status = "DISABLED")
+            } catch (dbEx: Exception) {
+                // ignore
+            }
             Result.failure(e)
         }
     }

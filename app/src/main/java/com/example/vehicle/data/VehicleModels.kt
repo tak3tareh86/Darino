@@ -60,7 +60,9 @@ data class VehicleServiceEntity(
     val description: String = "",
     val nextReminderDate: String? = null, // e.g. "1405/12/10"
     val nextReminderMileage: Int? = null, // e.g. 50000
-    val isReminderEnabled: Boolean = true
+    val isReminderEnabled: Boolean = true,
+    val reminderAlarmFailed: Boolean = false,
+    val reminderAlarmErrorMessage: String? = null
 )
 
 /**
