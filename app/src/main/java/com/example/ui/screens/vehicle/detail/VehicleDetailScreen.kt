@@ -477,15 +477,18 @@ fun VehicleHistorySection(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     // Combine timeline records and expenses into clean history cards
                     vehicle.timelineRecords.forEach { record ->
+                        val isServiceRecord = !record.id.startsWith("exp_") &&
+                                              !record.id.startsWith("ins_") &&
+                                              !record.id.startsWith("insp_")
                         HistoryCardItem(
-                            serviceId = record.id,
+                            serviceId = if (isServiceRecord) record.id else null,
                             title = record.title,
                             datePersian = record.datePersian,
                             costFormatted = record.costFormatted,
                             details = "کیلومتر: ${record.odometerKmFormatted} • ${record.serviceCenter}",
                             iconRes = record.iconRes,
                             accentColor = WarningAmberLight,
-                            onDeleteService = onDeleteService
+                            onDeleteService = if (isServiceRecord) onDeleteService else null
                         )
                     }
 
