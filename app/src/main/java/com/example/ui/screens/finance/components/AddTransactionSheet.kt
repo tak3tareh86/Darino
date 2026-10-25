@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -78,7 +79,10 @@ import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.util.IranianAmountUtils
+import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import java.util.UUID
@@ -659,56 +663,94 @@ fun AddTransactionSheet(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             var showTimePicker by remember { mutableStateOf(false) }
-                            OutlinedTextField(
-                                value = timePersian,
-                                onValueChange = {},
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { showTimePicker = true },
-                                readOnly = true,
-                                singleLine = true,
-                                shape = RoundedCornerShape(RadiusMD),
-                                trailingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.ExpandMore,
-                                        contentDescription = "انتخاب ساعت",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            )
+
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                OutlinedTextField(
+                                    value = timePersian,
+                                    onValueChange = {},
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("tx_time_input"),
+                                    readOnly = true,
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(RadiusMD),
+                                    trailingIcon = {
+                                        IconButton(
+                                            onClick = { showTimePicker = true },
+                                            modifier = Modifier.size(38.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.ExpandMore,
+                                                contentDescription = "انتخاب ساعت",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                )
+                                // Transparent overlay ensures 100% of touches on the text field trigger the time picker
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .clickable { showTimePicker = true }
+                                )
+                            }
+
                             if (showTimePicker) {
-                                val timeParts = timePersian.replace('۰', '0').replace('۱', '1').replace('۲', '2')
-                                    .replace('۳', '3').replace('۴', '4').replace('۵', '5')
-                                    .replace('۶', '6').replace('۷', '7').replace('۸', '8')
-                                    .replace('۹', '9').split(":")
-                                val initialHour = timeParts.getOrNull(0)?.toIntOrNull() ?: 12
-                                val initialMinute = timeParts.getOrNull(1)?.toIntOrNull() ?: 0
+                                val asciiTime = IranianPhoneUtils.convertDigitsToEnglish(timePersian)
+                                val timeParts = asciiTime.split(":")
+                                val initialHour = (timeParts.getOrNull(0)?.trim()?.toIntOrNull() ?: 12).coerceIn(0, 23)
+                                val initialMinute = (timeParts.getOrNull(1)?.trim()?.toIntOrNull() ?: 0).coerceIn(0, 59)
                                 val timePickerState = rememberTimePickerState(
                                     initialHour = initialHour,
                                     initialMinute = initialMinute,
                                     is24Hour = true
                                 )
-                                
-                                androidx.compose.ui.window.Dialog(onDismissRequest = { showTimePicker = false }) {
+
+                                Dialog(
+                                    onDismissRequest = { showTimePicker = false },
+                                    properties = DialogProperties(usePlatformDefaultWidth = false)
+                                ) {
                                     Surface(
-                                        shape = RoundedCornerShape(16.dp),
+                                        shape = RoundedCornerShape(24.dp),
+                                        tonalElevation = 6.dp,
                                         color = MaterialTheme.colorScheme.surface,
-                                        modifier = Modifier.padding(16.dp)
+                                        modifier = Modifier
+                                            .widthIn(max = 340.dp)
+                                            .padding(horizontal = 16.dp)
                                     ) {
-                                        Column(modifier = Modifier.padding(16.dp)) {
-                                            TimePicker(state = timePickerState)
-                                            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                                                TextButton(onClick = { showTimePicker = false }) { Text("انصراف") }
-                                                TextButton(onClick = {
-                                                    val hour = timePickerState.hour
-                                                    val minute = timePickerState.minute
-                                                    timePersian = String.format("%02d:%02d", hour, minute)
-                                                        .replace('0', '۰').replace('1', '۱').replace('2', '۲')
-                                                        .replace('3', '۳').replace('4', '۴').replace('5', '۵')
-                                                        .replace('6', '۶').replace('7', '۷').replace('8', '۸')
-                                                        .replace('9', '۹')
-                                                    showTimePicker = false
-                                                }) { Text("تأیید") }
+                                        Column(
+                                            modifier = Modifier.padding(20.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                                        ) {
+                                            Text(
+                                                text = "انتخاب ساعت",
+                                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                            TimePicker(
+                                                state = timePickerState
+                                            )
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.End,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                TextButton(onClick = { showTimePicker = false }) {
+                                                    Text("لغو", style = MaterialTheme.typography.labelLarge)
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Button(
+                                                    onClick = {
+                                                        val h = IranianPhoneUtils.convertDigitsToPersian(timePickerState.hour.toString().padStart(2, '0'))
+                                                        val m = IranianPhoneUtils.convertDigitsToPersian(timePickerState.minute.toString().padStart(2, '0'))
+                                                        timePersian = "$h:$m"
+                                                        showTimePicker = false
+                                                    }
+                                                ) {
+                                                    Text("تأیید", style = MaterialTheme.typography.labelLarge)
+                                                }
                                             }
                                         }
                                     }

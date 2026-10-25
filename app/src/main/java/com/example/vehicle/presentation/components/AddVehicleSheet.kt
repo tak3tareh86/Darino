@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material3.*
@@ -58,7 +59,7 @@ fun AddVehicleSheet(
     var year by remember { mutableStateOf(currentYear) }
     var color by remember { mutableStateOf("سفید") }
     var platePart1 by remember { mutableStateOf("") }
-    var plateLetter by remember { mutableStateOf("الف") }
+    var plateLetter by remember { mutableStateOf("ب") }
     var platePart2 by remember { mutableStateOf("") }
     var plateIranCode by remember { mutableStateOf("") }
     var vin by remember { mutableStateOf("") }
@@ -253,7 +254,7 @@ fun AddVehicleSheet(
                         singleLine = true
                     )
                     var expanded by remember { mutableStateOf(false) }
-                    val letters = listOf("الف", "ب", "پ", "ت", "ث", "ج", "چ", "ح", "د", "س", "ص", "ط", "ع", "ف", "ق", "ک", "گ", "ل", "م", "ن", "و", "ه", "ی")
+                    val letters = listOf("ب", "ج", "د", "س", "ص", "ط", "ق", "ل", "م", "ن", "و", "ه", "ی", "الف", "ت", "ع", "گ", "ژ")
                     ExposedDropdownMenuBox(
                         expanded = expanded,
                         onExpandedChange = { expanded = !expanded },
@@ -264,12 +265,23 @@ fun AddVehicleSheet(
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("حرف") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.menuAnchor()
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.ArrowDropDown,
+                                    contentDescription = "انتخاب حرف پلاک",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            singleLine = true,
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
                         )
                         ExposedDropdownMenu(
                             expanded = expanded,
-                            onDismissRequest = { expanded = false }
+                            onDismissRequest = { expanded = false },
+                            modifier = Modifier.heightIn(max = 240.dp)
                         ) {
                             letters.forEach { letter ->
                                 DropdownMenuItem(
