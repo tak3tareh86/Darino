@@ -377,72 +377,70 @@ fun AddServiceSheet(
                         )
                     }
 
-                    if (isReminderEnabled) {
-                        if (requiresManualInterval) {
-                            Text(
-                                text = if (selectedType == ServiceType.CUSTOM) "فاصلهٔ یادآوری سرویس سفارشی را مطابق دفترچهٔ خودرو یا نظر متخصص وارد کنید." else "برای این مدل و سرویس، بازهٔ اختصاصیِ مستند در بانک دارینو موجود نیست. فاصله را از دفترچهٔ همان خودرو وارد کنید؛ از بازهٔ خودروی دیگری استفاده نکنید.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedTextField(
-                                    value = IranianPhoneUtils.convertDigitsToPersian(customIntervalKmText),
-                                    onValueChange = { customIntervalKmText = IranianPhoneUtils.convertDigitsToEnglish(it).filter(Char::isDigit) },
-                                    label = { Text("فاصله (کیلومتر)") },
-                                    placeholder = { Text("مثلاً ۵۰۰۰") },
-                                    modifier = Modifier.weight(1f),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    singleLine = true
-                                )
-                                OutlinedTextField(
-                                    value = IranianPhoneUtils.convertDigitsToPersian(customIntervalMonthsText),
-                                    onValueChange = { customIntervalMonthsText = IranianPhoneUtils.convertDigitsToEnglish(it).filter(Char::isDigit) },
-                                    label = { Text("فاصله (ماه)") },
-                                    placeholder = { Text("مثلاً ۶") },
-                                    modifier = Modifier.weight(1f),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    singleLine = true
-                                )
-                            }
-                        }
-                        PersianDateInputField(
-                            value = nextServiceDateText,
-                            onValueChange = {
-                                nextServiceDateText = it
-                                isNextDateManuallyEdited = true
-                            },
-                            label = "تاریخ سرویس بعدی (شمسی)",
-                            placeholder = "۱۴۰۵/۰۷/۱۵",
-                            dialogTitle = "انتخاب تاریخ سرویس بعدی",
-                            testTag = "next_service_date_input"
-                        )
-
+                    if (requiresManualInterval) {
                         Text(
-                            text = buildString {
-                                if (calcKm > 0) {
-                                    append("یادآوری کیلومتری: ")
-                                    append(IranianPhoneUtils.convertDigitsToPersian(calcKm.toString()))
-                                    append(" کیلومتر")
-                                }
-                                if (calcDate.isNotBlank()) {
-                                    if (isNotEmpty()) append(" یا ")
-                                    append("تاریخ پیشنهادی: ")
-                                    append(IranianPhoneUtils.convertDigitsToPersian(calcDate))
-                                }
-                                append(" فعال خواهد شد.")
-                            },
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "مبنای بازه: " + interval.source + "\nاگر دفترچهٔ خودروی شما بازهٔ دیگری دارد، همان ملاک نهایی است.",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            text = if (selectedType == ServiceType.CUSTOM) "فاصلهٔ یادآوری سرویس سفارشی را مطابق دفترچهٔ خودرو یا نظر متخصص وارد کنید." else "برای این مدل و سرویس، بازهٔ اختصاصیِ مستند در بانک دارینو موجود نیست. فاصله را از دفترچهٔ همان خودرو وارد کنید؛ از بازهٔ خودروی دیگری استفاده نکنید.",
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = IranianPhoneUtils.convertDigitsToPersian(customIntervalKmText),
+                                onValueChange = { customIntervalKmText = IranianPhoneUtils.convertDigitsToEnglish(it).filter(Char::isDigit) },
+                                label = { Text("فاصله (کیلومتر)") },
+                                placeholder = { Text("مثلاً ۵۰۰۰") },
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = IranianPhoneUtils.convertDigitsToPersian(customIntervalMonthsText),
+                                onValueChange = { customIntervalMonthsText = IranianPhoneUtils.convertDigitsToEnglish(it).filter(Char::isDigit) },
+                                label = { Text("فاصله (ماه)") },
+                                placeholder = { Text("مثلاً ۶") },
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
+                            )
+                        }
                     }
+                    PersianDateInputField(
+                        value = nextServiceDateText,
+                        onValueChange = {
+                            nextServiceDateText = it
+                            isNextDateManuallyEdited = true
+                        },
+                        label = "تاریخ سرویس بعدی (شمسی)",
+                        placeholder = "۱۴۰۵/۰۷/۱۵",
+                        dialogTitle = "انتخاب تاریخ سرویس بعدی",
+                        testTag = "next_service_date_input"
+                    )
+
+                    Text(
+                        text = buildString {
+                            if (calcKm > 0) {
+                                append("یادآوری کیلومتری: ")
+                                append(IranianPhoneUtils.convertDigitsToPersian(calcKm.toString()))
+                                append(" کیلومتر")
+                            }
+                            if (calcDate.isNotBlank()) {
+                                if (isNotEmpty()) append(" یا ")
+                                append("تاریخ پیشنهادی: ")
+                                append(IranianPhoneUtils.convertDigitsToPersian(calcDate))
+                            }
+                            append(" ثبت خواهد شد.")
+                        },
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "مبنای بازه: " + interval.source + "\nاگر دفترچهٔ خودروی شما بازهٔ دیگری دارد، همان ملاک نهایی است.",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -459,13 +457,13 @@ fun AddServiceSheet(
                             mileage,
                             cost,
                             description,
-                            if (isReminderEnabled && nextServiceDateText.isNotBlank()) nextServiceDateText else null,
-                            if (isReminderEnabled && calcKm > 0) calcKm else null,
+                            if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
+                            if (calcKm > 0) calcKm else null,
                             isReminderEnabled
                         )
                     }
                 },
-                enabled = title.isNotBlank() && (!isReminderEnabled || calcKm > 0 || nextServiceDateText.isNotBlank()),
+                enabled = title.isNotBlank(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
