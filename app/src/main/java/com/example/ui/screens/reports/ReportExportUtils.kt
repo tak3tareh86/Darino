@@ -46,7 +46,8 @@ object ReportExportUtils {
         expenseRatio: String,
         previousPeriodExpense: Long,
         expenseChangePercent: String,
-        isExpenseIncreased: Boolean
+        isExpenseIncreased: Boolean,
+        reportCategory: ReportCategory = ReportCategory.FINANCIAL
     ) {
         try {
             val totalIncomeStr = MoneyFormatter.formatToman(totalIncome)
@@ -86,7 +87,7 @@ object ReportExportUtils {
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("گزارش جامع تحلیلی مالی دارینو", (pageWidth / 2).toFloat(), 55f, titlePaint)
+            canvas.drawText("${reportCategory.title} دارینو", (pageWidth / 2).toFloat(), 55f, titlePaint)
 
             val subtitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CCFBF1")
@@ -124,7 +125,7 @@ object ReportExportUtils {
             val cardY = 220f
             val cardHeight = 100f
 
-            fun drawSummaryBox(x: Float, title: String, amount: String, colorHex: String) {
+            fun drawSummaryBox(x: Float, title: String, amount: String, colorHex: String, unit: String = "تومان") {
                 val boxPaint = Paint().apply {
                     color = AndroidColor.parseColor("#131D33")
                 }
@@ -150,12 +151,21 @@ object ReportExportUtils {
                     typeface = Typeface.DEFAULT_BOLD
                     textAlign = Paint.Align.CENTER
                 }
-                canvas.drawText("$amount تومان", x + (cardWidth / 2), cardY + 66f, amtPaint)
+                canvas.drawText(if (unit.isBlank()) amount else "$amount $unit", x + (cardWidth / 2), cardY + 66f, amtPaint)
             }
 
-            drawSummaryBox(30f, "میزان پس‌انداز", MoneyFormatter.formatToman(savings, includeUnit = false), "#38BDF8")
-            drawSummaryBox(30f + cardWidth + 15f, "مجموع هزینه", MoneyFormatter.formatToman(totalExpense, includeUnit = false), "#EF4444")
-            drawSummaryBox(30f + (cardWidth + 15f) * 2, "مجموع درآمد", MoneyFormatter.formatToman(totalIncome, includeUnit = false), "#10B981")
+            if (reportCategory == ReportCategory.FINANCIAL || reportCategory == ReportCategory.SMART_ANALYSIS) {
+                drawSummaryBox(30f, "میزان پس‌انداز", MoneyFormatter.formatToman(savings, includeUnit = false), "#38BDF8")
+                drawSummaryBox(30f + cardWidth + 15f, "مجموع هزینه", MoneyFormatter.formatToman(totalExpense, includeUnit = false), "#EF4444")
+                drawSummaryBox(30f + (cardWidth + 15f) * 2, "مجموع درآمد", MoneyFormatter.formatToman(totalIncome, includeUnit = false), "#10B981")
+            } else {
+                drawSummaryBox(30f, if (reportCategory == ReportCategory.VEHICLE) "هزینه خودرو" else "هزینه اقساط",
+                    MoneyFormatter.formatToman(totalExpense, includeUnit = false), "#EF4444")
+                drawSummaryBox(30f + cardWidth + 15f, "هزینه دوره قبل",
+                    MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false), "#38BDF8")
+                drawSummaryBox(30f + (cardWidth + 15f) * 2, "تغییر نسبت به قبل",
+                    expenseChangePercent, "#F59E0B", unit = "")
+            }
 
             // Detail Section Card
             val detailY = 345f
@@ -191,10 +201,15 @@ object ReportExportUtils {
                 canvas.drawText(value, 55f, y, valuePaint)
             }
 
-            drawDetailRow(detailY + 75f, "• نسبت ذخیره و پس‌انداز به درآمد:", savingsPercent)
-            drawDetailRow(detailY + 110f, "• بیشترین شاخه هزینه در این دوره:", topExpenseCategory.ifBlank { "نامشخص" })
+            if (reportCategory == ReportCategory.FINANCIAL || reportCategory == ReportCategory.SMART_ANALYSIS) {
+                drawDetailRow(detailY + 75f, "• نسبت ذخیره و پس‌انداز به درآمد:", savingsPercent)
+                drawDetailRow(detailY + 180f, "• وضعیت تراز مالی:", if (savings < 0) "دارای کسری بودجه" else if (savings == 0L) "تراز خنثی" else "مثبت و در حال رشد")
+            } else {
+                drawDetailRow(detailY + 75f, "• نوع گزارش:", reportCategory.title)
+                drawDetailRow(detailY + 180f, "• تغییر هزینه نسبت به دوره قبل:", expenseChangePercent)
+            }
+            drawDetailRow(detailY + 110f, "• بیشترین دسته هزینه ثبت‌شده:", topExpenseCategory.ifBlank { "نامشخص" })
             drawDetailRow(detailY + 145f, "• مجموع هزینه دوره قبل:", "${MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false)} تومان")
-            drawDetailRow(detailY + 180f, "• وضعیت تراز مالی:", if (savings < 0) "دارای کسری بودجه" else if (savings == 0L) "تراز خنثی" else "مثبت و در حال رشد")
 
             // Watermark / Footer
             val footerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -207,7 +222,7 @@ object ReportExportUtils {
             pdfDocument.finishPage(page)
 
             // Save PDF to cache or external files directory
-            val fileName = "Darino_Financial_Report_${System.currentTimeMillis()}.pdf"
+            val fileName = "Darino_${reportCategory.name}_Report_${System.currentTimeMillis()}.pdf"
             val file = File(context.cacheDir, fileName)
             val outputStream = FileOutputStream(file)
             pdfDocument.writeTo(outputStream)
@@ -231,7 +246,7 @@ object ReportExportUtils {
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/pdf"
                     putExtra(Intent.EXTRA_STREAM, contentUri)
-                    putExtra(Intent.EXTRA_SUBJECT, "گزارش مالی دارینو")
+                    putExtra(Intent.EXTRA_SUBJECT, "${reportCategory.title} دارینو")
                     putExtra(Intent.EXTRA_TEXT, "گزارش تحلیلی مالی دارینو (${startDate.formatDisplay()} تا ${endDate.formatDisplay()})")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -267,7 +282,8 @@ object ReportExportUtils {
         expenseRatio: String,
         previousPeriodExpense: Long,
         expenseChangePercent: String,
-        isExpenseIncreased: Boolean
+        isExpenseIncreased: Boolean,
+        reportCategory: ReportCategory = ReportCategory.FINANCIAL
     ) {
         try {
             val totalIncomeStr = MoneyFormatter.formatToman(totalIncome, includeUnit = false)
@@ -314,7 +330,7 @@ object ReportExportUtils {
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("مرکز تحلیل مالی دارینو", (width / 2).toFloat(), 115f, titlePaint)
+            canvas.drawText("${reportCategory.title} دارینو", (width / 2).toFloat(), 115f, titlePaint)
 
             val subTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#5EEAD4")
@@ -343,7 +359,7 @@ object ReportExportUtils {
             val cardH = 210f
             val cardW = (width - 120 - 40) / 3f
 
-            fun drawMetricBox(x: Float, label: String, amount: String, colorHex: String) {
+            fun drawMetricBox(x: Float, label: String, amount: String, colorHex: String, unit: String = "تومان") {
                 val boxRect = RectF(x, cardY, x + cardW, cardY + cardH)
                 val boxPaint = Paint().apply {
                     color = AndroidColor.parseColor("#131D33")
@@ -376,12 +392,21 @@ object ReportExportUtils {
                     textSize = 19f
                     textAlign = Paint.Align.CENTER
                 }
-                canvas.drawText("تومان", x + (cardW / 2), cardY + 175f, cPaint)
+                if (unit.isNotBlank()) canvas.drawText(unit, x + (cardW / 2), cardY + 175f, cPaint)
             }
 
-            drawMetricBox(60f, "میزان پس‌انداز", savingsStr, "#38BDF8")
-            drawMetricBox(60f + cardW + 20f, "مجموع هزینه", totalExpenseStr, "#EF4444")
-            drawMetricBox(60f + (cardW + 20f) * 2, "مجموع درآمد", totalIncomeStr, "#10B981")
+            if (reportCategory == ReportCategory.FINANCIAL || reportCategory == ReportCategory.SMART_ANALYSIS) {
+                drawMetricBox(60f, "میزان پس‌انداز", savingsStr, "#38BDF8")
+                drawMetricBox(60f + cardW + 20f, "مجموع هزینه", totalExpenseStr, "#EF4444")
+                drawMetricBox(60f + (cardW + 20f) * 2, "مجموع درآمد", totalIncomeStr, "#10B981")
+            } else {
+                drawMetricBox(60f, if (reportCategory == ReportCategory.VEHICLE) "هزینه خودرو" else "هزینه اقساط",
+                    totalExpenseStr, "#EF4444")
+                drawMetricBox(60f + cardW + 20f, "هزینه دوره قبل",
+                    MoneyFormatter.formatToman(previousPeriodExpense, includeUnit = false), "#38BDF8")
+                drawMetricBox(60f + (cardW + 20f) * 2, "تغییر نسبت به قبل",
+                    expenseChangePercent, "#F59E0B", unit = "")
+            }
 
             // Breakdown Card
             val breakRect = RectF(60f, 600f, width - 60f, 960f)
@@ -405,7 +430,12 @@ object ReportExportUtils {
             canvas.drawRoundRect(RectF(100f, 700f, width - 100f, 730f), 12f, 12f, barBgPaint)
             
             // We need a ratio float here for the bar
-            val ratioFloat = try { expenseRatio.replace("٪", "").toFloat() / 100f } catch(_: Exception) { 0.5f }
+            val ratioFloat = try {
+                val raw = if (reportCategory == ReportCategory.FINANCIAL || reportCategory == ReportCategory.SMART_ANALYSIS)
+                    expenseRatio.replace("٪", "").toFloat() / 100f
+                else expenseChangePercent.replace("٪", "").replace("+", "").replace("-", "").toFloat() / 100f
+                raw.coerceIn(0f, 1f)
+            } catch (_: Exception) { 0f }
 
             val barFillPaint = Paint().apply {
                 shader = LinearGradient(
@@ -422,7 +452,10 @@ object ReportExportUtils {
                 textSize = 23f
                 textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText("نسبت مصارف به درآمد کل: $expenseRatio", width - 100f, 780f, ratioPaint)
+            val ratioLabel = if (reportCategory == ReportCategory.FINANCIAL || reportCategory == ReportCategory.SMART_ANALYSIS)
+                "نسبت مصارف به درآمد کل: $expenseRatio"
+            else "تغییر هزینه نسبت به دوره قبل: $expenseChangePercent"
+            canvas.drawText(ratioLabel, width - 100f, 780f, ratioPaint)
 
             val topExpPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = AndroidColor.parseColor("#CBD5E1")
@@ -458,7 +491,13 @@ object ReportExportUtils {
                 textSize = 22f
                 textAlign = Paint.Align.CENTER
             }
-            val statusText = if (savings < 0) "وضعیت حساب: دارای کسری بودجه" else if (savings == 0L) "وضعیت حساب: تراز شده (بدون پس‌انداز)" else "وضعیت حساب: متعادل و پایدار | دارای پس‌انداز"
+            val statusText = if (reportCategory == ReportCategory.FINANCIAL || reportCategory == ReportCategory.SMART_ANALYSIS) {
+                if (savings < 0) "وضعیت حساب: دارای کسری بودجه"
+                else if (savings == 0L) "وضعیت حساب: تراز شده (بدون پس‌انداز)"
+                else "وضعیت حساب: متعادل و پایدار | دارای پس‌انداز"
+            } else {
+                "${reportCategory.title} • هزینه این دوره: ${MoneyFormatter.formatToman(totalExpense, includeUnit = false)} تومان"
+            }
             canvas.drawText(statusText, (width / 2).toFloat(), 1130f, sealDescPaint)
             canvas.drawText("ذخیره شده در گالری گوشی شما", (width / 2).toFloat(), 1180f, sealDescPaint)
 
@@ -479,7 +518,7 @@ object ReportExportUtils {
             }
 
             val imageDetails = ContentValues().apply {
-                val imgName = "Darino_Report_${System.currentTimeMillis()}.png"
+                val imgName = "Darino_${reportCategory.name}_Report_${System.currentTimeMillis()}.png"
                 put(MediaStore.Images.Media.DISPLAY_NAME, imgName)
                 put(MediaStore.Images.Media.MIME_TYPE, "image/png")
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -509,7 +548,7 @@ object ReportExportUtils {
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "image/png"
                     putExtra(Intent.EXTRA_STREAM, imageUri)
-                    putExtra(Intent.EXTRA_SUBJECT, "تصویر خلاصه گزارش دارینو")
+                    putExtra(Intent.EXTRA_SUBJECT, "تصویر ${reportCategory.title} دارینو")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }

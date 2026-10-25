@@ -3,7 +3,11 @@ name: Darino Verification
 on:
   push:
     branches:
-      - hardening/world-class-baseline
+      - main
+      - fix/reports-menu-audit
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -18,8 +22,8 @@ jobs:
           cache: gradle
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
-      - name: Android verification
-        run: ./gradlew :app:assembleDebug --stacktrace
+      - name: Compile Android and run unit tests
+        run: ./gradlew :app:compileDebugKotlin :app:testDebugUnitTest --stacktrace
 
   backend:
     runs-on: ubuntu-latest

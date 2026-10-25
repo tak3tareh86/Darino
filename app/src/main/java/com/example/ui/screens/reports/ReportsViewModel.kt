@@ -124,32 +124,46 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         
         val filteredTransactions = when (category) {
             ReportCategory.FINANCIAL -> periodTransactions
-            ReportCategory.VEHICLE -> periodTransactions.filter { 
-                it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE ||
-                it.category.id == "vehicle" || it.category.id == "fuel"
+            ReportCategory.VEHICLE -> periodTransactions.filter {
+                it.sourceType in setOf(
+                    com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE,
+                    com.example.ui.screens.finance.model.TransactionSourceType.FUEL,
+                    com.example.ui.screens.finance.model.TransactionSourceType.MAINTENANCE,
+                    com.example.ui.screens.finance.model.TransactionSourceType.INSURANCE
+                ) || it.category.id in setOf("vehicle", "fuel", "insurance")
             }
-            ReportCategory.INSTALLMENTS -> periodTransactions.filter { 
-                it.category.id == "installment" || it.category.id == "loan"
+            ReportCategory.INSTALLMENTS -> periodTransactions.filter {
+                it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.INSTALLMENT ||
+                it.category.id == "installment" || it.category.id == "installments" || it.category.id == "loan"
             }
             ReportCategory.SMART_ANALYSIS -> periodTransactions
         }
 
         val income = filteredTransactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
         val expense = filteredTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
-        val savings = if (category == ReportCategory.FINANCIAL) income - expense else 0 
-        val savingsPercent = if (category == ReportCategory.FINANCIAL && income > 0) ((savings.toDouble() / income.toDouble()) * 100).toInt() else 0
+        // Financial health metrics must also be calculated for SMART_ANALYSIS.
+        val hasFinancialMetrics = category == ReportCategory.FINANCIAL || category == ReportCategory.SMART_ANALYSIS
+        val savings = if (hasFinancialMetrics) income - expense else 0L
+        val savingsPercent = if (hasFinancialMetrics && income > 0L) {
+            ((savings.toDouble() / income.toDouble()) * 100).toInt()
+        } else 0
 
         // 2. Comparison
         val currentCatExpense = filteredTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
         val prevTransactions = allTransactions.filter { it.dateMillis in prevStartTime..prevEndTime }
         val prevFilteredTransactions = when (category) {
             ReportCategory.FINANCIAL -> prevTransactions
-            ReportCategory.VEHICLE -> prevTransactions.filter { 
-                it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE ||
-                it.category.id == "vehicle" || it.category.id == "fuel"
+            ReportCategory.VEHICLE -> prevTransactions.filter {
+                it.sourceType in setOf(
+                    com.example.ui.screens.finance.model.TransactionSourceType.VEHICLE,
+                    com.example.ui.screens.finance.model.TransactionSourceType.FUEL,
+                    com.example.ui.screens.finance.model.TransactionSourceType.MAINTENANCE,
+                    com.example.ui.screens.finance.model.TransactionSourceType.INSURANCE
+                ) || it.category.id in setOf("vehicle", "fuel", "insurance")
             }
-            ReportCategory.INSTALLMENTS -> prevTransactions.filter { 
-                it.category.id == "installment" || it.category.id == "loan"
+            ReportCategory.INSTALLMENTS -> prevTransactions.filter {
+                it.sourceType == com.example.ui.screens.finance.model.TransactionSourceType.INSTALLMENT ||
+                it.category.id == "installment" || it.category.id == "installments" || it.category.id == "loan"
             }
             ReportCategory.SMART_ANALYSIS -> prevTransactions
         }
@@ -180,16 +194,22 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             }
         }
         
-        val activeInstallmentsCount = allInstallments.count { it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED }
-
-        // 5. Vehicle Report (Canonical data from VehicleRepository)
-        fun calculateVehicleSum(start: Long, end: Long): Long {
-            val vExp = vExpenses.filter { parsePersianDateToMillis(it.date) in start..end }.sumOf { it.amount }
-            val vSer = vServices.filter { parsePersianDateToMillis(it.date) in start..end }.sumOf { it.cost }
-            val vInsp = vInspections.filter { parsePersianDateToMillis(it.lastInspectionDate) in start..end }.sumOf { it.cost }
-            val vIns = vInsurances.filter { parsePersianDateToMillis(it.startDate) in start..end }.sumOf { it.amount }
-            return vExp + vSer + vInsp + vIns
+        val activeInstallmentsCount = allInstallments.count {
+            it.remainingAmount > 0L &&
+                it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED
         }
+
+        // 5. Vehicle Report. Repository-generated expense entries mirror service,
+        // insurance and inspection records; deduplicate those mirrors to avoid double counting.
+        fun calculateVehicleSum(start: Long, end: Long): Long =
+            ReportVehicleExpenseCalculator.totalForRange(
+                startTime = start,
+                endTime = end,
+                expenses = vExpenses,
+                services = vServices,
+                insurances = vInsurances,
+                inspections = vInspections
+            )
 
         val totalVehicleExpense = calculateVehicleSum(startTime, endTime)
         val prevVehicleExpense = calculateVehicleSum(prevStartTime, prevEndTime)
@@ -208,6 +228,12 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         }
 
         val smartAdvice = when {
+            category == ReportCategory.SMART_ANALYSIS && filteredTransactions.isEmpty() ->
+                "در این بازه تراکنشی برای تحلیل ثبت نشده است."
+            category == ReportCategory.INSTALLMENTS && totalInstAmountInPeriod == 0L ->
+                "در این بازه پرداخت یا سررسید قسطی ثبت نشده است."
+            category == ReportCategory.VEHICLE && totalVehicleExpense == 0L ->
+                "در این بازه هزینه‌ای برای خودرو ثبت نشده است."
             category == ReportCategory.SMART_ANALYSIS && savings < 0 -> "هزینه‌های شما در این دوره بیشتر از درآمد بوده است. پیشنهاد می‌شود هزینه‌های غیرضروری را کاهش دهید."
             category == ReportCategory.SMART_ANALYSIS && savingsPercent > 30 -> "وضعیت پس‌انداز شما عالی است! بیش از ۳۰٪ درآمد خود را ذخیره کرده‌اید."
             category == ReportCategory.SMART_ANALYSIS && topCategory != null && expense > 0 && (topCategory.value.toDouble() / expense.toDouble()) > 0.5 -> "بیش از نیمی از هزینه‌های شما صرف ${topCategory.key} شده است. بررسی کنید آیا امکان کاهش در این بخش وجود دارد؟"
@@ -216,9 +242,13 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             else -> "تراکنش‌های شما با موفقیت ثبت و تحلیل شد."
         }
 
-        val expenseRatio = if (category == ReportCategory.FINANCIAL && finalIncome > 0) {
-            (finalExpense.toDouble() / finalIncome.toDouble()).coerceIn(0.0, 1.0).toFloat()
-        } else if (category == ReportCategory.FINANCIAL && finalExpense > 0) 1.0f else 0.0f
+        // Preserve the true ratio when expenses exceed income; visual indicators
+        // can clamp their own drawing width without corrupting the reported metric.
+        val expenseRatio = if (hasFinancialMetrics && finalIncome > 0L) {
+            (finalExpense.toDouble() / finalIncome.toDouble()).toFloat()
+        } else if (hasFinancialMetrics && finalExpense > 0L) {
+            1.0f
+        } else 0.0f
 
         val finalExpenseDiff = currentCompExpense - previousCompExpense
         val finalExpenseChangePercent = if (previousCompExpense > 0) (Math.abs(finalExpenseDiff).toDouble() / previousCompExpense.toDouble()) * 100 else 0.0
@@ -248,74 +278,25 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
-    private fun parsePersianDateToMillis(persianDate: String): Long {
-        if (persianDate.isBlank()) return 0L
-        val cleanDate = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(persianDate)
-        val parts = cleanDate.split("/")
-        if (parts.size != 3) return 0L
-        return try {
-            val y = parts[0].toInt()
-            val m = parts[1].toInt()
-            val d = parts[2].toInt()
-            PersianCalendarHelper.jalaliToEpochMillis(y, m, d, 9, 0)
-        } catch (e: Exception) {
-            0L
-        }
-    }
+    private fun parsePersianDateToMillis(persianDate: String): Long =
+        ReportDateRangeCalculator.parsePersianDateToMillis(persianDate)
 
-    private fun getPeriodBounds(period: ReportPeriod, customStart: ShamsiDate, customEnd: ShamsiDate): Pair<Long, Long> {
-        val cal = java.util.Calendar.getInstance()
-        val nowMillis = System.currentTimeMillis()
-        val currentPersian = PersianCalendarHelper.fromEpochMillis(nowMillis)
-        
-        return when (period) {
-            ReportPeriod.WEEK -> {
-                val start = nowMillis - (7 * 24 * 60 * 60 * 1000L)
-                Pair(start, nowMillis)
-            }
-            ReportPeriod.MONTH -> {
-                val start = PersianCalendarHelper.jalaliToEpochMillis(currentPersian.year, currentPersian.month, 1, 0, 0)
-                Pair(start, nowMillis)
-            }
-            ReportPeriod.YEAR -> {
-                val start = PersianCalendarHelper.jalaliToEpochMillis(currentPersian.year, 1, 1, 0, 0)
-                Pair(start, nowMillis)
-            }
-            ReportPeriod.CUSTOM -> {
-                val start = PersianCalendarHelper.jalaliToEpochMillis(customStart.year, customStart.month, customStart.day, 0, 0)
-                val end = PersianCalendarHelper.jalaliToEpochMillis(customEnd.year, customEnd.month, customEnd.day, 23, 59)
-                Pair(start, end)
-            }
-        }
-    }
+    private fun getPeriodBounds(
+        period: ReportPeriod,
+        customStart: ShamsiDate,
+        customEnd: ShamsiDate
+    ): Pair<Long, Long> =
+        ReportDateRangeCalculator.getPeriodBounds(period, customStart, customEnd)
 
-    private fun getPreviousPeriodBounds(period: ReportPeriod, startTime: Long, endTime: Long): Pair<Long, Long> {
-        return when (period) {
-            ReportPeriod.WEEK -> Pair(startTime - (7 * 24 * 60 * 60 * 1000L), startTime)
-            ReportPeriod.MONTH -> {
-                val startPersian = PersianCalendarHelper.fromEpochMillis(startTime)
-                var prevYear = startPersian.year
-                var prevMonth = startPersian.month - 1
-                if (prevMonth == 0) {
-                    prevMonth = 12
-                    prevYear -= 1
-                }
-                val prevStart = PersianCalendarHelper.jalaliToEpochMillis(prevYear, prevMonth, 1, 0, 0)
-                val prevEnd = startTime - 1
-                Pair(prevStart, prevEnd)
-            }
-            ReportPeriod.YEAR -> {
-                val startPersian = PersianCalendarHelper.fromEpochMillis(startTime)
-                val prevStart = PersianCalendarHelper.jalaliToEpochMillis(startPersian.year - 1, 1, 1, 0, 0)
-                val prevEnd = startTime - 1
-                Pair(prevStart, prevEnd)
-            }
-            ReportPeriod.CUSTOM -> {
-                val duration = endTime - startTime
-                Pair(startTime - duration, startTime)
-            }
-        }
-    }
+    private fun getPreviousPeriodBounds(
+        period: ReportPeriod,
+        startTime: Long,
+        endTime: Long
+    ): Pair<Long, Long> =
+        ReportDateRangeCalculator.getPreviousPeriodBounds(period, startTime, endTime)
+
+    private fun compareShamsiDates(first: ShamsiDate, second: ShamsiDate): Int =
+        ReportDateRangeCalculator.compareShamsiDates(first, second)
 
     fun setPeriod(period: ReportPeriod) {
         _selectedPeriod.value = period
@@ -326,8 +307,13 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun setCustomRange(start: ShamsiDate, end: ShamsiDate) {
-        _customStartDate.value = start
-        _customEndDate.value = end
+        if (compareShamsiDates(start, end) <= 0) {
+            _customStartDate.value = start
+            _customEndDate.value = end
+        } else {
+            _customStartDate.value = end
+            _customEndDate.value = start
+        }
         _selectedPeriod.value = ReportPeriod.CUSTOM
     }
 }
