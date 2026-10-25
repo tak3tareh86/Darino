@@ -606,7 +606,13 @@ class VehicleRepository {
         description: String,
         nextReminderDate: String?,
         nextReminderMileage: Int?,
-        isReminderEnabled: Boolean
+        isReminderEnabled: Boolean,
+        offsets: List<com.example.reminder.domain.PredefinedOffset> = listOf(
+            com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
+            com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS,
+            com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
+            com.example.reminder.domain.PredefinedOffset.AT_TIME
+        )
     ): Result<VehicleServiceEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
@@ -710,12 +716,7 @@ class VehicleRepository {
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
                         currentKilometer = mileage,
-                        offsets = listOf(
-                            com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
-                            com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS,
-                            com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
-                            com.example.reminder.domain.PredefinedOffset.AT_TIME
-                        )
+                        offsets = offsets
                     )
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)

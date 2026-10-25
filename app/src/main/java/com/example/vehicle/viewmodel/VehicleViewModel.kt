@@ -333,7 +333,13 @@ class VehicleViewModel(
         description: String,
         nextReminderDate: String?,
         nextReminderMileage: Int?,
-        isReminderEnabled: Boolean
+        isReminderEnabled: Boolean,
+        offsets: List<com.example.reminder.domain.PredefinedOffset> = listOf(
+            com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
+            com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS,
+            com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
+            com.example.reminder.domain.PredefinedOffset.AT_TIME
+        )
     ) {
         val current = _uiState.value.selectedVehicle ?: return
         viewModelScope.launch {
@@ -347,7 +353,8 @@ class VehicleViewModel(
                 description = description,
                 nextReminderDate = nextReminderDate,
                 nextReminderMileage = nextReminderMileage,
-                isReminderEnabled = isReminderEnabled
+                isReminderEnabled = isReminderEnabled,
+                offsets = offsets
             )
             result.onSuccess { created ->
                 _uiState.update {

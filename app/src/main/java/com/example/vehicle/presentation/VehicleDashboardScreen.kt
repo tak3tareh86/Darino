@@ -76,6 +76,7 @@ fun DarinoVehicleMainDashboard(
     }
 
     var serviceToDeleteDashboard by remember { mutableStateOf<VehicleServiceEntity?>(null) }
+    var vehicleToDeleteDashboard by remember { mutableStateOf<VehicleEntity?>(null) }
 
     if (serviceToDeleteDashboard != null) {
         val targetService = serviceToDeleteDashboard!!
@@ -105,6 +106,40 @@ fun DarinoVehicleMainDashboard(
             },
             dismissButton = {
                 TextButton(onClick = { serviceToDeleteDashboard = null }) {
+                    Text("انصراف")
+                }
+            }
+        )
+    }
+
+    if (vehicleToDeleteDashboard != null) {
+        val targetVehicle = vehicleToDeleteDashboard!!
+        AlertDialog(
+            onDismissRequest = { vehicleToDeleteDashboard = null },
+            title = {
+                Text(
+                    text = "حذف خودرو",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            text = {
+                Text(
+                    text = "آیا از حذف خودروی «${targetVehicle.brand} ${targetVehicle.model}» و کلیه سوابق سرویس و یادآورهای مربوط به آن اطمینان دارید؟ این عمل قابل بازگشت نیست.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteVehicle(targetVehicle.id)
+                        vehicleToDeleteDashboard = null
+                    }
+                ) {
+                    Text("حذف خودرو", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { vehicleToDeleteDashboard = null }) {
                     Text("انصراف")
                 }
             }
@@ -325,7 +360,8 @@ fun DarinoVehicleMainDashboard(
                                 onAddService = { viewModel.openAddService() },
                                 onAddExpense = { viewModel.openAddExpense() },
                                 onInsuranceClick = { viewModel.openInsuranceSheet() },
-                                onDeleteService = { serviceToDeleteDashboard = it }
+                                onDeleteService = { serviceToDeleteDashboard = it },
+                                onDeleteVehicle = { vehicleToDeleteDashboard = currentCar }
                             )
                         }
                         VehicleTab.TIMELINE -> {
@@ -407,8 +443,8 @@ fun DarinoVehicleMainDashboard(
     if (state.showAddServiceSheet && state.selectedVehicle != null) {
         AddServiceSheet(
             vehicle = state.selectedVehicle!!,
-            onAddService = { t: String, type: com.example.vehicle.data.ServiceType, d: String, km: Int, c: Long, desc: String, remD: String?, remKm: Int?, en: Boolean ->
-                viewModel.addServiceRecord(t, type, d, km, c, desc, remD, remKm, en)
+            onAddService = { t, type, d, km, c, desc, remD, remKm, en, offsets ->
+                viewModel.addServiceRecord(t, type, d, km, c, desc, remD, remKm, en, offsets)
             },
             onDismiss = { viewModel.closeAddService() }
         )
@@ -520,7 +556,8 @@ private fun VehicleServicesTabContent(
     onAddService: () -> Unit,
     onAddExpense: () -> Unit,
     onInsuranceClick: () -> Unit,
-    onDeleteService: ((VehicleServiceEntity) -> Unit)? = null
+    onDeleteService: ((VehicleServiceEntity) -> Unit)? = null,
+    onDeleteVehicle: (() -> Unit)? = null
 ) {
     var isHealthExpanded by remember { mutableStateOf(false) }
     var isServicesExpanded by remember { mutableStateOf(true) }
@@ -535,7 +572,8 @@ private fun VehicleServicesTabContent(
             VehicleSummaryCard(
                 vehicle = vehicle,
                 onEditClick = onEditProfile,
-                onMileageClick = onMileageClick
+                onMileageClick = onMileageClick,
+                onDeleteClick = onDeleteVehicle
             )
         }
 

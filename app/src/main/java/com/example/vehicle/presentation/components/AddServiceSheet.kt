@@ -55,7 +55,8 @@ fun AddServiceSheet(
         description: String,
         nextReminderDate: String?,
         nextReminderMileage: Int?,
-        isReminderEnabled: Boolean
+        isReminderEnabled: Boolean,
+        offsets: List<com.example.reminder.domain.PredefinedOffset>
     ) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -116,6 +117,11 @@ fun AddServiceSheet(
         )
     }
     var showServiceTypeDialog by remember { mutableStateOf(false) }
+
+    // Notification offset options (7 days, 3 days, 1 day before due date)
+    var remind1DayBefore by remember { mutableStateOf(true) }
+    var remind3DaysBefore by remember { mutableStateOf(true) }
+    var remind1WeekBefore by remember { mutableStateOf(true) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -419,6 +425,35 @@ fun AddServiceSheet(
                         testTag = "next_service_date_input"
                     )
 
+                    if (isReminderEnabled) {
+                        Text(
+                            text = "زمان‌بندی ارسال اعلان‌های یادآور پیش از سررسید:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            FilterChip(
+                                selected = remind1WeekBefore,
+                                onClick = { remind1WeekBefore = !remind1WeekBefore },
+                                label = { Text("۷ روز قبل", fontSize = 11.sp) }
+                            )
+                            FilterChip(
+                                selected = remind3DaysBefore,
+                                onClick = { remind3DaysBefore = !remind3DaysBefore },
+                                label = { Text("۳ روز قبل", fontSize = 11.sp) }
+                            )
+                            FilterChip(
+                                selected = remind1DayBefore,
+                                onClick = { remind1DayBefore = !remind1DayBefore },
+                                label = { Text("۱ روز قبل", fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
                     Text(
                         text = buildString {
                             if (calcKm > 0) {
@@ -450,6 +485,12 @@ fun AddServiceSheet(
                     if (title.isNotBlank()) {
                         val cost = IranianAmountUtils.parseAmountToLong(costText)
                         val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
+                        val selectedOffsets = buildList {
+                            if (remind1WeekBefore) add(com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS)
+                            if (remind3DaysBefore) add(com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS)
+                            if (remind1DayBefore) add(com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY)
+                            add(com.example.reminder.domain.PredefinedOffset.AT_TIME)
+                        }
                         onAddService(
                             title,
                             selectedType,
@@ -459,7 +500,8 @@ fun AddServiceSheet(
                             description,
                             if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
                             if (calcKm > 0) calcKm else null,
-                            isReminderEnabled
+                            isReminderEnabled,
+                            selectedOffsets
                         )
                     }
                 },
