@@ -494,13 +494,14 @@ fun InstallmentsScreen(
                     dueDateStr
                 }
 
-                val parsedTriple = com.example.calendar.domain.CalendarDateUtils.parseJalali(effectiveDueDate)
-                if (effectiveDueDate.isBlank() || parsedTriple == null) {
+                if (effectiveDueDate.isBlank() || !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(effectiveDueDate)) {
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar("تاریخ سررسید نامعتبر یا خالی است")
                     }
                     return@AddInstallmentSheet
                 }
+
+                val parsedTriple = com.example.calendar.domain.CalendarDateUtils.parseJalali(effectiveDueDate) ?: return@AddInstallmentSheet
 
                 if (!customScheduleItems.isNullOrEmpty()) {
                     val numbers = customScheduleItems.map { it.installmentNumber }
@@ -509,7 +510,7 @@ fun InstallmentsScreen(
                         it.installmentNumber <= 0 || 
                         it.amount <= 0 || 
                         it.dueDate.isBlank() || 
-                        com.example.calendar.domain.CalendarDateUtils.parseJalali(it.dueDate) == null 
+                        !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(it.dueDate) 
                     }
                     if (hasDuplicates || invalidCustom != null) {
                         coroutineScope.launch {

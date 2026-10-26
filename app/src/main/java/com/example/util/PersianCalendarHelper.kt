@@ -1,5 +1,6 @@
 package com.example.util
 
+import com.example.calendar.domain.CalendarDateUtils
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -266,13 +267,13 @@ object PersianCalendarHelper {
      * Safely wraps years, handles variable month days, and leap years.
      */
     fun addMonthsToPersianDate(persianDate: String, monthsToAdd: Int): String {
-        val cleanDate = IranianPhoneUtils.convertDigitsToEnglish(persianDate)
+        val cleanDate = CalendarDateUtils.normalizeDate(persianDate)
         val parts = cleanDate.split("/")
         if (parts.size != 3) return persianDate
 
-        var y = parts[0].toIntOrNull() ?: 1404
-        var m = parts[1].toIntOrNull() ?: 1
-        var d = parts[2].toIntOrNull() ?: 1
+        var y = parts[0].toIntOrNull() ?: return persianDate
+        var m = parts[1].toIntOrNull() ?: return persianDate
+        var d = parts[2].toIntOrNull() ?: return persianDate
 
         m += monthsToAdd
         while (m > 12) {

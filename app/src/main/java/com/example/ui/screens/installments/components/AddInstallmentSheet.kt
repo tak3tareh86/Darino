@@ -1154,7 +1154,7 @@ private fun CustomInstallmentsDialog(
                                 item.installmentNumber <= 0 ||
                                 item.amount <= 0L ||
                                 item.dueDate.isBlank() ||
-                                com.example.calendar.domain.CalendarDateUtils.parseJalali(item.dueDate) == null
+                                !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(item.dueDate)
                             }
                             if (invalidItem != null) {
                                 validationError = "تمام اقساط باید شماره معتبر، مبلغ بیشتر از صفر و تاریخ سررسید معتبر شمسی داشته باشند."
