@@ -11,6 +11,7 @@ import com.example.ui.screens.finance.model.RecurringFrequency
 import com.example.ui.screens.finance.model.RecurringTransaction
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.util.PersianCalendarHelper
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -47,7 +48,16 @@ class RecurringTransactionWorkerTest {
         repository = LocalFinanceRepository.instance
         repository.init(context)
 
+        // Clear SharedPreferences and in-memory list for test isolation
+        val prefs = context.getSharedPreferences("finance_prefs_${testUserId}", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+
+        val field = LocalFinanceRepository::class.java.getDeclaredField("_recurringTransactions")
+        field.isAccessible = true
+        (field.get(repository) as MutableStateFlow<List<RecurringTransaction>>).value = emptyList()
+
         db = AppDatabase.getDatabase(context)
+        db.transactionDao().clearAllTransactions(testUserId)
         repository.ensureDefaultAccounts(db, testUserId)
     }
 
@@ -109,7 +119,8 @@ class RecurringTransactionWorkerTest {
             startDate = todayJalali,
             nextExecutionDate = todayJalali,
             enabled = true,
-            paymentMethod = PaymentMethod.BANK_CARD
+            paymentMethod = PaymentMethod.BANK_CARD,
+            accountName = "کارت بانکی"
         )
 
         repository.addRecurringTransaction(recurringIncome)
@@ -215,5 +226,71 @@ class RecurringTransactionWorkerTest {
         val userBTransactions = db.transactionDao().getAllTransactionsList("user_B_999")
         val userBTx = userBTransactions.find { it.title == "تراکنش کاربر الف" }
         assertNull("User B worker run must not process User A's recurring transactions", userBTx)
+    }
+
+    @Test
+    fun testInsertionErrorInRoom_preventsAdvancingDate() = runBlocking {
+        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+
+        val recurringExpense = RecurringTransaction(
+            id = "rec_db_error_12345",
+            title = "خطای دیتابیس",
+            amount = 100000L,
+            type = TransactionType.EXPENSE,
+            categoryId = "home",
+            categoryTitle = "خانه",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = todayJalali,
+            nextExecutionDate = todayJalali,
+            enabled = true,
+            accountName = "کارت بانکی"
+        )
+        repository.addRecurringTransaction(recurringExpense)
+
+        // Create a SQLite BEFORE INSERT trigger to force a DB exception on insertion
+        db.openHelper.writableDatabase.execSQL(
+            "CREATE TRIGGER fail_insert BEFORE INSERT ON transactions BEGIN SELECT RAISE(ABORT, 'Simulated DB Error'); END;"
+        )
+
+        try {
+            // Processing should fail on DB insertion and NOT advance nextExecutionDate
+            repository.processDueRecurringTransactions(context)
+
+            val itemInRepo = repository.getRecurringTransactions().first().find { it.id == recurringExpense.id }
+            assertEquals("Next execution date should NOT advance when Room insertion fails", todayJalali, itemInRepo?.nextExecutionDate)
+        } finally {
+            db.openHelper.writableDatabase.execSQL("DROP TRIGGER IF EXISTS fail_insert;")
+        }
+    }
+
+    @Test
+    fun testTemplateWithoutAccountIdAndNoMatchingAccountName_doesNotInsertOnOtherAccountAndKeepsDate() = runBlocking {
+        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+
+        val itemWithoutAccount = RecurringTransaction(
+            id = "rec_no_acc_name_${UUID.randomUUID()}",
+            title = "پرداخت بدون حساب معتبر",
+            amount = 750000L,
+            type = TransactionType.EXPENSE,
+            categoryId = "test",
+            categoryTitle = "تست",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = todayJalali,
+            nextExecutionDate = todayJalali,
+            enabled = true,
+            accountId = "",
+            accountName = "حساب ناموجود و نامعتبر"
+        )
+
+        repository.addRecurringTransaction(itemWithoutAccount)
+
+        repository.processDueRecurringTransactions(context)
+
+        val transactions = db.transactionDao().getAllTransactionsList(testUserId)
+        val tx = transactions.find { it.title == "پرداخت بدون حساب معتبر" }
+        assertNull("Transaction should NOT be inserted into another fallback account", tx)
+
+        val itemInRepo = repository.getRecurringTransactions().first().find { it.id == itemWithoutAccount.id }
+        assertEquals("Next execution date should remain unchanged when no matching account found", todayJalali, itemInRepo?.nextExecutionDate)
     }
 }

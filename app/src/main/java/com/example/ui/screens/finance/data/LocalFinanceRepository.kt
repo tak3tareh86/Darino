@@ -638,11 +638,14 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 } else {
                     // Account selection and validation logic:
                     // If accountId is explicitly specified, it MUST match an active non-deleted account owned by currentUserId.
+                    // If accountId is empty/blank, match by accountName among active accounts owned by currentUserId.
+                    // If no valid account matches, DO NOT fallback to firstOrNull().
                     val targetAccount: com.example.data.database.AccountEntity? = if (!item.accountId.isNullOrBlank()) {
                         allAccounts.find { it.stringId == item.accountId }
-                    } else {
+                    } else if (!item.accountName.isNullOrBlank()) {
                         allAccounts.find { it.name.equals(item.accountName, ignoreCase = true) }
-                            ?: allAccounts.firstOrNull()
+                    } else {
+                        null
                     }
 
                     if (targetAccount == null) {
@@ -680,14 +683,19 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                             recurringFrequency = item.frequency
                         )
 
-                        val entity = toEntity(autoTx)
-                        try {
-                            db.transactionDao().insertTransaction(entity)
-                            android.util.Log.i("LocalFinanceRepository", "Inserted automatic recurring transaction $executionStringId for user $currentUserId")
-                            shouldAdvanceDate = true
-                        } catch (e: Exception) {
-                            android.util.Log.e("LocalFinanceRepository", "Failed to insert recurring transaction $executionStringId due to exception: ${e.message}", e)
+                        if (SessionManager.userId != currentUserId) {
+                            android.util.Log.e("LocalFinanceRepository", "Session user changed mid-execution from $currentUserId to ${SessionManager.userId}. Skipping insertion and keeping nextExecutionDate.")
                             shouldAdvanceDate = false
+                        } else {
+                            val entity = toEntity(autoTx, userId = currentUserId)
+                            try {
+                                db.transactionDao().insertTransaction(entity)
+                                android.util.Log.i("LocalFinanceRepository", "Inserted automatic recurring transaction $executionStringId for user $currentUserId")
+                                shouldAdvanceDate = true
+                            } catch (e: Exception) {
+                                android.util.Log.e("LocalFinanceRepository", "Failed to insert recurring transaction $executionStringId due to exception: ${e.message}", e)
+                                shouldAdvanceDate = false
+                            }
                         }
                     }
                 }
@@ -993,8 +1001,10 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         }
     }
 
-    private fun toEntity(item: TransactionItemData): TransactionEntity {
-        val userId = SessionManager.userId ?: throw IllegalStateException("No authenticated user")
+    private fun toEntity(
+        item: TransactionItemData,
+        userId: String = SessionManager.userId ?: throw IllegalStateException("No authenticated user")
+    ): TransactionEntity {
         return TransactionEntity(
             stringId = item.id,
             title = item.title,
