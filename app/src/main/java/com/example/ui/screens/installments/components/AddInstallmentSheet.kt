@@ -1020,15 +1020,26 @@ private fun CustomInstallmentsDialog(
                             onClick = {
                                 val feeLong = IranianAmountUtils.parseAmountToLong(feeAmountStr)
                                 if (feeLong > 0 && countInt > 1) {
-                                    val remTotal = (totalAmountLong - feeLong).coerceAtLeast(0L)
-                                    val remMonthly = remTotal / (countInt - 1)
+                                    val totalToman = MoneyFormatter.convertToToman(totalAmountLong)
                                     val feeToman = MoneyFormatter.convertToToman(feeLong)
-                                    val remMonthlyToman = MoneyFormatter.convertToToman(remMonthly)
+                                    val remTotalToman = (totalToman - feeToman).coerceAtLeast(0L)
+                                    val remCount = countInt - 1
+                                    val quotient = remTotalToman / remCount
+                                    val remainder = remTotalToman % remCount
+                                    val lastIndex = countInt - 1
+
                                     scheduleList = scheduleList.mapIndexed { idx, item ->
-                                        if (idx == 0) {
-                                            item.copy(amount = feeToman, amountFormatted = MoneyFormatter.formatToman(feeToman))
-                                        } else {
-                                            item.copy(amount = remMonthlyToman, amountFormatted = MoneyFormatter.formatToman(remMonthlyToman))
+                                        when (idx) {
+                                            0 -> {
+                                                item.copy(amount = feeToman, amountFormatted = MoneyFormatter.formatToman(feeToman))
+                                            }
+                                            lastIndex -> {
+                                                val lastAmount = quotient + remainder
+                                                item.copy(amount = lastAmount, amountFormatted = MoneyFormatter.formatToman(lastAmount))
+                                            }
+                                            else -> {
+                                                item.copy(amount = quotient, amountFormatted = MoneyFormatter.formatToman(quotient))
+                                            }
                                         }
                                     }
                                 }

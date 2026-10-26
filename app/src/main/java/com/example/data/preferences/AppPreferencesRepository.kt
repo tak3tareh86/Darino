@@ -104,11 +104,16 @@ class AppPreferencesRepository private constructor(context: Context) {
 
     private fun loadCurrency(): AppCurrency {
         val name = prefs.getString(KEY_CURRENCY, AppCurrency.TOMAN.name) ?: AppCurrency.TOMAN.name
-        return try {
+        val parsed = try {
             AppCurrency.valueOf(name)
         } catch (e: Exception) {
             AppCurrency.TOMAN
         }
+        val validCurrency = if (parsed == AppCurrency.RIAL) AppCurrency.RIAL else AppCurrency.TOMAN
+        if (name != validCurrency.name) {
+            prefs.edit().putString(KEY_CURRENCY, validCurrency.name).apply()
+        }
+        return validCurrency
     }
 
     private fun loadAlertDelivery(): AlertDeliveryPreference {
@@ -141,9 +146,10 @@ class AppPreferencesRepository private constructor(context: Context) {
     }
 
     fun setCurrency(curr: AppCurrency) {
-        prefs.edit().putString(KEY_CURRENCY, curr.name).apply()
-        _currency.value = curr
-        MoneyFormatter.activeCurrency = curr
+        val valid = if (curr == AppCurrency.RIAL) AppCurrency.RIAL else AppCurrency.TOMAN
+        prefs.edit().putString(KEY_CURRENCY, valid.name).apply()
+        _currency.value = valid
+        MoneyFormatter.activeCurrency = valid
     }
 
     fun setAlertDelivery(delivery: AlertDeliveryPreference) {

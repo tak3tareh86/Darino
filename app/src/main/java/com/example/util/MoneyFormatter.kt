@@ -35,8 +35,6 @@ object MoneyFormatter {
         return when (currency) {
             AppCurrency.TOMAN -> if (language == AppLanguage.ENGLISH) "Toman" else "تومان"
             AppCurrency.RIAL -> if (language == AppLanguage.ENGLISH) "IRR" else "ریال"
-            AppCurrency.USD -> "$"
-            AppCurrency.EUR -> "€"
         }
     }
 
@@ -47,7 +45,7 @@ object MoneyFormatter {
     fun convertFromToman(amountInToman: Long, targetCurrency: AppCurrency = activeCurrency): Long {
         return when (targetCurrency) {
             AppCurrency.RIAL -> amountInToman * 10L
-            else -> amountInToman
+            AppCurrency.TOMAN -> amountInToman
         }
     }
 
@@ -58,7 +56,7 @@ object MoneyFormatter {
     fun convertToToman(amountInSource: Long, sourceCurrency: AppCurrency = activeCurrency): Long {
         return when (sourceCurrency) {
             AppCurrency.RIAL -> amountInSource / 10L
-            else -> amountInSource
+            AppCurrency.TOMAN -> amountInSource
         }
     }
 

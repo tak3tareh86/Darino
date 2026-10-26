@@ -26,9 +26,7 @@ enum class NumberDisplayMode(val title: String, val sample: String) {
 
 enum class AppCurrency(val title: String, val symbol: String, val code: String) {
     TOMAN("تومان", "تومان", "IRT"),
-    RIAL("ریال", "ریال", "IRR"),
-    USD("دلار", "$", "USD"),
-    EUR("یورو", "€", "EUR")
+    RIAL("ریال", "ریال", "IRR")
 }
 
 enum class AppCalendar(val title: String, val description: String) {

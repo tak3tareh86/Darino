@@ -162,8 +162,6 @@ fun CurrencySelectionSheet(
                         iconEmoji = when (curr) {
                             AppCurrency.TOMAN -> "🪙"
                             AppCurrency.RIAL -> "💰"
-                            AppCurrency.USD -> "💵"
-                            AppCurrency.EUR -> "💶"
                         }
                     )
                 }
