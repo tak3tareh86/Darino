@@ -148,7 +148,6 @@ fun InstallmentsSummaryCard(
                 SummaryMetricItem(
                     title = "مبلغ پرداخت‌شده",
                     amount = summary.paidAmountFormatted,
-                    unit = "تومان",
                     color = EmeraldPrimaryLight,
                     icon = Icons.Rounded.CheckCircle,
                     modifier = Modifier.weight(1f)
@@ -171,7 +170,6 @@ fun InstallmentsSummaryCard(
                 SummaryMetricItem(
                     title = "مبلغ باقیمانده",
                     amount = summary.remainingAmountFormatted,
-                    unit = "تومان",
                     color = Color(0xFF3B82F6),
                     icon = Icons.Rounded.Payments,
                     modifier = Modifier.weight(1f)
@@ -185,10 +183,10 @@ fun InstallmentsSummaryCard(
 private fun SummaryMetricItem(
     title: String,
     amount: String,
-    unit: String,
     color: Color,
     icon: ImageVector,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    unit: String = ""
 ) {
     Column(
         modifier = modifier,
@@ -220,11 +218,13 @@ private fun SummaryMetricItem(
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Text(
-                text = unit,
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (unit.isNotBlank()) {
+                Text(
+                    text = unit,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
