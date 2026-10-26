@@ -1010,7 +1010,10 @@ private fun CustomInstallmentsDialog(
                         Box(modifier = Modifier.weight(1f)) {
                             PersianAmountInputField(
                                 value = feeAmountStr,
-                                onValueChange = { feeAmountStr = it },
+                                onValueChange = {
+                                    feeAmountStr = it
+                                    if (validationError != null) validationError = null
+                                },
                                 label = "مبلغ قسط ۱ (کارمزد)",
                                 showWordsPreview = false,
                                 useOuterHeader = false
@@ -1019,27 +1022,41 @@ private fun CustomInstallmentsDialog(
                         Button(
                             onClick = {
                                 val feeLong = IranianAmountUtils.parseAmountToLong(feeAmountStr)
-                                if (feeLong > 0 && countInt > 1) {
-                                    val totalToman = MoneyFormatter.convertToToman(totalAmountLong)
-                                    val feeToman = MoneyFormatter.convertToToman(feeLong)
-                                    val remTotalToman = (totalToman - feeToman).coerceAtLeast(0L)
-                                    val remCount = countInt - 1
-                                    val quotient = remTotalToman / remCount
-                                    val remainder = remTotalToman % remCount
-                                    val lastIndex = countInt - 1
+                                if (feeLong <= 0L) {
+                                    validationError = "لطفاً مبلغ معتبری برای کارمزد قسط اول وارد کنید."
+                                    return@Button
+                                }
+                                if (countInt < 2) {
+                                    validationError = "تعداد اقساط برای توزیع باید حداقل ۲ قسط باشد."
+                                    return@Button
+                                }
 
-                                    scheduleList = scheduleList.mapIndexed { idx, item ->
-                                        when (idx) {
-                                            0 -> {
-                                                item.copy(amount = feeToman, amountFormatted = MoneyFormatter.formatToman(feeToman))
-                                            }
-                                            lastIndex -> {
-                                                val lastAmount = quotient + remainder
-                                                item.copy(amount = lastAmount, amountFormatted = MoneyFormatter.formatToman(lastAmount))
-                                            }
-                                            else -> {
-                                                item.copy(amount = quotient, amountFormatted = MoneyFormatter.formatToman(quotient))
-                                            }
+                                val totalToman = MoneyFormatter.convertToToman(totalAmountLong)
+                                val feeToman = MoneyFormatter.convertToToman(feeLong)
+
+                                if (feeToman > totalToman) {
+                                    validationError = "مبلغ کارمزد نمی‌تواند از مبلغ کل بیشتر باشد."
+                                    return@Button
+                                }
+
+                                validationError = null
+                                val remTotalToman = totalToman - feeToman
+                                val remCount = countInt - 1
+                                val quotient = remTotalToman / remCount
+                                val remainder = remTotalToman % remCount
+                                val lastIndex = countInt - 1
+
+                                scheduleList = scheduleList.mapIndexed { idx, item ->
+                                    when (idx) {
+                                        0 -> {
+                                            item.copy(amount = feeToman, amountFormatted = MoneyFormatter.formatToman(feeToman))
+                                        }
+                                        lastIndex -> {
+                                            val lastAmount = quotient + remainder
+                                            item.copy(amount = lastAmount, amountFormatted = MoneyFormatter.formatToman(lastAmount))
+                                        }
+                                        else -> {
+                                            item.copy(amount = quotient, amountFormatted = MoneyFormatter.formatToman(quotient))
                                         }
                                     }
                                 }
