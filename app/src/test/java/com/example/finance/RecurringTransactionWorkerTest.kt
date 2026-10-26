@@ -11,6 +11,7 @@ import com.example.ui.screens.finance.model.RecurringFrequency
 import com.example.ui.screens.finance.model.RecurringTransaction
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.util.PersianCalendarHelper
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Before
@@ -146,5 +147,73 @@ class RecurringTransactionWorkerTest {
         val transactions = db.transactionDao().getAllTransactionsList(testUserId)
         val disabledTx = transactions.find { it.title == "اشتراک غیرفعال" }
         assertNull("Disabled recurring item should not create any transaction", disabledTx)
+    }
+
+    @Test
+    fun testInvalidAccountId_preventsTransactionInsertionAndPreventsAdvancingDate() = runBlocking {
+        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+
+        val invalidAccItem = RecurringTransaction(
+            id = "rec_invalid_acc_${UUID.randomUUID()}",
+            title = "پرداخت با حساب نامعتبر",
+            amount = 500000L,
+            type = TransactionType.EXPENSE,
+            categoryId = "test",
+            categoryTitle = "تست",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = todayJalali,
+            nextExecutionDate = todayJalali,
+            enabled = true,
+            accountId = "non_existent_deleted_account_id_999"
+        )
+
+        repository.addRecurringTransaction(invalidAccItem)
+
+        repository.processDueRecurringTransactions(context)
+
+        val transactions = db.transactionDao().getAllTransactionsList(testUserId)
+        val tx = transactions.find { it.title == "پرداخت با حساب نامعتبر" }
+        assertNull("Transaction should NOT be inserted into invalid or deleted account", tx)
+
+        // Verify next execution date was NOT advanced
+        val itemInRepo = repository.getRecurringTransactions().first().find { it.id == invalidAccItem.id }
+        assertEquals("Next execution date should remain unchanged when account is invalid", todayJalali, itemInRepo?.nextExecutionDate)
+    }
+
+    @Test
+    fun testUserIsolation_userBCannotCreateTransactionsForUserA() = runBlocking {
+        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+
+        val userARecurring = RecurringTransaction(
+            id = "rec_userA_${UUID.randomUUID()}",
+            title = "تراکنش کاربر الف",
+            amount = 100000L,
+            type = TransactionType.EXPENSE,
+            categoryId = "test",
+            categoryTitle = "تست",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = todayJalali,
+            nextExecutionDate = todayJalali,
+            enabled = true
+        )
+        repository.addRecurringTransaction(userARecurring)
+
+        // Switch active user session to User B
+        val userB = NetworkUserDto(
+            id = "user_B_999",
+            fullName = "User B",
+            email = "userB@example.com",
+            phoneNumber = "09999999999",
+            phoneVerified = true
+        )
+        SessionManager.setAuthenticatedUser(userB)
+        repository.ensureDefaultAccounts(db, "user_B_999")
+
+        // Run process for User B
+        repository.processDueRecurringTransactions(context)
+
+        val userBTransactions = db.transactionDao().getAllTransactionsList("user_B_999")
+        val userBTx = userBTransactions.find { it.title == "تراکنش کاربر الف" }
+        assertNull("User B worker run must not process User A's recurring transactions", userBTx)
     }
 }

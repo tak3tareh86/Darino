@@ -630,78 +630,93 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
                 // Database-level deduplication check
                 val existingTx = db.transactionDao().getTransactionIncludingDeleted(currentUserId, executionStringId)
+                var shouldAdvanceDate = false
 
-                if (existingTx == null) {
-                    val targetAccount = (if (!item.accountId.isNullOrBlank()) {
+                if (existingTx != null) {
+                    android.util.Log.i("LocalFinanceRepository", "Transaction $executionStringId already exists. Skipping insertion.")
+                    shouldAdvanceDate = true
+                } else {
+                    // Account selection and validation logic:
+                    // If accountId is explicitly specified, it MUST match an active non-deleted account owned by currentUserId.
+                    val targetAccount: com.example.data.database.AccountEntity? = if (!item.accountId.isNullOrBlank()) {
                         allAccounts.find { it.stringId == item.accountId }
-                    } else null) ?: allAccounts.find { it.name.equals(item.accountName, ignoreCase = true) }
-                    ?: allAccounts.first()
+                    } else {
+                        allAccounts.find { it.name.equals(item.accountName, ignoreCase = true) }
+                            ?: allAccounts.firstOrNull()
+                    }
 
-                    val category = _categories.value.find { it.id == item.categoryId }
-                        ?: TransactionCategory(
-                            id = item.categoryId,
-                            title = item.categoryTitle.ifBlank { "عمومی" },
-                            iconEmoji = if (item.type == TransactionType.INCOME) "💰" else "🛍️",
-                            accentColor = if (item.type == TransactionType.INCOME) androidx.compose.ui.graphics.Color(0xFF10B981) else androidx.compose.ui.graphics.Color(0xFFEF4444),
-                            type = item.type
+                    if (targetAccount == null) {
+                        android.util.Log.e("LocalFinanceRepository", "Cannot process recurring transaction ${item.id}: specified or matching active account '${item.accountId ?: item.accountName}' not found for user $currentUserId. Skipping insertion and keeping nextExecutionDate.")
+                        shouldAdvanceDate = false
+                    } else {
+                        val category = _categories.value.find { it.id == item.categoryId }
+                            ?: TransactionCategory(
+                                id = item.categoryId,
+                                title = item.categoryTitle.ifBlank { "عمومی" },
+                                iconEmoji = if (item.type == TransactionType.INCOME) "💰" else "🛍️",
+                                accentColor = if (item.type == TransactionType.INCOME) androidx.compose.ui.graphics.Color(0xFF10B981) else androidx.compose.ui.graphics.Color(0xFFEF4444),
+                                type = item.type
+                            )
+
+                        val txTime = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedTime()
+                        val txMillis = PersianCalendarHelper.jalaliToEpochMillis(nextY, nextM, nextD, 9, 0)
+
+                        val autoTx = TransactionItemData(
+                            id = executionStringId,
+                            title = item.title,
+                            amount = item.amount,
+                            type = item.type,
+                            category = category,
+                            categoryId = category.id,
+                            datePersian = item.nextExecutionDate,
+                            timePersian = txTime,
+                            dateMillis = txMillis,
+                            description = "تراکنش دوره‌ای خودکار (${item.frequency.title})",
+                            paymentMethod = item.paymentMethod,
+                            accountName = targetAccount.name,
+                            accountId = targetAccount.stringId,
+                            sourceType = TransactionSourceType.MANUAL,
+                            isRecurring = true,
+                            recurringFrequency = item.frequency
                         )
 
-                    val txTime = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedTime()
-                    val txMillis = PersianCalendarHelper.jalaliToEpochMillis(nextY, nextM, nextD, 9, 0)
-
-                    val autoTx = TransactionItemData(
-                        id = executionStringId,
-                        title = item.title,
-                        amount = item.amount,
-                        type = item.type,
-                        category = category,
-                        categoryId = category.id,
-                        datePersian = item.nextExecutionDate,
-                        timePersian = txTime,
-                        dateMillis = txMillis,
-                        description = "تراکنش دوره‌ای خودکار (${item.frequency.title})",
-                        paymentMethod = item.paymentMethod,
-                        accountName = targetAccount.name,
-                        accountId = targetAccount.stringId,
-                        sourceType = TransactionSourceType.MANUAL,
-                        isRecurring = true,
-                        recurringFrequency = item.frequency
-                    )
-
-                    val entity = toEntity(autoTx)
-                    try {
-                        db.transactionDao().insertTransaction(entity)
-                        android.util.Log.i("LocalFinanceRepository", "Inserted automatic recurring transaction $executionStringId for user $currentUserId")
-                    } catch (e: Exception) {
-                        android.util.Log.w("LocalFinanceRepository", "Failed or skipped inserting duplicate transaction $executionStringId: ${e.message}")
+                        val entity = toEntity(autoTx)
+                        try {
+                            db.transactionDao().insertTransaction(entity)
+                            android.util.Log.i("LocalFinanceRepository", "Inserted automatic recurring transaction $executionStringId for user $currentUserId")
+                            shouldAdvanceDate = true
+                        } catch (e: Exception) {
+                            android.util.Log.e("LocalFinanceRepository", "Failed to insert recurring transaction $executionStringId due to exception: ${e.message}", e)
+                            shouldAdvanceDate = false
+                        }
                     }
-                } else {
-                    android.util.Log.i("LocalFinanceRepository", "Transaction $executionStringId already exists. Skipping insertion.")
                 }
 
-                // Calculate next execution date
-                var newNextDate = advanceExecutionDate(item.nextExecutionDate, item.frequency)
+                if (shouldAdvanceDate) {
+                    // Calculate next execution date
+                    var newNextDate = advanceExecutionDate(item.nextExecutionDate, item.frequency)
 
-                // Catch-up policy: if newNextDate is still <= today, advance it until it is > today
-                var loopCount = 0
-                while (loopCount < 100) {
-                    val newNorm = com.example.calendar.domain.CalendarDateUtils.normalizeDate(newNextDate)
-                    val newParts = newNorm.split("/")
-                    if (newParts.size != 3) break
-                    val ny = newParts[0].toIntOrNull() ?: break
-                    val nm = newParts[1].toIntOrNull() ?: break
-                    val nd = newParts[2].toIntOrNull() ?: break
-                    val newEpoch = PersianCalendarHelper.getJalaliEpochDay(ny, nm, nd)
-                    if (newEpoch > todayEpochDay) break
+                    // Catch-up policy: if newNextDate is still <= today, advance it until it is > today
+                    var loopCount = 0
+                    while (loopCount < 100) {
+                        val newNorm = com.example.calendar.domain.CalendarDateUtils.normalizeDate(newNextDate)
+                        val newParts = newNorm.split("/")
+                        if (newParts.size != 3) break
+                        val ny = newParts[0].toIntOrNull() ?: break
+                        val nm = newParts[1].toIntOrNull() ?: break
+                        val nd = newParts[2].toIntOrNull() ?: break
+                        val newEpoch = PersianCalendarHelper.getJalaliEpochDay(ny, nm, nd)
+                        if (newEpoch > todayEpochDay) break
 
-                    newNextDate = advanceExecutionDate(newNextDate, item.frequency)
-                    loopCount++
-                }
+                        newNextDate = advanceExecutionDate(newNextDate, item.frequency)
+                        loopCount++
+                    }
 
-                val idx = updatedList.indexOfFirst { it.id == item.id }
-                if (idx != -1) {
-                    updatedList[idx] = updatedList[idx].copy(nextExecutionDate = newNextDate)
-                    hasChanges = true
+                    val idx = updatedList.indexOfFirst { it.id == item.id }
+                    if (idx != -1) {
+                        updatedList[idx] = updatedList[idx].copy(nextExecutionDate = newNextDate)
+                        hasChanges = true
+                    }
                 }
             }
         }
