@@ -78,6 +78,10 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     // Ensure default active accounts exist in Room DB for authenticated user
                     ensureDefaultAccounts(db, authenticatedUserId)
 
+                    // Schedule background recurring transaction worker & run immediate check
+                    com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(appCtx)
+                    com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(appCtx)
+
                     // Collect accounts
                     launch {
                         db.accountDao().getAllAccountsFlow(authenticatedUserId).collectLatest { entities ->
@@ -518,6 +522,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         current.add(recurring)
         _recurringTransactions.value = current
         saveMetadataToDisk()
+        appContext?.let { com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(it) }
     }
 
     override fun updateRecurringTransaction(recurring: RecurringTransaction) {
@@ -527,6 +532,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             current[index] = recurring
             _recurringTransactions.value = current
             saveMetadataToDisk()
+            appContext?.let { com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(it) }
         }
     }
 
@@ -545,7 +551,187 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             current[index] = item.copy(enabled = enabled)
             _recurringTransactions.value = current
             saveMetadataToDisk()
+            if (enabled) {
+                appContext?.let { com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(it) }
+            }
         }
+    }
+
+    suspend fun processDueRecurringTransactions(context: Context) {
+        val currentUserId = SessionManager.userId
+        if (currentUserId.isNullOrBlank()) {
+            android.util.Log.d("LocalFinanceRepository", "processDueRecurringTransactions: No authenticated user logged in.")
+            return
+        }
+
+        val db = AppDatabase.getDatabase(context)
+        ensureDefaultAccounts(db, currentUserId)
+        val allAccounts = db.accountDao().getAllAccountsList(currentUserId).filter { it.isActive && it.deletedAt == null }
+        if (allAccounts.isEmpty()) {
+            android.util.Log.w("LocalFinanceRepository", "processDueRecurringTransactions: No active account found for user $currentUserId.")
+            return
+        }
+
+        if (_recurringTransactions.value.isEmpty()) {
+            loadMetadataFromDisk(context, currentUserId)
+        }
+        val activeRecurringList = _recurringTransactions.value.filter { it.enabled }.toMutableList()
+        if (activeRecurringList.isEmpty()) {
+            return
+        }
+
+        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+        val cleanToday = com.example.calendar.domain.CalendarDateUtils.normalizeDate(todayJalali)
+        val partsToday = cleanToday.split("/")
+        if (partsToday.size != 3) return
+
+        val todayY = partsToday[0].toIntOrNull() ?: return
+        val todayM = partsToday[1].toIntOrNull() ?: return
+        val todayD = partsToday[2].toIntOrNull() ?: return
+        val todayEpochDay = PersianCalendarHelper.getJalaliEpochDay(todayY, todayM, todayD)
+
+        var hasChanges = false
+        val updatedList = _recurringTransactions.value.toMutableList()
+
+        for (item in activeRecurringList) {
+            val nextDateNorm = com.example.calendar.domain.CalendarDateUtils.normalizeDate(item.nextExecutionDate)
+            val partsNext = nextDateNorm.split("/")
+            if (partsNext.size != 3) continue
+
+            val nextY = partsNext[0].toIntOrNull() ?: continue
+            val nextM = partsNext[1].toIntOrNull() ?: continue
+            val nextD = partsNext[2].toIntOrNull() ?: continue
+            val nextEpochDay = PersianCalendarHelper.getJalaliEpochDay(nextY, nextM, nextD)
+
+            // Check if item has an endDate and if it's already past the endDate
+            if (!item.endDate.isNullOrBlank()) {
+                val endNorm = com.example.calendar.domain.CalendarDateUtils.normalizeDate(item.endDate)
+                val partsEnd = endNorm.split("/")
+                if (partsEnd.size == 3) {
+                    val endY = partsEnd[0].toIntOrNull() ?: 0
+                    val endM = partsEnd[1].toIntOrNull() ?: 0
+                    val endD = partsEnd[2].toIntOrNull() ?: 0
+                    val endEpochDay = PersianCalendarHelper.getJalaliEpochDay(endY, endM, endD)
+                    if (nextEpochDay > endEpochDay) {
+                        val idx = updatedList.indexOfFirst { it.id == item.id }
+                        if (idx != -1) {
+                            updatedList[idx] = updatedList[idx].copy(enabled = false)
+                            hasChanges = true
+                        }
+                        continue
+                    }
+                }
+            }
+
+            // Check if due: nextExecutionDate <= today
+            if (nextEpochDay <= todayEpochDay) {
+                val digitsNext = nextDateNorm.replace("/", "").replace("-", "")
+                val executionStringId = "rec_exec_${item.id}_${digitsNext}"
+
+                // Database-level deduplication check
+                val existingTx = db.transactionDao().getTransactionIncludingDeleted(currentUserId, executionStringId)
+
+                if (existingTx == null) {
+                    val targetAccount = (if (!item.accountId.isNullOrBlank()) {
+                        allAccounts.find { it.stringId == item.accountId }
+                    } else null) ?: allAccounts.find { it.name.equals(item.accountName, ignoreCase = true) }
+                    ?: allAccounts.first()
+
+                    val category = _categories.value.find { it.id == item.categoryId }
+                        ?: TransactionCategory(
+                            id = item.categoryId,
+                            title = item.categoryTitle.ifBlank { "عمومی" },
+                            iconEmoji = if (item.type == TransactionType.INCOME) "💰" else "🛍️",
+                            accentColor = if (item.type == TransactionType.INCOME) androidx.compose.ui.graphics.Color(0xFF10B981) else androidx.compose.ui.graphics.Color(0xFFEF4444),
+                            type = item.type
+                        )
+
+                    val txTime = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedTime()
+                    val txMillis = PersianCalendarHelper.jalaliToEpochMillis(nextY, nextM, nextD, 9, 0)
+
+                    val autoTx = TransactionItemData(
+                        id = executionStringId,
+                        title = item.title,
+                        amount = item.amount,
+                        type = item.type,
+                        category = category,
+                        categoryId = category.id,
+                        datePersian = item.nextExecutionDate,
+                        timePersian = txTime,
+                        dateMillis = txMillis,
+                        description = "تراکنش دوره‌ای خودکار (${item.frequency.title})",
+                        paymentMethod = item.paymentMethod,
+                        accountName = targetAccount.name,
+                        accountId = targetAccount.stringId,
+                        sourceType = TransactionSourceType.MANUAL,
+                        isRecurring = true,
+                        recurringFrequency = item.frequency
+                    )
+
+                    val entity = toEntity(autoTx)
+                    try {
+                        db.transactionDao().insertTransaction(entity)
+                        android.util.Log.i("LocalFinanceRepository", "Inserted automatic recurring transaction $executionStringId for user $currentUserId")
+                    } catch (e: Exception) {
+                        android.util.Log.w("LocalFinanceRepository", "Failed or skipped inserting duplicate transaction $executionStringId: ${e.message}")
+                    }
+                } else {
+                    android.util.Log.i("LocalFinanceRepository", "Transaction $executionStringId already exists. Skipping insertion.")
+                }
+
+                // Calculate next execution date
+                var newNextDate = advanceExecutionDate(item.nextExecutionDate, item.frequency)
+
+                // Catch-up policy: if newNextDate is still <= today, advance it until it is > today
+                var loopCount = 0
+                while (loopCount < 100) {
+                    val newNorm = com.example.calendar.domain.CalendarDateUtils.normalizeDate(newNextDate)
+                    val newParts = newNorm.split("/")
+                    if (newParts.size != 3) break
+                    val ny = newParts[0].toIntOrNull() ?: break
+                    val nm = newParts[1].toIntOrNull() ?: break
+                    val nd = newParts[2].toIntOrNull() ?: break
+                    val newEpoch = PersianCalendarHelper.getJalaliEpochDay(ny, nm, nd)
+                    if (newEpoch > todayEpochDay) break
+
+                    newNextDate = advanceExecutionDate(newNextDate, item.frequency)
+                    loopCount++
+                }
+
+                val idx = updatedList.indexOfFirst { it.id == item.id }
+                if (idx != -1) {
+                    updatedList[idx] = updatedList[idx].copy(nextExecutionDate = newNextDate)
+                    hasChanges = true
+                }
+            }
+        }
+
+        if (hasChanges) {
+            _recurringTransactions.value = updatedList
+            saveMetadataToDisk()
+        }
+    }
+
+    private fun advanceExecutionDate(currentDateStr: String, frequency: RecurringFrequency): String {
+        return when (frequency) {
+            RecurringFrequency.DAILY -> addDaysToPersianDate(currentDateStr, 1)
+            RecurringFrequency.WEEKLY -> addDaysToPersianDate(currentDateStr, 7)
+            RecurringFrequency.MONTHLY -> PersianCalendarHelper.addMonthsToPersianDate(currentDateStr, 1)
+            RecurringFrequency.YEARLY -> PersianCalendarHelper.addMonthsToPersianDate(currentDateStr, 12)
+        }
+    }
+
+    private fun addDaysToPersianDate(persianDate: String, daysToAdd: Int): String {
+        val cleanDate = com.example.calendar.domain.CalendarDateUtils.normalizeDate(persianDate)
+        val parts = cleanDate.split("/")
+        if (parts.size != 3) return persianDate
+        val y = parts[0].toIntOrNull() ?: return persianDate
+        val m = parts[1].toIntOrNull() ?: return persianDate
+        val d = parts[2].toIntOrNull() ?: return persianDate
+
+        val startMillis = PersianCalendarHelper.jalaliToEpochMillis(y, m, d, 9, 0)
+        val targetMillis = startMillis + (daysToAdd * 24 * 3600 * 1000L)
+        return PersianCalendarHelper.fromEpochMillis(targetMillis).toFormattedDate()
     }
 
     override fun clearAllTransactionsData() {
@@ -636,6 +822,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 obj.put("endDate", r.endDate ?: "")
                 obj.put("nextExecutionDate", r.nextExecutionDate)
                 obj.put("enabled", r.enabled)
+                obj.put("paymentMethod", r.paymentMethod.name)
+                obj.put("accountName", r.accountName)
+                obj.put("accountId", r.accountId ?: "")
                 rArr.put(obj)
             }
             editor.putString(userScopedKey(KEY_RECURRING, currentUserId), rArr.toString())
@@ -742,7 +931,10 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                             startDate = obj.getString("startDate"),
                             endDate = obj.optString("endDate").ifBlank { null },
                             nextExecutionDate = obj.getString("nextExecutionDate"),
-                            enabled = obj.optBoolean("enabled", true)
+                            enabled = obj.optBoolean("enabled", true),
+                            paymentMethod = try { PaymentMethod.valueOf(obj.optString("paymentMethod", "BANK_CARD")) } catch (e: Exception) { PaymentMethod.BANK_CARD },
+                            accountName = obj.optString("accountName", "کارت بانکی"),
+                            accountId = obj.optString("accountId").ifBlank { null }
                         )
                     )
                 }

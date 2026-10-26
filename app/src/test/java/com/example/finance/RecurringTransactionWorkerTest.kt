@@ -1,0 +1,150 @@
+package com.example.finance
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import com.example.data.api.NetworkUserDto
+import com.example.data.database.AppDatabase
+import com.example.data.security.SessionManager
+import com.example.ui.screens.finance.data.LocalFinanceRepository
+import com.example.ui.screens.finance.model.PaymentMethod
+import com.example.ui.screens.finance.model.RecurringFrequency
+import com.example.ui.screens.finance.model.RecurringTransaction
+import com.example.ui.screens.finance.model.TransactionType
+import com.example.util.PersianCalendarHelper
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import java.util.UUID
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
+class RecurringTransactionWorkerTest {
+
+    private lateinit var context: Context
+    private lateinit var repository: LocalFinanceRepository
+    private lateinit var db: AppDatabase
+    private val testUserId = "test_user_recurring_123"
+
+    @Before
+    fun setUp() = runBlocking {
+        context = ApplicationProvider.getApplicationContext()
+        SessionManager.init(context)
+
+        val testUser = NetworkUserDto(
+            id = testUserId,
+            fullName = "recurring_tester",
+            email = "recurring@example.com",
+            phoneNumber = "09123456789",
+            phoneVerified = true
+        )
+        SessionManager.setAuthenticatedUser(testUser)
+
+        repository = LocalFinanceRepository.instance
+        repository.init(context)
+
+        db = AppDatabase.getDatabase(context)
+        repository.ensureDefaultAccounts(db, testUserId)
+    }
+
+    @Test
+    fun testProcessDueRecurringTransaction_createsExpenseAndPreventsDuplicates() = runBlocking {
+        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+
+        val recurringExpense = RecurringTransaction(
+            id = "rec_exp_${UUID.randomUUID()}",
+            title = "اجاره خانه",
+            amount = 15000000L,
+            type = TransactionType.EXPENSE,
+            categoryId = "home",
+            categoryTitle = "خانه و اجاره",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = todayJalali,
+            nextExecutionDate = todayJalali,
+            enabled = true,
+            paymentMethod = PaymentMethod.BANK_CARD,
+            accountName = "کارت بانکی"
+        )
+
+        repository.addRecurringTransaction(recurringExpense)
+
+        // Run due processing first time
+        repository.processDueRecurringTransactions(context)
+
+        // Verify transaction was inserted directly into Room database
+        val transactions = db.transactionDao().getAllTransactionsList(testUserId)
+        val createdTx = transactions.find { it.title == "اجاره خانه" }
+        assertNotNull("Recurring expense transaction should be created in database", createdTx)
+        assertEquals(15000000L, createdTx?.amount)
+        assertEquals("EXPENSE", createdTx?.type)
+        assertEquals(true, createdTx?.isRecurring)
+
+        val countFirstRun = transactions.count { it.title == "اجاره خانه" }
+        assertEquals(1, countFirstRun)
+
+        // Run due processing second time immediately -> Database-level deduplication check must prevent second insert!
+        repository.processDueRecurringTransactions(context)
+
+        val transactionsSecondRun = db.transactionDao().getAllTransactionsList(testUserId)
+        val countSecondRun = transactionsSecondRun.count { it.title == "اجاره خانه" }
+        assertEquals("Duplicate transaction should NOT be created on second worker run", 1, countSecondRun)
+    }
+
+    @Test
+    fun testProcessDueRecurringTransaction_createsIncomeCorrectly() = runBlocking {
+        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+
+        val recurringIncome = RecurringTransaction(
+            id = "rec_inc_${UUID.randomUUID()}",
+            title = "حقوق ماهانه پروژه",
+            amount = 45000000L,
+            type = TransactionType.INCOME,
+            categoryId = "salary",
+            categoryTitle = "حقوق و دستمزد",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = todayJalali,
+            nextExecutionDate = todayJalali,
+            enabled = true,
+            paymentMethod = PaymentMethod.BANK_CARD
+        )
+
+        repository.addRecurringTransaction(recurringIncome)
+
+        repository.processDueRecurringTransactions(context)
+
+        val transactions = db.transactionDao().getAllTransactionsList(testUserId)
+        val incomeTx = transactions.find { it.title == "حقوق ماهانه پروژه" }
+        assertNotNull("Recurring income transaction should be created", incomeTx)
+        assertEquals(45000000L, incomeTx?.amount)
+        assertEquals("INCOME", incomeTx?.type)
+    }
+
+    @Test
+    fun testDisabledRecurringTransaction_isNotProcessed() = runBlocking {
+        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+
+        val disabledRecurring = RecurringTransaction(
+            id = "rec_disabled_${UUID.randomUUID()}",
+            title = "اشتراک غیرفعال",
+            amount = 200000L,
+            type = TransactionType.EXPENSE,
+            categoryId = "bill",
+            categoryTitle = "قبض و اشتراک",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = todayJalali,
+            nextExecutionDate = todayJalali,
+            enabled = false
+        )
+
+        repository.addRecurringTransaction(disabledRecurring)
+
+        repository.processDueRecurringTransactions(context)
+
+        val transactions = db.transactionDao().getAllTransactionsList(testUserId)
+        val disabledTx = transactions.find { it.title == "اشتراک غیرفعال" }
+        assertNull("Disabled recurring item should not create any transaction", disabledTx)
+    }
+}

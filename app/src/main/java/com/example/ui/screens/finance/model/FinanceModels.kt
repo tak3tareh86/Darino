@@ -140,6 +140,7 @@ data class RecurringTransaction(
     val enabled: Boolean = true,
     val paymentMethod: PaymentMethod = PaymentMethod.BANK_CARD,
     val accountName: String = "کارت بانکی",
+    val accountId: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 ) {
     val formattedAmount: String

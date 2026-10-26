@@ -63,6 +63,7 @@ import java.util.UUID
 fun AddRecurringTransactionSheet(
     initialItem: RecurringTransaction? = null,
     categories: List<TransactionCategory> = FinanceDefaultCategories.allDefaultCategories,
+    accounts: List<com.example.ui.screens.finance.model.Account> = emptyList(),
     onDismiss: () -> Unit,
     onSubmit: (RecurringTransaction) -> Unit
 ) {
@@ -78,6 +79,12 @@ fun AddRecurringTransactionSheet(
     var startDate by remember { mutableStateOf(initialItem?.startDate ?: today) }
     var nextDate by remember { mutableStateOf(initialItem?.nextExecutionDate ?: today) }
     var paymentMethod by remember { mutableStateOf(initialItem?.paymentMethod ?: PaymentMethod.BANK_CARD) }
+    var selectedAccount by remember {
+        mutableStateOf(
+            accounts.find { it.id == initialItem?.accountId }
+                ?: accounts.firstOrNull { it.isActive }
+        )
+    }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val availableCategories = remember(selectedType, categories) {
@@ -330,7 +337,8 @@ fun AddRecurringTransactionSheet(
                         nextExecutionDate = nextDate,
                         enabled = initialItem?.enabled ?: true,
                         paymentMethod = paymentMethod,
-                        accountName = paymentMethod.title
+                        accountName = selectedAccount?.name ?: paymentMethod.title,
+                        accountId = selectedAccount?.id
                     )
                     onSubmit(rec)
                 },

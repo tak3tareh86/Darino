@@ -537,6 +537,7 @@ fun FinancialScreen(
         AddRecurringTransactionSheet(
             initialItem = editingRecurring,
             categories = state.categories,
+            accounts = state.accounts,
             onDismiss = {
                 showAddRecurringSheet = false
                 editingRecurring = null

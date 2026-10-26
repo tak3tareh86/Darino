@@ -97,6 +97,7 @@ class MainActivity : FragmentActivity() {
         // 2. Schedule periodic background sync worker with network constraints
         SyncWorker.enqueuePeriodic(this)
         WeeklyBackupWorker.enqueueWeekly(this)
+        com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(this)
 
         // 3. Monitor network connectivity and auto-trigger sync when back online
         networkMonitor = NetworkStateMonitor(this) {
