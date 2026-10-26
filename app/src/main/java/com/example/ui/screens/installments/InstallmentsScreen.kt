@@ -136,7 +136,24 @@ fun InstallmentsScreen(
     }
 
     val overdueList = remember(allInstallments) {
-        allInstallments.filter { it.status == InstallmentStatus.OVERDUE }
+        val nowMillis = System.currentTimeMillis()
+        val nowDt = PersianCalendarHelper.fromEpochMillis(nowMillis)
+        val nowEpochDay = PersianCalendarHelper.jalaliToEpochMillis(nowDt.year, nowDt.month, nowDt.day, 0, 0) / (24 * 3600 * 1000L)
+
+        allInstallments.filter { item ->
+            if (item.status == InstallmentStatus.PAID || item.status == InstallmentStatus.COMPLETED || item.remainingInstallments == 0) {
+                false
+            } else {
+                val triple = com.example.calendar.domain.CalendarDateUtils.parseJalali(item.nextPaymentDate)
+                if (triple != null) {
+                    val targetMillis = PersianCalendarHelper.jalaliToEpochMillis(triple.first, triple.second, triple.third, 0, 0)
+                    val targetEpochDay = targetMillis / (24 * 3600 * 1000L)
+                    targetEpochDay < nowEpochDay
+                } else {
+                    item.status == InstallmentStatus.OVERDUE
+                }
+            }
+        }
     }
 
     val upcomingList = remember(allInstallments) {
@@ -547,7 +564,13 @@ fun InstallmentsScreen(
 
                 val targetMillis = PersianCalendarHelper.jalaliToEpochMillis(parsedTriple.first, parsedTriple.second, parsedTriple.third, 9, 0)
 
-                val diffDays = ((targetMillis - System.currentTimeMillis()) / (24 * 3600 * 1000L)).toInt()
+                val targetDt = PersianCalendarHelper.fromEpochMillis(targetMillis)
+                val nowDt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+
+                val targetEpochDay = PersianCalendarHelper.jalaliToEpochMillis(targetDt.year, targetDt.month, targetDt.day, 0, 0) / (24 * 3600 * 1000L)
+                val nowEpochDay = PersianCalendarHelper.jalaliToEpochMillis(nowDt.year, nowDt.month, nowDt.day, 0, 0) / (24 * 3600 * 1000L)
+
+                val diffDays = (targetEpochDay - nowEpochDay).toInt()
                 val computedDueDaysText = when {
                     diffDays == 0 -> "امروز"
                     diffDays > 0 -> "${IranianPhoneUtils.convertDigitsToPersian(diffDays.toString())} روز دیگر"

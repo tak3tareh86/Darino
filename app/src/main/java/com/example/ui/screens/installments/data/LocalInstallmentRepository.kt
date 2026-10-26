@@ -536,9 +536,13 @@ class LocalInstallmentRepository private constructor() {
         if (status == InstallmentStatus.COMPLETED || remainingInstallments == 0) {
             return "تکمیل شده"
         }
-        val nowMillis = System.currentTimeMillis()
-        val diffMillis = targetMillis - nowMillis
-        val diffDays = (diffMillis / (24 * 3600 * 1000L)).toInt()
+        val targetDt = PersianCalendarHelper.fromEpochMillis(targetMillis)
+        val nowDt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        
+        val targetEpochDay = PersianCalendarHelper.jalaliToEpochMillis(targetDt.year, targetDt.month, targetDt.day, 0, 0) / (24 * 3600 * 1000L)
+        val nowEpochDay = PersianCalendarHelper.jalaliToEpochMillis(nowDt.year, nowDt.month, nowDt.day, 0, 0) / (24 * 3600 * 1000L)
+        
+        val diffDays = (targetEpochDay - nowEpochDay).toInt()
         return when {
             diffDays == 0 -> "امروز"
             diffDays > 0 -> "${IranianPhoneUtils.convertDigitsToPersian(diffDays.toString())} روز دیگر"
