@@ -135,20 +135,36 @@ fun InstallmentsScreen(
         bankLoansList + homeLoansList + carInsuranceList + miscInstallmentsList
     }
 
-    val overdueList = remember(allInstallments) {
-        val nowMillis = System.currentTimeMillis()
-        val nowDt = PersianCalendarHelper.fromEpochMillis(nowMillis)
-        val nowEpochDay = PersianCalendarHelper.jalaliToEpochMillis(nowDt.year, nowDt.month, nowDt.day, 0, 0) / (24 * 3600 * 1000L)
+    var currentEpochDay by remember {
+        mutableStateOf(
+            PersianCalendarHelper.getJalaliEpochDay(
+                PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year,
+                PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).month,
+                PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).day
+            )
+        )
+    }
 
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(60000L)
+            val nowDt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+            val todayEpoch = PersianCalendarHelper.getJalaliEpochDay(nowDt.year, nowDt.month, nowDt.day)
+            if (todayEpoch != currentEpochDay) {
+                currentEpochDay = todayEpoch
+            }
+        }
+    }
+
+    val overdueList = remember(allInstallments, currentEpochDay) {
         allInstallments.filter { item ->
             if (item.status == InstallmentStatus.PAID || item.status == InstallmentStatus.COMPLETED || item.remainingInstallments == 0) {
                 false
             } else {
                 val triple = com.example.calendar.domain.CalendarDateUtils.parseJalali(item.nextPaymentDate)
                 if (triple != null) {
-                    val targetMillis = PersianCalendarHelper.jalaliToEpochMillis(triple.first, triple.second, triple.third, 0, 0)
-                    val targetEpochDay = targetMillis / (24 * 3600 * 1000L)
-                    targetEpochDay < nowEpochDay
+                    val targetEpochDay = PersianCalendarHelper.getJalaliEpochDay(triple.first, triple.second, triple.third)
+                    targetEpochDay < currentEpochDay
                 } else {
                     item.status == InstallmentStatus.OVERDUE
                 }
@@ -567,8 +583,8 @@ fun InstallmentsScreen(
                 val targetDt = PersianCalendarHelper.fromEpochMillis(targetMillis)
                 val nowDt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
 
-                val targetEpochDay = PersianCalendarHelper.jalaliToEpochMillis(targetDt.year, targetDt.month, targetDt.day, 0, 0) / (24 * 3600 * 1000L)
-                val nowEpochDay = PersianCalendarHelper.jalaliToEpochMillis(nowDt.year, nowDt.month, nowDt.day, 0, 0) / (24 * 3600 * 1000L)
+                val targetEpochDay = PersianCalendarHelper.getJalaliEpochDay(targetDt.year, targetDt.month, targetDt.day)
+                val nowEpochDay = PersianCalendarHelper.getJalaliEpochDay(nowDt.year, nowDt.month, nowDt.day)
 
                 val diffDays = (targetEpochDay - nowEpochDay).toInt()
                 val computedDueDaysText = when {

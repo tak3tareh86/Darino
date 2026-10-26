@@ -113,6 +113,23 @@ object PersianCalendarHelper {
     }
 
     /**
+     * Calculates absolute Jalali epoch day number independently of timezone and DST.
+     */
+    fun getJalaliEpochDay(year: Int, month: Int, day: Int): Long {
+        val jDaysInMonth = intArrayOf(31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29)
+        val jy2 = year - 979
+        val jm2 = month - 1
+        val jd2 = day - 1
+
+        var jDayNo = 365 * jy2.toLong() + (jy2 / 33) * 8L + ((jy2 % 33 + 3) / 4)
+        for (i in 0 until jm2) {
+            jDayNo += jDaysInMonth[i]
+        }
+        jDayNo += jd2
+        return jDayNo
+    }
+
+    /**
      * Converts Gregorian Year/Month/Day to Jalali Year/Month/Day.
      */
     fun gregorianToJalali(gy: Int, gm: Int, gd: Int): Triple<Int, Int, Int> {

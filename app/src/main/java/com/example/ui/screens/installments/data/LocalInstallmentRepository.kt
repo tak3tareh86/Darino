@@ -538,10 +538,10 @@ class LocalInstallmentRepository private constructor() {
         }
         val targetDt = PersianCalendarHelper.fromEpochMillis(targetMillis)
         val nowDt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
-        
-        val targetEpochDay = PersianCalendarHelper.jalaliToEpochMillis(targetDt.year, targetDt.month, targetDt.day, 0, 0) / (24 * 3600 * 1000L)
-        val nowEpochDay = PersianCalendarHelper.jalaliToEpochMillis(nowDt.year, nowDt.month, nowDt.day, 0, 0) / (24 * 3600 * 1000L)
-        
+
+        val targetEpochDay = PersianCalendarHelper.getJalaliEpochDay(targetDt.year, targetDt.month, targetDt.day)
+        val nowEpochDay = PersianCalendarHelper.getJalaliEpochDay(nowDt.year, nowDt.month, nowDt.day)
+
         val diffDays = (targetEpochDay - nowEpochDay).toInt()
         return when {
             diffDays == 0 -> "امروز"
