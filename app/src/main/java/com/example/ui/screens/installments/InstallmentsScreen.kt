@@ -402,8 +402,12 @@ fun InstallmentsScreen(
                     onCreateInstallment = { cat, title, total, monthly, count ->
                         addInitialCategory = cat
                         prefillTitle = title
-                        prefillTotal = total.replace(" تومان", "").trim()
-                        prefillMonthly = monthly.replace(" تومان", "").trim()
+                        val rawTotalToman = com.example.util.IranianAmountUtils.parseAmountToLong(total)
+                        val rawMonthlyToman = com.example.util.IranianAmountUtils.parseAmountToLong(monthly)
+                        val displayTotal = com.example.util.MoneyFormatter.convertFromToman(rawTotalToman)
+                        val displayMonthly = com.example.util.MoneyFormatter.convertFromToman(rawMonthlyToman)
+                        prefillTotal = com.example.util.IranianAmountUtils.formatWithCommas(displayTotal.toString())
+                        prefillMonthly = com.example.util.IranianAmountUtils.formatWithCommas(displayMonthly.toString())
                         prefillCount = count.toString()
                         showAddSheet = true
                     }
@@ -450,12 +454,12 @@ fun InstallmentsScreen(
                 prefillMonthly = ""
                 prefillCount = ""
 
-                val parsedTotal = com.example.util.IranianAmountUtils.parseAmountToLong(totalStr)
-                val parsedMonthly = com.example.util.IranianAmountUtils.parseAmountToLong(monthlyStr)
+                val rawTotal = com.example.util.IranianAmountUtils.parseAmountToLong(totalStr)
+                val rawMonthly = com.example.util.IranianAmountUtils.parseAmountToLong(monthlyStr)
                 val parsedCount = countStr.filter { it.isDigit() }.toIntOrNull() ?: 0
 
                 if (customScheduleItems.isNullOrEmpty()) {
-                    if (parsedTotal <= 0L || parsedCount <= 0 || parsedMonthly <= 0L) {
+                    if (rawTotal <= 0L || parsedCount <= 0 || rawMonthly <= 0L) {
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("مبلغ کل، مبلغ هر قسط و تعداد اقساط باید معتبر و بزرگتر از صفر باشند.")
                         }
@@ -469,6 +473,9 @@ fun InstallmentsScreen(
                         return@AddInstallmentSheet
                     }
                 }
+
+                val parsedTotal = com.example.util.MoneyFormatter.convertToToman(rawTotal)
+                val parsedMonthly = com.example.util.MoneyFormatter.convertToToman(rawMonthly)
 
                 val totalAmount = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.sumOf { it.amount } else parsedTotal
                 val totalInstallments = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.size else parsedCount

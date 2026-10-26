@@ -52,6 +52,17 @@ object MoneyFormatter {
     }
 
     /**
+     * Converts an amount entered in the source currency to the base unit Toman.
+     * 10 Rials = 1 Toman.
+     */
+    fun convertToToman(amountInSource: Long, sourceCurrency: AppCurrency = activeCurrency): Long {
+        return when (sourceCurrency) {
+            AppCurrency.RIAL -> amountInSource / 10L
+            else -> amountInSource
+        }
+    }
+
+    /**
      * Formats an amount with currency unit and language-specific numerals.
      * Example (Toman, Fa): 18000000 -> "۱۸,۰۰۰,۰۰۰ تومان"
      * Example (Rial, Fa):  18000000 -> "۱۸۰,۰۰۰,۰۰۰ ریال"

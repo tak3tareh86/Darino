@@ -1022,11 +1022,13 @@ private fun CustomInstallmentsDialog(
                                 if (feeLong > 0 && countInt > 1) {
                                     val remTotal = (totalAmountLong - feeLong).coerceAtLeast(0L)
                                     val remMonthly = remTotal / (countInt - 1)
+                                    val feeToman = MoneyFormatter.convertToToman(feeLong)
+                                    val remMonthlyToman = MoneyFormatter.convertToToman(remMonthly)
                                     scheduleList = scheduleList.mapIndexed { idx, item ->
                                         if (idx == 0) {
-                                            item.copy(amount = feeLong, amountFormatted = MoneyFormatter.formatToman(feeLong))
+                                            item.copy(amount = feeToman, amountFormatted = MoneyFormatter.formatToman(feeToman))
                                         } else {
-                                            item.copy(amount = remMonthly, amountFormatted = MoneyFormatter.formatToman(remMonthly))
+                                            item.copy(amount = remMonthlyToman, amountFormatted = MoneyFormatter.formatToman(remMonthlyToman))
                                         }
                                     }
                                 }
@@ -1056,17 +1058,21 @@ private fun CustomInstallmentsDialog(
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 modifier = Modifier.width(55.dp)
                             )
-                            var rawInput by remember(item.amount) { mutableStateOf(IranianAmountUtils.formatWithCommas(item.amount.toString())) }
+                            val displayAmount = MoneyFormatter.convertFromToman(item.amount)
+                            var rawInput by remember(item.amount) {
+                                mutableStateOf(if (displayAmount > 0L) IranianAmountUtils.formatWithCommas(displayAmount.toString()) else "")
+                            }
                             Box(modifier = Modifier.weight(1f)) {
                                 PersianAmountInputField(
                                     value = rawInput,
                                     onValueChange = { newStr ->
                                         rawInput = newStr
-                                        val parsedLong = IranianAmountUtils.parseAmountToLong(newStr)
+                                        val parsedRaw = IranianAmountUtils.parseAmountToLong(newStr)
+                                        val parsedToman = MoneyFormatter.convertToToman(parsedRaw)
                                         scheduleList = scheduleList.toMutableList().apply {
                                             this[index] = item.copy(
-                                                amount = parsedLong,
-                                                amountFormatted = MoneyFormatter.formatToman(parsedLong)
+                                                amount = parsedToman,
+                                                amountFormatted = MoneyFormatter.formatToman(parsedToman)
                                             )
                                         }
                                     },
