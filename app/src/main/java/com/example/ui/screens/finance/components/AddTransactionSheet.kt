@@ -518,340 +518,123 @@ fun AddTransactionSheet(
                 )
             }
 
-            // Expandable Advanced Options (Subcategory, Date, Time, Payment Method, Description, Tags, Recurring)
+
+
+            // Date & Time Row (Directly visible)
+            val context = LocalContext.current
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { isAdvancedExpanded = !isAdvancedExpanded }
-                    .padding(vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Top
             ) {
-                Text(
-                    text = if (isAdvancedExpanded) "بستن گزینه‌های پیشرفته" else "گزینه‌های بیشتر (روش پرداخت، تاریخ، تکرار و...)",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 11.5.sp
-                    ),
-                    color = MaterialTheme.colorScheme.primary
+                PersianDateInputField(
+                    value = datePersian,
+                    onValueChange = { datePersian = it },
+                    modifier = Modifier.weight(1.3f),
+                    label = "تاریخ",
+                    useOuterHeader = true,
+                    placeholder = "۱۴۰۴/۰۷/۱۵",
+                    dialogTitle = "انتخاب تاریخ تراکنش"
                 )
 
-                Icon(
-                    imageVector = if (isAdvancedExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            AnimatedVisibility(visible = isAdvancedExpanded) {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.weight(0.7f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // Subcategories if available
-                    if (selectedCategory.subCategories.isNotEmpty()) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "زیردسته‌بندی",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    Text(
+                        text = "ساعت",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    var showTimePicker by remember { mutableStateOf(false) }
 
-                            FlowRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                selectedCategory.subCategories.forEach { sub ->
-                                    val isSubSelected = selectedSubCategory == sub
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isSubSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
-                                        border = BorderStroke(
-                                            1.dp,
-                                            if (isSubSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-                                        ),
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable { selectedSubCategory = sub }
-                                    ) {
-                                        Text(
-                                            text = sub,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                                            color = if (isSubSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Payment Method Selector
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "روش پرداخت / حساب",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        Row(
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = timePersian,
+                            onValueChange = {},
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            PaymentMethod.entries.forEach { method ->
-                                val isSelected = paymentMethod == method
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
-                                    border = BorderStroke(
-                                        1.dp,
-                                        if (isSelected) MaterialTheme.colorScheme.primary else if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
-                                    ),
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { paymentMethod = method }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Text(text = method.iconEmoji, fontSize = 12.sp)
-                                        Text(
-                                            text = method.title,
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                fontSize = 10.5.sp
-                                            ),
-                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Date & Time Row
-                    val context = LocalContext.current
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        PersianDateInputField(
-                            value = datePersian,
-                            onValueChange = { datePersian = it },
-                            modifier = Modifier.weight(1.3f),
-                            label = "تاریخ",
-                            useOuterHeader = true,
-                            placeholder = "۱۴۰۴/۰۷/۱۵",
-                            dialogTitle = "انتخاب تاریخ تراکنش"
-                        )
-
-                        Column(
-                            modifier = Modifier.weight(0.7f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "ساعت",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            var showTimePicker by remember { mutableStateOf(false) }
-
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                OutlinedTextField(
-                                    value = timePersian,
-                                    onValueChange = {},
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("tx_time_input"),
-                                    readOnly = true,
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(RadiusMD),
-                                    trailingIcon = {
-                                        IconButton(
-                                            onClick = { showTimePicker = true },
-                                            modifier = Modifier.size(38.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.ExpandMore,
-                                                contentDescription = "انتخاب ساعت",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
-                                )
-                                // Transparent overlay ensures 100% of touches on the text field trigger the time picker
-                                Box(
-                                    modifier = Modifier
-                                        .matchParentSize()
-                                        .clickable { showTimePicker = true }
-                                )
-                            }
-
-                            if (showTimePicker) {
-                                val asciiTime = IranianPhoneUtils.convertDigitsToEnglish(timePersian)
-                                val timeParts = asciiTime.split(":")
-                                val initialHour = (timeParts.getOrNull(0)?.trim()?.toIntOrNull() ?: 12).coerceIn(0, 23)
-                                val initialMinute = (timeParts.getOrNull(1)?.trim()?.toIntOrNull() ?: 0).coerceIn(0, 59)
-                                val timePickerState = rememberTimePickerState(
-                                    initialHour = initialHour,
-                                    initialMinute = initialMinute,
-                                    is24Hour = true
-                                )
-
-                                Dialog(
-                                    onDismissRequest = { showTimePicker = false },
-                                    properties = DialogProperties(usePlatformDefaultWidth = false)
-                                ) {
-                                    Surface(
-                                        shape = RoundedCornerShape(24.dp),
-                                        tonalElevation = 6.dp,
-                                        color = MaterialTheme.colorScheme.surface,
-                                        modifier = Modifier
-                                            .widthIn(max = 340.dp)
-                                            .padding(horizontal = 16.dp)
-                                    ) {
-                                        Column(
-                                            modifier = Modifier.padding(20.dp),
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                                        ) {
-                                            Text(
-                                                text = "انتخاب ساعت",
-                                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                            TimePicker(
-                                                state = timePickerState
-                                            )
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.End,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                TextButton(onClick = { showTimePicker = false }) {
-                                                    Text("لغو", style = MaterialTheme.typography.labelLarge)
-                                                }
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Button(
-                                                    onClick = {
-                                                        val h = IranianPhoneUtils.convertDigitsToPersian(timePickerState.hour.toString().padStart(2, '0'))
-                                                        val m = IranianPhoneUtils.convertDigitsToPersian(timePickerState.minute.toString().padStart(2, '0'))
-                                                        timePersian = "$h:$m"
-                                                        showTimePicker = false
-                                                    }
-                                                ) {
-                                                    Text("تأیید", style = MaterialTheme.typography.labelLarge)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-
-                    // Description & Tags
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "توضیحات و یادداشت (اختیاری)",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        OutlinedTextField(
-                            value = description,
-                            onValueChange = { description = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("توضیحات تکمیلی...", style = MaterialTheme.typography.bodySmall) },
-                            maxLines = 3,
-                            shape = RoundedCornerShape(RadiusMD)
-                        )
-                    }
-
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "برچسب‌ها (با ویرگول جدا کنید)",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        OutlinedTextField(
-                            value = tagsText,
-                            onValueChange = { tagsText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("مثال: ضروری، شخصی، سفر", style = MaterialTheme.typography.bodySmall) },
+                                .testTag("tx_time_input"),
+                            readOnly = true,
                             singleLine = true,
-                            shape = RoundedCornerShape(RadiusMD)
+                            shape = RoundedCornerShape(RadiusMD),
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = { showTimePicker = true },
+                                    modifier = Modifier.size(38.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ExpandMore,
+                                        contentDescription = "انتخاب ساعت",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showTimePicker = true }
                         )
                     }
 
-                    // Recurring Transaction Switch
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(RadiusMD))
-                            .background(if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC))
-                            .padding(10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Repeat,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = "تراکنش تکرارشونده",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.5.sp),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        Switch(
-                            checked = isRecurring,
-                            onCheckedChange = { isRecurring = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary
-                            )
+                    if (showTimePicker) {
+                        val asciiTime = IranianPhoneUtils.convertDigitsToEnglish(timePersian)
+                        val timeParts = asciiTime.split(":")
+                        val initialHour = (timeParts.getOrNull(0)?.trim()?.toIntOrNull() ?: 12).coerceIn(0, 23)
+                        val initialMinute = (timeParts.getOrNull(1)?.trim()?.toIntOrNull() ?: 0).coerceIn(0, 59)
+                        val timePickerState = rememberTimePickerState(
+                            initialHour = initialHour,
+                            initialMinute = initialMinute,
+                            is24Hour = true
                         )
-                    }
 
-                    if (isRecurring) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        Dialog(
+                            onDismissRequest = { showTimePicker = false },
+                            properties = DialogProperties(usePlatformDefaultWidth = false)
                         ) {
-                            RecurringFrequency.entries.forEach { freq ->
-                                val isSelected = recurringFrequency == freq
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { recurringFrequency = freq },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
+                            Surface(
+                                shape = RoundedCornerShape(24.dp),
+                                tonalElevation = 6.dp,
+                                color = MaterialTheme.colorScheme.surface,
+                                modifier = Modifier
+                                    .widthIn(max = 340.dp)
+                                    .padding(horizontal = 16.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(20.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     Text(
-                                        text = freq.title,
-                                        modifier = Modifier.padding(vertical = 6.dp),
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
-                                        textAlign = TextAlign.Center
+                                        text = "انتخاب ساعت",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.fillMaxWidth()
                                     )
+                                    TimePicker(
+                                        state = timePickerState
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        TextButton(onClick = { showTimePicker = false }) {
+                                            Text("لغو", style = MaterialTheme.typography.labelLarge)
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Button(
+                                            onClick = {
+                                                val h = IranianPhoneUtils.convertDigitsToPersian(timePickerState.hour.toString().padStart(2, '0'))
+                                                val m = IranianPhoneUtils.convertDigitsToPersian(timePickerState.minute.toString().padStart(2, '0'))
+                                                timePersian = "$h:$m"
+                                                showTimePicker = false
+                                            }
+                                        ) {
+                                            Text("تأیید", style = MaterialTheme.typography.labelLarge)
+                                        }
+                                    }
                                 }
                             }
                         }
