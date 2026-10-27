@@ -41,9 +41,12 @@ fun AddEditCheckDialog(
     var dueDate by remember { mutableStateOf(check?.dueDate ?: (System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000)) }
     var notes by remember { mutableStateOf(check?.notes ?: "") }
     var status by remember { mutableStateOf(check?.status ?: CheckStatus.REGISTERED) }
+    var reminderDateTime by remember { mutableStateOf(check?.reminderDateTime) }
 
     var showIssueDatePicker by remember { mutableStateOf(false) }
     var showDueDatePicker by remember { mutableStateOf(false) }
+    var showReminderDatePicker by remember { mutableStateOf(false) }
+    var showReminderTimePicker by remember { mutableStateOf(false) }
 
     val isDateInvalid = dueDate < issueDate
     var showError by remember { mutableStateOf(false) }
@@ -90,6 +93,7 @@ fun AddEditCheckDialog(
                                             status = status,
                                             notes = notes.ifBlank { null },
                                             accountId = check?.accountId,
+                                            reminderDateTime = reminderDateTime,
                                             createdAt = check?.createdAt ?: System.currentTimeMillis(),
                                             updatedAt = System.currentTimeMillis()
                                         )
@@ -253,6 +257,75 @@ fun AddEditCheckDialog(
                     }
                 }
 
+                // Reminder Section
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Rounded.NotificationsActive, 
+                            null, 
+                            tint = if (reminderDateTime != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "یادآور چک",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Switch(
+                        checked = reminderDateTime != null,
+                        onCheckedChange = { 
+                            if (it) {
+                                // Default reminder: 1 day before due date at 09:00
+                                val calendar = Calendar.getInstance()
+                                calendar.timeInMillis = dueDate - 24 * 60 * 60 * 1000
+                                calendar.set(Calendar.HOUR_OF_DAY, 9)
+                                calendar.set(Calendar.MINUTE, 0)
+                                reminderDateTime = calendar.timeInMillis
+                            } else {
+                                reminderDateTime = null
+                            }
+                        }
+                    )
+                }
+
+                if (reminderDateTime != null) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedCard(
+                            onClick = { showReminderDatePicker = true },
+                            modifier = Modifier.weight(1.5f)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("تاریخ یادآور", style = MaterialTheme.typography.labelSmall)
+                                Text(
+                                    text = PersianCalendarHelper.fromEpochMillis(reminderDateTime!!).toFormattedDate(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        OutlinedCard(
+                            onClick = { showReminderTimePicker = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("ساعت", style = MaterialTheme.typography.labelSmall)
+                                Text(
+                                    text = PersianCalendarHelper.fromEpochMillis(reminderDateTime!!).toFormattedTime(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
                 if (check != null) {
                     Text("وضعیت چک", style = MaterialTheme.typography.titleSmall)
                     FlowRow(
@@ -309,6 +382,106 @@ fun AddEditCheckDialog(
                 onDismiss = { showDueDatePicker = false }
             )
         }
+
+        if (showReminderDatePicker) {
+            val dateParts = PersianCalendarHelper.fromEpochMillis(reminderDateTime ?: dueDate)
+            SharedPersianDatePickerDialog(
+                initialYear = dateParts.year,
+                initialMonth = dateParts.month,
+                initialDay = dateParts.day,
+                onConfirm = { y, m, d ->
+                    val currentTime = PersianCalendarHelper.fromEpochMillis(reminderDateTime ?: System.currentTimeMillis())
+                    reminderDateTime = PersianCalendarHelper.jalaliToEpochMillis(y, m, d, currentTime.hour, currentTime.minute)
+                    showReminderDatePicker = false
+                },
+                onDismiss = { showReminderDatePicker = false }
+            )
+        }
+
+        if (showReminderTimePicker) {
+            val current = PersianCalendarHelper.fromEpochMillis(reminderDateTime ?: System.currentTimeMillis())
+            SimpleTimePickerDialog(
+                initialHour = current.hour,
+                initialMinute = current.minute,
+                onDismiss = { showReminderTimePicker = false },
+                onConfirm = { h, m ->
+                    val currentDate = PersianCalendarHelper.fromEpochMillis(reminderDateTime ?: System.currentTimeMillis())
+                    reminderDateTime = PersianCalendarHelper.jalaliToEpochMillis(currentDate.year, currentDate.month, currentDate.day, h, m)
+                    showReminderTimePicker = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun SimpleTimePickerDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, Int) -> Unit
+) {
+    var hour by remember { mutableStateOf(initialHour) }
+    var minute by remember { mutableStateOf(initialMinute) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("انتخاب ساعت یادآور", style = MaterialTheme.typography.titleMedium) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    NumberPicker(
+                        value = hour,
+                        onValueChange = { hour = it },
+                        range = 0..23,
+                        label = "ساعت"
+                    )
+                    Text(":", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(horizontal = 8.dp))
+                    NumberPicker(
+                        value = minute,
+                        onValueChange = { minute = it },
+                        range = 0..59,
+                        label = "دقیقه"
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(hour, minute) }) {
+                Text("تأیید")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("انصراف")
+            }
+        }
+    )
+}
+
+@Composable
+fun NumberPicker(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    range: IntRange,
+    label: String
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        IconButton(onClick = { if (value < range.last) onValueChange(value + 1) else onValueChange(range.first) }) {
+            Icon(Icons.Rounded.KeyboardArrowUp, null)
+        }
+        Text(
+            text = value.toString().padStart(2, '0').let { com.example.util.IranianPhoneUtils.convertDigitsToPersian(it) },
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+        IconButton(onClick = { if (value > range.first) onValueChange(value - 1) else onValueChange(range.last) }) {
+            Icon(Icons.Rounded.KeyboardArrowDown, null)
+        }
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

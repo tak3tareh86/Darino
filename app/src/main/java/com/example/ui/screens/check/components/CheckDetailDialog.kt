@@ -93,6 +93,15 @@ fun CheckDetailDialog(
                 icon = Icons.Rounded.Event,
                 valueColor = if (check.isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
             )
+            if (check.reminderDateTime != null) {
+                val reminder = com.example.util.PersianCalendarHelper.fromEpochMillis(check.reminderDateTime)
+                InfoRow(
+                    label = "زمان یادآور",
+                    value = "${reminder.toFormattedDate()} - ساعت ${reminder.toFormattedTime()}",
+                    icon = Icons.Rounded.NotificationsActive,
+                    valueColor = MaterialTheme.colorScheme.primary
+                )
+            }
             if (check.branch != null) {
                 InfoRow(label = "شعبه", value = check.branch, icon = Icons.Rounded.AccountTree)
             }

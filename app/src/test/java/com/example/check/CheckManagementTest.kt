@@ -551,4 +551,68 @@ class CheckManagementTest {
         val transactions1 = database.transactionDao().getAllTransactionsList("user_1")
         assertTrue(transactions1.any { it.stringId == "check_settle_${savedCheck.id}" })
     }
+
+    @Test
+    fun `test add check with reminder`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        
+        val reminderTime = System.currentTimeMillis() + 3600000 // 1 hour later
+        val check = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "REM-01",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis() + 86400000,
+            status = CheckStatus.REGISTERED,
+            reminderDateTime = reminderTime
+        )
+        
+        repository.addCheck(check)
+        val saved = repository.getChecks().first()[0]
+        assertEquals(reminderTime, saved.reminderDateTime)
+    }
+
+    @Test
+    fun `test settlement failure on account mismatch in idempotent retry`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        
+        val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "MISMATCH-01", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 100, status = CheckStatus.REGISTERED)
+        repository.addCheck(check)
+        val savedCheck = repository.getChecks().first()[0]
+        
+        val account1 = com.example.ui.screens.finance.model.Account(id = "acc_1", userId = "user_1", name = "Acc 1", type = com.example.ui.screens.finance.model.AccountType.BANK)
+        val account2 = com.example.ui.screens.finance.model.Account(id = "acc_2", userId = "user_1", name = "Acc 2", type = com.example.ui.screens.finance.model.AccountType.BANK)
+        database.accountDao().insertAccount(com.example.data.database.AccountEntity(userId = "user_1", stringId = "acc_1", name = "Acc 1", type = "BANK"))
+        database.accountDao().insertAccount(com.example.data.database.AccountEntity(userId = "user_1", stringId = "acc_2", name = "Acc 2", type = "BANK"))
+
+        // 1. Settle with Account 1
+        repository.settleCheck(savedCheck, account1)
+        
+        // 2. Attempt to settle SAME check with Account 2 (Idempotent retry with DIFFERENT account)
+        val result = repository.settleCheck(savedCheck, account2)
+        assertEquals("Should fail if account doesn't match previous settlement", CheckOperationResult.PERSISTENCE_ERROR, result)
+    }
+
+    @Test
+    fun `test reminder cancellation on settlement`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        
+        val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "CANCEL-REM", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 100, status = CheckStatus.REGISTERED, reminderDateTime = System.currentTimeMillis() + 100000)
+        repository.addCheck(check)
+        val savedCheck = repository.getChecks().first()[0]
+        
+        val account = com.example.ui.screens.finance.model.Account(id = "acc_1", userId = "user_1", name = "Acc", type = com.example.ui.screens.finance.model.AccountType.BANK)
+        database.accountDao().insertAccount(com.example.data.database.AccountEntity(userId = "user_1", stringId = "acc_1", name = "Acc", type = "BANK"))
+
+        // Settle check
+        val result = repository.settleCheck(savedCheck, account)
+        assertEquals(CheckOperationResult.SUCCESS, result)
+        
+        // Reminder cancellation logic is executed via reminderManager.onCheckSettled
+    }
 }

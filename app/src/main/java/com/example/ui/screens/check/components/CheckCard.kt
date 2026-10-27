@@ -107,28 +107,50 @@ fun CheckCard(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = if (check.type == CheckType.RECEIVED) "از: ${check.holderName}" else "به: ${check.receiverName}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
                     )
                     
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Rounded.Event,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = check.formattedDueDate,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (check.isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = if (check.isOverdue) FontWeight.Bold else FontWeight.Normal
-                        )
+                    Column(horizontalAlignment = Alignment.End) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Rounded.Event,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = check.formattedDueDate,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (check.isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (check.isOverdue) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                        
+                        if (check.reminderDateTime != null) {
+                            val reminder = com.example.util.PersianCalendarHelper.fromEpochMillis(check.reminderDateTime)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Rounded.NotificationsActive,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Text(
+                                    text = "${reminder.toFormattedDate()} ${reminder.toFormattedTime()}",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     }
                 }
             }

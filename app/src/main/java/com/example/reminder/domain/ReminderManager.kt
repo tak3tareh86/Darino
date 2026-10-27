@@ -423,14 +423,34 @@ class ReminderManager(
         title: String,
         amount: Long,
         dueDatePersian: String,
-        type: String // "RECEIVED" or "PAID"
+        type: String, // "RECEIVED" or "PAID"
+        reminderDateTime: Long? = null
     ) = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(checkId)
         
+        // Use custom reminder time if provided, otherwise default to due date at 09:00
+        val targetDateTime = reminderDateTime ?: run {
+            val dateParts = dueDatePersian.split("/")
+            if (dateParts.size == 3) {
+                PersianCalendarHelper.jalaliToEpochMillis(
+                    dateParts[0].trim().toInt(),
+                    dateParts[1].trim().toInt(),
+                    dateParts[2].trim().toInt(),
+                    9, 0
+                )
+            } else {
+                System.currentTimeMillis() + 86400000 // Fallback
+            }
+        }
+
+        val persianDate = PersianCalendarHelper.fromEpochMillis(targetDateTime).toFormattedDate()
+        val persianTime = PersianCalendarHelper.fromEpochMillis(targetDateTime).toFormattedTime()
+
         val reminder = existing?.copy(
             title = if (type == "RECEIVED") "وصول چک دریافتی: $title" else "پرداخت چک: $title",
             amount = amount,
-            date = dueDatePersian,
+            date = persianDate,
+            time = persianTime,
             status = "ACTIVE"
         ) ?: ReminderEntity(
             id = "rem_chk_$checkId",
@@ -441,17 +461,16 @@ class ReminderManager(
             sourceId = checkId,
             priority = "HIGH",
             status = "ACTIVE",
-            date = dueDatePersian,
-            time = "۰۹:۰۰",
+            date = persianDate,
+            time = persianTime,
             amount = amount,
             notificationEnabled = true,
             smsEnabled = false
         )
 
-        val offsets = listOf(
-            PredefinedOffset.BEFORE_1_DAY,
-            PredefinedOffset.AT_TIME
-        )
+        // For custom check reminders, we only use EXACT time (AT_TIME offset)
+        // unless it's the default one (could keep BEFORE_1_DAY if we wanted, but requirement says "independent time")
+        val offsets = listOf(PredefinedOffset.AT_TIME)
 
         if (existing == null) {
             createReminder(reminder, offsets)

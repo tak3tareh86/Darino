@@ -60,7 +60,8 @@ class LocalCheckRepository private constructor() : CheckRepository {
                         title = "${check.bankName} - ${check.checkNumber}",
                         amount = check.amount,
                         dueDatePersian = check.formattedDueDate,
-                        type = check.type.name
+                        type = check.type.name,
+                        reminderDateTime = check.reminderDateTime
                     )
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -120,7 +121,8 @@ class LocalCheckRepository private constructor() : CheckRepository {
                         title = "${check.bankName} - ${check.checkNumber}",
                         amount = check.amount,
                         dueDatePersian = check.formattedDueDate,
-                        type = check.type.name
+                        type = check.type.name,
+                        reminderDateTime = check.reminderDateTime
                     )
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -253,6 +255,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             status = CheckStatus.valueOf(status),
             notes = notes,
             accountId = accountId,
+            reminderDateTime = reminderDateTime,
             createdAt = createdAt,
             updatedAt = updatedAt
         )
@@ -275,6 +278,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             status = status.name,
             notes = notes,
             accountId = accountId,
+            reminderDateTime = reminderDateTime,
             createdAt = createdAt,
             updatedAt = System.currentTimeMillis()
         )

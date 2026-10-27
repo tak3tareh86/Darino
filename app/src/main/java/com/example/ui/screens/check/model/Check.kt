@@ -31,6 +31,7 @@ data class Check(
     val status: CheckStatus,
     val notes: String? = null,
     val accountId: String? = null,
+    val reminderDateTime: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 ) {

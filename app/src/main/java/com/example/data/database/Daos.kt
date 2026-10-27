@@ -530,13 +530,19 @@ interface CheckDao {
         // 1. Idempotency Check: Does a valid transaction already exist for this user and check?
         val existingTx = transactionDao.getTransactionByStringId(check.userId, transaction.stringId)
         if (existingTx != null) {
-            // Transaction exists. Does it match this specific check?
+            // Idempotency Check: Transaction must match this specific check, user AND account
             if (existingTx.sourceId == check.id.toString() && 
                 existingTx.sourceType == "CHECK" && 
                 existingTx.userId == check.userId) {
                 
-                // If transaction is there, ensure the check record also reaches the correct state.
-                // We attempt update and even if 0 rows (already updated), we verify final state below.
+                // CRITICAL: Ensure the account used for previous settlement matches the current request
+                // If account mismatch, we return false (or a specific error if we had one) 
+                // to prevent inconsistent financial state.
+                if (existingTx.accountId != check.accountId) {
+                    return false
+                }
+
+                // If transaction is there and matches, ensure the check record also reaches the correct state.
                 updateCheckWithOwner(
                     id = check.id,
                     userId = check.userId,
@@ -556,7 +562,7 @@ interface CheckDao {
                     updatedAt = check.updatedAt
                 )
                 
-                // Final verification: Is the check actually in the DB and belongs to the user?
+                // Final verification
                 val finalCheckState = getCheckById(check.userId, check.id)
                 return finalCheckState != null && 
                        finalCheckState.status == "CLEARED" && 
@@ -587,15 +593,14 @@ interface CheckDao {
             updatedAt = check.updatedAt
         )
 
-        // If no rows updated (e.g. concurrent deletion or ownership mismatch)
+        // If no rows updated
         if (updatedRows == 0) {
-            // Check if it was already updated by another thread to the target state
             val concurrentState = getCheckById(check.userId, check.id)
             if (concurrentState != null && 
                 concurrentState.status == "CLEARED" && 
-                concurrentState.userId == check.userId) {
-                // If it's already CLEARED, we still need to ensure the transaction exists.
-                // The logic will continue to try inserting the transaction.
+                concurrentState.userId == check.userId &&
+                concurrentState.accountId == check.accountId) {
+                // Already CLEARED with correct account. Continue to ensure transaction exists.
             } else {
                 return false
             }
@@ -605,15 +610,14 @@ interface CheckDao {
         try {
             transactionDao.insertTransaction(transaction)
         } catch (e: Exception) {
-            // Double-check for race condition insertion
             val doubleCheckTx = transactionDao.getTransactionByStringId(check.userId, transaction.stringId)
             if (doubleCheckTx != null && 
                 doubleCheckTx.sourceId == check.id.toString() && 
                 doubleCheckTx.sourceType == "CHECK" &&
-                doubleCheckTx.userId == check.userId) {
+                doubleCheckTx.userId == check.userId &&
+                doubleCheckTx.accountId == check.accountId) {
                 return true
             }
-            // Rethrow other errors (e.g. actual duplicate with wrong source or IO error) to rollback
             throw e
         }
 
