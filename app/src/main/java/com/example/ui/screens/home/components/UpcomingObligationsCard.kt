@@ -161,12 +161,12 @@ fun UpcomingObligationsCard(
 
                             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(
-                                    text = "در حال حاضر تعهد نزدیکی ندارید.",
+                                    text = "در حال حاضر هیچ قسط بانکی پرداخت‌نشده‌ای برای نمایش وجود ندارد.",
                                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "همه اقساط بانکی در وضعیت پرداخت‌شده و منظم هستند.",
+                                    text = "همه وام‌ها و اقساط بانکی در وضعیت پرداخت‌شده و منظم هستند.",
                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

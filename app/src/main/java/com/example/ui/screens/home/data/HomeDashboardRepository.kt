@@ -15,6 +15,7 @@ import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import com.example.ui.screens.installments.model.InstallmentCategory
 import com.example.ui.screens.installments.model.InstallmentItem
 import com.example.ui.screens.installments.model.InstallmentStatus
+import com.example.ui.screens.installments.model.PaymentHistoryItem
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
 import kotlinx.coroutines.flow.firstOrNull
@@ -111,23 +112,41 @@ class HomeDashboardRepository(
         val list = mutableListOf<UpcomingObligationItem>()
 
         // 1. Only Real Bank Installments from LocalInstallmentRepository
-        val realInstallments = installmentRepository.installments.value.filter {
+        val realBankInstallments = installmentRepository.installments.value.filter {
+            it.category == InstallmentCategory.BANK_LOANS &&
             it.remainingInstallments > 0 &&
             it.status != InstallmentStatus.COMPLETED &&
             it.status != InstallmentStatus.PAID
         }
-        for (item in realInstallments) {
-            val unpaidPayment = item.paymentHistory.firstOrNull {
+        for (item in realBankInstallments) {
+            val unpaidPayments = item.paymentHistory.filter {
                 it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
             }
-            val effectiveDueDate = unpaidPayment?.dueDate?.ifBlank { item.nextPaymentDate } ?: item.nextPaymentDate
-            val paymentAmount = if (unpaidPayment != null && unpaidPayment.amount > 0L) {
-                unpaidPayment.amount
+            val nearestUnpaid = if (unpaidPayments.isNotEmpty()) {
+                unpaidPayments.minWithOrNull(
+                    compareBy<PaymentHistoryItem> { p ->
+                        val date = p.dueDate.ifBlank { item.nextPaymentDate }
+                        val diff = calculateDaysDifference(date)
+                        if (diff < 0) 0 else if (diff == 0) 1 else 2
+                    }.thenBy { p ->
+                        val date = p.dueDate.ifBlank { item.nextPaymentDate }
+                        calculateDaysDifference(date)
+                    }.thenBy { p ->
+                        p.dueDate.ifBlank { item.nextPaymentDate }
+                    }.thenBy { p ->
+                        p.installmentNumber
+                    }
+                )
+            } else null
+
+            val effectiveDueDate = nearestUnpaid?.dueDate?.ifBlank { item.nextPaymentDate } ?: item.nextPaymentDate
+            val paymentAmount = if (nearestUnpaid != null && nearestUnpaid.amount > 0L) {
+                nearestUnpaid.amount
             } else {
                 item.totalAmount / item.totalInstallments.coerceAtLeast(1)
             }
             val formattedAmount = MoneyFormatter.formatToman(paymentAmount)
-            val bankName = resolveBankName(item)
+            val bankName = item.providerOrPerson.trim()
 
             val diff = calculateDaysDifference(effectiveDueDate)
             val isOverdue = diff < 0 || item.status == InstallmentStatus.OVERDUE
@@ -175,23 +194,6 @@ class HomeDashboardRepository(
                 item.id
             }
         ).take(1)
-    }
-
-    private fun resolveBankName(item: InstallmentItem): String {
-        val provider = item.providerOrPerson.trim()
-        if (provider.isNotBlank()) {
-            return provider
-        }
-        val bankIndex = item.title.indexOf("بانک")
-        if (bankIndex >= 0) {
-            val part = item.title.substring(bankIndex).trim()
-            val tokens = part.split("\\s+".toRegex())
-            if (tokens.size >= 2) {
-                return "${tokens[0]} ${tokens[1]}".trim()
-            }
-            return tokens[0]
-        }
-        return if (item.category == InstallmentCategory.BANK_LOANS) "بانک" else item.category.title
     }
 
     suspend fun getUpcomingReminders(): List<UpcomingReminderItem> {

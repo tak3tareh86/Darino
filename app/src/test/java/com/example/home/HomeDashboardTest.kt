@@ -161,7 +161,7 @@ class HomeDashboardTest {
             com.example.ui.screens.installments.model.InstallmentItem(
                 id = "loan_test",
                 title = "وام مسکن بانک ملت",
-                category = com.example.ui.screens.installments.model.InstallmentCategory.HOME_LOANS,
+                category = com.example.ui.screens.installments.model.InstallmentCategory.BANK_LOANS,
                 providerOrPerson = "بانک مسکن",
                 totalAmount = 240_000_000L,
                 paidAmount = 100_000_000L,
@@ -250,7 +250,7 @@ class HomeDashboardTest {
             timestampMillis = System.currentTimeMillis()
         )
         assertNotNull(parsed)
-        assertTrue(parsed!!.isTypeUncertain)
+        assertEquals(TransactionType.INCOME, parsed!!.type)
     }
 
     @Test
@@ -838,5 +838,267 @@ class HomeDashboardTest {
         assertEquals(1, newObligations.size)
         assertEquals("قسط دوم بعد", newObligations.first().title)
         assertEquals("بانک پاسارگاد", newObligations.first().bankName)
+    }
+
+    @Test
+    fun `test UpcomingObligations strictly excludes non-bank installments`() = kotlinx.coroutines.runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val user = com.example.data.api.NetworkUserDto(
+            id = "test_user_category_filter",
+            fullName = "کاربر تست",
+            email = null,
+            phoneNumber = "09125555555",
+            phoneVerified = true
+        )
+        com.example.data.security.SessionManager.setAuthenticatedUser(user)
+
+        val installmentRepo = com.example.ui.screens.installments.data.LocalInstallmentRepository.instance
+        installmentRepo.init(context)
+        installmentRepo.clearAllInstallments(context)
+        var clearWait = 0
+        while (installmentRepo.installments.value.isNotEmpty() && clearWait < 30) {
+            kotlinx.coroutines.delay(50L)
+            clearWait++
+        }
+
+        val currentPdt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val tomorrowJalali = com.example.util.IranianDateUtils.createFormattedDate(currentPdt.year, currentPdt.month, (currentPdt.day + 1).coerceAtMost(28))
+
+        // Add HOME_LOANS installment
+        installmentRepo.addInstallment(
+            com.example.ui.screens.installments.model.InstallmentItem(
+                id = "inst_home",
+                title = "وام خانگی فامیلی",
+                category = com.example.ui.screens.installments.model.InstallmentCategory.HOME_LOANS,
+                providerOrPerson = "صندوق خانوادگی",
+                totalAmount = 50_000_000L,
+                paidAmount = 0L,
+                remainingAmount = 50_000_000L,
+                totalInstallments = 10,
+                remainingInstallments = 10,
+                nextPaymentDate = tomorrowJalali,
+                nextDueDaysText = "فردا",
+                startDate = "1403/01/01",
+                endDate = "1403/11/01",
+                status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING,
+                monthlyPaymentFormatted = "۵,۰۰۰,۰۰۰ تومان"
+            ),
+            context = context
+        )
+        var wait = 0
+        while (!installmentRepo.installments.value.any { it.id == "inst_home" } && wait < 30) {
+            kotlinx.coroutines.delay(50L)
+            wait++
+        }
+
+        // Add CAR_INSURANCE installment
+        installmentRepo.addInstallment(
+            com.example.ui.screens.installments.model.InstallmentItem(
+                id = "inst_car",
+                title = "بیمه شخص ثالث خودرو",
+                category = com.example.ui.screens.installments.model.InstallmentCategory.CAR_INSURANCE,
+                providerOrPerson = "بیمه ایران",
+                totalAmount = 12_000_000L,
+                paidAmount = 0L,
+                remainingAmount = 12_000_000L,
+                totalInstallments = 4,
+                remainingInstallments = 4,
+                nextPaymentDate = tomorrowJalali,
+                nextDueDaysText = "فردا",
+                startDate = "1403/01/01",
+                endDate = "1403/05/01",
+                status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING,
+                monthlyPaymentFormatted = "۳,۰۰۰,۰۰۰ تومان"
+            ),
+            context = context
+        )
+        wait = 0
+        while (!installmentRepo.installments.value.any { it.id == "inst_car" } && wait < 30) {
+            kotlinx.coroutines.delay(50L)
+            wait++
+        }
+
+        // Add MISC installment
+        installmentRepo.addInstallment(
+            com.example.ui.screens.installments.model.InstallmentItem(
+                id = "inst_misc",
+                title = "خرید اقساطی لپ‌تاپ",
+                category = com.example.ui.screens.installments.model.InstallmentCategory.MISC,
+                providerOrPerson = "فروشگاه دیجی",
+                totalAmount = 30_000_000L,
+                paidAmount = 0L,
+                remainingAmount = 30_000_000L,
+                totalInstallments = 6,
+                remainingInstallments = 6,
+                nextPaymentDate = tomorrowJalali,
+                nextDueDaysText = "فردا",
+                startDate = "1403/01/01",
+                endDate = "1403/07/01",
+                status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING,
+                monthlyPaymentFormatted = "۵,۰۰۰,۰۰۰ تومان"
+            ),
+            context = context
+        )
+        wait = 0
+        while (!installmentRepo.installments.value.any { it.id == "inst_misc" } && wait < 30) {
+            kotlinx.coroutines.delay(50L)
+            wait++
+        }
+
+        val repo = HomeDashboardRepository(context = context, installmentRepository = installmentRepo)
+        val obligations = repo.getUpcomingObligations()
+
+        // None of HOME_LOANS, CAR_INSURANCE, MISC should appear
+        assertTrue("Expected obligations to be empty for non-bank installments", obligations.isEmpty())
+    }
+
+    @Test
+    fun `test UpcomingObligations selects nearest unpaid installment from paymentHistory and uses exact installment amount`() = kotlinx.coroutines.runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val user = com.example.data.api.NetworkUserDto(
+            id = "test_user_history_sorting",
+            fullName = "کاربر تست",
+            email = null,
+            phoneNumber = "09126666666",
+            phoneVerified = true
+        )
+        com.example.data.security.SessionManager.setAuthenticatedUser(user)
+
+        val installmentRepo = com.example.ui.screens.installments.data.LocalInstallmentRepository.instance
+        installmentRepo.init(context)
+        installmentRepo.clearAllInstallments(context)
+        var clearWait = 0
+        while (installmentRepo.installments.value.isNotEmpty() && clearWait < 30) {
+            kotlinx.coroutines.delay(50L)
+            clearWait++
+        }
+
+        val currentPdt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val pastJalali = com.example.util.IranianDateUtils.createFormattedDate(currentPdt.year, currentPdt.month, (currentPdt.day - 10).coerceAtLeast(1))
+        val nearJalali = com.example.util.IranianDateUtils.createFormattedDate(currentPdt.year, currentPdt.month, (currentPdt.day + 3).coerceAtMost(28))
+        val farJalali = com.example.util.IranianDateUtils.createFormattedDate(currentPdt.year, (currentPdt.month % 12) + 1, 15)
+
+        val paymentHistory = listOf(
+            com.example.ui.screens.installments.model.PaymentHistoryItem(
+                id = "p1",
+                installmentNumber = 1,
+                dueDate = pastJalali,
+                amount = 4_500_000L,
+                status = com.example.ui.screens.installments.model.InstallmentStatus.PAID,
+                paidDate = pastJalali
+            ),
+            com.example.ui.screens.installments.model.PaymentHistoryItem(
+                id = "p3",
+                installmentNumber = 3,
+                dueDate = farJalali,
+                amount = 4_500_000L,
+                status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING
+            ),
+            com.example.ui.screens.installments.model.PaymentHistoryItem(
+                id = "p2",
+                installmentNumber = 2,
+                dueDate = nearJalali,
+                amount = 4_500_000L,
+                status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING
+            )
+        )
+
+        installmentRepo.addInstallment(
+            com.example.ui.screens.installments.model.InstallmentItem(
+                id = "inst_with_history",
+                title = "وام توسعه کسب و کار",
+                category = com.example.ui.screens.installments.model.InstallmentCategory.BANK_LOANS,
+                providerOrPerson = "بانک کارآفرین",
+                totalAmount = 54_000_000L,
+                paidAmount = 4_500_000L,
+                remainingAmount = 49_500_000L,
+                totalInstallments = 12,
+                remainingInstallments = 11,
+                nextPaymentDate = nearJalali,
+                nextDueDaysText = "۳ روز دیگر",
+                startDate = "1403/01/01",
+                endDate = "1404/01/01",
+                status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING,
+                monthlyPaymentFormatted = "۴,۵۰۰,۰۰۰ تومان",
+                paymentHistory = paymentHistory
+            ),
+            context = context
+        )
+
+        var wait = 0
+        while (!installmentRepo.installments.value.any { it.id == "inst_with_history" } && wait < 30) {
+            kotlinx.coroutines.delay(50L)
+            wait++
+        }
+
+        val repo = HomeDashboardRepository(context = context, installmentRepository = installmentRepo)
+        val obligations = repo.getUpcomingObligations()
+
+        assertEquals(1, obligations.size)
+        val item = obligations.first()
+        assertEquals("وام توسعه کسب و کار", item.title)
+        assertEquals("بانک کارآفرین", item.bankName)
+        assertEquals(nearJalali, item.dueDatePersian)
+        assertEquals(4_500_000L, item.amount)
+    }
+
+    @Test
+    fun `test UpcomingObligations does not guess bank name when providerOrPerson is empty`() = kotlinx.coroutines.runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val user = com.example.data.api.NetworkUserDto(
+            id = "test_user_empty_provider",
+            fullName = "کاربر تست",
+            email = null,
+            phoneNumber = "09127777777",
+            phoneVerified = true
+        )
+        com.example.data.security.SessionManager.setAuthenticatedUser(user)
+
+        val installmentRepo = com.example.ui.screens.installments.data.LocalInstallmentRepository.instance
+        installmentRepo.init(context)
+        installmentRepo.clearAllInstallments(context)
+        var clearWait = 0
+        while (installmentRepo.installments.value.isNotEmpty() && clearWait < 30) {
+            kotlinx.coroutines.delay(50L)
+            clearWait++
+        }
+
+        val currentPdt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val tomorrowJalali = com.example.util.IranianDateUtils.createFormattedDate(currentPdt.year, currentPdt.month, (currentPdt.day + 1).coerceAtMost(28))
+
+        installmentRepo.addInstallment(
+            com.example.ui.screens.installments.model.InstallmentItem(
+                id = "inst_no_provider",
+                title = "وام ازدواج بانک ملت شعبه مرکزی",
+                category = com.example.ui.screens.installments.model.InstallmentCategory.BANK_LOANS,
+                providerOrPerson = "   ", // empty / blank
+                totalAmount = 100_000_000L,
+                paidAmount = 0L,
+                remainingAmount = 100_000_000L,
+                totalInstallments = 20,
+                remainingInstallments = 20,
+                nextPaymentDate = tomorrowJalali,
+                nextDueDaysText = "فردا",
+                startDate = "1403/01/01",
+                endDate = "1404/09/01",
+                status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING,
+                monthlyPaymentFormatted = "۵,۰۰۰,۰۰۰ تومان"
+            ),
+            context = context
+        )
+
+        var wait = 0
+        while (!installmentRepo.installments.value.any { it.id == "inst_no_provider" } && wait < 30) {
+            kotlinx.coroutines.delay(50L)
+            wait++
+        }
+
+        val repo = HomeDashboardRepository(context = context, installmentRepository = installmentRepo)
+        val obligations = repo.getUpcomingObligations()
+
+        assertEquals(1, obligations.size)
+        val item = obligations.first()
+        // Bank name must NOT be guessed from title (no "بانک ملت") and must be empty string
+        assertEquals("", item.bankName)
     }
 }

@@ -292,7 +292,8 @@ object BankSmsParser {
                     clean == cleanToken || clean.replace(".", "") == cleanToken ||
                             (cleanToken.length >= 4 && (clean == "bank$cleanToken" || clean == "b$cleanToken"))
                 }
-            }
+            } || bank.bodyPatterns.any { clean.contains(it.replace(" ", "")) } ||
+                    clean.contains(bank.displayName.replace(" ", ""))
         }
     }
 
@@ -324,7 +325,7 @@ object BankSmsParser {
 
         // 1. Account / Card pattern with digits or masking
         val hasCardPattern = Regex("""(?i)(?:کارت|card)[\s:]*([0-9\s*#-]{4,19})""").containsMatchIn(cleanBody)
-        val hasAccountPattern = Regex("""(?i)(?:حساب|شماره\s*حساب|به\s*حساب|از\s*حساب)[\s:]*([0-9]{4,20})""").containsMatchIn(cleanBody)
+        val hasAccountPattern = Regex("""(?i)(?:حساب|شماره\s*حساب|به\s*حساب|از\s*حساب)[\s:]*([0-9\s*#-]{4,20})""").containsMatchIn(cleanBody)
         val hasCardOrAccount = hasCardPattern || hasAccountPattern
 
         // 2. Ledger balance or tracking/reference code with digits
@@ -356,7 +357,8 @@ object BankSmsParser {
                             cleanSender == cleanToken || cleanSender.replace(".", "") == cleanToken ||
                                     (cleanToken.length >= 4 && (cleanSender == "bank$cleanToken" || cleanSender == "b$cleanToken"))
                         }
-                    }) {
+                    } || bank.bodyPatterns.any { cleanSender.contains(it.replace(" ", "")) } ||
+                    cleanSender.contains(bank.displayName.replace(" ", ""))) {
                     return bank.displayName
                 }
             }
@@ -450,9 +452,12 @@ object BankSmsParser {
                 return TransactionType.EXPENSE
             }
 
-            // If it contains transfer keywords ("انتقال", "پایا", "ساتنا", "کارت به کارت")
-            // but lacks a clear, unambiguous completed withdrawal or deposit -> reject!
-            // Do NOT guess, do NOT convert ambiguous messages to debit/credit, and do NOT accept as TRANSFER.
+            if (lower.contains("انتقال") || lower.contains("کارت به کارت")) {
+                if (lower.contains("به کارت") || lower.contains("به حساب") || lower.contains("موفق")) {
+                    return TransactionType.TRANSFER
+                }
+            }
+
             return null
         }
 
