@@ -45,6 +45,8 @@ fun AddEditCheckDialog(
     var showIssueDatePicker by remember { mutableStateOf(false) }
     var showDueDatePicker by remember { mutableStateOf(false) }
 
+    val isDateInvalid = dueDate < issueDate
+    var showError by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
     Dialog(
@@ -70,7 +72,7 @@ fun AddEditCheckDialog(
                         TextButton(
                             onClick = {
                                 val amountValue = amount.toLongOrNull() ?: 0L
-                                if (amountValue > 0 && checkNumber.isNotBlank() && bankName.isNotBlank()) {
+                                if (amountValue > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() && !isDateInvalid) {
                                     onConfirm(
                                         Check(
                                             id = check?.id ?: 0,
@@ -92,6 +94,8 @@ fun AddEditCheckDialog(
                                             updatedAt = System.currentTimeMillis()
                                         )
                                     )
+                                } else if (isDateInvalid) {
+                                    showError = true
                                 }
                             }
                         ) {
@@ -109,6 +113,26 @@ fun AddEditCheckDialog(
                     .verticalScroll(scrollState),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                if (showError && isDateInvalid) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Rounded.Error, null, tint = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "تاریخ سررسید نمی‌تواند قبل از تاریخ صدور باشد.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Type Toggle

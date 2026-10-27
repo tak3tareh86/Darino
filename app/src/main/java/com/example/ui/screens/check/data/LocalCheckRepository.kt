@@ -47,6 +47,10 @@ class LocalCheckRepository private constructor() : CheckRepository {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
+        if (check.dueDate < check.issueDate) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR
+        }
+
         try {
             val insertedId = db?.checkDao()?.insertCheck(check.toEntity(userId)) ?: 0L
             if (insertedId > 0 && (check.status == CheckStatus.REGISTERED || check.status == CheckStatus.PENDING)) {
@@ -73,6 +77,10 @@ class LocalCheckRepository private constructor() : CheckRepository {
         val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
         
         if (check.amount <= 0 || check.checkNumber.isBlank() || check.bankName.isBlank()) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR
+        }
+
+        if (check.dueDate < check.issueDate) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
@@ -147,14 +155,32 @@ class LocalCheckRepository private constructor() : CheckRepository {
     override suspend fun settleCheck(check: Check, account: com.example.ui.screens.finance.model.Account): CheckOperationResult = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
         
-        // Final ownership and status verification
+        // 1. Verify account ownership and validity
+        val accountEntity = db?.accountDao()?.getAccountByStringId(userId, account.id)
+        if (accountEntity == null || accountEntity.userId != userId || !accountEntity.isActive || accountEntity.deletedAt != null) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR
+        }
+
+        // 2. Verify check ownership and current status
         val existingCheck = db?.checkDao()?.getCheckById(userId, check.id)
         if (existingCheck == null || existingCheck.userId != userId) {
             return@withContext CheckOperationResult.NOT_FOUND
         }
         
+        // 3. Prevent settling already cleared, canceled or deleted checks
         if (existingCheck.status == CheckStatus.CLEARED.name) {
             return@withContext CheckOperationResult.SUCCESS // Already settled
+        }
+        if (existingCheck.status == CheckStatus.CANCELED.name) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR // Cannot settle canceled check
+        }
+        if (existingCheck.deletedAt != null) {
+            return@withContext CheckOperationResult.NOT_FOUND
+        }
+
+        // 4. Date validation (redundant but good for security)
+        if (existingCheck.dueDate < existingCheck.issueDate) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
         try {
@@ -171,7 +197,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 userId = userId,
                 amount = check.amount,
                 type = if (check.type == CheckType.RECEIVED) "INCOME" else "EXPENSE",
-                category = "انتقال", // Better if we use a specific category
+                category = "انتقال", 
                 accountName = account.name,
                 accountId = account.id,
                 description = "تسویه خودکار چک شماره ${check.checkNumber}",

@@ -527,6 +527,39 @@ interface CheckDao {
         transaction: TransactionEntity,
         transactionDao: TransactionDao
     ): Boolean {
+        // Check if transaction already exists for this user and deterministic ID
+        val existing = transactionDao.getTransactionByStringId(check.userId, transaction.stringId)
+        if (existing != null) {
+            // Already settled? Check if it matches our check and user
+            return if (existing.sourceId == check.id.toString() && 
+                existing.sourceType == "CHECK" && 
+                existing.userId == check.userId) {
+                // If it exists and matches, ensure the check record reflects the status
+                updateCheckWithOwner(
+                    id = check.id,
+                    userId = check.userId,
+                    type = check.type,
+                    amount = check.amount,
+                    checkNumber = check.checkNumber,
+                    sayadId = check.sayadId,
+                    bankName = check.bankName,
+                    branch = check.branch,
+                    holderName = check.holderName,
+                    receiverName = check.receiverName,
+                    issueDate = check.issueDate,
+                    dueDate = check.dueDate,
+                    status = check.status,
+                    notes = check.notes,
+                    accountId = check.accountId,
+                    updatedAt = check.updatedAt
+                )
+                true
+            } else {
+                // Unique ID exists but source doesn't match - actual collision or security issue
+                false
+            }
+        }
+
         // Update check status and account link
         val updatedRows = updateCheckWithOwner(
             id = check.id,
@@ -550,16 +583,16 @@ interface CheckDao {
         if (updatedRows == 0) return false
 
         // Try to insert financial transaction
-        // OnConflictStrategy.ABORT in TransactionDao ensures idempotency via stringId
         try {
             transactionDao.insertTransaction(transaction)
         } catch (e: Exception) {
-            // If it's a constraint failure (duplicate stringId), we assume it's already settled/idempotent
-            if (e.message?.contains("UNIQUE", ignoreCase = true) == true || 
-                e.message?.contains("constraint", ignoreCase = true) == true) {
+            // Re-verify if it was a race condition and it now exists correctly
+            val doubleCheck = transactionDao.getTransactionByStringId(check.userId, transaction.stringId)
+            if (doubleCheck != null && doubleCheck.sourceId == check.id.toString() && doubleCheck.userId == check.userId) {
                 return true
             }
-            throw e // Rethrow other database errors
+            // If it's a real constraint violation or other DB error, rethrow to rollback transaction
+            throw e
         }
 
         return true

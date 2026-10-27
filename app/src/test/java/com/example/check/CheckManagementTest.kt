@@ -243,6 +243,14 @@ class CheckManagementTest {
             name = "Main Account",
             type = com.example.ui.screens.finance.model.AccountType.BANK
         )
+        // Ensure account exists and is active
+        database.accountDao().insertAccount(com.example.data.database.AccountEntity(
+            userId = "user_1",
+            stringId = "acc_1",
+            name = "Main Account",
+            type = "BANK",
+            isActive = true
+        ))
 
         // Settle first time
         val result1 = repository.settleCheck(savedCheck, account)
@@ -256,5 +264,130 @@ class CheckManagementTest {
         val transactions = database.transactionDao().getAllTransactionsList("user_1")
         val settleTransactions = transactions.filter { it.stringId == "check_settle_${savedCheck.id}" }
         assertEquals("Should only have exactly one settlement transaction", 1, settleTransactions.size)
+    }
+
+    @Test
+    fun `test date validation on add and update`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        
+        val now = System.currentTimeMillis()
+        val invalidCheck = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "DATE-ERR",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = now,
+            dueDate = now - 1000, // Invalid: due before issue
+            status = CheckStatus.REGISTERED
+        )
+
+        val resultAdd = repository.addCheck(invalidCheck)
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, resultAdd)
+
+        // Valid add then invalid update
+        val validCheck = invalidCheck.copy(dueDate = now + 1000)
+        repository.addCheck(validCheck)
+        val saved = repository.getChecks().first()[0]
+        
+        val invalidUpdate = saved.copy(dueDate = now - 1000)
+        val resultUpdate = repository.updateCheck(invalidUpdate)
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, resultUpdate)
+    }
+
+    @Test
+    fun `test account security on settlement`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        
+        val check = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "ACC-SEC",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis(),
+            status = CheckStatus.REGISTERED
+        )
+        repository.addCheck(check)
+        val savedCheck = repository.getChecks().first()[0]
+
+        // 1. Account belongs to another user
+        val otherUserAccount = com.example.ui.screens.finance.model.Account(
+            id = "other_acc",
+            userId = "user_2",
+            name = "Stolen Account",
+            type = com.example.ui.screens.finance.model.AccountType.BANK
+        )
+        database.accountDao().insertAccount(com.example.data.database.AccountEntity(
+            userId = "user_2",
+            stringId = "other_acc",
+            name = "Stolen Account",
+            type = "BANK"
+        ))
+
+        val result1 = repository.settleCheck(savedCheck, otherUserAccount)
+        assertEquals("Should not settle with another user's account", CheckOperationResult.VALIDATION_ERROR, result1)
+
+        // 2. Inactive account
+        val inactiveAccount = com.example.ui.screens.finance.model.Account(
+            id = "inactive_acc",
+            userId = "user_1",
+            name = "Inactive",
+            type = com.example.ui.screens.finance.model.AccountType.BANK
+        )
+        database.accountDao().insertAccount(com.example.data.database.AccountEntity(
+            userId = "user_1",
+            stringId = "inactive_acc",
+            name = "Inactive",
+            type = "BANK",
+            isActive = false
+        ))
+
+        val result2 = repository.settleCheck(savedCheck, inactiveAccount)
+        assertEquals("Should not settle with inactive account", CheckOperationResult.VALIDATION_ERROR, result2)
+    }
+
+    @Test
+    fun `test canceled check settlement forbidden`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        
+        val check = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "CANCEL-01",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis(),
+            status = CheckStatus.CANCELED
+        )
+        repository.addCheck(check)
+        val savedCheck = repository.getChecks().first()[0]
+        
+        val account = com.example.ui.screens.finance.model.Account(
+            id = "acc_ok",
+            userId = "user_1",
+            name = "OK",
+            type = com.example.ui.screens.finance.model.AccountType.BANK
+        )
+        database.accountDao().insertAccount(com.example.data.database.AccountEntity(
+            userId = "user_1",
+            stringId = "acc_ok",
+            name = "OK",
+            type = "BANK"
+        ))
+
+        val result = repository.settleCheck(savedCheck, account)
+        assertEquals("Should not settle a canceled check", CheckOperationResult.VALIDATION_ERROR, result)
     }
 }
