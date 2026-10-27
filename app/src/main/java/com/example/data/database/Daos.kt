@@ -490,7 +490,8 @@ interface CheckDao {
         SET type = :type, amount = :amount, checkNumber = :checkNumber, sayadId = :sayadId, 
             bankName = :bankName, branch = :branch, holderName = :holderName, 
             receiverName = :receiverName, issueDate = :issueDate, dueDate = :dueDate, 
-            status = :status, notes = :notes, accountId = :accountId, updatedAt = :updatedAt 
+            status = :status, notes = :notes, accountId = :accountId, 
+            reminderDateTime = :reminderDateTime, updatedAt = :updatedAt 
         WHERE id = :id AND userId = :userId
     """)
     suspend fun updateCheckWithOwner(
@@ -509,6 +510,7 @@ interface CheckDao {
         status: String,
         notes: String?,
         accountId: String?,
+        reminderDateTime: Long?,
         updatedAt: Long
     ): Int
 
@@ -527,50 +529,48 @@ interface CheckDao {
         transaction: TransactionEntity,
         transactionDao: TransactionDao
     ): Boolean {
+        val expectedType = if (check.type == "RECEIVED") "INCOME" else "EXPENSE"
+
         // 1. Idempotency Check: Does a valid transaction already exist for this user and check?
         val existingTx = transactionDao.getTransactionByStringId(check.userId, transaction.stringId)
         if (existingTx != null) {
-            // Idempotency Check: Transaction must match this specific check, user AND account
-            if (existingTx.sourceId == check.id.toString() && 
-                existingTx.sourceType == "CHECK" && 
-                existingTx.userId == check.userId) {
-                
-                // CRITICAL: Ensure the account used for previous settlement matches the current request
-                // If account mismatch, we return false (or a specific error if we had one) 
-                // to prevent inconsistent financial state.
-                if (existingTx.accountId != check.accountId) {
-                    return false
-                }
-
-                // If transaction is there and matches, ensure the check record also reaches the correct state.
-                updateCheckWithOwner(
-                    id = check.id,
-                    userId = check.userId,
-                    type = check.type,
-                    amount = check.amount,
-                    checkNumber = check.checkNumber,
-                    sayadId = check.sayadId,
-                    bankName = check.bankName,
-                    branch = check.branch,
-                    holderName = check.holderName,
-                    receiverName = check.receiverName,
-                    issueDate = check.issueDate,
-                    dueDate = check.dueDate,
-                    status = check.status,
-                    notes = check.notes,
-                    accountId = check.accountId,
-                    updatedAt = check.updatedAt
-                )
-                
-                // Final verification
-                val finalCheckState = getCheckById(check.userId, check.id)
-                return finalCheckState != null && 
-                       finalCheckState.status == "CLEARED" && 
-                       finalCheckState.userId == check.userId
-            } else {
-                // Unique ID collision with different source or user! Security/integrity issue.
+            // Strict Validation: Transaction must match check user, source, account, amount, and financial type
+            if (existingTx.userId != check.userId ||
+                existingTx.sourceType != "CHECK" ||
+                existingTx.sourceId != check.id.toString() ||
+                existingTx.accountId != check.accountId ||
+                existingTx.amount != check.amount ||
+                existingTx.type != expectedType
+            ) {
                 return false
             }
+
+            // If transaction is there and matches, ensure the check record also reaches the correct state.
+            updateCheckWithOwner(
+                id = check.id,
+                userId = check.userId,
+                type = check.type,
+                amount = check.amount,
+                checkNumber = check.checkNumber,
+                sayadId = check.sayadId,
+                bankName = check.bankName,
+                branch = check.branch,
+                holderName = check.holderName,
+                receiverName = check.receiverName,
+                issueDate = check.issueDate,
+                dueDate = check.dueDate,
+                status = check.status,
+                notes = check.notes,
+                accountId = check.accountId,
+                reminderDateTime = check.reminderDateTime,
+                updatedAt = check.updatedAt
+            )
+            
+            // Final verification
+            val finalCheckState = getCheckById(check.userId, check.id)
+            return finalCheckState != null && 
+                   finalCheckState.status == "CLEARED" && 
+                   finalCheckState.userId == check.userId
         }
 
         // 2. Perform the update: Change status to CLEARED
@@ -590,6 +590,7 @@ interface CheckDao {
             status = check.status,
             notes = check.notes,
             accountId = check.accountId,
+            reminderDateTime = check.reminderDateTime,
             updatedAt = check.updatedAt
         )
 
@@ -612,10 +613,12 @@ interface CheckDao {
         } catch (e: Exception) {
             val doubleCheckTx = transactionDao.getTransactionByStringId(check.userId, transaction.stringId)
             if (doubleCheckTx != null && 
-                doubleCheckTx.sourceId == check.id.toString() && 
-                doubleCheckTx.sourceType == "CHECK" &&
                 doubleCheckTx.userId == check.userId &&
-                doubleCheckTx.accountId == check.accountId) {
+                doubleCheckTx.sourceType == "CHECK" && 
+                doubleCheckTx.sourceId == check.id.toString() && 
+                doubleCheckTx.accountId == check.accountId &&
+                doubleCheckTx.amount == check.amount &&
+                doubleCheckTx.type == expectedType) {
                 return true
             }
             throw e

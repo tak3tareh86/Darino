@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -50,6 +51,8 @@ class CheckManagementTest {
             repository.clearAllChecks()
             database.accountDao().clearAllAccounts("user_1")
             database.accountDao().clearAllAccounts("user_2")
+            database.transactionDao().clearAllTransactions("user_1")
+            database.transactionDao().clearAllTransactions("user_2")
         }
     }
 
@@ -553,16 +556,51 @@ class CheckManagementTest {
     }
 
     @Test
-    fun `test add check with reminder`() = runBlocking {
+    fun `test add and edit check reminder date time and retrieve`() = runBlocking {
         SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
-        val reminderTime = System.currentTimeMillis() + 3600000 // 1 hour later
+        val initialReminder = System.currentTimeMillis() + 3600000
         val check = Check(
             id = 0,
             userId = "user_1",
             type = CheckType.RECEIVED,
             amount = 1000,
-            checkNumber = "REM-01",
+            checkNumber = "REM-EDIT-01",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis() + 86400000,
+            status = CheckStatus.REGISTERED,
+            reminderDateTime = initialReminder
+        )
+        repository.addCheck(check)
+        val saved = repository.getChecks().first()[0]
+        assertEquals(initialReminder, saved.reminderDateTime)
+
+        // Update with new reminder time
+        val newReminder = System.currentTimeMillis() + 7200000
+        val updateResult = repository.updateCheck(saved.copy(reminderDateTime = newReminder))
+        assertEquals(CheckOperationResult.SUCCESS, updateResult)
+
+        // Retrieve and verify updated reminder is persisted
+        val retrieved = repository.getCheckById(saved.id)
+        assertNotNull(retrieved)
+        assertEquals(newReminder, retrieved?.reminderDateTime)
+    }
+
+    @Test
+    fun `test disable reminder deletes existing reminder and cancels alarm`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val reminderRepo = com.example.reminder.data.LocalReminderRepository(context)
+
+        val reminderTime = System.currentTimeMillis() + 3600000
+        val check = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "REM-OFF-01",
             bankName = "Bank",
             holderName = "Holder",
             receiverName = "Receiver",
@@ -571,10 +609,110 @@ class CheckManagementTest {
             status = CheckStatus.REGISTERED,
             reminderDateTime = reminderTime
         )
-        
         repository.addCheck(check)
         val saved = repository.getChecks().first()[0]
-        assertEquals(reminderTime, saved.reminderDateTime)
+
+        // Reminder should exist
+        val activeReminder = reminderRepo.getReminderBySourceId(saved.id.toString())
+        assertNotNull("Reminder should be created when reminderDateTime is provided", activeReminder)
+
+        // Now turn off the reminder (null)
+        val turnOffResult = repository.updateCheck(saved.copy(reminderDateTime = null))
+        assertEquals(CheckOperationResult.SUCCESS, turnOffResult)
+
+        // Check in database should have null reminderDateTime
+        val checkInDb = repository.getCheckById(saved.id)
+        assertNotNull(checkInDb)
+        assertNull(checkInDb?.reminderDateTime)
+
+        // Reminder entity must be deleted and not recreated with default time
+        val reminderAfterTurnOff = reminderRepo.getReminderBySourceId(saved.id.toString())
+        assertNull("Reminder should be deleted when turned off", reminderAfterTurnOff)
+    }
+
+    @Test
+    fun `test edit check with reminder off does not re-enable reminder`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val reminderRepo = com.example.reminder.data.LocalReminderRepository(context)
+
+        val check = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "REM-OFF-EDIT",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis() + 86400000,
+            status = CheckStatus.REGISTERED,
+            reminderDateTime = null // Off from beginning
+        )
+        repository.addCheck(check)
+        val saved = repository.getChecks().first()[0]
+        assertNull(reminderRepo.getReminderBySourceId(saved.id.toString()))
+
+        // Edit other fields of the check (e.g. amount, bankName)
+        val editedCheck = saved.copy(amount = 999000, bankName = "Updated Bank")
+        val editResult = repository.updateCheck(editedCheck)
+        assertEquals(CheckOperationResult.SUCCESS, editResult)
+
+        // Reminder must remain null and not be re-created
+        val checkInDb = repository.getCheckById(saved.id)
+        assertNull(checkInDb?.reminderDateTime)
+        assertNull(reminderRepo.getReminderBySourceId(saved.id.toString()))
+    }
+
+    @Test
+    fun `test reminder independence between two checks`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val reminderRepo = com.example.reminder.data.LocalReminderRepository(context)
+
+        val check1 = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "REM-IND-01",
+            bankName = "Bank1",
+            holderName = "H1",
+            receiverName = "R1",
+            issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis() + 86400000,
+            status = CheckStatus.REGISTERED,
+            reminderDateTime = System.currentTimeMillis() + 100000
+        )
+        val check2 = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.PAID,
+            amount = 2000,
+            checkNumber = "REM-IND-02",
+            bankName = "Bank2",
+            holderName = "H2",
+            receiverName = "R2",
+            issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis() + 86400000,
+            status = CheckStatus.REGISTERED,
+            reminderDateTime = System.currentTimeMillis() + 200000
+        )
+        repository.addCheck(check1)
+        repository.addCheck(check2)
+
+        val checks = repository.getChecks().first()
+        val saved1 = checks.find { it.checkNumber == "REM-IND-01" }!!
+        val saved2 = checks.find { it.checkNumber == "REM-IND-02" }!!
+
+        assertNotNull(reminderRepo.getReminderBySourceId(saved1.id.toString()))
+        assertNotNull(reminderRepo.getReminderBySourceId(saved2.id.toString()))
+
+        // Disable reminder for check1 only
+        repository.updateCheck(saved1.copy(reminderDateTime = null))
+
+        // Check1 reminder should be gone, Check2 reminder must remain intact
+        assertNull(reminderRepo.getReminderBySourceId(saved1.id.toString()))
+        assertNotNull(reminderRepo.getReminderBySourceId(saved2.id.toString()))
     }
 
     @Test
@@ -599,6 +737,67 @@ class CheckManagementTest {
     }
 
     @Test
+    fun `test reject existing settlement transaction with mismatched amount or type`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        
+        val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "REJ-01", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 100, status = CheckStatus.REGISTERED)
+        repository.addCheck(check)
+        val savedCheck = repository.getChecks().first()[0]
+
+        val account = com.example.ui.screens.finance.model.Account(id = "acc_1", userId = "user_1", name = "Acc 1", type = com.example.ui.screens.finance.model.AccountType.BANK)
+        database.accountDao().insertAccount(com.example.data.database.AccountEntity(userId = "user_1", stringId = "acc_1", name = "Acc 1", type = "BANK"))
+
+        // 1. Pre-insert transaction with wrong amount
+        val wrongAmountTx = com.example.data.database.TransactionEntity(
+            userId = "user_1",
+            amount = 999999, // Mismatched amount
+            type = "INCOME",
+            accountId = "acc_1",
+            stringId = "check_settle_${savedCheck.id}",
+            sourceType = "CHECK",
+            sourceId = savedCheck.id.toString()
+        )
+        database.transactionDao().insertTransaction(wrongAmountTx)
+
+        val resultAmountMismatch = repository.settleCheck(savedCheck, account)
+        assertEquals(CheckOperationResult.PERSISTENCE_ERROR, resultAmountMismatch)
+
+        // 2. Clean up and test wrong type (EXPENSE instead of INCOME for RECEIVED check)
+        database.transactionDao().clearAllTransactions("user_1")
+        val wrongTypeTx = wrongAmountTx.copy(amount = 1000, type = "EXPENSE")
+        database.transactionDao().insertTransaction(wrongTypeTx)
+
+        val resultTypeMismatch = repository.settleCheck(savedCheck, account)
+        assertEquals(CheckOperationResult.PERSISTENCE_ERROR, resultTypeMismatch)
+    }
+
+    @Test
+    fun `test check and financial state preserved on settlement failure`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        
+        val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "PRESERVE-01", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 100, status = CheckStatus.REGISTERED)
+        repository.addCheck(check)
+        val savedCheck = repository.getChecks().first()[0]
+
+        val invalidAccount = com.example.ui.screens.finance.model.Account(id = "inactive_acc", userId = "user_1", name = "Inactive", type = com.example.ui.screens.finance.model.AccountType.BANK)
+        database.accountDao().insertAccount(com.example.data.database.AccountEntity(userId = "user_1", stringId = "inactive_acc", name = "Inactive", type = "BANK", isActive = false))
+
+        // Settlement fails due to inactive account
+        val result = repository.settleCheck(savedCheck, invalidAccount)
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, result)
+
+        // Verify check status in DB is untouched (remains REGISTERED)
+        val checkInDb = repository.getCheckById(savedCheck.id)
+        assertNotNull(checkInDb)
+        assertEquals(CheckStatus.REGISTERED, checkInDb?.status)
+
+        // Verify no settlement transaction was created for this check
+        val transactions = database.transactionDao().getAllTransactionsList("user_1")
+        val settleTx = transactions.find { it.stringId == "check_settle_${savedCheck.id}" }
+        assertNull(settleTx)
+    }
+
+    @Test
     fun `test reminder cancellation on settlement`() = runBlocking {
         SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
@@ -612,7 +811,5 @@ class CheckManagementTest {
         // Settle check
         val result = repository.settleCheck(savedCheck, account)
         assertEquals(CheckOperationResult.SUCCESS, result)
-        
-        // Reminder cancellation logic is executed via reminderManager.onCheckSettled
     }
 }

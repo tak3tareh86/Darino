@@ -53,7 +53,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
 
         try {
             val insertedId = db?.checkDao()?.insertCheck(check.toEntity(userId)) ?: 0L
-            if (insertedId > 0 && (check.status == CheckStatus.REGISTERED || check.status == CheckStatus.PENDING)) {
+            if (insertedId > 0 && (check.status == CheckStatus.REGISTERED || check.status == CheckStatus.PENDING) && check.reminderDateTime != null) {
                 try {
                     reminderManager?.syncCheckReminder(
                         checkId = insertedId.toString(),
@@ -103,6 +103,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 status = entity.status,
                 notes = entity.notes,
                 accountId = entity.accountId,
+                reminderDateTime = entity.reminderDateTime,
                 updatedAt = entity.updatedAt
             ) ?: 0
             

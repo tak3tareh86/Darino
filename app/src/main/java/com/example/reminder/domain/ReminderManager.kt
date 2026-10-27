@@ -428,21 +428,15 @@ class ReminderManager(
     ) = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(checkId)
         
-        // Use custom reminder time if provided, otherwise default to due date at 09:00
-        val targetDateTime = reminderDateTime ?: run {
-            val dateParts = dueDatePersian.split("/")
-            if (dateParts.size == 3) {
-                PersianCalendarHelper.jalaliToEpochMillis(
-                    dateParts[0].trim().toInt(),
-                    dateParts[1].trim().toInt(),
-                    dateParts[2].trim().toInt(),
-                    9, 0
-                )
-            } else {
-                System.currentTimeMillis() + 86400000 // Fallback
+        // If reminder is turned off (null), delete existing reminder and cancel alarms
+        if (reminderDateTime == null) {
+            if (existing != null) {
+                deleteReminder(existing.id)
             }
+            return@withContext
         }
 
+        val targetDateTime = reminderDateTime
         val persianDate = PersianCalendarHelper.fromEpochMillis(targetDateTime).toFormattedDate()
         val persianTime = PersianCalendarHelper.fromEpochMillis(targetDateTime).toFormattedTime()
 
