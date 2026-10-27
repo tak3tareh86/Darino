@@ -44,12 +44,13 @@ class CheckManagementTest {
         
         repository = LocalCheckRepository.instance
         repository.init(context)
+        database = AppDatabase.getDatabase(context)
         
         runBlocking {
             repository.clearAllChecks()
+            database.accountDao().clearAllAccounts("user_1")
+            database.accountDao().clearAllAccounts("user_2")
         }
-        
-        database = AppDatabase.getDatabase(context)
     }
 
     @Test
@@ -355,39 +356,90 @@ class CheckManagementTest {
     }
 
     @Test
-    fun `test canceled check settlement forbidden`() = runBlocking {
+    fun `test canceled or bounced check settlement forbidden`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        
+        val account = com.example.ui.screens.finance.model.Account(id = "acc_ok", userId = "user_1", name = "OK", type = com.example.ui.screens.finance.model.AccountType.BANK)
+        database.accountDao().insertAccount(com.example.data.database.AccountEntity(userId = "user_1", stringId = "acc_ok", name = "OK", type = "BANK"))
+
+        // 1. Canceled
+        val canceledCheck = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "C-1", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 0, status = CheckStatus.CANCELED)
+        repository.addCheck(canceledCheck)
+        val savedCanceled = repository.getChecks().first().find { it.checkNumber == "C-1" }!!
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.settleCheck(savedCanceled, account))
+
+        // 2. Bounced
+        val bouncedCheck = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "B-1", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 0, status = CheckStatus.BOUNCED)
+        repository.addCheck(bouncedCheck)
+        val savedBounced = repository.getChecks().first().find { it.checkNumber == "B-1" }!!
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.settleCheck(savedBounced, account))
+    }
+
+    @Test
+    fun `test tampered check object settlement uses DB values`() = runBlocking {
         SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val check = Check(
             id = 0,
             userId = "user_1",
             type = CheckType.RECEIVED,
-            amount = 1000,
-            checkNumber = "CANCEL-01",
+            amount = 1000, // REAL AMOUNT
+            checkNumber = "TAMP-01",
             bankName = "Bank",
             holderName = "Holder",
             receiverName = "Receiver",
             issueDate = System.currentTimeMillis(),
             dueDate = System.currentTimeMillis(),
-            status = CheckStatus.CANCELED
+            status = CheckStatus.REGISTERED
         )
         repository.addCheck(check)
         val savedCheck = repository.getChecks().first()[0]
         
-        val account = com.example.ui.screens.finance.model.Account(
-            id = "acc_ok",
-            userId = "user_1",
-            name = "OK",
-            type = com.example.ui.screens.finance.model.AccountType.BANK
-        )
-        database.accountDao().insertAccount(com.example.data.database.AccountEntity(
-            userId = "user_1",
-            stringId = "acc_ok",
-            name = "OK",
-            type = "BANK"
-        ))
+        val account = com.example.ui.screens.finance.model.Account(id = "acc_1", userId = "user_1", name = "Acc", type = com.example.ui.screens.finance.model.AccountType.BANK)
+        database.accountDao().insertAccount(com.example.data.database.AccountEntity(userId = "user_1", stringId = "acc_1", name = "Acc", type = "BANK"))
 
+        // TAMPERED OBJECT
+        val tamperedCheck = savedCheck.copy(amount = 9999999, type = CheckType.PAID)
+        
+        val result = repository.settleCheck(tamperedCheck, account)
+        assertEquals(CheckOperationResult.SUCCESS, result)
+        
+        // VERIFY TRANSACTION IN DB USES REAL VALUES (1000 and INCOME for RECEIVED)
+        val transactions = database.transactionDao().getAllTransactionsList("user_1")
+        val settleTx = transactions.find { it.stringId == "check_settle_${savedCheck.id}" }
+        assertNotNull(settleTx)
+        assertEquals(1000L, settleTx?.amount)
+        assertEquals("INCOME", settleTx?.type)
+    }
+
+    @Test
+    fun `test idempotency with deterministic ID collision`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        
+        // 1. Setup a check
+        val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "COLL-01", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 0, status = CheckStatus.REGISTERED)
+        repository.addCheck(check)
+        val savedCheck = repository.getChecks().first()[0]
+        
+        val account = com.example.ui.screens.finance.model.Account(id = "acc_1", userId = "user_1", name = "Acc", type = com.example.ui.screens.finance.model.AccountType.BANK)
+        database.accountDao().insertAccount(com.example.data.database.AccountEntity(userId = "user_1", stringId = "acc_1", name = "Acc", type = "BANK"))
+
+        // 2. MANUALLY insert a transaction with same deterministic ID but DIFFERENT source
+        val fakeTx = com.example.data.database.TransactionEntity(
+            userId = "user_1",
+            amount = 500,
+            stringId = "check_settle_${savedCheck.id}", // SAME ID
+            sourceType = "MANUAL", // DIFFERENT SOURCE
+            sourceId = "some_other_id"
+        )
+        database.transactionDao().insertTransaction(fakeTx)
+
+        // 3. Attempt to settle the check - should FAIL because of collision with different source
         val result = repository.settleCheck(savedCheck, account)
-        assertEquals("Should not settle a canceled check", CheckOperationResult.VALIDATION_ERROR, result)
+        assertEquals("Settlement should fail if ID collides with different source", CheckOperationResult.PERSISTENCE_ERROR, result)
+        
+        // Verify check is still REGISTERED
+        val checkAfter = repository.getCheckById(savedCheck.id)
+        assertEquals(CheckStatus.REGISTERED, checkAfter?.status)
     }
 }

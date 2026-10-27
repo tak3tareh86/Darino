@@ -161,64 +161,66 @@ class LocalCheckRepository private constructor() : CheckRepository {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
-        // 2. Verify check ownership and current status
+        // 2. Verify check ownership and current status from Database
         val existingCheck = db?.checkDao()?.getCheckById(userId, check.id)
         if (existingCheck == null || existingCheck.userId != userId) {
             return@withContext CheckOperationResult.NOT_FOUND
         }
         
-        // 3. Prevent settling already cleared, canceled or deleted checks
+        // 3. Prevent settling already cleared, canceled, bounced or deleted checks
         if (existingCheck.status == CheckStatus.CLEARED.name) {
-            return@withContext CheckOperationResult.SUCCESS // Already settled
+            return@withContext CheckOperationResult.SUCCESS // Idempotent success
         }
-        if (existingCheck.status == CheckStatus.CANCELED.name) {
-            return@withContext CheckOperationResult.VALIDATION_ERROR // Cannot settle canceled check
+        if (existingCheck.status == CheckStatus.CANCELED.name || existingCheck.status == CheckStatus.BOUNCED.name) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR // Cannot settle canceled or bounced check
         }
         if (existingCheck.deletedAt != null) {
             return@withContext CheckOperationResult.NOT_FOUND
         }
 
-        // 4. Date validation (redundant but good for security)
+        // 4. Date validation (using DB record)
         if (existingCheck.dueDate < existingCheck.issueDate) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
         try {
-            val updatedCheck = check.copy(
-                status = CheckStatus.CLEARED,
+            // CRITICAL: Use data from DB record (existingCheck) for all financial information
+            // to prevent tampering from UI parameters.
+            val updatedCheckEntity = existingCheck.copy(
+                status = CheckStatus.CLEARED.name,
                 accountId = account.id,
                 updatedAt = System.currentTimeMillis()
-            ).toEntity(userId)
+            )
 
             // Create a stable, deterministic transaction ID for idempotency
-            val settleTransactionId = "check_settle_${check.id}"
+            val settleTransactionId = "check_settle_${existingCheck.id}"
             
             val transaction = com.example.data.database.TransactionEntity(
                 userId = userId,
-                amount = check.amount,
-                type = if (check.type == CheckType.RECEIVED) "INCOME" else "EXPENSE",
+                amount = existingCheck.amount,
+                type = if (existingCheck.type == CheckType.RECEIVED.name) "INCOME" else "EXPENSE",
                 category = "انتقال", 
-                accountName = account.name,
-                accountId = account.id,
-                description = "تسویه خودکار چک شماره ${check.checkNumber}",
+                accountName = accountEntity.name,
+                accountId = accountEntity.stringId,
+                description = "تسویه خودکار چک شماره ${existingCheck.checkNumber}",
                 timestamp = System.currentTimeMillis(),
                 stringId = settleTransactionId,
-                title = "وصول چک: ${check.bankName} (${check.checkNumber})",
+                title = "وصول چک: ${existingCheck.bankName} (${existingCheck.checkNumber})",
                 sourceType = "CHECK",
-                sourceId = check.id.toString(),
+                sourceId = existingCheck.id.toString(),
                 datePersian = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
                 timeFormatted = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedTime()
             )
 
             val success = db?.checkDao()?.settleCheckWithTransaction(
-                check = updatedCheck,
+                check = updatedCheckEntity,
                 transaction = transaction,
                 transactionDao = db!!.transactionDao()
             ) ?: false
 
             if (success) {
                 try {
-                    reminderManager?.onCheckSettled(check.id.toString())
+                    reminderManager?.onCheckSettled(existingCheck.id.toString())
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
