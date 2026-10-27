@@ -17,4 +17,5 @@ interface CheckRepository {
     suspend fun addCheck(check: Check): CheckOperationResult
     suspend fun updateCheck(check: Check): CheckOperationResult
     suspend fun deleteCheck(id: Int): CheckOperationResult
+    suspend fun settleCheck(check: Check, account: com.example.ui.screens.finance.model.Account): CheckOperationResult
 }

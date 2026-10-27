@@ -77,8 +77,28 @@ class LocalCheckRepository private constructor() : CheckRepository {
         }
 
         try {
-            db?.checkDao()?.updateCheck(check.toEntity(userId))
+            val entity = check.toEntity(userId)
+            val rowsAffected = db?.checkDao()?.updateCheckWithOwner(
+                id = entity.id,
+                userId = userId,
+                type = entity.type,
+                amount = entity.amount,
+                checkNumber = entity.checkNumber,
+                sayadId = entity.sayadId,
+                bankName = entity.bankName,
+                branch = entity.branch,
+                holderName = entity.holderName,
+                receiverName = entity.receiverName,
+                issueDate = entity.issueDate,
+                dueDate = entity.dueDate,
+                status = entity.status,
+                notes = entity.notes,
+                accountId = entity.accountId,
+                updatedAt = entity.updatedAt
+            ) ?: 0
             
+            if (rowsAffected == 0) return@withContext CheckOperationResult.NOT_FOUND
+
             if (check.status == CheckStatus.CLEARED || check.status == CheckStatus.CANCELED || check.status == CheckStatus.BOUNCED) {
                 try {
                     reminderManager?.onCheckSettled(check.id.toString())
@@ -109,13 +129,77 @@ class LocalCheckRepository private constructor() : CheckRepository {
     override suspend fun deleteCheck(id: Int): CheckOperationResult = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
         try {
-            db?.checkDao()?.softDeleteCheck(userId, id, System.currentTimeMillis(), System.currentTimeMillis())
+            val rowsAffected = db?.checkDao()?.softDeleteCheck(userId, id, System.currentTimeMillis(), System.currentTimeMillis()) ?: 0
+            if (rowsAffected == 0) return@withContext CheckOperationResult.NOT_FOUND
+            
             try {
                 reminderManager?.onCheckSettled(id.toString())
             } catch (e: Exception) {
                 e.printStackTrace()
             }
             CheckOperationResult.SUCCESS
+        } catch (e: Exception) {
+            e.printStackTrace()
+            CheckOperationResult.PERSISTENCE_ERROR
+        }
+    }
+
+    override suspend fun settleCheck(check: Check, account: com.example.ui.screens.finance.model.Account): CheckOperationResult = withContext(Dispatchers.IO) {
+        val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
+        
+        // Final ownership and status verification
+        val existingCheck = db?.checkDao()?.getCheckById(userId, check.id)
+        if (existingCheck == null || existingCheck.userId != userId) {
+            return@withContext CheckOperationResult.NOT_FOUND
+        }
+        
+        if (existingCheck.status == CheckStatus.CLEARED.name) {
+            return@withContext CheckOperationResult.SUCCESS // Already settled
+        }
+
+        try {
+            val updatedCheck = check.copy(
+                status = CheckStatus.CLEARED,
+                accountId = account.id,
+                updatedAt = System.currentTimeMillis()
+            ).toEntity(userId)
+
+            // Create a stable, deterministic transaction ID for idempotency
+            val settleTransactionId = "check_settle_${check.id}"
+            
+            val transaction = com.example.data.database.TransactionEntity(
+                userId = userId,
+                amount = check.amount,
+                type = if (check.type == CheckType.RECEIVED) "INCOME" else "EXPENSE",
+                category = "انتقال", // Better if we use a specific category
+                accountName = account.name,
+                accountId = account.id,
+                description = "تسویه خودکار چک شماره ${check.checkNumber}",
+                timestamp = System.currentTimeMillis(),
+                stringId = settleTransactionId,
+                title = "وصول چک: ${check.bankName} (${check.checkNumber})",
+                sourceType = "CHECK",
+                sourceId = check.id.toString(),
+                datePersian = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
+                timeFormatted = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedTime()
+            )
+
+            val success = db?.checkDao()?.settleCheckWithTransaction(
+                check = updatedCheck,
+                transaction = transaction,
+                transactionDao = db!!.transactionDao()
+            ) ?: false
+
+            if (success) {
+                try {
+                    reminderManager?.onCheckSettled(check.id.toString())
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                CheckOperationResult.SUCCESS
+            } else {
+                CheckOperationResult.PERSISTENCE_ERROR
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             CheckOperationResult.PERSISTENCE_ERROR

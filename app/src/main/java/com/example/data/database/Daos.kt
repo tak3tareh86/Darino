@@ -485,12 +485,83 @@ interface CheckDao {
     @Update
     suspend fun updateCheck(check: CheckEntity)
 
+    @Query("""
+        UPDATE checks 
+        SET type = :type, amount = :amount, checkNumber = :checkNumber, sayadId = :sayadId, 
+            bankName = :bankName, branch = :branch, holderName = :holderName, 
+            receiverName = :receiverName, issueDate = :issueDate, dueDate = :dueDate, 
+            status = :status, notes = :notes, accountId = :accountId, updatedAt = :updatedAt 
+        WHERE id = :id AND userId = :userId
+    """)
+    suspend fun updateCheckWithOwner(
+        id: Int,
+        userId: String,
+        type: String,
+        amount: Long,
+        checkNumber: String,
+        sayadId: String?,
+        bankName: String,
+        branch: String?,
+        holderName: String,
+        receiverName: String,
+        issueDate: Long,
+        dueDate: Long,
+        status: String,
+        notes: String?,
+        accountId: String?,
+        updatedAt: Long
+    ): Int
+
     @Query("UPDATE checks SET deletedAt = :deletedAt, updatedAt = :updatedAt WHERE userId = :userId AND id = :checkId")
-    suspend fun softDeleteCheck(userId: String, checkId: Int, deletedAt: Long, updatedAt: Long)
+    suspend fun softDeleteCheck(userId: String, checkId: Int, deletedAt: Long, updatedAt: Long): Int
 
     @Query("SELECT * FROM checks WHERE userId = :userId AND status IN ('REGISTERED', 'PENDING', 'BOUNCED') AND deletedAt IS NULL")
     suspend fun getActiveChecks(userId: String): List<CheckEntity>
 
     @Query("DELETE FROM checks WHERE userId = :userId")
     suspend fun clearAllChecks(userId: String)
+
+    @Transaction
+    suspend fun settleCheckWithTransaction(
+        check: CheckEntity,
+        transaction: TransactionEntity,
+        transactionDao: TransactionDao
+    ): Boolean {
+        // Update check status and account link
+        val updatedRows = updateCheckWithOwner(
+            id = check.id,
+            userId = check.userId,
+            type = check.type,
+            amount = check.amount,
+            checkNumber = check.checkNumber,
+            sayadId = check.sayadId,
+            bankName = check.bankName,
+            branch = check.branch,
+            holderName = check.holderName,
+            receiverName = check.receiverName,
+            issueDate = check.issueDate,
+            dueDate = check.dueDate,
+            status = check.status,
+            notes = check.notes,
+            accountId = check.accountId,
+            updatedAt = check.updatedAt
+        )
+
+        if (updatedRows == 0) return false
+
+        // Try to insert financial transaction
+        // OnConflictStrategy.ABORT in TransactionDao ensures idempotency via stringId
+        try {
+            transactionDao.insertTransaction(transaction)
+        } catch (e: Exception) {
+            // If it's a constraint failure (duplicate stringId), we assume it's already settled/idempotent
+            if (e.message?.contains("UNIQUE", ignoreCase = true) == true || 
+                e.message?.contains("constraint", ignoreCase = true) == true) {
+                return true
+            }
+            throw e // Rethrow other database errors
+        }
+
+        return true
+    }
 }

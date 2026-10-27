@@ -87,6 +87,7 @@ fun AddEditCheckDialog(
                                             dueDate = dueDate,
                                             status = status,
                                             notes = notes.ifBlank { null },
+                                            accountId = check?.accountId,
                                             createdAt = check?.createdAt ?: System.currentTimeMillis(),
                                             updatedAt = System.currentTimeMillis()
                                         )

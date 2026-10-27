@@ -181,4 +181,80 @@ class CheckManagementTest {
         val result = repository.addCheck(invalidCheck)
         assertEquals(CheckOperationResult.VALIDATION_ERROR, result)
     }
+
+    @Test
+    fun `test cross-user edit security`() = runBlocking {
+        // User 1 adds a check
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val check = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "SEC-01",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis(),
+            status = CheckStatus.REGISTERED
+        )
+        repository.addCheck(check)
+        val checkId = repository.getChecks().first()[0].id
+
+        // Switch to User 2
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_2", fullName = "U2", phoneVerified = true))
+        
+        // Try to edit User 1's check as User 2
+        val tamperedCheck = check.copy(id = checkId, amount = 9999, userId = "user_2")
+        val result = repository.updateCheck(tamperedCheck)
+        
+        assertEquals("User 2 should not be able to update User 1's check", CheckOperationResult.NOT_FOUND, result)
+        
+        // Verify User 1's check is unchanged in DB
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val verifiedCheck = repository.getCheckById(checkId)
+        assertNotNull(verifiedCheck)
+        assertEquals(1000L, verifiedCheck?.amount)
+    }
+
+    @Test
+    fun `test idempotent settlement`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val check = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 5000,
+            checkNumber = "IDEM-01",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis(),
+            status = CheckStatus.REGISTERED
+        )
+        repository.addCheck(check)
+        val savedCheck = repository.getChecks().first()[0]
+        
+        val account = com.example.ui.screens.finance.model.Account(
+            id = "acc_1",
+            userId = "user_1",
+            name = "Main Account",
+            type = com.example.ui.screens.finance.model.AccountType.BANK
+        )
+
+        // Settle first time
+        val result1 = repository.settleCheck(savedCheck, account)
+        assertEquals(CheckOperationResult.SUCCESS, result1)
+        
+        // Settle second time (simulating fast click or retry)
+        val result2 = repository.settleCheck(savedCheck, account)
+        assertEquals("Subsequent settlement should return SUCCESS (idempotent)", CheckOperationResult.SUCCESS, result2)
+        
+        // Verify only one transaction was created in database
+        val transactions = database.transactionDao().getAllTransactionsList("user_1")
+        val settleTransactions = transactions.filter { it.stringId == "check_settle_${savedCheck.id}" }
+        assertEquals("Should only have exactly one settlement transaction", 1, settleTransactions.size)
+    }
 }
