@@ -23,7 +23,8 @@ data class UpcomingObligationItem(
     @DrawableRes val iconRes: Int,
     val accentColor: Color,
     val isOverdue: Boolean = false,
-    val rawId: String = id
+    val rawId: String = id,
+    val bankName: String = ""
 )
 
 data class UpcomingReminderItem(

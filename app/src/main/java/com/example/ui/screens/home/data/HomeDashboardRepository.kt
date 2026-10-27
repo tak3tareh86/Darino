@@ -12,6 +12,8 @@ import com.example.ui.screens.home.domain.ObligationType
 import com.example.ui.screens.home.domain.UpcomingObligationItem
 import com.example.ui.screens.home.domain.UpcomingReminderItem
 import com.example.ui.screens.installments.data.LocalInstallmentRepository
+import com.example.ui.screens.installments.model.InstallmentCategory
+import com.example.ui.screens.installments.model.InstallmentItem
 import com.example.ui.screens.installments.model.InstallmentStatus
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
@@ -108,12 +110,26 @@ class HomeDashboardRepository(
     fun getUpcomingObligations(): List<UpcomingObligationItem> {
         val list = mutableListOf<UpcomingObligationItem>()
 
-        // 1. Real Installments from LocalInstallmentRepository
+        // 1. Only Real Bank Installments from LocalInstallmentRepository
         val realInstallments = installmentRepository.installments.value.filter {
-            it.remainingInstallments > 0 && it.status != InstallmentStatus.COMPLETED
+            it.remainingInstallments > 0 &&
+            it.status != InstallmentStatus.COMPLETED &&
+            it.status != InstallmentStatus.PAID
         }
         for (item in realInstallments) {
-            val diff = calculateDaysDifference(item.nextPaymentDate)
+            val unpaidPayment = item.paymentHistory.firstOrNull {
+                it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
+            }
+            val effectiveDueDate = unpaidPayment?.dueDate?.ifBlank { item.nextPaymentDate } ?: item.nextPaymentDate
+            val paymentAmount = if (unpaidPayment != null && unpaidPayment.amount > 0L) {
+                unpaidPayment.amount
+            } else {
+                item.totalAmount / item.totalInstallments.coerceAtLeast(1)
+            }
+            val formattedAmount = MoneyFormatter.formatToman(paymentAmount)
+            val bankName = resolveBankName(item)
+
+            val diff = calculateDaysDifference(effectiveDueDate)
             val isOverdue = diff < 0 || item.status == InstallmentStatus.OVERDUE
             val relativeText = when {
                 diff < 0 -> "${IranianPhoneUtils.convertDigitsToPersian((-diff).toString())} روز گذشته (معوق)"
@@ -121,105 +137,61 @@ class HomeDashboardRepository(
                 diff == 1 -> "فردا"
                 else -> "${IranianPhoneUtils.convertDigitsToPersian(diff.toString())} روز دیگر"
             }
-            val monthlyAmount = item.totalAmount / item.totalInstallments.coerceAtLeast(1)
 
             list.add(
                 UpcomingObligationItem(
                     id = "ob_loan_${item.id}",
                     title = item.title,
-                    amount = monthlyAmount,
-                    formattedAmount = item.monthlyPaymentFormatted,
+                    amount = paymentAmount,
+                    formattedAmount = formattedAmount,
                     relativeDaysText = relativeText,
-                    dueDatePersian = item.nextPaymentDate,
+                    dueDatePersian = effectiveDueDate,
                     type = ObligationType.INSTALLMENT,
                     destinationTab = BottomNavItem.INSTALLMENTS,
                     iconRes = R.drawable.img_3d_bank,
                     accentColor = ColorUtils.blueAccent,
                     isOverdue = isOverdue,
-                    rawId = item.id
+                    rawId = item.id,
+                    bankName = bankName
                 )
             )
         }
 
-        // 2. Real Vehicle Insurances (Only if real records exist)
-        val realInsurances = vehicleRepository.insurances.value
-        val realVehicles = vehicleRepository.vehicles.value
-        for (ins in realInsurances) {
-            val v = realVehicles.find { it.id == ins.vehicleId }
-            val vName = if (v != null) "${v.brand} ${v.model}".trim() else "خودرو"
-            val diff = calculateDaysDifference(ins.endDate)
-            val isOverdue = diff < 0
-            val relativeText = when {
-                diff < 0 -> "${IranianPhoneUtils.convertDigitsToPersian((-diff).toString())} روز گذشته (منقضی)"
-                diff == 0 -> "امروز"
-                diff == 1 -> "فردا"
-                else -> "${IranianPhoneUtils.convertDigitsToPersian(diff.toString())} روز دیگر"
-            }
-
-            list.add(
-                UpcomingObligationItem(
-                    id = "ob_ins_${ins.id}",
-                    title = "بیمه ${ins.type} $vName".trim(),
-                    amount = ins.amount,
-                    formattedAmount = MoneyFormatter.formatToman(ins.amount),
-                    relativeDaysText = relativeText,
-                    dueDatePersian = ins.endDate,
-                    type = ObligationType.VEHICLE_INSURANCE,
-                    destinationTab = BottomNavItem.VEHICLE,
-                    iconRes = R.drawable.img_3d_insurance,
-                    accentColor = InfoIndigoLight,
-                    isOverdue = isOverdue,
-                    rawId = ins.id
-                )
-            )
-        }
-
-        // 3. Real Vehicle Periodic Services
-        val realServices = vehicleRepository.services.value.filter { !it.nextReminderDate.isNullOrBlank() }
-        for (svc in realServices) {
-            val v = realVehicles.find { it.id == svc.vehicleId }
-            val vName = if (v != null) "${v.brand} ${v.model}".trim() else ""
-            val dueDate = svc.nextReminderDate!!
-            val diff = calculateDaysDifference(dueDate)
-            val isOverdue = diff < 0
-            val relativeText = when {
-                diff < 0 -> "${IranianPhoneUtils.convertDigitsToPersian((-diff).toString())} روز گذشته"
-                diff == 0 -> "امروز"
-                diff == 1 -> "فردا"
-                else -> "${IranianPhoneUtils.convertDigitsToPersian(diff.toString())} روز دیگر"
-            }
-
-            list.add(
-                UpcomingObligationItem(
-                    id = "ob_svc_${svc.id}",
-                    title = "سرویس ${svc.title} $vName".trim(),
-                    amount = svc.cost,
-                    formattedAmount = MoneyFormatter.formatToman(svc.cost),
-                    relativeDaysText = relativeText,
-                    dueDatePersian = dueDate,
-                    type = ObligationType.OTHER,
-                    destinationTab = BottomNavItem.VEHICLE,
-                    iconRes = svc.serviceType.iconRes,
-                    accentColor = Color(0xFF10B981),
-                    isOverdue = isOverdue,
-                    rawId = svc.id
-                )
-            )
-        }
-
-        // Sort by urgency:
-        // 1. Overdue (diff < 0)
-        // 2. Due today (diff == 0)
-        // 3. Nearest upcoming (diff > 0)
+        // Sort by priority/urgency:
+        // 1. Overdue (diff < 0) priority 0
+        // 2. Due today (diff == 0) priority 1
+        // 3. Upcoming (diff > 0) priority 2
+        // Tie-break deterministically by dueDatePersian and id
         return list.sortedWith(
             compareBy<UpcomingObligationItem> { item ->
                 val diff = calculateDaysDifference(item.dueDatePersian)
                 if (diff < 0) 0 else if (diff == 0) 1 else 2
             }.thenBy { item ->
                 val diff = calculateDaysDifference(item.dueDatePersian)
-                if (diff < 0) diff else diff
+                diff
+            }.thenBy { item ->
+                item.dueDatePersian
+            }.thenBy { item ->
+                item.id
             }
-        ).take(3)
+        ).take(1)
+    }
+
+    private fun resolveBankName(item: InstallmentItem): String {
+        val provider = item.providerOrPerson.trim()
+        if (provider.isNotBlank()) {
+            return provider
+        }
+        val bankIndex = item.title.indexOf("بانک")
+        if (bankIndex >= 0) {
+            val part = item.title.substring(bankIndex).trim()
+            val tokens = part.split("\\s+".toRegex())
+            if (tokens.size >= 2) {
+                return "${tokens[0]} ${tokens[1]}".trim()
+            }
+            return tokens[0]
+        }
+        return if (item.category == InstallmentCategory.BANK_LOANS) "بانک" else item.category.title
     }
 
     suspend fun getUpcomingReminders(): List<UpcomingReminderItem> {

@@ -21,12 +21,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.EventAvailable
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.util.IranianPhoneUtils
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -63,6 +67,7 @@ fun UpcomingObligationsCard(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     var isExpanded by remember { mutableStateOf(true) }
+    val nearestItem = obligations.firstOrNull()
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -88,7 +93,7 @@ fun UpcomingObligationsCard(
                     modifier = Modifier.size(20.dp)
                 )
                 Text(
-                    text = "تعهدات نزدیک",
+                    text = "تعهد نزدیک",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp
@@ -128,7 +133,7 @@ fun UpcomingObligationsCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (obligations.isEmpty()) {
+                if (nearestItem == null) {
                     Layered3DCard(
                         modifier = Modifier.fillMaxWidth(),
                         elevation = 2.dp,
@@ -161,7 +166,7 @@ fun UpcomingObligationsCard(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "همه اقساط و موعدهای مالی در وضعیت پرداخت‌شده و منظم هستند.",
+                                    text = "همه اقساط بانکی در وضعیت پرداخت‌شده و منظم هستند.",
                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -169,18 +174,11 @@ fun UpcomingObligationsCard(
                         }
                     }
                 } else {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        obligations.take(3).forEach { item ->
-                            ObligationRowItem(
-                                item = item,
-                                onClick = { onObligationClick(item) },
-                                onMarkDone = { onMarkDoneClick(item.id) }
-                            )
-                        }
-                    }
+                    NearestObligationItem(
+                        item = nearestItem,
+                        onClick = { onObligationClick(nearestItem) },
+                        onMarkDone = { onMarkDoneClick(nearestItem.id) }
+                    )
                 }
             }
         }
@@ -188,7 +186,7 @@ fun UpcomingObligationsCard(
 }
 
 @Composable
-private fun ObligationRowItem(
+private fun NearestObligationItem(
     item: UpcomingObligationItem,
     onClick: () -> Unit,
     onMarkDone: () -> Unit,
@@ -222,7 +220,10 @@ private fun ObligationRowItem(
                     containerShape = RoundedCornerShape(RadiusMD)
                 )
 
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -234,15 +235,21 @@ private fun ObligationRowItem(
                                 fontSize = 13.sp
                             ),
                             color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
 
-                        // Relative Days Badge (e.g. فردا / ۳ روز دیگر)
+                        // Relative Days Badge (e.g. فردا / امروز / معوق)
                         Surface(
                             shape = RoundedCornerShape(RadiusMD),
                             color = when {
-                                item.relativeDaysText == "فردا" || item.relativeDaysText == "امروز" -> ExpenseRoseLight.copy(alpha = 0.12f)
-                                else -> WarningAmberLight.copy(alpha = 0.14f)
+                                item.isOverdue || item.relativeDaysText.contains("گذشته") || item.relativeDaysText.contains("معوق") ->
+                                    ExpenseRoseLight.copy(alpha = 0.12f)
+                                item.relativeDaysText == "فردا" || item.relativeDaysText == "امروز" ->
+                                    ExpenseRoseLight.copy(alpha = 0.12f)
+                                else ->
+                                    WarningAmberLight.copy(alpha = 0.14f)
                             }
                         ) {
                             Text(
@@ -252,21 +259,81 @@ private fun ObligationRowItem(
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = when {
-                                        item.relativeDaysText == "فردا" || item.relativeDaysText == "امروز" -> ExpenseRoseLight
-                                        else -> WarningAmberLight
+                                        item.isOverdue || item.relativeDaysText.contains("گذشته") || item.relativeDaysText.contains("معوق") ->
+                                            ExpenseRoseLight
+                                        item.relativeDaysText == "فردا" || item.relativeDaysText == "امروز" ->
+                                            ExpenseRoseLight
+                                        else ->
+                                            WarningAmberLight
                                     }
                                 )
                             )
                         }
                     }
 
+                    // Bank name & Persian due date
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        if (item.bankName.isNotBlank()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.AccountBalance,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = item.bankName,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            Text(
+                                text = "•",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.CalendarToday,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Text(
+                                text = "سررسید: ${IranianPhoneUtils.convertDigitsToPersian(item.dueDatePersian)}",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 11.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Formatted Amount
                     Text(
                         text = item.formattedAmount,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Bold,
                             fontSize = 11.sp
                         ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -280,6 +347,7 @@ private fun ObligationRowItem(
                         color = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
                         shape = CircleShape
                     )
+                    .testTag("pay_obligation_button_${item.id}")
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Check,
