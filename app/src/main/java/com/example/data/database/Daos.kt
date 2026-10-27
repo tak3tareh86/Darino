@@ -527,17 +527,17 @@ interface CheckDao {
         transaction: TransactionEntity,
         transactionDao: TransactionDao
     ): Boolean {
-        // 1. Check if transaction already exists for this user and deterministic ID
-        val existing = transactionDao.getTransactionByStringId(check.userId, transaction.stringId)
-        if (existing != null) {
-            // Idempotency Check: Transaction must match this specific check and user
-            if (existing.sourceId == check.id.toString() && 
-                existing.sourceType == "CHECK" && 
-                existing.userId == check.userId) {
+        // 1. Idempotency Check: Does a valid transaction already exist for this user and check?
+        val existingTx = transactionDao.getTransactionByStringId(check.userId, transaction.stringId)
+        if (existingTx != null) {
+            // Transaction exists. Does it match this specific check?
+            if (existingTx.sourceId == check.id.toString() && 
+                existingTx.sourceType == "CHECK" && 
+                existingTx.userId == check.userId) {
                 
-                // Ensure check status is updated even if transaction already existed 
-                // (e.g., partial failure in previous run or race condition)
-                val updatedRows = updateCheckWithOwner(
+                // If transaction is there, ensure the check record also reaches the correct state.
+                // We attempt update and even if 0 rows (already updated), we verify final state below.
+                updateCheckWithOwner(
                     id = check.id,
                     userId = check.userId,
                     type = check.type,
@@ -555,16 +555,19 @@ interface CheckDao {
                     accountId = check.accountId,
                     updatedAt = check.updatedAt
                 )
-                // If it was already updated, Row count might be 1 or 0 (if status/values are identical)
-                // We return true because the end state (Check is CLEARED + Transaction exists) is reached.
-                return true
+                
+                // Final verification: Is the check actually in the DB and belongs to the user?
+                val finalCheckState = getCheckById(check.userId, check.id)
+                return finalCheckState != null && 
+                       finalCheckState.status == "CLEARED" && 
+                       finalCheckState.userId == check.userId
             } else {
-                // Unique ID collision with different source! Actual error or security issue.
+                // Unique ID collision with different source or user! Security/integrity issue.
                 return false
             }
         }
 
-        // 2. Update check status and account link
+        // 2. Perform the update: Change status to CLEARED
         val updatedRows = updateCheckWithOwner(
             id = check.id,
             userId = check.userId,
@@ -584,23 +587,33 @@ interface CheckDao {
             updatedAt = check.updatedAt
         )
 
-        // Ownership or existence check failed
-        if (updatedRows == 0) return false
+        // If no rows updated (e.g. concurrent deletion or ownership mismatch)
+        if (updatedRows == 0) {
+            // Check if it was already updated by another thread to the target state
+            val concurrentState = getCheckById(check.userId, check.id)
+            if (concurrentState != null && 
+                concurrentState.status == "CLEARED" && 
+                concurrentState.userId == check.userId) {
+                // If it's already CLEARED, we still need to ensure the transaction exists.
+                // The logic will continue to try inserting the transaction.
+            } else {
+                return false
+            }
+        }
 
-        // 3. Insert financial transaction
+        // 3. Insert the financial transaction
         try {
             transactionDao.insertTransaction(transaction)
         } catch (e: Exception) {
-            // Race condition check: Did it get inserted by another thread just now?
-            val doubleCheck = transactionDao.getTransactionByStringId(check.userId, transaction.stringId)
-            if (doubleCheck != null && 
-                doubleCheck.sourceId == check.id.toString() && 
-                doubleCheck.sourceType == "CHECK" &&
-                doubleCheck.userId == check.userId) {
+            // Double-check for race condition insertion
+            val doubleCheckTx = transactionDao.getTransactionByStringId(check.userId, transaction.stringId)
+            if (doubleCheckTx != null && 
+                doubleCheckTx.sourceId == check.id.toString() && 
+                doubleCheckTx.sourceType == "CHECK" &&
+                doubleCheckTx.userId == check.userId) {
                 return true
             }
-            // Real constraint violation (e.g. duplicate stringId with DIFFERENT source) 
-            // or other DB error - rethrow to cause @Transaction rollback
+            // Rethrow other errors (e.g. actual duplicate with wrong source or IO error) to rollback
             throw e
         }
 

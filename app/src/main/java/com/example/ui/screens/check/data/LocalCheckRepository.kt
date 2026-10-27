@@ -167,10 +167,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             return@withContext CheckOperationResult.NOT_FOUND
         }
         
-        // 3. Prevent settling already cleared, canceled, bounced or deleted checks
-        if (existingCheck.status == CheckStatus.CLEARED.name) {
-            return@withContext CheckOperationResult.SUCCESS // Idempotent success
-        }
+        // 3. Prevent settling already canceled, bounced or deleted checks
         if (existingCheck.status == CheckStatus.CANCELED.name || existingCheck.status == CheckStatus.BOUNCED.name) {
             return@withContext CheckOperationResult.VALIDATION_ERROR // Cannot settle canceled or bounced check
         }
