@@ -51,13 +51,11 @@ fun UpcomingRemindersCard(
     modifier: Modifier = Modifier
 ) {
     val nearestReminder = reminders.firstOrNull()
-    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // Always open square-ish card with fixed equal height (185.dp) for side-by-side alignment
         Layered3DCard(
             modifier = Modifier
                 .fillMaxWidth()
@@ -75,7 +73,7 @@ fun UpcomingRemindersCard(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Header inside the card
+                    // Header - Title: "یادآور نزدیک"
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -88,7 +86,7 @@ fun UpcomingRemindersCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "یادآورهای من",
+                            text = "یادآور نزدیک",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
@@ -137,7 +135,7 @@ fun UpcomingRemindersCard(
                             )
                         }
                     } else {
-                        ReminderCompactItem(
+                        ReminderFlatItem(
                             item = nearestReminder,
                             onClick = { onReminderClick(nearestReminder) },
                             onDone = { onMarkCompleted(nearestReminder.id) }
@@ -147,17 +145,17 @@ fun UpcomingRemindersCard(
             }
         }
 
-        // View All button strictly below the card, outside card container
+        // View All button centered strictly below the card, outside card container
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
+            horizontalArrangement = Arrangement.Center
         ) {
             TextButton(
                 onClick = onViewAllClick,
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
             ) {
                 Text(
-                    text = "مشاهده همه",
+                    text = "مشاهده همه یادآورها",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp
@@ -177,22 +175,18 @@ fun UpcomingRemindersCard(
 }
 
 @Composable
-private fun ReminderCompactItem(
+private fun ReminderFlatItem(
     item: UpcomingReminderItem,
     onClick: () -> Unit,
     onDone: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isDark) Color(0xFF1E293B).copy(alpha = 0.5f) else Color(0xFFF8FAFC))
-            .padding(8.dp)
+            .padding(vertical = 2.dp)
             .testTag("reminder_row_${item.id}"),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -263,18 +257,13 @@ private fun ReminderCompactItem(
         ) {
             IconButton(
                 onClick = onDone,
-                modifier = Modifier
-                    .size(26.dp)
-                    .background(
-                        color = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0),
-                        shape = CircleShape
-                    )
+                modifier = Modifier.size(24.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Check,
                     contentDescription = "انجام شد",
                     tint = EmeraldPrimaryLight,
-                    modifier = Modifier.size(13.dp)
+                    modifier = Modifier.size(15.dp)
                 )
             }
         }

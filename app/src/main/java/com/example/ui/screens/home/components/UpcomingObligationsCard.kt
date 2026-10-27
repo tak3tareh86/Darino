@@ -37,9 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.R
 import com.example.ui.components.Layered3DCard
-import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.home.domain.UpcomingObligationItem
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
@@ -56,13 +54,11 @@ fun UpcomingObligationsCard(
     modifier: Modifier = Modifier
 ) {
     val nearestItem = obligations.firstOrNull()
-    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // Always open square-ish card with fixed equal height (185.dp) for side-by-side alignment
         Layered3DCard(
             modifier = Modifier
                 .fillMaxWidth()
@@ -80,7 +76,7 @@ fun UpcomingObligationsCard(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Header inside the card
+                    // Header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -142,7 +138,7 @@ fun UpcomingObligationsCard(
                             )
                         }
                     } else {
-                        NearestObligationCompactItem(
+                        NearestObligationFlatItem(
                             item = nearestItem,
                             onClick = { onObligationClick(nearestItem) },
                             onMarkDone = { onMarkDoneClick(nearestItem.id) }
@@ -152,17 +148,17 @@ fun UpcomingObligationsCard(
             }
         }
 
-        // View All button strictly below the card, outside card container
+        // View All button centered strictly below the card, outside card container
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
+            horizontalArrangement = Arrangement.Center
         ) {
             TextButton(
                 onClick = onViewAllClick,
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
             ) {
                 Text(
-                    text = "مشاهده همه",
+                    text = "مشاهده همه تعهدات",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp
@@ -182,22 +178,18 @@ fun UpcomingObligationsCard(
 }
 
 @Composable
-private fun NearestObligationCompactItem(
+private fun NearestObligationFlatItem(
     item: UpcomingObligationItem,
     onClick: () -> Unit,
     onMarkDone: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isDark) Color(0xFF1E293B).copy(alpha = 0.5f) else Color(0xFFF8FAFC))
-            .padding(8.dp)
+            .padding(vertical = 2.dp)
             .testTag("obligation_row_${item.id}"),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -296,18 +288,14 @@ private fun NearestObligationCompactItem(
             IconButton(
                 onClick = onMarkDone,
                 modifier = Modifier
-                    .size(26.dp)
-                    .background(
-                        color = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0),
-                        shape = CircleShape
-                    )
+                    .size(24.dp)
                     .testTag("pay_obligation_button_${item.id}")
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Check,
                     contentDescription = "ثبت انجام شد",
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(13.dp)
+                    modifier = Modifier.size(15.dp)
                 )
             }
         }
