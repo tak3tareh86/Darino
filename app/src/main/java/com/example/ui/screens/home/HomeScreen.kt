@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -242,40 +243,46 @@ fun HomeScreen(
                             }
                         )
 
-                        // 4. Upcoming Obligations Card (تعهدات نزدیک)
-                        UpcomingObligationsCard(
-                            obligations = uiState.upcomingObligations,
-                            onViewAllClick = { onNavigateToTab(BottomNavItem.INSTALLMENTS) },
-                            onObligationClick = { item ->
-                                when (item.type) {
-                                    ObligationType.INSTALLMENT -> onNavigateToTab(BottomNavItem.INSTALLMENTS)
-                                    ObligationType.VEHICLE_INSURANCE -> onNavigateToTab(BottomNavItem.VEHICLE)
-                                    ObligationType.BILL -> onNavigateToTab(BottomNavItem.CALENDAR)
-                                    ObligationType.OTHER -> onNavigateToTab(BottomNavItem.FINANCE)
-                                }
-                            },
-                            onMarkDoneClick = { id ->
-                                viewModel.markObligationDone(id)
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("تعهد مورد نظر با موفقیت پرداخت و تسویه شد.")
-                                }
-                            }
-                        )
+                        // 4. Side-by-side row: Obligations (Right) and Reminders (Left)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            UpcomingObligationsCard(
+                                obligations = uiState.upcomingObligations,
+                                onViewAllClick = { onNavigateToTab(BottomNavItem.INSTALLMENTS) },
+                                onObligationClick = { item ->
+                                    when (item.type) {
+                                        ObligationType.INSTALLMENT -> onNavigateToTab(BottomNavItem.INSTALLMENTS)
+                                        ObligationType.VEHICLE_INSURANCE -> onNavigateToTab(BottomNavItem.VEHICLE)
+                                        ObligationType.BILL -> onNavigateToTab(BottomNavItem.CALENDAR)
+                                        ObligationType.OTHER -> onNavigateToTab(BottomNavItem.FINANCE)
+                                    }
+                                },
+                                onMarkDoneClick = { id ->
+                                    viewModel.markObligationDone(id)
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("تعهد مورد نظر با موفقیت پرداخت و تسویه شد.")
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
 
-                        // 5. My Reminders Card (یادآورهای من)
-                        UpcomingRemindersCard(
-                            reminders = uiState.upcomingReminders,
-                            onViewAllClick = { onNavigateToTab(BottomNavItem.REMINDERS) },
-                            onReminderClick = {
-                                onNavigateToTab(BottomNavItem.REMINDERS)
-                            },
-                            onMarkCompleted = { id ->
-                                viewModel.markReminderCompleted(id)
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("یادآوری انجام شد.")
-                                }
-                            }
-                        )
+                            UpcomingRemindersCard(
+                                reminders = uiState.upcomingReminders,
+                                onViewAllClick = { onNavigateToTab(BottomNavItem.REMINDERS) },
+                                onReminderClick = {
+                                    onNavigateToTab(BottomNavItem.REMINDERS)
+                                },
+                                onMarkCompleted = { id ->
+                                    viewModel.markReminderCompleted(id)
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("یادآوری انجام شد.")
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(20.dp))
                     }
