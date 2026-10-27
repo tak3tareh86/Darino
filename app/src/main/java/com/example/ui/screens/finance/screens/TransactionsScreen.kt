@@ -78,6 +78,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.Layered3DCard
@@ -859,7 +860,7 @@ fun TransactionCard(
         shape = RoundedCornerShape(RadiusMD),
         backgroundColor = MaterialTheme.colorScheme.surface,
         elevation = 2.dp,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
         testTag = "full_tx_card_${transaction.id}",
         onClick = onClick
     ) {
@@ -868,6 +869,7 @@ fun TransactionCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Right Side (RTL Start): Category Icon + Title/Category/Date Column
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -875,7 +877,7 @@ fun TransactionCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(38.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(transaction.category.accentColor.copy(alpha = if (isDark) 0.25f else 0.12f)),
                     contentAlignment = Alignment.Center
@@ -884,33 +886,40 @@ fun TransactionCard(
                         Image(
                             painter = painterResource(id = transaction.category.iconRes),
                             contentDescription = transaction.category.title,
-                            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)),
+                            modifier = Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)),
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        Text(text = transaction.category.iconEmoji, fontSize = 20.sp)
+                        Text(text = transaction.category.iconEmoji, fontSize = 18.sp)
                     }
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
                     Text(
                         text = transaction.title,
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.5.sp
+                            fontSize = 13.sp
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = transaction.category.title,
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                         Text(
                             text = "•",
@@ -918,17 +927,23 @@ fun TransactionCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
                         Text(
-                            text = "${transaction.datePersian} ${transaction.timePersian}",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = if (transaction.timePersian.isNotBlank()) "${transaction.datePersian} ${transaction.timePersian}" else transaction.datePersian,
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
             }
 
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // Left Side (RTL End): Amount + Payment Method + Action Buttons
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Column(
                     horizontalAlignment = Alignment.End,
@@ -938,14 +953,17 @@ fun TransactionCard(
                         text = transaction.amountFormatted,
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 13.5.sp
                         ),
-                        color = amountColor
+                        color = amountColor,
+                        maxLines = 1,
+                        softWrap = false
                     )
                     Text(
                         text = transaction.paymentMethod.title,
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
 
@@ -956,8 +974,8 @@ fun TransactionCard(
                     Icon(
                         imageVector = Icons.Rounded.ContentCopy,
                         contentDescription = "تکرار",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.size(15.dp)
                     )
                 }
 
@@ -969,7 +987,7 @@ fun TransactionCard(
                         imageVector = Icons.Rounded.Delete,
                         contentDescription = "حذف",
                         tint = Color(0xFFEF4444).copy(alpha = 0.8f),
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }

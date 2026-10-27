@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +36,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.Layered3DCard
@@ -184,7 +186,7 @@ fun TransactionRowItem(
                             painter = painterResource(id = transaction.category.iconRes),
                             contentDescription = transaction.category.title,
                             modifier = Modifier
-                                .size(30.dp)
+                                .size(28.dp)
                                 .clip(RoundedCornerShape(8.dp)),
                             contentScale = ContentScale.Crop
                         )
@@ -197,6 +199,7 @@ fun TransactionRowItem(
                 }
 
                 Column(
+                    modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
@@ -206,17 +209,21 @@ fun TransactionRowItem(
                             fontSize = 13.sp
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = transaction.category.title,
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
 
                         Text(
@@ -228,16 +235,21 @@ fun TransactionRowItem(
                         Text(
                             text = transaction.datePersian,
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
             }
 
+            Spacer(modifier = Modifier.width(6.dp))
+
             // Left Side: Amount + Payment Method Icon + Options Dropdown Menu
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Column(
                     horizontalAlignment = Alignment.End,
@@ -249,13 +261,16 @@ fun TransactionRowItem(
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.5.sp
                         ),
-                        color = amountColor
+                        color = amountColor,
+                        maxLines = 1,
+                        softWrap = false
                     )
 
                     Text(
                         text = transaction.paymentMethod.title,
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
 
