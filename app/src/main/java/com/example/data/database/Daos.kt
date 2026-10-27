@@ -470,3 +470,27 @@ interface UserPreferenceDao {
     @Query("DELETE FROM user_preferences WHERE userId = :userId")
     suspend fun clearPreference(userId: String)
 }
+
+@Dao
+interface CheckDao {
+    @Query("SELECT * FROM checks WHERE userId = :userId AND deletedAt IS NULL ORDER BY dueDate ASC")
+    fun getAllChecks(userId: String): Flow<List<CheckEntity>>
+
+    @Query("SELECT * FROM checks WHERE userId = :userId AND id = :checkId LIMIT 1")
+    suspend fun getCheckById(userId: String, checkId: Int): CheckEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCheck(check: CheckEntity): Long
+
+    @Update
+    suspend fun updateCheck(check: CheckEntity)
+
+    @Query("UPDATE checks SET deletedAt = :deletedAt, updatedAt = :updatedAt WHERE userId = :userId AND id = :checkId")
+    suspend fun softDeleteCheck(userId: String, checkId: Int, deletedAt: Long, updatedAt: Long)
+
+    @Query("SELECT * FROM checks WHERE userId = :userId AND status IN ('REGISTERED', 'PENDING', 'BOUNCED') AND deletedAt IS NULL")
+    suspend fun getActiveChecks(userId: String): List<CheckEntity>
+
+    @Query("DELETE FROM checks WHERE userId = :userId")
+    suspend fun clearAllChecks(userId: String)
+}

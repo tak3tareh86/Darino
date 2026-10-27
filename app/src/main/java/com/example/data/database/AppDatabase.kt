@@ -28,9 +28,10 @@ import androidx.room.RoomDatabase
         VehicleInsuranceRoomEntity::class,
         VehicleInspectionRoomEntity::class,
         VehicleStoreEntity::class,
-        UserPreferenceEntity::class
+        UserPreferenceEntity::class,
+        CheckEntity::class
     ],
-    version = 25,
+    version = 26,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -48,6 +49,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun smartReminderDao(): com.example.reminder.data.ReminderDao
     abstract fun reminderDao(): ReminderDao
     abstract fun userPreferenceDao(): UserPreferenceDao
+    abstract fun checkDao(): CheckDao
 
     companion object {
         @Volatile
@@ -400,6 +402,34 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_25_26 = object : androidx.room.migration.Migration(25, 26) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `checks` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `userId` TEXT NOT NULL,
+                        `type` TEXT NOT NULL,
+                        `amount` INTEGER NOT NULL,
+                        `checkNumber` TEXT NOT NULL,
+                        `sayadId` TEXT,
+                        `bankName` TEXT NOT NULL,
+                        `branch` TEXT,
+                        `holderName` TEXT NOT NULL,
+                        `receiverName` TEXT NOT NULL,
+                        `issueDate` INTEGER NOT NULL,
+                        `dueDate` INTEGER NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `notes` TEXT,
+                        `accountId` TEXT,
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        `deletedAt` INTEGER
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_checks_userId_checkNumber` ON `checks` (`userId`, `checkNumber`)")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -411,7 +441,8 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
                          MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
-                         MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25
+                         MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
+                         MIGRATION_25_26
                      )
                     .build()
                 INSTANCE = instance

@@ -415,6 +415,61 @@ class ReminderManager(
         }
     }
 
+    /**
+     * Synchronizes a check reminder.
+     */
+    suspend fun syncCheckReminder(
+        checkId: String,
+        title: String,
+        amount: Long,
+        dueDatePersian: String,
+        type: String // "RECEIVED" or "PAID"
+    ) = withContext(Dispatchers.IO) {
+        val existing = repository.getReminderBySourceId(checkId)
+        
+        val reminder = existing?.copy(
+            title = if (type == "RECEIVED") "وصول چک دریافتی: $title" else "پرداخت چک: $title",
+            amount = amount,
+            date = dueDatePersian,
+            status = "ACTIVE"
+        ) ?: ReminderEntity(
+            id = "rem_chk_$checkId",
+            title = if (type == "RECEIVED") "وصول چک دریافتی: $title" else "پرداخت چک: $title",
+            description = "مبلغ چک: ${MoneyFormatter.format(amount)}",
+            type = "CHECK",
+            sourceType = "CHECK",
+            sourceId = checkId,
+            priority = "HIGH",
+            status = "ACTIVE",
+            date = dueDatePersian,
+            time = "۰۹:۰۰",
+            amount = amount,
+            notificationEnabled = true,
+            smsEnabled = false
+        )
+
+        val offsets = listOf(
+            PredefinedOffset.BEFORE_1_DAY,
+            PredefinedOffset.AT_TIME
+        )
+
+        if (existing == null) {
+            createReminder(reminder, offsets)
+        } else {
+            updateReminder(reminder, offsets)
+        }
+    }
+
+    /**
+     * Triggered when a check is cleared, paid or canceled.
+     */
+    suspend fun onCheckSettled(checkId: String) = withContext(Dispatchers.IO) {
+        val reminder = repository.getReminderBySourceId(checkId)
+        if (reminder != null) {
+            completeReminder(reminder.id)
+        }
+    }
+
     companion object {
         fun parsePersianDateTimeToMillis(dateStr: String, timeStr: String): Long {
             val cleanDate = dateStr.replace("۱", "1").replace("۲", "2").replace("۳", "3")

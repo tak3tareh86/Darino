@@ -60,7 +60,7 @@ class ExampleRobolectricTest {
     assertEquals(com.example.ui.screens.home.components.BottomNavItem.INSTALLMENTS, items[3])
     assertEquals(com.example.ui.screens.home.components.BottomNavItem.VEHICLE, items[4])
     assertEquals(com.example.ui.screens.home.components.BottomNavItem.REMINDERS, items[5])
-    assertEquals(com.example.ui.screens.home.components.BottomNavItem.REPORTS, items[6])
+    assertEquals(com.example.ui.screens.home.components.BottomNavItem.CHECK, items[6])
     assertEquals("اقساط", items[3].title)
     assertEquals("خودرو", items[4].title)
   }

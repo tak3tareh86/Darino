@@ -21,14 +21,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
-import androidx.compose.material.icons.outlined.Assessment
+import androidx.compose.material.icons.outlined.Assignment
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.Assessment
+import androidx.compose.material.icons.rounded.Assignment
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Home
@@ -68,7 +68,7 @@ enum class BottomNavItem(
     INSTALLMENTS("installments", "اقساط", Icons.Rounded.AccountBalance, Icons.Outlined.AccountBalance, R.drawable.img_3d_installment),
     VEHICLE("vehicle", "خودرو", Icons.Rounded.DirectionsCar, Icons.Outlined.DirectionsCar, R.drawable.img_3d_car),
     REMINDERS("reminders", "یادآور", Icons.Rounded.Notifications, Icons.Outlined.Notifications, R.drawable.img_3d_bell_notification),
-    REPORTS("reports", "گزارشات", Icons.Rounded.Assessment, Icons.Outlined.Assessment, R.drawable.img_3d_chart)
+    CHECK("check", "چک", Icons.Rounded.Assignment, Icons.Outlined.Assignment, R.drawable.img_3d_check)
 }
 
 @Composable

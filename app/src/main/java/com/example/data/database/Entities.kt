@@ -275,3 +275,28 @@ data class UserPreferenceEntity(
     val numberDisplayMode: String = "PERSIAN",
     val updatedAt: Long = System.currentTimeMillis()
 )
+
+@Entity(
+    tableName = "checks",
+    indices = [Index(value = ["userId", "checkNumber"], unique = false)]
+)
+data class CheckEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val userId: String,
+    val type: String, // "RECEIVED", "PAID"
+    val amount: Long,
+    val checkNumber: String,
+    val sayadId: String? = null,
+    val bankName: String,
+    val branch: String? = null,
+    val holderName: String, // صادرکننده / صاحب حساب
+    val receiverName: String, // دریافت‌کننده / ذینفع
+    val issueDate: Long,
+    val dueDate: Long,
+    val status: String, // "REGISTERED", "PENDING", "CLEARED", "BOUNCED", "CANCELED"
+    val notes: String? = null,
+    val accountId: String? = null, // پیوند به حساب مالی
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null
+)

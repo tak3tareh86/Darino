@@ -63,7 +63,7 @@ import com.example.ui.screens.lock.AppLockViewModel
 import com.example.ui.screens.lock.LockedAppScreen
 import com.example.ui.screens.reminder.NotificationCenterScreen
 import com.example.reminder.presentation.ReminderScreen
-import com.example.ui.screens.reports.ReportsScreen
+import com.example.ui.screens.check.CheckScreen
 import com.example.ui.screens.settings.SettingsScreen
 import com.example.financial_health.presentation.FinancialHealthScreen
 import com.example.ui.screens.settings.model.AppThemeMode
@@ -92,6 +92,7 @@ class MainActivity : FragmentActivity() {
         SessionManager.init(this)
         LocalInstallmentRepository.instance.init(this)
         com.example.ui.screens.finance.data.LocalFinanceRepository.instance.init(this)
+        com.example.ui.screens.check.data.LocalCheckRepository.instance.init(this)
         com.example.vehicle.data.VehicleRepository.instance.initDatabase(this)
 
         // 2. Schedule periodic background sync worker with network constraints
@@ -484,12 +485,8 @@ fun AppNavigationContainer(
                                         bottomBar = {}
                                     )
                                 }
-                                BottomNavItem.REPORTS -> {
-                                    ReportsScreen(
-                                        onNavigateToHome = { currentTab = BottomNavItem.HOME },
-                                        onNavigateToFinancial = { currentTab = BottomNavItem.FINANCE },
-                                        onNavigateToInstallments = { currentTab = BottomNavItem.INSTALLMENTS },
-                                        onNavigateToVehicles = { currentTab = BottomNavItem.VEHICLE },
+                                BottomNavItem.CHECK -> {
+                                    CheckScreen(
                                         bottomBar = {}
                                     )
                                 }
