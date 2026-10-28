@@ -314,12 +314,10 @@ object BankSmsParser {
 
     /**
      * Rigorous validation of bank identity and structural integrity:
-     * - If sender is recognized: approved.
-     * - If sender is unknown: NEVER approve solely on the word "بانک" or "پرداخت"!
-     *   MUST possess strict banking structural evidence:
-     *   1) Valid card or account number pattern with digits or masking.
-     *   2) AND Valid ledger/reference metadata (balance or reference/tracking number with digits).
-     *   3) AND Bank name or bank context.
+     * - Known bank senders are accepted for further transaction/type/amount validation.
+     * - Unknown senders need either strict bank/card/account metadata or strong transaction wording
+     *   paired with an unambiguous direction and a positive amount. OTP, failed, and promotional
+     *   messages are filtered before this fallback can be used.
      */
     fun hasValidBankEvidence(sender: String, cleanBody: String): Boolean {
         if (isSenderRecognized(sender)) {
