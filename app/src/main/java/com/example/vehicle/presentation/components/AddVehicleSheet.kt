@@ -5,6 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -81,6 +84,10 @@ fun AddVehicleSheet(
     )
 
     var showBrandDialog by remember { mutableStateOf(false) }
+    var brandSearchQuery by remember { mutableStateOf("") }
+    val filteredBrands = remember(brands, brandSearchQuery) {
+        brands.filter { it.contains(brandSearchQuery.trim(), ignoreCase = true) }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -193,46 +200,119 @@ fun AddVehicleSheet(
                         )
                     },
                     text = {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 380.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(brands) { b ->
-                                val isSelected = brand == b
-                                Surface(
+                            OutlinedTextField(
+                                value = brandSearchQuery,
+                                onValueChange = { brandSearchQuery = it },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("brand_search_input"),
+                                label = { Text("جست‌وجوی برند") },
+                                placeholder = { Text("نام برند را وارد کنید") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.DirectionsCar,
+                                        contentDescription = null
+                                    )
+                                },
+                                trailingIcon = {
+                                    if (brandSearchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { brandSearchQuery = "" }) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Close,
+                                                contentDescription = "پاک کردن جست‌وجو"
+                                            )
+                                        }
+                                    }
+                                },
+                                singleLine = true
+                            )
+                            if (filteredBrands.isEmpty()) {
+                                Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable {
-                                            brand = b
-                                            showBrandDialog = false
-                                        },
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
-                                    shape = RoundedCornerShape(8.dp)
+                                        .padding(vertical = 24.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = b,
-                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                            ),
-                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                        )
-                                        if (isSelected) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Check,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
+                                    Text(
+                                        text = "برندی با این نام پیدا نشد",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            } else {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(4),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 320.dp)
+                                        .testTag("brand_options_grid"),
+                                    columns = GridCells.Fixed(4),
+                                    contentPadding = PaddingValues(2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    items(filteredBrands) { b ->
+                                        val isSelected = brand == b
+                                        Surface(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(min = 56.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .clickable {
+                                                    brand = b
+                                                    showBrandDialog = false
+                                                    brandSearchQuery = ""
+                                                },
+                                            color = if (isSelected) {
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                            } else {
+                                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            border = if (isSelected) {
+                                                androidx.compose.foundation.BorderStroke(
+                                                    1.dp,
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
+                                                )
+                                            } else null
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 3.dp, vertical = 8.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                if (isSelected) {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.Check,
+                                                        contentDescription = "انتخاب‌شده",
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                }
+                                                Text(
+                                                    text = b,
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    style = MaterialTheme.typography.labelMedium.copy(
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                    ),
+                                                    color = if (isSelected) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurface
+                                                    },
+                                                    textAlign = TextAlign.Center,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
                                         }
                                     }
                                 }
