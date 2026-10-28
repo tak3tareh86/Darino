@@ -357,7 +357,7 @@ class LocalInstallmentRepository private constructor() {
                             com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
                         }
                     }
-                    return@withLock (financialTransaction != null)
+                    return@withLock true
                 }
 
                 history[finalTargetIndex] = target.copy(

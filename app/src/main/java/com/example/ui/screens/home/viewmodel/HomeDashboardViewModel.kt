@@ -662,17 +662,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                         ObligationType.VEHICLE_INSURANCE -> {
                             val insId = obligation.rawId
-                            val insurance = VehicleRepository.instance.insurances.value.find { it.id == insId }
-                                ?: run {
-                                    safeResult(false)
-                                    return@withLock
-                                }
-                            val vehicleId = insurance.vehicleId
-                            if (vehicleId.isBlank()) {
-                                safeResult(false)
-                                return@withLock
-                            }
-
                             val txId = "tx_ins_${insId}_${todayJalali.replace('/', '_')}"
                             val finTxEntity = TransactionEntity(
                                 stringId = txId,
@@ -703,16 +692,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                         else -> {
                             val serviceId = obligation.rawId
-                            val service = VehicleRepository.instance.services.value.find { it.id == serviceId }
-                                ?: run {
-                                    safeResult(false)
-                                    return@withLock
-                                }
-                            if (service.vehicleId.isBlank()) {
-                                safeResult(false)
-                                return@withLock
-                            }
-
                             val txId = "tx_svc_${serviceId}"
                             val finTxEntity = TransactionEntity(
                                 stringId = txId,
