@@ -179,6 +179,80 @@ class HomeDashboardRepository(
             )
         }
 
+        // 2. Real Vehicle Insurance (if expiring within 30 days or overdue)
+        val vehiclesList = vehicleRepository.vehicles.value
+        val insurancesList = vehicleRepository.insurances.value
+        for (ins in insurancesList) {
+            if (ins.endDate.isNotBlank()) {
+                val diff = calculateDaysDifference(ins.endDate)
+                if (diff <= 30) {
+                    val vehicle = vehiclesList.find { it.id == ins.vehicleId }
+                    val isOverdue = diff < 0
+                    val relativeText = when {
+                        diff < 0 -> "${IranianPhoneUtils.convertDigitsToPersian((-diff).toString())} روز گذشته (منقضی)"
+                        diff == 0 -> "امروز"
+                        diff == 1 -> "فردا"
+                        else -> "${IranianPhoneUtils.convertDigitsToPersian(diff.toString())} روز دیگر"
+                    }
+                    val vehicleModelText = vehicle?.let { " (${it.brand} ${it.model})" } ?: ""
+                    list.add(
+                        UpcomingObligationItem(
+                            id = "ob_ins_${ins.id}",
+                            title = "بیمه ${ins.type}$vehicleModelText".trim(),
+                            amount = ins.amount,
+                            formattedAmount = MoneyFormatter.formatToman(ins.amount),
+                            relativeDaysText = relativeText,
+                            dueDatePersian = ins.endDate,
+                            type = ObligationType.VEHICLE_INSURANCE,
+                            destinationTab = BottomNavItem.VEHICLE,
+                            iconRes = R.drawable.img_3d_insurance,
+                            accentColor = Color(0xFFF59E0B),
+                            isOverdue = isOverdue,
+                            rawId = ins.id,
+                            bankName = ins.company
+                        )
+                    )
+                }
+            }
+        }
+
+        // 3. Real Vehicle Periodic Services (if reminder date within 30 days or overdue)
+        val servicesList = vehicleRepository.services.value
+        for (svc in servicesList) {
+            val remDate = svc.nextReminderDate
+            if (!remDate.isNullOrBlank() && svc.isReminderEnabled) {
+                val diff = calculateDaysDifference(remDate)
+                if (diff <= 30) {
+                    val vehicle = vehiclesList.find { it.id == svc.vehicleId }
+                    val isOverdue = diff < 0
+                    val relativeText = when {
+                        diff < 0 -> "${IranianPhoneUtils.convertDigitsToPersian((-diff).toString())} روز گذشته"
+                        diff == 0 -> "امروز"
+                        diff == 1 -> "فردا"
+                        else -> "${IranianPhoneUtils.convertDigitsToPersian(diff.toString())} روز دیگر"
+                    }
+                    val vehicleModelText = vehicle?.let { " (${it.brand} ${it.model})" } ?: ""
+                    list.add(
+                        UpcomingObligationItem(
+                            id = "ob_svc_${svc.id}",
+                            title = "${svc.title}$vehicleModelText".trim(),
+                            amount = svc.cost,
+                            formattedAmount = MoneyFormatter.formatToman(svc.cost),
+                            relativeDaysText = relativeText,
+                            dueDatePersian = remDate,
+                            type = ObligationType.OTHER,
+                            destinationTab = BottomNavItem.VEHICLE,
+                            iconRes = svc.serviceType.iconRes,
+                            accentColor = ExpenseRoseLight,
+                            isOverdue = isOverdue,
+                            rawId = svc.id,
+                            bankName = ""
+                        )
+                    )
+                }
+            }
+        }
+
         // Sort by priority/urgency:
         // 1. Overdue (diff < 0) priority 0
         // 2. Due today (diff == 0) priority 1

@@ -1133,7 +1133,11 @@ class VehicleRepository {
     }
 
     // 6. Complete Service (Atomic Status update with proper reminder sync & affected rows check)
-    suspend fun completeService(serviceId: String, completedDate: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun completeService(
+        serviceId: String,
+        completedDate: String,
+        financialTransaction: com.example.data.database.TransactionEntity? = null
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
@@ -1145,16 +1149,53 @@ class VehicleRepository {
             val existing = db.vehicleDao().getServiceByServerId(userId, serviceId)
                 ?: return@withContext Result.failure(NoSuchElementException("سرویس دوره‌ای یافت نشد."))
 
+            // Check if already completed (recovery & idempotency)
+            if (existing.status == "COMPLETED") {
+                if (financialTransaction != null && financialTransaction.amount > 0L) {
+                    val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                    if (existingTx == null) {
+                        db.transactionDao().insertTransaction(financialTransaction)
+                        com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                    }
+                }
+                return@withContext Result.success(Unit)
+            }
+
+            // 1. Fetch any existing schedules to cancel before database modification
+            val reminderDb = com.example.data.database.AppDatabase.getDatabase(context)
+            val schedulesToCancel = reminderDb.smartReminderDao().getSchedulesForReminderSync(userId, serviceId)
+
             db.withTransaction {
+                // 1. Financial transaction
+                if (financialTransaction != null && financialTransaction.amount > 0L) {
+                    val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                    if (existingTx == null) {
+                        db.transactionDao().insertTransaction(financialTransaction)
+                    }
+                }
+
                 val affectedRows = db.vehicleDao().completeService(userId, serviceId, completedDateMs)
                 if (affectedRows == 0) {
                     throw IllegalStateException("ثبت اتمام سرویس انجام نشد.")
                 }
 
-                // Sync expense date to completed date
+                // Sync expense date to completed date, or insert linked expense if cost > 0 and missing
                 val expense = db.vehicleDao().getExpenseById(userId, "exp_svc_$serviceId")
                 if (expense != null) {
                     db.vehicleDao().updateExpense(expense.copy(date = completedDate.trim()))
+                } else if (existing.cost > 0L) {
+                    db.vehicleDao().insertExpense(
+                        VehicleExpenseRoomEntity(
+                            id = "exp_svc_$serviceId",
+                            userId = userId,
+                            vehicleId = existing.vehicleId,
+                            title = existing.title,
+                            category = VehicleExpenseCategory.SERVICE.name,
+                            amount = existing.cost,
+                            date = completedDate.trim(),
+                            description = "سرویس دوره‌ای خودرو: ${existing.notes ?: ""}".trim()
+                        )
+                    )
                 }
 
                 // Mark associated reminder as completed in Room database inside transaction
@@ -1167,10 +1208,12 @@ class VehicleRepository {
             }
 
             // Cancel alarm in system AlarmManager after successful database commit
-            val reminderDb = com.example.data.database.AppDatabase.getDatabase(context)
-            val schedulesToCancel = reminderDb.smartReminderDao().getSchedulesForReminderSync(userId, serviceId)
             val scheduler = com.example.reminder.domain.ReminderScheduler(context)
             scheduler.cancel(serviceId, schedulesToCancel)
+
+            if (financialTransaction != null) {
+                com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -1442,7 +1485,11 @@ class VehicleRepository {
     }
 
     // 11. Renew Insurance (Affected rows validation, expense sync, reminder sync, ownership check)
-    suspend fun renewInsurance(insuranceId: String, newEndDate: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun renewInsurance(
+        insuranceId: String,
+        newEndDate: String,
+        financialTransaction: com.example.data.database.TransactionEntity? = null
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
@@ -1456,6 +1503,18 @@ class VehicleRepository {
             val existing = db.vehicleDao().getInsuranceById(userId, insuranceId)
                 ?: return@withContext Result.failure(NoSuchElementException("بیمه‌نامه مورد نظر یافت نشد."))
 
+            // Check if already renewed for this target end date (recovery & idempotency)
+            if (existing.endDate == newEndDate.trim()) {
+                if (financialTransaction != null && financialTransaction.amount > 0L) {
+                    val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                    if (existingTx == null) {
+                        db.transactionDao().insertTransaction(financialTransaction)
+                        com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                    }
+                }
+                return@withContext Result.success(Unit)
+            }
+
             val startMs = parseJalaliToTimestamp(existing.startDate)
                 ?: return@withContext Result.failure(IllegalStateException("تاریخ شروع بیمه‌نامه نامعتبر یا ثبت نشده است. امکان تمدید وجود ندارد."))
             if (endMs < startMs) {
@@ -1468,7 +1527,21 @@ class VehicleRepository {
             // 1. Fetch any existing schedules to cancel before database modification
             val schedulesToCancel = db.smartReminderDao().getSchedulesForReminderSync(userId, insuranceId)
 
+            val insAmount = if (financialTransaction != null && financialTransaction.amount > 0L) {
+                financialTransaction.amount
+            } else {
+                existing.amount
+            }
+
             db.withTransaction {
+                // 1. Financial transaction
+                if (financialTransaction != null && financialTransaction.amount > 0L) {
+                    val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                    if (existingTx == null) {
+                        db.transactionDao().insertTransaction(financialTransaction)
+                    }
+                }
+
                 val affectedRows = db.vehicleDao().renewInsurance(userId, insuranceId, today, newEndDate.trim())
                 if (affectedRows == 0) {
                     throw IllegalStateException("بروزرسانی بیمه‌نامه شکست خورد.")
@@ -1481,6 +1554,20 @@ class VehicleRepository {
                         expense.copy(
                             title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
                             category = VehicleExpenseCategory.INSURANCE.name,
+                            amount = if (insAmount > 0L) insAmount else expense.amount,
+                            date = today,
+                            description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
+                        )
+                    )
+                } else if (insAmount > 0L) {
+                    db.vehicleDao().insertExpense(
+                        VehicleExpenseRoomEntity(
+                            id = "exp_ins_$insuranceId",
+                            userId = userId,
+                            vehicleId = existing.vehicleId,
+                            title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
+                            category = VehicleExpenseCategory.INSURANCE.name,
+                            amount = insAmount,
                             date = today,
                             description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
                         )
@@ -1515,6 +1602,10 @@ class VehicleRepository {
                 reminderManager.enableReminder(insuranceId)
             } catch (e: Exception) {
                 android.util.Log.w("VehicleRepository", "Alarm scheduling/cancellation failed for insurance $insuranceId, but insurance was successfully renewed in Room.", e)
+            }
+
+            if (financialTransaction != null) {
+                com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
             }
 
             Result.success(Unit)

@@ -228,6 +228,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     }
 
     private val smsProcessingMutex = Mutex()
+    private val obligationProcessingMutex = Mutex()
 
     private fun findMatchingAccount(
         accounts: List<com.example.data.database.AccountEntity>,
@@ -580,158 +581,175 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
     /**
      * Real payment / completion action for an obligation.
-     * Updates the underlying Room database & repositories, and records financial transaction.
+     * Updates the underlying Room database & repositories, and records financial transaction atomically and idempotently.
      */
     fun markObligationDone(id: String, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            try {
-                val obligation = _uiState.value.upcomingObligations.find { it.id == id }
-                if (obligation == null) {
-                    onResult(false)
-                    return@launch
+            var resultReported = false
+            fun safeResult(success: Boolean) {
+                if (!resultReported) {
+                    resultReported = true
+                    onResult(success)
                 }
-                val currentPdt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
-                val todayJalali = currentPdt.toFormattedDate()
-                val nowTime = currentPdt.toFormattedTime()
+            }
 
-                val success = when (obligation.type) {
-                    ObligationType.INSTALLMENT -> {
-                        val installmentId = obligation.rawId
-                        val scheduleItemId = obligation.scheduleItemId
+            val userId = SessionManager.userId
+            if (userId.isNullOrBlank()) {
+                safeResult(false)
+                return@launch
+            }
 
-                        val paidSuccessfully = LocalInstallmentRepository.instance.payInstallment(
-                            installmentId = installmentId,
-                            paymentDate = todayJalali,
-                            context = getApplication(),
-                            scheduleItemId = scheduleItemId
-                        )
+            obligationProcessingMutex.withLock {
+                try {
+                    val obligation = _uiState.value.upcomingObligations.find { it.id == id }
+                    if (obligation == null) {
+                        safeResult(false)
+                        return@withLock
+                    }
 
-                        if (paidSuccessfully) {
-                            val finTx = TransactionItemData(
-                                // Stable ID makes retries idempotent for this exact installment schedule item.
-                                id = "tx_inst_pay_${obligation.id}",
+                    val currentPdt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+                    val todayJalali = currentPdt.toFormattedDate()
+                    val nowTime = currentPdt.toFormattedTime()
+
+                    val db = AppDatabase.getDatabase(getApplication())
+                    LocalFinanceRepository.instance.ensureDefaultAccounts(db, userId)
+                    val activeAccounts = db.accountDao().getAllAccountsList(userId).filter { it.isActive && it.deletedAt == null }
+                    if (activeAccounts.isEmpty()) {
+                        safeResult(false)
+                        return@withLock
+                    }
+
+                    // Resolve account: first try obligation bankName if valid, then default card, then any active card/bank, else first
+                    val selectedAccount = findMatchingAccount(activeAccounts, null, obligation.bankName.takeIf { it.isNotBlank() })
+                        ?: activeAccounts.find { it.stringId == "default_card_$userId" }
+                        ?: activeAccounts.find { it.type == "CARD" || it.type == "BANK" }
+                        ?: activeAccounts.first()
+
+                    val success = when (obligation.type) {
+                        ObligationType.INSTALLMENT -> {
+                            val installmentId = obligation.rawId
+                            val scheduleItemId = obligation.scheduleItemId
+                            val stableSchedId = scheduleItemId?.takeIf { it.isNotBlank() } ?: "sched_${obligation.dueDatePersian.replace('/', '_')}"
+                            val txId = "tx_inst_${installmentId}_${stableSchedId}"
+
+                            val finTxEntity = TransactionEntity(
+                                stringId = txId,
+                                userId = userId,
                                 title = "پرداخت قسط: ${obligation.title}",
                                 amount = obligation.amount,
-                                type = TransactionType.EXPENSE,
-                                category = TransactionCategory(
-                                    id = "cat_loan",
-                                    title = "اقساط و وام",
-                                    iconEmoji = "🏦",
-                                    accentColor = Color(0xFF2563EB),
-                                    type = TransactionType.EXPENSE
-                                ),
+                                type = "EXPENSE",
+                                category = "اقساط و وام",
+                                accountName = selectedAccount.name,
+                                description = "پرداخت قسط از داشبورد خانه",
+                                timestamp = System.currentTimeMillis(),
+                                timeFormatted = nowTime,
                                 datePersian = todayJalali,
-                                timePersian = nowTime,
-                                accountName = "کارت بانکی",
-                                description = "پرداخت قسط از داشبورد خانه"
+                                paymentMethod = "BANK_CARD",
+                                sourceType = "INSTALLMENT",
+                                sourceId = installmentId,
+                                accountId = selectedAccount.stringId
                             )
-                            LocalFinanceRepository.instance.addTransactionResult(finTx) ==
-                                com.example.ui.screens.finance.data.TransactionOperationResult.SUCCESS
-                        } else {
-                            false
-                        }
-                    }
 
-                    ObligationType.VEHICLE_INSURANCE -> {
-                        val insId = obligation.rawId
-                        val insurance = VehicleRepository.instance.insurances.value.find { it.id == insId }
-                            ?: run {
-                                onResult(false)
-                                return@launch
-                            }
-                        val vehicleId = insurance.vehicleId
-                        if (vehicleId.isBlank()) {
-                            onResult(false)
-                            return@launch
-                        }
-
-                        val nextYearDate = IranianDateUtils.createFormattedDate(currentPdt.year + 1, currentPdt.month, currentPdt.day)
-                        val renewalResult = VehicleRepository.instance.renewInsurance(insId, nextYearDate)
-                        if (renewalResult.isFailure) {
-                            false
-                        } else {
-                            val expenseResult = VehicleRepository.instance.addExpense(
-                                vehicleId = vehicleId,
-                                title = obligation.title,
-                                category = VehicleExpenseCategory.INSURANCE,
-                                amount = obligation.amount,
-                                date = todayJalali,
-                                description = "پرداخت و تمدید بیمه از داشبورد خانه"
+                            val paidSuccessfully = LocalInstallmentRepository.instance.payInstallment(
+                                installmentId = installmentId,
+                                paymentDate = todayJalali,
+                                context = getApplication(),
+                                scheduleItemId = scheduleItemId,
+                                financialTransaction = finTxEntity
                             )
-                            if (expenseResult.isFailure) {
-                                false
-                            } else {
-                                val finTx = TransactionItemData(
-                                    id = "tx_ins_pay_${insId}_${todayJalali}",
-                                    title = obligation.title,
-                                    amount = obligation.amount,
-                                    type = TransactionType.EXPENSE,
-                                    category = TransactionCategory(
-                                        id = "cat_insurance",
-                                        title = "بیمه خودرو",
-                                        iconEmoji = "🛡️",
-                                        accentColor = Color(0xFFF59E0B),
-                                        type = TransactionType.EXPENSE
-                                    ),
-                                    datePersian = todayJalali,
-                                    timePersian = nowTime,
-                                    accountName = "کارت بانکی",
-                                    description = "پرداخت بیمه از داشبورد خانه"
-                                )
-                                LocalFinanceRepository.instance.addTransactionResult(finTx) ==
-                                    com.example.ui.screens.finance.data.TransactionOperationResult.SUCCESS
-                            }
-                        }
-                    }
-
-                    else -> {
-                        val serviceId = obligation.rawId
-                        val service = VehicleRepository.instance.services.value.find { it.id == serviceId }
-                            ?: run {
-                                onResult(false)
-                                return@launch
-                            }
-                        if (service.vehicleId.isBlank()) {
-                            onResult(false)
-                            return@launch
+                            paidSuccessfully
                         }
 
-                        val completionResult = VehicleRepository.instance.completeService(serviceId, todayJalali)
-                        if (completionResult.isFailure) {
-                            false
-                        } else {
-                            // completeService synchronizes the service's linked expense when one exists.
-                            // Do not create a second vehicle expense here.
-                            val finTx = TransactionItemData(
-                                id = "tx_ob_pay_${serviceId}",
-                                title = obligation.title,
+                        ObligationType.VEHICLE_INSURANCE -> {
+                            val insId = obligation.rawId
+                            val insurance = VehicleRepository.instance.insurances.value.find { it.id == insId }
+                                ?: run {
+                                    safeResult(false)
+                                    return@withLock
+                                }
+                            val vehicleId = insurance.vehicleId
+                            if (vehicleId.isBlank()) {
+                                safeResult(false)
+                                return@withLock
+                            }
+
+                            val txId = "tx_ins_${insId}_${todayJalali.replace('/', '_')}"
+                            val finTxEntity = TransactionEntity(
+                                stringId = txId,
+                                userId = userId,
+                                title = "تمدید ${obligation.title}",
                                 amount = obligation.amount,
-                                type = TransactionType.EXPENSE,
-                                category = TransactionCategory(
-                                    id = "cat_other",
-                                    title = "سایر هزینه‌ها",
-                                    iconEmoji = "📝",
-                                    accentColor = Color(0xFF10B981),
-                                    type = TransactionType.EXPENSE
-                                ),
+                                type = "EXPENSE",
+                                category = "بیمه",
+                                accountName = selectedAccount.name,
+                                description = "پرداخت و تمدید بیمه خودرو از داشبورد خانه",
+                                timestamp = System.currentTimeMillis(),
+                                timeFormatted = nowTime,
                                 datePersian = todayJalali,
-                                timePersian = nowTime,
-                                accountName = "کارت بانکی",
-                                description = "تسویه تعهد از داشبورد خانه"
+                                paymentMethod = "BANK_CARD",
+                                sourceType = "INSURANCE",
+                                sourceId = insId,
+                                accountId = selectedAccount.stringId
                             )
-                            LocalFinanceRepository.instance.addTransactionResult(finTx) ==
-                                com.example.ui.screens.finance.data.TransactionOperationResult.SUCCESS
+
+                            val nextYearDate = IranianDateUtils.createFormattedDate(currentPdt.year + 1, currentPdt.month, currentPdt.day)
+                            val renewalResult = VehicleRepository.instance.renewInsurance(
+                                insuranceId = insId,
+                                newEndDate = nextYearDate,
+                                financialTransaction = finTxEntity
+                            )
+                            renewalResult.isSuccess
+                        }
+
+                        else -> {
+                            val serviceId = obligation.rawId
+                            val service = VehicleRepository.instance.services.value.find { it.id == serviceId }
+                                ?: run {
+                                    safeResult(false)
+                                    return@withLock
+                                }
+                            if (service.vehicleId.isBlank()) {
+                                safeResult(false)
+                                return@withLock
+                            }
+
+                            val txId = "tx_svc_${serviceId}"
+                            val finTxEntity = TransactionEntity(
+                                stringId = txId,
+                                userId = userId,
+                                title = "سرویس دوره‌ای: ${obligation.title}",
+                                amount = obligation.amount,
+                                type = "EXPENSE",
+                                category = "سرویس و نگهداری خودرو",
+                                accountName = selectedAccount.name,
+                                description = "تسویه هزینه سرویس خودرو از داشبورد خانه",
+                                timestamp = System.currentTimeMillis(),
+                                timeFormatted = nowTime,
+                                datePersian = todayJalali,
+                                paymentMethod = "BANK_CARD",
+                                sourceType = "MAINTENANCE",
+                                sourceId = serviceId,
+                                accountId = selectedAccount.stringId
+                            )
+
+                            val completionResult = VehicleRepository.instance.completeService(
+                                serviceId = serviceId,
+                                completedDate = todayJalali,
+                                financialTransaction = finTxEntity
+                            )
+                            completionResult.isSuccess
                         }
                     }
-                }
 
-                if (success) {
-                    loadDashboardData()
+                    if (success) {
+                        LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                        loadDashboardData()
+                    }
+                    safeResult(success)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    safeResult(false)
                 }
-                onResult(success)
-            } catch (e: Exception) {
-                e.printStackTrace()
-                onResult(false)
             }
         }
     }

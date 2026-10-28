@@ -307,13 +307,16 @@ class LocalInstallmentRepository private constructor() {
         installmentId: String,
         paymentDate: String,
         context: Context? = null,
-        scheduleItemId: String? = null
+        scheduleItemId: String? = null,
+        financialTransaction: TransactionEntity? = null
     ): Boolean {
         val targetContext = context?.applicationContext ?: appContext ?: return false
         return saveMutex.withLock {
             try {
                 val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
                 val effectivePaymentDate = paymentDate.ifBlank { todayJalali }
+                val userId = SessionManager.userId ?: return@withLock false
+                val db = AppDatabase.getDatabase(targetContext)
 
                 val current = _installments.value.toMutableList()
                 val index = current.indexOfFirst { it.id == installmentId }
@@ -330,12 +333,7 @@ class LocalInstallmentRepository private constructor() {
                     if (matchingIndices.size != 1) {
                         return@withLock false
                     }
-                    val targetIdx = matchingIndices.single()
-                    val target = history[targetIdx]
-                    if (target.status == InstallmentStatus.PAID || target.status == InstallmentStatus.COMPLETED) {
-                        return@withLock false
-                    }
-                    targetIdx
+                    matchingIndices.single()
                 } else {
                     val unpaid = history.filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
                     val nearest = unpaid.minByOrNull { p -> parseJalaliStringToMillis(p.dueDate) ?: Long.MAX_VALUE }
@@ -349,8 +347,17 @@ class LocalInstallmentRepository private constructor() {
                 }
 
                 val target = history[finalTargetIndex]
-                if (target.status == InstallmentStatus.PAID || target.status == InstallmentStatus.COMPLETED) {
-                    return@withLock false
+                val isAlreadyPaid = (target.status == InstallmentStatus.PAID || target.status == InstallmentStatus.COMPLETED)
+                if (isAlreadyPaid) {
+                    // Recover missing financial transaction if present
+                    if (financialTransaction != null && financialTransaction.amount > 0L) {
+                        val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                        if (existingTx == null) {
+                            db.transactionDao().insertTransaction(financialTransaction)
+                            com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                        }
+                    }
+                    return@withLock (financialTransaction != null)
                 }
 
                 history[finalTargetIndex] = target.copy(
@@ -387,10 +394,11 @@ class LocalInstallmentRepository private constructor() {
                 )
 
                 current[index] = updatedItem
-                saveToRoom(targetContext, current)
-                val userId = SessionManager.userId
-                if (userId != null) {
-                    reloadForUser(targetContext, userId)
+                saveToRoomInternal(targetContext, current, financialTransaction)
+                _installments.value = current
+                reloadForUser(targetContext, userId)
+                if (financialTransaction != null) {
+                    com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
                 }
                 true
             } catch (e: Exception) {
@@ -497,10 +505,26 @@ class LocalInstallmentRepository private constructor() {
     }
 
     private suspend fun saveToRoom(context: Context, items: List<InstallmentItem>) = saveMutex.withLock {
+        saveToRoomInternal(context, items, null)
+    }
+
+    private suspend fun saveToRoomInternal(
+        context: Context,
+        items: List<InstallmentItem>,
+        financialTransaction: TransactionEntity? = null
+    ) {
         val db = AppDatabase.getDatabase(context)
         db.withTransaction {
-            val dao = db.installmentDao()
             val userId = SessionManager.userId ?: throw IllegalStateException("No authenticated user ID")
+
+            if (financialTransaction != null && financialTransaction.amount > 0L) {
+                val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                if (existingTx == null) {
+                    db.transactionDao().insertTransaction(financialTransaction)
+                }
+            }
+
+            val dao = db.installmentDao()
             dao.clearAllInstallments(userId)
             dao.clearAllPayments(userId)
 
