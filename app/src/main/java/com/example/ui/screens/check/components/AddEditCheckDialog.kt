@@ -39,7 +39,6 @@ fun AddEditCheckDialog(
     var receiverName by remember { mutableStateOf(check?.receiverName ?: "") }
     var issueDate by remember { mutableStateOf(check?.issueDate ?: System.currentTimeMillis()) }
     var dueDate by remember { mutableStateOf(check?.dueDate ?: (System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000)) }
-    var notes by remember { mutableStateOf(check?.notes ?: "") }
     var status by remember { mutableStateOf(check?.status ?: CheckStatus.REGISTERED) }
     var reminderDateTime by remember { mutableStateOf(check?.reminderDateTime) }
 
@@ -71,41 +70,6 @@ fun AddEditCheckDialog(
                             Icon(Icons.Rounded.Close, contentDescription = "بستن")
                         }
                     },
-                    actions = {
-                        TextButton(
-                            onClick = {
-                                val amountValue = amount.toLongOrNull() ?: 0L
-                                if (amountValue > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() && !isDateInvalid) {
-                                    onConfirm(
-                                        Check(
-                                            id = check?.id ?: 0,
-                                            userId = check?.userId ?: "",
-                                            type = type,
-                                            amount = amountValue,
-                                            checkNumber = checkNumber,
-                                            sayadId = sayadId.ifBlank { null },
-                                            bankName = bankName,
-                                            branch = branch.ifBlank { null },
-                                            holderName = holderName,
-                                            receiverName = receiverName,
-                                            issueDate = issueDate,
-                                            dueDate = dueDate,
-                                            status = status,
-                                            notes = notes.ifBlank { null },
-                                            accountId = check?.accountId,
-                                            reminderDateTime = reminderDateTime,
-                                            createdAt = check?.createdAt ?: System.currentTimeMillis(),
-                                            updatedAt = System.currentTimeMillis()
-                                        )
-                                    )
-                                } else if (isDateInvalid) {
-                                    showError = true
-                                }
-                            }
-                        ) {
-                            Text("ذخیره", fontWeight = FontWeight.Bold)
-                        }
-                    }
                 )
             }
         ) { padding ->
@@ -113,9 +77,9 @@ fun AddEditCheckDialog(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 20.dp)
+                    .padding(horizontal = 16.dp)
                     .verticalScroll(scrollState),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (showError && isDateInvalid) {
                     Card(
@@ -137,7 +101,7 @@ fun AddEditCheckDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 // Type Toggle
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -186,40 +150,42 @@ fun AddEditCheckDialog(
                     )
                 }
 
-                OutlinedTextField(
-                    value = bankName,
-                    onValueChange = { bankName = it },
-                    label = { Text("نام بانک") },
-                    modifier = Modifier.fillMaxWidth(),
-                    leadingIcon = { Icon(Icons.Rounded.AccountBalance, null) },
-                    singleLine = true
-                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = bankName,
+                        onValueChange = { bankName = it },
+                        label = { Text("نام بانک") },
+                        modifier = Modifier.weight(1.2f),
+                        leadingIcon = { Icon(Icons.Rounded.AccountBalance, null) },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = branch,
+                        onValueChange = { branch = it },
+                        label = { Text("شعبه (اختیاری)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
 
-                OutlinedTextField(
-                    value = branch,
-                    onValueChange = { branch = it },
-                    label = { Text("شعبه (اختیاری)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = holderName,
-                    onValueChange = { holderName = it },
-                    label = { Text(if (type == CheckType.RECEIVED) "صادرکننده / صاحب حساب" else "صاحب حساب ما") },
-                    modifier = Modifier.fillMaxWidth(),
-                    leadingIcon = { Icon(Icons.Rounded.Person, null) },
-                    singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = receiverName,
-                    onValueChange = { receiverName = it },
-                    label = { Text(if (type == CheckType.RECEIVED) "ذینفع (ما)" else "دریافت‌کننده / ذینفع") },
-                    modifier = Modifier.fillMaxWidth(),
-                    leadingIcon = { Icon(Icons.Rounded.PersonOutline, null) },
-                    singleLine = true
-                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = holderName,
+                        onValueChange = { holderName = it },
+                        label = { Text(if (type == CheckType.RECEIVED) "صادرکننده" else "صاحب حساب ما") },
+                        modifier = Modifier.weight(1f),
+                        leadingIcon = { Icon(Icons.Rounded.Person, null) },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = receiverName,
+                        onValueChange = { receiverName = it },
+                        label = { Text(if (type == CheckType.RECEIVED) "ذینفع (ما)" else "دریافت‌کننده") },
+                        modifier = Modifier.weight(1f),
+                        leadingIcon = { Icon(Icons.Rounded.PersonOutline, null) },
+                        singleLine = true
+                    )
+                }
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     // Issue Date
@@ -258,7 +224,7 @@ fun AddEditCheckDialog(
                 }
 
                 // Reminder Section
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -343,15 +309,44 @@ fun AddEditCheckDialog(
                     }
                 }
 
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("توضیحات") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = {
+                        val amountValue = amount.toLongOrNull() ?: 0L
+                        if (amountValue > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() && !isDateInvalid) {
+                            onConfirm(
+                                Check(
+                                    id = check?.id ?: 0,
+                                    userId = check?.userId ?: "",
+                                    type = type,
+                                    amount = amountValue,
+                                    checkNumber = checkNumber,
+                                    sayadId = sayadId.ifBlank { null },
+                                    bankName = bankName,
+                                    branch = branch.ifBlank { null },
+                                    holderName = holderName,
+                                    receiverName = receiverName,
+                                    issueDate = issueDate,
+                                    dueDate = dueDate,
+                                    status = status,
+                                    notes = check?.notes,
+                                    accountId = check?.accountId,
+                                    reminderDateTime = reminderDateTime,
+                                    createdAt = check?.createdAt ?: System.currentTimeMillis(),
+                                    updatedAt = System.currentTimeMillis()
+                                )
+                            )
+                        } else if (isDateInvalid) {
+                            showError = true
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("ذخیره", fontWeight = FontWeight.Bold)
+                }
             }
         }
 
