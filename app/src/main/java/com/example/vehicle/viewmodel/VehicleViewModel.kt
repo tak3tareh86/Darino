@@ -58,7 +58,8 @@ class VehicleViewModel(
                         vehicleId = currentSelected.id,
                         services = services,
                         expenses = expenses,
-                        insurances = insurances
+                        insurances = insurances,
+                        inspections = inspections
                     )
 
                     _uiState.update { state ->
@@ -108,7 +109,8 @@ class VehicleViewModel(
             vehicleId = vehicle.id,
             services = repository.services.value,
             expenses = repository.expenses.value,
-            insurances = repository.insurances.value
+            insurances = repository.insurances.value,
+            inspections = repository.inspections.value
         )
 
         _uiState.update {
