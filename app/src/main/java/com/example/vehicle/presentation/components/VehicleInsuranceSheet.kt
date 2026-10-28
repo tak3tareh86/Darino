@@ -4,12 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Save
-import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,57 +23,40 @@ import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
+import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.VehicleEntity
 
-/**
- * Bottom sheet to manage vehicle insurance policy and technical inspection
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VehicleInsuranceSheet(
     vehicle: VehicleEntity,
-    onSaveInsurance: (
-        company: String,
-        type: String,
-        startDate: String,
-        endDate: String,
-        amount: Long,
-        policyNumber: String
-    ) -> Unit,
-    onSaveInspection: (
-        lastInspectionDate: String,
-        expiryDate: String,
-        cost: Long,
-        status: String,
-        centerName: String
-    ) -> Unit,
+    onSaveInsurance: (company: String, type: String, startDate: String, endDate: String, amount: Long, policyNumber: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int>) -> Unit,
+    onSaveInspection: (lastInspectionDate: String, expiryDate: String, cost: Long, status: String, centerName: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int>) -> Unit,
     onDismiss: () -> Unit
 ) {
     val todayPdt = remember { com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()) }
     val todayJalali = remember { todayPdt.toFormattedDate() }
-    val nextYearJalali = remember {
-        com.example.util.IranianDateUtils.createFormattedDate(todayPdt.year + 1, todayPdt.month, todayPdt.day)
-    }
-
-    var selectedSection by remember { mutableIntStateOf(0) } // 0: Insurance, 1: Inspection
-
-    // Insurance fields
+    val nextYearJalali = remember { com.example.util.IranianDateUtils.createFormattedDate(todayPdt.year + 1, todayPdt.month, todayPdt.day) }
+    var selectedSection by remember { mutableIntStateOf(0) }
     var insuranceCompany by remember { mutableStateOf("بیمه ایران") }
-    var insuranceType by remember { mutableStateOf("شخص ثالث") }
     var startDate by remember { mutableStateOf(todayJalali) }
     var endDate by remember { mutableStateOf(nextYearJalali) }
     var insuranceAmountText by remember { mutableStateOf("") }
     var policyNumber by remember { mutableStateOf("") }
-
-    // Inspection fields
     var lastInspectionDate by remember { mutableStateOf(todayJalali) }
     var inspectionExpiryDate by remember { mutableStateOf(nextYearJalali) }
     var inspectionCostText by remember { mutableStateOf("") }
     var inspectionStatus by remember { mutableStateOf("معتبر (گواهی معاینه فنی)") }
     var centerName by remember { mutableStateOf("") }
+    var insuranceReminderEnabled by remember { mutableStateOf(true) }
+    var inspectionReminderEnabled by remember { mutableStateOf(true) }
+    var insuranceReminderTime by remember { mutableStateOf("۰۹:۰۰") }
+    var inspectionReminderTime by remember { mutableStateOf("۰۹:۰۰") }
+    var insuranceReminderDays by remember { mutableStateOf(setOf(30, 15, 7, 1, 0)) }
+    var inspectionReminderDays by remember { mutableStateOf(setOf(30, 7, 1, 0)) }
 
     val companies = listOf("بیمه ایران", "بیمه آسیا", "بیمه دانا", "بیمه البرز", "بیمه پاسارگاد", "بیمه سامان")
-    val insuranceTypes = listOf("شخص ثالث", "بیمه بدنه")
+    val insuranceType = if (selectedSection == 1) "بیمه بدنه" else "شخص ثالث"
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -85,256 +66,130 @@ fun VehicleInsuranceSheet(
         modifier = Modifier.testTag("vehicle_insurance_sheet")
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Soft3DIcon(
-                        imageRes = R.drawable.img_3d_insurance,
-                        contentDescription = "مدیریت بیمه و مدارک خودرو",
-                        size = 36.dp,
-                        accentColor = Color(0xFFF59E0B)
-                    )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Soft3DIcon(imageRes = R.drawable.img_3d_insurance, contentDescription = "مدیریت بیمه و مدارک خودرو", size = 36.dp, accentColor = Color(0xFFF59E0B))
                     Column {
-                        Text(
-                            text = "مدیریت بیمه و مدارک خودرو",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "${vehicle.brand} ${vehicle.model}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text("بیمه و مدارک خودرو", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("${vehicle.brand} ${vehicle.model}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = "بستن",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, contentDescription = "بستن") }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            PrimaryTabRow(selectedTabIndex = selectedSection, modifier = Modifier.fillMaxWidth()) {
+                Tab(selected = selectedSection == 0, onClick = { selectedSection = 0 }, text = { Text("شخص ثالث", maxLines = 1) })
+                Tab(selected = selectedSection == 1, onClick = { selectedSection = 1 }, text = { Text("بیمه بدنه", maxLines = 1) })
+                Tab(selected = selectedSection == 2, onClick = { selectedSection = 2 }, text = { Text("معاینه فنی", maxLines = 1) })
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-
-            // Tab Switcher between Insurance & Inspection
-            PrimaryTabRow(
-                selectedTabIndex = selectedSection,
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Tab(
-                    selected = selectedSection == 0,
-                    onClick = { selectedSection = 0 },
-                    text = { Text("بیمه‌نامه خودرو") }
-                )
-                Tab(
-                    selected = selectedSection == 1,
-                    onClick = { selectedSection = 1 },
-                    text = { Text("معاینه فنی") }
-                )
-            }
-
-            if (selectedSection == 0) {
-                // Insurance Form
-                Text(
-                    text = "نوع بیمه",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    insuranceTypes.forEach { type ->
-                        FilterChip(
-                            selected = insuranceType == type,
-                            onClick = { insuranceType = type },
-                            label = { Text(type) }
-                        )
+            if (selectedSection != 2) {
+                Text("شرکت بیمه‌گر", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    companies.chunked(3).forEach { rowCompanies ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            rowCompanies.forEach { company ->
+                                FilterChip(
+                                    selected = insuranceCompany == company,
+                                    onClick = { insuranceCompany = company },
+                                    label = { Text(company, fontSize = 10.sp, maxLines = 1) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            repeat(3 - rowCompanies.size) { Spacer(Modifier.weight(1f)) }
+                        }
                     }
                 }
-
-                Text(
-                    text = "شرکت بیمه‌گر",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PersianDateInputField(value = startDate, onValueChange = { startDate = it }, label = "تاریخ شروع", placeholder = "۱۴۰۵/۰۱/۰۱", dialogTitle = "انتخاب تاریخ شروع بیمه‌نامه", modifier = Modifier.weight(1f), testTag = "insurance_start_date_input")
+                    PersianDateInputField(value = endDate, onValueChange = { endDate = it }, label = "تاریخ انقضا", placeholder = "۱۴۰۶/۰۱/۰۱", dialogTitle = "انتخاب تاریخ انقضای بیمه‌نامه", modifier = Modifier.weight(1f), testTag = "insurance_end_date_input")
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PersianAmountInputField(value = insuranceAmountText, onValueChange = { insuranceAmountText = it }, label = "حق بیمه پرداختی", unitLabel = "تومان", placeholder = "مثال: ۲,۵۰۰,۰۰۰", showWordsPreview = false, modifier = Modifier.weight(1.1f), testTag = "insurance_cost_input")
+                    OutlinedTextField(value = policyNumber, onValueChange = { policyNumber = it }, label = { Text("شماره بیمه‌نامه") }, modifier = Modifier.weight(1f), singleLine = true)
+                }
+                VehicleReminderSettings(
+                    enabled = insuranceReminderEnabled, onEnabledChange = { insuranceReminderEnabled = it },
+                    time = insuranceReminderTime, onTimeChange = { insuranceReminderTime = it },
+                    days = insuranceReminderDays, onDaysChange = { insuranceReminderDays = it },
+                    tag = "insurance_reminder"
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    companies.take(3).forEach { comp ->
-                        FilterChip(
-                            selected = insuranceCompany == comp,
-                            onClick = { insuranceCompany = comp },
-                            label = { Text(comp, fontSize = 11.sp) }
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    PersianDateInputField(
-                        value = startDate,
-                        onValueChange = { startDate = it },
-                        label = "تاریخ شروع",
-                        placeholder = "۱۴۰۴/۰۱/۰۱",
-                        dialogTitle = "انتخاب تاریخ شروع بیمه‌نامه",
-                        modifier = Modifier.weight(1f),
-                        testTag = "insurance_start_date_input"
-                    )
-                    PersianDateInputField(
-                        value = endDate,
-                        onValueChange = { endDate = it },
-                        label = "تاریخ انقضا",
-                        placeholder = "۱۴۰۵/۰۱/۰۱",
-                        dialogTitle = "انتخاب تاریخ انقضای بیمه‌نامه",
-                        modifier = Modifier.weight(1f),
-                        testTag = "insurance_end_date_input"
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    PersianAmountInputField(
-                        value = insuranceAmountText,
-                        onValueChange = { insuranceAmountText = it },
-                        label = "حق بیمه پرداختی",
-                        unitLabel = "تومان",
-                        placeholder = "مثال: ۲,۵۰۰,۰۰۰",
-                        showWordsPreview = false,
-                        modifier = Modifier.weight(1.2f),
-                        testTag = "insurance_cost_input"
-                    )
-                    OutlinedTextField(
-                        value = policyNumber,
-                        onValueChange = { policyNumber = it },
-                        label = { Text("شماره بیمه‌نامه") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFF59E0B).copy(alpha = 0.1f)
-                ) {
-                    Text(
-                        text = "🔔 یادآور خودکار ۳۰ روز، ۱۵ روز و ۷ روز قبل از پایان بیمه برای شما فعال خواهد بود.",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(10.dp)
-                    )
-                }
-
                 Button(
-                    onClick = {
-                        val amount = IranianAmountUtils.parseAmountToLong(insuranceAmountText)
-                        onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, amount, policyNumber)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("save_insurance_btn"),
+                    onClick = { onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, IranianAmountUtils.parseAmountToLong(insuranceAmountText), policyNumber, insuranceReminderEnabled, insuranceReminderTime, insuranceReminderDays.sortedDescending()) },
+                    modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_insurance_btn"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("ثبت و فعال‌سازی بیمه‌نامه", fontWeight = FontWeight.Bold)
+                    Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                    Text("ثبت $insuranceType", fontWeight = FontWeight.Bold)
                 }
             } else {
-                // Technical Inspection Form
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    PersianDateInputField(
-                        value = lastInspectionDate,
-                        onValueChange = { lastInspectionDate = it },
-                        label = "تاریخ آخرین معاینه",
-                        placeholder = "۱۴۰۴/۰۱/۰۱",
-                        dialogTitle = "انتخاب تاریخ آخرین معاینه فنی",
-                        modifier = Modifier.weight(1f),
-                        testTag = "inspection_last_date_input"
-                    )
-                    PersianDateInputField(
-                        value = inspectionExpiryDate,
-                        onValueChange = { inspectionExpiryDate = it },
-                        label = "تاریخ انقضا",
-                        placeholder = "۱۴۰۵/۰۱/۰۱",
-                        dialogTitle = "انتخاب تاریخ انقضای معاینه فنی",
-                        modifier = Modifier.weight(1f),
-                        testTag = "inspection_expiry_date_input"
-                    )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PersianDateInputField(value = lastInspectionDate, onValueChange = { lastInspectionDate = it }, label = "تاریخ آخرین معاینه", placeholder = "۱۴۰۵/۰۱/۰۱", dialogTitle = "انتخاب تاریخ آخرین معاینه فنی", modifier = Modifier.weight(1f), testTag = "inspection_last_date_input")
+                    PersianDateInputField(value = inspectionExpiryDate, onValueChange = { inspectionExpiryDate = it }, label = "تاریخ انقضا", placeholder = "۱۴۰۶/۰۱/۰۱", dialogTitle = "انتخاب تاریخ انقضای معاینه فنی", modifier = Modifier.weight(1f), testTag = "inspection_expiry_date_input")
                 }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    PersianAmountInputField(
-                        value = inspectionCostText,
-                        onValueChange = { inspectionCostText = it },
-                        label = "هزینه معاینه فنی",
-                        unitLabel = "تومان",
-                        placeholder = "مثال: ۱۸۰,۰۰۰",
-                        showWordsPreview = false,
-                        modifier = Modifier.weight(1f),
-                        testTag = "inspection_cost_input"
-                    )
-                    OutlinedTextField(
-                        value = centerName,
-                        onValueChange = { centerName = it },
-                        label = { Text("مرکز معاینه فنی") },
-                        modifier = Modifier.weight(1.3f),
-                        singleLine = true
-                    )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PersianAmountInputField(value = inspectionCostText, onValueChange = { inspectionCostText = it }, label = "هزینه معاینه فنی", unitLabel = "تومان", placeholder = "مثال: ۱۸۰,۰۰۰", showWordsPreview = false, modifier = Modifier.weight(1f), testTag = "inspection_cost_input")
+                    OutlinedTextField(value = centerName, onValueChange = { centerName = it }, label = { Text("مرکز معاینه فنی") }, modifier = Modifier.weight(1.2f), singleLine = true)
                 }
-
-                OutlinedTextField(
-                    value = inspectionStatus,
-                    onValueChange = { inspectionStatus = it },
-                    label = { Text("وضعیت گواهی معاینه فنی") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                OutlinedTextField(value = inspectionStatus, onValueChange = { inspectionStatus = it }, label = { Text("وضعیت گواهی معاینه فنی") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                VehicleReminderSettings(
+                    enabled = inspectionReminderEnabled, onEnabledChange = { inspectionReminderEnabled = it },
+                    time = inspectionReminderTime, onTimeChange = { inspectionReminderTime = it },
+                    days = inspectionReminderDays, onDaysChange = { inspectionReminderDays = it },
+                    tag = "inspection_reminder"
                 )
-
                 Button(
-                    onClick = {
-                        val cost = IranianAmountUtils.parseAmountToLong(inspectionCostText)
-                        onSaveInspection(lastInspectionDate, inspectionExpiryDate, cost, inspectionStatus, centerName)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("save_inspection_btn"),
+                    onClick = { onSaveInspection(lastInspectionDate, inspectionExpiryDate, IranianAmountUtils.parseAmountToLong(inspectionCostText), inspectionStatus, centerName, inspectionReminderEnabled, inspectionReminderTime, inspectionReminderDays.sortedDescending()) },
+                    modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_inspection_btn"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("ذخیره اطلاعات معاینه فنی", fontWeight = FontWeight.Bold)
+                    Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                    Text("ذخیره معاینه فنی", fontWeight = FontWeight.Bold)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VehicleReminderSettings(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    time: String,
+    onTimeChange: (String) -> Unit,
+    days: Set<Int>,
+    onDaysChange: (Set<Int>) -> Unit,
+    tag: String
+) {
+    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(Modifier.weight(1f)) {
+                    Text("یادآور سررسید", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                    Text(if (enabled) "هشدارها طبق زمان‌های انتخابی تنظیم می‌شوند" else "یادآور خاموش است و آلارمی ثبت نمی‌شود", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = enabled, onCheckedChange = onEnabledChange, modifier = Modifier.testTag("${tag}_enabled"))
+            }
+            if (enabled) {
+                OutlinedTextField(
+                    value = time, onValueChange = { raw -> if (raw.length <= 5 && raw.all { it.isDigit() || it == ':' || it in '۰'..'۹' }) onTimeChange(raw) },
+                    label = { Text("ساعت هشدار (۲۴ ساعته)") }, placeholder = { Text("۰۹:۰۰") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true, modifier = Modifier.fillMaxWidth().testTag("${tag}_time")
+                )
+                Text("زمان‌های هشدار پیش از انقضا", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                val options = listOf(30 to "۳۰ روز", 15 to "۱۵ روز", 7 to "۷ روز", 1 to "۱ روز", 0 to "روز سررسید")
+                options.chunked(3).forEach { rowOptions ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        rowOptions.forEach { (value, label) ->
+                            FilterChip(selected = value in days, onClick = { onDaysChange(if (value in days) days - value else days + value) }, label = { Text(label, fontSize = 10.sp, maxLines = 1) })
+                        }
+                    }
+                }
+                if (days.isEmpty()) Text("حداقل یک زمان هشدار انتخاب کن.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
         }
     }
