@@ -517,13 +517,9 @@ fun DarinoVehicleMainDashboard(
             editingInspection = inspectionToEdit,
             onSaveInsurance = { comp: String, typ: String, s: String, e: String, amt: Long, num: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int>, recordId: String? ->
                 viewModel.saveInsuranceRecord(comp, typ, s, e, amt, num, reminderEnabled, reminderTime, reminderDays, recordId)
-                insuranceToEdit = null
-                inspectionToEdit = null
             },
             onSaveInspection = { lastD: String, expD: String, c: Long, st: String, cntr: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int>, recordId: String? ->
                 viewModel.saveInspectionRecord(lastD, expD, c, st, cntr, reminderEnabled, reminderTime, reminderDays, recordId)
-                insuranceToEdit = null
-                inspectionToEdit = null
             },
             onDismiss = {
                 insuranceToEdit = null
