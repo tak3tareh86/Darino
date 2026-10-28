@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -89,7 +90,7 @@ fun SubscriptionStatusCard(
         Card(
             modifier = modifier
                 .fillMaxWidth()
-                .heightIn(min = 125.dp)
+                .height(140.dp)
                 .testTag("active_subscription_card")
                 .shadow(
                     elevation = 4.dp,
@@ -104,13 +105,13 @@ fun SubscriptionStatusCard(
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .background(activeGradient)
                     .padding(14.dp)
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     // Top Row: Title + Badge
                     Row(
@@ -266,7 +267,7 @@ fun SubscriptionStatusCard(
         Card(
             modifier = modifier
                 .fillMaxWidth()
-                .heightIn(min = 125.dp)
+                .height(140.dp)
                 .testTag("annual_subscription_offer_card")
                 .shadow(
                     elevation = 5.dp,
@@ -281,13 +282,13 @@ fun SubscriptionStatusCard(
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .background(offerGradient)
                     .padding(14.dp)
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     // Top Row: Title + Badge
                     Row(

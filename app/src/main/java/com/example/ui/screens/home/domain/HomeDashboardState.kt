@@ -26,7 +26,8 @@ data class UpcomingObligationItem(
     val rawId: String = id,
     val bankName: String = "",
     val totalInstallments: Int = 0,
-    val remainingInstallments: Int = 0
+    val remainingInstallments: Int = 0,
+    val scheduleItemId: String? = null
 )
 
 data class UpcomingReminderItem(

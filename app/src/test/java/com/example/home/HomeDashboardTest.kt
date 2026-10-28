@@ -1101,4 +1101,118 @@ class HomeDashboardTest {
         // Bank name must NOT be guessed from title (no "بانک ملت") and must be empty string
         assertEquals("", item.bankName)
     }
+
+    @Test
+    fun `test UpcomingObligations pays exact displayed installment when history order is reversed and prevents re-payment`() = kotlinx.coroutines.runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val user = com.example.data.api.NetworkUserDto(
+            id = "test_user_exact_payment",
+            fullName = "کاربر تست",
+            email = null,
+            phoneNumber = "09128888888",
+            phoneVerified = true
+        )
+        com.example.data.security.SessionManager.setAuthenticatedUser(user)
+
+        val installmentRepo = com.example.ui.screens.installments.data.LocalInstallmentRepository.instance
+        installmentRepo.init(context)
+        installmentRepo.clearAllInstallments(context)
+        var clearWait = 0
+        while (installmentRepo.installments.value.isNotEmpty() && clearWait < 30) {
+            kotlinx.coroutines.delay(50L)
+            clearWait++
+        }
+
+        val currentPdt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val nearJalali = com.example.util.IranianDateUtils.createFormattedDate(currentPdt.year, currentPdt.month, (currentPdt.day + 2).coerceAtMost(28))
+        val farJalali = com.example.util.IranianDateUtils.createFormattedDate(currentPdt.year, (currentPdt.month % 12) + 1, 10)
+
+        // Payment history where LATER installment (p2, farJalali) is placed BEFORE EARLIER installment (p1, nearJalali)
+        val paymentHistory = listOf(
+            com.example.ui.screens.installments.model.PaymentHistoryItem(
+                id = "p2_far",
+                installmentNumber = 2,
+                dueDate = farJalali,
+                amount = 5_000_000L,
+                status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING
+            ),
+            com.example.ui.screens.installments.model.PaymentHistoryItem(
+                id = "p1_near",
+                installmentNumber = 1,
+                dueDate = nearJalali,
+                amount = 5_000_000L,
+                status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING
+            )
+        )
+
+        installmentRepo.addInstallment(
+            com.example.ui.screens.installments.model.InstallmentItem(
+                id = "inst_reversed_order",
+                title = "وام خودرو بانک تجارت",
+                category = com.example.ui.screens.installments.model.InstallmentCategory.BANK_LOANS,
+                providerOrPerson = "بانک تجارت",
+                totalAmount = 100_000_000L,
+                paidAmount = 0L,
+                remainingAmount = 100_000_000L,
+                totalInstallments = 20,
+                remainingInstallments = 20,
+                nextPaymentDate = nearJalali,
+                nextDueDaysText = "۲ روز دیگر",
+                startDate = "1403/01/01",
+                endDate = "1404/09/01",
+                status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING,
+                monthlyPaymentFormatted = "۵,۰۰۰,۰۰۰ تومان",
+                paymentHistory = paymentHistory
+            ),
+            context = context
+        )
+
+        var wait = 0
+        while (!installmentRepo.installments.value.any { it.id == "inst_reversed_order" } && wait < 30) {
+            kotlinx.coroutines.delay(50L)
+            wait++
+        }
+
+        val repo = HomeDashboardRepository(context = context, installmentRepository = installmentRepo)
+        val obligations = repo.getUpcomingObligations()
+
+        assertEquals(1, obligations.size)
+        val item = obligations.first()
+        // Dashboard selects the earlier-due installment (p1_near)
+        assertEquals(nearJalali, item.dueDatePersian)
+        assertEquals("p1_near", item.scheduleItemId)
+
+        // Perform payment for exact displayed installment
+        val payResult = installmentRepo.payInstallment(
+            installmentId = "inst_reversed_order",
+            paymentDate = nearJalali,
+            context = context,
+            scheduleItemId = item.scheduleItemId
+        )
+
+        assertTrue("Payment should succeed for unpaid targeted installment", payResult)
+
+        // Verify updated installment state
+        val updatedInst = installmentRepo.installments.value.find { it.id == "inst_reversed_order" }
+        assertNotNull(updatedInst)
+        val p1Updated = updatedInst!!.paymentHistory.find { it.id == "p1_near" }
+        val p2Updated = updatedInst.paymentHistory.find { it.id == "p2_far" }
+
+        // The earlier installment (p1_near) MUST be paid
+        assertEquals(com.example.ui.screens.installments.model.InstallmentStatus.PAID, p1Updated?.status)
+        assertEquals(nearJalali, p1Updated?.paidDate)
+
+        // The later installment (p2_far) MUST remain pending
+        assertEquals(com.example.ui.screens.installments.model.InstallmentStatus.PENDING, p2Updated?.status)
+
+        // Re-payment attempt for the already paid installment MUST fail and return false
+        val rePayResult = installmentRepo.payInstallment(
+            installmentId = "inst_reversed_order",
+            paymentDate = nearJalali,
+            context = context,
+            scheduleItemId = "p1_near"
+        )
+
+        assertFalse("Re-paying an already paid installment must return false", rePayResult)
+    }
 }

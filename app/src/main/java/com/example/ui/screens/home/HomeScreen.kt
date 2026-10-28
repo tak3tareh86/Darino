@@ -260,9 +260,14 @@ fun HomeScreen(
                                     }
                                 },
                                 onMarkDoneClick = { id ->
-                                    viewModel.markObligationDone(id)
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("تعهد مورد نظر با موفقیت پرداخت و تسویه شد.")
+                                    viewModel.markObligationDone(id) { success ->
+                                        scope.launch {
+                                            if (success) {
+                                                snackbarHostState.showSnackbar("تعهد مورد نظر با موفقیت پرداخت و تسویه شد.")
+                                            } else {
+                                                snackbarHostState.showSnackbar("خطا در ثبت پرداخت یا قسط قبلاً پرداخت شده است.")
+                                            }
+                                        }
                                     }
                                 },
                                 modifier = Modifier.weight(1f)
@@ -275,9 +280,14 @@ fun HomeScreen(
                                     onNavigateToTab(BottomNavItem.REMINDERS)
                                 },
                                 onMarkCompleted = { id ->
-                                    viewModel.markReminderCompleted(id)
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("یادآوری انجام شد.")
+                                    viewModel.markReminderCompleted(id) { success ->
+                                        scope.launch {
+                                            if (success) {
+                                                snackbarHostState.showSnackbar("یادآوری انجام شد.")
+                                            } else {
+                                                snackbarHostState.showSnackbar("خطا در ثبت وضعیت یادآوری.")
+                                            }
+                                        }
                                     }
                                 },
                                 modifier = Modifier.weight(1f)

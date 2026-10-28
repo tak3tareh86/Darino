@@ -297,35 +297,56 @@ class LocalInstallmentRepository private constructor() {
         }
     }
 
-    fun markOverdueAsPaid(installmentId: String, paymentDate: String, context: Context? = null) {
-        payInstallment(installmentId, paymentDate, context)
+    fun markOverdueAsPaid(installmentId: String, paymentDate: String, context: Context? = null, scheduleItemId: String? = null) {
+        repositoryScope.launch {
+            payInstallment(installmentId, paymentDate, context, scheduleItemId)
+        }
     }
 
-    fun payInstallment(installmentId: String, paymentDate: String, context: Context? = null) {
-        val targetContext = context?.applicationContext ?: appContext ?: return
-        repositoryScope.launch {
+    suspend fun payInstallment(
+        installmentId: String,
+        paymentDate: String,
+        context: Context? = null,
+        scheduleItemId: String? = null
+    ): Boolean {
+        val targetContext = context?.applicationContext ?: appContext ?: return false
+        return saveMutex.withLock {
             try {
                 val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
                 val effectivePaymentDate = paymentDate.ifBlank { todayJalali }
 
                 val current = _installments.value.toMutableList()
                 val index = current.indexOfFirst { it.id == installmentId }
-                if (index == -1) return@launch
+                if (index == -1) return@withLock false
 
                 val item = current[index]
                 val history = item.paymentHistory.toMutableList()
 
-                val targetIndex = history.indexOfFirst { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
-                if (targetIndex == -1) {
-                    return@launch // No unpaid schedule item exists; never invent new payments.
+                val targetIndex = if (!scheduleItemId.isNullOrBlank()) {
+                    history.indexOfFirst {
+                        (it.id == scheduleItemId || it.installmentNumber.toString() == scheduleItemId) &&
+                        it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
+                    }
+                } else -1
+
+                val finalTargetIndex = if (targetIndex != -1) targetIndex else {
+                    val unpaid = history.filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                    val nearest = unpaid.minByOrNull { p -> parseJalaliStringToMillis(p.dueDate) ?: Long.MAX_VALUE }
+                    if (nearest != null) {
+                        history.indexOfFirst { it.id == nearest.id }
+                    } else -1
                 }
 
-                val target = history[targetIndex]
+                if (finalTargetIndex == -1) {
+                    return@withLock false
+                }
+
+                val target = history[finalTargetIndex]
                 if (target.status == InstallmentStatus.PAID || target.status == InstallmentStatus.COMPLETED) {
-                    return@launch
+                    return@withLock false
                 }
 
-                history[targetIndex] = target.copy(
+                history[finalTargetIndex] = target.copy(
                     status = InstallmentStatus.PAID,
                     paidDate = effectivePaymentDate
                 )
@@ -339,10 +360,11 @@ class LocalInstallmentRepository private constructor() {
                 val isCompleted = remainingCount == 0
                 val newStatus = if (isCompleted) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
 
-                val nextPending = history.firstOrNull { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                val nextPending = history.filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                    .minByOrNull { p -> parseJalaliStringToMillis(p.dueDate) ?: Long.MAX_VALUE }
                 val nextPaymentDateStr = nextPending?.dueDate ?: item.nextPaymentDate
 
-                val nextDueMillis = parseJalaliStringToMillis(nextPaymentDateStr) ?: throw IllegalStateException("Invalid next payment date: $nextPaymentDateStr")
+                val nextDueMillis = parseJalaliStringToMillis(nextPaymentDateStr) ?: (System.currentTimeMillis() + 86400000L)
                 val newDueDaysText = computeDueDaysText(nextDueMillis, newStatus, remainingCount)
 
                 val updatedItem = item.copy(
@@ -363,8 +385,10 @@ class LocalInstallmentRepository private constructor() {
                 if (userId != null) {
                     reloadForUser(targetContext, userId)
                 }
+                true
             } catch (e: Exception) {
                 e.printStackTrace()
+                false
             }
         }
     }

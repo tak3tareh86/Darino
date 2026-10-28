@@ -582,43 +582,53 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
      * Real payment / completion action for an obligation.
      * Updates the underlying Room database & repositories, and records financial transaction.
      */
-    fun markObligationDone(id: String) {
+    fun markObligationDone(id: String, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             try {
-                val obligation = _uiState.value.upcomingObligations.find { it.id == id } ?: return@launch
+                val obligation = _uiState.value.upcomingObligations.find { it.id == id }
+                if (obligation == null) {
+                    onResult(false)
+                    return@launch
+                }
                 val currentPdt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
                 val todayJalali = currentPdt.toFormattedDate()
                 val nowTime = currentPdt.toFormattedTime()
 
-                when (obligation.type) {
+                val success = when (obligation.type) {
                     ObligationType.INSTALLMENT -> {
                         val installmentId = obligation.rawId
-                        // Real payment in Installment repository
-                        LocalInstallmentRepository.instance.payInstallment(
+                        val scheduleItemId = obligation.scheduleItemId
+
+                        val paidSuccessfully = LocalInstallmentRepository.instance.payInstallment(
                             installmentId = installmentId,
                             paymentDate = todayJalali,
-                            context = getApplication()
+                            context = getApplication(),
+                            scheduleItemId = scheduleItemId
                         )
 
-                        // Record real expense transaction
-                        val finTx = TransactionItemData(
-                            id = "tx_inst_pay_${System.currentTimeMillis()}",
-                            title = "پرداخت قسط: ${obligation.title}",
-                            amount = obligation.amount,
-                            type = TransactionType.EXPENSE,
-                            category = TransactionCategory(
-                                id = "cat_loan",
-                                title = "اقساط و وام",
-                                iconEmoji = "🏦",
-                                accentColor = Color(0xFF2563EB),
-                                type = TransactionType.EXPENSE
-                            ),
-                            datePersian = todayJalali,
-                            timePersian = nowTime,
-                            accountName = "کارت بانکی",
-                            description = "پرداخت قسط از داشبورد خانه"
-                        )
-                        LocalFinanceRepository.instance.addTransaction(finTx)
+                        if (paidSuccessfully) {
+                            val finTx = TransactionItemData(
+                                id = "tx_inst_pay_${System.currentTimeMillis()}",
+                                title = "پرداخت قسط: ${obligation.title}",
+                                amount = obligation.amount,
+                                type = TransactionType.EXPENSE,
+                                category = TransactionCategory(
+                                    id = "cat_loan",
+                                    title = "اقساط و وام",
+                                    iconEmoji = "🏦",
+                                    accentColor = Color(0xFF2563EB),
+                                    type = TransactionType.EXPENSE
+                                ),
+                                datePersian = todayJalali,
+                                timePersian = nowTime,
+                                accountName = "کارت بانکی",
+                                description = "پرداخت قسط از داشبورد خانه"
+                            )
+                            LocalFinanceRepository.instance.addTransaction(finTx)
+                            true
+                        } else {
+                            false
+                        }
                     }
 
                     ObligationType.VEHICLE_INSURANCE -> {
@@ -626,11 +636,9 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                         val insurance = VehicleRepository.instance.insurances.value.find { it.id == insId }
                         val vehicleId = insurance?.vehicleId ?: VehicleRepository.instance.vehicles.value.firstOrNull()?.id ?: ""
 
-                        // Update underlying insurance policy to next year so it is renewed
                         val nextYearDate = IranianDateUtils.createFormattedDate(currentPdt.year + 1, currentPdt.month, currentPdt.day)
                         VehicleRepository.instance.renewInsurance(insId, nextYearDate)
 
-                        // Record vehicle expense
                         VehicleRepository.instance.addExpense(
                             vehicleId = vehicleId,
                             title = obligation.title,
@@ -640,7 +648,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                             description = "پرداخت و تمدید بیمه از داشبورد خانه"
                         )
 
-                        // Record finance transaction
                         val finTx = TransactionItemData(
                             id = "tx_ins_pay_${System.currentTimeMillis()}",
                             title = obligation.title,
@@ -659,10 +666,10 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                             description = "پرداخت بیمه از داشبورد خانه"
                         )
                         LocalFinanceRepository.instance.addTransaction(finTx)
+                        true
                     }
 
                     else -> {
-                        // Periodic vehicle service or other obligations
                         val serviceId = obligation.rawId
                         VehicleRepository.instance.completeService(serviceId, todayJalali)
 
@@ -696,13 +703,17 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                             description = "تسویه تعهد از داشبورد خانه"
                         )
                         LocalFinanceRepository.instance.addTransaction(finTx)
+                        true
                     }
                 }
 
-                // Refresh dashboard to reflect updated state from real database
-                loadDashboardData()
+                if (success) {
+                    loadDashboardData()
+                }
+                onResult(success)
             } catch (e: Exception) {
                 e.printStackTrace()
+                onResult(false)
             }
         }
     }
@@ -712,23 +723,29 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
      * Updates the ReminderEntity status in Room database to 'COMPLETED'.
      * The reactive flow then updates Home automatically.
      */
-    fun markReminderCompleted(id: String) {
+    fun markReminderCompleted(id: String, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             try {
                 val userId = SessionManager.userId
+                var success = false
                 if (userId != null) {
                     val db = AppDatabase.getDatabase(getApplication())
-                    db.smartReminderDao().updateStatus(
+                    val updatedRows = db.smartReminderDao().updateStatus(
                         userId = userId,
                         id = id,
                         status = "COMPLETED",
                         updatedAt = System.currentTimeMillis(),
                         completedAt = System.currentTimeMillis()
                     )
+                    success = updatedRows > 0
                 }
-                loadDashboardData()
+                if (success) {
+                    loadDashboardData()
+                }
+                onResult(success)
             } catch (e: Exception) {
                 e.printStackTrace()
+                onResult(false)
             }
         }
     }

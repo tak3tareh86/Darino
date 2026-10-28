@@ -173,7 +173,8 @@ class HomeDashboardRepository(
                     rawId = item.id,
                     bankName = bankName,
                     totalInstallments = item.totalInstallments,
-                    remainingInstallments = item.remainingInstallments
+                    remainingInstallments = item.remainingInstallments,
+                    scheduleItemId = nearestUnpaid?.id
                 )
             )
         }
