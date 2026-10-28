@@ -119,7 +119,6 @@ fun ReminderScreen(
         }
 
         ReminderSubScreen.LIST -> {
-            var isSuggestionsExpanded by remember { mutableStateOf(false) }
             var isCompletedExpanded by remember { mutableStateOf(false) }
             val snackbarHostState = remember { SnackbarHostState() }
 
@@ -299,123 +298,6 @@ fun ReminderScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     )
-                                }
-                            }
-                        }
-                    }
-
-                    // Smart Suggestions Section (Collapsible)
-                    if (uiState.smartSuggestions.isNotEmpty()) {
-                        item {
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(10.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable { isSuggestionsExpanded = !isSuggestionsExpanded }
-                                            .padding(horizontal = 6.dp, vertical = 6.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.AutoAwesome,
-                                                contentDescription = null,
-                                                tint = WarningAmberLight,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Column {
-                                                Text(
-                                                    text = "پیشنهادات هوشمند دارینو",
-                                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                                Text(
-                                                    text = "${IranianPhoneUtils.convertDigitsToPersian(uiState.smartSuggestions.size.toString())} پیشنهاد خودکار برای تنظیم یادآور",
-                                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                        }
-                                        Icon(
-                                            imageVector = if (isSuggestionsExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                                            contentDescription = null,
-                                            tint = WarningAmberLight,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-
-                                    AnimatedVisibility(
-                                        visible = isSuggestionsExpanded,
-                                        enter = expandVertically() + fadeIn(),
-                                        exit = shrinkVertically() + fadeOut()
-                                    ) {
-                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            uiState.smartSuggestions.forEach { suggestion ->
-                                                Surface(
-                                                    shape = RoundedCornerShape(RadiusMD),
-                                                    color = MaterialTheme.colorScheme.surface,
-                                                    border = androidx.compose.foundation.BorderStroke(
-                                                        1.dp,
-                                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                                                    ),
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .padding(12.dp),
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                                    ) {
-                                                        Soft3DIcon(
-                                                            imageRes = suggestion.type.iconRes,
-                                                            contentDescription = suggestion.title,
-                                                            size = 36.dp,
-                                                            accentColor = suggestion.type.accentColor
-                                                        )
-                                                        Column(modifier = Modifier.weight(1f)) {
-                                                            Text(
-                                                                text = suggestion.title,
-                                                                style = MaterialTheme.typography.bodyMedium.copy(
-                                                                    fontWeight = FontWeight.Bold
-                                                                )
-                                                            )
-                                                            Text(
-                                                                text = suggestion.message,
-                                                                style = MaterialTheme.typography.bodySmall.copy(
-                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                    fontSize = 11.sp
-                                                                )
-                                                            )
-                                                        }
-
-                                                        Button(
-                                                            onClick = { viewModel.acceptSuggestion(suggestion) },
-                                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                                            shape = RoundedCornerShape(RadiusSM),
-                                                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimaryLight)
-                                                        ) {
-                                                            Text("فعال‌سازی", fontSize = 11.sp)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
                                 }
                             }
                         }
