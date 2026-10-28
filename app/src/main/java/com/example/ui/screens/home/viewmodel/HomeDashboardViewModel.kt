@@ -619,11 +619,13 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                         return@withLock
                     }
 
-                    // Resolve account: first try obligation bankName if valid, then default card, then any active card/bank, else first active account
-                    val candidateAccount = findMatchingAccount(activeAccounts, null, obligation.bankName.takeIf { it.isNotBlank() })
-                        ?: activeAccounts.find { it.stringId == "default_card_$userId" }
-                        ?: activeAccounts.find { it.type == "CARD" || it.type == "BANK" }
-                        ?: activeAccounts.firstOrNull()
+                    // Resolve account: match obligation bankName if specified and unique, or designated default card. Arbitrary fallbacks removed.
+                    val candidateAccount = if (obligation.bankName.isNotBlank()) {
+                        findMatchingAccount(activeAccounts, null, obligation.bankName)
+                            ?: activeAccounts.find { it.stringId == "default_card_$userId" }
+                    } else {
+                        activeAccounts.find { it.stringId == "default_card_$userId" }
+                    }
 
                     if (candidateAccount == null || candidateAccount.stringId.isBlank() || !candidateAccount.isActive || candidateAccount.deletedAt != null) {
                         safeResult(false)

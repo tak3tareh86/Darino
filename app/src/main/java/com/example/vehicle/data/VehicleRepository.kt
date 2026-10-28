@@ -1157,11 +1157,21 @@ class VehicleRepository {
 
             // Check if already completed (recovery & idempotency)
             if (existing.status == "COMPLETED") {
+                if (financialTransaction != null) {
+                    if (financialTransaction.stringId.isBlank() || financialTransaction.amount <= 0L) {
+                        return@withContext Result.failure(IllegalArgumentException("تراکنش مالی انجام سرویس نامعتبر است."))
+                    }
+                }
+
                 db.withTransaction {
-                    if (financialTransaction != null && financialTransaction.amount > 0L) {
+                    if (financialTransaction != null) {
                         val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
                         if (existingTx == null) {
                             db.transactionDao().insertTransaction(financialTransaction)
+                        }
+                        val confirmedTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                        if (confirmedTx == null) {
+                            throw IllegalStateException("ثبت یا بازیابی تراکنش مالی سرویس با خطا مواجه شد.")
                         }
                     }
                     val expense = db.vehicleDao().getExpenseById(userId, "exp_svc_$serviceId")
@@ -1179,6 +1189,20 @@ class VehicleRepository {
                             )
                         )
                     }
+                    if (serviceCost > 0L) {
+                        val confirmedExpense = db.vehicleDao().getExpenseById(userId, "exp_svc_$serviceId")
+                        if (confirmedExpense == null) {
+                            throw IllegalStateException("ثبت یا بازیابی هزینه سرویس خودرو با خطا مواجه شد.")
+                        }
+                    }
+
+                    // Confirm associated reminder is completed
+                    db.smartReminderDao().updateStatus(
+                        userId = userId,
+                        id = serviceId,
+                        status = "COMPLETED",
+                        completedAt = System.currentTimeMillis()
+                    )
                 }
                 if (financialTransaction != null) {
                     com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
@@ -1192,10 +1216,17 @@ class VehicleRepository {
 
             db.withTransaction {
                 // 1. Financial transaction
-                if (financialTransaction != null && financialTransaction.amount > 0L) {
+                if (financialTransaction != null) {
+                    if (financialTransaction.stringId.isBlank() || financialTransaction.amount <= 0L) {
+                        throw IllegalArgumentException("تراکنش مالی انجام سرویس نامعتبر است.")
+                    }
                     val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
                     if (existingTx == null) {
                         db.transactionDao().insertTransaction(financialTransaction)
+                    }
+                    val confirmedTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                    if (confirmedTx == null) {
+                        throw IllegalStateException("ثبت تراکنش مالی انجام سرویس با شکست مواجه شد.")
                     }
                 }
 
@@ -1541,11 +1572,21 @@ class VehicleRepository {
 
             // Check if already renewed for this target end date (recovery & idempotency)
             if (existing.endDate == newEndDate.trim()) {
+                if (financialTransaction != null) {
+                    if (financialTransaction.stringId.isBlank() || financialTransaction.amount <= 0L) {
+                        return@withContext Result.failure(IllegalArgumentException("تراکنش مالی تمدید بیمه نامعتبر است."))
+                    }
+                }
+
                 db.withTransaction {
-                    if (financialTransaction != null && financialTransaction.amount > 0L) {
+                    if (financialTransaction != null) {
                         val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
                         if (existingTx == null) {
                             db.transactionDao().insertTransaction(financialTransaction)
+                        }
+                        val confirmedTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                        if (confirmedTx == null) {
+                            throw IllegalStateException("ثبت یا بازیابی تراکنش مالی تمدید بیمه‌نامه با خطا مواجه شد.")
                         }
                     }
                     val expense = db.vehicleDao().getExpenseById(userId, "exp_ins_$insuranceId")
@@ -1563,6 +1604,20 @@ class VehicleRepository {
                             )
                         )
                     }
+                    if (insAmount > 0L) {
+                        val confirmedExpense = db.vehicleDao().getExpenseById(userId, "exp_ins_$insuranceId")
+                        if (confirmedExpense == null) {
+                            throw IllegalStateException("ثبت یا بازیابی هزینه بیمه‌نامه با خطا مواجه شد.")
+                        }
+                    }
+
+                    // Confirm reminder status is completed
+                    db.smartReminderDao().updateStatus(
+                        userId = userId,
+                        id = insuranceId,
+                        status = "COMPLETED",
+                        completedAt = System.currentTimeMillis()
+                    )
                 }
                 if (financialTransaction != null) {
                     com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
@@ -1584,10 +1639,17 @@ class VehicleRepository {
 
             db.withTransaction {
                 // 1. Financial transaction
-                if (financialTransaction != null && financialTransaction.amount > 0L) {
+                if (financialTransaction != null) {
+                    if (financialTransaction.stringId.isBlank() || financialTransaction.amount <= 0L) {
+                        throw IllegalArgumentException("تراکنش مالی تمدید بیمه نامعتبر است.")
+                    }
                     val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
                     if (existingTx == null) {
                         db.transactionDao().insertTransaction(financialTransaction)
+                    }
+                    val confirmedTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                    if (confirmedTx == null) {
+                        throw IllegalStateException("ثبت تراکنش مالی تمدید بیمه‌نامه با شکست مواجه شد.")
                     }
                 }
 

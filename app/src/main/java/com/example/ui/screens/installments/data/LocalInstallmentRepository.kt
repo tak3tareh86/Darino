@@ -345,11 +345,7 @@ class LocalInstallmentRepository private constructor() {
                         if (matchByDate.size == 1) {
                             matchByDate.single()
                         } else {
-                            val unpaid = history.filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
-                            val nearest = unpaid.minByOrNull { p -> parseJalaliStringToMillis(p.dueDate) ?: Long.MAX_VALUE }
-                            if (nearest != null) {
-                                history.indexOfFirst { it.id == nearest.id }
-                            } else -1
+                            -1
                         }
                     }
                 } else {
@@ -367,13 +363,33 @@ class LocalInstallmentRepository private constructor() {
                 val target = history[finalTargetIndex]
                 val isAlreadyPaid = (target.status == InstallmentStatus.PAID || target.status == InstallmentStatus.COMPLETED)
                 if (isAlreadyPaid) {
-                    // Recover missing financial transaction if present
-                    if (financialTransaction != null && financialTransaction.amount > 0L) {
+                    // Confirm or recover installment in Room DB
+                    val dbInstallments = db.installmentDao().getAllInstallmentsList(userId)
+                    val installmentInDb = dbInstallments.any { it.serverId == installmentId }
+                    if (!installmentInDb) {
+                        saveToRoomInternal(targetContext, current, null)
+                        val confirmedInstallment = db.installmentDao().getAllInstallmentsList(userId).any { it.serverId == installmentId }
+                        if (!confirmedInstallment) {
+                            return@withLock false
+                        }
+                    }
+
+                    // Confirm or recover financial transaction if required
+                    if (financialTransaction != null) {
+                        if (financialTransaction.stringId.isBlank() || financialTransaction.amount <= 0L) {
+                            return@withLock false
+                        }
+                        var txConfirmed = false
                         db.withTransaction {
                             val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
                             if (existingTx == null) {
                                 db.transactionDao().insertTransaction(financialTransaction)
                             }
+                            val confirmedTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                            txConfirmed = (confirmedTx != null)
+                        }
+                        if (!txConfirmed) {
+                            return@withLock false
                         }
                         com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
                     }
@@ -537,10 +553,17 @@ class LocalInstallmentRepository private constructor() {
         db.withTransaction {
             val userId = SessionManager.userId ?: throw IllegalStateException("No authenticated user ID")
 
-            if (financialTransaction != null && financialTransaction.amount > 0L) {
+            if (financialTransaction != null) {
+                if (financialTransaction.stringId.isBlank() || financialTransaction.amount <= 0L) {
+                    throw IllegalArgumentException("Invalid financial transaction input for installment payment")
+                }
                 val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
                 if (existingTx == null) {
                     db.transactionDao().insertTransaction(financialTransaction)
+                }
+                val confirmedTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                if (confirmedTx == null) {
+                    throw IllegalStateException("Failed to insert or recover required financial transaction")
                 }
             }
 
