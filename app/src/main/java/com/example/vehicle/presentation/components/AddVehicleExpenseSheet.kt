@@ -10,7 +10,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -52,7 +51,6 @@ fun AddVehicleExpenseSheet(
     var amountText by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(todayJalali) }
     var description by remember { mutableStateOf("") }
-    var hasReceiptAttached by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -188,42 +186,6 @@ fun AddVehicleExpenseSheet(
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 2
             )
-
-            // Invoice / Receipt Image Attachment
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.AttachFile,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = if (hasReceiptAttached) "تصویر فاکتور ضمیمه شد" else "پیوست تصویر فاکتور (اختیاری)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    TextButton(onClick = { hasReceiptAttached = !hasReceiptAttached }) {
-                        Text(if (hasReceiptAttached) "حذف" else "انتخاب فایل")
-                    }
-                }
-            }
 
             // Submit Button
             Button(
