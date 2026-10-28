@@ -376,16 +376,17 @@ class LocalInstallmentRepository private constructor() {
                 if (isAlreadyPaid) {
                     try {
                         db.withTransaction {
-                            val dbInstallments = db.installmentDao().getAllInstallmentsList(userId)
-                            val installmentInDb = dbInstallments.any { it.serverId == installmentId }
-                            if (!installmentInDb) {
-                                persistInstallmentStateToRoom(db, userId, current)
-                            }
+                            val targetInstallment = current.firstOrNull { it.id == installmentId }
+                                ?: throw IllegalStateException("Installment state is missing during paid-state recovery")
+                            // Recover only this installment and its payment history; do not clear or rebuild unrelated user installments.
+                            persistInstallmentItemToRoom(db, userId, targetInstallment)
                             if (financialTransaction != null) {
                                 syncFinancialTransaction(db, userId, financialTransaction)
                             }
                         }
-                        val confirmedInstallment = db.installmentDao().getAllInstallmentsList(userId).any { it.serverId == installmentId }
+                        val confirmedInstallment = db.installmentDao().getAllInstallmentsList(userId).any {
+                            it.serverId == installmentId && it.deletedAt == null
+                        }
                         if (!confirmedInstallment) {
                             return@withLock false
                         }
@@ -568,6 +569,85 @@ class LocalInstallmentRepository private constructor() {
         }
     }
 
+    private suspend fun persistInstallmentItemToRoom(
+        db: AppDatabase,
+        userId: String,
+        item: InstallmentItem
+    ) {
+        val dao = db.installmentDao()
+        val existing = dao.getAllInstallmentsList(userId).firstOrNull { it.serverId == item.id }
+        val now = System.currentTimeMillis()
+        val startMillis = parseJalaliStringToMillis(item.startDate)
+            ?: throw IllegalArgumentException("Invalid start date: ${item.startDate}")
+        val nextDueMillis = parseJalaliStringToMillis(item.nextPaymentDate)
+            ?: throw IllegalArgumentException("Invalid next payment date: ${item.nextPaymentDate}")
+        val dueDayNum = CalendarDateUtils.parseJalali(item.nextPaymentDate)?.third
+            ?: throw IllegalArgumentException("Invalid due day in nextPaymentDate: ${item.nextPaymentDate}")
+        val paidCount = item.paymentHistory.count {
+            it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED
+        }
+        val entity = InstallmentEntity(
+            id = existing?.id ?: 0,
+            serverId = item.id,
+            syncState = "SYNCED",
+            userId = userId,
+            category = item.category.name,
+            providerName = item.providerOrPerson,
+            title = item.title,
+            amount = item.totalAmount,
+            totalInstallments = item.totalInstallments,
+            paidInstallments = paidCount,
+            remainingInstallments = (item.totalInstallments - paidCount).coerceAtLeast(0),
+            startDate = startMillis,
+            dueDay = dueDayNum,
+            nextDueDate = nextDueMillis,
+            status = item.status.name,
+            notes = item.notes,
+            updatedAt = now,
+            deletedAt = null
+        )
+
+        val internalId = if (existing == null) {
+            dao.insertInstallment(entity).toInt()
+        } else {
+            dao.updateInstallment(entity)
+            existing.id
+        }
+
+        dao.deletePaymentsForInstallment(userId, internalId, item.id)
+        item.paymentHistory.forEach { payment ->
+            val dueMillis = parseJalaliStringToMillis(payment.dueDate)
+                ?: throw IllegalArgumentException("Invalid payment due date: ${payment.dueDate}")
+            val paidMillis = payment.paidDate?.takeIf { it.isNotBlank() }?.let {
+                parseJalaliStringToMillis(it)
+                    ?: throw IllegalArgumentException("Invalid payment paid date: $it")
+            }
+            dao.insertPayment(
+                InstallmentPaymentEntity(
+                    installmentId = internalId,
+                    installmentNumber = payment.installmentNumber,
+                    amount = payment.amount,
+                    dueDate = dueMillis,
+                    paidDate = paidMillis,
+                    status = payment.status.name,
+                    paymentReference = payment.id,
+                    notes = payment.note
+                )
+            )
+        }
+
+        val confirmedInstallment = dao.getAllInstallmentsList(userId).firstOrNull {
+            it.serverId == item.id && it.deletedAt == null
+        }
+        if (confirmedInstallment == null || confirmedInstallment.id != internalId) {
+            throw IllegalStateException("Failed to restore or verify installment ${item.id}")
+        }
+        val confirmedPayments = dao.getAllPaymentsList(userId).count { it.installmentId == internalId }
+        if (confirmedPayments != item.paymentHistory.size) {
+            throw IllegalStateException("Failed to restore installment payment history for ${item.id}")
+        }
+    }
+
     private suspend fun persistInstallmentStateToRoom(
         db: AppDatabase,
         userId: String,
@@ -660,6 +740,15 @@ class LocalInstallmentRepository private constructor() {
     ): TransactionEntity {
         if (financialTransaction.stringId.isBlank() || financialTransaction.amount <= 0L || financialTransaction.userId != userId) {
             throw IllegalArgumentException("Invalid financial transaction input for installment payment")
+        }
+
+        // A supplied account must belong to this user and remain active before any transaction or installment mutation.
+        val suppliedAccountId = financialTransaction.accountId?.takeIf { it.isNotBlank() }
+        if (suppliedAccountId != null) {
+            val account = db.accountDao().getAccountByStringId(userId, suppliedAccountId)
+            if (account == null || !account.isActive || account.deletedAt != null) {
+                throw IllegalArgumentException("Invalid or inactive account for installment payment")
+            }
         }
 
         val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
