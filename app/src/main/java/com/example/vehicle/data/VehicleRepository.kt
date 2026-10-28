@@ -448,32 +448,33 @@ class VehicleRepository {
     private suspend fun updateOrRecoverCompletedServiceReminder(
         db: com.example.data.database.AppDatabase,
         userId: String,
-        service: VehicleServiceEntity,
+        service: com.example.data.database.VehicleServiceEntity,
         completedDateStr: String
     ) {
+        val serviceId = service.serverId ?: service.id.toString()
         val affected = db.smartReminderDao().updateStatus(
             userId = userId,
-            id = service.id,
+            id = serviceId,
             status = "COMPLETED",
             completedAt = System.currentTimeMillis()
         )
         if (affected == 0) {
-            val existingRem = db.smartReminderDao().getReminderById(userId, service.id)
+            val existingRem = db.smartReminderDao().getReminderById(userId, serviceId)
             if (existingRem == null) {
                 val recoveredReminder = com.example.reminder.data.ReminderEntity(
-                    id = service.id,
+                    id = serviceId,
                     userId = userId,
                     title = service.title,
                     description = "سرویس دوره‌ای خودرو: ${service.notes ?: ""}".trim(),
                     type = "SERVICE",
                     sourceType = "VEHICLE",
-                    sourceId = service.id,
+                    sourceId = serviceId,
                     date = completedDateStr.trim(),
                     time = "۰۹:۰۰",
                     status = "COMPLETED",
                     completedAt = System.currentTimeMillis(),
-                    targetKilometer = service.dueMileage.toLong(),
-                    currentKilometer = service.dueMileage.toLong()
+                    targetKilometer = service.dueMileage?.toLong(),
+                    currentKilometer = service.dueMileage?.toLong()
                 )
                 db.smartReminderDao().insertReminder(recoveredReminder)
             } else {
@@ -490,10 +491,10 @@ class VehicleRepository {
             }
         }
         // Delete any active schedules for the completed service
-        db.smartReminderDao().deleteSchedulesByReminderId(userId, service.id)
+        db.smartReminderDao().deleteSchedulesByReminderId(userId, serviceId)
 
         // Verify final state
-        val confirmedRem = db.smartReminderDao().getReminderById(userId, service.id)
+        val confirmedRem = db.smartReminderDao().getReminderById(userId, serviceId)
         if (confirmedRem == null || confirmedRem.status != "COMPLETED") {
             throw IllegalStateException("تأیید وضعیت اتمام یادآور سرویس با شکست مواجه شد.")
         }
@@ -502,8 +503,8 @@ class VehicleRepository {
     private suspend fun syncAndVerifyInsuranceExpiryReminder(
         db: com.example.data.database.AppDatabase,
         userId: String,
-        vehicle: VehicleEntity,
-        existing: VehicleInsuranceEntity,
+        vehicle: com.example.data.database.VehicleEntity,
+        existing: com.example.data.database.VehicleInsuranceRoomEntity,
         newEndDateTrimmed: String
     ) {
         val offsets = listOf(
