@@ -1686,7 +1686,9 @@ class VehicleRepository {
                 endDate = endDate.trim(),
                 amount = amount,
                 policyNumber = policyNumber.trim(),
-                reminderDays = reminderDays.distinct()
+                reminderDays = reminderDays.distinct(),
+                reminderEnabled = reminderEnabled,
+                reminderTime = reminderTime
             )
 
             db.withTransaction {
@@ -1994,7 +1996,10 @@ class VehicleRepository {
                 expiryDate = expiryDate.trim(),
                 cost = cost,
                 status = status.trim(),
-                centerName = centerName.trim()
+                centerName = centerName.trim(),
+                reminderEnabled = reminderEnabled,
+                reminderTime = reminderTime,
+                reminderDays = reminderDays.distinct()
             )
 
             db.withTransaction {
