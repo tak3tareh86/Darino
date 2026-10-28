@@ -1666,7 +1666,8 @@ class VehicleRepository {
                 startDate = startDate.trim(),
                 endDate = endDate.trim(),
                 amount = amount,
-                policyNumber = policyNumber.trim()
+                policyNumber = policyNumber.trim(),
+                reminderDays = reminderDays.distinct()
             )
 
             db.withTransaction {
