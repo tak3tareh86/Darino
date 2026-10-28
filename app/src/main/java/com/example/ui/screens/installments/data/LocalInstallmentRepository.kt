@@ -322,14 +322,21 @@ class LocalInstallmentRepository private constructor() {
                 val item = current[index]
                 val history = item.paymentHistory.toMutableList()
 
-                val targetIndex = if (!scheduleItemId.isNullOrBlank()) {
-                    history.indexOfFirst {
-                        (it.id == scheduleItemId || it.installmentNumber.toString() == scheduleItemId) &&
-                        it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
+                val finalTargetIndex = if (!scheduleItemId.isNullOrBlank()) {
+                    val matchingIndices = history.indices.filter { idx ->
+                        val h = history[idx]
+                        h.id == scheduleItemId || h.installmentNumber.toString() == scheduleItemId
                     }
-                } else -1
-
-                val finalTargetIndex = if (targetIndex != -1) targetIndex else {
+                    if (matchingIndices.size != 1) {
+                        return@withLock false
+                    }
+                    val targetIdx = matchingIndices.single()
+                    val target = history[targetIdx]
+                    if (target.status == InstallmentStatus.PAID || target.status == InstallmentStatus.COMPLETED) {
+                        return@withLock false
+                    }
+                    targetIdx
+                } else {
                     val unpaid = history.filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
                     val nearest = unpaid.minByOrNull { p -> parseJalaliStringToMillis(p.dueDate) ?: Long.MAX_VALUE }
                     if (nearest != null) {
