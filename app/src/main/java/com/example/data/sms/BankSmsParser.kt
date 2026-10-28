@@ -339,7 +339,7 @@ object BankSmsParser {
         // Accept language used by real transaction notifications across banks, including
         // virtual banks whose action verb may appear before or after the amount.
         val hasCompletedMoneyEvent = Regex(
-            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|خرید\s*(?:موفق)?|پرداخت\s*(?:موفق|قبض|قبوض)|از\s*کارت\s*پرید|به\s*حساب\s*نشست|منظور\s*شد|تراکنش\s*(?:موفق|انجام\s*شد)|عملیات\s*بانکی\s*موفق|انتقال\s*موفق|کارت\s*به\s*کارت\s*(?:موفق|انجام\s*شد)|واریز\s*(?:از\s*طریق\s*)?(?:پایا|ساتنا)|پایا\s*واریز|ساتنا\s*واریز)"""
+            """(?:برداشت|واریز|بستانکار|بدهکار|کسر|خرید\s*(?:موفق)?|پرداخت\s*(?:موفق|قبض|قبوض)|از\s*کارت\s*پرید|به\s*حساب\s*نشست|منظور\s*(?:شد|گردید)|تراکنش\s*(?:موفق|انجام\s*شد)|عملیات\s*بانکی\s*موفق|انتقال\s*(?:موفق|انجام\s*شد|صورت\s*گرفت)|انتقال.{0,80}(?:موفق|انجام\s*شد|صورت\s*گرفت)|حواله.{0,80}(?:موفق|انجام\s*شد|صورت\s*گرفت)|کارت\s*به\s*کارت\s*(?:موفق|انجام\s*شد)|واریز\s*(?:از\s*طریق\s*)?(?:پایا|ساتنا)|پایا\s*واریز|ساتنا\s*واریز)"""
         ).containsMatchIn(lower)
         if (!hasCompletedMoneyEvent) return false
 
@@ -464,7 +464,7 @@ object BankSmsParser {
             """(?:برداشت|کسر\s*(?:از\s*)?حساب|کسر|بدهکار|خرید|پرداخت\s*(?:قبض|قبوض|صورتحساب)|پرید|کم\s*شد)"""
         ).find(lower)
         val incomeMatch = Regex(
-            """(?:واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*شد)"""
+            """(?:واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*(?:شد|گردید))"""
         ).find(lower)
 
         if (expenseMatch != null && incomeMatch != null) {
@@ -499,7 +499,8 @@ object BankSmsParser {
                 lower.contains("به کارت شما")
             ) return TransactionType.INCOME
 
-            if (lower.contains("موفق") || lower.contains("به کارت") || lower.contains("به حساب")) {
+            if (lower.contains("موفق") || lower.contains("به کارت") || lower.contains("به حساب") ||
+                (lower.contains("انجام شد") && (lower.contains("انتقال") || lower.contains("حواله") || lower.contains("کارت به کارت") || lower.contains("پایا") || lower.contains("ساتنا")))) {
                 return TransactionType.TRANSFER
             }
         }
@@ -551,7 +552,7 @@ object BankSmsParser {
         val lowerMasked = maskedText.lowercase()
         val eventPattern = when (expectedType) {
             TransactionType.EXPENSE -> Regex("""برداشت|کسر|بدهکار|خرید|پرداخت|پرید|کم\s*شد|-\s*[0-9]""")
-            TransactionType.INCOME -> Regex("""واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*شد""")
+            TransactionType.INCOME -> Regex("""واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*(?:شد|گردید)""")
             TransactionType.TRANSFER -> Regex("""کارت\s*به\s*کارت|انتقال|پایا|ساتنا""")
             null -> Regex("""برداشت|واریز|خرید|کسر|بدهکار|بستانکار|انتقال|کارت\s*به\s*کارت|پایا|ساتنا|پرید|نشست""")
         }
