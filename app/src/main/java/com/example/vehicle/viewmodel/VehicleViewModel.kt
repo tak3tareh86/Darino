@@ -621,9 +621,11 @@ class VehicleViewModel(
                 }
             }.onFailure { err ->
                 _uiState.update {
+                    val persistedButReminderFailed = err.localizedMessage?.contains("اطلاعات بیمه ذخیره شد") == true
                     it.copy(
+                        showInsuranceSheet = !persistedButReminderFailed,
                         snackBarMessage = err.localizedMessage?.let { message ->
-                            if (message.contains("اطلاعات بیمه ذخیره شد")) message
+                            if (persistedButReminderFailed) message
                             else "خطا در ثبت بیمه‌نامه: $message"
                         } ?: "خطا در ثبت بیمه‌نامه: اطلاعات نامعتبر است."
                     )
@@ -704,9 +706,11 @@ class VehicleViewModel(
                 }
             }.onFailure { err ->
                 _uiState.update {
+                    val persistedButReminderFailed = err.localizedMessage?.contains("اطلاعات معاینه فنی ذخیره شد") == true
                     it.copy(
+                        showInsuranceSheet = !persistedButReminderFailed,
                         snackBarMessage = err.localizedMessage?.let { message ->
-                            if (message.contains("اطلاعات معاینه فنی ذخیره شد")) message
+                            if (persistedButReminderFailed) message
                             else "خطا در ثبت معاینه فنی: $message"
                         } ?: "خطا در ثبت معاینه فنی: اطلاعات نامعتبر است."
                     )
