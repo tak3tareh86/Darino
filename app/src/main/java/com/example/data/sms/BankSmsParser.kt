@@ -235,6 +235,22 @@ object BankSmsParser {
             }
         }
 
+        // Many campaigns do not use a fixed bank-specific template. Catch a commercial
+        // pitch when it is paired with a call-to-action or a URL; a transaction SMS that
+        // merely names a merchant is not rejected by this rule alone.
+        val hasCommercialPitch = Regex(
+            """(?:تخفیف|جایزه|قرعه\s*کشی|وام|تسهیلات|اعتبار\s*خرید|سرمایه\s*گذاری|طرح\s*ویژه|شرایط\s*ویژه|پیشنهاد\s*ویژه|فروش\s*ویژه|عضویت\s*در\s*باشگاه)"""
+        ).containsMatchIn(norm)
+        val hasMarketingCallToAction = Regex(
+            """(?:کلیک\s*کنید|به\s*(?:سایت|لینک)\s*(?:زیر|مراجعه)|ثبت\s*نام|جهت\s*دریافت|برای\s*دریافت|برای\s*بهره\s*مندی|بهره\s*مند\s*شوید|تماس\s*بگیرید|ارسال\s*عدد|مشاهده\s*کنید|مراجعه\s*نمایید|همین\s*حالا|فرصت\s*محدود)"""
+        ).containsMatchIn(norm)
+        val hasUrl = Regex(
+            """(?:https?://|www\.|[a-z0-9-]+\.(?:ir|com|net)(?:/|\b))"""
+        ).containsMatchIn(norm)
+        if (hasCommercialPitch && (hasMarketingCallToAction || hasUrl)) {
+            return true
+        }
+
         // 4. Failed, Cancelled, or Reversed Transactions
         val failedPatterns = listOf(
             """(?:تراکنش\s*ناموفق|عملیات\s*ناموفق|ناموفق\s*بود|عدم\s*موفقیت)""",
