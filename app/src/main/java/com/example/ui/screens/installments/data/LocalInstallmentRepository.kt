@@ -378,11 +378,12 @@ class LocalInstallmentRepository private constructor() {
                         db.withTransaction {
                             val targetInstallment = current.firstOrNull { it.id == installmentId }
                                 ?: throw IllegalStateException("Installment state is missing during paid-state recovery")
-                            // Recover only this installment and its payment history; do not clear or rebuild unrelated user installments.
-                            persistInstallmentItemToRoom(db, userId, targetInstallment)
+                            // Validate/recover the supplied transaction before mutating installment state.
                             if (financialTransaction != null) {
                                 syncFinancialTransaction(db, userId, financialTransaction)
                             }
+                            // Recover only this installment and its payment history; do not clear or rebuild unrelated user installments.
+                            persistInstallmentItemToRoom(db, userId, targetInstallment)
                         }
                         val confirmedInstallment = db.installmentDao().getAllInstallmentsList(userId).any {
                             it.serverId == installmentId && it.deletedAt == null
@@ -575,7 +576,9 @@ class LocalInstallmentRepository private constructor() {
         item: InstallmentItem
     ) {
         val dao = db.installmentDao()
-        val existing = dao.getAllInstallmentsList(userId).firstOrNull { it.serverId == item.id }
+        val existingRows = dao.getAllInstallmentsList(userId).filter { it.serverId == item.id }
+        // Prefer an active row; only restore a soft-deleted row when no active copy exists.
+        val existing = existingRows.firstOrNull { it.deletedAt == null } ?: existingRows.firstOrNull()
         val now = System.currentTimeMillis()
         val startMillis = parseJalaliStringToMillis(item.startDate)
             ?: throw IllegalArgumentException("Invalid start date: ${item.startDate}")
