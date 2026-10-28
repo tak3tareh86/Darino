@@ -508,7 +508,7 @@ object BankSmsParser {
         maskedText = maskedText.replace(
             Regex("""(?i)کارمزد[\s:]*[+-]?\s*([0-9,\.\u060C\u066B\u066C]+)\s*(?:ریال|تومان|Rls|IRR)?""")
         ) { " [MASKED_FEE] " }
-        maskedText = maskedText.replace(Regex("""\b140[0-9][/-]0?[1-9][/-]0?[1-9][0-9]?\b""")) {
+        maskedText = maskedText.replace(Regex("""\b140[0-9][/-](?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|[12][0-9]|3[01])\b""")) {
             " [MASKED_DATE] "
         }
         maskedText = maskedText.replace(Regex("""\b[0-2]?[0-9]:[0-5][0-9]\b""")) { " [MASKED_TIME] " }
@@ -535,7 +535,7 @@ object BankSmsParser {
 
         data class AmountCandidate(val start: Int, val rawNumber: Long, val currency: CurrencyType?)
         val candidates = Regex(
-            """([+-]?\s*[0-9][0-9,\.\s\u060C\u066B\u066C]*)\s*(ریال|تومان|Rls|IRR)?""",
+            """([+-]?\s*[0-9][0-9,\.\u060C\u066B\u066C]*)\s*(ریال|تومان|Rls|IRR)?""",
             RegexOption.IGNORE_CASE
         ).findAll(maskedText).mapNotNull { match ->
             val raw = cleanNumber(match.groupValues[1]).toLongOrNull() ?: return@mapNotNull null
