@@ -1149,14 +1149,39 @@ class VehicleRepository {
             val existing = db.vehicleDao().getServiceByServerId(userId, serviceId)
                 ?: return@withContext Result.failure(NoSuchElementException("سرویس دوره‌ای یافت نشد."))
 
+            val serviceCost = if (financialTransaction != null && financialTransaction.amount > 0L) {
+                financialTransaction.amount
+            } else {
+                existing.cost
+            }
+
             // Check if already completed (recovery & idempotency)
             if (existing.status == "COMPLETED") {
-                if (financialTransaction != null && financialTransaction.amount > 0L) {
-                    val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
-                    if (existingTx == null) {
-                        db.transactionDao().insertTransaction(financialTransaction)
-                        com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                db.withTransaction {
+                    if (financialTransaction != null && financialTransaction.amount > 0L) {
+                        val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                        if (existingTx == null) {
+                            db.transactionDao().insertTransaction(financialTransaction)
+                        }
                     }
+                    val expense = db.vehicleDao().getExpenseById(userId, "exp_svc_$serviceId")
+                    if (expense == null && serviceCost > 0L) {
+                        db.vehicleDao().insertExpense(
+                            VehicleExpenseRoomEntity(
+                                id = "exp_svc_$serviceId",
+                                userId = userId,
+                                vehicleId = existing.vehicleId,
+                                title = existing.title,
+                                category = VehicleExpenseCategory.SERVICE.name,
+                                amount = serviceCost,
+                                date = completedDate.trim(),
+                                description = "سرویس دوره‌ای خودرو: ${existing.notes ?: ""}".trim()
+                            )
+                        )
+                    }
+                }
+                if (financialTransaction != null) {
+                    com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
                 }
                 return@withContext Result.success(Unit)
             }
@@ -1182,8 +1207,13 @@ class VehicleRepository {
                 // Sync expense date to completed date, or insert linked expense if cost > 0 and missing
                 val expense = db.vehicleDao().getExpenseById(userId, "exp_svc_$serviceId")
                 if (expense != null) {
-                    db.vehicleDao().updateExpense(expense.copy(date = completedDate.trim()))
-                } else if (existing.cost > 0L) {
+                    db.vehicleDao().updateExpense(
+                        expense.copy(
+                            date = completedDate.trim(),
+                            amount = if (serviceCost > 0L) serviceCost else expense.amount
+                        )
+                    )
+                } else if (serviceCost > 0L) {
                     db.vehicleDao().insertExpense(
                         VehicleExpenseRoomEntity(
                             id = "exp_svc_$serviceId",
@@ -1191,7 +1221,7 @@ class VehicleRepository {
                             vehicleId = existing.vehicleId,
                             title = existing.title,
                             category = VehicleExpenseCategory.SERVICE.name,
-                            amount = existing.cost,
+                            amount = serviceCost,
                             date = completedDate.trim(),
                             description = "سرویس دوره‌ای خودرو: ${existing.notes ?: ""}".trim()
                         )
@@ -1503,14 +1533,39 @@ class VehicleRepository {
             val existing = db.vehicleDao().getInsuranceById(userId, insuranceId)
                 ?: return@withContext Result.failure(NoSuchElementException("بیمه‌نامه مورد نظر یافت نشد."))
 
+            val insAmount = if (financialTransaction != null && financialTransaction.amount > 0L) {
+                financialTransaction.amount
+            } else {
+                existing.amount
+            }
+
             // Check if already renewed for this target end date (recovery & idempotency)
             if (existing.endDate == newEndDate.trim()) {
-                if (financialTransaction != null && financialTransaction.amount > 0L) {
-                    val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
-                    if (existingTx == null) {
-                        db.transactionDao().insertTransaction(financialTransaction)
-                        com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                db.withTransaction {
+                    if (financialTransaction != null && financialTransaction.amount > 0L) {
+                        val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                        if (existingTx == null) {
+                            db.transactionDao().insertTransaction(financialTransaction)
+                        }
                     }
+                    val expense = db.vehicleDao().getExpenseById(userId, "exp_ins_$insuranceId")
+                    if (expense == null && insAmount > 0L) {
+                        db.vehicleDao().insertExpense(
+                            VehicleExpenseRoomEntity(
+                                id = "exp_ins_$insuranceId",
+                                userId = userId,
+                                vehicleId = existing.vehicleId,
+                                title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
+                                category = VehicleExpenseCategory.INSURANCE.name,
+                                amount = insAmount,
+                                date = today,
+                                description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
+                            )
+                        )
+                    }
+                }
+                if (financialTransaction != null) {
+                    com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
                 }
                 return@withContext Result.success(Unit)
             }
@@ -1526,12 +1581,6 @@ class VehicleRepository {
 
             // 1. Fetch any existing schedules to cancel before database modification
             val schedulesToCancel = db.smartReminderDao().getSchedulesForReminderSync(userId, insuranceId)
-
-            val insAmount = if (financialTransaction != null && financialTransaction.amount > 0L) {
-                financialTransaction.amount
-            } else {
-                existing.amount
-            }
 
             db.withTransaction {
                 // 1. Financial transaction

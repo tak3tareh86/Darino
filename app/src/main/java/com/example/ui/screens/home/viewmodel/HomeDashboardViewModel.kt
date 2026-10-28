@@ -619,11 +619,22 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                         return@withLock
                     }
 
-                    // Resolve account: first try obligation bankName if valid, then default card, then any active card/bank, else first
-                    val selectedAccount = findMatchingAccount(activeAccounts, null, obligation.bankName.takeIf { it.isNotBlank() })
+                    // Resolve account: first try obligation bankName if valid, then default card, then any active card/bank, else first active account
+                    val candidateAccount = findMatchingAccount(activeAccounts, null, obligation.bankName.takeIf { it.isNotBlank() })
                         ?: activeAccounts.find { it.stringId == "default_card_$userId" }
                         ?: activeAccounts.find { it.type == "CARD" || it.type == "BANK" }
-                        ?: activeAccounts.first()
+                        ?: activeAccounts.firstOrNull()
+
+                    if (candidateAccount == null || candidateAccount.stringId.isBlank() || !candidateAccount.isActive || candidateAccount.deletedAt != null) {
+                        safeResult(false)
+                        return@withLock
+                    }
+
+                    val selectedAccount = db.accountDao().getAccountByStringId(userId, candidateAccount.stringId)
+                    if (selectedAccount == null || !selectedAccount.isActive || selectedAccount.deletedAt != null) {
+                        safeResult(false)
+                        return@withLock
+                    }
 
                     val success = when (obligation.type) {
                         ObligationType.INSTALLMENT -> {
@@ -662,7 +673,8 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                         ObligationType.VEHICLE_INSURANCE -> {
                             val insId = obligation.rawId
-                            val txId = "tx_ins_${insId}_${todayJalali.replace('/', '_')}"
+                            val targetCycle = obligation.dueDatePersian.takeIf { it.isNotBlank() }?.replace('/', '_') ?: todayJalali.replace('/', '_')
+                            val txId = "tx_ins_${insId}_${targetCycle}"
                             val finTxEntity = TransactionEntity(
                                 stringId = txId,
                                 userId = userId,

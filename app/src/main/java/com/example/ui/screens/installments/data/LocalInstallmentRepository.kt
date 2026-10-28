@@ -6,6 +6,7 @@ import com.example.calendar.domain.CalendarDateUtils
 import com.example.data.database.AppDatabase
 import com.example.data.database.InstallmentEntity
 import com.example.data.database.InstallmentPaymentEntity
+import com.example.data.database.TransactionEntity
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
 import com.example.ui.screens.installments.model.*
@@ -318,6 +319,10 @@ class LocalInstallmentRepository private constructor() {
                 val userId = SessionManager.userId ?: return@withLock false
                 val db = AppDatabase.getDatabase(targetContext)
 
+                if (_installments.value.none { it.id == installmentId }) {
+                    reloadForUser(targetContext, userId)
+                }
+
                 val current = _installments.value.toMutableList()
                 val index = current.indexOfFirst { it.id == installmentId }
                 if (index == -1) return@withLock false
@@ -330,10 +335,23 @@ class LocalInstallmentRepository private constructor() {
                         val h = history[idx]
                         h.id == scheduleItemId || h.installmentNumber.toString() == scheduleItemId
                     }
-                    if (matchingIndices.size != 1) {
-                        return@withLock false
+                    if (matchingIndices.size == 1) {
+                        matchingIndices.single()
+                    } else {
+                        val matchByDate = history.indices.filter { idx ->
+                            val h = history[idx]
+                            scheduleItemId.contains(h.dueDate.replace('/', '_')) || h.dueDate == scheduleItemId
+                        }
+                        if (matchByDate.size == 1) {
+                            matchByDate.single()
+                        } else {
+                            val unpaid = history.filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                            val nearest = unpaid.minByOrNull { p -> parseJalaliStringToMillis(p.dueDate) ?: Long.MAX_VALUE }
+                            if (nearest != null) {
+                                history.indexOfFirst { it.id == nearest.id }
+                            } else -1
+                        }
                     }
-                    matchingIndices.single()
                 } else {
                     val unpaid = history.filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
                     val nearest = unpaid.minByOrNull { p -> parseJalaliStringToMillis(p.dueDate) ?: Long.MAX_VALUE }
@@ -351,11 +369,13 @@ class LocalInstallmentRepository private constructor() {
                 if (isAlreadyPaid) {
                     // Recover missing financial transaction if present
                     if (financialTransaction != null && financialTransaction.amount > 0L) {
-                        val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
-                        if (existingTx == null) {
-                            db.transactionDao().insertTransaction(financialTransaction)
-                            com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                        db.withTransaction {
+                            val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+                            if (existingTx == null) {
+                                db.transactionDao().insertTransaction(financialTransaction)
+                            }
                         }
+                        com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
                     }
                     return@withLock true
                 }
