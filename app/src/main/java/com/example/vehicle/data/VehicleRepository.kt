@@ -337,7 +337,7 @@ class VehicleRepository {
         3 -> com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS
         7 -> com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS
         14 -> com.example.reminder.domain.PredefinedOffset.BEFORE_14_DAYS
-        15 -> null
+        15 -> com.example.reminder.domain.PredefinedOffset.BEFORE_15_DAYS
         30 -> com.example.reminder.domain.PredefinedOffset.BEFORE_30_DAYS
         else -> null
     }
