@@ -60,14 +60,16 @@ fun VehicleInsuranceSheet(
     var inspectionCostText by remember(editingInspection) { mutableStateOf(editingInspection?.cost?.takeIf { it > 0 }?.let { IranianPhoneUtils.convertDigitsToPersian(it.toString()) } ?: "") }
     var inspectionStatus by remember(editingInspection) { mutableStateOf(editingInspection?.status ?: "معتبر (گواهی معاینه فنی)") }
     var centerName by remember(editingInspection) { mutableStateOf(editingInspection?.centerName ?: "") }
-    var insuranceReminderEnabled by remember { mutableStateOf(true) }
-    var inspectionReminderEnabled by remember { mutableStateOf(true) }
-    var insuranceReminderTime by remember { mutableStateOf("۰۹:۰۰") }
-    var inspectionReminderTime by remember { mutableStateOf("۰۹:۰۰") }
+    var insuranceReminderEnabled by remember(editingInsurance) { mutableStateOf(editingInsurance?.reminderEnabled ?: true) }
+    var inspectionReminderEnabled by remember(editingInspection) { mutableStateOf(editingInspection?.reminderEnabled ?: true) }
+    var insuranceReminderTime by remember(editingInsurance) { mutableStateOf(editingInsurance?.reminderTime ?: "۰۹:۰۰") }
+    var inspectionReminderTime by remember(editingInspection) { mutableStateOf(editingInspection?.reminderTime ?: "۰۹:۰۰") }
     var insuranceReminderDays by remember(editingInsurance) {
         mutableStateOf(editingInsurance?.reminderDays?.toSet()?.takeIf { it.isNotEmpty() } ?: setOf(30, 15, 7, 1, 0))
     }
-    var inspectionReminderDays by remember { mutableStateOf(setOf(30, 7, 1, 0)) }
+    var inspectionReminderDays by remember(editingInspection) {
+        mutableStateOf(editingInspection?.reminderDays?.toSet()?.takeIf { it.isNotEmpty() } ?: setOf(30, 7, 1, 0))
+    }
 
     val companies = listOf("بیمه ایران", "بیمه آسیا", "بیمه دانا", "بیمه البرز", "بیمه پاسارگاد", "بیمه سامان")
     val insuranceType = if (selectedSection == 1) "بیمه بدنه" else "شخص ثالث"
