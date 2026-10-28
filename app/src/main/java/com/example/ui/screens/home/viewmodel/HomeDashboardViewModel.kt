@@ -594,6 +594,24 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 val todayJalali = currentPdt.toFormattedDate()
                 val nowTime = currentPdt.toFormattedTime()
 
+                // Resolve a valid, active payment account before mutating any obligation.
+                // This prevents finance validation from failing after the obligation was already changed.
+                val userId = SessionManager.userId
+                if (userId.isNullOrBlank()) {
+                    onResult(false)
+                    return@launch
+                }
+                val db = AppDatabase.getDatabase(getApplication())
+                LocalFinanceRepository.instance.ensureDefaultAccounts(db, userId)
+                val paymentAccount = db.accountDao().getAllAccountsRaw(userId).firstOrNull {
+                    it.isActive && it.deletedAt == null &&
+                        (it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی (جایگزین"))
+                }
+                if (paymentAccount == null) {
+                    onResult(false)
+                    return@launch
+                }
+
                 val success = when (obligation.type) {
                     ObligationType.INSTALLMENT -> {
                         val installmentId = obligation.rawId
@@ -622,7 +640,8 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                                 ),
                                 datePersian = todayJalali,
                                 timePersian = nowTime,
-                                accountName = "کارت بانکی",
+                                accountName = paymentAccount.name,
+                                accountId = paymentAccount.stringId,
                                 description = "پرداخت قسط از داشبورد خانه"
                             )
                             LocalFinanceRepository.instance.addTransactionResult(finTx) ==
@@ -675,7 +694,8 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                                     ),
                                     datePersian = todayJalali,
                                     timePersian = nowTime,
-                                    accountName = "کارت بانکی",
+                                    accountName = paymentAccount.name,
+                                    accountId = paymentAccount.stringId,
                                     description = "پرداخت بیمه از داشبورد خانه"
                                 )
                                 LocalFinanceRepository.instance.addTransactionResult(finTx) ==
@@ -716,7 +736,8 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                                 ),
                                 datePersian = todayJalali,
                                 timePersian = nowTime,
-                                accountName = "کارت بانکی",
+                                accountName = paymentAccount.name,
+                                accountId = paymentAccount.stringId,
                                 description = "تسویه تعهد از داشبورد خانه"
                             )
                             LocalFinanceRepository.instance.addTransactionResult(finTx) ==
