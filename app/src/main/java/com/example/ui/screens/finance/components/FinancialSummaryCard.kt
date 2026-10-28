@@ -133,7 +133,10 @@ fun FinancialSummaryCard(
 
                 // Balance Big Number
                 Column(
-                    modifier = Modifier.padding(top = 2.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
