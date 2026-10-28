@@ -74,7 +74,7 @@ fun UpcomingObligationsCard(
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Header
@@ -141,8 +141,36 @@ fun UpcomingObligationsCard(
                     } else {
                         NearestObligationFlatItem(
                             item = nearestItem,
-                            onClick = { onObligationClick(nearestItem) },
-                            onMarkDone = { onMarkDoneClick(nearestItem.id) }
+                            onClick = { onObligationClick(nearestItem) }
+                        )
+                    }
+                }
+                if (nearestItem != null) {
+                    Button(
+                        onClick = { onMarkDoneClick(nearestItem.id) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(32.dp)
+                            .testTag("pay_obligation_button_${nearestItem.id}"),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "ثبت پرداخت",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.5.sp
+                            )
                         )
                     }
                 }
@@ -182,7 +210,6 @@ fun UpcomingObligationsCard(
 private fun NearestObligationFlatItem(
     item: UpcomingObligationItem,
     onClick: () -> Unit,
-    onMarkDone: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -304,33 +331,5 @@ private fun NearestObligationFlatItem(
             )
         }
 
-        // 6. Action Button below progress bar
-        Button(
-            onClick = onMarkDone,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(32.dp)
-                .testTag("pay_obligation_button_${item.id}"),
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
-            ),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Check,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "ثبت پرداخت",
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.5.sp
-                )
-            )
-        }
     }
 }
