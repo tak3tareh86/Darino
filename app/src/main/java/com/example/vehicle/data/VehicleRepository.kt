@@ -311,7 +311,7 @@ class VehicleRepository {
                         val reminderDays = schedules.mapNotNull { schedule ->
                             when {
                                 schedule.triggerType == "EXACT" -> 0
-                                schedule.offsetUnit.equals("DAYS", ignoreCase = true) -> schedule.offsetValue
+                                schedule.offsetUnit.equals("DAY", ignoreCase = true) -> schedule.offsetValue
                                 else -> null
                             }
                         }.distinct().sortedDescending().ifEmpty { listOf(30, 7, 1, 0) }
