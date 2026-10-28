@@ -860,7 +860,7 @@ fun TransactionCard(
         shape = RoundedCornerShape(RadiusMD),
         backgroundColor = MaterialTheme.colorScheme.surface,
         elevation = 2.dp,
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
         testTag = "full_tx_card_${transaction.id}",
         onClick = onClick
     ) {
@@ -872,12 +872,12 @@ fun TransactionCard(
             // Right Side (RTL Start): Category Icon + Title/Category/Date Column
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.weight(1f)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(40.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(transaction.category.accentColor.copy(alpha = if (isDark) 0.25f else 0.12f)),
                     contentAlignment = Alignment.Center
@@ -953,17 +953,19 @@ fun TransactionCard(
                         text = transaction.amountFormatted,
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.5.sp
+                            fontSize = 13.sp
                         ),
                         color = amountColor,
                         maxLines = 1,
-                        softWrap = false
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = transaction.paymentMethod.title,
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
