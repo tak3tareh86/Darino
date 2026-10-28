@@ -120,6 +120,7 @@ fun BankSmsAssistantCard(
     if (editingSuggestion != null) {
         EditSmsTransactionDialog(
             suggestion = editingSuggestion,
+            userAccounts = userAccounts,
             onDismiss = { editingSuggestionId = null },
             onConfirm = { amount, type, cat, acc, desc, dest, onResult ->
                 onUpdateCustomDetails(editingSuggestion.id, amount, type, cat, acc, dest)
@@ -946,6 +947,7 @@ private fun TransactionTypeChip(
 @Composable
 fun EditSmsTransactionDialog(
     suggestion: BankSmsSuggestion,
+    @Suppress("UNUSED_PARAMETER") userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (
         amount: Long,
