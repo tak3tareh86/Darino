@@ -147,24 +147,30 @@ class ReminderManager(
     suspend fun enableReminder(reminderId: String) = withContext(Dispatchers.IO) {
         val reminder = repository.getReminderById(reminderId)
             ?: throw NoSuchElementException("یادآور با شناسه $reminderId یافت نشد.")
-        val schedules = repository.getSchedulesSync(reminderId)
-        if (schedules.isEmpty()) {
+        val storedSchedules = repository.getSchedulesSync(reminderId)
+        if (storedSchedules.isEmpty()) {
             repository.updateStatus(reminderId, "DISABLED")
-            throw IllegalStateException("هیچ زمان‌بندی فعالی برای یادآور یافت نشد.")
+            throw IllegalStateException("هیچ زمان‌بندی‌ای برای این یادآور ذخیره نشده است.")
         }
+
+        // Re-enable both the notification channel and schedule rows in Room before registering alarms.
+        val enabledReminder = reminder.copy(notificationEnabled = true, status = "ACTIVE", updatedAt = System.currentTimeMillis())
+        val enabledSchedules = storedSchedules.map { it.copy(enabled = true) }
+        repository.updateReminderWithSchedules(enabledReminder, enabledSchedules)
         try {
-            val scheduledCount = scheduler.schedule(reminder, schedules)
-            if (scheduledCount > 0) {
-                repository.updateStatus(reminderId, "ACTIVE")
-            } else {
-                repository.updateStatus(reminderId, "DISABLED")
+            val scheduledCount = scheduler.schedule(enabledReminder, enabledSchedules)
+            if (scheduledCount <= 0) {
+                throw IllegalStateException("هیچ هشدار آینده‌ای در سیستم ثبت نشد. تاریخ یا مجوز آلارم دقیق را بررسی کنید.")
             }
+            repository.updateStatus(reminderId, "ACTIVE")
         } catch (e: Exception) {
-            Log.e("ReminderManager", "Failed to schedule alarms when enabling reminder $reminderId. Rolling back status.", e)
+            Log.e("ReminderManager", "Failed to schedule alarms when enabling reminder $reminderId. Rolling back to disabled state.", e)
             try {
-                repository.updateStatus(reminderId, "DISABLED")
+                val disabledSchedules = enabledSchedules.map { it.copy(enabled = false) }
+                repository.updateReminderWithSchedules(enabledReminder.copy(notificationEnabled = false, status = "DISABLED"), disabledSchedules)
+                scheduler.cancel(reminderId, enabledSchedules)
             } catch (rollbackEx: Exception) {
-                Log.e("ReminderManager", "Failed to rollback status to DISABLED", rollbackEx)
+                Log.e("ReminderManager", "Failed to rollback reminder to DISABLED", rollbackEx)
             }
             throw e
         }
@@ -174,8 +180,17 @@ class ReminderManager(
      * Disables a reminder and pauses its schedules without deleting them.
      */
     suspend fun disableReminder(reminderId: String) = withContext(Dispatchers.IO) {
-        repository.updateStatus(reminderId, "DISABLED")
+        val reminder = repository.getReminderById(reminderId)
         val schedules = repository.getSchedulesSync(reminderId)
+        // Persist the disabled channel and disabled schedules before cancelling system alarms.
+        if (reminder != null) {
+            repository.updateReminderWithSchedules(
+                reminder.copy(notificationEnabled = false, status = "DISABLED", updatedAt = System.currentTimeMillis()),
+                schedules.map { it.copy(enabled = false) }
+            )
+        } else {
+            repository.updateStatus(reminderId, "DISABLED")
+        }
         scheduler.cancel(reminderId, schedules)
     }
 
