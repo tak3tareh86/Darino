@@ -25,29 +25,41 @@ import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.VehicleEntity
+import com.example.vehicle.data.VehicleInsuranceEntity
+import com.example.vehicle.data.VehicleInspectionEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VehicleInsuranceSheet(
     vehicle: VehicleEntity,
-    onSaveInsurance: (company: String, type: String, startDate: String, endDate: String, amount: Long, policyNumber: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int>) -> Unit,
-    onSaveInspection: (lastInspectionDate: String, expiryDate: String, cost: Long, status: String, centerName: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int>) -> Unit,
+    onSaveInsurance: (company: String, type: String, startDate: String, endDate: String, amount: Long, policyNumber: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int>, recordId: String?) -> Unit,
+    onSaveInspection: (lastInspectionDate: String, expiryDate: String, cost: Long, status: String, centerName: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int>, recordId: String?) -> Unit,
+    editingInsurance: VehicleInsuranceEntity? = null,
+    editingInspection: VehicleInspectionEntity? = null,
     onDismiss: () -> Unit
 ) {
     val todayPdt = remember { com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()) }
     val todayJalali = remember { todayPdt.toFormattedDate() }
     val nextYearJalali = remember { com.example.util.IranianDateUtils.createFormattedDate(todayPdt.year + 1, todayPdt.month, todayPdt.day) }
-    var selectedSection by remember { mutableIntStateOf(0) }
-    var insuranceCompany by remember { mutableStateOf("بیمه ایران") }
-    var startDate by remember { mutableStateOf(todayJalali) }
-    var endDate by remember { mutableStateOf(nextYearJalali) }
-    var insuranceAmountText by remember { mutableStateOf("") }
-    var policyNumber by remember { mutableStateOf("") }
-    var lastInspectionDate by remember { mutableStateOf(todayJalali) }
-    var inspectionExpiryDate by remember { mutableStateOf(nextYearJalali) }
-    var inspectionCostText by remember { mutableStateOf("") }
-    var inspectionStatus by remember { mutableStateOf("معتبر (گواهی معاینه فنی)") }
-    var centerName by remember { mutableStateOf("") }
+    var selectedSection by remember(editingInsurance, editingInspection) {
+        mutableIntStateOf(
+            when {
+                editingInspection != null -> 2
+                editingInsurance?.type?.contains("بدنه") == true -> 1
+                else -> 0
+            }
+        )
+    }
+    var insuranceCompany by remember(editingInsurance) { mutableStateOf(editingInsurance?.company ?: "بیمه ایران") }
+    var startDate by remember(editingInsurance) { mutableStateOf(editingInsurance?.startDate ?: todayJalali) }
+    var endDate by remember(editingInsurance) { mutableStateOf(editingInsurance?.endDate ?: nextYearJalali) }
+    var insuranceAmountText by remember(editingInsurance) { mutableStateOf(editingInsurance?.amount?.takeIf { it > 0 }?.let { IranianPhoneUtils.convertDigitsToPersian(it.toString()) } ?: "") }
+    var policyNumber by remember(editingInsurance) { mutableStateOf(editingInsurance?.policyNumber ?: "") }
+    var lastInspectionDate by remember(editingInspection) { mutableStateOf(editingInspection?.lastInspectionDate ?: todayJalali) }
+    var inspectionExpiryDate by remember(editingInspection) { mutableStateOf(editingInspection?.expiryDate ?: nextYearJalali) }
+    var inspectionCostText by remember(editingInspection) { mutableStateOf(editingInspection?.cost?.takeIf { it > 0 }?.let { IranianPhoneUtils.convertDigitsToPersian(it.toString()) } ?: "") }
+    var inspectionStatus by remember(editingInspection) { mutableStateOf(editingInspection?.status ?: "معتبر (گواهی معاینه فنی)") }
+    var centerName by remember(editingInspection) { mutableStateOf(editingInspection?.centerName ?: "") }
     var insuranceReminderEnabled by remember { mutableStateOf(true) }
     var inspectionReminderEnabled by remember { mutableStateOf(true) }
     var insuranceReminderTime by remember { mutableStateOf("۰۹:۰۰") }
@@ -118,12 +130,12 @@ fun VehicleInsuranceSheet(
                     tag = "insurance_reminder"
                 )
                 Button(
-                    onClick = { onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, IranianAmountUtils.parseAmountToLong(insuranceAmountText), policyNumber, insuranceReminderEnabled, insuranceReminderTime, insuranceReminderDays.sortedDescending()) },
+                    onClick = { onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, IranianAmountUtils.parseAmountToLong(insuranceAmountText), policyNumber, insuranceReminderEnabled, insuranceReminderTime, insuranceReminderDays.sortedDescending(), editingInsurance?.id) },
                     modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_insurance_btn"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
-                    Text("ثبت $insuranceType", fontWeight = FontWeight.Bold)
+                    Text(if (editingInsurance != null) "ذخیره ویرایش بیمه‌نامه" else "ثبت $insuranceType", fontWeight = FontWeight.Bold)
                 }
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -142,12 +154,12 @@ fun VehicleInsuranceSheet(
                     tag = "inspection_reminder"
                 )
                 Button(
-                    onClick = { onSaveInspection(lastInspectionDate, inspectionExpiryDate, IranianAmountUtils.parseAmountToLong(inspectionCostText), inspectionStatus, centerName, inspectionReminderEnabled, inspectionReminderTime, inspectionReminderDays.sortedDescending()) },
+                    onClick = { onSaveInspection(lastInspectionDate, inspectionExpiryDate, IranianAmountUtils.parseAmountToLong(inspectionCostText), inspectionStatus, centerName, inspectionReminderEnabled, inspectionReminderTime, inspectionReminderDays.sortedDescending(), editingInspection?.id) },
                     modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_inspection_btn"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
-                    Text("ذخیره معاینه فنی", fontWeight = FontWeight.Bold)
+                    Text(if (editingInspection != null) "ذخیره ویرایش معاینه فنی" else "ذخیره معاینه فنی", fontWeight = FontWeight.Bold)
                 }
             }
         }
