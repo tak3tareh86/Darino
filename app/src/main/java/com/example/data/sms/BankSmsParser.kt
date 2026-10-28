@@ -320,39 +320,72 @@ object BankSmsParser {
      *   messages are filtered before this fallback can be used.
      */
     fun hasValidBankEvidence(sender: String, cleanBody: String): Boolean {
-        if (isSenderRecognized(sender)) {
-            return true
-        }
+        val normalizedBody = normalizeText(cleanBody)
+        val lower = normalizedBody.lowercase()
 
-        val lower = cleanBody.lowercase()
+        // Never trust sender identity alone: official bank shortcodes also send OTPs,
+        // promotions, reminders, and security notices. Earlier pipeline stages reject
+        // known noise; this gate additionally requires a completed money-event structure.
+        val detectedType = detectTransactionType(normalizedBody) ?: return false
+        val amountToman = extractAmountToman(normalizedBody, detectedType) ?: return false
+        if (amountToman <= 0L) return false
 
-        // 1. Account / Card pattern with digits or masking
-        val hasCardPattern = Regex("""(?i)(?:کارت|card)[\s:]*([0-9\s*#-]{4,19})""").containsMatchIn(cleanBody)
-        val hasAccountPattern = Regex("""(?i)(?:حساب|شماره\s*حساب|به\s*حساب|از\s*حساب)[\s:]*([0-9\s*#-]{4,20})""").containsMatchIn(cleanBody)
-        val hasCardOrAccount = hasCardPattern || hasAccountPattern
-
-        // 2. Ledger balance or tracking/reference code with digits
-        val hasBalance = Regex("""(?i)(?:مانده|موجودی|موجودي)[\s:]*[+-]?\s*([0-9,.\u060C\u066B\u066C]+)""").containsMatchIn(cleanBody)
-        val hasRefCode = Regex("""(?i)(?:پیگیری|کد\s*پیگیری|شماره\s*پیگیری|مرجع|شناسه\s*مرجع|شماره\s*مرجع|ارجاع|شماره\s*ارجاع|کد\s*ارجاع|پایانه|کد\s*رهگیری)[\s:]*([0-9]+)""").containsMatchIn(cleanBody)
-        val hasLedgerMetadata = hasBalance || hasRefCode
-
-        // 3. Bank identity in body
-        val hasBankInBody = hasBankNameInBody(cleanBody) || lower.contains("بانک")
-
-        if (hasCardOrAccount && hasLedgerMetadata && hasBankInBody) {
-            return true
-        }
-
-        // Unknown bank senders may change; only allow a fallback when strong transaction
-        // wording, a clear direction, and a positive amount are all present.
-        val hasStrongTransactionLanguage = Regex(
-            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|خرید|پرید|نشست|مبلغ\s*(?:تراکنش|برداشت|واریز)?|تراکنش\s*(?:موفق|انجام\s*شد)|منظور\s*شد|-\s*[0-9])"""
+        val senderRecognized = isSenderRecognized(sender)
+        val bankNameInBody = hasBankNameInBody(normalizedBody)
+        val hasBankWord = Regex(
+            """(?:بانک|بانکی|همراه\s*بانک|اینترنت\s*بانک|بانکداری)"""
         ).containsMatchIn(lower)
-        if (!hasStrongTransactionLanguage) return false
 
-        val detectedType = detectTransactionType(cleanBody) ?: return false
-        val detectedAmount = extractAmountToman(cleanBody, detectedType) ?: return false
-        return detectedAmount > 0L
+        // Accept language used by real transaction notifications across banks, including
+        // virtual banks whose action verb may appear before or after the amount.
+        val hasCompletedMoneyEvent = Regex(
+            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|خرید\s*(?:موفق)?|پرداخت\s*(?:موفق|قبض|قبوض)|از\s*کارت\s*پرید|به\s*حساب\s*نشست|منظور\s*شد|تراکنش\s*(?:موفق|انجام\s*شد)|عملیات\s*بانکی\s*موفق|انتقال\s*موفق|کارت\s*به\s*کارت\s*(?:موفق|انجام\s*شد)|واریز\s*(?:از\s*طریق\s*)?(?:پایا|ساتنا)|پایا\s*واریز|ساتنا\s*واریز)"""
+        ).containsMatchIn(lower)
+        if (!hasCompletedMoneyEvent) return false
+
+        val hasAmountLabel = Regex(
+            """(?:مبلغ|مبلغ\s*تراکنش|مبلغ\s*برداشت|مبلغ\s*واریز|مبلغ\s*خرید|مبلغ\s*پرداخت|به\s*مبلغ)"""
+        ).containsMatchIn(lower)
+        val hasCurrencyNearNumber = Regex(
+            """[0-9][0-9,.\u060C\u066B\u066C\s]{0,24}\s*(?:ریال|تومان|Rls|IRR)|(?:ریال|تومان|Rls|IRR)\s*[0-9]"""
+        ).containsMatchIn(normalizedBody)
+        val hasCardOrAccountReference = Regex(
+            """(?i)(?:کارت|card|حساب|شماره\s*حساب|شماره\s*کارت)\s*[:：#-]?\s*(?:[0-9*#-][0-9*#\-\s]{3,19})"""
+        ).containsMatchIn(normalizedBody)
+        val hasNumericBalance = Regex(
+            """(?:مانده|موجودی|موجودي)(?:ی\s*حساب|\s*حساب|\s*فعلی|\s*کل)?\s*[:：]?\s*[+-]?\s*[0-9][0-9,.\u060C\u066B\u066C\s]*"""
+        ).containsMatchIn(lower)
+        val hasCompletionMarker = Regex(
+            """(?:موفق|موفقیت\s*آمیز|انجام\s*شد|با\s*موفقیت|ثبت\s*نهایی\s*شد)"""
+        ).containsMatchIn(lower)
+        val senderDigits = normalizeSender(sender)
+        val looksLikeNumericShortCode =
+            senderDigits.length in 4..8 && senderDigits.all { it.isDigit() }
+
+        // Confidence score: sender identity is only one signal. Unknown senders are supported
+        // when the message itself has bank/ledger structure, not just a money-related word.
+        var score = 0
+        if (senderRecognized) score += 4
+        if (bankNameInBody) score += 3 else if (hasBankWord) score += 2
+        if (hasCompletedMoneyEvent) score += 3
+        if (hasAmountLabel) score += 2
+        if (hasCurrencyNearNumber) score += 1
+        if (hasCardOrAccountReference) score += 2
+        if (hasNumericBalance) score += 1
+        if (hasCompletionMarker) score += 1
+        if (looksLikeNumericShortCode) score += 1
+
+        // For an unknown sender require an independent banking marker: bank identity,
+        // card/account context, or a short code combined with an explicit ledger balance.
+        val hasIndependentBankMarker =
+            senderRecognized ||
+                hasBankWord ||
+                hasCardOrAccountReference ||
+                (looksLikeNumericShortCode && hasNumericBalance)
+        if (!hasIndependentBankMarker) return false
+
+        val minimumScore = if (senderRecognized) 6 else 7
+        return score >= minimumScore
     }
 
     /**
