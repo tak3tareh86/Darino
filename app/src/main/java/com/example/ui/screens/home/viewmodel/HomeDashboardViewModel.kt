@@ -477,39 +477,8 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }
 
                 val finalCategory = customCategory?.trim()?.ifEmpty { null } ?: item.category
-                val finalAccount = customAccount?.trim()?.ifEmpty { null } ?: item.bankName
-
-                // 5. Resolve accounts strictly from user's active, valid accounts
-                com.example.ui.screens.finance.data.LocalFinanceRepository.instance.ensureDefaultAccounts(db, userId)
-                val activeAccounts = db.accountDao().getAllAccountsList(userId).filter { it.isActive && it.deletedAt == null }
-                val sourceAcc = findMatchingAccount(activeAccounts, customAccount ?: finalAccount, item.bankName)
-                if (sourceAcc == null) {
-                    // Do NOT auto-select first account and do NOT auto-create account without user action!
-                    onResult(SmsAcceptResult.AccountRequired)
-                    return@withLock
-                }
-
-                val destAcc = if (finalType == TransactionType.TRANSFER) {
-                    val matchedDest = findMatchingAccount(
-                        activeAccounts.filter { it.stringId != sourceAcc.stringId },
-                        destAccount,
-                        null
-                    )
-                    if (matchedDest == null || matchedDest.stringId == sourceAcc.stringId) {
-                        // Transfer cannot be registered without a valid distinct destination account!
-                        onResult(SmsAcceptResult.DestinationAccountRequired)
-                        return@withLock
-                    }
-                    matchedDest
-                } else null
-
-                val finalDesc = customDescription?.trim()?.ifEmpty { null } ?: buildString {
-                    append("ثبت هوشمند از پیامک ")
-                    append(sourceAcc.name)
-                    if (finalType == TransactionType.TRANSFER && destAcc != null) {
-                        append(" به ${destAcc.name}")
-                    }
-                }
+                val finalDesc = customDescription?.trim()?.ifEmpty { null }
+                    ?: "ثبت هوشمند از پیامک ${item.bankName}"
 
                 val txTitle = when (finalType) {
                     TransactionType.TRANSFER -> "انتقال وجه"
@@ -525,17 +494,17 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     amount = finalAmount,
                     type = finalType.name,
                     category = finalCategory,
-                    accountName = sourceAcc.name,
+                    accountName = item.bankName.ifBlank { "بدون حساب مشخص" },
                     description = finalDesc,
                     timestamp = item.timestampMillis,
                     timeFormatted = item.timeText,
                     datePersian = item.dateText,
-                    paymentMethod = "BANK_CARD",
+                    paymentMethod = "OTHER",
                     sourceType = "BANK_SMS",
                     sourceId = id,
-                    accountId = if (finalType != TransactionType.TRANSFER) sourceAcc.stringId else null,
-                    transferSourceAccountId = if (finalType == TransactionType.TRANSFER) sourceAcc.stringId else null,
-                    transferDestinationAccountId = if (finalType == TransactionType.TRANSFER) destAcc?.stringId else null
+                    accountId = null,
+                    transferSourceAccountId = null,
+                    transferDestinationAccountId = null
                 )
 
                 try {
