@@ -361,32 +361,42 @@ class LocalInstallmentRepository private constructor() {
                 }
 
                 val target = history[finalTargetIndex]
+                if (financialTransaction != null) {
+                    if (financialTransaction.userId != userId ||
+                        financialTransaction.amount <= 0L ||
+                        financialTransaction.amount != target.amount ||
+                        financialTransaction.type != "EXPENSE" ||
+                        financialTransaction.sourceType != "INSTALLMENT" ||
+                        financialTransaction.sourceId != installmentId) {
+                        return@withLock false
+                    }
+                }
+
                 val isAlreadyPaid = (target.status == InstallmentStatus.PAID || target.status == InstallmentStatus.COMPLETED)
                 if (isAlreadyPaid) {
-                    // Confirm or recover installment in Room DB
-                    val dbInstallments = db.installmentDao().getAllInstallmentsList(userId)
-                    val installmentInDb = dbInstallments.any { it.serverId == installmentId }
-                    if (!installmentInDb) {
-                        saveToRoomInternal(targetContext, current, null)
+                    try {
+                        db.withTransaction {
+                            val dbInstallments = db.installmentDao().getAllInstallmentsList(userId)
+                            val installmentInDb = dbInstallments.any { it.serverId == installmentId }
+                            if (!installmentInDb) {
+                                persistInstallmentStateToRoom(db, userId, current)
+                            }
+                            if (financialTransaction != null) {
+                                syncFinancialTransaction(db, userId, financialTransaction)
+                            }
+                        }
                         val confirmedInstallment = db.installmentDao().getAllInstallmentsList(userId).any { it.serverId == installmentId }
                         if (!confirmedInstallment) {
                             return@withLock false
                         }
-                    }
-
-                    // Confirm or recover financial transaction if required
-                    if (financialTransaction != null) {
-                        try {
-                            db.withTransaction {
-                                syncFinancialTransaction(db, userId, financialTransaction)
-                            }
+                        if (financialTransaction != null) {
                             com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            return@withLock false
                         }
+                        return@withLock true
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        return@withLock false
                     }
-                    return@withLock true
                 }
 
                 history[finalTargetIndex] = target.copy(
@@ -534,7 +544,11 @@ class LocalInstallmentRepository private constructor() {
     }
 
     private suspend fun saveToRoom(context: Context, items: List<InstallmentItem>) = saveMutex.withLock {
-        saveToRoomInternal(context, items, null)
+        val db = AppDatabase.getDatabase(context)
+        db.withTransaction {
+            val userId = SessionManager.userId ?: throw IllegalStateException("No authenticated user ID")
+            persistInstallmentStateToRoom(db, userId, items)
+        }
     }
 
     private suspend fun saveToRoomInternal(
@@ -550,57 +564,65 @@ class LocalInstallmentRepository private constructor() {
                 syncFinancialTransaction(db, userId, financialTransaction)
             }
 
-            val dao = db.installmentDao()
-            dao.clearAllInstallments(userId)
-            dao.clearAllPayments(userId)
+            persistInstallmentStateToRoom(db, userId, items)
+        }
+    }
 
-            items.forEach { item ->
-                val startMillis = parseJalaliStringToMillis(item.startDate) 
-                    ?: throw IllegalArgumentException("Invalid start date: ${item.startDate}")
-                val nextDueMillis = parseJalaliStringToMillis(item.nextPaymentDate) 
-                    ?: throw IllegalArgumentException("Invalid next payment date: ${item.nextPaymentDate}")
-                val dueDayNum = CalendarDateUtils.parseJalali(item.nextPaymentDate)?.third
-                    ?: throw IllegalArgumentException("Invalid due day in nextPaymentDate: ${item.nextPaymentDate}")
+    private suspend fun persistInstallmentStateToRoom(
+        db: AppDatabase,
+        userId: String,
+        items: List<InstallmentItem>
+    ) {
+        val dao = db.installmentDao()
+        dao.clearAllInstallments(userId)
+        dao.clearAllPayments(userId)
 
-                val entity = InstallmentEntity(
-                    id = 0,
-                    serverId = item.id,
-                    syncState = "SYNCED",
-                    userId = userId,
-                    category = item.category.name,
-                    providerName = item.providerOrPerson,
-                    title = item.title,
-                    amount = item.totalAmount,
-                    totalInstallments = item.totalInstallments,
-                    paidInstallments = item.paymentHistory.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED },
-                    remainingInstallments = (item.totalInstallments - item.paymentHistory.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }).coerceAtLeast(0),
-                    startDate = startMillis,
-                    dueDay = dueDayNum,
-                    nextDueDate = nextDueMillis,
-                    status = item.status.name,
-                    notes = item.notes
-                )
-                val instId = dao.insertInstallment(entity).toInt()
+        items.forEach { item ->
+            val startMillis = parseJalaliStringToMillis(item.startDate) 
+                ?: throw IllegalArgumentException("Invalid start date: ${item.startDate}")
+            val nextDueMillis = parseJalaliStringToMillis(item.nextPaymentDate) 
+                ?: throw IllegalArgumentException("Invalid next payment date: ${item.nextPaymentDate}")
+            val dueDayNum = CalendarDateUtils.parseJalali(item.nextPaymentDate)?.third
+                ?: throw IllegalArgumentException("Invalid due day in nextPaymentDate: ${item.nextPaymentDate}")
 
-                item.paymentHistory.forEach { p ->
-                    val pDueMillis = parseJalaliStringToMillis(p.dueDate) 
-                        ?: throw IllegalArgumentException("Invalid payment due date: ${p.dueDate}")
-                    val pPaidMillis = p.paidDate?.takeIf { it.isNotBlank() }?.let {
-                        parseJalaliStringToMillis(it) ?: throw IllegalArgumentException("Invalid payment paid date: $it")
-                    }
+            val entity = InstallmentEntity(
+                id = 0,
+                serverId = item.id,
+                syncState = "SYNCED",
+                userId = userId,
+                category = item.category.name,
+                providerName = item.providerOrPerson,
+                title = item.title,
+                amount = item.totalAmount,
+                totalInstallments = item.totalInstallments,
+                paidInstallments = item.paymentHistory.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED },
+                remainingInstallments = (item.totalInstallments - item.paymentHistory.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }).coerceAtLeast(0),
+                startDate = startMillis,
+                dueDay = dueDayNum,
+                nextDueDate = nextDueMillis,
+                status = item.status.name,
+                notes = item.notes
+            )
+            val instId = dao.insertInstallment(entity).toInt()
 
-                    val paymentEntity = InstallmentPaymentEntity(
-                        installmentId = instId,
-                        installmentNumber = p.installmentNumber,
-                        amount = p.amount,
-                        dueDate = pDueMillis,
-                        paidDate = pPaidMillis,
-                        status = p.status.name,
-                        paymentReference = p.id,
-                        notes = p.note
-                    )
-                    dao.insertPayment(paymentEntity)
+            item.paymentHistory.forEach { p ->
+                val pDueMillis = parseJalaliStringToMillis(p.dueDate) 
+                    ?: throw IllegalArgumentException("Invalid payment due date: ${p.dueDate}")
+                val pPaidMillis = p.paidDate?.takeIf { it.isNotBlank() }?.let {
+                    parseJalaliStringToMillis(it) ?: throw IllegalArgumentException("Invalid payment paid date: $it")
                 }
+
+                val paymentEntity = InstallmentPaymentEntity(
+                    installmentId = instId,
+                    installmentNumber = p.installmentNumber,
+                    amount = p.amount,
+                    dueDate = pDueMillis,
+                    paidDate = pPaidMillis,
+                    status = p.status.name,
+                    paymentReference = p.id,
+                    notes = p.note
+                )
+                dao.insertPayment(paymentEntity)
             }
         }
     }

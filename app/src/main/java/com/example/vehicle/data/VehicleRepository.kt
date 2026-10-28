@@ -1294,6 +1294,17 @@ class VehicleRepository {
                 existing.cost
             }
 
+            if (financialTransaction != null) {
+                if (financialTransaction.userId != userId ||
+                    financialTransaction.amount <= 0L ||
+                    financialTransaction.amount != serviceCost ||
+                    financialTransaction.type != "EXPENSE" ||
+                    (financialTransaction.sourceType != "MAINTENANCE" && financialTransaction.sourceType != "SERVICE") ||
+                    financialTransaction.sourceId != serviceId) {
+                    return@withContext Result.failure(IllegalArgumentException("تراکنش مالی نامعتبر برای سرویس خودرو"))
+                }
+            }
+
             // Fetch any existing schedules to cancel before database modification
             val reminderDb = com.example.data.database.AppDatabase.getDatabase(context)
             val schedulesToCancel = reminderDb.smartReminderDao().getSchedulesForReminderSync(userId, serviceId)
@@ -1703,6 +1714,17 @@ class VehicleRepository {
                 financialTransaction.amount
             } else {
                 existing.amount
+            }
+
+            if (financialTransaction != null) {
+                if (financialTransaction.userId != userId ||
+                    financialTransaction.amount <= 0L ||
+                    financialTransaction.amount != insAmount ||
+                    financialTransaction.type != "EXPENSE" ||
+                    financialTransaction.sourceType != "INSURANCE" ||
+                    financialTransaction.sourceId != insuranceId) {
+                    return@withContext Result.failure(IllegalArgumentException("تراکنش مالی نامعتبر برای بیمه‌نامه خودرو"))
+                }
             }
 
             val vehicle = db.vehicleDao().getVehicleByServerId(userId, existing.vehicleId)
