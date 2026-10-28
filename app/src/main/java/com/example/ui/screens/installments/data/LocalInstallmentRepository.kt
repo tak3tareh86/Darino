@@ -746,8 +746,11 @@ class LocalInstallmentRepository private constructor() {
         }
 
         // A supplied account must belong to this user and remain active before any transaction or installment mutation.
-        val suppliedAccountId = financialTransaction.accountId?.takeIf { it.isNotBlank() }
+        val suppliedAccountId = financialTransaction.accountId
         if (suppliedAccountId != null) {
+            if (suppliedAccountId.isBlank()) {
+                throw IllegalArgumentException("Blank account ID for installment payment")
+            }
             val account = db.accountDao().getAccountByStringId(userId, suppliedAccountId)
             if (account == null || !account.isActive || account.deletedAt != null) {
                 throw IllegalArgumentException("Invalid or inactive account for installment payment")
