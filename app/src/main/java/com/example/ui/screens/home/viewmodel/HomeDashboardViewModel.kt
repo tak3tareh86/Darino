@@ -611,7 +611,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     val todayJalali = currentPdt.toFormattedDate()
                     val nowTime = currentPdt.toFormattedTime()
 
-                    val db = AppDatabase.getDatabase(getApplication())
                     // Home obligation completion must not depend on users entering bank/account details.
 
                     val success = when (obligation.type) {
