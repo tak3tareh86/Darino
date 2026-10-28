@@ -609,7 +609,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                         if (paidSuccessfully) {
                             val finTx = TransactionItemData(
                                 // Stable ID makes retries idempotent for this exact installment schedule item.
-                                id = "tx_inst_pay_${installmentId}_${scheduleItemId ?: "next"}",
+                                id = "tx_inst_pay_${obligation.id}",
                                 title = "پرداخت قسط: ${obligation.title}",
                                 amount = obligation.amount,
                                 type = TransactionType.EXPENSE,
@@ -662,7 +662,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                                 false
                             } else {
                                 val finTx = TransactionItemData(
-                                    id = "tx_ins_pay_${insId}",
+                                    id = "tx_ins_pay_${insId}_${todayJalali}",
                                     title = obligation.title,
                                     amount = obligation.amount,
                                     type = TransactionType.EXPENSE,
