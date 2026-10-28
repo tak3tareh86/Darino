@@ -321,11 +321,31 @@ object BankSmsParser {
     /**
      * Checks if any bank name is present in the SMS text.
      */
-    fun hasBankNameInBody(body: String): Boolean {
-        val lower = body.lowercase()
-        return ALL_BANKS.any { bank ->
-            bank.bodyPatterns.any { pattern -> lower.contains(pattern) }
+    private fun bodyMatchesBankIdentity(bank: BankDefinition, body: String): Boolean {
+        val lower = normalizeText(body).lowercase()
+        val fullName = normalizeText(bank.displayName).lowercase()
+        if (lower.contains(fullName)) return true
+
+        return bank.bodyPatterns.any { rawPattern ->
+            val pattern = normalizeText(rawPattern).lowercase()
+            when {
+                // These are distinctive brand/official-system names rather than generic words.
+                pattern in setOf("بلوبانک", "بلو بانک", "سامانه بام", "شاپرک", "شبکه الکترونیکی پرداخت") ->
+                    lower.contains(pattern)
+                // Patterns already containing explicit institutional context can be matched as-is.
+                pattern.startsWith("بانک ") || pattern.startsWith("سامانه ") ||
+                    pattern.contains("بانک") || pattern == "شبکه الکترونیکی پرداخت" ->
+                    lower.contains(pattern)
+                // Long distinctive names (e.g. "قرض الحسنه رسالت") can stand alone.
+                pattern.length >= 10 -> lower.contains(pattern)
+                // Short/common words like "دی", "شهر", "مهر", "ملت" need bank context.
+                else -> lower.contains("بانک $pattern") || lower.contains("$pattern بانک")
+            }
         }
+    }
+
+    fun hasBankNameInBody(body: String): Boolean {
+        return ALL_BANKS.any { bank -> bodyMatchesBankIdentity(bank, body) }
     }
 
     /**
@@ -445,9 +465,10 @@ object BankSmsParser {
             }
         }
 
-        // 2. Check body patterns
+        // 2. Check body using guarded identity matching. Short/common words such as
+        // "دی" or "شهر" must not accidentally label an unrelated SMS as a bank message.
         for (bank in ALL_BANKS) {
-            if (bank.bodyPatterns.any { lowerBody.contains(it) }) {
+            if (bodyMatchesBankIdentity(bank, cleanBody)) {
                 return bank.displayName
             }
         }
