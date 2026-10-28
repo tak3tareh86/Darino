@@ -410,7 +410,8 @@ object VehicleAnalyzer {
         vehicleId: String,
         services: List<VehicleServiceEntity>,
         expenses: List<VehicleExpenseEntity>,
-        insurances: List<VehicleInsuranceEntity>
+        insurances: List<VehicleInsuranceEntity>,
+        inspections: List<VehicleInspectionEntity> = emptyList()
     ): List<VehicleTimelineEvent> {
         val timeline = mutableListOf<VehicleTimelineEvent>()
 
@@ -451,7 +452,7 @@ object VehicleAnalyzer {
                     date = ins.startDate,
                     title = "بیمه‌نامه ${ins.type} (${ins.company})",
                     amount = ins.amount,
-                    subtitle = "اعتبار تا ${ins.endDate} - شماره: ${ins.policyNumber.ifEmpty { "ثبت شده" }}",
+                    subtitle = "اعتبار تا ${ins.endDate} - شماره بیمه‌نامه: ${ins.policyNumber.ifBlank { "ثبت نشده" }}",
                     iconRes = R.drawable.img_3d_insurance,
                     colorHex = 0xFFF59E0B,
                     company = ins.company
@@ -459,7 +460,22 @@ object VehicleAnalyzer {
             )
         }
 
-        // Sort descending by date
-        return timeline.sortedByDescending { it.date }
+        inspections.filter { it.vehicleId == vehicleId }.forEach { inspection ->
+            timeline.add(
+                VehicleTimelineEvent.InspectionEvent(
+                    id = "inspection_${inspection.id}",
+                    date = inspection.lastInspectionDate,
+                    title = "معاینه فنی خودرو",
+                    amount = inspection.cost,
+                    subtitle = "اعتبار تا ${inspection.expiryDate} - ${inspection.centerName.ifBlank { "مرکز ثبت نشده" }} - ${inspection.status.ifBlank { "وضعیت ثبت نشده" }}",
+                    iconRes = R.drawable.img_3d_settings_gear,
+                    colorHex = 0xFF0D9488,
+                    expiryDate = inspection.expiryDate
+                )
+            )
+        }
+
+        // Normalize and validate Jalali dates before chronological sorting.
+        return timeline.sortedByDescending { parseAndValidateJalaliDate(it.date) ?: "0000/00/00" }
     }
 }
