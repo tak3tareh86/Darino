@@ -168,7 +168,7 @@ fun EventCard(
                                 fontSize = 14.sp
                             ),
                             color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
