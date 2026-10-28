@@ -166,4 +166,15 @@ sealed class VehicleTimelineEvent(
         override val colorHex: Long,
         val company: String
     ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex)
+
+    data class InspectionEvent(
+        override val id: String,
+        override val date: String,
+        override val title: String,
+        override val amount: Long,
+        override val subtitle: String,
+        @DrawableRes override val iconRes: Int,
+        override val colorHex: Long,
+        val expiryDate: String
+    ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex)
 }
