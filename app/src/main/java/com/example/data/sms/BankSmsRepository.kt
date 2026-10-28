@@ -120,11 +120,10 @@ class BankSmsRepository(private val context: Context) {
                         continue
                     }
 
-                    if (BankSmsParser.isPotentialBankSms(address, body)) {
-                        val parsed = BankSmsParser.parse(uniqueId, address, body, timestamp)
-                        if (parsed != null) {
-                            results.add(parsed)
-                        }
+                    // parse() is the single authoritative gate; do not classify each SMS twice.
+                    val parsed = BankSmsParser.parse(uniqueId, address, body, timestamp)
+                    if (parsed != null) {
+                        results.add(parsed)
                     }
                 }
             }
