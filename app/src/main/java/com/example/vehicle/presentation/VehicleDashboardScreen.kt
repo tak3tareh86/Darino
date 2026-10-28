@@ -945,171 +945,118 @@ private fun ServiceRecordCard(
 /**
  * Tab 4: Insurance Policies & Technical Inspection View
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun VehicleInsuranceDocumentsTabContent(
     insurances: List<VehicleInsuranceEntity>,
     inspections: List<VehicleInspectionEntity>,
     onOpenManage: () -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .testTag("vehicle_insurance_tab"),
-        contentPadding = PaddingValues(bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+    var selectedDocumentTab by remember { mutableIntStateOf(0) }
+    val today = remember {
+        com.example.util.IranianPhoneUtils.convertDigitsToEnglish(
+            com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+        ).replace("-", "/")
+    }
+    val visibleInsurances = when (selectedDocumentTab) {
+        0 -> insurances.filter { it.type.contains("ثالث") }
+        1 -> insurances.filter { it.type.contains("بدنه") }
+        else -> emptyList()
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().testTag("vehicle_insurance_tab"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "بیمه‌نامه‌ها و مدارک خودرو",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                FilledTonalButton(
-                    onClick = onOpenManage,
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("ثبت یا ویرایش", style = MaterialTheme.typography.labelSmall)
-                }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("بیمه و مدارک خودرو", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+            FilledTonalButton(onClick = onOpenManage, shape = RoundedCornerShape(10.dp)) {
+                Text("ثبت اطلاعات", style = MaterialTheme.typography.labelSmall)
             }
         }
-
-        // Insurance List
-        items(insurances, key = { it.id }) { ins ->
-            val costStr = IranianPhoneUtils.convertDigitsToPersian(
-                NumberFormat.getNumberInstance(Locale.US).format(ins.amount)
-            )
-
-            Layered3DCard(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = 3.dp,
-                borderColor = Color(0xFFF59E0B).copy(alpha = 0.3f)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+        PrimaryTabRow(selectedTabIndex = selectedDocumentTab) {
+            Tab(selected = selectedDocumentTab == 0, onClick = { selectedDocumentTab = 0 }, text = { Text("شخص ثالث", maxLines = 1) })
+            Tab(selected = selectedDocumentTab == 1, onClick = { selectedDocumentTab = 1 }, text = { Text("بیمه بدنه", maxLines = 1) })
+            Tab(selected = selectedDocumentTab == 2, onClick = { selectedDocumentTab = 2 }, text = { Text("معاینه فنی", maxLines = 1) })
+        }
+        if (selectedDocumentTab == 0 || selectedDocumentTab == 1) {
+            if (visibleInsurances.isEmpty()) {
+                Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    Text("برای این بخش هنوز بیمه‌نامه‌ای ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    items(visibleInsurances, key = { it.id }) { ins ->
+                        val costStr = IranianPhoneUtils.convertDigitsToPersian(NumberFormat.getNumberInstance(Locale.US).format(ins.amount))
+                        val normalizedExpiry = IranianPhoneUtils.convertDigitsToEnglish(ins.endDate).replace("-", "/")
+                        val expired = normalizedExpiry < today
+                        Layered3DCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            elevation = 3.dp,
+                            borderColor = (if (expired) MaterialTheme.colorScheme.error else Color(0xFFF59E0B)).copy(alpha = 0.3f)
                         ) {
-                            Soft3DIcon(
-                                imageRes = R.drawable.img_3d_insurance,
-                                contentDescription = ins.type,
-                                size = 30.dp,
-                                accentColor = Color(0xFFF59E0B)
-                            )
-                            Column {
-                                Text(
-                                    text = "بیمه ${ins.type} (${ins.company})",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "شماره بیمه‌نامه: ${ins.policyNumber.ifEmpty { "ثبت شده" }}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Soft3DIcon(imageRes = R.drawable.img_3d_insurance, contentDescription = ins.type, size = 30.dp, accentColor = Color(0xFFF59E0B))
+                                        Column {
+                                            Text("بیمه ${ins.type} (${ins.company})", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                            Text("شماره بیمه‌نامه: ${ins.policyNumber.ifEmpty { "ثبت نشده" }}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                    Surface(shape = RoundedCornerShape(8.dp), color = (if (expired) MaterialTheme.colorScheme.error else Color(0xFF10B981)).copy(alpha = 0.12f)) {
+                                        Text(
+                                            text = if (expired) "منقضی شده" else "دارای اعتبار",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
+                                            color = if (expired) MaterialTheme.colorScheme.error else Color(0xFF10B981),
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("اعتبار: ${IranianPhoneUtils.convertDigitsToPersian(ins.startDate)} تا ${IranianPhoneUtils.convertDigitsToPersian(ins.endDate)}", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp))
+                                    Text("$costStr تومان", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B)))
+                                }
                             }
                         }
-
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF10B981).copy(alpha = 0.12f)
-                        ) {
-                            Text(
-                                text = "دارای اعتبار",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
-                                ),
-                                color = Color(0xFF10B981),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "اعتبار: ${IranianPhoneUtils.convertDigitsToPersian(ins.startDate)} تا ${IranianPhoneUtils.convertDigitsToPersian(ins.endDate)}",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "$costStr تومان",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFF59E0B)
-                            )
-                        )
                     }
                 }
             }
-        }
-
-        // Inspections
-        item {
-            Text(
-                text = "وضعیت معاینه فنی",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-
-        items(inspections, key = { it.id }) { insp ->
-            Layered3DCard(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = 2.dp
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+        } else {
+            if (inspections.isEmpty()) {
+                Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    Text("هنوز اطلاعات معاینه فنی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = insp.centerName,
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                        ) {
-                            Text(
-                                text = insp.status,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
-                                ),
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                    items(inspections, key = { it.id }) { insp ->
+                        val normalizedExpiry = IranianPhoneUtils.convertDigitsToEnglish(insp.expiryDate).replace("-", "/")
+                        val expired = normalizedExpiry < today
+                        Layered3DCard(modifier = Modifier.fillMaxWidth(), elevation = 2.dp, borderColor = (if (expired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant).copy(alpha = 0.35f)) {
+                            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(insp.centerName.ifBlank { "مرکز معاینه فنی ثبت نشده" }, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                    Surface(shape = RoundedCornerShape(8.dp), color = (if (expired) MaterialTheme.colorScheme.error else Color(0xFF10B981)).copy(alpha = 0.12f)) {
+                                        Text(if (expired) "منقضی شده" else insp.status, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp), color = if (expired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                                    }
+                                }
+                                Text("تاریخ معاینه: ${IranianPhoneUtils.convertDigitsToPersian(insp.lastInspectionDate)} • انقضا: ${IranianPhoneUtils.convertDigitsToPersian(insp.expiryDate)}", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
-
-                    Text(
-                        text = "تاریخ معاینه: ${IranianPhoneUtils.convertDigitsToPersian(insp.lastInspectionDate)} • انقضا: ${IranianPhoneUtils.convertDigitsToPersian(insp.expiryDate)}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }
