@@ -1632,7 +1632,8 @@ class VehicleRepository {
         policyNumber: String,
         reminderEnabled: Boolean = true,
         reminderTime: String = "۰۹:۰۰",
-        reminderDays: List<Int> = listOf(30, 15, 7, 1, 0)
+        reminderDays: List<Int> = listOf(30, 15, 7, 1, 0),
+        recordId: String? = null
     ): Result<VehicleInsuranceEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
@@ -1656,7 +1657,7 @@ class VehicleRepository {
             val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
                 ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
 
-            val insuranceId = UUID.randomUUID().toString()
+            val insuranceId = recordId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
             val newInsurance = VehicleInsuranceEntity(
                 id = insuranceId,
                 vehicleId = vehicleId,
@@ -1697,6 +1698,8 @@ class VehicleRepository {
                             description = "شماره بیمه‌نامه: ${policyNumber.trim()}"
                         )
                     )
+                } else {
+                    db.vehicleDao().deleteExpenseById(userId, "exp_ins_$insuranceId")
                 }
 
                 // Sync Reminder for Insurance in the same database transaction
@@ -1943,7 +1946,8 @@ class VehicleRepository {
         centerName: String,
         reminderEnabled: Boolean = true,
         reminderTime: String = "۰۹:۰۰",
-        reminderDays: List<Int> = listOf(30, 7, 1, 0)
+        reminderDays: List<Int> = listOf(30, 7, 1, 0),
+        recordId: String? = null
     ): Result<VehicleInspectionEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
@@ -1962,7 +1966,7 @@ class VehicleRepository {
             val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
                 ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
 
-            val inspectionId = UUID.randomUUID().toString()
+            val inspectionId = recordId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
             val newInspection = VehicleInspectionEntity(
                 id = inspectionId,
                 vehicleId = vehicleId,
@@ -2000,6 +2004,8 @@ class VehicleRepository {
                             description = "مرکز معاینه فنی: $centerName"
                         )
                     )
+                } else {
+                    db.vehicleDao().deleteExpenseById(userId, "exp_insp_$inspectionId")
                 }
 
                 // Sync Reminder for Inspection in the same database transaction
