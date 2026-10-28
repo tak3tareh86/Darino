@@ -251,7 +251,6 @@ fun AddVehicleSheet(
                                         .fillMaxWidth()
                                         .heightIn(max = 320.dp)
                                         .testTag("brand_options_grid"),
-                                    columns = GridCells.Fixed(4),
                                     contentPadding = PaddingValues(2.dp),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
