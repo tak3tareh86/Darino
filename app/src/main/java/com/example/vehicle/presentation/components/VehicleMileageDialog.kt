@@ -25,7 +25,8 @@ fun VehicleMileageDialog(
     onConfirm: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var mileageText by remember { mutableStateOf(currentMileage.toString()) }
+    var mileageText by remember { mutableStateOf(IranianPhoneUtils.convertDigitsToPersian(currentMileage.toString())) }
+    var validationError by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -59,19 +60,26 @@ fun VehicleMileageDialog(
                 )
                 OutlinedTextField(
                     value = mileageText,
-                    onValueChange = { mileageText = it },
+                    onValueChange = { mileageText = it; validationError = null },
                     label = { Text("کیلومتر (کیلومترشمار)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    isError = validationError != null,
+                    supportingText = validationError?.let { error -> { Text(error) } }
                 )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val km = mileageText.toIntOrNull() ?: currentMileage
-                    onConfirm(km)
+                    val normalized = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }
+                    val km = normalized.toIntOrNull()
+                    when {
+                        normalized.isBlank() || km == null -> validationError = "لطفاً کیلومتر معتبر وارد کنید."
+                        km < 0 -> validationError = "کیلومتر نمی‌تواند منفی باشد."
+                        else -> onConfirm(km)
+                    }
                 },
                 modifier = Modifier.testTag("confirm_mileage_btn")
             ) {
