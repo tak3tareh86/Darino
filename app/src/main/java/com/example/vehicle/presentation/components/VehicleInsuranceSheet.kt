@@ -64,7 +64,9 @@ fun VehicleInsuranceSheet(
     var inspectionReminderEnabled by remember { mutableStateOf(true) }
     var insuranceReminderTime by remember { mutableStateOf("۰۹:۰۰") }
     var inspectionReminderTime by remember { mutableStateOf("۰۹:۰۰") }
-    var insuranceReminderDays by remember { mutableStateOf(setOf(30, 15, 7, 1, 0)) }
+    var insuranceReminderDays by remember(editingInsurance) {
+        mutableStateOf(editingInsurance?.reminderDays?.toSet()?.takeIf { it.isNotEmpty() } ?: setOf(30, 15, 7, 1, 0))
+    }
     var inspectionReminderDays by remember { mutableStateOf(setOf(30, 7, 1, 0)) }
 
     val companies = listOf("بیمه ایران", "بیمه آسیا", "بیمه دانا", "بیمه البرز", "بیمه پاسارگاد", "بیمه سامان")
