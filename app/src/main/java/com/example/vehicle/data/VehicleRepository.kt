@@ -281,8 +281,10 @@ class VehicleRepository {
 
             launch {
                 vDao.getAllInsurances(userId).collectLatest { dbInsurances ->
-                    _insurances.value = dbInsurances.map { ins ->
-                        VehicleInsuranceEntity(
+                    val mappedInsurances = mutableListOf<VehicleInsuranceEntity>()
+                    for (ins in dbInsurances) {
+                        val reminder = db.smartReminderDao().getReminderById(userId, ins.id)
+                        mappedInsurances += VehicleInsuranceEntity(
                             id = ins.id,
                             vehicleId = ins.vehicleId,
                             company = ins.company,
@@ -291,25 +293,42 @@ class VehicleRepository {
                             endDate = ins.endDate,
                             amount = ins.amount,
                             policyNumber = ins.policyNumber,
-                            reminderDays = ins.reminderDays.split(",").mapNotNull { it.toIntOrNull() }
+                            reminderDays = ins.reminderDays.split(",").mapNotNull { it.toIntOrNull() },
+                            reminderEnabled = reminder?.notificationEnabled == true && reminder.status == "ACTIVE",
+                            reminderTime = reminder?.time ?: "۰۹:۰۰"
                         )
                     }
+                    _insurances.value = mappedInsurances
                 }
             }
 
             launch {
                 vDao.getAllInspections(userId).collectLatest { dbInspections ->
-                    _inspections.value = dbInspections.map { insp ->
-                        VehicleInspectionEntity(
+                    val mappedInspections = mutableListOf<VehicleInspectionEntity>()
+                    for (insp in dbInspections) {
+                        val reminder = db.smartReminderDao().getReminderById(userId, insp.id)
+                        val schedules = db.smartReminderDao().getSchedulesForReminderSync(userId, insp.id)
+                        val reminderDays = schedules.mapNotNull { schedule ->
+                            when {
+                                schedule.triggerType == "EXACT" -> 0
+                                schedule.offsetUnit.equals("DAYS", ignoreCase = true) -> schedule.offsetValue
+                                else -> null
+                            }
+                        }.distinct().sortedDescending().ifEmpty { listOf(30, 7, 1, 0) }
+                        mappedInspections += VehicleInspectionEntity(
                             id = insp.id,
                             vehicleId = insp.vehicleId,
                             lastInspectionDate = insp.lastInspectionDate,
                             expiryDate = insp.expiryDate,
                             cost = insp.cost,
                             status = insp.status,
-                            centerName = insp.centerName
+                            centerName = insp.centerName,
+                            reminderEnabled = reminder?.notificationEnabled == true && reminder.status == "ACTIVE",
+                            reminderTime = reminder?.time ?: "۰۹:۰۰",
+                            reminderDays = reminderDays
                         )
                     }
+                    _inspections.value = mappedInspections
                 }
             }
         }
