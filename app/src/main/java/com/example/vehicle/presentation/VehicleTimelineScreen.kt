@@ -56,7 +56,7 @@ fun VehicleTimelineScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "با ثبت اولین سرویس، سوخت یا بیمه، تایم‌لاین تشکیل خواهد شد.",
+                    text = "با ثبت سرویس، هزینه، بیمه یا معاینه فنی، تایم‌لاین تشکیل خواهد شد.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
