@@ -612,31 +612,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     val nowTime = currentPdt.toFormattedTime()
 
                     val db = AppDatabase.getDatabase(getApplication())
-                    LocalFinanceRepository.instance.ensureDefaultAccounts(db, userId)
-                    val activeAccounts = db.accountDao().getAllAccountsList(userId).filter { it.isActive && it.deletedAt == null }
-                    if (activeAccounts.isEmpty()) {
-                        safeResult(false)
-                        return@withLock
-                    }
-
-                    // Resolve account: match obligation bankName if specified and unique, or designated default card. Arbitrary fallbacks removed.
-                    val candidateAccount = if (obligation.bankName.isNotBlank()) {
-                        findMatchingAccount(activeAccounts, null, obligation.bankName)
-                            ?: activeAccounts.find { it.stringId == "default_card_$userId" }
-                    } else {
-                        activeAccounts.find { it.stringId == "default_card_$userId" }
-                    }
-
-                    if (candidateAccount == null || candidateAccount.stringId.isBlank() || !candidateAccount.isActive || candidateAccount.deletedAt != null) {
-                        safeResult(false)
-                        return@withLock
-                    }
-
-                    val selectedAccount = db.accountDao().getAccountByStringId(userId, candidateAccount.stringId)
-                    if (selectedAccount == null || !selectedAccount.isActive || selectedAccount.deletedAt != null) {
-                        safeResult(false)
-                        return@withLock
-                    }
+                    // Home obligation completion must not depend on users entering bank/account details.
 
                     val success = when (obligation.type) {
                         ObligationType.INSTALLMENT -> {
@@ -652,15 +628,15 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                                 amount = obligation.amount,
                                 type = "EXPENSE",
                                 category = "اقساط و وام",
-                                accountName = selectedAccount.name,
+                                accountName = "بدون حساب مشخص",
                                 description = "پرداخت قسط از داشبورد خانه",
                                 timestamp = System.currentTimeMillis(),
                                 timeFormatted = nowTime,
                                 datePersian = todayJalali,
-                                paymentMethod = "BANK_CARD",
+                                paymentMethod = "OTHER",
                                 sourceType = "INSTALLMENT",
                                 sourceId = installmentId,
-                                accountId = selectedAccount.stringId
+                                accountId = null
                             )
 
                             val paidSuccessfully = LocalInstallmentRepository.instance.payInstallment(
@@ -684,15 +660,15 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                                 amount = obligation.amount,
                                 type = "EXPENSE",
                                 category = "بیمه",
-                                accountName = selectedAccount.name,
+                                accountName = "بدون حساب مشخص",
                                 description = "پرداخت و تمدید بیمه خودرو از داشبورد خانه",
                                 timestamp = System.currentTimeMillis(),
                                 timeFormatted = nowTime,
                                 datePersian = todayJalali,
-                                paymentMethod = "BANK_CARD",
+                                paymentMethod = "OTHER",
                                 sourceType = "INSURANCE",
                                 sourceId = insId,
-                                accountId = selectedAccount.stringId
+                                accountId = null
                             )
 
                             val nextYearDate = IranianDateUtils.createFormattedDate(currentPdt.year + 1, currentPdt.month, currentPdt.day)
@@ -714,15 +690,15 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                                 amount = obligation.amount,
                                 type = "EXPENSE",
                                 category = "سرویس و نگهداری خودرو",
-                                accountName = selectedAccount.name,
+                                accountName = "بدون حساب مشخص",
                                 description = "تسویه هزینه سرویس خودرو از داشبورد خانه",
                                 timestamp = System.currentTimeMillis(),
                                 timeFormatted = nowTime,
                                 datePersian = todayJalali,
-                                paymentMethod = "BANK_CARD",
+                                paymentMethod = "OTHER",
                                 sourceType = "MAINTENANCE",
                                 sourceId = serviceId,
-                                accountId = selectedAccount.stringId
+                                accountId = null
                             )
 
                             val completionResult = VehicleRepository.instance.completeService(
