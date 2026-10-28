@@ -270,7 +270,9 @@ object BankSmsParser {
                 norm.contains("انتقال") ||
                 norm.contains("بدهکار") ||
                 norm.contains("بستانکار") ||
-                norm.contains("منظور شد")
+                norm.contains("منظور شد") ||
+                norm.contains("پرید") ||
+                norm.contains("نشست")
 
         if (hasBalanceWord && !hasTransactionVerb) {
             return true
@@ -346,7 +348,7 @@ object BankSmsParser {
         // Unknown bank senders may change; only allow a fallback when strong transaction
         // wording, a clear direction, and a positive amount are all present.
         val hasStrongTransactionLanguage = Regex(
-            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|خرید|پرید|نشست|مبلغ\s*(?:تراکنش|برداشت|واریز)?|تراکنش\s*(?:موفق|انجام\s*شد))"""
+            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|خرید|پرید|نشست|مبلغ\s*(?:تراکنش|برداشت|واریز)?|تراکنش\s*(?:موفق|انجام\s*شد)|-\s*[0-9])"""
         ).containsMatchIn(lower)
         if (!hasStrongTransactionLanguage) return false
 
