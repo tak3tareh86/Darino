@@ -24,7 +24,9 @@ data class UpcomingObligationItem(
     val accentColor: Color,
     val isOverdue: Boolean = false,
     val rawId: String = id,
-    val bankName: String = ""
+    val bankName: String = "",
+    val totalInstallments: Int = 0,
+    val remainingInstallments: Int = 0
 )
 
 data class UpcomingReminderItem(
@@ -34,7 +36,8 @@ data class UpcomingReminderItem(
     val timePersian: String = "۰۹:۰۰",
     val typeTitle: String,
     @DrawableRes val iconRes: Int,
-    val accentColor: Color
+    val accentColor: Color,
+    val datePersian: String = ""
 )
 
 data class HomeDashboardState(

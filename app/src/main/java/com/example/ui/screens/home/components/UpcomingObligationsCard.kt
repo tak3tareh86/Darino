@@ -1,6 +1,8 @@
 package com.example.ui.screens.home.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,17 +18,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AccountBalance
-import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.EventAvailable
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,12 +58,12 @@ fun UpcomingObligationsCard(
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Layered3DCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(185.dp),
+                .height(210.dp),
             elevation = 2.dp,
             contentPadding = PaddingValues(12.dp)
         ) {
@@ -102,14 +103,14 @@ fun UpcomingObligationsCard(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp)
+                                .padding(vertical = 16.dp)
                                 .testTag("empty_obligations_card"),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(32.dp)
+                                    .size(36.dp)
                                     .background(EmeraldPrimaryLight.copy(alpha = 0.15f), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -117,24 +118,24 @@ fun UpcomingObligationsCard(
                                     imageVector = Icons.Rounded.EventAvailable,
                                     contentDescription = null,
                                     tint = EmeraldPrimaryLight,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                             Text(
                                 text = "تعهد بانکی فعالی نیست",
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
+                                    fontSize = 11.5.sp
                                 ),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "همه اقساط بانکی پرداخت‌شده و منظم هستند.",
+                                text = "همه اقساط بانکی پرداخت شده‌اند.",
                                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2
+                                maxLines = 1
                             )
                         }
                     } else {
@@ -149,28 +150,28 @@ fun UpcomingObligationsCard(
         }
 
         // View All button centered strictly below the card, outside card container
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { onViewAllClick() },
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
         ) {
-            TextButton(
-                onClick = onViewAllClick,
-                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "مشاهده همه تعهدات",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
+                        fontSize = 11.5.sp
                     ),
                     color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(3.dp))
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = null,
-                    modifier = Modifier.size(12.dp),
-                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -187,30 +188,29 @@ private fun NearestObligationFlatItem(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp)
             .testTag("obligation_row_${item.id}"),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
+        // 1. Title + Badge
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = item.title,
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
+                    fontSize = 11.5.sp
                 ),
                 color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .weight(1f)
                     .padding(end = 4.dp)
             )
 
-            // Relative Days Badge
             Surface(
                 shape = RoundedCornerShape(RadiusMD),
                 color = when {
@@ -224,7 +224,7 @@ private fun NearestObligationFlatItem(
             ) {
                 Text(
                     text = item.relativeDaysText,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
@@ -241,63 +241,96 @@ private fun NearestObligationFlatItem(
             }
         }
 
-        // Bank name & Due date
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            if (item.bankName.isNotBlank()) {
-                Text(
-                    text = item.bankName,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "•",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                    color = MaterialTheme.colorScheme.outline
-                )
-            }
+        // 2. Bank / Provider Name
+        if (item.bankName.isNotBlank()) {
             Text(
-                text = "سررسید: ${IranianPhoneUtils.convertDigitsToPersian(item.dueDatePersian)}",
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                text = "بانک: ${item.bankName}",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium
+                ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // 3. Due Date
+        Text(
+            text = "سررسید: ${IranianPhoneUtils.convertDigitsToPersian(item.dueDatePersian)}",
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+
+        // 4. Amount
+        Text(
+            text = "مبلغ قسط: ${item.formattedAmount}",
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp
+            ),
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1
+        )
+
+        // 5. Progress percentage & bar
+        val totalCount = item.totalInstallments.coerceAtLeast(1)
+        val paidCount = (item.totalInstallments - item.remainingInstallments).coerceIn(0, totalCount)
+        val progressFraction = (paidCount.toFloat() / totalCount.toFloat()).coerceIn(0f, 1f)
+        val percentInt = (progressFraction * 100).toInt()
+        val percentPersian = IranianPhoneUtils.convertDigitsToPersian(percentInt.toString())
+        val paidPersian = IranianPhoneUtils.convertDigitsToPersian(paidCount.toString())
+        val totalPersian = IranianPhoneUtils.convertDigitsToPersian(totalCount.toString())
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = item.formattedAmount,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
-                ),
-                color = MaterialTheme.colorScheme.primary
+                text = "پیشرفت: $percentPersian% ($paidPersian از $totalPersian قسط)",
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
-
-            IconButton(
-                onClick = onMarkDone,
+            LinearProgressIndicator(
+                progress = { progressFraction },
                 modifier = Modifier
-                    .size(24.dp)
-                    .testTag("pay_obligation_button_${item.id}")
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Check,
-                    contentDescription = "ثبت انجام شد",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(15.dp)
+                    .fillMaxWidth()
+                    .height(5.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+            )
+        }
+
+        // 6. Action Button below progress bar
+        Button(
+            onClick = onMarkDone,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(32.dp)
+                .testTag("pay_obligation_button_${item.id}"),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White
+            ),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Check,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "ثبت پرداخت",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.5.sp
                 )
-            }
+            )
         }
     }
 }

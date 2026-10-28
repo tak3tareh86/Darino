@@ -171,7 +171,9 @@ class HomeDashboardRepository(
                     accentColor = ColorUtils.blueAccent,
                     isOverdue = isOverdue,
                     rawId = item.id,
-                    bankName = bankName
+                    bankName = bankName,
+                    totalInstallments = item.totalInstallments,
+                    remainingInstallments = item.remainingInstallments
                 )
             )
         }
@@ -247,7 +249,8 @@ class HomeDashboardRepository(
                     timePersian = rem.time,
                     typeTitle = typeTitle,
                     iconRes = iconRes,
-                    accentColor = accentColor
+                    accentColor = accentColor,
+                    datePersian = rem.date
                 ),
                 diff
             )
