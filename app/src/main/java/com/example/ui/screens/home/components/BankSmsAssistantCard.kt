@@ -959,10 +959,6 @@ fun EditSmsTransactionDialog(
         onResult: (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit
     ) -> Unit
 ) {
-    val activeUserAccounts = remember(userAccounts) {
-        userAccounts.filter { it.isActive && it.deletedAt == null }
-    }
-
     var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
     var amountText by remember(suggestion.id) {
         mutableStateOf(if (suggestion.isAmountValid && suggestion.amount > 0L) suggestion.amount.toString() else "")
@@ -977,55 +973,6 @@ fun EditSmsTransactionDialog(
     var category by remember(suggestion.id) { mutableStateOf(suggestion.category) }
     var description by remember(suggestion.id) {
         mutableStateOf("ثبت از پیامک ${suggestion.bankName}")
-    }
-
-    // Resolves initial source account strictly: by stringId, unique exact name, unique card digits, or unique bank name
-    var selectedSourceAccountId by remember(suggestion.id, activeUserAccounts) {
-        val initial = activeUserAccounts.firstOrNull { acc ->
-            acc.stringId == suggestion.sourceAccount
-        } ?: activeUserAccounts.firstOrNull { acc ->
-            !suggestion.sourceAccount.isNullOrBlank() && acc.name.equals(suggestion.sourceAccount, ignoreCase = true)
-        } ?: run {
-            val targetDigits = suggestion.sourceAccount?.filter { it.isDigit() } ?: ""
-            if (targetDigits.length >= 4) {
-                val matches = activeUserAccounts.filter { acc ->
-                    val accDigits = acc.accountNumberMasked?.filter { it.isDigit() } ?: ""
-                    accDigits.length >= 4 && accDigits.takeLast(4) == targetDigits.takeLast(4)
-                }
-                if (matches.size == 1) matches.first() else null
-            } else null
-        } ?: run {
-            if (!suggestion.bankName.isNullOrBlank()) {
-                val cleanHint = suggestion.bankName.replace("بانک", "").trim()
-                val matches = activeUserAccounts.filter { acc ->
-                    val cleanBank = acc.bankName?.replace("بانک", "")?.trim() ?: ""
-                    cleanHint.isNotEmpty() && cleanBank.equals(cleanHint, ignoreCase = true)
-                }
-                if (matches.size == 1) matches.first() else null
-            } else null
-        } ?: (activeUserAccounts.find { it.name == "کارت بانکی" } ?: activeUserAccounts.firstOrNull())
-        mutableStateOf(initial?.stringId)
-    }
-
-    // Resolves initial destination account for transfer
-    var selectedDestAccountId by remember(suggestion.id, activeUserAccounts) {
-        val initial = activeUserAccounts.firstOrNull { acc ->
-            acc.stringId == suggestion.destinationAccount
-        } ?: activeUserAccounts.firstOrNull { acc ->
-            !suggestion.destinationAccount.isNullOrBlank() && acc.name.equals(suggestion.destinationAccount, ignoreCase = true)
-        } ?: (activeUserAccounts.firstOrNull { it.stringId != selectedSourceAccountId && it.name == "کیف پول" }
-            ?: activeUserAccounts.firstOrNull { it.stringId != selectedSourceAccountId })
-        mutableStateOf(initial?.stringId)
-    }
-
-    LaunchedEffect(activeUserAccounts) {
-        if (selectedSourceAccountId == null && activeUserAccounts.isNotEmpty()) {
-            selectedSourceAccountId = (activeUserAccounts.find { it.name == "کارت بانکی" } ?: activeUserAccounts.firstOrNull())?.stringId
-        }
-        if (selectedDestAccountId == null && activeUserAccounts.size >= 2) {
-            selectedDestAccountId = (activeUserAccounts.firstOrNull { it.stringId != selectedSourceAccountId && it.name == "کیف پول" }
-                ?: activeUserAccounts.firstOrNull { it.stringId != selectedSourceAccountId })?.stringId
-        }
     }
 
     var isSubmitting by remember { mutableStateOf(false) }
@@ -1196,147 +1143,7 @@ fun EditSmsTransactionDialog(
                         }
                     }
 
-                    // Real Account Selection (Strictly active, undeleted accounts of current user)
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(
-                            text = if (selectedType == TransactionType.TRANSFER) "حساب مبدأ (از):" else "حساب بانکی:",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                        if (activeUserAccounts.isEmpty()) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFFFEF2F2),
-                                border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Info,
-                                        contentDescription = null,
-                                        tint = Color(0xFFDC2626),
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Text(
-                                        text = "هیچ حساب بانکی فعالی در برنامه یافت نشد. لطفاً ابتدا در بخش حساب‌ها یک حساب تعریف کنید.",
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            fontSize = 10.5.sp,
-                                            color = Color(0xFF991B1B),
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-                        } else {
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                items(activeUserAccounts, key = { it.stringId }) { acc ->
-                                    val isSelected = selectedSourceAccountId == acc.stringId
-                                    val chipLabel = if (!acc.bankName.isNullOrBlank() && !acc.name.contains(acc.bankName!!)) {
-                                        "${acc.name} (${acc.bankName})"
-                                    } else acc.name
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = {
-                                            selectedSourceAccountId = acc.stringId
-                                            if (selectedDestAccountId == acc.stringId) {
-                                                selectedDestAccountId = null
-                                            }
-                                            dialogError = null
-                                        },
-                                        label = {
-                                            Text(
-                                                chipLabel,
-                                                fontSize = 9.5.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
-                                        leadingIcon = if (isSelected) {
-                                            {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.Check,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(13.dp)
-                                                )
-                                            }
-                                        } else null
-                                    )
-                                }
-                            }
-                            if (selectedSourceAccountId == null) {
-                                Text(
-                                    text = "⚠️ لطفاً یک حساب بانکی معتبر انتخاب کنید.",
-                                    fontSize = 10.sp,
-                                    color = Color(0xFFDC2626),
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-
-                    // Destination Account (Only for TRANSFER - must be distinct and valid)
-                    if (selectedType == TransactionType.TRANSFER) {
-                        val availableDestAccounts = remember(activeUserAccounts, selectedSourceAccountId) {
-                            activeUserAccounts.filter { it.stringId != selectedSourceAccountId }
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(
-                                text = "حساب مقصد (به):",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                            )
-                            if (availableDestAccounts.isEmpty()) {
-                                Text(
-                                    text = "⚠️ برای انتقال، به حداقل دو حساب بانکی فعال نیاز است. لطفاً حساب دیگری در برنامه تعریف کنید.",
-                                    fontSize = 10.sp,
-                                    color = Color(0xFFDC2626),
-                                    fontWeight = FontWeight.Medium
-                                )
-                            } else {
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    items(availableDestAccounts, key = { it.stringId }) { acc ->
-                                        val isSelected = selectedDestAccountId == acc.stringId
-                                        val chipLabel = if (!acc.bankName.isNullOrBlank() && !acc.name.contains(acc.bankName!!)) {
-                                            "${acc.name} (${acc.bankName})"
-                                        } else acc.name
-                                        FilterChip(
-                                            selected = isSelected,
-                                            onClick = {
-                                                selectedDestAccountId = acc.stringId
-                                                dialogError = null
-                                            },
-                                            label = {
-                                                Text(
-                                                    chipLabel,
-                                                    fontSize = 9.5.sp,
-                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                                )
-                                            },
-                                            leadingIcon = if (isSelected) {
-                                                {
-                                                    Icon(
-                                                        imageVector = Icons.Rounded.Check,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(13.dp)
-                                                    )
-                                                }
-                                            } else null
-                                        )
-                                    }
-                                }
-                                if (selectedDestAccountId == null) {
-                                    Text(
-                                        text = "⚠️ لطفاً حساب مقصد انتقال را انتخاب کنید (متفاوت از حساب مبدأ).",
-                                        fontSize = 10.sp,
-                                        color = Color(0xFFDC2626),
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    // SMS transactions are stored independently from local bank-account bookkeeping.
 
                     // Error Banner if validation / registration failed (Dialog stays open so user can correct)
                     if (dialogError != null) {
@@ -1370,11 +1177,7 @@ fun EditSmsTransactionDialog(
                         }
                     }
 
-                    val canSubmit = (selectedType != null) &&
-                            isAmountValid &&
-                            (selectedSourceAccountId != null) &&
-                            (selectedType != TransactionType.TRANSFER || (selectedDestAccountId != null && selectedDestAccountId != selectedSourceAccountId)) &&
-                            !isSubmitting
+                    val canSubmit = selectedType != null && isAmountValid && !isSubmitting
 
                     // Actions
                     Row(
@@ -1393,17 +1196,6 @@ fun EditSmsTransactionDialog(
                             onClick = {
                                 val sType = selectedType ?: return@Button
                                 if (!isAmountValid) return@Button
-                                val srcId = selectedSourceAccountId
-                                if (srcId == null) {
-                                    dialogError = "لطفاً یک حساب بانکی معتبر انتخاب کنید."
-                                    return@Button
-                                }
-                                val destId = if (sType == TransactionType.TRANSFER) selectedDestAccountId else null
-                                if (sType == TransactionType.TRANSFER && (destId == null || destId == srcId)) {
-                                    dialogError = "حساب مقصد انتقال نامعتبر یا یکسان با حساب مبدأ است؛ لطفاً حساب مقصد دیگری انتخاب کنید."
-                                    return@Button
-                                }
-
                                 isSubmitting = true
                                 dialogError = null
                                 val finalCat = category.trim().ifEmpty { suggestion.category }
@@ -1412,9 +1204,9 @@ fun EditSmsTransactionDialog(
                                     parsedAmount,
                                     sType,
                                     finalCat,
-                                    srcId,
+                                    "",
                                     description,
-                                    destId
+                                    null
                                 ) { result ->
                                     isSubmitting = false
                                     when (result) {
