@@ -1,14 +1,11 @@
 package com.example.ui.screens.subscription
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,13 +19,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -49,12 +42,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.subscription.MarketConfig
 import com.example.domain.subscription.SubscriptionStatus
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SubscriptionStatusCard(
     state: SubscriptionState,
@@ -67,10 +58,9 @@ fun SubscriptionStatusCard(
     val isTrial = info.subscriptionStatus == SubscriptionStatus.TRIAL
 
     val remainingDays = if (isActive) state.subscriptionDaysRemaining else state.trialDaysRemaining
-    val isExpiringSoon = isActive && state.subscriptionDaysRemaining in 1..30
-    val isWarningTrial = isTrial && state.trialDaysRemaining in 1..7
+    val isWarningActive = isActive && state.subscriptionDaysRemaining in 1..7
 
-    // Formatted expiration and start dates
+    // Formatted expiration date
     val endDateTime = if (info.subscriptionEndAt != null) {
         com.example.util.PersianCalendarHelper.fromEpochMillis(info.subscriptionEndAt).toFormattedDate()
     } else {
@@ -79,24 +69,34 @@ fun SubscriptionStatusCard(
 
     if (isActive) {
         // Active Annual Subscriber Card
-        val activeGradient = Brush.horizontalGradient(
-            colors = listOf(
-                Color(0xFF064E3B), // Emerald dark
-                Color(0xFF047857), // Emerald medium
-                Color(0xFF0F766E)  // Teal
+        val activeGradient = if (isWarningActive) {
+            Brush.horizontalGradient(
+                colors = listOf(
+                    Color(0xFF881337), // Rose/Crimson dark warning
+                    Color(0xFFBE123C),
+                    Color(0xFFE11D48)
+                )
             )
-        )
+        } else {
+            Brush.horizontalGradient(
+                colors = listOf(
+                    Color(0xFF064E3B), // Emerald dark
+                    Color(0xFF047857), // Emerald medium
+                    Color(0xFF0F766E)  // Teal
+                )
+            )
+        }
 
         Card(
             modifier = modifier
                 .fillMaxWidth()
-                .height(140.dp)
+                .heightIn(min = 140.dp)
                 .testTag("active_subscription_card")
                 .shadow(
                     elevation = 4.dp,
                     shape = RoundedCornerShape(16.dp),
-                    ambientColor = Color(0xFF047857).copy(alpha = 0.2f),
-                    spotColor = Color(0xFF064E3B).copy(alpha = 0.3f)
+                    ambientColor = if (isWarningActive) Color(0xFFE11D48).copy(alpha = 0.2f) else Color(0xFF047857).copy(alpha = 0.2f),
+                    spotColor = if (isWarningActive) Color(0xFF881337).copy(alpha = 0.3f) else Color(0xFF064E3B).copy(alpha = 0.3f)
                 )
                 .clip(RoundedCornerShape(16.dp))
                 .clickable { onOpenSubscription() },
@@ -125,15 +125,15 @@ fun SubscriptionStatusCard(
                         ) {
                             Surface(
                                 shape = CircleShape,
-                                color = Color(0xFFF59E0B).copy(alpha = 0.25f),
-                                border = BorderStroke(1.dp, Color(0xFFF59E0B)),
+                                color = if (isWarningActive) Color.White.copy(alpha = 0.2f) else Color(0xFFF59E0B).copy(alpha = 0.25f),
+                                border = BorderStroke(1.dp, if (isWarningActive) Color.White else Color(0xFFF59E0B)),
                                 modifier = Modifier.size(34.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
-                                        imageVector = Icons.Default.WorkspacePremium,
+                                        imageVector = if (isWarningActive) Icons.Default.Warning else Icons.Default.WorkspacePremium,
                                         contentDescription = null,
-                                        tint = Color(0xFFFDE047),
+                                        tint = if (isWarningActive) Color(0xFFFEF08A) else Color(0xFFFDE047),
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -144,7 +144,7 @@ fun SubscriptionStatusCard(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "اشتراک سالیانه فعال است",
+                                    text = if (isWarningActive) "اشتراک شما به‌زودی به پایان می‌رسد" else "اشتراک سالیانه فعال است",
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
@@ -154,7 +154,7 @@ fun SubscriptionStatusCard(
                                     color = Color.White.copy(alpha = 0.2f)
                                 ) {
                                     Text(
-                                        text = "طلایی",
+                                        text = if (isWarningActive) "هشدار انقضا" else "طلایی",
                                         color = Color(0xFFFEF08A),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 9.5.sp,
@@ -178,16 +178,7 @@ fun SubscriptionStatusCard(
                         }
                     }
 
-                    // Benefits row / chips
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        SubscriptionBenefitChip(text = "ثبت خودکار پیامک‌ها")
-                        SubscriptionBenefitChip(text = "پشتیبان‌گیری ابری")
-                        SubscriptionBenefitChip(text = "دسترسی نامحدود")
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Expiration & Action Button Row
                     Row(
@@ -198,7 +189,7 @@ fun SubscriptionStatusCard(
                         val daysText = IranianPhoneUtils.convertDigitsToPersian(remainingDays.toString())
                         Column {
                             Text(
-                                text = "اعتبار اشتراک",
+                                text = "وضعیت اعتبار",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontSize = 9.5.sp,
                                     color = Color(0xFFA7F3D0)
@@ -206,9 +197,9 @@ fun SubscriptionStatusCard(
                             )
                             Text(
                                 text = if (endDateTime.isNotBlank()) {
-                                    "انقضا: $endDateTime ($daysText روز مانده)"
+                                    "$daysText روز تا پایان اشتراک باقی مانده است (انقضا: $endDateTime)"
                                 } else {
-                                    "$daysText روز باقی مانده است"
+                                    "$daysText روز تا پایان اشتراک باقی مانده است"
                                 },
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
@@ -223,13 +214,13 @@ fun SubscriptionStatusCard(
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color.White,
-                                contentColor = Color(0xFF064E3B)
+                                contentColor = if (isWarningActive) Color(0xFF881337) else Color(0xFF064E3B)
                             ),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 5.dp),
                             modifier = Modifier.height(34.dp)
                         ) {
                             Text(
-                                text = if (isExpiringSoon) "تمدید اشتراک" else "جزئیات",
+                                text = if (isWarningActive) "تمدید اشتراک" else "جزئیات",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.5.sp
                             )
@@ -249,9 +240,9 @@ fun SubscriptionStatusCard(
         val offerGradient = if (isExpired) {
             Brush.horizontalGradient(
                 colors = listOf(
-                    Color(0xFF881337), // Crimson dark
-                    Color(0xFFBE123C),
-                    Color(0xFFE11D48)
+                    Color(0xFF4C0519), // Crimson dark expired
+                    Color(0xFF881337),
+                    Color(0xFF9F1239)
                 )
             )
         } else {
@@ -267,7 +258,7 @@ fun SubscriptionStatusCard(
         Card(
             modifier = modifier
                 .fillMaxWidth()
-                .height(140.dp)
+                .heightIn(min = 140.dp)
                 .testTag("annual_subscription_offer_card")
                 .shadow(
                     elevation = 5.dp,
@@ -290,15 +281,16 @@ fun SubscriptionStatusCard(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Top Row: Title + Badge
+                    // Top Row: Title + Icon + Badge
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Top
                     ) {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f, fill = false)
                         ) {
                             Surface(
                                 shape = CircleShape,
@@ -316,24 +308,32 @@ fun SubscriptionStatusCard(
                                 }
                             }
 
-                            Column {
+                            Column(
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
                                 Text(
-                                    text = "اشتراک سالیانه دارینو",
+                                    text = when {
+                                        isExpired -> "پایان دوره آزمایشی"
+                                        isTrial -> "۱۵ روز فرصت برای تجربه دارینو"
+                                        else -> "اشتراک سالیانه دارینو"
+                                    },
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 14.5.sp,
+                                        fontSize = 14.sp,
                                         color = Color.White
                                     )
                                 )
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = when {
-                                        isExpired -> "دوره آزمایشی به اتمام رسید؛ برای فعالسازی خدمات کلیک کنید"
-                                        isTrial -> "دوره آزمایشی: ${IranianPhoneUtils.convertDigitsToPersian(state.trialDaysRemaining.toString())} روز باقی‌مانده"
-                                        else -> "دسترسی نامحدود به تمام امکانات مدیریت مالی"
+                                        isExpired -> "دوره آزمایشی به اتمام رسید؛ برای ادامه استفاده از امکانات دارینو، اشتراک سالیانه تهیه کنید."
+                                        isTrial -> "در دوره آزمایشی به امکانات دارینو دسترسی دارید.در صورت رضایت پس از پایان این دوره برای ادامه استفاده از برنامه، اشتراک سالیانه تهیه کنید."
+                                        else -> "دسترسی نامحدود به تمامی امکانات مدیریت مالی"
                                     },
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontSize = 10.5.sp,
-                                        color = Color(0xFFE2E8F0).copy(alpha = 0.85f)
+                                        lineHeight = 15.sp,
+                                        color = Color(0xFFE2E8F0).copy(alpha = 0.9f)
                                     )
                                 )
                             }
@@ -346,7 +346,7 @@ fun SubscriptionStatusCard(
                             contentColor = Color(0xFF451A03)
                         ) {
                             Text(
-                                text = "ویژه ۳۶۵ روز",
+                                text = if (isTrial) "${IranianPhoneUtils.convertDigitsToPersian(state.trialDaysRemaining.toString())} روز مانده" else "ویژه ۳۶۵ روز",
                                 fontSize = 9.5.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
@@ -354,16 +354,7 @@ fun SubscriptionStatusCard(
                         }
                     }
 
-                    // Benefits row / chips
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        SubscriptionBenefitChip(text = "ثبت خودکار پیامک‌ها")
-                        SubscriptionBenefitChip(text = "پشتیبان‌گیری ابری")
-                        SubscriptionBenefitChip(text = "یادآورهای هوشمند")
-                    }
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Price & Primary CTA Row
                     Row(
@@ -383,7 +374,7 @@ fun SubscriptionStatusCard(
                                 text = "${MoneyFormatter.formatToman(state.priceDisplayToman)} / سالانه",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 13.5.sp,
+                                    fontSize = 13.sp,
                                     color = Color(0xFFFEF08A)
                                 )
                             )
@@ -420,34 +411,3 @@ fun SubscriptionStatusCard(
     }
 }
 
-@Composable
-private fun SubscriptionBenefitChip(
-    text: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        shape = RoundedCornerShape(6.dp),
-        color = Color.White.copy(alpha = 0.12f),
-        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.2f)),
-        modifier = modifier
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = null,
-                tint = Color(0xFF34D399),
-                modifier = Modifier.size(11.dp)
-            )
-            Text(
-                text = text,
-                color = Color.White,
-                fontSize = 9.5.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
-    }
-}

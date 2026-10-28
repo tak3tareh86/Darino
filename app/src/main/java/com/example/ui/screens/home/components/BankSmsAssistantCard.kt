@@ -961,12 +961,10 @@ fun EditSmsTransactionDialog(
 ) {
     var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
     var amountText by remember(suggestion.id) {
-        mutableStateOf(if (suggestion.isAmountValid && suggestion.amount > 0L) suggestion.amount.toString() else "")
+        mutableStateOf(if (suggestion.isAmountValid && suggestion.amount > 0L) IranianAmountUtils.formatWithCommas(suggestion.amount.toString()) else "")
     }
     val parsedAmount = remember(amountText) {
-        val clean = IranianPhoneUtils.convertDigitsToEnglish(amountText)
-            .replace(",", "").replace("،", "").replace("٫", "").replace("٬", "").replace(".", "").trim()
-        clean.toLongOrNull() ?: 0L
+        IranianAmountUtils.cleanAmountDigits(amountText).toLongOrNull() ?: 0L
     }
     val isAmountValid = parsedAmount > 0L
 
@@ -1028,8 +1026,9 @@ fun EditSmsTransactionDialog(
                         )
                         OutlinedTextField(
                             value = amountText,
-                            onValueChange = {
-                                amountText = it
+                            onValueChange = { input ->
+                                val clean = IranianAmountUtils.cleanAmountDigits(input)
+                                amountText = if (clean.isEmpty()) "" else IranianAmountUtils.formatWithCommas(clean)
                                 dialogError = null
                             },
                             singleLine = true,

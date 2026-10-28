@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 data class AuthSession(
     val userId: String,
     val username: String,
+    val fullName: String? = null,
     val phoneNumber: String? = null,
     val phoneVerified: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
@@ -35,15 +36,18 @@ class AuthSessionManager(context: Context) {
     fun restoreSession(): AuthSessionState {
         val userId = prefs.getString(KEY_USER_ID, null)
         val username = prefs.getString(KEY_USERNAME, null)
+        val fullName = prefs.getString(KEY_FULL_NAME, null)
         val phone = prefs.getString(KEY_PHONE, null)
         val isVerified = prefs.getBoolean(KEY_VERIFIED, true)
         val createdAt = prefs.getLong(KEY_CREATED_AT, 0L)
         val lastLoginAt = prefs.getLong(KEY_LAST_LOGIN_AT, 0L)
 
         return if (!userId.isNullOrBlank() && !username.isNullOrBlank()) {
+            val resolvedFullName = fullName?.takeIf { it.isNotBlank() } ?: username
             val session = AuthSession(
                 userId = userId,
                 username = username,
+                fullName = resolvedFullName,
                 phoneNumber = phone,
                 phoneVerified = isVerified,
                 createdAt = if (createdAt > 0) createdAt else System.currentTimeMillis(),
@@ -57,14 +61,16 @@ class AuthSessionManager(context: Context) {
         }
     }
 
-    fun createSession(userId: String, username: String, phoneNumber: String? = null): AuthSession {
+    fun createSession(userId: String, username: String, phoneNumber: String? = null, fullName: String? = null): AuthSession {
         val now = System.currentTimeMillis()
         val existingCreatedAt = prefs.getLong(KEY_CREATED_AT, 0L)
         val createdAt = if (existingCreatedAt > 0) existingCreatedAt else now
+        val resolvedFullName = fullName?.takeIf { it.isNotBlank() } ?: username
 
         prefs.edit()
             .putString(KEY_USER_ID, userId)
             .putString(KEY_USERNAME, username)
+            .putString(KEY_FULL_NAME, resolvedFullName)
             .putString(KEY_PHONE, phoneNumber)
             .putBoolean(KEY_VERIFIED, true)
             .putLong(KEY_CREATED_AT, createdAt)
@@ -74,6 +80,7 @@ class AuthSessionManager(context: Context) {
         val session = AuthSession(
             userId = userId,
             username = username,
+            fullName = resolvedFullName,
             phoneNumber = phoneNumber,
             phoneVerified = true,
             createdAt = createdAt,
@@ -83,7 +90,7 @@ class AuthSessionManager(context: Context) {
         SessionManager.setAuthenticatedUser(
             com.example.data.api.NetworkUserDto(
                 id = userId,
-                fullName = username,
+                fullName = resolvedFullName,
                 email = null,
                 phoneNumber = phoneNumber,
                 phoneVerified = true
@@ -92,10 +99,20 @@ class AuthSessionManager(context: Context) {
         return session
     }
 
+    fun updateFullName(fullName: String) {
+        prefs.edit().putString(KEY_FULL_NAME, fullName).apply()
+        val current = getActiveSession()
+        if (current != null) {
+            val updated = current.copy(fullName = fullName)
+            _sessionState.value = AuthSessionState.Authenticated(updated)
+        }
+    }
+
     fun clearSession() {
         prefs.edit()
             .remove(KEY_USER_ID)
             .remove(KEY_USERNAME)
+            .remove(KEY_FULL_NAME)
             .remove(KEY_PHONE)
             .remove(KEY_VERIFIED)
             .remove(KEY_LAST_LOGIN_AT)
@@ -120,6 +137,7 @@ class AuthSessionManager(context: Context) {
         private const val PREFS_NAME = "darino_persistent_auth_session"
         private const val KEY_USER_ID = "auth_user_id"
         private const val KEY_USERNAME = "auth_username"
+        private const val KEY_FULL_NAME = "auth_full_name"
         private const val KEY_PHONE = "auth_user_phone"
         private const val KEY_VERIFIED = "auth_phone_verified"
         private const val KEY_CREATED_AT = "auth_created_at"

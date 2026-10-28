@@ -20,6 +20,7 @@ object SessionManager {
     private const val TAG = "SessionManager"
 
     private var tokenManager: TokenManager? = null
+    private var appContext: Context? = null
 
     private val _sessionState = MutableStateFlow<SessionState>(SessionState.LoggedOut)
     val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
@@ -47,35 +48,44 @@ object SessionManager {
         get() = currentUser?.phoneVerified == true
 
     fun init(context: Context) {
+        appContext = context.applicationContext
         val tm = TokenManager.getInstance(context)
         tokenManager = tm
 
         val token = tm.getAccessToken()
         val user = tm.getUser()
+        val localSession = AuthSessionManager(context).getActiveSession()
 
-        if (token != null && user != null) {
-            if (user.phoneVerified) {
-                _sessionState.value = SessionState.Authenticated(user)
-                Log.i(TAG, "Restored active session for user: ${user.phoneNumber ?: user.email}")
+        if (user != null) {
+            val resolvedUser = if (localSession != null && (!localSession.fullName.isNullOrBlank())) {
+                if (user.fullName.isNullOrBlank() || user.fullName == localSession.username) {
+                    user.copy(fullName = localSession.fullName)
+                } else {
+                    user
+                }
             } else {
-                _sessionState.value = SessionState.PhoneVerificationRequired(user)
-                Log.i(TAG, "Restored session needing phone verification for user: ${user.phoneNumber ?: user.email}")
+                user
             }
+            if (resolvedUser.phoneVerified) {
+                _sessionState.value = SessionState.Authenticated(resolvedUser)
+                Log.i(TAG, "Restored active session for user: ${resolvedUser.phoneNumber ?: resolvedUser.email}")
+            } else {
+                _sessionState.value = SessionState.PhoneVerificationRequired(resolvedUser)
+                Log.i(TAG, "Restored session needing phone verification for user: ${resolvedUser.phoneNumber ?: resolvedUser.email}")
+            }
+        } else if (localSession != null) {
+            val localUser = NetworkUserDto(
+                id = localSession.userId,
+                fullName = localSession.fullName ?: localSession.username,
+                email = null,
+                phoneNumber = localSession.phoneNumber,
+                phoneVerified = localSession.phoneVerified
+            )
+            tm.saveUser(localUser)
+            _sessionState.value = SessionState.Authenticated(localUser)
+            Log.i(TAG, "Restored active local session for user: ${localSession.username}")
         } else {
-            val localSession = AuthSessionManager(context).getActiveSession()
-            if (localSession != null) {
-                val localUser = NetworkUserDto(
-                    id = localSession.userId,
-                    fullName = localSession.username,
-                    email = null,
-                    phoneNumber = localSession.phoneNumber,
-                    phoneVerified = localSession.phoneVerified
-                )
-                _sessionState.value = SessionState.Authenticated(localUser)
-                Log.i(TAG, "Restored active local session for user: ${localSession.username}")
-            } else {
-                _sessionState.value = SessionState.LoggedOut
-            }
+            _sessionState.value = SessionState.LoggedOut
         }
     }
 
@@ -139,6 +149,9 @@ object SessionManager {
         }
         val updatedUser = user.copy(fullName = newFullName)
         tokenManager?.saveUser(updatedUser)
+        appContext?.let { ctx ->
+            AuthSessionManager(ctx).updateFullName(newFullName)
+        }
         
         when (val state = _sessionState.value) {
             is SessionState.Authenticated -> {

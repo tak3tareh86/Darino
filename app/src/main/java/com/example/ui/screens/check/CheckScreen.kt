@@ -16,7 +16,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -25,7 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.screens.check.components.AddEditCheckDialog
 import com.example.ui.screens.check.components.CheckCard
-import com.example.ui.screens.check.components.CheckStats
+import com.example.ui.screens.check.components.CheckSummaryCards
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import com.example.ui.screens.check.model.Check
 import com.example.ui.screens.check.model.CheckStatus
@@ -46,49 +45,63 @@ fun CheckScreen(
     val accounts by viewModel.accounts.collectAsState()
 
     Scaffold(
-        topBar = {
-            Column(
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(top = 8.dp)
-            ) {
-                // Header with Search
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedTextField(
-                        value = uiState.searchQuery,
-                        onValueChange = { viewModel.onSearchQueryChanged(it) },
-                        placeholder = { Text("جستجو در چک‌ها...") },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp),
-                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                        trailingIcon = if (uiState.searchQuery.isNotEmpty()) {
-                            {
-                                IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                    Icon(Icons.Rounded.Clear, null)
-                                }
-                            }
-                        } else null,
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                        )
-                    )
-                }
+        topBar = {},
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { showAddDialog = true },
+                icon = { Icon(Icons.Rounded.Add, null) },
+                text = { Text("ثبت چک جدید") },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = CircleShape
+            )
+        },
+        bottomBar = bottomBar
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // 1. Two Summary Cards at the very top of page content
+            item {
+                CheckSummaryCards(checks = uiState.checks)
+            }
 
+            // 2. Search Bar
+            item {
+                OutlinedTextField(
+                    value = uiState.searchQuery,
+                    onValueChange = { viewModel.onSearchQueryChanged(it) },
+                    placeholder = { Text("جستجو در چک‌ها...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                    trailingIcon = if (uiState.searchQuery.isNotEmpty()) {
+                        {
+                            IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                Icon(Icons.Rounded.Clear, null)
+                            }
+                        }
+                    } else null,
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    )
+                )
+            }
+
+            // 3. Main Tabs ("همه", "دریافتی", "پرداختی") right below search bar
+            item {
                 val selectedTabIndex = when(uiState.selectedType) {
                     null -> 0
                     CheckType.RECEIVED -> 1
                     CheckType.PAID -> 2
                 }
 
-                // Main Tabs
                 PrimaryTabRow(
                     selectedTabIndex = selectedTabIndex,
                     modifier = Modifier.fillMaxWidth(),
@@ -118,71 +131,44 @@ fun CheckScreen(
                     )
                 }
             }
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Rounded.Add, null) },
-                text = { Text("ثبت چک جدید") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = CircleShape
-            )
-        },
-        bottomBar = bottomBar
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // Status Filters
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = uiState.selectedStatus == null,
-                    onClick = { viewModel.onStatusSelected(null) },
-                    label = { Text("همه وضعیت‌ها") }
-                )
-                
-                CheckStatus.entries.take(3).forEach { status ->
+
+            // 4. Status Filters appropriately below tabs
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     FilterChip(
-                        selected = uiState.selectedStatus == status,
-                        onClick = { viewModel.onStatusSelected(status) },
-                        label = { Text(status.title) }
+                        selected = uiState.selectedStatus == null,
+                        onClick = { viewModel.onStatusSelected(null) },
+                        label = { Text("همه وضعیت‌ها") }
+                    )
+                    
+                    CheckStatus.entries.take(3).forEach { status ->
+                        FilterChip(
+                            selected = uiState.selectedStatus == status,
+                            onClick = { viewModel.onStatusSelected(status) },
+                            label = { Text(status.title) }
+                        )
+                    }
+                }
+            }
+
+            // 5. List of checks or empty state
+            if (uiState.filteredChecks.isEmpty()) {
+                item {
+                    EmptyChecksState()
+                }
+            } else {
+                items(uiState.filteredChecks, key = { it.id }) { check ->
+                    CheckCard(
+                        check = check,
+                        onClick = { selectedCheckForDetail = check }
                     )
                 }
             }
 
-            if (uiState.checks.isNotEmpty()) {
-                CheckStats(
-                    checks = uiState.checks,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-                )
-            }
-
-            if (uiState.filteredChecks.isEmpty()) {
-                EmptyChecksState()
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(uiState.filteredChecks, key = { it.id }) { check ->
-                        CheckCard(
-                            check = check,
-                            onClick = { selectedCheckForDetail = check }
-                        )
-                    }
-                    
-                    item { Spacer(modifier = Modifier.height(80.dp)) }
-                }
-            }
+            item { Spacer(modifier = Modifier.height(80.dp)) }
         }
     }
 
@@ -236,8 +222,8 @@ fun CheckScreen(
 private fun EmptyChecksState() {
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(40.dp),
+            .fillMaxWidth()
+            .padding(vertical = 40.dp, horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
