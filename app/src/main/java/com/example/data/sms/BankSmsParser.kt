@@ -431,7 +431,7 @@ object BankSmsParser {
             """(?:برداشت|کسر\s*(?:از\s*)?حساب|کسر|بدهکار|خرید|پرداخت\s*(?:قبض|قبوض|صورتحساب)|پرید|کم\s*شد)"""
         ).find(lower)
         val incomeMatch = Regex(
-            """(?:واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*شد|سود\s*سپرده|حقوق|یارانه)"""
+            """(?:واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*شد)"""
         ).find(lower)
 
         if (expenseMatch != null && incomeMatch != null) {
@@ -516,7 +516,7 @@ object BankSmsParser {
         val lowerMasked = maskedText.lowercase()
         val eventPattern = when (expectedType) {
             TransactionType.EXPENSE -> Regex("""برداشت|کسر|بدهکار|خرید|پرداخت|پرید|کم\s*شد|-\s*[0-9]""")
-            TransactionType.INCOME -> Regex("""واریز|بستانکار|نشست|حقوق|یارانه|سود\s*سپرده|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*شد""")
+            TransactionType.INCOME -> Regex("""واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*شد""")
             TransactionType.TRANSFER -> Regex("""کارت\s*به\s*کارت|انتقال|پایا|ساتنا""")
             null -> Regex("""برداشت|واریز|خرید|کسر|بدهکار|بستانکار|انتقال|کارت\s*به\s*کارت|پایا|ساتنا|پرید|نشست""")
         }
