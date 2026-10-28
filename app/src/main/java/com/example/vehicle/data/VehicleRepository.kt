@@ -322,6 +322,26 @@ class VehicleRepository {
         setupRoomCollectors(appCtx, userId)
     }
 
+    private fun isValidReminderTime(value: String): Boolean {
+        val normalized = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(value).trim()
+        val match = Regex("^(\\d{2}):(\\d{2})$").matchEntire(normalized) ?: return false
+        val hour = match.groupValues[1].toIntOrNull() ?: return false
+        val minute = match.groupValues[2].toIntOrNull() ?: return false
+        return hour in 0..23 && minute in 0..59
+    }
+
+    private fun predefinedOffsetForDays(day: Int): com.example.reminder.domain.PredefinedOffset? = when (day) {
+        0 -> com.example.reminder.domain.PredefinedOffset.AT_TIME
+        1 -> com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY
+        2 -> com.example.reminder.domain.PredefinedOffset.BEFORE_2_DAYS
+        3 -> com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS
+        7 -> com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS
+        14 -> com.example.reminder.domain.PredefinedOffset.BEFORE_14_DAYS
+        15 -> null
+        30 -> com.example.reminder.domain.PredefinedOffset.BEFORE_30_DAYS
+        else -> null
+    }
+
     private suspend fun syncReminderPersistenceInternal(
         db: com.example.data.database.AppDatabase,
         userId: String,
@@ -333,7 +353,8 @@ class VehicleRepository {
         type: String = "VEHICLE",
         targetKilometer: Int? = null,
         currentKilometer: Int? = null,
-        offsets: List<com.example.reminder.domain.PredefinedOffset> = listOf(com.example.reminder.domain.PredefinedOffset.AT_TIME)
+        offsets: List<com.example.reminder.domain.PredefinedOffset> = listOf(com.example.reminder.domain.PredefinedOffset.AT_TIME),
+        reminderEnabled: Boolean = true
     ) {
         val effectiveDate = date?.takeIf { it.isNotBlank() }
             ?: PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
@@ -349,6 +370,8 @@ class VehicleRepository {
             sourceId = id,
             date = persianDate,
             time = persianTime,
+            notificationEnabled = reminderEnabled,
+            status = if (reminderEnabled) "ACTIVE" else "DISABLED",
             targetKilometer = targetKilometer?.toLong(),
             currentKilometer = currentKilometer?.toLong()
         )
@@ -374,7 +397,7 @@ class VehicleRepository {
                     triggerDateTime = triggerMillis,
                     repeatType = com.example.reminder.domain.RepeatType.NONE.name,
                     repeatInterval = 1,
-                    enabled = true,
+                    enabled = reminderEnabled,
                     createdAt = System.currentTimeMillis()
                 )
             }
@@ -1606,11 +1629,16 @@ class VehicleRepository {
         startDate: String,
         endDate: String,
         amount: Long,
-        policyNumber: String
+        policyNumber: String,
+        reminderEnabled: Boolean = true,
+        reminderTime: String = "۰۹:۰۰",
+        reminderDays: List<Int> = listOf(30, 15, 7, 1, 0)
     ): Result<VehicleInsuranceEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
+        if (reminderEnabled && reminderDays.isEmpty()) return@withContext Result.failure(IllegalArgumentException("برای یادآور فعال، حداقل یک زمان هشدار انتخاب کنید."))
+        if (reminderEnabled && !isValidReminderTime(reminderTime)) return@withContext Result.failure(IllegalArgumentException("ساعت یادآور باید به شکل ساعت:دقیقه و در بازه ۰۰:۰۰ تا ۲۳:۵۹ باشد."))
         if (company.isBlank()) return@withContext Result.failure(IllegalArgumentException("نام شرکت بیمه نمی‌تواند خالی باشد."))
         if (amount < 0L) return@withContext Result.failure(IllegalArgumentException("مبلغ حق بیمه نمی‌تواند منفی باشد."))
 
@@ -1679,23 +1707,20 @@ class VehicleRepository {
                     title = "تمدید $type خودرو",
                     description = "سررسید انقضای بیمه‌نامه برای خودرو ${vehicle.brand} ${vehicle.model}. شماره بیمه‌نامه: $policyNumber",
                     date = endDate.trim(),
+                    time = reminderTime,
                     type = "INSURANCE",
-                    offsets = listOf(
-                        com.example.reminder.domain.PredefinedOffset.BEFORE_30_DAYS,
-                        com.example.reminder.domain.PredefinedOffset.BEFORE_14_DAYS,
-                        com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
-                        com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
-                        com.example.reminder.domain.PredefinedOffset.AT_TIME
-                    )
+                    reminderEnabled = reminderEnabled,
+                    offsets = reminderDays.distinct().mapNotNull { day -> predefinedOffsetForDays(day) }
                 )
             }
 
             // Register system alarms AFTER successful database transaction commit
             try {
                 val reminderManager = com.example.reminder.domain.ReminderManager(context)
-                reminderManager.enableReminder(insuranceId)
+                if (reminderEnabled) reminderManager.enableReminder(insuranceId) else reminderManager.disableReminder(insuranceId)
             } catch (e: Exception) {
-                android.util.Log.w("VehicleRepository", "Alarm scheduling failed for insurance $insuranceId, but insurance was successfully saved in Room.", e)
+                android.util.Log.e("VehicleRepository", "Insurance was saved, but reminder state could not be applied for $insuranceId.", e)
+                if (reminderEnabled) return@withContext Result.failure(IllegalStateException("اطلاعات بیمه ذخیره شد، اما فعال‌سازی یادآور ناموفق بود. مجوز اعلان و آلارم دقیق را بررسی کنید. ${e.message ?: ""}", e))
             }
 
             Result.success(newInsurance)
@@ -1915,11 +1940,16 @@ class VehicleRepository {
         expiryDate: String,
         cost: Long,
         status: String,
-        centerName: String
+        centerName: String,
+        reminderEnabled: Boolean = true,
+        reminderTime: String = "۰۹:۰۰",
+        reminderDays: List<Int> = listOf(30, 7, 1, 0)
     ): Result<VehicleInspectionEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
 
+        if (reminderEnabled && reminderDays.isEmpty()) return@withContext Result.failure(IllegalArgumentException("برای یادآور فعال، حداقل یک زمان هشدار انتخاب کنید."))
+        if (reminderEnabled && !isValidReminderTime(reminderTime)) return@withContext Result.failure(IllegalArgumentException("ساعت یادآور باید به شکل ساعت:دقیقه و در بازه ۰۰:۰۰ تا ۲۳:۵۹ باشد."))
         if (cost < 0L) return@withContext Result.failure(IllegalArgumentException("هزینه معاینه فنی نمی‌تواند منفی باشد."))
 
         val lastMs = parseJalaliToTimestamp(lastInspectionDate)
@@ -1980,13 +2010,21 @@ class VehicleRepository {
                     title = "معاینه فنی خودرو",
                     description = "موعد سررسید معاینه فنی برای خودرو ${vehicle.brand} ${vehicle.model}. مرکز $centerName",
                     date = expiryDate.trim(),
-                    type = "VEHICLE"
+                    time = reminderTime,
+                    type = "VEHICLE",
+                    reminderEnabled = reminderEnabled,
+                    offsets = reminderDays.distinct().mapNotNull { day -> predefinedOffsetForDays(day) }
                 )
             }
 
             // Register system alarms AFTER successful database transaction commit
             val reminderManager = com.example.reminder.domain.ReminderManager(context)
-            reminderManager.enableReminder(inspectionId)
+            try {
+                if (reminderEnabled) reminderManager.enableReminder(inspectionId) else reminderManager.disableReminder(inspectionId)
+            } catch (e: Exception) {
+                android.util.Log.e("VehicleRepository", "Inspection was saved, but reminder state could not be applied for $inspectionId.", e)
+                if (reminderEnabled) return@withContext Result.failure(IllegalStateException("اطلاعات معاینه فنی ذخیره شد، اما فعال‌سازی یادآور ناموفق بود. مجوز اعلان و آلارم دقیق را بررسی کنید. ${e.message ?: ""}", e))
+            }
 
             Result.success(newInspection)
         } catch (e: Exception) {
