@@ -608,7 +608,8 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                         if (paidSuccessfully) {
                             val finTx = TransactionItemData(
-                                id = "tx_inst_pay_${System.currentTimeMillis()}",
+                                // Stable ID makes retries idempotent for this exact installment schedule item.
+                                id = "tx_inst_pay_${installmentId}_${scheduleItemId ?: "next"}",
                                 title = "پرداخت قسط: ${obligation.title}",
                                 amount = obligation.amount,
                                 type = TransactionType.EXPENSE,
@@ -624,8 +625,8 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                                 accountName = "کارت بانکی",
                                 description = "پرداخت قسط از داشبورد خانه"
                             )
-                            LocalFinanceRepository.instance.addTransaction(finTx)
-                            true
+                            LocalFinanceRepository.instance.addTransactionResult(finTx) ==
+                                com.example.ui.screens.finance.data.TransactionOperationResult.SUCCESS
                         } else {
                             false
                         }
@@ -661,7 +662,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                                 false
                             } else {
                                 val finTx = TransactionItemData(
-                                    id = "tx_ins_pay_${System.currentTimeMillis()}",
+                                    id = "tx_ins_pay_${insId}",
                                     title = obligation.title,
                                     amount = obligation.amount,
                                     type = TransactionType.EXPENSE,
@@ -702,7 +703,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                             // completeService synchronizes the service's linked expense when one exists.
                             // Do not create a second vehicle expense here.
                             val finTx = TransactionItemData(
-                                id = "tx_ob_pay_${System.currentTimeMillis()}",
+                                id = "tx_ob_pay_${serviceId}",
                                 title = obligation.title,
                                 amount = obligation.amount,
                                 type = TransactionType.EXPENSE,
