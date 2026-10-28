@@ -77,6 +77,39 @@ fun DarinoVehicleMainDashboard(
 
     var serviceToDeleteDashboard by remember { mutableStateOf<VehicleServiceEntity?>(null) }
     var vehicleToDeleteDashboard by remember { mutableStateOf<VehicleEntity?>(null) }
+    var insuranceToEdit by remember { mutableStateOf<VehicleInsuranceEntity?>(null) }
+    var inspectionToEdit by remember { mutableStateOf<VehicleInspectionEntity?>(null) }
+    var insuranceToDelete by remember { mutableStateOf<VehicleInsuranceEntity?>(null) }
+    var inspectionToDelete by remember { mutableStateOf<VehicleInspectionEntity?>(null) }
+
+    if (insuranceToDelete != null) {
+        val target = insuranceToDelete!!
+        AlertDialog(
+            onDismissRequest = { insuranceToDelete = null },
+            title = { Text("حذف بیمه‌نامه") },
+            text = { Text("آیا از حذف بیمه‌نامه «${target.type} - ${target.company}» اطمینان دارید؟ یادآورهای مرتبط نیز لغو می‌شوند.") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.deleteInsuranceRecord(target.id); insuranceToDelete = null }) {
+                    Text("حذف", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { insuranceToDelete = null }) { Text("انصراف") } }
+        )
+    }
+    if (inspectionToDelete != null) {
+        val target = inspectionToDelete!!
+        AlertDialog(
+            onDismissRequest = { inspectionToDelete = null },
+            title = { Text("حذف معاینه فنی") },
+            text = { Text("آیا از حذف این گواهی معاینه فنی اطمینان دارید؟ یادآورهای مرتبط نیز لغو می‌شوند.") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.deleteInspectionRecord(target.id); inspectionToDelete = null }) {
+                    Text("حذف", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { inspectionToDelete = null }) { Text("انصراف") } }
+        )
+    }
 
     if (serviceToDeleteDashboard != null) {
         val targetService = serviceToDeleteDashboard!!
@@ -379,7 +412,23 @@ fun DarinoVehicleMainDashboard(
                             VehicleInsuranceDocumentsTabContent(
                                 insurances = state.insurance,
                                 inspections = state.inspections,
-                                onOpenManage = { viewModel.openInsuranceSheet() }
+                                onOpenManage = {
+                                    insuranceToEdit = null
+                                    inspectionToEdit = null
+                                    viewModel.openInsuranceSheet()
+                                },
+                                onEditInsurance = { item ->
+                                    insuranceToEdit = item
+                                    inspectionToEdit = null
+                                    viewModel.openInsuranceSheet()
+                                },
+                                onEditInspection = { item ->
+                                    inspectionToEdit = item
+                                    insuranceToEdit = null
+                                    viewModel.openInsuranceSheet()
+                                },
+                                onDeleteInsurance = { insuranceToDelete = it },
+                                onDeleteInspection = { inspectionToDelete = it }
                             )
                         }
                     }
@@ -464,13 +513,23 @@ fun DarinoVehicleMainDashboard(
     if (state.showInsuranceSheet && state.selectedVehicle != null) {
         VehicleInsuranceSheet(
             vehicle = state.selectedVehicle!!,
-            onSaveInsurance = { comp: String, typ: String, s: String, e: String, amt: Long, num: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int> ->
-                viewModel.saveInsuranceRecord(comp, typ, s, e, amt, num, reminderEnabled, reminderTime, reminderDays)
+            editingInsurance = insuranceToEdit,
+            editingInspection = inspectionToEdit,
+            onSaveInsurance = { comp: String, typ: String, s: String, e: String, amt: Long, num: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int>, recordId: String? ->
+                viewModel.saveInsuranceRecord(comp, typ, s, e, amt, num, reminderEnabled, reminderTime, reminderDays, recordId)
+                insuranceToEdit = null
+                inspectionToEdit = null
             },
-            onSaveInspection = { lastD: String, expD: String, c: Long, st: String, cntr: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int> ->
-                viewModel.saveInspectionRecord(lastD, expD, c, st, cntr, reminderEnabled, reminderTime, reminderDays)
+            onSaveInspection = { lastD: String, expD: String, c: Long, st: String, cntr: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int>, recordId: String? ->
+                viewModel.saveInspectionRecord(lastD, expD, c, st, cntr, reminderEnabled, reminderTime, reminderDays, recordId)
+                insuranceToEdit = null
+                inspectionToEdit = null
             },
-            onDismiss = { viewModel.closeInsuranceSheet() }
+            onDismiss = {
+                insuranceToEdit = null
+                inspectionToEdit = null
+                viewModel.closeInsuranceSheet()
+            }
         )
     }
 
@@ -950,7 +1009,11 @@ private fun ServiceRecordCard(
 private fun VehicleInsuranceDocumentsTabContent(
     insurances: List<VehicleInsuranceEntity>,
     inspections: List<VehicleInspectionEntity>,
-    onOpenManage: () -> Unit
+    onOpenManage: () -> Unit,
+    onEditInsurance: (VehicleInsuranceEntity) -> Unit,
+    onEditInspection: (VehicleInspectionEntity) -> Unit,
+    onDeleteInsurance: (VehicleInsuranceEntity) -> Unit,
+    onDeleteInspection: (VehicleInspectionEntity) -> Unit
 ) {
     var selectedDocumentTab by remember { mutableIntStateOf(0) }
     val today = remember {
@@ -1022,9 +1085,19 @@ private fun VehicleInsuranceDocumentsTabContent(
                                     }
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("اعتبار: ${IranianPhoneUtils.convertDigitsToPersian(ins.startDate)} تا ${IranianPhoneUtils.convertDigitsToPersian(ins.endDate)}", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp))
-                                    Text("$costStr تومان", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B)))
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text("اعتبار: ${IranianPhoneUtils.convertDigitsToPersian(ins.startDate)} تا ${IranianPhoneUtils.convertDigitsToPersian(ins.endDate)}", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp))
+                                        Text("$costStr تومان", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B)))
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = { onEditInsurance(ins) }, modifier = Modifier.size(40.dp)) {
+                                            Icon(Icons.Rounded.Edit, contentDescription = "ویرایش بیمه‌نامه", tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                        IconButton(onClick = { onDeleteInsurance(ins) }, modifier = Modifier.size(40.dp)) {
+                                            Icon(Icons.Rounded.Delete, contentDescription = "حذف بیمه‌نامه", tint = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1053,7 +1126,17 @@ private fun VehicleInsuranceDocumentsTabContent(
                                         Text(if (expired) "منقضی شده" else insp.status, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp), color = if (expired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
                                     }
                                 }
-                                Text("تاریخ معاینه: ${IranianPhoneUtils.convertDigitsToPersian(insp.lastInspectionDate)} • انقضا: ${IranianPhoneUtils.convertDigitsToPersian(insp.expiryDate)}", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("تاریخ معاینه: ${IranianPhoneUtils.convertDigitsToPersian(insp.lastInspectionDate)} • انقضا: ${IranianPhoneUtils.convertDigitsToPersian(insp.expiryDate)}", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = { onEditInspection(insp) }, modifier = Modifier.size(40.dp)) {
+                                            Icon(Icons.Rounded.Edit, contentDescription = "ویرایش معاینه فنی", tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                        IconButton(onClick = { onDeleteInspection(insp) }, modifier = Modifier.size(40.dp)) {
+                                            Icon(Icons.Rounded.Delete, contentDescription = "حذف معاینه فنی", tint = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
