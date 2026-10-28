@@ -484,7 +484,9 @@ object BankSmsParser {
      * Strictly verifies currency and conversion without arbitrary rounding or truncated digits.
      * Masks balances, card numbers, accounts, fees, and tracking/reference IDs.
      */
-    fun extractAmountToman(text: String, expectedType: TransactionType? = null): Long? {
+    fun extractAmountToman(text: String): Long? = extractAmountToman(text, null)
+
+    fun extractAmountToman(text: String, expectedType: TransactionType?): Long? {
         val normalizedText = normalizeText(text)
         val cleanNumber = { value: String ->
             value.replace(",", "").replace("،", "").replace("٫", "")
