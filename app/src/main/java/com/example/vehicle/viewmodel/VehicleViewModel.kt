@@ -612,13 +612,16 @@ class VehicleViewModel(
                 _uiState.update {
                     it.copy(
                         showInsuranceSheet = false,
-                        snackBarMessage = "بیمه‌نامه $type با موفقیت ثبت و یادآور انقضا تنظیم شد."
+                        snackBarMessage = if (reminderEnabled) "بیمه‌نامه $type ثبت شد و یادآور برای زمان‌های انتخاب‌شده فعال شد." else "بیمه‌نامه $type ثبت شد؛ یادآور آن غیرفعال است و هیچ آلارمی تنظیم نشد."
                     )
                 }
             }.onFailure { err ->
                 _uiState.update {
                     it.copy(
-                        snackBarMessage = "خطا در ثبت بیمه‌نامه: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}"
+                        snackBarMessage = err.localizedMessage?.let { message ->
+                            if (message.contains("اطلاعات بیمه ذخیره شد")) message
+                            else "خطا در ثبت بیمه‌نامه: $message"
+                        } ?: "خطا در ثبت بیمه‌نامه: اطلاعات نامعتبر است."
                     )
                 }
             }
@@ -690,13 +693,16 @@ class VehicleViewModel(
                 _uiState.update {
                     it.copy(
                         showInsuranceSheet = false,
-                        snackBarMessage = "اطلاعات معاینه فنی خودرو ثبت شد."
+                        snackBarMessage = if (reminderEnabled) "اطلاعات معاینه فنی ثبت شد و یادآور فعال شد." else "اطلاعات معاینه فنی ثبت شد؛ یادآور غیرفعال است و آلارمی تنظیم نشد."
                     )
                 }
             }.onFailure { err ->
                 _uiState.update {
                     it.copy(
-                        snackBarMessage = "خطا در ثبت معاینه فنی: ${err.localizedMessage ?: "اطلاعات نامعتبر است."}"
+                        snackBarMessage = err.localizedMessage?.let { message ->
+                            if (message.contains("اطلاعات معاینه فنی ذخیره شد")) message
+                            else "خطا در ثبت معاینه فنی: $message"
+                        } ?: "خطا در ثبت معاینه فنی: اطلاعات نامعتبر است."
                     )
                 }
             }
