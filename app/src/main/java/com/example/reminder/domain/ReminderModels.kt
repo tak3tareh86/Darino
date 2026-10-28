@@ -147,6 +147,7 @@ enum class PredefinedOffset(val title: String, val value: Int, val unit: OffsetU
     BEFORE_3_DAYS("۳ روز قبل", 3, OffsetUnit.DAY),
     BEFORE_7_DAYS("۷ روز قبل (۱ هفته)", 7, OffsetUnit.DAY),
     BEFORE_14_DAYS("۱۴ روز قبل (۲ هفته)", 14, OffsetUnit.DAY),
+    BEFORE_15_DAYS("۱۵ روز قبل", 15, OffsetUnit.DAY),
     BEFORE_30_DAYS("۳۰ روز قبل (۱ ماه)", 30, OffsetUnit.DAY)
 }
 
