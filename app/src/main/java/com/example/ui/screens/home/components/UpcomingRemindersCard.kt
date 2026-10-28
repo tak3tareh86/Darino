@@ -71,7 +71,7 @@ fun UpcomingRemindersCard(
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Header - Title: "یادآور نزدیک"
@@ -132,8 +132,36 @@ fun UpcomingRemindersCard(
                     } else {
                         ReminderFlatItem(
                             item = nearestReminder,
-                            onClick = { onReminderClick(nearestReminder) },
-                            onDone = { onMarkCompleted(nearestReminder.id) }
+                            onClick = { onReminderClick(nearestReminder) }
+                        )
+                    }
+                }
+                if (nearestReminder != null) {
+                    Button(
+                        onClick = { onMarkCompleted(nearestReminder.id) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(32.dp)
+                            .testTag("complete_reminder_button_${nearestReminder.id}"),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = EmeraldPrimaryLight,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "انجام شد",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.5.sp
+                            )
                         )
                     }
                 }
@@ -173,7 +201,6 @@ fun UpcomingRemindersCard(
 private fun ReminderFlatItem(
     item: UpcomingReminderItem,
     onClick: () -> Unit,
-    onDone: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -254,35 +281,5 @@ private fun ReminderFlatItem(
             maxLines = 1
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // 5. Button "انجام شد"
-        Button(
-            onClick = onDone,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(32.dp)
-                .testTag("complete_reminder_button_${item.id}"),
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = EmeraldPrimaryLight,
-                contentColor = Color.White
-            ),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Check,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "انجام شد",
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.5.sp
-                )
-            )
-        }
     }
 }
