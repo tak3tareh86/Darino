@@ -596,7 +596,14 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                 // Resolve a valid, active payment account before mutating any obligation.
                 // This prevents finance validation from failing after the obligation was already changed.
-                val paymentAccount = _userAccounts.value.firstOrNull {
+                val userId = SessionManager.userId
+                if (userId.isNullOrBlank()) {
+                    onResult(false)
+                    return@launch
+                }
+                val db = AppDatabase.getDatabase(getApplication())
+                LocalFinanceRepository.instance.ensureDefaultAccounts(db, userId)
+                val paymentAccount = db.accountDao().getAllAccountsRaw(userId).firstOrNull {
                     it.isActive && it.deletedAt == null &&
                         (it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی (جایگزین"))
                 }
