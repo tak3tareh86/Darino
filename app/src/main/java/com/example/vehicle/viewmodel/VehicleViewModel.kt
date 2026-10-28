@@ -592,7 +592,8 @@ class VehicleViewModel(
         policyNumber: String,
         reminderEnabled: Boolean,
         reminderTime: String,
-        reminderDays: List<Int>
+        reminderDays: List<Int>,
+        recordId: String? = null
     ) {
         val current = _uiState.value.selectedVehicle ?: return
         viewModelScope.launch {
@@ -606,13 +607,14 @@ class VehicleViewModel(
                 policyNumber = policyNumber,
                 reminderEnabled = reminderEnabled,
                 reminderTime = reminderTime,
-                reminderDays = reminderDays
+                reminderDays = reminderDays,
+                recordId = recordId
             )
             result.onSuccess {
                 _uiState.update {
                     it.copy(
                         showInsuranceSheet = false,
-                        snackBarMessage = if (reminderEnabled) "بیمه‌نامه $type ثبت شد و یادآور برای زمان‌های انتخاب‌شده فعال شد." else "بیمه‌نامه $type ثبت شد؛ یادآور آن غیرفعال است و هیچ آلارمی تنظیم نشد."
+                        snackBarMessage = if (recordId != null) "بیمه‌نامه $type با موفقیت ویرایش شد." else if (reminderEnabled) "بیمه‌نامه $type ثبت شد و یادآور برای زمان‌های انتخاب‌شده فعال شد." else "بیمه‌نامه $type ثبت شد؛ یادآور آن غیرفعال است و هیچ آلارمی تنظیم نشد."
                     )
                 }
             }.onFailure { err ->
@@ -674,7 +676,8 @@ class VehicleViewModel(
         centerName: String,
         reminderEnabled: Boolean,
         reminderTime: String,
-        reminderDays: List<Int>
+        reminderDays: List<Int>,
+        recordId: String? = null
     ) {
         val current = _uiState.value.selectedVehicle ?: return
         viewModelScope.launch {
@@ -687,13 +690,14 @@ class VehicleViewModel(
                 centerName = centerName,
                 reminderEnabled = reminderEnabled,
                 reminderTime = reminderTime,
-                reminderDays = reminderDays
+                reminderDays = reminderDays,
+                recordId = recordId
             )
             result.onSuccess {
                 _uiState.update {
                     it.copy(
                         showInsuranceSheet = false,
-                        snackBarMessage = if (reminderEnabled) "اطلاعات معاینه فنی ثبت شد و یادآور فعال شد." else "اطلاعات معاینه فنی ثبت شد؛ یادآور غیرفعال است و آلارمی تنظیم نشد."
+                        snackBarMessage = if (recordId != null) "اطلاعات معاینه فنی با موفقیت ویرایش شد." else if (reminderEnabled) "اطلاعات معاینه فنی ثبت شد و یادآور فعال شد." else "اطلاعات معاینه فنی ثبت شد؛ یادآور غیرفعال است و آلارمی تنظیم نشد."
                     )
                 }
             }.onFailure { err ->
