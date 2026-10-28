@@ -356,8 +356,10 @@ fun AddVehicleSheet(
                     var showLetterMenu by remember { mutableStateOf(false) }
                     val letters = remember { listOf("الف", "ب", "ت", "ج", "د", "ژ", "س", "ص", "ط", "ع", "ق", "گ", "ل", "م", "ن", "و", "ه", "ی") }
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                        Box(
-                            modifier = Modifier.weight(0.8f)
+                        ExposedDropdownMenuBox(
+                            expanded = showLetterMenu,
+                            onExpandedChange = { showLetterMenu = it },
+                            modifier = Modifier.weight(1f)
                         ) {
                             OutlinedTextField(
                                 value = plateLetter,
@@ -374,15 +376,12 @@ fun AddVehicleSheet(
                                 },
                                 singleLine = true,
                                 textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Box(
                                 modifier = Modifier
-                                    .matchParentSize()
-                                    .clickable { showLetterMenu = true }
+                                    .menuAnchor()
+                                    .fillMaxWidth()
                                     .testTag("plate_letter_selector")
                             )
-                            DropdownMenu(
+                            ExposedDropdownMenu(
                                 expanded = showLetterMenu,
                                 onDismissRequest = { showLetterMenu = false },
                                 modifier = Modifier.heightIn(max = 240.dp)
