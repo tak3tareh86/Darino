@@ -488,7 +488,7 @@ object BankSmsParser {
         val normalizedText = normalizeText(text)
         val cleanNumber = { value: String ->
             value.replace(",", "").replace("،", "").replace("٫", "")
-                .replace("٬", "").replace(".", "").replace("+", "").replace("-", "").trim()
+                .replace("٬", "").replace(".", "").replace(" ", "").replace("+", "").replace("-", "").trim()
         }
         var maskedText = normalizedText
 
@@ -515,7 +515,7 @@ object BankSmsParser {
 
         val lowerMasked = maskedText.lowercase()
         val eventPattern = when (expectedType) {
-            TransactionType.EXPENSE -> Regex("""برداشت|کسر|بدهکار|خرید|پرداخت|پرید|کم\s*شد""")
+            TransactionType.EXPENSE -> Regex("""برداشت|کسر|بدهکار|خرید|پرداخت|پرید|کم\s*شد|-\s*[0-9]""")
             TransactionType.INCOME -> Regex("""واریز|بستانکار|نشست|حقوق|یارانه|سود\s*سپرده|اضافه\s*شد|وارد\s*(?:حساب|شد)""")
             TransactionType.TRANSFER -> Regex("""کارت\s*به\s*کارت|انتقال|پایا|ساتنا""")
             null -> Regex("""برداشت|واریز|خرید|کسر|بدهکار|بستانکار|انتقال|کارت\s*به\s*کارت|پایا|ساتنا|پرید|نشست""")
@@ -535,7 +535,7 @@ object BankSmsParser {
 
         data class AmountCandidate(val start: Int, val rawNumber: Long, val currency: CurrencyType?)
         val candidates = Regex(
-            """([+-]?\s*[0-9][0-9,\.\u060C\u066B\u066C]*)\s*(ریال|تومان|Rls|IRR)?""",
+            """([+-]?\s*[0-9][0-9,\.\s\u060C\u066B\u066C]*)\s*(ریال|تومان|Rls|IRR)?""",
             RegexOption.IGNORE_CASE
         ).findAll(maskedText).mapNotNull { match ->
             val raw = cleanNumber(match.groupValues[1]).toLongOrNull() ?: return@mapNotNull null
@@ -557,8 +557,8 @@ object BankSmsParser {
         // with a transaction amount plus a second unrelated amount (e.g. a savings-box movement).
         val selected = if (eventMatch != null) {
             candidates.firstOrNull {
-                it.start >= eventMatch.range.last + 1 &&
-                    it.start - eventMatch.range.last <= 240
+                it.start >= eventMatch.range.first &&
+                    it.start - eventMatch.range.first <= 240
             } ?: candidates.lastOrNull {
                 it.start < eventMatch.range.first &&
                     eventMatch.range.first - it.start <= 100
