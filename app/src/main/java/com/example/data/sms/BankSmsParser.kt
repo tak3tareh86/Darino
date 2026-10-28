@@ -346,7 +346,7 @@ object BankSmsParser {
         // Unknown bank senders may change; only allow a fallback when strong transaction
         // wording, a clear direction, and a positive amount are all present.
         val hasStrongTransactionLanguage = Regex(
-            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|خرید|پرید|نشست|مبلغ\s*(?:تراکنش|برداشت|واریز)?|تراکنش\s*(?:موفق|انجام\s*شد)|-\s*[0-9])"""
+            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|خرید|پرید|نشست|مبلغ\s*(?:تراکنش|برداشت|واریز)?|تراکنش\s*(?:موفق|انجام\s*شد)|منظور\s*شد|-\s*[0-9])"""
         ).containsMatchIn(lower)
         if (!hasStrongTransactionLanguage) return false
 
@@ -431,7 +431,7 @@ object BankSmsParser {
             """(?:برداشت|کسر\s*(?:از\s*)?حساب|کسر|بدهکار|خرید|پرداخت\s*(?:قبض|قبوض|صورتحساب)|پرید|کم\s*شد)"""
         ).find(lower)
         val incomeMatch = Regex(
-            """(?:واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|سود\s*سپرده|حقوق|یارانه)"""
+            """(?:واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*شد|سود\s*سپرده|حقوق|یارانه)"""
         ).find(lower)
 
         if (expenseMatch != null && incomeMatch != null) {
@@ -516,7 +516,7 @@ object BankSmsParser {
         val lowerMasked = maskedText.lowercase()
         val eventPattern = when (expectedType) {
             TransactionType.EXPENSE -> Regex("""برداشت|کسر|بدهکار|خرید|پرداخت|پرید|کم\s*شد|-\s*[0-9]""")
-            TransactionType.INCOME -> Regex("""واریز|بستانکار|نشست|حقوق|یارانه|سود\s*سپرده|اضافه\s*شد|وارد\s*(?:حساب|شد)""")
+            TransactionType.INCOME -> Regex("""واریز|بستانکار|نشست|حقوق|یارانه|سود\s*سپرده|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*شد""")
             TransactionType.TRANSFER -> Regex("""کارت\s*به\s*کارت|انتقال|پایا|ساتنا""")
             null -> Regex("""برداشت|واریز|خرید|کسر|بدهکار|بستانکار|انتقال|کارت\s*به\s*کارت|پایا|ساتنا|پرید|نشست""")
         }
@@ -553,16 +553,37 @@ object BankSmsParser {
         }.toList()
         if (candidates.isEmpty()) return null
 
-        // Choose the first amount after the matching transaction verb. This handles templates
-        // with a transaction amount plus a second unrelated amount (e.g. a savings-box movement).
+        // Most templates put the transaction verb before its amount. Virtual banks may place
+        // it after the amount (e.g. "125,000 ریال از کارت پرید" / "... به حساب نشست").
         val selected = if (eventMatch != null) {
-            candidates.firstOrNull {
-                it.start >= eventMatch.range.first &&
-                    it.start - eventMatch.range.first <= 240
-            } ?: candidates.lastOrNull {
+            val actionText = eventMatch.value
+            val textAfterAction = lowerMasked.substring((eventMatch.range.last + 1).coerceAtMost(lowerMasked.length))
+            val isPostposedAction = actionText == "پرید" ||
+                actionText == "نشست" ||
+                actionText.contains("کم") ||
+                actionText.contains("اضافه") ||
+                (actionText == "کسر" && Regex("""^\s*(?:شد|گردید)""").containsMatchIn(textAfterAction)) ||
+                (actionText == "بدهکار" && Regex("""^\s*شد""").containsMatchIn(textAfterAction))
+
+            val amountWithinAction = candidates.firstOrNull {
+                it.start >= eventMatch.range.first && it.start <= eventMatch.range.last
+            }
+            val amountBeforeAction = candidates.lastOrNull {
                 it.start < eventMatch.range.first &&
-                    eventMatch.range.first - it.start <= 100
-            } ?: if (candidates.size == 1) candidates.first() else null
+                    eventMatch.range.first - it.start <= 120
+            }
+            val amountAfterAction = candidates.firstOrNull {
+                it.start > eventMatch.range.last &&
+                    it.start - eventMatch.range.last <= 240
+            }
+
+            if (isPostposedAction) {
+                amountBeforeAction ?: amountAfterAction ?: amountWithinAction
+                    ?: if (candidates.size == 1) candidates.first() else null
+            } else {
+                amountWithinAction ?: amountAfterAction ?: amountBeforeAction
+                    ?: if (candidates.size == 1) candidates.first() else null
+            }
         } else if (candidates.size == 1) {
             candidates.first()
         } else null
