@@ -95,9 +95,9 @@ fun VehicleInsuranceSheet(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             PrimaryTabRow(selectedTabIndex = selectedSection, modifier = Modifier.fillMaxWidth()) {
-                Tab(selected = selectedSection == 0, onClick = { selectedSection = 0 }, text = { Text("شخص ثالث", maxLines = 1) })
-                Tab(selected = selectedSection == 1, onClick = { selectedSection = 1 }, text = { Text("بیمه بدنه", maxLines = 1) })
-                Tab(selected = selectedSection == 2, onClick = { selectedSection = 2 }, text = { Text("معاینه فنی", maxLines = 1) })
+                Tab(selected = selectedSection == 0, enabled = editingInsurance == null && editingInspection == null, onClick = { selectedSection = 0 }, text = { Text("شخص ثالث", maxLines = 1) })
+                Tab(selected = selectedSection == 1, enabled = editingInsurance == null && editingInspection == null, onClick = { selectedSection = 1 }, text = { Text("بیمه بدنه", maxLines = 1) })
+                Tab(selected = selectedSection == 2, enabled = editingInsurance == null && editingInspection == null, onClick = { selectedSection = 2 }, text = { Text("معاینه فنی", maxLines = 1) })
             }
 
             if (selectedSection != 2) {
