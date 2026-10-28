@@ -40,6 +40,7 @@ import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleInspectionEntity
 import com.example.vehicle.data.VehicleInsuranceEntity
 import com.example.vehicle.data.VehicleServiceEntity
+import com.example.vehicle.domain.VehicleAnalyzer
 import com.example.vehicle.presentation.components.AddServiceSheet
 import com.example.vehicle.presentation.components.AddVehicleSheet
 import com.example.vehicle.presentation.components.*
@@ -1055,8 +1056,8 @@ private fun VehicleInsuranceDocumentsTabContent(
                 ) {
                     items(visibleInsurances, key = { it.id }) { ins ->
                         val costStr = IranianPhoneUtils.convertDigitsToPersian(NumberFormat.getNumberInstance(Locale.US).format(ins.amount))
-                        val normalizedExpiry = IranianPhoneUtils.convertDigitsToEnglish(ins.endDate).replace("-", "/")
-                        val expired = normalizedExpiry < today
+                        val normalizedExpiry = VehicleAnalyzer.parseAndValidateJalaliDate(ins.endDate)
+                        val expired = normalizedExpiry != null && normalizedExpiry < today
                         Layered3DCard(
                             modifier = Modifier.fillMaxWidth(),
                             elevation = 3.dp,
@@ -1073,7 +1074,11 @@ private fun VehicleInsuranceDocumentsTabContent(
                                     }
                                     Surface(shape = RoundedCornerShape(8.dp), color = (if (expired) MaterialTheme.colorScheme.error else Color(0xFF10B981)).copy(alpha = 0.12f)) {
                                         Text(
-                                            text = if (expired) "منقضی شده" else "دارای اعتبار",
+                                            text = when {
+                                                normalizedExpiry == null -> "تاریخ نامعتبر"
+                                                expired -> "منقضی شده"
+                                                else -> "دارای اعتبار"
+                                            },
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
                                             color = if (expired) MaterialTheme.colorScheme.error else Color(0xFF10B981),
                                             modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
@@ -1112,14 +1117,23 @@ private fun VehicleInsuranceDocumentsTabContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(inspections, key = { it.id }) { insp ->
-                        val normalizedExpiry = IranianPhoneUtils.convertDigitsToEnglish(insp.expiryDate).replace("-", "/")
-                        val expired = normalizedExpiry < today
+                        val normalizedExpiry = VehicleAnalyzer.parseAndValidateJalaliDate(insp.expiryDate)
+                        val expired = normalizedExpiry != null && normalizedExpiry < today
                         Layered3DCard(modifier = Modifier.fillMaxWidth(), elevation = 2.dp, borderColor = (if (expired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant).copy(alpha = 0.35f)) {
                             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text(insp.centerName.ifBlank { "مرکز معاینه فنی ثبت نشده" }, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                                     Surface(shape = RoundedCornerShape(8.dp), color = (if (expired) MaterialTheme.colorScheme.error else Color(0xFF10B981)).copy(alpha = 0.12f)) {
-                                        Text(if (expired) "منقضی شده" else insp.status, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp), color = if (expired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                                        Text(
+                                            when {
+                                                normalizedExpiry == null -> "تاریخ نامعتبر"
+                                                expired -> "منقضی شده"
+                                                else -> insp.status.ifBlank { "دارای اعتبار" }
+                                            },
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
+                                            color = if (expired || normalizedExpiry == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                                        )
                                     }
                                 }
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
