@@ -73,7 +73,10 @@ fun VehicleMileageDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val normalized = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }
+                    val normalized = IranianPhoneUtils.convertDigitsToEnglish(mileageText)
+                        .trim()
+                        .replace(",", "")
+                        .replace("٬", "")
                     val km = normalized.toIntOrNull()
                     when {
                         normalized.isBlank() || km == null -> validationError = "لطفاً کیلومتر معتبر وارد کنید."
