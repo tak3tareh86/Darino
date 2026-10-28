@@ -392,8 +392,11 @@ class VehicleRepository {
         }
 
         // Validate a supplied account before inserting/restoring a transaction or changing vehicle state.
-        val suppliedAccountId = financialTransaction.accountId?.takeIf { it.isNotBlank() }
+        val suppliedAccountId = financialTransaction.accountId
         if (suppliedAccountId != null) {
+            if (suppliedAccountId.isBlank()) {
+                throw IllegalArgumentException("شناسه حساب تراکنش مالی نمی‌تواند خالی باشد.")
+            }
             val account = db.accountDao().getAccountByStringId(userId, suppliedAccountId)
             if (account == null || !account.isActive || account.deletedAt != null) {
                 throw IllegalArgumentException("حساب تراکنش مالی نامعتبر یا غیرفعال است.")
