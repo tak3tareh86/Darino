@@ -1072,7 +1072,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                                             Text("شماره بیمه‌نامه: ${ins.policyNumber.ifEmpty { "ثبت نشده" }}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
-                                    Surface(shape = RoundedCornerShape(8.dp), color = (if (expired) MaterialTheme.colorScheme.error else Color(0xFF10B981)).copy(alpha = 0.12f)) {
+                                    Surface(shape = RoundedCornerShape(8.dp), color = (if (expired || normalizedExpiry == null) MaterialTheme.colorScheme.error else Color(0xFF10B981)).copy(alpha = 0.12f)) {
                                         Text(
                                             text = when {
                                                 normalizedExpiry == null -> "تاریخ نامعتبر"
@@ -1080,7 +1080,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                                                 else -> "دارای اعتبار"
                                             },
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
-                                            color = if (expired) MaterialTheme.colorScheme.error else Color(0xFF10B981),
+                                            color = if (expired || normalizedExpiry == null) MaterialTheme.colorScheme.error else Color(0xFF10B981),
                                             modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
                                         )
                                     }
