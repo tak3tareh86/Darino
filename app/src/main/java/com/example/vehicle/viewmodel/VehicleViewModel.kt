@@ -589,7 +589,10 @@ class VehicleViewModel(
         startDate: String,
         endDate: String,
         amount: Long,
-        policyNumber: String
+        policyNumber: String,
+        reminderEnabled: Boolean,
+        reminderTime: String,
+        reminderDays: List<Int>
     ) {
         val current = _uiState.value.selectedVehicle ?: return
         viewModelScope.launch {
@@ -600,7 +603,10 @@ class VehicleViewModel(
                 startDate = startDate,
                 endDate = endDate,
                 amount = amount,
-                policyNumber = policyNumber
+                policyNumber = policyNumber,
+                reminderEnabled = reminderEnabled,
+                reminderTime = reminderTime,
+                reminderDays = reminderDays
             )
             result.onSuccess {
                 _uiState.update {
@@ -662,7 +668,10 @@ class VehicleViewModel(
         expiryDate: String,
         cost: Long,
         status: String,
-        centerName: String
+        centerName: String,
+        reminderEnabled: Boolean,
+        reminderTime: String,
+        reminderDays: List<Int>
     ) {
         val current = _uiState.value.selectedVehicle ?: return
         viewModelScope.launch {
@@ -672,7 +681,10 @@ class VehicleViewModel(
                 expiryDate = expiryDate,
                 cost = cost,
                 status = status,
-                centerName = centerName
+                centerName = centerName,
+                reminderEnabled = reminderEnabled,
+                reminderTime = reminderTime,
+                reminderDays = reminderDays
             )
             result.onSuccess {
                 _uiState.update {
