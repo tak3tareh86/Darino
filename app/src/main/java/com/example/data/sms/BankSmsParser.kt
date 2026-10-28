@@ -323,9 +323,8 @@ object BankSmsParser {
         val normalizedBody = normalizeText(cleanBody)
         val lower = normalizedBody.lowercase()
 
-        // Never trust sender identity alone: official bank shortcodes also send OTPs,
-        // promotions, reminders, and security notices. Earlier pipeline stages reject
-        // known noise; this gate additionally requires a completed money-event structure.
+        // Sender identity alone is insufficient: official bank shortcodes also carry OTPs,
+        // promotions, reminders, and security notices. A completed transaction shape is required.
         val detectedType = detectTransactionType(normalizedBody) ?: return false
         val amountToman = extractAmountToman(normalizedBody, detectedType) ?: return false
         if (amountToman <= 0L) return false
@@ -335,35 +334,52 @@ object BankSmsParser {
         val hasBankWord = Regex(
             """(?:بانک|بانکی|همراه\s*بانک|اینترنت\s*بانک|بانکداری)"""
         ).containsMatchIn(lower)
-
-        // Accept language used by real transaction notifications across banks, including
-        // virtual banks whose action verb may appear before or after the amount.
-        val hasCompletedMoneyEvent = Regex(
-            """(?:برداشت|واریز|بستانکار|بدهکار|کسر|خرید\s*(?:موفق)?|پرداخت\s*(?:موفق|قبض|قبوض)|از\s*کارت\s*پرید|به\s*حساب\s*نشست|منظور\s*(?:شد|گردید)|تراکنش\s*(?:موفق|انجام\s*شد)|عملیات\s*بانکی\s*موفق|انتقال\s*(?:موفق|انجام\s*شد|صورت\s*گرفت)|انتقال.{0,80}(?:موفق|انجام\s*شد|صورت\s*گرفت)|حواله.{0,80}(?:موفق|انجام\s*شد|صورت\s*گرفت)|کارت\s*به\s*کارت\s*(?:موفق|انجام\s*شد)|واریز\s*(?:از\s*طریق\s*)?(?:پایا|ساتنا)|پایا\s*واریز|ساتنا\s*واریز)"""
-        ).containsMatchIn(lower)
-        if (!hasCompletedMoneyEvent) return false
-
         val hasAmountLabel = Regex(
-            """(?:مبلغ|مبلغ\s*تراکنش|مبلغ\s*برداشت|مبلغ\s*واریز|مبلغ\s*خرید|مبلغ\s*پرداخت|به\s*مبلغ)"""
+            """(?:مبلغ(?:\s*(?:تراکنش|برداشت|واریز|خرید|پرداخت))?|به\s*مبلغ)"""
         ).containsMatchIn(lower)
         val hasCurrencyNearNumber = Regex(
             """[0-9][0-9,.\u060C\u066B\u066C\s]{0,24}\s*(?:ریال|تومان|Rls|IRR)|(?:ریال|تومان|Rls|IRR)\s*[0-9]"""
         ).containsMatchIn(normalizedBody)
         val hasCardOrAccountReference = Regex(
-            """(?i)(?:کارت|card|حساب|شماره\s*حساب|شماره\s*کارت)\s*[:：#-]?\s*(?:[0-9*#-][0-9*#\-\s]{3,19})"""
+            """(?i)(?:کارت|card|حساب|شماره\s*حساب|شماره\s*کارت)\s*(?:شما\s*)?[:：#-]?\s*(?:[0-9*#-][0-9*#\-\s]{3,19})"""
         ).containsMatchIn(normalizedBody)
         val hasNumericBalance = Regex(
             """(?:مانده|موجودی|موجودي)(?:ی\s*حساب|\s*حساب|\s*فعلی|\s*کل)?\s*[:：]?\s*[+-]?\s*[0-9][0-9,.\u060C\u066B\u066C\s]*"""
         ).containsMatchIn(lower)
         val hasCompletionMarker = Regex(
-            """(?:موفق|موفقیت\s*آمیز|انجام\s*شد|با\s*موفقیت|ثبت\s*نهایی\s*شد)"""
+            """(?:موفق|موفقیت\s*آمیز|انجام\s*شد|با\s*موفقیت|ثبت\s*نهایی\s*شد|برداشت\s*(?:شد|گردید)|واریز\s*(?:شد|گردید)|کسر\s*(?:شد|گردید)|بستانکار\s*شد|بدهکار\s*شد|به\s*حساب\s*نشست|از\s*کارت\s*پرید|منظور\s*(?:شد|گردید))"""
         ).containsMatchIn(lower)
         val senderDigits = normalizeSender(sender)
         val looksLikeNumericShortCode =
             senderDigits.length in 4..8 && senderDigits.all { it.isDigit() }
 
-        // Confidence score: sender identity is only one signal. Unknown senders are supported
-        // when the message itself has bank/ledger structure, not just a money-related word.
+        // Do not treat a bare mention of "خرید", "پرداخت", or "انتقال" as a completed
+        // transaction. Such words are common in promotional and informational messages.
+        val hasCoreMoneyEvent = Regex(
+            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|از\s*کارت\s*پرید|به\s*حساب\s*نشست|منظور\s*(?:شد|گردید)|تراکنش\s*(?:موفق|انجام\s*شد)|عملیات\s*بانکی\s*موفق|واریز\s*(?:از\s*طریق\s*)?(?:پایا|ساتنا)|پایا\s*واریز|ساتنا\s*واریز)"""
+        ).containsMatchIn(lower)
+        val hasPurchaseOrTransferLanguage = Regex(
+            """(?:خرید|پرداخت|انتقال|حواله|کارت\s*به\s*کارت|پایا|ساتنا)"""
+        ).containsMatchIn(lower)
+        val hasCompletedTransferLanguage = Regex(
+            """(?:(?:انتقال|حواله).{0,80}(?:موفق|انجام\s*شد|صورت\s*گرفت)|کارت\s*به\s*کارت\s*(?:موفق|انجام\s*شد))"""
+        ).containsMatchIn(lower)
+        val hasCompletedMoneyEvent = hasCoreMoneyEvent ||
+            hasCompletedTransferLanguage ||
+            (hasPurchaseOrTransferLanguage &&
+                (hasCardOrAccountReference || hasNumericBalance || hasCompletionMarker))
+
+        if (!hasCompletedMoneyEvent) return false
+
+        // A financial structure helps separate an actual ledger event from an ad mentioning
+        // a payment amount. Card/account metadata, a resulting balance, or a completed event
+        // paired with an amount label/currency is required even for known bank senders.
+        val hasFinancialStructure = hasCardOrAccountReference ||
+            hasNumericBalance ||
+            (hasCompletionMarker && (hasAmountLabel || hasCurrencyNearNumber))
+        if (!hasFinancialStructure) return false
+
+        // Confidence score: bank identity is one signal, never the only one.
         var score = 0
         if (senderRecognized) score += 4
         if (bankNameInBody) score += 3 else if (hasBankWord) score += 2
@@ -375,8 +391,8 @@ object BankSmsParser {
         if (hasCompletionMarker) score += 1
         if (looksLikeNumericShortCode) score += 1
 
-        // For an unknown sender require an independent banking marker: bank identity,
-        // card/account context, or a short code combined with an explicit ledger balance.
+        // Unknown senders need independent evidence of banking/ledger structure—not merely
+        // a number, a currency unit, or a money-related word in an arbitrary SMS.
         val hasIndependentBankMarker =
             senderRecognized ||
                 hasBankWord ||
