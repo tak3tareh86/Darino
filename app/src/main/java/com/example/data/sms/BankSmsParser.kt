@@ -156,6 +156,9 @@ object BankSmsParser {
         return IranianPhoneUtils.convertDigitsToEnglish(input)
             .replace('ي', 'ی')
             .replace('ك', 'ک')
+            .replace('−', '-')
+            .replace('﹣', '-')
+            .replace('－', '-')
             .replace('\u200C', ' ')
             .replace(Regex("""\s+"""), " ")
             .trim()
@@ -336,7 +339,20 @@ object BankSmsParser {
         // 3. Bank identity in body
         val hasBankInBody = hasBankNameInBody(cleanBody) || lower.contains("بانک")
 
-        return hasCardOrAccount && hasLedgerMetadata && hasBankInBody
+        if (hasCardOrAccount && hasLedgerMetadata && hasBankInBody) {
+            return true
+        }
+
+        // Unknown bank senders may change; only allow a fallback when strong transaction
+        // wording, a clear direction, and a positive amount are all present.
+        val hasStrongTransactionLanguage = Regex(
+            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|خرید|پرید|نشست|مبلغ\s*(?:تراکنش|برداشت|واریز)?|تراکنش\s*(?:موفق|انجام\s*شد))"""
+        ).containsMatchIn(lower)
+        if (!hasStrongTransactionLanguage) return false
+
+        val detectedType = detectTransactionType(cleanBody) ?: return false
+        val detectedAmount = extractAmountToman(cleanBody, detectedType) ?: return false
+        return detectedAmount > 0L
     }
 
     /**
@@ -380,17 +396,18 @@ object BankSmsParser {
      * Rejects ambiguous, failed, pending, or contradictory messages.
      */
     fun detectTransactionType(text: String): TransactionType? {
-        val lower = text.lowercase()
+        val lower = normalizeText(text).lowercase()
 
-        // 1. Reversal / Cancellation / Failure -> reject definitively
-        if (lower.contains("لغو") || lower.contains("ناموفق") ||
-            lower.contains("برگشت") || lower.contains("عدم موفقیت") ||
-            lower.contains("تراکنش ناموفق") || lower.contains("موجودی ناکافی")
-        ) {
-            return null
-        }
+        // Reject failed, reversed, cancelled, and not-yet-completed operations first.
+        if (lower.contains("ناموفق") ||
+            lower.contains("عدم موفقیت") ||
+            lower.contains("موجودی ناکافی") ||
+            lower.contains("تراکنش لغو") ||
+            lower.contains("لغو تراکنش") ||
+            lower.contains("برگشت تراکنش") ||
+            lower.contains("برگشت وجه")
+        ) return null
 
-        // 2. Requests, In-Progress, Pending, or Unconfirmed operations -> reject definitively
         if (lower.contains("درخواست انتقال") ||
             lower.contains("درخواست پایا") ||
             lower.contains("درخواست ساتنا") ||
@@ -406,91 +423,53 @@ object BankSmsParser {
             lower.contains("دستور پایا ثبت") ||
             lower.contains("دستور پرداخت ثبت") ||
             lower.contains("دستور انتقال ثبت")
-        ) {
-            return null
+        ) return null
+
+        // Some banks (including virtual banks) use verbs such as "پرید" and "نشست".
+        // When a single SMS mentions both directions, use the first explicit money event.
+        val expenseMatch = Regex(
+            """(?:برداشت|کسر\s*(?:از\s*)?حساب|کسر|بدهکار|خرید|پرداخت\s*(?:قبض|قبوض|صورتحساب)|پرید|کم\s*شد)"""
+        ).find(lower)
+        val incomeMatch = Regex(
+            """(?:واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|سود\s*سپرده|حقوق|یارانه)"""
+        ).find(lower)
+
+        if (expenseMatch != null && incomeMatch != null) {
+            return if (expenseMatch.range.first <= incomeMatch.range.first) {
+                TransactionType.EXPENSE
+            } else {
+                TransactionType.INCOME
+            }
         }
+        if (expenseMatch != null) return TransactionType.EXPENSE
+        if (incomeMatch != null) return TransactionType.INCOME
 
-        // 3. Clear POS or Merchant Purchases -> Unambiguous Expense
-        if (lower.contains("خرید از پایانه") || lower.contains("خرید پایانه") ||
-            lower.contains("خرید اینترنتی") || lower.contains("خرید شارژ") ||
-            lower.contains("خرید کالا") || lower.contains("خرید خدمات") ||
-            lower.contains("خرید از")
-        ) {
-            return TransactionType.EXPENSE
-        }
+        // A few banks encode a debit as a negative amount instead of using a word.
+        val hasNegativeAmount = Regex("""-\s*[0-9][0-9,٫٬.]*""").containsMatchIn(lower)
+        val hasTransactionContext = Regex("""(?:حساب|کارت|بانک|تراکنش|مبلغ|مانده|موجودی|سپرده)""")
+            .containsMatchIn(lower)
+        if (hasNegativeAmount && hasTransactionContext) return TransactionType.EXPENSE
 
-        // 4. Transfers (کارت به کارت، پایا، ساتنا، انتقال وجه)
-        val hasTransferWord = lower.contains("انتقال") || lower.contains("کارت به کارت") ||
-                lower.contains("پایا") || lower.contains("ساتنا")
-
+        // If no explicit debit/credit verb exists, retain transfer only when its wording
+        // really describes a transfer; an explicit incoming transfer is an income.
+        val hasTransferWord = lower.contains("انتقال") ||
+            lower.contains("کارت به کارت") || lower.contains("پایا") || lower.contains("ساتنا")
         if (hasTransferWord) {
-            val hasDepositWord = lower.contains("واریز") || lower.contains("بستانکار")
-            val hasWithdrawWord = lower.contains("برداشت") || lower.contains("کسر") || lower.contains("بدهکار")
+            if (lower.contains("انتقال به حساب شما") ||
+                lower.contains("واریز از طریق پایا") ||
+                lower.contains("واریز از طریق ساتنا") ||
+                lower.contains("واریز پایا") ||
+                lower.contains("واریز ساتنا") ||
+                lower.contains("واریز کارت به کارت") ||
+                lower.contains("واریز حواله") ||
+                lower.contains("به حساب شما") ||
+                lower.contains("به کارت شما")
+            ) return TransactionType.INCOME
 
-            // Explicit incoming transfer -> must clearly and unambiguously indicate a completed deposit (واریز or بستانکار)
-            // along with clear evidence of incoming transfer. "انتقال به حساب شما" alone is NOT sufficient without a valid deposit keyword.
-            val hasIncomingTransferEvidence = lower.contains("انتقال به حساب شما") ||
-                    lower.contains("واریز از طریق پایا") ||
-                    lower.contains("واریز از طریق ساتنا") ||
-                    lower.contains("واریز پایا") ||
-                    lower.contains("واریز ساتنا") ||
-                    lower.contains("واریز از طریق انتقال") ||
-                    lower.contains("واریز کارت به کارت") ||
-                    lower.contains("واریز حواله") ||
-                    lower.contains("انتقال از") ||
-                    lower.contains("به حساب شما") ||
-                    lower.contains("به کارت شما")
-
-            val isExplicitIncomingTransfer = hasDepositWord && hasIncomingTransferEvidence
-
-            if (isExplicitIncomingTransfer && !hasWithdrawWord) {
-                return TransactionType.INCOME
+            if (lower.contains("موفق") || lower.contains("به کارت") || lower.contains("به حساب")) {
+                return TransactionType.TRANSFER
             }
-
-            // Explicit debit / withdrawal transfer -> must clearly state a completed withdrawal or debit
-            if (hasWithdrawWord && !hasDepositWord) {
-                return TransactionType.EXPENSE
-            }
-
-            if (lower.contains("انتقال") || lower.contains("کارت به کارت")) {
-                if (lower.contains("به کارت") || lower.contains("به حساب") || lower.contains("موفق")) {
-                    return TransactionType.TRANSFER
-                }
-            }
-
-            return null
         }
-
-        // 5. General Deposits / Income
-        val hasDepositWord = lower.contains("واریز") || lower.contains("بستانکار") ||
-                lower.contains("سود سپرده") || lower.contains("واریز حقوق") ||
-                lower.contains("یارانه") || lower.contains("منظور شد")
-
-        // 6. General Withdrawals / Expenses
-        val hasWithdrawWord = lower.contains("برداشت") || lower.contains("کسر") ||
-                lower.contains("بدهکار") || lower.contains("پرداخت قبض") ||
-                lower.contains("پرداخت قبوض") || lower.contains("پرداخت صورتحساب") ||
-                lower.contains("خرید")
-
-        // Disambiguation
-        if (hasDepositWord && !hasWithdrawWord) {
-            return TransactionType.INCOME
-        }
-
-        if (hasWithdrawWord && !hasDepositWord) {
-            return TransactionType.EXPENSE
-        }
-
-        // If both are present, inspect secondary clues (e.g. fee deduction on a deposit)
-        if (hasDepositWord && hasWithdrawWord) {
-            if (lower.contains("کارمزد") && (lower.contains("واریز") || lower.contains("بستانکار"))) {
-                // Secondary fee deduction on deposit
-                return TransactionType.INCOME
-            }
-            // Cannot reliably determine -> reject to prevent false categorization
-            return null
-        }
-
         return null
     }
 
@@ -505,150 +484,106 @@ object BankSmsParser {
      * Strictly verifies currency and conversion without arbitrary rounding or truncated digits.
      * Masks balances, card numbers, accounts, fees, and tracking/reference IDs.
      */
-    fun extractAmountToman(text: String): Long? {
-        val cleanNumber = { s: String ->
-            s.replace(",", "")
-                .replace("،", "")
-                .replace("٫", "")
-                .replace("٬", "")
-                .replace(".", "")
-                .trim()
+    fun extractAmountToman(text: String, expectedType: TransactionType? = null): Long? {
+        val normalizedText = normalizeText(text)
+        val cleanNumber = { value: String ->
+            value.replace(",", "").replace("،", "").replace("٫", "")
+                .replace("٬", "").replace(".", "").replace("+", "").replace("-", "").trim()
         }
+        var maskedText = normalizedText
 
-        // Step 1: Mask known non-transaction numbers in a working copy of the text
-        var maskedText = text
-
-        // Mask 16-digit card numbers or 4-digit card masks
+        // Mask non-transaction numbers before looking for an amount.
         maskedText = maskedText.replace(Regex("""(?i)(?:کارت|card)[\s:]*([0-9\s*#-]{4,19})""")) {
-            "کارت: [MASKED_CARD]"
+            " کارت [MASKED_CARD] "
         }
-
-        // Mask account numbers
-        maskedText = maskedText.replace(Regex("""(?i)(?:حساب|شماره\s*حساب|به\s*حساب|از\s*حساب)[\s:]*([0-9]{5,20})""")) {
-            "حساب: [MASKED_ACC]"
+        maskedText = maskedText.replace(Regex("""(?i)(?:شماره\s*حساب|به\s*حساب|از\s*حساب|حساب)[\s:]*([0-9\s*#-]{5,20})""")) {
+            " حساب [MASKED_ACCOUNT] "
         }
-
-        // Mask balances and available funds
         maskedText = maskedText.replace(
-            Regex("""(?i)(?:مانده(?:ی|\s+حساب|\s+واقعی|\s+کل)?|موجودی(?:ی|\s+حساب|\s+فعلی|\s+کل)?|موجودي)[\s:]*[+-]?\s*([0-9,.\u060C\u066B\u066C]+)\s*(?:ریال|تومان|Rls|IRR)?""")
-        ) {
-            "[MASKED_BALANCE]"
-        }
-
-        // Mask tracking, reference, terminal, and bill IDs
+            Regex("""(?i)(?:مانده(?:ی|\s+حساب|\s+واقعی|\s+کل)?|موجودی(?:ی|\s+حساب|\s+فعلی|\s+کل)?|موجودي)[\s:]*[+-]?\s*([0-9,\.\u060C\u066B\u066C]+)\s*(?:ریال|تومان|Rls|IRR)?""")
+        ) { " [MASKED_BALANCE] " }
         maskedText = maskedText.replace(
             Regex("""(?i)(?:پیگیری|کد\s*پیگیری|شماره\s*پیگیری|مرجع|شناسه\s*مرجع|شماره\s*مرجع|ارجاع|شماره\s*ارجاع|کد\s*ارجاع|شناسه\s*قبض|شناسه\s*پرداخت|ترمینال|پایانه|کد\s*رهگیری|کد\s*پذیرنده)[\s:]*([0-9]+)""")
-        ) {
-            "[MASKED_REF]"
-        }
-
-        // Mask fees (کارمزد)
+        ) { " [MASKED_REFERENCE] " }
         maskedText = maskedText.replace(
-            Regex("""(?i)(?:کارمزد)[\s:]*([0-9,.\u060C\u066B\u066C]+)\s*(?:ریال|تومان|Rls|IRR)?""")
-        ) {
-            "[MASKED_FEE]"
+            Regex("""(?i)کارمزد[\s:]*[+-]?\s*([0-9,\.\u060C\u066B\u066C]+)\s*(?:ریال|تومان|Rls|IRR)?""")
+        ) { " [MASKED_FEE] " }
+        maskedText = maskedText.replace(Regex("""\b140[0-9][/-]0?[1-9][/-]0?[1-9][0-9]?\b""")) {
+            " [MASKED_DATE] "
         }
+        maskedText = maskedText.replace(Regex("""\b[0-2]?[0-9]:[0-5][0-9]\b""")) { " [MASKED_TIME] " }
 
-        // Step 2: Determine global message currency if unambiguous
-        val hasGlobalRial = text.contains("ریال", ignoreCase = true) || text.contains("Rls", ignoreCase = true) || text.contains("IRR", ignoreCase = true)
-        val hasGlobalToman = text.contains("تومان", ignoreCase = true) || text.contains("Toman", ignoreCase = true)
+        val lowerMasked = maskedText.lowercase()
+        val eventPattern = when (expectedType) {
+            TransactionType.EXPENSE -> Regex("""برداشت|کسر|بدهکار|خرید|پرداخت|پرید|کم\s*شد""")
+            TransactionType.INCOME -> Regex("""واریز|بستانکار|نشست|حقوق|یارانه|سود\s*سپرده|اضافه\s*شد|وارد\s*(?:حساب|شد)""")
+            TransactionType.TRANSFER -> Regex("""کارت\s*به\s*کارت|انتقال|پایا|ساتنا""")
+            null -> Regex("""برداشت|واریز|خرید|کسر|بدهکار|بستانکار|انتقال|کارت\s*به\s*کارت|پایا|ساتنا|پرید|نشست""")
+        }
+        val eventMatch = eventPattern.find(lowerMasked)
 
+        val hasGlobalRial = normalizedText.contains("ریال", ignoreCase = true) ||
+            normalizedText.contains("Rls", ignoreCase = true) ||
+            normalizedText.contains("IRR", ignoreCase = true)
+        val hasGlobalToman = normalizedText.contains("تومان", ignoreCase = true) ||
+            normalizedText.contains("Toman", ignoreCase = true)
         val globalCurrency = when {
             hasGlobalToman && !hasGlobalRial -> CurrencyType.TOMAN
             hasGlobalRial && !hasGlobalToman -> CurrencyType.RIAL
             else -> CurrencyType.UNKNOWN
         }
 
-        // Step 3: Match candidate transaction amounts with explicit transaction prefixes
-        val txPattern = Pattern.compile(
-            """(?:مبلغ|برداشت|واریز|خرید|انتقال|کسر|پرداخت|بدهکار|بستانکار)[\s:]*[+-]?\s*([0-9,.\u060C\u066B\u066C]+)\s*(ریال|تومان|Rls|IRR)?""",
-            Pattern.CASE_INSENSITIVE
-        )
-
-        val txMatcher = txPattern.matcher(maskedText)
-        val candidates = mutableListOf<Long>()
-
-        while (txMatcher.find()) {
-            val numStr = cleanNumber(txMatcher.group(1) ?: continue)
-            val rawNumber = numStr.toLongOrNull() ?: continue
-            if (rawNumber <= 0L) continue
-
-            val unitGroup = txMatcher.group(2)?.trim()
-            val detectedUnit = when {
-                unitGroup?.contains("ریال", ignoreCase = true) == true ||
-                unitGroup?.contains("Rls", ignoreCase = true) == true ||
-                unitGroup?.contains("IRR", ignoreCase = true) == true -> CurrencyType.RIAL
-
-                unitGroup?.contains("تومان", ignoreCase = true) == true ||
-                unitGroup?.contains("Toman", ignoreCase = true) == true -> CurrencyType.TOMAN
-
-                else -> globalCurrency
+        data class AmountCandidate(val start: Int, val rawNumber: Long, val currency: CurrencyType?)
+        val candidates = Regex(
+            """([+-]?\s*[0-9][0-9,\.\u060C\u066B\u066C]*)\s*(ریال|تومان|Rls|IRR)?""",
+            RegexOption.IGNORE_CASE
+        ).findAll(maskedText).mapNotNull { match ->
+            val raw = cleanNumber(match.groupValues[1]).toLongOrNull() ?: return@mapNotNull null
+            if (raw <= 0L) return@mapNotNull null
+            val unit = match.groupValues.getOrNull(2).orEmpty()
+            val currency = when {
+                unit.contains("ریال", ignoreCase = true) ||
+                    unit.contains("Rls", ignoreCase = true) ||
+                    unit.contains("IRR", ignoreCase = true) -> CurrencyType.RIAL
+                unit.contains("تومان", ignoreCase = true) ||
+                    unit.contains("Toman", ignoreCase = true) -> CurrencyType.TOMAN
+                else -> null
             }
+            AmountCandidate(match.range.first, raw, currency)
+        }.toList()
+        if (candidates.isEmpty()) return null
 
-            when (detectedUnit) {
-                CurrencyType.TOMAN -> {
-                    candidates.add(rawNumber)
-                }
-                CurrencyType.RIAL -> {
-                    // Strict Rial to Toman conversion:
-                    // Must be at least 10 Rials and divisible by 10
-                    if (rawNumber >= 10L && rawNumber % 10L == 0L) {
-                        candidates.add(rawNumber / 10L)
-                    }
-                }
-                CurrencyType.UNKNOWN -> {
-                    // Cannot determine currency reliably -> do not guess
-                }
-            }
+        // Choose the first amount after the matching transaction verb. This handles templates
+        // with a transaction amount plus a second unrelated amount (e.g. a savings-box movement).
+        val selected = if (eventMatch != null) {
+            candidates.firstOrNull {
+                it.start >= eventMatch.range.last + 1 &&
+                    it.start - eventMatch.range.last <= 240
+            } ?: candidates.lastOrNull {
+                it.start < eventMatch.range.first &&
+                    eventMatch.range.first - it.start <= 100
+            } ?: if (candidates.size == 1) candidates.first() else null
+        } else if (candidates.size == 1) {
+            candidates.first()
+        } else null
+        val candidate = selected ?: return null
+
+        val currency = candidate.currency ?: when {
+            globalCurrency != CurrencyType.UNKNOWN -> globalCurrency
+            // Amounts without a printed unit are commonly rial-denominated in bank SMS.
+            // Users can correct the suggested amount in the review dialog before saving.
+            eventMatch != null && expectedType != null -> CurrencyType.RIAL
+            else -> CurrencyType.UNKNOWN
         }
-
-        // If candidates with explicit transaction prefixes are found
-        if (candidates.isNotEmpty()) {
-            val distinct = candidates.distinct()
-            return if (distinct.size == 1 && distinct.first() > 0L && distinct.first() <= 100_000_000_000L) {
-                distinct.first()
-            } else {
-                null
+        val amountToman = when (currency) {
+            CurrencyType.TOMAN -> candidate.rawNumber
+            CurrencyType.RIAL -> {
+                if (candidate.rawNumber < 10L || candidate.rawNumber % 10L != 0L) return null
+                candidate.rawNumber / 10L
             }
+            CurrencyType.UNKNOWN -> return null
         }
-
-        // Step 4: Fallback - search for numbers with explicit attached currency
-        val fallbackPattern = Pattern.compile(
-            """([0-9,.\u060C\u066B\u066C]{3,15})\s*(ریال|تومان|Rls|IRR)""",
-            Pattern.CASE_INSENSITIVE
-        )
-        val curMatcher = fallbackPattern.matcher(maskedText)
-        val fallbackCandidates = mutableListOf<Long>()
-
-        while (curMatcher.find()) {
-            val numStr = cleanNumber(curMatcher.group(1) ?: continue)
-            val rawNumber = numStr.toLongOrNull() ?: continue
-            if (rawNumber <= 0L) continue
-
-            val unit = curMatcher.group(2)?.trim()
-            val isRial = unit?.contains("ریال", ignoreCase = true) == true ||
-                    unit?.contains("Rls", ignoreCase = true) == true ||
-                    unit?.contains("IRR", ignoreCase = true) == true
-
-            if (isRial) {
-                if (rawNumber >= 10L && rawNumber % 10L == 0L) {
-                    fallbackCandidates.add(rawNumber / 10L)
-                }
-            } else {
-                fallbackCandidates.add(rawNumber)
-            }
-        }
-
-        if (fallbackCandidates.isNotEmpty()) {
-            val distinctFallback = fallbackCandidates.distinct()
-            return if (distinctFallback.size == 1 && distinctFallback.first() > 0L && distinctFallback.first() <= 100_000_000_000L) {
-                distinctFallback.first()
-            } else {
-                null
-            }
-        }
-
-        return null
+        return amountToman.takeIf { it > 0L && it <= 100_000_000_000L }
     }
 
     /**
@@ -673,7 +608,7 @@ object BankSmsParser {
         val detectedType = detectTransactionType(cleanBody) ?: return false
 
         // Stage 4: Must have a valid, positive extracted amount
-        val amountToman = extractAmountToman(cleanBody) ?: return false
+        val amountToman = extractAmountToman(cleanBody, detectedType) ?: return false
         if (amountToman <= 0L) {
             return false
         }
@@ -704,7 +639,7 @@ object BankSmsParser {
             val detectedType = detectTransactionType(cleanBody) ?: return null
 
             // Stage 4: Strict extraction and validation of transaction amount
-            val amountToman = extractAmountToman(cleanBody)
+            val amountToman = extractAmountToman(cleanBody, detectedType)
             if (amountToman == null || amountToman <= 0L) {
                 return null
             }
