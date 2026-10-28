@@ -1,10 +1,8 @@
 package com.example.ui.screens.check.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -50,7 +48,6 @@ fun AddEditCheckDialog(
 
     val isDateInvalid = dueDate < issueDate
     var showError by remember { mutableStateOf(false) }
-    val scrollState = rememberScrollState()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -78,8 +75,7 @@ fun AddEditCheckDialog(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp)
-                    .verticalScroll(scrollState),
+                    .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (showError && isDateInvalid) {
