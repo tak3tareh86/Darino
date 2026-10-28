@@ -403,9 +403,11 @@ fun AddVehicleSheet(
                 OutlinedTextField(
                     value = mileageText,
                     onValueChange = { mileageText = it },
-                    label = { Text("کیلومتر فعلی") },
+                    label = { Text("کیلومتر فعلی", maxLines = 1) },
                     placeholder = { Text("45000") },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
