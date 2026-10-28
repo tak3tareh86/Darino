@@ -464,11 +464,11 @@ fun DarinoVehicleMainDashboard(
     if (state.showInsuranceSheet && state.selectedVehicle != null) {
         VehicleInsuranceSheet(
             vehicle = state.selectedVehicle!!,
-            onSaveInsurance = { comp: String, typ: String, s: String, e: String, amt: Long, num: String ->
-                viewModel.saveInsuranceRecord(comp, typ, s, e, amt, num)
+            onSaveInsurance = { comp: String, typ: String, s: String, e: String, amt: Long, num: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int> ->
+                viewModel.saveInsuranceRecord(comp, typ, s, e, amt, num, reminderEnabled, reminderTime, reminderDays)
             },
-            onSaveInspection = { lastD: String, expD: String, c: Long, st: String, cntr: String ->
-                viewModel.saveInspectionRecord(lastD, expD, c, st, cntr)
+            onSaveInspection = { lastD: String, expD: String, c: Long, st: String, cntr: String, reminderEnabled: Boolean, reminderTime: String, reminderDays: List<Int> ->
+                viewModel.saveInspectionRecord(lastD, expD, c, st, cntr, reminderEnabled, reminderTime, reminderDays)
             },
             onDismiss = { viewModel.closeInsuranceSheet() }
         )
