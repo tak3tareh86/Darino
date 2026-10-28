@@ -106,7 +106,9 @@ data class VehicleInsuranceEntity(
     val endDate: String,
     val amount: Long,
     val policyNumber: String = "",
-    val reminderDays: List<Int> = listOf(30, 15, 7)
+    val reminderDays: List<Int> = listOf(30, 15, 7),
+    val reminderEnabled: Boolean = false,
+    val reminderTime: String = "۰۹:۰۰"
 )
 
 /**
@@ -119,7 +121,10 @@ data class VehicleInspectionEntity(
     val expiryDate: String,
     val cost: Long,
     val status: String = "معتبر",
-    val centerName: String = "مرکز معاینه فنی نیایش"
+    val centerName: String = "مرکز معاینه فنی نیایش",
+    val reminderEnabled: Boolean = false,
+    val reminderTime: String = "۰۹:۰۰",
+    val reminderDays: List<Int> = listOf(30, 7, 1, 0)
 )
 
 /**
