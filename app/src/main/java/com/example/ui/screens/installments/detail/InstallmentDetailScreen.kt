@@ -294,7 +294,13 @@ fun InstallmentDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     var selectedTabIndex by remember { mutableStateOf(0) }
-                    val tabs = listOf("همه", "پرداخت شده", "پرداخت نشده")
+                    val paidCount = item.paymentHistory.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
+                    val unpaidCount = item.paymentHistory.count { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                    val tabs = listOf(
+                        "همه (${item.paymentHistory.size})",
+                        "پرداخت‌شده ($paidCount)",
+                        "پرداخت‌نشده ($unpaidCount)"
+                    )
                     val filteredHistory = remember(item.paymentHistory, selectedTabIndex) {
                         when (selectedTabIndex) {
                             1 -> item.paymentHistory.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
@@ -314,18 +320,28 @@ fun InstallmentDetailScreen(
                             Tab(
                                 selected = selectedTabIndex == index,
                                 onClick = { selectedTabIndex = index },
-                                text = { Text(title, style = MaterialTheme.typography.labelSmall) }
+                                text = { Text(title, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium)) }
                             )
                         }
                     }
 
                     if (filteredHistory.isEmpty()) {
-                        Text(
-                            text = "موردی یافت نشد.",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = when (selectedTabIndex) {
+                                    1 -> "هیچ قسط پرداخت‌شده‌ای ثبت نشده است."
+                                    2 -> "هیچ قسط پرداخت‌نشده‌ای وجود ندارد."
+                                    else -> "هیچ موردی یافت نشد."
+                                },
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             filteredHistory.forEach { historyItem ->

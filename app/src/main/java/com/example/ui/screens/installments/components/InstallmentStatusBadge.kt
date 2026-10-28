@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import com.example.ui.screens.installments.model.InstallmentStatus
 
 @Composable
@@ -30,28 +31,29 @@ fun InstallmentStatusBadge(
 
     Surface(
         modifier = modifier,
-        shape = if (compact) CircleShape else RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(if (compact) 6.dp else 8.dp),
         color = status.color.copy(alpha = bgAlpha),
         border = BorderStroke(0.8.dp, status.color.copy(alpha = borderAlpha))
     ) {
         Row(
             modifier = Modifier.padding(
                 horizontal = if (compact) 8.dp else 10.dp,
-                vertical = if (compact) 3.dp else 4.dp
+                vertical = if (compact) 3.dp else 5.dp
             ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Icon(
                 imageVector = status.icon,
                 contentDescription = null,
                 tint = status.color,
-                modifier = Modifier.size(if (compact) 12.dp else 14.dp)
+                modifier = Modifier.size(if (compact) 12.dp else 15.dp)
             )
             Text(
                 text = status.title,
                 style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = if (compact) 10.sp else 11.sp
+                    fontSize = if (compact) 10.5.sp else 11.5.sp,
+                    fontWeight = FontWeight.Medium
                 ),
                 color = status.color
             )
