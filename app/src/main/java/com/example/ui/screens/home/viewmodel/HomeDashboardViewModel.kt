@@ -602,7 +602,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
             obligationProcessingMutex.withLock {
                 try {
                     val obligation = _uiState.value.upcomingObligations.find { it.id == id }
-                    if (obligation == null) {
+                    if (obligation == null || obligation.amount <= 0L) {
                         safeResult(false)
                         return@withLock
                     }

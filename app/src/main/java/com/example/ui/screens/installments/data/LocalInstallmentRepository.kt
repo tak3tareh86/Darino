@@ -376,22 +376,15 @@ class LocalInstallmentRepository private constructor() {
 
                     // Confirm or recover financial transaction if required
                     if (financialTransaction != null) {
-                        if (financialTransaction.stringId.isBlank() || financialTransaction.amount <= 0L) {
-                            return@withLock false
-                        }
-                        var txConfirmed = false
-                        db.withTransaction {
-                            val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
-                            if (existingTx == null) {
-                                db.transactionDao().insertTransaction(financialTransaction)
+                        try {
+                            db.withTransaction {
+                                syncFinancialTransaction(db, userId, financialTransaction)
                             }
-                            val confirmedTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
-                            txConfirmed = (confirmedTx != null)
-                        }
-                        if (!txConfirmed) {
+                            com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                             return@withLock false
                         }
-                        com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
                     }
                     return@withLock true
                 }
@@ -554,17 +547,7 @@ class LocalInstallmentRepository private constructor() {
             val userId = SessionManager.userId ?: throw IllegalStateException("No authenticated user ID")
 
             if (financialTransaction != null) {
-                if (financialTransaction.stringId.isBlank() || financialTransaction.amount <= 0L) {
-                    throw IllegalArgumentException("Invalid financial transaction input for installment payment")
-                }
-                val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
-                if (existingTx == null) {
-                    db.transactionDao().insertTransaction(financialTransaction)
-                }
-                val confirmedTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
-                if (confirmedTx == null) {
-                    throw IllegalStateException("Failed to insert or recover required financial transaction")
-                }
+                syncFinancialTransaction(db, userId, financialTransaction)
             }
 
             val dao = db.installmentDao()
@@ -646,6 +629,57 @@ class LocalInstallmentRepository private constructor() {
             diffDays > 0 -> "${IranianPhoneUtils.convertDigitsToPersian(diffDays.toString())} روز دیگر"
             else -> "${IranianPhoneUtils.convertDigitsToPersian(kotlin.math.abs(diffDays).toString())} روز گذشته"
         }
+    }
+
+    private suspend fun syncFinancialTransaction(
+        db: AppDatabase,
+        userId: String,
+        financialTransaction: TransactionEntity
+    ): TransactionEntity {
+        if (financialTransaction.stringId.isBlank() || financialTransaction.amount <= 0L || financialTransaction.userId != userId) {
+            throw IllegalArgumentException("Invalid financial transaction input for installment payment")
+        }
+
+        val existingTx = db.transactionDao().getTransactionIncludingDeleted(userId, financialTransaction.stringId)
+        if (existingTx == null) {
+            db.transactionDao().insertTransaction(financialTransaction)
+            val confirmed = db.transactionDao().getTransactionByStringId(userId, financialTransaction.stringId)
+            if (confirmed == null || confirmed.deletedAt != null) {
+                throw IllegalStateException("Failed to insert or verify financial transaction: ${financialTransaction.stringId}")
+            }
+            return confirmed
+        }
+
+        // Verify business identity
+        val matchesBusinessIdentity = existingTx.userId == userId &&
+                existingTx.amount == financialTransaction.amount &&
+                existingTx.type == financialTransaction.type &&
+                existingTx.sourceType == financialTransaction.sourceType &&
+                existingTx.sourceId == financialTransaction.sourceId &&
+                (financialTransaction.accountId.isNullOrBlank() || existingTx.accountId == financialTransaction.accountId)
+
+        if (!matchesBusinessIdentity) {
+            throw IllegalStateException("Transaction ID collision with mismatched financial data: id=${financialTransaction.stringId}")
+        }
+
+        if (existingTx.deletedAt != null) {
+            // Restore soft-deleted transaction safely
+            val restored = existingTx.copy(
+                deletedAt = null,
+                updatedAt = System.currentTimeMillis(),
+                syncState = "PENDING_UPSERT",
+                title = financialTransaction.title.ifBlank { existingTx.title },
+                description = financialTransaction.description.ifBlank { existingTx.description }
+            )
+            db.transactionDao().updateTransaction(restored)
+            val confirmed = db.transactionDao().getTransactionByStringId(userId, financialTransaction.stringId)
+            if (confirmed == null || confirmed.deletedAt != null) {
+                throw IllegalStateException("Failed to restore soft-deleted financial transaction: ${financialTransaction.stringId}")
+            }
+            return confirmed
+        }
+
+        return existingTx
     }
 
     companion object {
