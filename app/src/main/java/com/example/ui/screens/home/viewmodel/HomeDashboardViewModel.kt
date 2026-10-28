@@ -634,76 +634,93 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     ObligationType.VEHICLE_INSURANCE -> {
                         val insId = obligation.rawId
                         val insurance = VehicleRepository.instance.insurances.value.find { it.id == insId }
-                        val vehicleId = insurance?.vehicleId ?: VehicleRepository.instance.vehicles.value.firstOrNull()?.id ?: ""
+                            ?: run {
+                                onResult(false)
+                                return@launch
+                            }
+                        val vehicleId = insurance.vehicleId
+                        if (vehicleId.isBlank()) {
+                            onResult(false)
+                            return@launch
+                        }
 
                         val nextYearDate = IranianDateUtils.createFormattedDate(currentPdt.year + 1, currentPdt.month, currentPdt.day)
-                        VehicleRepository.instance.renewInsurance(insId, nextYearDate)
-
-                        VehicleRepository.instance.addExpense(
-                            vehicleId = vehicleId,
-                            title = obligation.title,
-                            category = VehicleExpenseCategory.INSURANCE,
-                            amount = obligation.amount,
-                            date = todayJalali,
-                            description = "پرداخت و تمدید بیمه از داشبورد خانه"
-                        )
-
-                        val finTx = TransactionItemData(
-                            id = "tx_ins_pay_${System.currentTimeMillis()}",
-                            title = obligation.title,
-                            amount = obligation.amount,
-                            type = TransactionType.EXPENSE,
-                            category = TransactionCategory(
-                                id = "cat_insurance",
-                                title = "بیمه خودرو",
-                                iconEmoji = "🛡️",
-                                accentColor = Color(0xFFF59E0B),
-                                type = TransactionType.EXPENSE
-                            ),
-                            datePersian = todayJalali,
-                            timePersian = nowTime,
-                            accountName = "کارت بانکی",
-                            description = "پرداخت بیمه از داشبورد خانه"
-                        )
-                        LocalFinanceRepository.instance.addTransaction(finTx)
-                        true
+                        val renewalResult = VehicleRepository.instance.renewInsurance(insId, nextYearDate)
+                        if (renewalResult.isFailure) {
+                            false
+                        } else {
+                            val expenseResult = VehicleRepository.instance.addExpense(
+                                vehicleId = vehicleId,
+                                title = obligation.title,
+                                category = VehicleExpenseCategory.INSURANCE,
+                                amount = obligation.amount,
+                                date = todayJalali,
+                                description = "پرداخت و تمدید بیمه از داشبورد خانه"
+                            )
+                            if (expenseResult.isFailure) {
+                                false
+                            } else {
+                                val finTx = TransactionItemData(
+                                    id = "tx_ins_pay_${System.currentTimeMillis()}",
+                                    title = obligation.title,
+                                    amount = obligation.amount,
+                                    type = TransactionType.EXPENSE,
+                                    category = TransactionCategory(
+                                        id = "cat_insurance",
+                                        title = "بیمه خودرو",
+                                        iconEmoji = "🛡️",
+                                        accentColor = Color(0xFFF59E0B),
+                                        type = TransactionType.EXPENSE
+                                    ),
+                                    datePersian = todayJalali,
+                                    timePersian = nowTime,
+                                    accountName = "کارت بانکی",
+                                    description = "پرداخت بیمه از داشبورد خانه"
+                                )
+                                LocalFinanceRepository.instance.addTransactionResult(finTx) ==
+                                    com.example.ui.screens.finance.data.TransactionOperationResult.SUCCESS
+                            }
+                        }
                     }
 
                     else -> {
                         val serviceId = obligation.rawId
-                        VehicleRepository.instance.completeService(serviceId, todayJalali)
+                        val service = VehicleRepository.instance.services.value.find { it.id == serviceId }
+                            ?: run {
+                                onResult(false)
+                                return@launch
+                            }
+                        if (service.vehicleId.isBlank()) {
+                            onResult(false)
+                            return@launch
+                        }
 
-                        val vId = VehicleRepository.instance.services.value.find { it.id == serviceId }?.vehicleId
-                            ?: VehicleRepository.instance.vehicles.value.firstOrNull()?.id ?: ""
-
-                        VehicleRepository.instance.addExpense(
-                            vehicleId = vId,
-                            title = obligation.title,
-                            category = VehicleExpenseCategory.SERVICE,
-                            amount = obligation.amount,
-                            date = todayJalali,
-                            description = "انجام سرویس دوره‌ای از داشبورد خانه"
-                        )
-
-                        val finTx = TransactionItemData(
-                            id = "tx_ob_pay_${System.currentTimeMillis()}",
-                            title = obligation.title,
-                            amount = obligation.amount,
-                            type = TransactionType.EXPENSE,
-                            category = TransactionCategory(
-                                id = "cat_other",
-                                title = "سایر هزینه‌ها",
-                                iconEmoji = "📝",
-                                accentColor = Color(0xFF10B981),
-                                type = TransactionType.EXPENSE
-                            ),
-                            datePersian = todayJalali,
-                            timePersian = nowTime,
-                            accountName = "کارت بانکی",
-                            description = "تسویه تعهد از داشبورد خانه"
-                        )
-                        LocalFinanceRepository.instance.addTransaction(finTx)
-                        true
+                        val completionResult = VehicleRepository.instance.completeService(serviceId, todayJalali)
+                        if (completionResult.isFailure) {
+                            false
+                        } else {
+                            // completeService synchronizes the service's linked expense when one exists.
+                            // Do not create a second vehicle expense here.
+                            val finTx = TransactionItemData(
+                                id = "tx_ob_pay_${System.currentTimeMillis()}",
+                                title = obligation.title,
+                                amount = obligation.amount,
+                                type = TransactionType.EXPENSE,
+                                category = TransactionCategory(
+                                    id = "cat_other",
+                                    title = "سایر هزینه‌ها",
+                                    iconEmoji = "📝",
+                                    accentColor = Color(0xFF10B981),
+                                    type = TransactionType.EXPENSE
+                                ),
+                                datePersian = todayJalali,
+                                timePersian = nowTime,
+                                accountName = "کارت بانکی",
+                                description = "تسویه تعهد از داشبورد خانه"
+                            )
+                            LocalFinanceRepository.instance.addTransactionResult(finTx) ==
+                                com.example.ui.screens.finance.data.TransactionOperationResult.SUCCESS
+                        }
                     }
                 }
 
