@@ -14,6 +14,7 @@ data class FinancialHealthState(
     val healthStatus: FinancialHealthStatus = FinancialHealthStatus.MEDIUM,
     val hasIncomeData: Boolean = false,
     val incomeFromTransactions: Boolean = false,
+    val profileUpdatedAt: Long = 0L,
     val hasFixedExpensesData: Boolean = false,
     val hasInstallmentScheduleData: Boolean = false,
     val hasPreviousMonthData: Boolean = false,
