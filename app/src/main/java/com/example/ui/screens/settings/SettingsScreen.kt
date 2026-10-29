@@ -466,7 +466,7 @@ private fun SettingsMainView(
                         SettingsSectionCard(title = "مدیریت مالی و تعهدات") {
                             SettingsItem(
                                 title = "درآمد ماهانه من",
-                                subtitle = "تنظیم و ویرایش درآمد ماهانه جهت تحلیل سلامت مالی (${MoneyFormatter.formatToman(monthlyIncome)})",
+                                subtitle = "تنظیم و ویرایش درآمد ماهانه جهت تحلیل سلامت مالی",
                                 vectorIcon = Icons.Rounded.MonetizationOn,
                                 iconAccentColor = Color(0xFF10B981),
                                 onClick = onEditIncomeClick
