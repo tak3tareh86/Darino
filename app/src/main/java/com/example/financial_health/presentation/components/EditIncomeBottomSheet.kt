@@ -33,7 +33,7 @@ fun EditIncomeBottomSheet(
     currentFixedExpenses: Long,
     sheetState: SheetState,
     onDismiss: () -> Unit,
-    onSave: (income: Long, fixedExpenses: Long) -> Unit
+    onSave: (income: Long, fixedExpenses: Long, onResult: (Boolean) -> Unit) -> Unit
 ) {
     var rawIncomeText by remember(currentIncome) {
         mutableStateOf(if (currentIncome > 0) currentIncome.toString() else "")
@@ -43,6 +43,7 @@ fun EditIncomeBottomSheet(
     }
 
     var validationError by remember { mutableStateOf<String?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
 
     val decimalFormat = remember { DecimalFormat("#,###") }
 
@@ -65,7 +66,7 @@ fun EditIncomeBottomSheet(
     }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isSaving) onDismiss() },
         sheetState = sheetState,
         dragHandle = { BottomSheetDefaults.DragHandle() },
         containerColor = MaterialTheme.colorScheme.surface,
@@ -103,7 +104,7 @@ fun EditIncomeBottomSheet(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                IconButton(onClick = onDismiss) {
+                IconButton(onClick = onDismiss, enabled = !isSaving) {
                     Icon(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = "بستن",
@@ -250,9 +251,18 @@ fun EditIncomeBottomSheet(
                         validationError = "هزینه ثابت نمی‌تواند منفی باشد."
                     } else {
                         validationError = null
-                        onSave(incomeVal, fixedVal)
+                        isSaving = true
+                        onSave(incomeVal, fixedVal) { saved ->
+                            isSaving = false
+                            if (saved) {
+                                onDismiss()
+                            } else {
+                                validationError = "ذخیره اطلاعات انجام نشد؛ لطفاً دوباره تلاش کنید."
+                            }
+                        }
                     }
                 },
+                enabled = !isSaving,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
@@ -272,7 +282,7 @@ fun EditIncomeBottomSheet(
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
-                        text = "ذخیره و محاسبه مجدد شاخص",
+                        text = if (isSaving) "در حال ذخیره..." else "ذخیره و محاسبه مجدد شاخص",
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
