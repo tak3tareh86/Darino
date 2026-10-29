@@ -139,7 +139,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         FinancialHealthState(
             monthlyIncome = income, totalInstallments = monthlyInstallments, fixedExpenses = fixedExpenses,
             totalCommitments = totalCommitments, pressurePercentage = pressure ?: 0f, healthStatus = status,
-            hasIncomeData = income > 0L, hasPreviousMonthData = previousPressure != null && currentHistoryPressure != null, insights = insights,
+            hasIncomeData = income > 0L, hasPreviousMonthData = previousPressure != null && currentHistoryPressure != null,
+            currentMonthComparisonPressure = currentHistoryPressure, insights = insights,
             isLoading = false, errorMessage = currentError, activeInstallmentsCount = active.size,
             totalInstallmentsMonthlyFormatted = if (scheduledCurrentMonth > 0L) formatter.format(scheduledCurrentMonth) + " تومان" else "سررسید مبلغ‌دار ثبت نشده",
             nearestDueDateDays = daysToNearest, nearestDueDateTitle = nearestTitle ?: "سررسیدی ثبت نشده",
