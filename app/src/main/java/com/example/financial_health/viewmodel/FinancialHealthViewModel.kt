@@ -128,8 +128,9 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         }.maxByOrNull { it.second.amount }
 
         val nextMonth = NextMonthPrediction(
-            installments = scheduledNextMonth, reminders = 0L, vehicleExpenses = nextMonthVehicleExpenses,
-            remindersAmountRecorded = false, vehicleExpensesAmountRecorded = hasNextMonthVehicleExpenseAmount
+            installments = scheduledNextMonth, fixedExpenses = fixedExpenses, reminders = 0L, vehicleExpenses = nextMonthVehicleExpenses,
+            fixedExpensesAmountRecorded = profile.isConfigured, remindersAmountRecorded = false,
+            vehicleExpensesAmountRecorded = hasNextMonthVehicleExpenseAmount
         )
         val insights = FinancialAnalyzerEngine.generateInsights(
             income = income, installments = monthlyInstallments, fixedExpenses = fixedExpenses,
@@ -139,7 +140,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         FinancialHealthState(
             monthlyIncome = income, totalInstallments = monthlyInstallments, fixedExpenses = fixedExpenses,
             totalCommitments = totalCommitments, pressurePercentage = pressure ?: 0f, healthStatus = status,
-            hasIncomeData = income > 0L, hasPreviousMonthData = previousPressure != null && currentHistoryPressure != null,
+            hasIncomeData = income > 0L, hasFixedExpensesData = profile.isConfigured,
+            hasPreviousMonthData = previousPressure != null && currentHistoryPressure != null,
             currentMonthComparisonPressure = currentHistoryPressure, insights = insights,
             isLoading = false, errorMessage = currentError, activeInstallmentsCount = active.size,
             totalInstallmentsMonthlyFormatted = if (scheduledCurrentMonth > 0L) formatter.format(scheduledCurrentMonth) + " تومان" else "سررسید مبلغ‌دار ثبت نشده",
