@@ -145,10 +145,11 @@ fun VehicleCostChart(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceAround
         ) {
-            ChartLegendItem(title = "سوخت", color = Color(0xFF3B82F6))
-            ChartLegendItem(title = "سرویس", color = Color(0xFF10B981))
-            ChartLegendItem(title = "تعمیرات", color = Color(0xFFEF4444))
-            ChartLegendItem(title = "بیمه", color = Color(0xFFF59E0B))
+            ChartLegendItem(title = "سوخت", color = Color(0xFF38BDF8))
+            ChartLegendItem(title = "سرویس", color = Color(0xFF34D399))
+            ChartLegendItem(title = "تعمیرات و قطعات", color = Color(0xFFFB7185))
+            ChartLegendItem(title = "بیمه", color = Color(0xFFFBBF24))
+            ChartLegendItem(title = "سایر", color = Color(0xFFA78BFA))
         }
     }
 }
