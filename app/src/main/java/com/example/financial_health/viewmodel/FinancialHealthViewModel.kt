@@ -66,7 +66,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val scheduleNumbers = validPayments.map { it.installmentNumber }.toSet()
         return validPayments.size == expectedCount &&
             scheduleNumbers.size == expectedCount &&
-            scheduleNumbers.containsAll(1..expectedCount)
+            scheduleNumbers.containsAll((1..expectedCount).toSet())
     }
 
     private fun hasCompleteSchedule(item: InstallmentItem): Boolean {
