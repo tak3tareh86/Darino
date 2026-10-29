@@ -558,7 +558,7 @@ private fun CommitmentRowItem(
         }
 
         Text(
-            text = if (amountRecorded) IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(amount)) + " تومان" else "مبلغ ثبت نشده",
+            text = IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(amount)) + " تومان",
             style = MaterialTheme.typography.titleSmall.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.5.sp
