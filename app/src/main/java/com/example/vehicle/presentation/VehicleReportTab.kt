@@ -22,6 +22,7 @@ import com.example.vehicle.domain.VehicleStatistics
 import com.example.vehicle.data.VehicleExpenseEntity
 import com.example.vehicle.presentation.components.VehicleCostChart
 import com.example.vehicle.presentation.components.VehicleExpenseInsightsSection
+import com.example.util.MoneyFormatter
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -44,15 +45,9 @@ fun VehicleReportTab(
         return
     }
 
-    val monthCostFormatted = IranianPhoneUtils.convertDigitsToPersian(
-        NumberFormat.getNumberInstance(Locale.US).format(statistics.currentMonthCost)
-    )
-    val yearCostFormatted = IranianPhoneUtils.convertDigitsToPersian(
-        NumberFormat.getNumberInstance(Locale.US).format(statistics.yearlyCost)
-    )
-    val topCostAmountFormatted = IranianPhoneUtils.convertDigitsToPersian(
-        NumberFormat.getNumberInstance(Locale.US).format(statistics.topCostAmount)
-    )
+    val monthCostFormatted = MoneyFormatter.formatToman(statistics.currentMonthCost)
+    val yearCostFormatted = MoneyFormatter.formatToman(statistics.yearlyCost)
+    val topCostAmountFormatted = MoneyFormatter.formatToman(statistics.topCostAmount)
 
     LazyColumn(
         modifier = modifier
@@ -97,7 +92,7 @@ fun VehicleReportTab(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = "$monthCostFormatted تومان",
+                                    text = monthCostFormatted,
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp
@@ -123,7 +118,7 @@ fun VehicleReportTab(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = "$yearCostFormatted تومان",
+                                    text = yearCostFormatted,
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp
@@ -180,7 +175,7 @@ fun VehicleReportTab(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = "${statistics.topCostCategoryTitle} ($topCostAmountFormatted تومان)",
+                                    text = "${statistics.topCostCategoryTitle} ($topCostAmountFormatted)",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp
@@ -319,7 +314,7 @@ fun VehicleReportTab(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "$amountStr تومان",
+                                    text = amountStr,
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
