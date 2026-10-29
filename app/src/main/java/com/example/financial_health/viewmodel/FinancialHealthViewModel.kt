@@ -113,7 +113,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         )
         val insights = FinancialAnalyzerEngine.generateInsights(
             income = income, installments = monthlyInstallments, fixedExpenses = fixedExpenses,
-            currentPressure = pressure, previousMonthPressure = previousPressure, nextMonthPrediction = nextMonth
+            currentPressure = history.lastOrNull()?.pressurePercentage, previousMonthPressure = previousPressure, nextMonthPrediction = nextMonth
         )
         val formatter = DecimalFormat("#,###")
         FinancialHealthState(
