@@ -135,10 +135,10 @@ fun FinancialPressureChart(
                 val topPadding = 24.dp.toPx()
                 val bottomPadding = 28.dp.toPx()
                 val usableHeight = height - topPadding - bottomPadding
-                val stepX = width / (dataPoints.size - 1).coerceAtLeast(1)
+                val stepX = if (dataPoints.size <= 1) width / 2f else width / (dataPoints.size - 1)
 
                 // Max scale is 60% or highest point + 10%
-                val maxPressure = 60.0f
+                val maxPressure = maxOf(60.0f, (dataPoints.maxOfOrNull { it.pressurePercentage } ?: 0f) + 10f)
                 val minPressure = 0.0f
 
                 // Draw reference lines at 30% and 50%
