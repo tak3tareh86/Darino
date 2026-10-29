@@ -139,8 +139,10 @@ class VehicleViewModel(
         _uiState.update { it.copy(showAddVehicleSheet = false) }
     }
 
-    fun openAddService() {
-        _uiState.update { it.copy(showAddServiceSheet = true) }
+    fun openAddService(serviceType: ServiceType = ServiceType.OIL_CHANGE) {
+        _uiState.update {
+            it.copy(showAddServiceSheet = true, requestedServiceType = serviceType)
+        }
     }
 
     fun closeAddService() {
