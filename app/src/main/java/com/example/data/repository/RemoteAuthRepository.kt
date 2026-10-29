@@ -256,18 +256,12 @@ class RemoteAuthRepository(
             Log.w("RemoteAuthRepository", "Backend register unreachable (${e.message}), registering in local DB.")
         }
 
-        // Offline Fallback: Register locally in Room DB
-        val localResult = localAuthRepository.register(cleanUsername, password, cleanEmail)
-        localResult.fold(
-            onSuccess = { user ->
-                _currentUser.value = user
-                _authState.value = AuthState.Authenticated(user)
-            },
-            onFailure = { err ->
-                _authState.value = AuthState.Error(err.message ?: "خطا در ثبت نام.")
-            }
-        )
-        return@withContext localResult
+        // Never report a local-only account as a successful registration.
+        // Local Room accounts disappear when the app is uninstalled and cannot be used
+        // to sign in on another device. Registration must be confirmed by the backend.
+        val message = "ثبت‌نام در سرور تأیید نشد. اتصال اینترنت و نشانی سرور را بررسی کنید و دوباره تلاش کنید."
+        _authState.value = AuthState.Error(message)
+        return@withContext Result.failure(IllegalStateException(message))
     }
 
     override suspend fun recoverPasswordByEmail(email: String): Result<PasswordRecoveryResult> = withContext(Dispatchers.IO) {
