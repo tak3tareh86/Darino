@@ -236,6 +236,22 @@ fun FinancialPressureChart(
                     )
                 }
             }
+
+            if (dataPoints.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "برای نمایش روند واقعی، اطلاعات درآمد و برنامه کامل اقساط در ماه‌های گذشته لازم است.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp
+                        ),
+                        color = textColor
+                    )
+                }
+            }
         }
 
         // X-Axis month labels & percentage badges
