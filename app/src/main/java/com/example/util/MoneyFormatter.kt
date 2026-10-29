@@ -1,6 +1,9 @@
 package com.example.util
 
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.ui.screens.settings.model.AppLanguage
 import java.text.DecimalFormat
@@ -17,15 +20,14 @@ val LocalAppLanguage = compositionLocalOf { AppLanguage.PERSIAN }
  */
 object MoneyFormatter {
 
-    @Volatile
-    var activeCurrency: AppCurrency = AppCurrency.TOMAN
+    // Snapshot state makes every composable that formats money react to preference changes.
+    // This prevents UI elements from retaining strings formatted with the previous currency.
+    var activeCurrency: AppCurrency by mutableStateOf(AppCurrency.TOMAN)
 
-    @Volatile
-    var activeLanguage: AppLanguage = AppLanguage.PERSIAN
+    var activeLanguage: AppLanguage by mutableStateOf(AppLanguage.PERSIAN)
 
-    @Volatile
-    var activeNumberMode: com.example.ui.screens.settings.model.NumberDisplayMode =
-        com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN
+    var activeNumberMode: com.example.ui.screens.settings.model.NumberDisplayMode by
+        mutableStateOf(com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN)
 
     fun toPersianDigits(input: String): String {
         return AppNumberFormatter.formatDigits(input, activeNumberMode)
