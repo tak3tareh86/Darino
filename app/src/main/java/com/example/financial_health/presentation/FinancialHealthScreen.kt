@@ -271,7 +271,7 @@ private fun HealthOverviewHeroCard(
                     border = BorderStroke(1.dp, statusColor.copy(alpha = 0.5f))
                 ) {
                     Text(
-                        text = if (state.hasIncomeData) status.badgeText else "⚪ نیازمند ثبت درآمد",
+                        text = if (state.hasIncomeData && state.hasFixedExpensesData) status.badgeText else "⚪ تکمیل اطلاعات مالی",
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
@@ -294,7 +294,7 @@ private fun HealthOverviewHeroCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = if (state.hasIncomeData) "${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪" else "—",
+                            text = if (state.hasIncomeData && state.hasFixedExpensesData) "${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪" else "—",
                             style = MaterialTheme.typography.displaySmall.copy(
                                 fontWeight = FontWeight.Black,
                                 fontSize = 42.sp
@@ -312,7 +312,7 @@ private fun HealthOverviewHeroCard(
                         )
                     }
                     Text(
-                        text = if (state.hasIncomeData) status.defaultMessage else "برای محاسبه معتبر، درآمد ماهانه را ثبت کنید. تا آن زمان درصد و وضعیت سلامت مالی قابل تعیین نیست.",
+                        text = if (state.hasIncomeData && state.hasFixedExpensesData) status.defaultMessage else "برای محاسبه معتبر، درآمد و هزینه‌های ثابت ماهانه را در پروفایل ثبت کنید. تا آن زمان درصد فشار مالی کامل قابل تعیین نیست.",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 12.sp,
                             lineHeight = 18.sp,
@@ -505,7 +505,7 @@ private fun FinancialCommitmentsBreakdownCard(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = if (state.hasIncomeData) "معادل ${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪ درآمد" else "برای محاسبه، درآمد را ثبت کنید",
+                            text = if (state.hasIncomeData && state.hasFixedExpensesData) "معادل ${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪ درآمد" else "برای محاسبه، درآمد و هزینه ثابت را ثبت کنید",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
@@ -801,6 +801,13 @@ private fun NextMonthPredictionSectionCard(
                     decimalFormat = decimalFormat,
                     color = Color(0xFF3B82F6),
                     amountRecorded = prediction.installments > 0L
+                )
+                PredictionItemRow(
+                    label = "هزینه‌های ثابت",
+                    amount = prediction.fixedExpenses,
+                    decimalFormat = decimalFormat,
+                    color = Color(0xFF8B5CF6),
+                    amountRecorded = prediction.fixedExpensesAmountRecorded
                 )
                 PredictionItemRow(
                     label = "یادآورها",
