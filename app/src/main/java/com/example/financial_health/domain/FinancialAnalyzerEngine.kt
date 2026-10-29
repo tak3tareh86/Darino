@@ -20,7 +20,8 @@ object FinancialAnalyzerEngine {
         income: Long, installments: Long, fixedExpenses: Long,
         currentPressure: Float?, previousMonthPressure: Float?,
         nextMonthPrediction: NextMonthPrediction,
-        installmentDataComplete: Boolean = true
+        installmentDataComplete: Boolean = true,
+        fixedExpensesRecorded: Boolean = true
     ): List<FinancialHealthInsight> {
         val insights = mutableListOf<FinancialHealthInsight>()
         if (income <= 0L) {
@@ -82,11 +83,11 @@ object FinancialAnalyzerEngine {
             )
         }
 
-        val excess = installments + fixedExpenses - (income * 0.30).toLong()
-        if (installmentDataComplete && excess > 0L) {
+        val excess = installments.toDouble() + fixedExpenses.toDouble() - income.toDouble() * 0.30
+        if (installmentDataComplete && fixedExpensesRecorded && excess > 0.0) {
             insights += FinancialHealthInsight(
                 id = "safe_zone_target", title = "مقایسه با محدوده هدف ۳۰٪",
-                description = "تعهدات ثبت‌شده ${excess / 1_000_000.0} میلیون تومان بالاتر از ۳۰٪ درآمد هستند؛ این یک معیار راهنماست، نه ارزیابی قطعی.",
+                description = "اقساط و هزینه‌های ثابت ثبت‌شده ${excess / 1_000_000.0} میلیون تومان بالاتر از ۳۰٪ درآمد ثبت‌شده هستند؛ این یک معیار راهنماست، نه ارزیابی قطعی.",
                 type = InsightType.INFO,
                 recommendation = "درآمد و هزینه‌های ثابت ثبت‌شده را بازبینی کنید و از ایجاد تعهد غیرضروری بپرهیزید."
             )
