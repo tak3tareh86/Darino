@@ -17,6 +17,9 @@ interface ReminderDao {
     @Query("DELETE FROM smart_reminders WHERE userId = :userId")
     suspend fun clearAllReminders(userId: String): Int
 
+    @Query("DELETE FROM smart_reminder_schedules WHERE reminderId IN (SELECT id FROM smart_reminders WHERE userId = :userId)")
+    suspend fun clearAllSchedules(userId: String): Int
+
     @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND status = 'ACTIVE' ORDER BY date ASC, time ASC")
     fun getActiveReminders(userId: String): Flow<List<ReminderEntity>>
 
