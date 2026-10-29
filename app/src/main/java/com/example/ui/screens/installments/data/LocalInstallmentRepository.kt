@@ -82,13 +82,18 @@ class LocalInstallmentRepository private constructor() {
                         updateInternalState(emptyList())
                         return@collectLatest
                     }
-                    reloadForUser(appCtx, userId)
+                    // Never expose the previous account's cached data while loading a new session.
+                    updateInternalState(emptyList())
+                    runCatching { reloadForUser(appCtx, userId) }
+                        .onFailure { updateInternalState(emptyList()) }
                 }
             }
         }
     }
 
     private suspend fun reloadForUser(appCtx: Context, userId: String) {
+        // Fail closed: a failed/partial DB read must not leave stale or cross-account data visible.
+        updateInternalState(emptyList())
         try {
             val db = AppDatabase.getDatabase(appCtx)
             val dao = db.installmentDao()
@@ -97,8 +102,12 @@ class LocalInstallmentRepository private constructor() {
 
             if (dbInsts.isNotEmpty()) {
                 val loaded = dbInsts.map { entity ->
-                    val cat = try { InstallmentCategory.valueOf(entity.category) } catch (e: Exception) { InstallmentCategory.BANK_LOANS }
-                    val status = try { InstallmentStatus.valueOf(entity.status) } catch (e: Exception) { InstallmentStatus.PENDING }
+                    val cat = runCatching { InstallmentCategory.valueOf(entity.category) }
+                        .getOrElse { throw IllegalStateException("Invalid installment category in DB: ${entity.id}", it) }
+                    val status = runCatching { InstallmentStatus.valueOf(entity.status) }
+                        .getOrElse { throw IllegalStateException("Invalid installment status in DB: ${entity.id}", it) }
+                    require(entity.totalInstallments > 0) { "Invalid totalInstallments in DB: ${entity.id}" }
+                    require(entity.amount > 0L) { "Invalid installment amount in DB: ${entity.id}" }
 
                     val startJalali = if (entity.startDate > 0L) {
                         PersianCalendarHelper.fromEpochMillis(entity.startDate).toFormattedDate()
@@ -124,7 +133,10 @@ class LocalInstallmentRepository private constructor() {
                         val paidStr = p.paidDate?.takeIf { it > 0L }?.let {
                             PersianCalendarHelper.fromEpochMillis(it).toFormattedDate()
                         }
-                        val pStatus = try { InstallmentStatus.valueOf(p.status) } catch (e: Exception) { InstallmentStatus.PENDING }
+                        require(p.amount > 0L) { "Invalid payment amount in DB: ${p.id}" }
+                        require(p.installmentNumber in 1..entity.totalInstallments) { "Invalid installment number in DB: ${p.id}" }
+                        val pStatus = runCatching { InstallmentStatus.valueOf(p.status) }
+                            .getOrElse { throw IllegalStateException("Invalid payment status in DB: ${p.id}", it) }
 
                         PaymentHistoryItem(
                             id = p.paymentReference ?: "p_${p.id}",
@@ -138,12 +150,22 @@ class LocalInstallmentRepository private constructor() {
                         )
                     }.sortedBy { it.installmentNumber }
 
-                    val paidAmount = payments.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }.sumOf { it.amount }
-                    val paidInstallmentsCount = payments.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
+                    val duplicateNumbers = payments.groupingBy { it.installmentNumber }.eachCount().filterValues { it > 1 }
+                    require(duplicateNumbers.isEmpty()) { "Duplicate installment schedule rows in DB: ${entity.id}" }
+                    val paidPayments = payments.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
+                    val paidAmount = paidPayments.sumOf { it.amount }
+                    require(paidAmount <= entity.amount) { "Paid amount exceeds contract amount in DB: ${entity.id}" }
+                    val paidInstallmentsCount = paidPayments.map { it.installmentNumber }.toSet().size
                     val remainingInstallmentsCount = (entity.totalInstallments - paidInstallmentsCount).coerceAtLeast(0)
-                    val remainingAmount = (entity.amount - paidAmount).coerceAtLeast(0L)
+                    val remainingAmount = entity.amount - paidAmount
 
-                    val actualStatus = if (remainingInstallmentsCount == 0) InstallmentStatus.COMPLETED else status
+                    // Schedule/payment history is the source of truth for whether a contract is still active.
+                    // Do not let a stale top-level PAID/COMPLETED flag hide unpaid scheduled payments.
+                    val actualStatus = when {
+                        remainingInstallmentsCount == 0 -> InstallmentStatus.COMPLETED
+                        status == InstallmentStatus.PAID || status == InstallmentStatus.COMPLETED -> InstallmentStatus.PENDING
+                        else -> status
+                    }
                     val dueDaysText = computeDueDaysText(nextDueMillis, actualStatus, remainingInstallmentsCount)
 
                     val firstUnpaid = payments
@@ -185,6 +207,7 @@ class LocalInstallmentRepository private constructor() {
                 updateInternalState(emptyList())
             }
         } catch (e: Exception) {
+            updateInternalState(emptyList())
             e.printStackTrace()
             throw e
         }
