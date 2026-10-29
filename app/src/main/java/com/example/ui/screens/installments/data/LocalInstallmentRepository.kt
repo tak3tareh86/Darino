@@ -146,7 +146,9 @@ class LocalInstallmentRepository private constructor() {
                     val actualStatus = if (remainingInstallmentsCount == 0) InstallmentStatus.COMPLETED else status
                     val dueDaysText = computeDueDaysText(nextDueMillis, actualStatus, remainingInstallmentsCount)
 
-                    val firstUnpaid = payments.firstOrNull { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                    val firstUnpaid = payments
+                        .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                        .minByOrNull { parseJalaliStringToMillis(it.dueDate) ?: Long.MAX_VALUE }
                     val effectiveNextPaymentDate = firstUnpaid?.dueDate ?: nextDueJalali
 
                     val monthly = if (payments.isNotEmpty()) {
