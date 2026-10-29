@@ -1103,7 +1103,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                                     Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Soft3DIcon(imageRes = R.drawable.img_3d_insurance, contentDescription = ins.type, size = 30.dp, accentColor = Color(0xFFF59E0B))
                                         Column {
-                                            Text("بیمه ${ins.type} (${ins.company})", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                            Text("${ins.type} (${ins.company})", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                                             Text("شماره بیمه‌نامه: ${ins.policyNumber.ifEmpty { "ثبت نشده" }}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
