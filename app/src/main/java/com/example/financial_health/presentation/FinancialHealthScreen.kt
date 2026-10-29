@@ -919,7 +919,7 @@ private fun SmartAlertsSection(state: FinancialHealthState) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (state.hasPreviousMonthData) "ماه قبل: ${IranianPhoneUtils.convertDigitsToPersian(state.previousMonthPressure.toInt().toString())}٪" else "ماه قبل: داده کافی نیست",
+                    text = if (state.hasPreviousMonthData) "سهم اقساط ماه قبل: ${IranianPhoneUtils.convertDigitsToPersian(state.previousMonthPressure.toInt().toString())}٪" else "سهم اقساط ماه قبل: داده کافی نیست",
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -929,7 +929,7 @@ private fun SmartAlertsSection(state: FinancialHealthState) {
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = if (state.hasPreviousMonthData) "ماه جاری: ${IranianPhoneUtils.convertDigitsToPersian((state.currentMonthComparisonPressure ?: 0f).toInt().toString())}٪" else "ماه جاری: داده کافی نیست",
+                    text = if (state.hasPreviousMonthData) "سهم اقساط ماه جاری: ${IranianPhoneUtils.convertDigitsToPersian((state.currentMonthComparisonPressure ?: 0f).toInt().toString())}٪" else "سهم اقساط ماه جاری: داده کافی نیست",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = state.healthStatus.color
