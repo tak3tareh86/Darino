@@ -520,6 +520,15 @@ fun InstallmentsScreen(
                     }
                     return@AddInstallmentSheet
                 }
+                if (customScheduleItems.isNullOrEmpty() &&
+                    totalInstallments > 1 &&
+                    parsedMonthly * (totalInstallments - 1L) >= totalAmount
+                ) {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("مبلغ هر قسط با مبلغ کل و تعداد اقساط سازگار نیست؛ لطفاً مبالغ را بررسی کنید.")
+                    }
+                    return@AddInstallmentSheet
+                }
 
                 val monthlyFormatted = com.example.util.MoneyFormatter.formatToman(parsedMonthly)
                 val totalFormatted = com.example.util.MoneyFormatter.formatToman(totalAmount)
@@ -619,7 +628,14 @@ fun InstallmentsScreen(
                 val paidFormatted = com.example.util.MoneyFormatter.formatToman(paidAmount)
                 val remainingFormatted = com.example.util.MoneyFormatter.formatToman(remainingAmount)
 
-                val targetMillis = PersianCalendarHelper.jalaliToEpochMillis(parsedTriple.first, parsedTriple.second, parsedTriple.third, 9, 0)
+                val nextPaymentTriple = com.example.calendar.domain.CalendarDateUtils.parseJalali(nextPaymentDate) ?: parsedTriple
+                val targetMillis = PersianCalendarHelper.jalaliToEpochMillis(
+                    nextPaymentTriple.first,
+                    nextPaymentTriple.second,
+                    nextPaymentTriple.third,
+                    9,
+                    0
+                )
 
                 val targetDt = PersianCalendarHelper.fromEpochMillis(targetMillis)
                 val nowDt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
@@ -673,7 +689,7 @@ fun InstallmentsScreen(
                             val scheduledCount = com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
                                 installmentId = newItem.id,
                                 title = newItem.title,
-                                amount = parsedMonthly,
+                                amount = nextUnpaidPayment?.amount ?: parsedMonthly,
                                 dueDatePersian = newItem.nextPaymentDate,
                                 dueTimePersian = reminderTime,
                                 selectedOffsets = selectedOffsets
