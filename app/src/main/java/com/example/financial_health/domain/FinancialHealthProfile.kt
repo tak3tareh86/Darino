@@ -60,6 +60,7 @@ data class NextMonthPrediction(
     val reminders: Long = 0L,
     val vehicleExpenses: Long = 0L,
     val fixedExpenses: Long = 0L,
+    val installmentsAmountRecorded: Boolean = false,
     val fixedExpensesAmountRecorded: Boolean = false,
     val remindersAmountRecorded: Boolean = false,
     val vehicleExpensesAmountRecorded: Boolean = false
