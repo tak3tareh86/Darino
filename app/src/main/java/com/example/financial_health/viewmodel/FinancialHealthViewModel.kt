@@ -52,8 +52,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
 
     private fun isUnpaid(status: InstallmentStatus) = status != InstallmentStatus.PAID && status != InstallmentStatus.COMPLETED
 
-    private fun hasCompleteSchedule(item: InstallmentItem): Boolean {
-        if (item.remainingInstallments <= 0 || item.status == InstallmentStatus.PAID || item.status == InstallmentStatus.COMPLETED) return true
+    private fun hasCompletePaymentHistory(item: InstallmentItem): Boolean {
         val expectedCount = item.totalInstallments
         if (expectedCount <= 0 || item.paymentHistory.size < expectedCount) return false
         val validScheduleNumbers = item.paymentHistory
@@ -62,6 +61,11 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             .filter { it > 0 }
             .distinct()
         return validScheduleNumbers.size >= expectedCount
+    }
+
+    private fun hasCompleteSchedule(item: InstallmentItem): Boolean {
+        if (item.remainingInstallments <= 0 || item.status == InstallmentStatus.PAID || item.status == InstallmentStatus.COMPLETED) return true
+        return hasCompletePaymentHistory(item)
     }
 
     private fun dayStartMillis(epochMillis: Long): Long {
@@ -89,6 +93,14 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val result = mutableListOf<MonthlyPressureData>()
         for (offset in -5..0) {
             val range = monthRange(offset)
+            // Historical points are omitted when an installment active during that month has an incomplete schedule.
+            val hasIncompleteRelevantSchedule = installments.any { item ->
+                val start = dueMillis(item.startDate)
+                val end = dueMillis(item.endDate)
+                val overlapsMonth = start != null && end != null && start < range.end && end >= range.start
+                overlapsMonth && !hasCompletePaymentHistory(item)
+            }
+            if (hasIncompleteRelevantSchedule) continue
             val income = transactions.filter {
                 it.type == "INCOME" && it.timestamp >= range.start && it.timestamp < range.end && it.amount > 0L
             }.sumOf { it.amount }
