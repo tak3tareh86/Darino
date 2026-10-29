@@ -197,19 +197,19 @@ fun InstallmentDetailScreen(
                     ) {
                         DetailMetric(
                             label = "مبلغ کل",
-                            value = item.totalAmountFormatted,
+                            value = item.displayTotal,
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f)
                         )
                         DetailMetric(
                             label = "پرداخت‌شده",
-                            value = item.paidAmountFormatted,
+                            value = item.displayPaid,
                             color = EmeraldPrimaryLight,
                             modifier = Modifier.weight(1f)
                         )
                         DetailMetric(
                             label = "باقیمانده",
-                            value = item.remainingAmountFormatted,
+                            value = item.displayRemaining,
                             color = item.category.accentColor,
                             modifier = Modifier.weight(1f)
                         )
@@ -571,7 +571,7 @@ private fun PaymentHistoryRow(item: PaymentHistoryItem) {
 
                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     Text(
-                        text = item.amountFormatted,
+                        text = item.displayAmount,
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontSize = 12.5.sp,
                             fontWeight = FontWeight.Bold
