@@ -46,6 +46,7 @@ fun CheckScreen(
     val accounts by viewModel.accounts.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    var operationErrorDialog by remember { mutableStateOf<String?>(null) }
 
     fun showOperationResult(result: com.example.ui.screens.check.data.CheckOperationResult, successMessage: String) {
         val message = when (result) {
@@ -55,7 +56,11 @@ fun CheckScreen(
             com.example.ui.screens.check.data.CheckOperationResult.PERSISTENCE_ERROR -> "ذخیره‌سازی انجام نشد. اطلاعات تغییری نکرده؛ دوباره تلاش کنید."
             com.example.ui.screens.check.data.CheckOperationResult.NO_AUTHENTICATED_USER -> "برای مدیریت چک‌ها ابتدا وارد حساب کاربری شوید."
         }
-        coroutineScope.launch { snackbarHostState.showSnackbar(message) }
+        if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) {
+            coroutineScope.launch { snackbarHostState.showSnackbar(message) }
+        } else {
+            operationErrorDialog = message
+        }
     }
 
     Scaffold(
@@ -209,6 +214,17 @@ fun CheckScreen(
                     showOperationResult(result, "تغییرات چک ذخیره شد.")
                     if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) selectedCheckForEdit = null
                 }
+            }
+        )
+    }
+
+    operationErrorDialog?.let { message ->
+        AlertDialog(
+            onDismissRequest = { operationErrorDialog = null },
+            title = { Text("عملیات انجام نشد") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { operationErrorDialog = null }) { Text("متوجه شدم") }
             }
         )
     }
