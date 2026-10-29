@@ -19,6 +19,8 @@ data class RegisterRequest(
 
     val phoneNumber: String? = null,
 
+    val email: String? = null,
+
     @field:NotBlank(message = "رمز عبور الزامی است")
     @field:Size(min = 6, message = "رمز عبور باید حداقل ۶ کاراکتر باشد")
     val password: String,
