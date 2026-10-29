@@ -15,6 +15,7 @@ import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import com.example.ui.screens.installments.model.InstallmentItem
 import com.example.ui.screens.installments.model.InstallmentStatus
 import com.example.util.PersianCalendarHelper
+import com.example.util.MoneyFormatter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -128,8 +129,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
 
     val uiState: StateFlow<FinancialHealthState> = combine(
         repository.profileFlow, repository.transactionsFlow, installmentSnapshotFlow,
-        repository.vehicleServicesFlow, operationError
-    ) { profile, transactions, installmentSnapshot, vehicleServices, currentError ->
+        repository.vehicleServicesFlow, operationError, MoneyFormatter.activeCurrencyFlow
+    ) { profile, transactions, installmentSnapshot, vehicleServices, currentError, currency ->
         val allInstallments = installmentSnapshot.first
         val installmentDataAvailable = installmentSnapshot.second
         val currentMonth = monthRange(0)
@@ -202,7 +203,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             hasPreviousMonthData = previousPressure != null && currentHistoryPressure != null,
             currentMonthComparisonPressure = currentHistoryPressure, insights = insights,
             isLoading = false, errorMessage = currentError, activeInstallmentsCount = active.size,
-            totalInstallmentsMonthlyFormatted = if (hasCompleteInstallmentSchedule) formatter.format(scheduledCurrentMonth) + " تومان" else "برنامه بعضی اقساط ناقص است",
+            totalInstallmentsMonthlyFormatted = if (hasCompleteInstallmentSchedule) MoneyFormatter.formatToman(scheduledCurrentMonth, currency = currency) else "برنامه بعضی اقساط ناقص است",
             nearestDueDateDays = daysToNearest, nearestDueDateTitle = nearestTitle ?: "سررسیدی ثبت نشده",
             hasNearestDueDate = nearestDueMillis != null, largestInstallmentTitle = largest?.first?.title ?: "قسطی ثبت نشده",
             largestInstallmentAmount = largest?.second?.amount ?: 0L, hasLargestInstallment = largest != null,
