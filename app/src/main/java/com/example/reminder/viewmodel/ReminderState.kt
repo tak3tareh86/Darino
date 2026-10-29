@@ -7,6 +7,7 @@ import com.example.reminder.domain.SmartSuggestion
 enum class ReminderTab(val title: String) {
     ALL("همه"),
     TODAY("امروز"),
+    UPCOMING("آینده"),
     FINANCE("مالی"),
     INSTALLMENT("اقساط"),
     VEHICLE("خودرو"),
@@ -15,7 +16,8 @@ enum class ReminderTab(val title: String) {
 }
 
 enum class ReminderFilterChip(val title: String, val typeKey: String?) {
-    ALL("همه", null),
+    ALL("همه دسته‌ها", null),
+    FINANCE("مالی", "FINANCE"),
     PERSONAL("شخصی", "PERSONAL"),
     INSTALLMENT("اقساط", "INSTALLMENT"),
     VEHICLE("خودرو", "VEHICLE"),
