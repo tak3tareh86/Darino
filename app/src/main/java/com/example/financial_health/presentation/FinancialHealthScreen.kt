@@ -438,7 +438,11 @@ private fun FinancialCommitmentsBreakdownCard(
                     decimalFormat = decimalFormat,
                     color = MaterialTheme.colorScheme.primary,
                     icon = Icons.Rounded.AccountBalanceWallet,
-                    percentageText = if (state.hasIncomeData) "درآمد ماهانه ثبت‌شده" else "درآمد این ماه ثبت نشده",
+                    percentageText = when {
+                        state.incomeFromTransactions -> "جمع تراکنش‌های درآمد این ماه"
+                        state.hasIncomeData -> "درآمد ماهانه ثبت‌شده توسط شما"
+                        else -> "درآمد این ماه ثبت نشده"
+                    },
                     amountLabelOverride = if (state.hasIncomeData) null else "ثبت نشده"
                 )
 
@@ -811,7 +815,7 @@ private fun NextMonthPredictionSectionCard(
                     amountRecorded = prediction.installmentsAmountRecorded
                 )
                 PredictionItemRow(
-                    label = "هزینه‌های ثابت",
+                    label = "هزینه ثابت (با فرض تکرار)",
                     amount = prediction.fixedExpenses,
                     decimalFormat = decimalFormat,
                     color = Color(0xFF8B5CF6),
