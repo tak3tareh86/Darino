@@ -45,6 +45,9 @@ jobs:
             -keysize 2048 \
             -validity 10000
 
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
 
