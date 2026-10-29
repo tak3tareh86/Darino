@@ -274,6 +274,19 @@ class LocalBackupRepository(
                     backup.userPreference?.let { preference ->
                         db.userPreferenceDao().insertOrUpdate(preference.copy(userId = userId))
                     }
+                    backup.appSettings?.let { settings ->
+                        val appPreferences = com.example.data.preferences.AppPreferencesRepository.getInstance(context)
+                        runCatching { com.example.ui.screens.settings.model.AppThemeMode.valueOf(settings.themeMode) }
+                            .getOrNull()?.let { appPreferences.setThemeMode(it) }
+                        runCatching { com.example.ui.screens.settings.model.AppLanguage.valueOf(settings.language) }
+                            .getOrNull()?.let { appPreferences.setLanguage(it) }
+                        runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(settings.currency) }
+                            .getOrNull()?.let { appPreferences.setCurrency(it) }
+                        runCatching { com.example.ui.screens.settings.model.AlertDeliveryPreference.valueOf(settings.alertDelivery) }
+                            .getOrNull()?.let { appPreferences.setAlertDelivery(it) }
+                        runCatching { com.example.ui.screens.settings.model.NavigationTransitionAnimation.valueOf(settings.navigationTransition) }
+                            .getOrNull()?.let { appPreferences.setNavTransition(it) }
+                    }
                 }
             }
 
