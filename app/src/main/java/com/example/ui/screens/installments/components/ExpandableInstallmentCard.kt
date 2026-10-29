@@ -58,7 +58,7 @@ fun ExpandableInstallmentCard(
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Text(
-                                text = history.amountFormatted,
+                                text = history.displayAmount,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (history.status == com.example.ui.screens.installments.model.InstallmentStatus.PAID) 
                                     MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
