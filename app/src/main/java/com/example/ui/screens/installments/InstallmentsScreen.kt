@@ -205,30 +205,28 @@ fun InstallmentsScreen(
                                 onSearchClick = { showSearchSheet = true },
                                 onFilterClick = { showFilterSheet = true }
                             )
-                            if (allInstallments.isNotEmpty()) {
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                                    color = MaterialTheme.colorScheme.background
-                                ) {
-                                    InstallmentQuickActions(
-                                        onAddInstallmentClick = {
-                                            addInitialCategory = InstallmentCategory.BANK_LOANS
-                                            prefillTitle = ""
-                                            prefillTotal = ""
-                                            prefillMonthly = ""
-                                            prefillCount = ""
-                                            showAddSheet = true
-                                        },
-                                        onLoanCalculatorClick = {
-                                            navigateTo(InstallmentNavigationState.LoanCalculator)
-                                        },
-                                        onFinancialHealthClick = {
-                                            navigateTo(InstallmentNavigationState.FinancialHealth)
-                                        }
-                                    )
-                                }
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                color = MaterialTheme.colorScheme.background
+                            ) {
+                                InstallmentQuickActions(
+                                    onAddInstallmentClick = {
+                                        addInitialCategory = InstallmentCategory.BANK_LOANS
+                                        prefillTitle = ""
+                                        prefillTotal = ""
+                                        prefillMonthly = ""
+                                        prefillCount = ""
+                                        showAddSheet = true
+                                    },
+                                    onLoanCalculatorClick = {
+                                        navigateTo(InstallmentNavigationState.LoanCalculator)
+                                    },
+                                    onFinancialHealthClick = {
+                                        navigateTo(InstallmentNavigationState.FinancialHealth)
+                                    }
+                                )
                             }
                         }
                     },
