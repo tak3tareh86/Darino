@@ -115,9 +115,11 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val now = System.currentTimeMillis()
         val nearest = unpaidPayments.filter { it.third >= currentMonth.start }.minByOrNull { it.third }
             ?: unpaidPayments.filter { it.third < currentMonth.start }.maxByOrNull { it.third }
-        val nearestItemFallback = active.mapNotNull { item ->
+        val itemDueDates = active.mapNotNull { item ->
             dueMillis(item.nextPaymentDate)?.let { item to it }
-        }.minByOrNull { it.second }
+        }
+        val nearestItemFallback = itemDueDates.filter { it.second >= currentMonth.start }.minByOrNull { it.second }
+            ?: itemDueDates.filter { it.second < currentMonth.start }.maxByOrNull { it.second }
         val nearestDueMillis = nearest?.third ?: nearestItemFallback?.second
         val nearestTitle = nearest?.first?.title ?: nearestItemFallback?.first?.title
         val daysToNearest = nearestDueMillis?.let { ((it - now) / 86_400_000L).toInt() } ?: 0
