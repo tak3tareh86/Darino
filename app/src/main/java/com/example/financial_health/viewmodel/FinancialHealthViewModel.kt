@@ -54,9 +54,9 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
 
     private fun isUnpaid(status: InstallmentStatus) = status != InstallmentStatus.PAID && status != InstallmentStatus.COMPLETED
 
-    private fun scheduledAmount(items: List<InstallmentItem>, range: MonthRange): Long = items.sumOf { item ->
+    private fun scheduledAmount(items: List<InstallmentItem>, range: MonthRange, includePaid: Boolean = false): Long = items.sumOf { item ->
         item.paymentHistory.filter { payment ->
-            isUnpaid(payment.status) && payment.amount > 0L &&
+            (includePaid || isUnpaid(payment.status)) && payment.amount > 0L &&
                 dueMillis(payment.dueDate)?.let { it >= range.start && it < range.end } == true
         }.sumOf { it.amount }
     }
@@ -72,7 +72,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
                 it.type == "INCOME" && it.timestamp >= range.start && it.timestamp < range.end && it.amount > 0L
             }.sumOf { it.amount }
             if (income <= 0L) continue
-            val installmentDue = scheduledAmount(installments, range)
+            val installmentDue = scheduledAmount(installments, range, includePaid = true)
             val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(installmentDue, income) ?: continue
             result += MonthlyPressureData(range.label, pressure, installmentDue, income)
         }
