@@ -4,10 +4,6 @@ import com.example.util.IranianPhoneUtils
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,10 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BuildCircle
-import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.EventRepeat
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -200,7 +193,6 @@ fun InstallmentsScreen(
         when (state) {
             is InstallmentNavigationState.Dashboard -> {
                 var isToolsExpanded by remember { mutableStateOf(false) }
-                var isCategoriesExpanded by remember { mutableStateOf(true) }
                 var isUpcomingExpanded by remember { mutableStateOf(true) }
 
                 Scaffold(
@@ -275,57 +267,13 @@ fun InstallmentsScreen(
                                 )
                             }
 
-                            // 3. Collapsible Categories Grid
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { isCategoriesExpanded = !isCategoriesExpanded }
-                                        .padding(vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Category,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Text(
-                                            text = "دسته‌بندی‌های تسهیلات و اقساط",
-                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                    Icon(
-                                        imageVector = if (isCategoriesExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                            // 3. Categories grid is always visible; no collapsible heading.
+                            InstallmentCategoryGrid(
+                                categories = categorySummariesData,
+                                onCategoryClick = { category ->
+                                    navigateTo(InstallmentNavigationState.CategoryView(category))
                                 }
-
-                                AnimatedVisibility(
-                                    visible = isCategoriesExpanded,
-                                    enter = expandVertically() + fadeIn(),
-                                    exit = shrinkVertically() + fadeOut()
-                                ) {
-                                    InstallmentCategoryGrid(
-                                        categories = categorySummariesData,
-                                        onCategoryClick = { category ->
-                                            navigateTo(InstallmentNavigationState.CategoryView(category))
-                                        }
-                                    )
-                                }
-                            }
+                            )
                         }
                     }
                 }
