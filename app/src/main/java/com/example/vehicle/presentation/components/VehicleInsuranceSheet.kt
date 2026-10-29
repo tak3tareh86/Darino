@@ -1,6 +1,7 @@
 package com.example.vehicle.presentation.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -189,6 +190,7 @@ fun VehicleInsuranceSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun VehicleReminderSettings(
     enabled: Boolean,
@@ -199,6 +201,12 @@ private fun VehicleReminderSettings(
     onDaysChange: (Set<Int>) -> Unit,
     tag: String
 ) {
+    var showTimePicker by remember { mutableStateOf(false) }
+    val normalizedTime = IranianPhoneUtils.convertDigitsToEnglish(time).trim()
+    val timeParts = normalizedTime.split(":")
+    val initialHour = timeParts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 9
+    val initialMinute = timeParts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
+
     Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -210,10 +218,14 @@ private fun VehicleReminderSettings(
             }
             if (enabled) {
                 OutlinedTextField(
-                    value = time, onValueChange = { raw -> if (raw.length <= 5 && raw.all { it.isDigit() || it == ':' || it in '۰'..'۹' }) onTimeChange(raw) },
-                    label = { Text("ساعت هشدار (۲۴ ساعته)") }, placeholder = { Text("۰۹:۰۰") },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true, modifier = Modifier.fillMaxWidth().testTag("${tag}_time")
+                    value = time,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("ساعت هشدار (۲۴ ساعته)") },
+                    placeholder = { Text("۰۹:۰۰") },
+                    trailingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = "انتخاب ساعت", tint = MaterialTheme.colorScheme.primary) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().clickable { showTimePicker = true }.testTag("${tag}_time")
                 )
                 Text("زمان‌های هشدار پیش از انقضا", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 val options = listOf(30 to "۳۰ روز", 15 to "۱۵ روز", 7 to "۷ روز", 1 to "۱ روز", 0 to "سررسید")
@@ -230,5 +242,35 @@ private fun VehicleReminderSettings(
                 if (days.isEmpty()) Text("حداقل یک زمان هشدار انتخاب کن.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
         }
+    }
+
+    if (showTimePicker) {
+        val pickerState = rememberTimePickerState(
+            initialHour = initialHour,
+            initialMinute = initialMinute,
+            is24Hour = true
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("انتخاب ساعت یادآور", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("ساعت و دقیقه را در قالب ۲۴ ساعته انتخاب کنید", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    TimePicker(state = pickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val selected = "%02d:%02d".format(java.util.Locale.ROOT, pickerState.hour, pickerState.minute)
+                    onTimeChange(IranianPhoneUtils.convertDigitsToPersian(selected))
+                    showTimePicker = false
+                }) { Text("تأیید") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text("انصراف") }
+            },
+            shape = RoundedCornerShape(24.dp)
+        )
     }
 }
