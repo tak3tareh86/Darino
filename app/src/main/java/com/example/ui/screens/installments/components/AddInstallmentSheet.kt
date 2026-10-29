@@ -762,7 +762,6 @@ private fun FormDetailsStep(
                             )
                         },
                         label = { Text("تعداد اقساط پرداخت‌شده") },
-                        supportingText = { Text("اقساط ابتدایی برنامه به‌عنوان پرداخت‌شده ثبت می‌شوند") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
