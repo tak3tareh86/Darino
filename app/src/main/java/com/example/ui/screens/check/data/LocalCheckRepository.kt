@@ -47,7 +47,12 @@ class LocalCheckRepository private constructor() : CheckRepository {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
-        if (check.dueDate < check.issueDate) {
+        if (check.dueDate < check.issueDate ||
+            (check.sayadId != null && check.sayadId.isNotBlank() &&
+                (check.sayadId.length != 16 || !check.sayadId.all { it.isDigit() })) ||
+            (check.reminderDateTime != null && check.reminderDateTime > check.dueDate) ||
+            check.status == CheckStatus.CLEARED
+        ) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
@@ -81,7 +86,28 @@ class LocalCheckRepository private constructor() : CheckRepository {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
-        if (check.dueDate < check.issueDate) {
+        if (check.dueDate < check.issueDate ||
+            (check.sayadId != null && check.sayadId.isNotBlank() &&
+                (check.sayadId.length != 16 || !check.sayadId.all { it.isDigit() })) ||
+            (check.reminderDateTime != null && check.reminderDateTime > check.dueDate)
+        ) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR
+        }
+
+        val currentEntity = db?.checkDao()?.getCheckById(userId, check.id)
+            ?: return@withContext CheckOperationResult.NOT_FOUND
+        if (currentEntity.deletedAt != null) return@withContext CheckOperationResult.NOT_FOUND
+        // A cleared check is linked to a financial transaction. Never allow an ordinary
+        // edit to alter its amount/type or to undo its settlement without reversing that transaction.
+        if (currentEntity.status == CheckStatus.CLEARED.name &&
+            (check.status != CheckStatus.CLEARED ||
+                check.amount != currentEntity.amount ||
+                check.type.name != currentEntity.type)
+        ) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR
+        }
+        // Settlement must go through settleCheck(), which creates the matching ledger transaction.
+        if (currentEntity.status != CheckStatus.CLEARED.name && check.status == CheckStatus.CLEARED) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
