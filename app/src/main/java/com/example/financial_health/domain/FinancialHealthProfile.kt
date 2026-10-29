@@ -57,13 +57,15 @@ data class FinancialHealthInsight(
 
 data class NextMonthPrediction(
     val installments: Long = 0L,
+    val fixedExpenses: Long = 0L,
     val reminders: Long = 0L,
     val vehicleExpenses: Long = 0L,
+    val fixedExpensesAmountRecorded: Boolean = false,
     val remindersAmountRecorded: Boolean = false,
     val vehicleExpensesAmountRecorded: Boolean = false
 ) {
     /** Sum of known amounts only; unrecorded categories are deliberately not guessed. */
-    val total: Long get() = installments + reminders + vehicleExpenses
+    val total: Long get() = installments + fixedExpenses + reminders + vehicleExpenses
 }
 
 data class MonthlyPressureData(
@@ -80,5 +82,6 @@ data class FinancialHealthProfile(
     val fixedExpenses: Long,
     val financialPressure: Float,
     val healthStatus: FinancialHealthStatus,
+    val isConfigured: Boolean = false,
     val updatedAt: Long = System.currentTimeMillis()
 )
