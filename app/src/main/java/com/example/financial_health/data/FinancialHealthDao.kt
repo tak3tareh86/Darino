@@ -14,6 +14,12 @@ interface FinancialHealthDao {
     @Query("SELECT * FROM financial_health_profile WHERE userId = :userId AND id = :id LIMIT 1")
     suspend fun getProfileSync(userId: String, id: String): FinancialHealthEntity?
 
+    @Query("SELECT * FROM financial_health_profile WHERE userId = :userId")
+    suspend fun getAllProfilesForUser(userId: String): List<FinancialHealthEntity>
+
+    @Query("DELETE FROM financial_health_profile WHERE userId = :userId")
+    suspend fun clearProfilesForUser(userId: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveProfile(entity: FinancialHealthEntity)
 }
