@@ -55,6 +55,19 @@ class WeeklyBackupWorker(
             val backupFile = File(autoBackupsDir, filename)
             backupFile.writeText(jsonString, Charsets.UTF_8)
 
+            // Keep bounded local history so daily backups cannot grow without limit.
+            val keepCount = if (frequency == FREQUENCY_DAILY) DAILY_RETENTION_COUNT else WEEKLY_RETENTION_COUNT
+            autoBackupsDir.listFiles { file ->
+                file.isFile && file.name.startsWith("${frequency}_auto_backup_") && file.extension == "json"
+            }
+                ?.sortedByDescending { it.lastModified() }
+                ?.drop(keepCount)
+                ?.forEach { oldFile ->
+                    if (!oldFile.delete()) {
+                        Log.w(TAG, "Could not delete expired automatic backup: ${oldFile.name}")
+                    }
+                }
+
             Log.i(TAG, "$frequency auto-backup file created successfully: ${backupFile.absolutePath}")
 
             // Update last backup time
@@ -77,6 +90,8 @@ class WeeklyBackupWorker(
         private const val KEY_FREQUENCY = "backup_frequency"
         private const val FREQUENCY_WEEKLY = "weekly"
         private const val FREQUENCY_DAILY = "daily"
+        private const val DAILY_RETENTION_COUNT = 30
+        private const val WEEKLY_RETENTION_COUNT = 12
         const val UNIQUE_WORK_NAME = "weekly_auto_backup_work"
         const val DAILY_UNIQUE_WORK_NAME = "daily_auto_backup_work"
 
