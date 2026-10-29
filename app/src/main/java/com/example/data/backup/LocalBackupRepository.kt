@@ -24,6 +24,10 @@ class LocalBackupRepository(
         withContext(Dispatchers.IO) {
             val userId = getEffectiveUserId()
 
+            val accounts = db.accountDao().getAllAccountsRaw(userId)
+
+            val checks = db.checkDao().getAllChecksList(userId)
+
             val transactions =
                 db.transactionDao().getAllTransactionsList(userId)
 
@@ -59,7 +63,7 @@ class LocalBackupRepository(
                 db.financialEventDao().getAllEventsList(userId)
 
             val totalRecords =
-                transactions.size +
+                accounts.size + checks.size + transactions.size +
                         installments.size +
                         payments.size +
                         vehicles.size +
@@ -73,7 +77,7 @@ class LocalBackupRepository(
 
             BackupValidator.withChecksum(DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 1,
+                    backupVersion = 2,
                     appVersion = "1.0",
                     createdAt = System.currentTimeMillis(),
                     recordCount = totalRecords,
@@ -81,6 +85,8 @@ class LocalBackupRepository(
                     currencyUnit = "TOMAN",
                     dateSystem = "JALALI_UI"
                 ),
+                accounts = accounts,
+                checks = checks,
                 transactions = transactions,
                 installments = installments,
                 installmentPayments = payments,
@@ -104,14 +110,12 @@ class LocalBackupRepository(
 
             db.withTransaction {
                 if (mode == RestoreMode.REPLACE) {
+                    db.installmentDao().clearAllPayments(userId)
+                    db.installmentDao().clearAllInstallments(userId)
+                    db.accountDao().clearAllAccounts(userId)
+                    db.checkDao().clearAllChecks(userId)
                     db.transactionDao()
                         .clearAllTransactions(userId)
-
-                    db.installmentDao()
-                        .clearAllPayments(userId)
-
-                    db.installmentDao()
-                        .clearAllInstallments(userId)
 
                     db.vehicleDao()
                         .clearAllInspections(userId)
@@ -128,11 +132,21 @@ class LocalBackupRepository(
                     db.vehicleDao()
                         .clearAllVehicles(userId)
 
+                    db.smartReminderDao().clearAllSchedules(userId)
+
                     db.smartReminderDao()
                         .clearAllReminders(userId)
 
                     db.financialEventDao()
                         .clearAllEvents(userId)
+                }
+
+                backup.accounts.forEach { account ->
+                    db.accountDao().insertAccount(account.copy(userId = userId))
+                }
+
+                backup.checks.forEach { check ->
+                    db.checkDao().insertCheck(check.copy(userId = userId))
                 }
 
                 backup.transactions.forEach { transaction ->
