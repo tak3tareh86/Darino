@@ -66,7 +66,7 @@ fun FinancialPressureChart(
         ) {
             Column {
                 Text(
-                    text = "روند تغییر فشار مالی (۶ ماه اخیر)",
+                    text = "روند سهم اقساط از درآمد (۶ ماه اخیر)",
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.5.sp
@@ -267,7 +267,7 @@ fun FinancialPressureChart(
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
-                        text = "${IranianPhoneUtils.convertDigitsToPersian(item.pressurePercentage.toInt().toString())}٪",
+                        text = "${IranianPhoneUtils.convertDigitsToPersian(java.text.DecimalFormat("0.#").format(item.pressurePercentage))}٪",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = if (isLast) FontWeight.ExtraBold else FontWeight.Medium,
                             fontSize = 10.5.sp
