@@ -458,7 +458,7 @@ private fun FinancialCommitmentsBreakdownCard(
                     decimalFormat = decimalFormat,
                     color = Color(0xFF3B82F6),
                     icon = Icons.Rounded.ReceiptLong,
-                    percentageText = if (state.hasInstallmentScheduleData && state.monthlyIncome > 0L) "${IranianPhoneUtils.convertDigitsToPersian(((state.totalInstallments.toDouble() / state.monthlyIncome) * 100).toInt().toString())}٪ از درآمد" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "برنامه بعضی اقساط ناقص است",
+                    percentageText = if (state.hasInstallmentScheduleData && state.monthlyIncome > 0L) "${formatFinancialPercentage(((state.totalInstallments.toDouble() / state.monthlyIncome) * 100).toFloat())}٪ از درآمد" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "برنامه بعضی اقساط ناقص است",
                     amountLabelOverride = if (state.hasInstallmentScheduleData) null else if (state.activeInstallmentsCount == 0) MoneyFormatter.formatToman(0L) else "اطلاعات ناقص"
                 )
 
