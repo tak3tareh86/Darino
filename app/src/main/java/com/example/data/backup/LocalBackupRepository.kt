@@ -72,6 +72,8 @@ class LocalBackupRepository(
 
             val userPreference =
                 db.userPreferenceDao().getPreference(userId)
+            val notificationLogs = db.notificationLogDao().getAllNotificationsForBackup(userId)
+            val smsLogs = db.smsLogDao().getAllSmsLogsForBackup(userId)
             val appPreferences = AppPreferencesRepository.getInstance(context)
             val appSettings = AppSettingsBackup(
                 themeMode = appPreferences.themeMode.value.name,
@@ -94,12 +96,12 @@ class LocalBackupRepository(
                         schedules.size +
                         events.size +
                         financialHealthProfiles.size +
-                        loanCalculations.size +
+                        loanCalculations.size + notificationLogs.size + smsLogs.size +
                         (if (userPreference != null) 1 else 0) + 1
 
             BackupValidator.withChecksum(DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 3,
+                    backupVersion = 4,
                     appVersion = "1.0",
                     createdAt = System.currentTimeMillis(),
                     recordCount = totalRecords,
@@ -123,7 +125,9 @@ class LocalBackupRepository(
                 financialHealthProfiles = financialHealthProfiles,
                 loanCalculations = loanCalculations,
                 userPreference = userPreference,
-                appSettings = appSettings
+                appSettings = appSettings,
+                notificationLogs = notificationLogs,
+                smsLogs = smsLogs
             ))
             }
         }
@@ -173,6 +177,10 @@ class LocalBackupRepository(
                     db.financialEventDao()
                         .clearAllEvents(userId)
 
+                    if (backup.metadata.backupVersion >= 4) {
+                        db.notificationLogDao().clearAllNotificationsForBackup(userId)
+                        db.smsLogDao().clearAllSmsLogsForBackup(userId)
+                    }
                     if (backup.metadata.backupVersion >= 3) {
                         db.financialHealthDao().clearProfilesForUser(userId)
                         db.loanCalculationDao().clearAllCalculations()
@@ -274,6 +282,15 @@ class LocalBackupRepository(
                     db.financialEventDao().insertEvent(
                         event.copy(userId = userId)
                     )
+                }
+
+                if (backup.metadata.backupVersion >= 4) {
+                    backup.notificationLogs.forEach { log ->
+                        db.notificationLogDao().insertNotification(log.copy(id = 0, userId = userId))
+                    }
+                    backup.smsLogs.forEach { log ->
+                        db.smsLogDao().insertSmsLog(log.copy(id = 0, userId = userId))
+                    }
                 }
 
                 if (backup.metadata.backupVersion >= 3) {
