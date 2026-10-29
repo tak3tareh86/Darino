@@ -141,46 +141,63 @@ class LocalBackupRepository(
                         .clearAllEvents(userId)
                 }
 
+                // Re-create auto-generated primary keys instead of risking collisions with another
+                // local profile. Keep stable string IDs for cross-record references where available.
                 backup.accounts.forEach { account ->
-                    db.accountDao().insertAccount(account.copy(userId = userId))
+                    db.accountDao().insertAccount(account.copy(id = 0, userId = userId))
                 }
 
+                val restoredCheckIds = mutableMapOf<Int, Int>()
                 backup.checks.forEach { check ->
-                    db.checkDao().insertCheck(check.copy(userId = userId))
+                    val newId = db.checkDao().insertCheck(check.copy(id = 0, userId = userId)).toInt()
+                    restoredCheckIds[check.id] = newId
                 }
 
                 backup.transactions.forEach { transaction ->
+                    val remappedSourceId = if (transaction.sourceType == "CHECK") {
+                        transaction.sourceId?.toIntOrNull()?.let { restoredCheckIds[it]?.toString() }
+                            ?: transaction.sourceId
+                    } else transaction.sourceId
                     db.transactionDao().insertTransaction(
-                        transaction.copy(userId = userId)
+                        transaction.copy(id = 0, userId = userId, sourceId = remappedSourceId)
                     )
                 }
 
+                val restoredInstallmentIds = mutableMapOf<Int, Int>()
                 backup.installments.forEach { installment ->
-                    db.installmentDao().insertInstallment(
-                        installment.copy(userId = userId)
-                    )
+                    val newId = db.installmentDao().insertInstallment(
+                        installment.copy(id = 0, userId = userId)
+                    ).toInt()
+                    restoredInstallmentIds[installment.id] = newId
                 }
 
                 backup.installmentPayments.forEach { payment ->
-                    db.installmentDao().insertPayment(payment)
-                }
-
-                backup.vehicles.forEach { vehicle ->
-                    db.vehicleDao().insertVehicle(
-                        vehicle.copy(userId = userId)
+                    val newInstallmentId = restoredInstallmentIds[payment.installmentId]
+                        ?: throw IllegalStateException("پرداخت قسط به قسط موجود در پشتیبان متصل نیست")
+                    db.installmentDao().insertPayment(
+                        payment.copy(id = 0, installmentId = newInstallmentId)
                     )
                 }
 
+                val restoredVehicleIds = mutableMapOf<String, String>()
+                backup.vehicles.forEach { vehicle ->
+                    val newId = db.vehicleDao().insertVehicle(
+                        vehicle.copy(id = 0, userId = userId)
+                    ).toInt()
+                    restoredVehicleIds[vehicle.id.toString()] = newId.toString()
+                }
+                fun remapVehicleId(oldId: String): String = restoredVehicleIds[oldId] ?: oldId
+
                 backup.vehicleServices.forEach { service ->
                     db.vehicleDao().insertService(
-                        service.copy(userId = userId)
+                        service.copy(id = 0, userId = userId, vehicleId = remapVehicleId(service.vehicleId))
                     )
                 }
 
                 if (backup.vehicleExpenses.isNotEmpty()) {
                     db.vehicleDao().insertExpenses(
                         backup.vehicleExpenses.map {
-                            it.copy(userId = userId)
+                            it.copy(userId = userId, vehicleId = remapVehicleId(it.vehicleId))
                         }
                     )
                 }
@@ -188,7 +205,7 @@ class LocalBackupRepository(
                 if (backup.vehicleInsurances.isNotEmpty()) {
                     db.vehicleDao().insertInsurances(
                         backup.vehicleInsurances.map {
-                            it.copy(userId = userId)
+                            it.copy(userId = userId, vehicleId = remapVehicleId(it.vehicleId))
                         }
                     )
                 }
@@ -196,7 +213,7 @@ class LocalBackupRepository(
                 if (backup.vehicleInspections.isNotEmpty()) {
                     db.vehicleDao().insertInspections(
                         backup.vehicleInspections.map {
-                            it.copy(userId = userId)
+                            it.copy(userId = userId, vehicleId = remapVehicleId(it.vehicleId))
                         }
                     )
                 }
