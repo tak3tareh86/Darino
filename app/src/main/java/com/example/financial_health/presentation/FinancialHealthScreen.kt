@@ -199,10 +199,8 @@ fun FinancialHealthScreen(
             currentFixedExpenses = state.fixedExpenses,
             sheetState = editSheetState,
             onDismiss = { showEditSheet = false },
-            onSave = { income, fixed ->
-                viewModel.saveProfile(income, state.totalInstallments, fixed) { saved ->
-                    if (saved) showEditSheet = false
-                }
+            onSave = { income, fixed, onResult ->
+                viewModel.saveProfile(income, state.totalInstallments, fixed, onResult)
             }
         )
     }
