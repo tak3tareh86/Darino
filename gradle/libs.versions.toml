@@ -107,7 +107,7 @@ googleid = { group = "com.google.android.libraries.identity.googleid", name = "g
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntime" }
 play-services-auth-api-phone = { group = "com.google.android.gms", name = "play-services-auth-api-phone", version.ref = "playServicesAuthApiPhone" }
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
-poolakey = { group = "com.github.cafebazaar", name = "poolakey", version.ref = "poolakey" }
+poolakey = { group = "com.github.cafebazaar", name = "Poolakey", version.ref = "poolakey" }
 
 
 [plugins]
