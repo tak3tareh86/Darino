@@ -50,7 +50,7 @@ fun CheckScreen(
     fun showOperationResult(result: com.example.ui.screens.check.data.CheckOperationResult, successMessage: String) {
         val message = when (result) {
             com.example.ui.screens.check.data.CheckOperationResult.SUCCESS -> successMessage
-            com.example.ui.screens.check.data.CheckOperationResult.VALIDATION_ERROR -> "اطلاعات چک معتبر نیست؛ مبلغ و تاریخ‌ها را بررسی کنید."
+            com.example.ui.screens.check.data.CheckOperationResult.VALIDATION_ERROR -> "اطلاعات واردشده یا وضعیت مالی چک با این عملیات سازگار نیست؛ مبلغ، تاریخ‌ها و وضعیت تسویه را بررسی کنید."
             com.example.ui.screens.check.data.CheckOperationResult.NOT_FOUND -> "این چک دیگر در پایگاه داده وجود ندارد؛ فهرست را بررسی کنید."
             com.example.ui.screens.check.data.CheckOperationResult.PERSISTENCE_ERROR -> "ذخیره‌سازی انجام نشد. اطلاعات تغییری نکرده؛ دوباره تلاش کنید."
             com.example.ui.screens.check.data.CheckOperationResult.NO_AUTHENTICATED_USER -> "برای مدیریت چک‌ها ابتدا وارد حساب کاربری شوید."
