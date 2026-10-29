@@ -316,12 +316,6 @@ private fun TotalAccountsBalanceCard(
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = "تومان",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 3.dp)
-                    )
                 }
             }
 
@@ -529,11 +523,6 @@ fun AccountManageCard(
                             ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
-                            text = "تومان",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                        )
                     }
                 }
 
@@ -559,11 +548,6 @@ fun AccountManageCard(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
                             ),
-                            color = if (realBalance >= 0) EmeraldPrimaryLight else ExpenseRoseLight
-                        )
-                        Text(
-                            text = "تومان",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                             color = if (realBalance >= 0) EmeraldPrimaryLight else ExpenseRoseLight
                         )
                     }
