@@ -51,6 +51,18 @@ class NotificationCenterViewModel(application: Application) : AndroidViewModel(a
         }
     }
 
+    fun deleteNotification(id: Int) {
+        viewModelScope.launch {
+            repository.deleteNotification(id)
+        }
+    }
+
+    fun deleteAllNotifications() {
+        viewModelScope.launch {
+            repository.deleteAllNotifications()
+        }
+    }
+
     fun refresh() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRefreshing = true, syncStatus = SyncStatus.SYNCING)
