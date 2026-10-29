@@ -184,7 +184,7 @@ fun VehicleExpenseInsightsSection(
                 }
                 DifferenceSummary(firstTotal, secondTotal, firstCount, secondCount)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                Text("مقایسه به تفکیک دسته‌بندی", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("مقایسه به تفکیک دسته‌بندی (مبالغ به تومان)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 if (categoryComparison.isEmpty()) {
                     EmptyExpenseMessage("در هیچ‌یک از دو بازه، هزینه دسته‌بندی‌شده‌ای ثبت نشده است.")
                 } else {
@@ -202,8 +202,8 @@ fun VehicleExpenseInsightsSection(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(category.title, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(money(firstAmount), Modifier.width(94.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(money(secondAmount), Modifier.width(94.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(amountNumber(firstAmount), Modifier.width(94.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(amountNumber(secondAmount), Modifier.width(94.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -337,8 +337,10 @@ private fun parseExpenseDate(raw: String): ExpenseDateParts? {
 private fun jalaliDaysInMonth(year: Int, month: Int): Int =
     runCatching { PersianCalendarHelper.getDaysInMonth(year, month) }.getOrDefault(if (month <= 6) 31 else 30)
 
-private fun money(amount: Long): String =
-    IranianPhoneUtils.convertDigitsToPersian(NumberFormat.getNumberInstance(Locale.US).format(amount)) + " تومان"
+private fun amountNumber(amount: Long): String =
+    IranianPhoneUtils.convertDigitsToPersian(NumberFormat.getNumberInstance(Locale.US).format(amount))
+
+private fun money(amount: Long): String = amountNumber(amount) + " تومان"
 
 private fun fa(value: Int): String = IranianPhoneUtils.convertDigitsToPersian(value.toString())
 private fun fa(value: String): String = IranianPhoneUtils.convertDigitsToPersian(value)
