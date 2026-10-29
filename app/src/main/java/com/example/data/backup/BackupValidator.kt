@@ -2,6 +2,8 @@ package com.example.data.backup
 
 import com.example.calendar.data.FinancialEventEntity
 import com.example.data.database.InstallmentEntity
+import com.example.data.database.AccountEntity
+import com.example.data.database.CheckEntity
 import com.example.data.database.InstallmentPaymentEntity
 import com.example.data.database.TransactionEntity
 import com.example.data.database.VehicleEntity
@@ -35,7 +37,7 @@ object BackupValidator {
 
     fun validate(backup: DarinoBackup, rawJson: String? = null): ValidationResult {
         val version = backup.metadata.backupVersion
-        if (version !in 1..2) {
+        if (version !in 1..3) {
             return ValidationResult.Invalid("نسخه فایل پشتیبان پشتیبانی نمی‌شود.")
         }
         if (backup.metadata.createdAt <= 0L || backup.metadata.recordCount < 0) {
@@ -62,16 +64,18 @@ object BackupValidator {
                 backup.vehicleServices.size + backup.vehicleExpenses.size +
                 backup.vehicleInsurances.size + backup.vehicleInspections.size +
                 backup.reminders.size + backup.reminderSchedules.size +
-                backup.financialEvents.size
+                backup.financialEvents.size +
+                (if (version >= 3) backup.financialHealthProfiles.size +
+                    backup.loanCalculations.size + (if (backup.userPreference != null) 1 else 0) else 0)
         }
         if (backup.metadata.recordCount != expectedCount) {
             return ValidationResult.Invalid("تعداد رکوردهای فایل با اطلاعات ثبت‌شده در سربرگ آن مطابقت ندارد.")
         }
 
-        val expectedChecksum = if (version == 1) {
-            legacyV1Checksum(backup)
-        } else {
-            withChecksum(backup).metadata.checksum
+        val expectedChecksum = when (version) {
+            1 -> legacyV1Checksum(backup)
+            2 -> legacyV2Checksum(backup)
+            else -> withChecksum(backup).metadata.checksum
         }
         if (!backup.metadata.checksum.equals(expectedChecksum, ignoreCase = true)) {
             return ValidationResult.Invalid("صحت فایل پشتیبان تأیید نشد؛ فایل ممکن است ناقص یا تغییر داده شده باشد.")
@@ -83,6 +87,26 @@ object BackupValidator {
             return ValidationResult.Invalid("فایل پشتیبان دارای پرداخت قسط بدون قسط مرتبط است.")
         }
         return ValidationResult.Valid
+    }
+
+    private fun legacyV2Checksum(backup: DarinoBackup): String {
+        val legacy = LegacyDarinoBackupV2(
+            metadata = backup.metadata.copy(checksum = ""),
+            accounts = backup.accounts,
+            checks = backup.checks,
+            transactions = backup.transactions,
+            installments = backup.installments,
+            installmentPayments = backup.installmentPayments,
+            vehicles = backup.vehicles,
+            vehicleServices = backup.vehicleServices,
+            vehicleExpenses = backup.vehicleExpenses,
+            vehicleInsurances = backup.vehicleInsurances,
+            vehicleInspections = backup.vehicleInspections,
+            reminders = backup.reminders,
+            reminderSchedules = backup.reminderSchedules,
+            financialEvents = backup.financialEvents
+        )
+        return calculateChecksum(moshi.adapter(LegacyDarinoBackupV2::class.java).toJson(legacy))
     }
 
     private fun legacyV1Checksum(backup: DarinoBackup): String {
@@ -103,6 +127,23 @@ object BackupValidator {
         return calculateChecksum(moshi.adapter(LegacyDarinoBackupV1::class.java).toJson(legacy))
     }
 }
+
+private data class LegacyDarinoBackupV2(
+    val metadata: BackupMetadata,
+    val accounts: List<AccountEntity> = emptyList(),
+    val checks: List<CheckEntity> = emptyList(),
+    val transactions: List<TransactionEntity> = emptyList(),
+    val installments: List<InstallmentEntity> = emptyList(),
+    val installmentPayments: List<InstallmentPaymentEntity> = emptyList(),
+    val vehicles: List<VehicleEntity> = emptyList(),
+    val vehicleServices: List<VehicleServiceEntity> = emptyList(),
+    val vehicleExpenses: List<VehicleExpenseRoomEntity> = emptyList(),
+    val vehicleInsurances: List<VehicleInsuranceRoomEntity> = emptyList(),
+    val vehicleInspections: List<VehicleInspectionRoomEntity> = emptyList(),
+    val reminders: List<ReminderEntity> = emptyList(),
+    val reminderSchedules: List<ReminderScheduleEntity> = emptyList(),
+    val financialEvents: List<FinancialEventEntity> = emptyList()
+)
 
 private data class LegacyDarinoBackupV1(
     val metadata: BackupMetadata,
