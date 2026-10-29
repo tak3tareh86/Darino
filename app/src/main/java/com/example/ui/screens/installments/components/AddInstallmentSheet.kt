@@ -98,6 +98,7 @@ fun AddInstallmentSheet(
     var installmentAmount by remember(initialInstallmentAmount) { mutableStateOf(initialInstallmentAmount) }
     var installmentsCount by remember(initialInstallmentsCount) { mutableStateOf(initialInstallmentsCount.ifBlank { "۱۲" }) }
     var paidInstallmentsCount by remember { mutableStateOf("۰") }
+    var submitValidationError by remember { mutableStateOf<String?>(null) }
     var dueDate by remember {
         mutableStateOf(PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate())
     }
@@ -167,7 +168,11 @@ fun AddInstallmentSheet(
                     installmentsCount = installmentsCount,
                     onInstallmentsCountChange = { installmentsCount = it },
                     paidInstallmentsCount = paidInstallmentsCount,
-                    onPaidInstallmentsCountChange = { paidInstallmentsCount = it },
+                    onPaidInstallmentsCountChange = {
+                        paidInstallmentsCount = it
+                        submitValidationError = null
+                    },
+                    submitValidationError = submitValidationError,
                     dueDate = dueDate,
                     onDueDateChange = { dueDate = it },
                     notes = notes,
@@ -184,6 +189,28 @@ fun AddInstallmentSheet(
                     onBackToCategories = { currentStep = 1 },
                     onDismiss = onDismiss,
                     onSubmit = {
+                        val paidCountValue = IranianPhoneUtils.convertDigitsToEnglish(paidInstallmentsCount)
+                            .filter { it.isDigit() }.toIntOrNull() ?: 0
+                        val totalCountValue = if (!customScheduleItems.isNullOrEmpty()) {
+                            customScheduleItems.size
+                        } else {
+                            IranianPhoneUtils.convertDigitsToEnglish(installmentsCount)
+                                .filter { it.isDigit() }.toIntOrNull() ?: 0
+                        }
+                        val parsedTotalForValidation = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(totalAmount))
+                        val parsedMonthlyForValidation = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(installmentAmount))
+                        if (paidCountValue > totalCountValue) {
+                            submitValidationError = "تعداد اقساط پرداخت‌شده نمی‌تواند از تعداد کل اقساط بیشتر باشد."
+                            return@FormDetailsStep
+                        }
+                        if (customScheduleItems.isNullOrEmpty() &&
+                            totalCountValue > 1 &&
+                            parsedMonthlyForValidation * (totalCountValue - 1L) >= parsedTotalForValidation
+                        ) {
+                            submitValidationError = "مبلغ هر قسط با مبلغ کل و تعداد اقساط سازگار نیست؛ لطفاً مبالغ را بررسی کنید."
+                            return@FormDetailsStep
+                        }
+                        submitValidationError = null
                         val offsets = mutableListOf<PredefinedOffset>()
                         if (remindAtTime) offsets.add(PredefinedOffset.AT_TIME)
                         if (remind1DayBefore) offsets.add(PredefinedOffset.BEFORE_1_DAY)
@@ -604,6 +631,7 @@ private fun FormDetailsStep(
     onInstallmentsCountChange: (String) -> Unit,
     paidInstallmentsCount: String,
     onPaidInstallmentsCountChange: (String) -> Unit,
+    submitValidationError: String?,
     dueDate: String,
     onDueDateChange: (String) -> Unit,
     notes: String,
@@ -762,6 +790,7 @@ private fun FormDetailsStep(
                             )
                         },
                         label = { Text("تعداد اقساط پرداخت‌شده") },
+                        isError = submitValidationError != null,
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
@@ -769,6 +798,13 @@ private fun FormDetailsStep(
                             .testTag("installment_paid_count_input"),
                         shape = RoundedCornerShape(10.dp)
                     )
+                    if (submitValidationError != null) {
+                        Text(
+                            text = submitValidationError,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
 
                     OutlinedButton(
                         onClick = onOpenCustomSchedule,
