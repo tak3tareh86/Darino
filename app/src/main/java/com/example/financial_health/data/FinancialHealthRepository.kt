@@ -64,17 +64,21 @@ class FinancialHealthRepository(context: Context) {
             }
             if (userId == null) flowOf(emptyProfile())
             else dao.getProfile(userId, DEFAULT_PROFILE_ID).combine(db.transactionDao().getAllTransactions(userId)) { entity, transactions ->
-                if (entity == null) calculateProfile(userId, transactions)
+                val validProfile = entity != null &&
+                    entity.monthlyIncome >= 0L && entity.monthlyInstallments >= 0L && entity.fixedExpenses >= 0L &&
+                    entity.financialPressure.isFinite() && entity.financialPressure >= 0f && entity.updatedAt > 0L
+                if (!validProfile) calculateProfile(userId, transactions)
                 else {
-                    val status = runCatching { FinancialHealthStatus.valueOf(entity.healthStatus) }
-                        .getOrElse { FinancialAnalyzerEngine.calculateHealthStatus(entity.financialPressure) }
+                    val saved = requireNotNull(entity)
+                    val status = runCatching { FinancialHealthStatus.valueOf(saved.healthStatus) }
+                        .getOrElse { FinancialAnalyzerEngine.calculateHealthStatus(saved.financialPressure) }
                     FinancialHealthProfile(
-                        id = entity.id,
-                        monthlyIncome = entity.monthlyIncome.coerceAtLeast(0L),
-                        monthlyInstallments = entity.monthlyInstallments.coerceAtLeast(0L),
-                        fixedExpenses = entity.fixedExpenses.coerceAtLeast(0L),
-                        financialPressure = entity.financialPressure.coerceAtLeast(0f),
-                        healthStatus = status, isConfigured = true, updatedAt = entity.updatedAt
+                        id = saved.id,
+                        monthlyIncome = saved.monthlyIncome,
+                        monthlyInstallments = saved.monthlyInstallments,
+                        fixedExpenses = saved.fixedExpenses,
+                        financialPressure = saved.financialPressure,
+                        healthStatus = status, isConfigured = true, updatedAt = saved.updatedAt
                     )
                 }
             }
@@ -84,8 +88,8 @@ class FinancialHealthRepository(context: Context) {
         val transactions = sourceTransactions.filter { it.deletedAt == null }
         val (start, end) = currentMonthRange()
         val income = transactions.filter {
-            it.type == "INCOME" && it.timestamp >= start && it.timestamp < end
-        }.sumOf { it.amount.coerceAtLeast(0L) }
+            it.type == "INCOME" && it.timestamp >= start && it.timestamp < end && it.amount > 0L
+        }.sumOf { it.amount }
         // Fixed expenses are user-entered. Never invent a value when they are unknown.
         val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(0L, income) ?: 0f
         return FinancialHealthProfile(
