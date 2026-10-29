@@ -99,7 +99,11 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         // Remaining schedule is authoritative; a stale PAID/COMPLETED contract flag must not hide dues.
         items.filter { it.remainingInstallments > 0 }
 
-    private fun historicalData(transactions: List<TransactionEntity>, installments: List<InstallmentItem>): List<MonthlyPressureData> {
+    private fun historicalData(
+        transactions: List<TransactionEntity>,
+        installments: List<InstallmentItem>,
+        configuredCurrentMonthIncome: Long?
+    ): List<MonthlyPressureData> {
         if (activeItems(installments).any { !hasCompleteSchedule(it) }) return emptyList()
         val result = mutableListOf<MonthlyPressureData>()
         for (offset in -5..0) {
@@ -112,9 +116,15 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
                 overlapsMonth && !hasCompletePaymentHistory(item)
             }
             if (hasIncompleteRelevantSchedule) continue
-            val income = transactions.filter {
-                it.type == "INCOME" && it.deletedAt == null && it.timestamp >= range.start && it.timestamp < range.end && it.amount > 0L
-            }.sumOf { it.amount }
+            // Use the user's configured income for the current month, matching the main dashboard.
+            // Past months continue to use actual recorded income transactions.
+            val income = if (offset == 0 && configuredCurrentMonthIncome != null) {
+                configuredCurrentMonthIncome
+            } else {
+                transactions.filter {
+                    it.type == "INCOME" && it.deletedAt == null && it.timestamp >= range.start && it.timestamp < range.end && it.amount > 0L
+                }.sumOf { it.amount }
+            }
             if (income <= 0L) continue
             val installmentDue = scheduledAmount(installments, range, includePaid = true)
             val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(installmentDue, income) ?: continue
@@ -138,9 +148,10 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val active = activeItems(allInstallments)
         // An empty active list is a valid zero-commitment state. Any active installment must have a complete, dated, positive-amount schedule.
         val hasCompleteInstallmentSchedule = installmentDataAvailable && active.all(::hasCompleteSchedule)
-        // Current commitments are unpaid scheduled dues only, never already-paid installments.
+        // Monthly pressure measures the planned burden of the month, including installments
+        // already paid during that month. This keeps the current month comparable to history.
         val scheduledCurrentMonth = if (hasCompleteInstallmentSchedule) {
-            scheduledAmount(active, currentMonth, includePaid = false)
+            scheduledAmount(allInstallments, currentMonth, includePaid = true)
         } else 0L
         val nextMonthRange = monthRange(1)
         val scheduledNextMonth = if (hasCompleteInstallmentSchedule) scheduledAmount(active, nextMonthRange) else 0L
@@ -156,7 +167,11 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val pressure = if (income > 0L && profile.isConfigured && hasCompleteInstallmentSchedule) {
             FinancialAnalyzerEngine.calculateFinancialPressure(totalCommitments, income)
         } else null
-        val history = historicalData(transactions, allInstallments)
+        val history = historicalData(
+            transactions = transactions,
+            installments = allInstallments,
+            configuredCurrentMonthIncome = income.takeIf { profile.isConfigured }
+        )
         val currentHistoryPressure = history.lastOrNull { it.monthName == currentMonth.label }?.pressurePercentage
         val previousPressure = history.lastOrNull { it.monthName == previousMonth.label }?.pressurePercentage
         val status = pressure?.let { FinancialAnalyzerEngine.calculateHealthStatus(it) } ?: FinancialHealthStatus.MEDIUM
@@ -227,11 +242,22 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         }
     }
 
-    fun saveProfile(income: Long, installments: Long, fixed: Long) {
+    fun saveProfile(
+        income: Long,
+        installments: Long,
+        fixed: Long,
+        onResult: (Boolean) -> Unit = {}
+    ) {
         viewModelScope.launch {
-            runCatching { repository.saveProfile(income, installments, fixed) }
-                .onSuccess { operationError.value = null }
-                .onFailure { operationError.value = it.message ?: "ذخیره اطلاعات مالی انجام نشد." }
+            operationError.value = null
+            val result = runCatching { repository.saveProfile(income, installments, fixed) }
+            result.onSuccess {
+                operationError.value = null
+                onResult(true)
+            }.onFailure {
+                operationError.value = it.message ?: "ذخیره اطلاعات مالی انجام نشد."
+                onResult(false)
+            }
         }
     }
 }
