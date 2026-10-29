@@ -61,7 +61,9 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val validPayments = item.paymentHistory.filter { payment ->
             payment.amount > 0L &&
                 payment.installmentNumber in 1..expectedCount &&
-                dueMillis(payment.dueDate) != null
+                dueMillis(payment.dueDate) != null &&
+                (payment.status != InstallmentStatus.PAID && payment.status != InstallmentStatus.COMPLETED ||
+                    payment.paidDate?.let { dueMillis(it) != null } == true)
         }
         val scheduleNumbers = validPayments.map { it.installmentNumber }.toSet()
         return validPayments.size == expectedCount &&
@@ -70,7 +72,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
     }
 
     private fun hasCompleteSchedule(item: InstallmentItem): Boolean {
-        if (item.remainingInstallments <= 0 || item.status == InstallmentStatus.PAID || item.status == InstallmentStatus.COMPLETED) return true
+        // Top-level status can be stale. Only zero remaining installments make a contract inactive.
+        if (item.remainingInstallments <= 0) return true
         return hasCompletePaymentHistory(item)
     }
 
@@ -92,7 +95,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
     }
 
     private fun activeItems(items: List<InstallmentItem>) =
-        items.filter { it.remainingInstallments > 0 && isUnpaid(it.status) }
+        // Remaining schedule is authoritative; a stale PAID/COMPLETED contract flag must not hide dues.
+        items.filter { it.remainingInstallments > 0 }
 
     private fun historicalData(transactions: List<TransactionEntity>, installments: List<InstallmentItem>): List<MonthlyPressureData> {
         if (activeItems(installments).any { !hasCompleteSchedule(it) }) return emptyList()
@@ -108,7 +112,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             }
             if (hasIncompleteRelevantSchedule) continue
             val income = transactions.filter {
-                it.type == "INCOME" && it.timestamp >= range.start && it.timestamp < range.end && it.amount > 0L
+                it.type == "INCOME" && it.deletedAt == null && it.timestamp >= range.start && it.timestamp < range.end && it.amount > 0L
             }.sumOf { it.amount }
             if (income <= 0L) continue
             val installmentDue = scheduledAmount(installments, range, includePaid = true)
@@ -126,8 +130,9 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val active = activeItems(allInstallments)
         // An empty active list is a valid zero-commitment state. Any active installment must have a complete, dated, positive-amount schedule.
         val hasCompleteInstallmentSchedule = active.all(::hasCompleteSchedule)
+        // Current commitments are unpaid scheduled dues only, never already-paid installments.
         val scheduledCurrentMonth = if (hasCompleteInstallmentSchedule) {
-            scheduledAmount(allInstallments, currentMonth, includePaid = true)
+            scheduledAmount(active, currentMonth, includePaid = false)
         } else 0L
         val nextMonthRange = monthRange(1)
         val scheduledNextMonth = if (hasCompleteInstallmentSchedule) scheduledAmount(active, nextMonthRange) else 0L
