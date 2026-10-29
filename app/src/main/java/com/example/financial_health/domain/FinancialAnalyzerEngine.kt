@@ -81,12 +81,12 @@ object FinancialAnalyzerEngine {
             )
         }
 
-        if (nextMonthPrediction.installments > 0L) {
-            val nextMonthPressure = calculateFinancialPressure(nextMonthPrediction.installments, income)
+        if (nextMonthPrediction.total > 0L) {
+            val nextMonthPressure = calculateFinancialPressure(nextMonthPrediction.total, income)
             val ratioText = nextMonthPressure?.let { " (معادل ${it}٪ درآمد ماهانه ثبت‌شده)" } ?: ""
             insights += FinancialHealthInsight(
                 id = "next_month_outlook", title = "اقساط سررسیدشونده ماه آینده",
-                description = "بر اساس برنامه اقساط ثبت‌شده، مبلغ اقساط ماه آینده ${nextMonthPrediction.installments / 1_000_000.0} میلیون تومان است${ratioText}. هزینه خودرو فقط در صورت ثبت مبلغ و تاریخ سررسید در جمع آمده است؛ یادآورها مبلغ مالی مستقلی ندارند و در جمع لحاظ نشده‌اند.",
+                description = "بر اساس اقساط و هزینه‌های خودروی دارای مبلغ و سررسید ثبت‌شده، مجموع مبالغ شناخته‌شده ماه آینده ${nextMonthPrediction.total / 1_000_000.0} میلیون تومان است${ratioText}. هزینه‌های بدون مبلغ یا تاریخ معتبر و یادآورها در جمع لحاظ نشده‌اند.",
                 type = if ((nextMonthPressure ?: 0f) > 45f) InsightType.WARNING else InsightType.INFO
             )
         } else {
