@@ -39,10 +39,26 @@ class AuthService(
     private val logger = LoggerFactory.getLogger(AuthService::class.java)
 
     @Transactional
-    fun register(username: String, rawPhone: String?, passwordRaw: String, fullName: String?): AuthTokensDto {
+    fun register(
+        username: String,
+        rawPhone: String?,
+        passwordRaw: String,
+        fullName: String?,
+        rawEmail: String? = null
+    ): AuthTokensDto {
         val normalizedUsername = username.trim().lowercase()
         if (userRepository.existsByUsername(normalizedUsername)) {
             throw AppException(ErrorCode.CONFLICT, "این نام کاربری قبلاً ثبت شده است.", HttpStatus.CONFLICT)
+        }
+
+        val normalizedEmail = rawEmail?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
+        if (normalizedEmail != null) {
+            if (!normalizedEmail.matches(Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"))) {
+                throw AppException(ErrorCode.VALIDATION_ERROR, "فرمت ایمیل نامعتبر است.")
+            }
+            if (userRepository.existsByEmail(normalizedEmail)) {
+                throw AppException(ErrorCode.CONFLICT, "این ایمیل قبلاً ثبت شده است.", HttpStatus.CONFLICT)
+            }
         }
 
         val normalizedPhone = rawPhone?.let {
@@ -56,6 +72,7 @@ class AuthService(
 
         val user = User(
             username = normalizedUsername,
+            email = normalizedEmail,
             phoneNumber = normalizedPhone,
             phoneVerified = false,
             passwordHash = passwordEncoder.encode(passwordRaw),
