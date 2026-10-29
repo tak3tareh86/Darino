@@ -20,6 +20,7 @@ import com.example.util.IranianPhoneUtils
 import com.example.util.PersianCalendarHelper
 import com.example.vehicle.data.VehicleExpenseCategory
 import com.example.vehicle.data.VehicleExpenseEntity
+import com.example.util.MoneyFormatter
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.abs
@@ -184,7 +185,7 @@ fun VehicleExpenseInsightsSection(
                 }
                 DifferenceSummary(firstTotal, secondTotal, firstCount, secondCount)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                Text("مقایسه به تفکیک دسته‌بندی (مبالغ به تومان)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("مقایسه به تفکیک دسته‌بندی (مبالغ به ${MoneyFormatter.getUnitLabel()})", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 if (categoryComparison.isEmpty()) {
                     EmptyExpenseMessage("در هیچ‌یک از دو بازه، هزینه دسته‌بندی‌شده‌ای ثبت نشده است.")
                 } else {
@@ -337,10 +338,9 @@ private fun parseExpenseDate(raw: String): ExpenseDateParts? {
 private fun jalaliDaysInMonth(year: Int, month: Int): Int =
     runCatching { PersianCalendarHelper.getDaysInMonth(year, month) }.getOrDefault(if (month <= 6) 31 else 30)
 
-private fun amountNumber(amount: Long): String =
-    IranianPhoneUtils.convertDigitsToPersian(NumberFormat.getNumberInstance(Locale.US).format(amount))
+private fun amountNumber(amount: Long): String = MoneyFormatter.formatToman(amount, includeUnit = false)
 
-private fun money(amount: Long): String = amountNumber(amount) + " تومان"
+private fun money(amount: Long): String = MoneyFormatter.formatToman(amount)
 
 private fun fa(value: Int): String = IranianPhoneUtils.convertDigitsToPersian(value.toString())
 private fun fa(value: String): String = IranianPhoneUtils.convertDigitsToPersian(value)
