@@ -46,6 +46,7 @@ import com.example.vehicle.presentation.components.AddVehicleSheet
 import com.example.vehicle.presentation.components.*
 import com.example.vehicle.viewmodel.VehicleTab
 import com.example.vehicle.viewmodel.VehicleViewModel
+import com.example.util.MoneyFormatter
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -902,7 +903,7 @@ private fun ServiceRecordCard(
                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Text(
-                            text = "$costFormatted تومان",
+                            text = costFormatted,
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -1074,7 +1075,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(visibleInsurances, key = { it.id }) { ins ->
-                        val costStr = IranianPhoneUtils.convertDigitsToPersian(NumberFormat.getNumberInstance(Locale.US).format(ins.amount))
+                        val costStr = MoneyFormatter.formatToman(ins.amount)
                         val normalizedExpiry = VehicleAnalyzer.parseAndValidateJalaliDate(ins.endDate)
                         val expired = normalizedExpiry != null && normalizedExpiry < today
                         Layered3DCard(
@@ -1108,7 +1109,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         Text("اعتبار: ${IranianPhoneUtils.convertDigitsToPersian(ins.startDate)} تا ${IranianPhoneUtils.convertDigitsToPersian(ins.endDate)}", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp))
-                                        Text("$costStr تومان", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B)))
+                                        Text(costStr, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B)))
                                     }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         IconButton(onClick = { onEditInsurance(ins) }, modifier = Modifier.size(40.dp)) {
