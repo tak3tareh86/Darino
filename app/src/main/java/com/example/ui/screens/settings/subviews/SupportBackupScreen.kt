@@ -452,7 +452,7 @@ fun SupportBackupScreen(
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = "ذخیره خودکار تغییرات در پایان هر هفته روی دستگاه",
+                                        text = "ذخیره خودکار نسخه پشتیبان تقریباً هر ۷ روز یک‌بار در حافظه داخلی برنامه",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -491,7 +491,7 @@ fun SupportBackupScreen(
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = "ذخیره خودکار نسخه پشتیبان تقریباً هر ۲۴ ساعت روی دستگاه",
+                                        text = "ذخیره خودکار نسخه پشتیبان تقریباً هر ۲۴ ساعت در حافظه داخلی برنامه",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
