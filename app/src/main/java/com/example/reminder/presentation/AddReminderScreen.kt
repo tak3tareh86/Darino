@@ -248,29 +248,41 @@ fun AddReminderScreen(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
                     PredefinedOffset.BEFORE_7_DAYS,
                     PredefinedOffset.BEFORE_3_DAYS,
                     PredefinedOffset.BEFORE_1_DAY,
                     PredefinedOffset.AT_TIME
-                ).forEach { offset ->
-                    val isChecked = selectedOffsets.contains(offset)
-                    FilterChip(
-                        selected = isChecked,
-                        onClick = {
-                            if (isChecked) {
-                                if (selectedOffsets.size > 1) selectedOffsets.remove(offset)
-                            } else {
-                                selectedOffsets.add(offset)
-                            }
-                        },
-                        label = { Text(offset.title, fontSize = 11.sp) },
-                        modifier = Modifier.weight(1f)
-                    )
+                ).chunked(2).forEach { offsetRow ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        offsetRow.forEach { offset ->
+                            val isChecked = selectedOffsets.contains(offset)
+                            FilterChip(
+                                selected = isChecked,
+                                onClick = {
+                                    if (isChecked) {
+                                        if (selectedOffsets.size > 1) selectedOffsets.remove(offset)
+                                    } else {
+                                        selectedOffsets.add(offset)
+                                    }
+                                },
+                                label = {
+                                    Text(
+                                        text = offset.title.substringBefore(" ("),
+                                        fontSize = 11.sp,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(RadiusMD)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -280,17 +292,42 @@ fun AddReminderScreen(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                RepeatType.entries.forEach { type ->
-                    val isSelected = repeatType == type
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { repeatType = type },
-                        label = { Text(type.title, fontSize = 10.sp) }
-                    )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val noRepeatSelected = repeatType == RepeatType.NONE
+                FilterChip(
+                    selected = noRepeatSelected,
+                    onClick = { repeatType = RepeatType.NONE },
+                    label = {
+                        Text(
+                            text = RepeatType.NONE.title,
+                            fontSize = 10.sp,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(RadiusMD)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    RepeatType.entries.filter { it != RepeatType.NONE }.forEach { type ->
+                        FilterChip(
+                            selected = repeatType == type,
+                            onClick = { repeatType = type },
+                            label = {
+                                Text(
+                                    text = type.title,
+                                    fontSize = 10.sp,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(RadiusMD)
+                        )
+                    }
                 }
             }
 
