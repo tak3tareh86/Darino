@@ -300,6 +300,9 @@ interface VehicleDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVehicleStore(store: VehicleStoreEntity)
+
+    @Query("DELETE FROM vehicle_store WHERE userId = :userId")
+    suspend fun clearVehicleStoreForUser(userId: String)
 }
 
 @Dao
