@@ -3,6 +3,7 @@ package com.example.financial_health.data
 import android.content.Context
 import com.example.data.database.AppDatabase
 import com.example.data.database.TransactionEntity
+import com.example.data.database.VehicleServiceEntity
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
 import com.example.financial_health.domain.FinancialAnalyzerEngine
@@ -43,6 +44,17 @@ class FinancialHealthRepository(context: Context) {
             }
             if (userId == null) flowOf(emptyList())
             else db.transactionDao().getAllTransactions(userId).map { rows -> rows.filter { it.deletedAt == null } }
+        }
+
+    val vehicleServicesFlow: Flow<List<VehicleServiceEntity>> =
+        SessionManager.sessionState.flatMapLatest { state ->
+            val userId = when (state) {
+                is SessionState.Authenticated -> state.user.id
+                is SessionState.PhoneVerificationRequired -> state.user.id
+                else -> null
+            }
+            if (userId == null) flowOf(emptyList())
+            else db.vehicleDao().getAllServices(userId).map { rows -> rows.filter { it.deletedAt == null } }
         }
 
     val profileFlow: Flow<FinancialHealthProfile> =
