@@ -294,7 +294,7 @@ private fun HealthOverviewHeroCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = if (state.hasIncomeData && state.hasFixedExpensesData) "${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪" else "—",
+                            text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) "${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪" else "—",
                             style = MaterialTheme.typography.displaySmall.copy(
                                 fontWeight = FontWeight.Black,
                                 fontSize = 42.sp
@@ -312,7 +312,7 @@ private fun HealthOverviewHeroCard(
                         )
                     }
                     Text(
-                        text = if (state.hasIncomeData && state.hasFixedExpensesData) status.defaultMessage else "برای محاسبه معتبر، درآمد و هزینه‌های ثابت را ثبت کنید و برنامه پرداخت همه اقساط فعال را کامل نگه دارید.",
+                        text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) status.defaultMessage else "برای محاسبه معتبر، درآمد و هزینه‌های ثابت را ثبت کنید و برنامه پرداخت همه اقساط فعال را کامل نگه دارید.",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 12.sp,
                             lineHeight = 18.sp,
@@ -512,7 +512,7 @@ private fun FinancialCommitmentsBreakdownCard(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = if (state.hasIncomeData && state.hasFixedExpensesData) "معادل ${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪ درآمد" else "برای محاسبه، درآمد و هزینه ثابت را ثبت کنید",
+                            text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) "معادل ${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪ درآمد" else "برای محاسبه، درآمد و هزینه ثابت را ثبت کنید",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
