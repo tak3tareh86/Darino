@@ -44,7 +44,7 @@ fun VehicleExpenseInsightsSection(
     val invalidCount = expenses.size - datedExpenses.size
     val yearOptions = remember(datedExpenses, currentYear) {
         val years = datedExpenses.map { it.second.year }
-        val start = minOf(years.minOrNull() ?: currentYear, currentYear)
+        val start = minOf(years.minOrNull() ?: currentYear, currentYear - 10)
         val end = maxOf(years.maxOrNull() ?: currentYear, currentYear)
         (start..end).filter { it in 1300..1500 }.toList().ifEmpty { listOf(currentYear) }
     }
