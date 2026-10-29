@@ -74,26 +74,47 @@ fun UpcomingRemindersCard(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Header - Title: "یادآور نزدیک"
+                    // Header - title and due-days badge
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.NotificationsNone,
-                            contentDescription = null,
-                            tint = Color(0xFF6366F1),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = "یادآور نزدیک",
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.NotificationsNone,
+                                contentDescription = null,
+                                tint = Color(0xFF6366F1),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "یادآور نزدیک",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                        if (nearestReminder != null) {
+                            Surface(
+                                shape = RoundedCornerShape(RadiusMD),
+                                color = (if (nearestReminder.relativeDaysText == "فردا" || nearestReminder.relativeDaysText == "امروز") ExpenseRoseLight else Color(0xFF6366F1)).copy(alpha = 0.12f)
+                            ) {
+                                Text(
+                                    text = nearestReminder.relativeDaysText,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (nearestReminder.relativeDaysText == "فردا" || nearestReminder.relativeDaysText == "امروز") ExpenseRoseLight else Color(0xFF6366F1)
+                                    )
+                                )
+                            }
+                        }
                     }
 
                     if (nearestReminder == null) {
@@ -209,47 +230,17 @@ private fun ReminderFlatItem(
             .testTag("reminder_row_${item.id}"),
         verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
-        // 1. Title + Badge
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.5.sp
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 4.dp)
-            )
-
-            Surface(
-                shape = RoundedCornerShape(RadiusMD),
-                color = when (item.relativeDaysText) {
-                    "فردا", "امروز" -> ExpenseRoseLight.copy(alpha = 0.12f)
-                    else -> Color(0xFF6366F1).copy(alpha = 0.12f)
-                }
-            ) {
-                Text(
-                    text = item.relativeDaysText,
-                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = when (item.relativeDaysText) {
-                            "فردا", "امروز" -> ExpenseRoseLight
-                            else -> Color(0xFF6366F1)
-                        }
-                    )
-                )
-            }
-        }
+        // Title
+        Text(
+            text = item.title,
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.5.sp
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
 
         // 2. Type
         Text(
