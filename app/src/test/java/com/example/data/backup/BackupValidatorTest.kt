@@ -8,11 +8,11 @@ import org.junit.Test
 class BackupValidatorTest {
 
     @Test
-    fun versionThreeBackupWithPreferencesValidates() {
+    fun versionFourBackupWithPreferencesValidates() {
         val backup = BackupValidator.withChecksum(
             DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 3,
+                    backupVersion = 4,
                     createdAt = 1_800_000_000_000L,
                     recordCount = 1,
                     checksum = "",
@@ -30,11 +30,11 @@ class BackupValidatorTest {
     }
 
     @Test
-    fun versionThreeBackupCountsGeneralAppSettings() {
+    fun versionFourBackupCountsGeneralAppSettings() {
         val backup = BackupValidator.withChecksum(
             DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 3,
+                    backupVersion = 4,
                     createdAt = 1_800_000_000_000L,
                     recordCount = 1,
                     checksum = "",
@@ -55,11 +55,11 @@ class BackupValidatorTest {
     }
 
     @Test
-    fun versionThreeBackupRejectsRecordCountMismatch() {
+    fun versionFourBackupRejectsRecordCountMismatch() {
         val backup = BackupValidator.withChecksum(
             DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 3,
+                    backupVersion = 4,
                     createdAt = 1_800_000_000_000L,
                     recordCount = 0,
                     checksum = "",
