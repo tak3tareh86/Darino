@@ -1,5 +1,6 @@
 package com.example.vehicle.viewmodel
 
+import com.example.vehicle.data.ServiceType
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleExpenseEntity
 import com.example.vehicle.data.VehicleInspectionEntity
@@ -34,6 +35,7 @@ data class VehicleState(
     val errorMessage: String? = null,
     val showAddVehicleSheet: Boolean = false,
     val showAddServiceSheet: Boolean = false,
+    val requestedServiceType: ServiceType = ServiceType.OIL_CHANGE,
     val showAddExpenseSheet: Boolean = false,
     val showInsuranceSheet: Boolean = false,
     val showProfileScreen: Boolean = false,
