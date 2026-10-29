@@ -22,7 +22,7 @@ object FinancialAnalyzerEngine {
         nextMonthPrediction: NextMonthPrediction
     ): List<FinancialHealthInsight> {
         val insights = mutableListOf<FinancialHealthInsight>()
-        if (income <= 0L || currentPressure == null) {
+        if (income <= 0L) {
             insights += FinancialHealthInsight(
                 id = "income_required", title = "برای تحلیل، درآمد ماهانه را ثبت کنید",
                 description = "تا زمانی که درآمد ماهانه معتبر ثبت نشود، درصد فشار مالی و مقایسه ماهانه قابل محاسبه نیست.",
@@ -31,7 +31,7 @@ object FinancialAnalyzerEngine {
             return insights
         }
 
-        if (previousMonthPressure != null) {
+        if (currentPressure != null && previousMonthPressure != null) {
             val diff = currentPressure - previousMonthPressure
             val diffAbs = (kotlin.math.abs(diff) * 10).roundToInt() / 10.0f
             when {
