@@ -36,7 +36,14 @@ fun CheckSummaryCards(
     val (nextYear, nextMonth) = if (curMonth < 12) Pair(curYear, curMonth + 1) else Pair(curYear + 1, 1)
     val endMonthMillis = PersianCalendarHelper.jalaliToEpochMillis(nextYear, nextMonth, 1, 0, 0)
 
-    val monthChecks = checks.filter { it.dueDate in startMonthMillis until endMonthMillis && it.status != CheckStatus.CANCELED }
+    // "Due this month" means checks that still need action. Settled and canceled
+    // checks remain in the all-time summary but must not inflate outstanding totals.
+    val monthChecks = checks.filter {
+        it.dueDate in startMonthMillis until endMonthMillis &&
+            (it.status == CheckStatus.REGISTERED ||
+                it.status == CheckStatus.PENDING ||
+                it.status == CheckStatus.BOUNCED)
+    }
     val receivedMonthAmount = monthChecks.filter { it.type == CheckType.RECEIVED }.sumOf { it.amount }
     val receivedMonthCount = monthChecks.count { it.type == CheckType.RECEIVED }
     
@@ -117,7 +124,7 @@ fun CheckSummaryCards(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "مجموع کل مبلغ",
+                        text = "مجموع مبلغ ثبت‌شده",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
