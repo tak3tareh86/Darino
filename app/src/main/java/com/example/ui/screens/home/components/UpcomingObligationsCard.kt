@@ -81,22 +81,33 @@ fun UpcomingObligationsCard(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.AccountBalance,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = "تعهد نزدیک",
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(
+                                imageVector = Icons.Rounded.AccountBalance,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "تعهد نزدیک",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                        if (nearestItem != null) {
+                            Surface(
+                                shape = RoundedCornerShape(RadiusMD),
+                                color = (if (nearestItem.isOverdue || nearestItem.relativeDaysText.contains("گذشته") || nearestItem.relativeDaysText.contains("معوق") || nearestItem.relativeDaysText == "فردا" || nearestItem.relativeDaysText == "امروز") ExpenseRoseLight else WarningAmberLight).copy(alpha = 0.12f)
+                            ) {
+                                Text(
+                                    text = nearestItem.relativeDaysText,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = if (nearestItem.isOverdue || nearestItem.relativeDaysText.contains("گذشته") || nearestItem.relativeDaysText.contains("معوق") || nearestItem.relativeDaysText == "فردا" || nearestItem.relativeDaysText == "امروز") ExpenseRoseLight else WarningAmberLight)
+                                )
+                            }
+                        }
                     }
 
                     if (nearestItem == null) {
@@ -218,55 +229,14 @@ private fun NearestObligationFlatItem(
             .testTag("obligation_row_${item.id}"),
         verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
-        // 1. Title + Badge
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.5.sp
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 4.dp)
-            )
-
-            Surface(
-                shape = RoundedCornerShape(RadiusMD),
-                color = when {
-                    item.isOverdue || item.relativeDaysText.contains("گذشته") || item.relativeDaysText.contains("معوق") ->
-                        ExpenseRoseLight.copy(alpha = 0.12f)
-                    item.relativeDaysText == "فردا" || item.relativeDaysText == "امروز" ->
-                        ExpenseRoseLight.copy(alpha = 0.12f)
-                    else ->
-                        WarningAmberLight.copy(alpha = 0.14f)
-                }
-            ) {
-                Text(
-                    text = item.relativeDaysText,
-                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = when {
-                            item.isOverdue || item.relativeDaysText.contains("گذشته") || item.relativeDaysText.contains("معوق") ->
-                                ExpenseRoseLight
-                            item.relativeDaysText == "فردا" || item.relativeDaysText == "امروز" ->
-                                ExpenseRoseLight
-                            else ->
-                                WarningAmberLight
-                        }
-                    )
-                )
-            }
-        }
+        // Title
+        Text(
+            text = item.title,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.5.sp),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
 
         // 2. Bank / Provider Name
         if (item.bankName.isNotBlank()) {
