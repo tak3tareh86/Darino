@@ -224,6 +224,9 @@ class LocalBackupRepository(
                         vehicle.copy(id = 0, userId = userId)
                     ).toInt()
                     restoredVehicleIds[vehicle.id.toString()] = newId.toString()
+                    vehicle.serverId?.takeIf { it.isNotBlank() }?.let { serverId ->
+                        restoredVehicleIds[serverId] = newId.toString()
+                    }
                 }
                 fun remapVehicleId(oldId: String): String = restoredVehicleIds[oldId] ?: oldId
 
