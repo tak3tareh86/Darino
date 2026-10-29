@@ -70,6 +70,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val tabFiltered = when (filters.tab) {
             ReminderTab.ALL -> allReminders.filter { !it.status.equals("CANCELLED", ignoreCase = true) }
             ReminderTab.TODAY -> todayReminders
+            ReminderTab.UPCOMING -> upcomingReminders
             ReminderTab.FINANCE -> allReminders.filter { it.type.equals("FINANCE", ignoreCase = true) }
             ReminderTab.INSTALLMENT -> allReminders.filter { it.type.equals("INSTALLMENT", ignoreCase = true) }
             ReminderTab.VEHICLE -> allReminders.filter {
