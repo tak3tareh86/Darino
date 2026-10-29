@@ -3,6 +3,7 @@ package com.example.loan.domain
 import androidx.annotation.DrawableRes
 import com.example.R
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
 import java.text.DecimalFormat
 
 enum class LoanType(
@@ -100,11 +101,7 @@ data class CalculationResult(
         get() = "${IranianPhoneUtils.convertDigitsToPersian(String.format("%.1f", realCostPercentage))}٪"
 
     companion object {
-        fun formatMoney(amount: Long): String {
-            val formatter = DecimalFormat("#,###")
-            val formatted = formatter.format(amount)
-            return "${IranianPhoneUtils.convertDigitsToPersian(formatted)} تومان"
-        }
+        fun formatMoney(amount: Long): String = MoneyFormatter.formatToman(amount)
     }
 }
 
