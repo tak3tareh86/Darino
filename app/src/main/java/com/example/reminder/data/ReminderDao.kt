@@ -105,6 +105,12 @@ interface ReminderDao {
     @Query("SELECT l.* FROM smart_reminder_delivery_logs l INNER JOIN smart_reminders r ON r.id = l.reminderId WHERE r.userId = :userId ORDER BY l.scheduledAt DESC")
     fun getAllDeliveryLogs(userId: String): Flow<List<ReminderDeliveryLogEntity>>
 
+    @Query("SELECT l.* FROM smart_reminder_delivery_logs l INNER JOIN smart_reminders r ON r.id = l.reminderId WHERE r.userId = :userId ORDER BY l.scheduledAt DESC")
+    suspend fun getAllDeliveryLogsForBackup(userId: String): List<ReminderDeliveryLogEntity>
+
+    @Query("DELETE FROM smart_reminder_delivery_logs WHERE reminderId IN (SELECT id FROM smart_reminders WHERE userId = :userId)")
+    suspend fun clearAllDeliveryLogsForBackup(userId: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDeliveryLog(log: ReminderDeliveryLogEntity)
 
