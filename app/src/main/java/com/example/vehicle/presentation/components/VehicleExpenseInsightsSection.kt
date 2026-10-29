@@ -119,62 +119,6 @@ fun VehicleExpenseInsightsSection(
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("روند هزینه‌های سالانه", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("بر اساس هزینه‌های واقعی ثبت‌شده", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    CompactSelector(fa(annualYear), yearOptions.map { it to fa(it) }, { annualYear = it })
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("مجموع سال", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(money(annualTotal), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-                if (annualCount == 0) {
-                    EmptyExpenseMessage("برای سال " + fa(annualYear) + " هزینه‌ای ثبت نشده است.")
-                } else {
-                    annualTotals.forEach { (month, amount) ->
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(expenseMonthNames[month - 1], Modifier.width(66.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            LinearProgressIndicator(
-                                progress = { amount.toFloat() / annualMax.toFloat() },
-                                modifier = Modifier.weight(1f).height(7.dp),
-                                color = if (annualYear == currentYear && month == currentMonth) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
-                                trackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                            Text(
-                                money(amount),
-                                Modifier.width(112.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = if (amount > 0L) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (amount > 0L) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-                Text(
-                    "مقدار صفر یعنی در آن ماه رکورد هزینه‌ای ثبت نشده؛ هیچ داده نمونه‌ای به نمودار اضافه نمی‌شود.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionHeading("مقایسه دلخواه ماه‌ها", "انتخاب مستقل ماه و سال برای هر بازه", Icons.Rounded.CompareArrows)
                 PeriodPicker("بازه اول", firstMonth, firstYear, yearOptions, { firstMonth = it }, { firstYear = it })
                 PeriodPicker("بازه دوم", secondMonth, secondYear, yearOptions, { secondMonth = it }, { secondYear = it })
