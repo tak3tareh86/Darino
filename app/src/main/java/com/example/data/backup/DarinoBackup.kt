@@ -18,6 +18,8 @@ import com.example.loan.data.LoanCalculationEntity
 import com.example.data.database.UserPreferenceEntity
 import com.example.data.database.NotificationLogEntity
 import com.example.data.database.SmsLogEntity
+import com.example.data.database.VehicleStoreEntity
+import com.example.reminder.data.ReminderDeliveryLogEntity
 
 data class DarinoBackup(
     val metadata: BackupMetadata,
@@ -39,7 +41,9 @@ data class DarinoBackup(
     val userPreference: UserPreferenceEntity? = null,
     val appSettings: AppSettingsBackup? = null,
     val notificationLogs: List<NotificationLogEntity> = emptyList(),
-    val smsLogs: List<SmsLogEntity> = emptyList()
+    val smsLogs: List<SmsLogEntity> = emptyList(),
+    val vehicleStore: VehicleStoreEntity? = null,
+    val reminderDeliveryLogs: List<ReminderDeliveryLogEntity> = emptyList()
 )
 
 /** User-visible general preferences stored outside Room. */
