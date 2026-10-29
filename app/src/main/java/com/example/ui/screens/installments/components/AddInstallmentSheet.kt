@@ -71,6 +71,7 @@ fun AddInstallmentSheet(
         totalAmountStr: String,
         installmentAmountStr: String,
         installmentsCountStr: String,
+        paidInstallmentsCountStr: String,
         dueDateStr: String,
         provider: String,
         notes: String,
@@ -96,6 +97,7 @@ fun AddInstallmentSheet(
     var totalAmount by remember(initialTotalAmount) { mutableStateOf(initialTotalAmount) }
     var installmentAmount by remember(initialInstallmentAmount) { mutableStateOf(initialInstallmentAmount) }
     var installmentsCount by remember(initialInstallmentsCount) { mutableStateOf(initialInstallmentsCount.ifBlank { "۱۲" }) }
+    var paidInstallmentsCount by remember { mutableStateOf("۰") }
     var dueDate by remember {
         mutableStateOf(PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate())
     }
@@ -164,6 +166,8 @@ fun AddInstallmentSheet(
                     onInstallmentAmountChange = { installmentAmount = it },
                     installmentsCount = installmentsCount,
                     onInstallmentsCountChange = { installmentsCount = it },
+                    paidInstallmentsCount = paidInstallmentsCount,
+                    onPaidInstallmentsCountChange = { paidInstallmentsCount = it },
                     dueDate = dueDate,
                     onDueDateChange = { dueDate = it },
                     notes = notes,
@@ -194,6 +198,7 @@ fun AddInstallmentSheet(
                             totalAmount,
                             installmentAmount,
                             installmentsCount,
+                            paidInstallmentsCount,
                             dueDate,
                             providerOrPerson,
                             notes,
@@ -597,6 +602,8 @@ private fun FormDetailsStep(
     onInstallmentAmountChange: (String) -> Unit,
     installmentsCount: String,
     onInstallmentsCountChange: (String) -> Unit,
+    paidInstallmentsCount: String,
+    onPaidInstallmentsCountChange: (String) -> Unit,
     dueDate: String,
     onDueDateChange: (String) -> Unit,
     notes: String,
@@ -744,6 +751,25 @@ private fun FormDetailsStep(
                             shape = RoundedCornerShape(10.dp)
                         )
                     }
+
+                    OutlinedTextField(
+                        value = paidInstallmentsCount,
+                        onValueChange = { input ->
+                            onPaidInstallmentsCountChange(
+                                IranianPhoneUtils.convertDigitsToPersian(
+                                    IranianPhoneUtils.convertDigitsToEnglish(input).filter { it.isDigit() }
+                                )
+                            )
+                        },
+                        label = { Text("تعداد اقساط پرداخت‌شده") },
+                        supportingText = { Text("اقساط ابتدایی برنامه به‌عنوان پرداخت‌شده ثبت می‌شوند") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("installment_paid_count_input"),
+                        shape = RoundedCornerShape(10.dp)
+                    )
 
                     OutlinedButton(
                         onClick = onOpenCustomSchedule,
