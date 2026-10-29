@@ -149,8 +149,10 @@ class AppPreferencesRepository private constructor(context: Context) {
     fun setCurrency(curr: AppCurrency) {
         val valid = if (curr == AppCurrency.RIAL) AppCurrency.RIAL else AppCurrency.TOMAN
         prefs.edit().putString(KEY_CURRENCY, valid.name).apply()
-        _currency.value = valid
+        // Update the observable formatter before emitting the new preference value so
+        // collectors never rebuild formatted UI state with the previous currency.
         MoneyFormatter.activeCurrency = valid
+        _currency.value = valid
     }
 
     fun setAlertDelivery(delivery: AlertDeliveryPreference) {
