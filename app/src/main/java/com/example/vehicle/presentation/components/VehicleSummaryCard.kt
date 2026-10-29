@@ -97,7 +97,7 @@ fun VehicleSummaryCard(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     IconButton(
                         onClick = onEditClick,
