@@ -16,8 +16,6 @@ import com.example.ui.screens.finance.model.SavingsGoal
 import com.example.ui.screens.finance.model.TransactionCategory
 import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.util.MoneyFormatter
-import com.example.ui.screens.settings.model.AppCurrency
-import com.example.data.preferences.AppPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -49,7 +47,7 @@ class FinancialViewModel(
             repository.getCategories(),
             repository.getAccounts(),
             _selectedPeriod,
-            AppPreferencesRepository.getInstance(com.example.data.security.SessionManager.applicationContext).currency
+            MoneyFormatter.activeCurrencyFlow
         )
     ) { args ->
         @Suppress("UNCHECKED_CAST")
@@ -65,7 +63,7 @@ class FinancialViewModel(
         @Suppress("UNCHECKED_CAST")
         val accounts = args[5] as List<com.example.ui.screens.finance.model.Account>
         val period = args[6] as FinanceFilterPeriod
-        val currency = args[7] as AppCurrency
+        val currency = args[7] as com.example.ui.screens.settings.model.AppCurrency
 
         val range = com.example.ui.screens.finance.domain.FinanceTimeUtils.getTimeRangeForPeriod(period)
         
