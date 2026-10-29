@@ -147,7 +147,7 @@ fun InstallmentsSummaryCard(
                 // Paid Metric
                 SummaryMetricItem(
                     title = "مبلغ پرداخت‌شده",
-                    amount = summary.paidAmountFormatted,
+                    amount = summary.displayPaid,
                     color = EmeraldPrimaryLight,
                     icon = Icons.Rounded.CheckCircle,
                     modifier = Modifier.weight(1f)
@@ -169,7 +169,7 @@ fun InstallmentsSummaryCard(
                 // Remaining Metric
                 SummaryMetricItem(
                     title = "مبلغ باقیمانده",
-                    amount = summary.remainingAmountFormatted,
+                    amount = summary.displayRemaining,
                     color = Color(0xFF3B82F6),
                     icon = Icons.Rounded.Payments,
                     modifier = Modifier.weight(1f)
