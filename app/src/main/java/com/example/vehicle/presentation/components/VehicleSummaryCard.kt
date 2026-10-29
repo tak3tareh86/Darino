@@ -26,6 +26,7 @@ import com.example.ui.components.IranianLicensePlate
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -43,9 +44,7 @@ fun VehicleSummaryCard(
     val mileageFormatted = IranianPhoneUtils.convertDigitsToPersian(
         NumberFormat.getNumberInstance(Locale.US).format(vehicle.currentMileage)
     )
-    val estimatedValueFormatted = IranianPhoneUtils.convertDigitsToPersian(
-        NumberFormat.getNumberInstance(Locale.US).format(vehicle.estimatedValue)
-    )
+    val estimatedValueFormatted = MoneyFormatter.formatToman(vehicle.estimatedValue)
 
     Layered3DCard(
         modifier = modifier
@@ -206,7 +205,7 @@ fun VehicleSummaryCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = if (vehicle.estimatedValue > 0) "$estimatedValueFormatted تومان" else "ثبت نشده",
+                            text = if (vehicle.estimatedValue > 0) estimatedValueFormatted else "ثبت نشده",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
