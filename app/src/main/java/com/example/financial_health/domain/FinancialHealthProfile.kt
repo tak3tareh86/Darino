@@ -56,10 +56,13 @@ data class FinancialHealthInsight(
 )
 
 data class NextMonthPrediction(
-    val installments: Long = 8_500_000L,
-    val reminders: Long = 2_000_000L,
-    val vehicleExpenses: Long = 1_500_000L
+    val installments: Long = 0L,
+    val reminders: Long = 0L,
+    val vehicleExpenses: Long = 0L,
+    val remindersAmountRecorded: Boolean = false,
+    val vehicleExpensesAmountRecorded: Boolean = false
 ) {
+    /** Sum of known amounts only; unrecorded categories are deliberately not guessed. */
     val total: Long get() = installments + reminders + vehicleExpenses
 }
 
