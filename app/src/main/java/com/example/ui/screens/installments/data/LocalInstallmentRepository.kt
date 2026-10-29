@@ -33,6 +33,10 @@ class LocalInstallmentRepository private constructor() {
     private val _installments = MutableStateFlow<List<InstallmentItem>>(emptyList())
     val installments: StateFlow<List<InstallmentItem>> = _installments.asStateFlow()
 
+    // True only after the current session's DB snapshot was read and validated successfully.
+    private val _installmentDataAvailable = MutableStateFlow(false)
+    val installmentDataAvailable: StateFlow<Boolean> = _installmentDataAvailable.asStateFlow()
+
     private val _bankLoans = MutableStateFlow<List<InstallmentItem>>(emptyList())
     val bankLoans: StateFlow<List<InstallmentItem>> = _bankLoans.asStateFlow()
 
@@ -79,6 +83,7 @@ class LocalInstallmentRepository private constructor() {
                         else -> null
                     }
                     if (userId == null) {
+                        _installmentDataAvailable.value = false
                         updateInternalState(emptyList())
                         return@collectLatest
                     }
@@ -93,6 +98,7 @@ class LocalInstallmentRepository private constructor() {
 
     private suspend fun reloadForUser(appCtx: Context, userId: String) {
         // Fail closed: a failed/partial DB read must not leave stale or cross-account data visible.
+        _installmentDataAvailable.value = false
         updateInternalState(emptyList())
         try {
             val db = AppDatabase.getDatabase(appCtx)
@@ -203,10 +209,13 @@ class LocalInstallmentRepository private constructor() {
                     )
                 }
                 updateInternalState(loaded)
+                _installmentDataAvailable.value = true
             } else {
                 updateInternalState(emptyList())
+                _installmentDataAvailable.value = true
             }
         } catch (e: Exception) {
+            _installmentDataAvailable.value = false
             updateInternalState(emptyList())
             e.printStackTrace()
             throw e
