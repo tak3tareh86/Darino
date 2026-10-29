@@ -26,8 +26,7 @@ fun CheckDetailDialog(
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onSettle: (com.example.ui.screens.finance.model.Account) -> Unit,
-    onStatusChange: (CheckStatus) -> Unit
+    onSettle: (com.example.ui.screens.finance.model.Account) -> Unit
 ) {
     var showSettleDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
