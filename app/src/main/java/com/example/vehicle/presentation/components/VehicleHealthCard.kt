@@ -143,25 +143,29 @@ fun VehicleHealthCard(
                 }
             }
 
-            // Health Checklist Grid (4 items)
+            // Vehicle health checklist: fixed right-side labels and left-side status badges.
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 report.checklist.forEach { item ->
-                    val itemColor = if (item.isWarning) Color(0xFFEF4444) else if (item.isOk) Color(0xFF10B981) else Color(0xFFF59E0B)
+                    val itemColor = when {
+                        item.isOk -> Color(0xFF16A34A)
+                        item.isWarning -> Color(0xFFDC2626)
+                        else -> Color(0xFFD97706)
+                    }
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f))
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Row(
-                            modifier = Modifier.weight(1.1f),
+                            modifier = Modifier.weight(1.25f),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
@@ -173,25 +177,40 @@ fun VehicleHealthCard(
                             )
                             Text(
                                 text = item.title,
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 11.sp
+                                ),
                                 color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                softWrap = true,
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Clip
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Text(
-                            text = IranianPhoneUtils.convertDigitsToPersian(item.statusText),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = itemColor,
-                            modifier = Modifier.weight(1.9f),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Left
-                        )
+                        Surface(
+                            modifier = Modifier.weight(0.85f),
+                            shape = RoundedCornerShape(8.dp),
+                            color = itemColor.copy(alpha = 0.10f),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                itemColor.copy(alpha = 0.22f)
+                            )
+                        ) {
+                            Text(
+                                text = IranianPhoneUtils.convertDigitsToPersian(item.statusText),
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 5.dp),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = itemColor,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                softWrap = true,
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Clip
+                            )
+                        }
                     }
                 }
             }
