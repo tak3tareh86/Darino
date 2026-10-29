@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.example.util.MoneyFormatter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -262,7 +263,7 @@ private fun NearestObligationFlatItem(
 
         // 4. Amount
         Text(
-            text = "مبلغ قسط: ${item.formattedAmount}",
+            text = "مبلغ قسط: ${MoneyFormatter.formatToman(item.amount)}",
             style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 11.sp
