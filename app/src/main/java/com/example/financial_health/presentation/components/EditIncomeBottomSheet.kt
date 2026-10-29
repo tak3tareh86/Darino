@@ -244,6 +244,8 @@ fun EditIncomeBottomSheet(
                     val fixedVal = IranianAmountUtils.parseAmountToLong(rawFixedText)
                     if (incomeVal <= 0L) {
                         validationError = "درآمد ماهانه باید بیشتر از صفر باشد."
+                    } else if (rawFixedText.isBlank()) {
+                        validationError = "هزینه‌های ثابت را وارد کنید؛ اگر هزینه ثابتی ندارید، صفر بنویسید."
                     } else if (fixedVal < 0L) {
                         validationError = "هزینه ثابت نمی‌تواند منفی باشد."
                     } else {
