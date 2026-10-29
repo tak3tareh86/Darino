@@ -46,8 +46,12 @@ fun InstallmentScheduleScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var currentItem by remember(installment) { mutableStateOf(installment) }
+    val installmentRepository = LocalInstallmentRepository.instance
+    val repositoryInstallments by installmentRepository.installments.collectAsState()
+    val currentItem = repositoryInstallments.firstOrNull { it.id == installment.id } ?: installment
     var editingScheduleItem by remember { mutableStateOf<PaymentHistoryItem?>(null) }
+    var isSavingScheduleEdit by remember { mutableStateOf(false) }
+    var scheduleEditError by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -122,7 +126,10 @@ fun InstallmentScheduleScreen(
             items(currentItem.paymentHistory, key = { it.id }) { scheduleItem ->
                 ScheduleTimelineItem(
                     item = scheduleItem,
-                    onEditClick = { editingScheduleItem = scheduleItem }
+                    onEditClick = {
+                        scheduleEditError = null
+                        editingScheduleItem = scheduleItem
+                    }
                 )
             }
 
@@ -135,9 +142,8 @@ fun InstallmentScheduleScreen(
     // Edit Schedule Item Dialog
     if (editingScheduleItem != null) {
         val targetItem = editingScheduleItem!!
-        var amountStr by remember { mutableStateOf(IranianAmountUtils.formatWithCommas(targetItem.amount.toString())) }
-        var dueDateStr by remember { mutableStateOf(targetItem.dueDate) }
-        var noteStr by remember { mutableStateOf(targetItem.note ?: "") }
+        var amountStr by remember(targetItem.id) { mutableStateOf(IranianAmountUtils.formatWithCommas(targetItem.amount.toString())) }
+        var dueDateStr by remember(targetItem.id) { mutableStateOf(targetItem.dueDate) }
 
         Dialog(
             onDismissRequest = { editingScheduleItem = null },
@@ -180,6 +186,14 @@ fun InstallmentScheduleScreen(
                         showSubLabel = false
                     )
 
+                    if (scheduleEditError != null) {
+                        Text(
+                            text = scheduleEditError.orEmpty(),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -187,7 +201,8 @@ fun InstallmentScheduleScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedButton(
-                            onClick = { editingScheduleItem = null },
+                            onClick = { if (!isSavingScheduleEdit) editingScheduleItem = null },
+                            enabled = !isSavingScheduleEdit,
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp)
                         ) {
@@ -196,40 +211,59 @@ fun InstallmentScheduleScreen(
                         Button(
                             onClick = {
                                 val parsedLong = IranianAmountUtils.parseAmountToLong(amountStr)
-                                val success = LocalInstallmentRepository.instance.updateScheduleItem(
-                                    installmentId = currentItem.id,
-                                    scheduleItemId = targetItem.id,
-                                    newAmountLong = parsedLong,
-                                    newDueDate = dueDateStr,
-                                    note = targetItem.note,
-                                    context = context
-                                )
-                                if (success) {
-                                    val updatedAll = LocalInstallmentRepository.instance.installments.value
-                                    val found = updatedAll.find { it.id == currentItem.id }
-                                    if (found != null) {
-                                        currentItem = found
-                                        scope.launch {
-                                            try {
-                                                com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
-                                                    installmentId = found.id,
-                                                    title = found.title,
-                                                    amount = found.totalAmount / found.totalInstallments.coerceAtLeast(1),
-                                                    dueDatePersian = found.nextPaymentDate,
-                                                    dueTimePersian = "۰۹:۰۰"
-                                                )
-                                            } catch (e: Exception) {
-                                                e.printStackTrace()
+                                if (parsedLong == null || parsedLong <= 0L) {
+                                    scheduleEditError = "مبلغ قسط باید بیشتر از صفر باشد."
+                                } else {
+                                    isSavingScheduleEdit = true
+                                    scheduleEditError = null
+                                    scope.launch {
+                                        val success = installmentRepository.updateScheduleItem(
+                                            installmentId = currentItem.id,
+                                            scheduleItemId = targetItem.id,
+                                            newAmountLong = parsedLong,
+                                            newDueDate = dueDateStr,
+                                            note = targetItem.note,
+                                            context = context
+                                        )
+                                        isSavingScheduleEdit = false
+                                        if (success) {
+                                            val found = installmentRepository.installments.value
+                                                .firstOrNull { it.id == currentItem.id }
+                                            if (found != null) {
+                                                try {
+                                                    com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
+                                                        installmentId = found.id,
+                                                        title = found.title,
+                                                        amount = found.paymentHistory.firstOrNull {
+                                                            it.status != com.example.ui.screens.installments.model.InstallmentStatus.PAID &&
+                                                                it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED
+                                                        }?.amount ?: (found.totalAmount / found.totalInstallments.coerceAtLeast(1)),
+                                                        dueDatePersian = found.nextPaymentDate,
+                                                        dueTimePersian = "۰۹:۰۰"
+                                                    )
+                                                } catch (e: Exception) {
+                                                    e.printStackTrace()
+                                                }
                                             }
+                                            editingScheduleItem = null
+                                        } else {
+                                            scheduleEditError = "ذخیره تغییرات انجام نشد. تاریخ سررسید و مبلغ را بررسی کنید و دوباره تلاش کنید."
                                         }
                                     }
                                 }
-                                editingScheduleItem = null
                             },
+                            enabled = !isSavingScheduleEdit,
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("ذخیره تغییرات")
+                            if (isSavingScheduleEdit) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text("ذخیره تغییرات")
+                            }
                         }
                     }
                 }
