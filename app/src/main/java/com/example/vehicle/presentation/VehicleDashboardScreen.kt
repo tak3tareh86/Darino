@@ -406,7 +406,8 @@ fun DarinoVehicleMainDashboard(
                         }
                         VehicleTab.REPORTS -> {
                             VehicleReportTab(
-                                statistics = state.statistics
+                                statistics = state.statistics,
+                                expenses = state.expenses
                             )
                         }
                         VehicleTab.INSURANCE -> {
