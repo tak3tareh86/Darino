@@ -32,19 +32,18 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
     private data class MonthRange(val start: Long, val end: Long, val label: String)
 
     private fun monthRange(offset: Int): MonthRange {
-        val calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tehran"))
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        calendar.add(Calendar.MONTH, offset)
-        val start = calendar.timeInMillis
-        val jalali = PersianCalendarHelper.fromEpochMillis(start)
+        val today = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        var year = today.year
+        var month = today.month + offset
+        while (month < 1) { month += 12; year -= 1 }
+        while (month > 12) { month -= 12; year += 1 }
+        val start = PersianCalendarHelper.jalaliToEpochMillis(year, month, 1, 0, 0)
+        var nextYear = year
+        var nextMonth = month + 1
+        if (nextMonth > 12) { nextMonth = 1; nextYear += 1 }
+        val end = PersianCalendarHelper.jalaliToEpochMillis(nextYear, nextMonth, 1, 0, 0)
         val names = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
-        val label = names.getOrNull(jalali.month - 1) ?: "${jalali.year}/${jalali.month}"
-        calendar.add(Calendar.MONTH, 1)
-        return MonthRange(start, calendar.timeInMillis, label)
+        return MonthRange(start, end, names[month - 1])
     }
 
     private fun dueMillis(date: String): Long? {
