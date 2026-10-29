@@ -54,13 +54,19 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
 
     private fun hasCompletePaymentHistory(item: InstallmentItem): Boolean {
         val expectedCount = item.totalInstallments
-        if (expectedCount <= 0 || item.paymentHistory.size < expectedCount) return false
-        val validScheduleNumbers = item.paymentHistory
-            .filter { payment -> payment.amount > 0L && dueMillis(payment.dueDate) != null }
-            .map { it.installmentNumber }
-            .filter { it > 0 }
-            .distinct()
-        return validScheduleNumbers.size >= expectedCount
+        if (expectedCount <= 0) return false
+
+        // Every expected installment must have exactly one valid dated, positive-amount schedule row.
+        // Counting distinct numbers alone can incorrectly accept out-of-range or duplicate rows.
+        val validPayments = item.paymentHistory.filter { payment ->
+            payment.amount > 0L &&
+                payment.installmentNumber in 1..expectedCount &&
+                dueMillis(payment.dueDate) != null
+        }
+        val scheduleNumbers = validPayments.map { it.installmentNumber }.toSet()
+        return validPayments.size == expectedCount &&
+            scheduleNumbers.size == expectedCount &&
+            scheduleNumbers.containsAll(1..expectedCount)
     }
 
     private fun hasCompleteSchedule(item: InstallmentItem): Boolean {
