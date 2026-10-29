@@ -72,6 +72,14 @@ class LocalBackupRepository(
 
             val userPreference =
                 db.userPreferenceDao().getPreference(userId)
+            val appPreferences = AppPreferencesRepository.getInstance(context)
+            val appSettings = AppSettingsBackup(
+                themeMode = appPreferences.themeMode.value.name,
+                language = appPreferences.language.value.name,
+                currency = appPreferences.currency.value.name,
+                alertDelivery = appPreferences.alertDelivery.value.name,
+                navigationTransition = appPreferences.navTransition.value.name
+            )
 
             val totalRecords =
                 accounts.size + checks.size + transactions.size +
@@ -87,7 +95,7 @@ class LocalBackupRepository(
                         events.size +
                         financialHealthProfiles.size +
                         loanCalculations.size +
-                        (if (userPreference != null) 1 else 0)
+                        (if (userPreference != null) 1 else 0) + 1
 
             BackupValidator.withChecksum(DarinoBackup(
                 metadata = BackupMetadata(
@@ -114,7 +122,8 @@ class LocalBackupRepository(
                 financialEvents = events,
                 financialHealthProfiles = financialHealthProfiles,
                 loanCalculations = loanCalculations,
-                userPreference = userPreference
+                userPreference = userPreference,
+                appSettings = appSettings
             ))
             }
         }
