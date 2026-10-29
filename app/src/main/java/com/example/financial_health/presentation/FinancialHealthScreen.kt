@@ -35,6 +35,7 @@ import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.PersianCalendarHelper
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -439,10 +440,18 @@ private fun FinancialCommitmentsBreakdownCard(
                     decimalFormat = decimalFormat,
                     color = MaterialTheme.colorScheme.primary,
                     icon = Icons.Rounded.AccountBalanceWallet,
-                    percentageText = when {
-                        state.incomeFromTransactions -> "جمع تراکنش‌های درآمد این ماه"
-                        state.hasIncomeData -> "درآمد ماهانه ثبت‌شده توسط شما"
-                        else -> "درآمد این ماه ثبت نشده"
+                    percentageText = buildString {
+                        append(
+                            when {
+                                state.incomeFromTransactions -> "جمع تراکنش‌های درآمد این ماه"
+                                state.hasIncomeData -> "درآمد ماهانه ثبت‌شده توسط شما"
+                                else -> "درآمد این ماه ثبت نشده"
+                            }
+                        )
+                        if (state.profileUpdatedAt > 0L) {
+                            append(" · آخرین ثبت: ")
+                            append(PersianCalendarHelper.fromEpochMillis(state.profileUpdatedAt).toFormattedDate())
+                        }
                     },
                     amountLabelOverride = if (state.hasIncomeData) null else "ثبت نشده"
                 )
