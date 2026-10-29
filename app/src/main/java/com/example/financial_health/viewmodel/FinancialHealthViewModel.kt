@@ -115,7 +115,12 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val now = System.currentTimeMillis()
         val nearest = unpaidPayments.filter { it.third >= currentMonth.start }.minByOrNull { it.third }
             ?: unpaidPayments.filter { it.third < currentMonth.start }.maxByOrNull { it.third }
-        val daysToNearest = nearest?.third?.let { ((it - now) / 86_400_000L).toInt() } ?: 0
+        val nearestItemFallback = active.mapNotNull { item ->
+            dueMillis(item.nextPaymentDate)?.let { item to it }
+        }.minByOrNull { it.second }
+        val nearestDueMillis = nearest?.third ?: nearestItemFallback?.second
+        val nearestTitle = nearest?.first?.title ?: nearestItemFallback?.first?.title
+        val daysToNearest = nearestDueMillis?.let { ((it - now) / 86_400_000L).toInt() } ?: 0
         val largest = active.flatMap { item ->
             item.paymentHistory.filter { isUnpaid(it.status) && it.amount > 0L }.map { item to it }
         }.maxByOrNull { it.second.amount }
@@ -135,8 +140,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             hasIncomeData = income > 0L, hasPreviousMonthData = previousPressure != null && currentHistoryPressure != null, insights = insights,
             isLoading = false, errorMessage = currentError, activeInstallmentsCount = active.size,
             totalInstallmentsMonthlyFormatted = if (scheduledCurrentMonth > 0L) formatter.format(scheduledCurrentMonth) + " تومان" else "سررسید مبلغ‌دار ثبت نشده",
-            nearestDueDateDays = daysToNearest, nearestDueDateTitle = nearest?.first?.title ?: "سررسیدی ثبت نشده",
-            hasNearestDueDate = nearest != null, largestInstallmentTitle = largest?.first?.title ?: "قسطی ثبت نشده",
+            nearestDueDateDays = daysToNearest, nearestDueDateTitle = nearestTitle ?: "سررسیدی ثبت نشده",
+            hasNearestDueDate = nearestDueMillis != null, largestInstallmentTitle = largest?.first?.title ?: "قسطی ثبت نشده",
             largestInstallmentAmount = largest?.second?.amount ?: 0L, hasLargestInstallment = largest != null,
             nextMonthPrediction = nextMonth, previousMonthPressure = previousPressure ?: 0f, historicalPressureList = history
         )
