@@ -35,6 +35,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE userId = :userId AND deletedAt IS NULL ORDER BY timestamp DESC")
     suspend fun getAllTransactionsList(userId: String): List<TransactionEntity>
 
+    @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY timestamp DESC")
+    suspend fun getAllTransactionsForBackup(userId: String): List<TransactionEntity>
+
     @Query("DELETE FROM transactions WHERE userId = :userId")
     suspend fun clearAllTransactions(userId: String)
 
@@ -130,11 +133,17 @@ interface VehicleDao {
     @Query("SELECT * FROM vehicles WHERE userId = :userId AND deletedAt IS NULL ORDER BY updatedAt DESC")
     suspend fun getAllVehiclesList(userId: String): List<VehicleEntity>
 
+    @Query("SELECT * FROM vehicles WHERE userId = :userId ORDER BY updatedAt DESC")
+    suspend fun getAllVehiclesForBackup(userId: String): List<VehicleEntity>
+
     @Query("SELECT * FROM vehicle_services WHERE userId = :userId AND deletedAt IS NULL ORDER BY dueDate ASC")
     fun getAllServices(userId: String): Flow<List<VehicleServiceEntity>>
 
     @Query("SELECT * FROM vehicle_services WHERE userId = :userId AND deletedAt IS NULL ORDER BY dueDate ASC")
     suspend fun getAllServicesList(userId: String): List<VehicleServiceEntity>
+
+    @Query("SELECT * FROM vehicle_services WHERE userId = :userId ORDER BY dueDate ASC")
+    suspend fun getAllServicesForBackup(userId: String): List<VehicleServiceEntity>
 
     @Query("SELECT * FROM vehicle_expenses WHERE userId = :userId ORDER BY date DESC")
     fun getAllExpenses(userId: String): Flow<List<VehicleExpenseRoomEntity>>
