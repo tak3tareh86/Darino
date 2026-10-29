@@ -43,6 +43,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -55,6 +56,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -74,6 +78,7 @@ fun SupportBackupScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val backupRepo = remember { com.example.data.backup.LocalBackupRepository(context) }
     val backupManager = remember { com.example.domain.backup.BackupManager(backupRepo) }
@@ -111,6 +116,26 @@ fun SupportBackupScreen(
                 com.example.util.IranianPhoneUtils.convertDigitsToPersian("${dt.year}/${dt.month.toString().padStart(2, '0')}/${dt.day.toString().padStart(2, '0')}")
             }
         )
+    }
+
+    val refreshLastBackupDate = {
+        val lastTime = prefs.getLong("last_backup_time", 0L)
+        lastBackupDate = if (lastTime == 0L) {
+            "تاکنون بک‌آپی گرفته نشده"
+        } else {
+            val dt = com.example.util.PersianCalendarHelper.fromEpochMillis(lastTime)
+            com.example.util.IranianPhoneUtils.convertDigitsToPersian(
+                "${dt.year}/${dt.month.toString().padStart(2, '0')}/${dt.day.toString().padStart(2, '0')}"
+            )
+        }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) refreshLastBackupDate()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     var isBackingUp by remember { mutableStateOf(false) }
@@ -193,8 +218,6 @@ fun SupportBackupScreen(
     // Support state
     var ticketSubject by remember { mutableStateOf("") }
     var ticketMessage by remember { mutableStateOf("") }
-    var isSendingTicket by remember { mutableStateOf(false) }
-    var showTicketSuccessDialog by remember { mutableStateOf(false) }
 
     val defaultSupportGmail = "support.financeapp@gmail.com"
 
@@ -207,18 +230,6 @@ fun SupportBackupScreen(
             isDanger = false,
             onConfirm = { showBackupSuccessDialog = false },
             onDismiss = { showBackupSuccessDialog = false }
-        )
-    }
-
-    if (showTicketSuccessDialog) {
-        SettingsConfirmationDialog(
-            isOpen = true,
-            title = "پیام شما ثبت شد",
-            message = "پیام شما به جیمیل پشتیبانی ($defaultSupportGmail) ثبت گردید و کارشناسان در اسرع وقت پاسخ خواهند داد.",
-            confirmButtonText = "بستن",
-            isDanger = false,
-            onConfirm = { showTicketSuccessDialog = false },
-            onDismiss = { showTicketSuccessDialog = false }
         )
     }
 
@@ -525,7 +536,7 @@ fun SupportBackupScreen(
                                     try {
                                         context.startActivity(intent)
                                     } catch (e: Exception) {
-                                        Toast.makeText(context, "جیمیل: $defaultSupportGmail", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "برنامه ایمیل در دسترس نیست. می‌توانید به این نشانی پیام بدهید: $defaultSupportGmail", Toast.LENGTH_LONG).show()
                                     }
                                 }
                             )
@@ -565,8 +576,7 @@ fun SupportBackupScreen(
                                             }
                                             try {
                                                 context.startActivity(Intent.createChooser(intent, "ارسال پیام پشتیبانی با..."))
-                                                ticketSubject = ""
-                                                ticketMessage = ""
+                                                Toast.makeText(context, "پیش‌نویس ایمیل باز شد؛ برای ارسال نهایی باید آن را در برنامه ایمیل تأیید کنید.", Toast.LENGTH_LONG).show()
                                             } catch (e: Exception) {
                                                 Toast.makeText(context, "خطا در باز کردن برنامه ایمیل: ${e.message}", Toast.LENGTH_LONG).show()
                                             }
