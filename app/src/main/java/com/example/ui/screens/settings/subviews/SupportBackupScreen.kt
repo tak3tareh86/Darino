@@ -138,11 +138,24 @@ fun SupportBackupScreen(
                     val adapter = moshi.adapter(com.example.data.backup.DarinoBackup::class.java)
                     val jsonString = adapter.toJson(backup)
 
-                    val outputStream = context.contentResolver.openOutputStream(uri)
+                    // Explicitly truncate an existing document and close it before verifying.
+                    val outputStream = context.contentResolver.openOutputStream(uri, "wt")
                         ?: throw java.io.IOException("امکان نوشتن در فایل انتخاب‌شده وجود ندارد")
                     outputStream.use { os ->
                         os.write(jsonString.toByteArray(Charsets.UTF_8))
                         os.flush()
+                    }
+
+                    // Do not report success until the saved document can be read back and validated.
+                    val savedJson = context.contentResolver.openInputStream(uri)
+                        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                        ?: throw java.io.IOException("فایل ذخیره شد اما امکان بررسی مجدد آن وجود ندارد")
+                    val savedBackup = adapter.fromJson(savedJson)
+                        ?: throw java.io.IOException("فایل ذخیره‌شده قابل خواندن نیست")
+                    val savedValidation = backupManager.validateBackup(savedBackup)
+                    if (savedValidation !is com.example.data.backup.ValidationResult.Valid ||
+                        savedBackup.metadata.checksum != backup.metadata.checksum) {
+                        throw java.io.IOException("بررسی صحت فایل ذخیره‌شده ناموفق بود")
                     }
 
                     val nowTime = System.currentTimeMillis()
@@ -207,7 +220,7 @@ fun SupportBackupScreen(
         SettingsConfirmationDialog(
             isOpen = true,
             title = "پشتیبان‌گیری موفق",
-            message = "نسخه پشتیبان از تراکنش‌ها، اقساط، خودروها، یادآورها و رویدادهای مالی با موفقیت در محل انتخابی شما ذخیره شد.\n$backupSummaryInfo",
+            message = "نسخه پشتیبان شامل حساب‌ها، چک‌ها، تراکنش‌ها، اقساط، خودروها، یادآورها و رویدادهای مالی ذخیره و دوباره بررسی شد. فایل JSON رمزگذاری نشده است؛ آن را در محل امن نگه دارید.\n$backupSummaryInfo",
             confirmButtonText = "متوجه شدم",
             isDanger = false,
             onConfirm = { showBackupSuccessDialog = false },
