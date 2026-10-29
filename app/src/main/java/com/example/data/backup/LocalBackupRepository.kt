@@ -106,14 +106,20 @@ class LocalBackupRepository(
         mode: RestoreMode
     ) {
         withContext(Dispatchers.IO) {
+            when (val validation = BackupValidator.validate(backup)) {
+                is ValidationResult.Valid -> Unit
+                is ValidationResult.Invalid -> throw IllegalArgumentException(validation.reason)
+            }
             val userId = getEffectiveUserId()
 
             db.withTransaction {
                 if (mode == RestoreMode.REPLACE) {
                     db.installmentDao().clearAllPayments(userId)
                     db.installmentDao().clearAllInstallments(userId)
-                    db.accountDao().clearAllAccounts(userId)
-                    db.checkDao().clearAllChecks(userId)
+                    if (backup.metadata.backupVersion >= 2) {
+                        db.accountDao().clearAllAccounts(userId)
+                        db.checkDao().clearAllChecks(userId)
+                    }
                     db.transactionDao()
                         .clearAllTransactions(userId)
 
