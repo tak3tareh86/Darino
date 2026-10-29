@@ -60,11 +60,12 @@ fun AddServiceSheet(
         offsets: List<com.example.reminder.domain.PredefinedOffset>,
         time: String
     ) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    initialServiceType: ServiceType = ServiceType.OIL_CHANGE
 ) {
     val todayJalali = remember { com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate() }
-    var selectedType by remember { mutableStateOf(ServiceType.OIL_CHANGE) }
-    var title by remember { mutableStateOf(ServiceType.OIL_CHANGE.title) }
+    var selectedType by remember(initialServiceType) { mutableStateOf(initialServiceType) }
+    var title by remember(initialServiceType) { mutableStateOf(initialServiceType.title) }
     var date by remember { mutableStateOf(todayJalali) }
     var mileageText by remember { mutableStateOf(if (vehicle.currentMileage > 0) vehicle.currentMileage.toString() else "") }
     var costText by remember { mutableStateOf("") }
