@@ -116,9 +116,8 @@ fun DayDetailsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                            val formatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(totalAmount)
-                            Text(
-                                text = "${com.example.util.IranianPhoneUtils.convertDigitsToPersian(formatted)} تومان",
+                                                        Text(
+                                text = com.example.util.MoneyFormatter.formatToman(totalAmount),
                                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
                                 color = MaterialTheme.colorScheme.primary
                             )
