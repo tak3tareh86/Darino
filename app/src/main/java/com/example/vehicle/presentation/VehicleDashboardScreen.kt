@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -1047,7 +1048,7 @@ private fun VehicleInsuranceDocumentsTabContent(
     onDeleteInsurance: (VehicleInsuranceEntity) -> Unit,
     onDeleteInspection: (VehicleInspectionEntity) -> Unit
 ) {
-    var selectedDocumentTab by remember { mutableIntStateOf(0) }
+    var selectedDocumentTab by rememberSaveable { mutableIntStateOf(0) }
     val today = remember {
         com.example.util.IranianPhoneUtils.convertDigitsToEnglish(
             com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
@@ -1074,9 +1075,9 @@ private fun VehicleInsuranceDocumentsTabContent(
             }
         }
         PrimaryTabRow(selectedTabIndex = selectedDocumentTab) {
-            Tab(selected = selectedDocumentTab == 0, onClick = { selectedDocumentTab = 0 }, text = { Text("شخص ثالث", maxLines = 1) })
-            Tab(selected = selectedDocumentTab == 1, onClick = { selectedDocumentTab = 1 }, text = { Text("بیمه بدنه", maxLines = 1) })
-            Tab(selected = selectedDocumentTab == 2, onClick = { selectedDocumentTab = 2 }, text = { Text("معاینه فنی", maxLines = 1) })
+            Tab(selected = selectedDocumentTab == 0, onClick = { selectedDocumentTab = 0 }, modifier = Modifier.testTag("insurance_document_tab_third_party"), text = { Text("شخص ثالث", maxLines = 1) })
+            Tab(selected = selectedDocumentTab == 1, onClick = { selectedDocumentTab = 1 }, modifier = Modifier.testTag("insurance_document_tab_body"), text = { Text("بیمه بدنه", maxLines = 1) })
+            Tab(selected = selectedDocumentTab == 2, onClick = { selectedDocumentTab = 2 }, modifier = Modifier.testTag("insurance_document_tab_inspection"), text = { Text("معاینه فنی", maxLines = 1) })
         }
         if (selectedDocumentTab == 0 || selectedDocumentTab == 1) {
             if (visibleInsurances.isEmpty()) {
