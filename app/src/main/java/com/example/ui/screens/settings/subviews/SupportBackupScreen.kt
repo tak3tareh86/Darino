@@ -139,7 +139,10 @@ fun SupportBackupScreen(
     }
 
     var isBackingUp by remember { mutableStateOf(false) }
+    var isRestoring by remember { mutableStateOf(false) }
     var showBackupSuccessDialog by remember { mutableStateOf(false) }
+    var showRestoreConfirmation by remember { mutableStateOf(false) }
+    var pendingRestoreBackup by remember { mutableStateOf<com.example.data.backup.DarinoBackup?>(null) }
     var backupSummaryInfo by remember { mutableStateOf("") }
 
     val createBackupLauncher = rememberLauncherForActivityResult(
@@ -196,8 +199,8 @@ fun SupportBackupScreen(
                         if (backup != null) {
                             val validation = backupManager.validateBackup(backup)
                             if (validation is com.example.data.backup.ValidationResult.Valid) {
-                                backupManager.restoreBackup(backup, com.example.data.backup.RestoreMode.REPLACE)
-                                Toast.makeText(context, "اطلاعات با موفقیت بازیابی شد.", Toast.LENGTH_LONG).show()
+                                pendingRestoreBackup = backup
+                                showRestoreConfirmation = true
                             } else {
                                 val reason = (validation as com.example.data.backup.ValidationResult.Invalid).reason
                                 Toast.makeText(context, "خطا در صحت‌سنجی فایل: $reason", Toast.LENGTH_LONG).show()
@@ -230,6 +233,41 @@ fun SupportBackupScreen(
             isDanger = false,
             onConfirm = { showBackupSuccessDialog = false },
             onDismiss = { showBackupSuccessDialog = false }
+        )
+    }
+
+    if (showRestoreConfirmation && pendingRestoreBackup != null) {
+        SettingsConfirmationDialog(
+            isOpen = true,
+            title = "تأیید بازیابی پشتیبان",
+            message = "این عملیات تمام اطلاعات فعلی این حساب را با اطلاعات فایل پشتیبان جایگزین می‌کند. اگر لازم است، ابتدا از اطلاعات فعلی نسخه پشتیبان بگیرید.",
+            confirmButtonText = "بازیابی و جایگزینی",
+            isDanger = true,
+            onConfirm = {
+                val backupToRestore = pendingRestoreBackup
+                pendingRestoreBackup = null
+                showRestoreConfirmation = false
+                if (backupToRestore != null) {
+                    scope.launch {
+                        isRestoring = true
+                        try {
+                            backupManager.restoreBackup(
+                                backupToRestore,
+                                com.example.data.backup.RestoreMode.REPLACE
+                            )
+                            Toast.makeText(context, "اطلاعات با موفقیت بازیابی شد.", Toast.LENGTH_LONG).show()
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "خطا در بازیابی: ${e.message}", Toast.LENGTH_LONG).show()
+                        } finally {
+                            isRestoring = false
+                        }
+                    }
+                }
+            },
+            onDismiss = {
+                pendingRestoreBackup = null
+                showRestoreConfirmation = false
+            }
         )
     }
 
@@ -362,6 +400,7 @@ fun SupportBackupScreen(
                                     .fillMaxWidth()
                                     .height(48.dp)
                                     .testTag("restore_backup_button"),
+                                enabled = !isRestoring,
                                 shape = RoundedCornerShape(RadiusMD),
                                 border = BorderStroke(1.dp, EmeraldPrimaryLight)
                             ) {
