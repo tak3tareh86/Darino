@@ -512,7 +512,7 @@ private fun FinancialCommitmentsBreakdownCard(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) "معادل ${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪ درآمد" else "برای محاسبه، درآمد و هزینه ثابت را ثبت کنید",
+                            text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) "معادل ${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪ درآمد" else "برای محاسبه، درآمد و هزینه ثابت را ثبت کنید و برنامه اقساط را کامل کنید",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
