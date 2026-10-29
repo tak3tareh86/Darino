@@ -122,10 +122,16 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         return result
     }
 
+    private val installmentSnapshotFlow = combine(
+        installmentRepository.installments, installmentRepository.installmentDataAvailable
+    ) { items, available -> items to available }
+
     val uiState: StateFlow<FinancialHealthState> = combine(
-        repository.profileFlow, repository.transactionsFlow, installmentRepository.installments,
-        installmentRepository.installmentDataAvailable, repository.vehicleServicesFlow, operationError
-    ) { profile, transactions, allInstallments, installmentDataAvailable, vehicleServices, currentError ->
+        repository.profileFlow, repository.transactionsFlow, installmentSnapshotFlow,
+        repository.vehicleServicesFlow, operationError
+    ) { profile, transactions, installmentSnapshot, vehicleServices, currentError ->
+        val allInstallments = installmentSnapshot.first
+        val installmentDataAvailable = installmentSnapshot.second
         val currentMonth = monthRange(0)
         val previousMonth = monthRange(-1)
         val active = activeItems(allInstallments)
