@@ -57,9 +57,9 @@ data class FinancialHealthInsight(
 
 data class NextMonthPrediction(
     val installments: Long = 0L,
-    val fixedExpenses: Long = 0L,
     val reminders: Long = 0L,
     val vehicleExpenses: Long = 0L,
+    val fixedExpenses: Long = 0L,
     val fixedExpensesAmountRecorded: Boolean = false,
     val remindersAmountRecorded: Boolean = false,
     val vehicleExpensesAmountRecorded: Boolean = false
