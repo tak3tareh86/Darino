@@ -76,9 +76,6 @@ class WeeklyBackupWorker(
                 .apply()
 
             Result.success()
-        } catch (e: IllegalStateException) {
-            Log.w(TAG, "Weekly auto-backup skipped: ${e.message}")
-            Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "Error performing $frequency auto-backup", e)
             Result.retry()
@@ -98,7 +95,6 @@ class WeeklyBackupWorker(
         fun enqueueWeekly(context: Context) {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
-                .setRequiresBatteryNotLow(true)
                 .build()
 
             // Run every 7 days
