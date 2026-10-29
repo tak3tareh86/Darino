@@ -47,7 +47,7 @@ fun VehicleCostChart(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(170.dp)
+                .height(182.dp)
                 .padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
@@ -57,6 +57,7 @@ fun VehicleCostChart(
                 val repairRatio = (bar.repairAmount / maxTotal) * progress.value
                 val serviceRatio = (bar.serviceAmount / maxTotal) * progress.value
                 val insuranceRatio = (bar.insuranceAmount / maxTotal) * progress.value
+                val otherRatio = (bar.otherAmount / maxTotal) * progress.value
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -87,8 +88,8 @@ fun VehicleCostChart(
                     // Stacked Bar
                     Column(
                         modifier = Modifier
-                            .width(22.dp)
-                            .height(110.dp)
+                            .width(14.dp)
+                            .height(118.dp)
                             .clip(RoundedCornerShape(6.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
                         verticalArrangement = Arrangement.Bottom
@@ -97,33 +98,31 @@ fun VehicleCostChart(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height((110 * insuranceRatio).dp)
-                                    .background(Color(0xFFF59E0B))
+                                    .height((118 * insuranceRatio).dp)
+                                    .background(Color(0xFFFBBF24))
                             )
                         }
                         if (repairRatio > 0f) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height((110 * repairRatio).dp)
-                                    .background(Color(0xFFEF4444))
+                                    .height((118 * repairRatio).dp)
+                                    .background(Color(0xFFFB7185))
                             )
                         }
                         if (serviceRatio > 0f) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height((110 * serviceRatio).dp)
-                                    .background(Color(0xFF10B981))
+                                    .height((118 * serviceRatio).dp)
+                                    .background(Color(0xFF34D399))
                             )
                         }
                         if (fuelRatio > 0f) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height((110 * fuelRatio).dp)
-                                    .background(Color(0xFF3B82F6))
-                            )
+                            Box(Modifier.fillMaxWidth().height((118 * fuelRatio).dp).background(Color(0xFF38BDF8)))
+                        }
+                        if (otherRatio > 0f) {
+                            Box(Modifier.fillMaxWidth().height((118 * otherRatio).dp).background(Color(0xFFA78BFA)))
                         }
                     }
 
@@ -132,7 +131,7 @@ fun VehicleCostChart(
                     Text(
                         text = bar.monthName,
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 10.sp,
+                            fontSize = 8.sp,
                             fontWeight = if (bar.isCurrentMonth) FontWeight.Bold else FontWeight.Normal
                         ),
                         color = if (bar.isCurrentMonth) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
