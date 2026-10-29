@@ -22,6 +22,7 @@ import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.VehicleTimelineEvent
+import com.example.util.MoneyFormatter
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -83,9 +84,7 @@ private fun TimelineItemRow(
     event: VehicleTimelineEvent,
     isLast: Boolean
 ) {
-    val amountFormatted = IranianPhoneUtils.convertDigitsToPersian(
-        NumberFormat.getNumberInstance(Locale.US).format(event.amount)
-    )
+    val amountFormatted = MoneyFormatter.formatToman(event.amount)
     val eventColor = Color(event.colorHex)
 
     Row(
@@ -176,7 +175,7 @@ private fun TimelineItemRow(
                         horizontalArrangement = Arrangement.End
                     ) {
                         Text(
-                            text = "$amountFormatted تومان",
+                            text = amountFormatted,
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp
