@@ -244,7 +244,7 @@ object VehicleAnalyzer {
             else -> VehicleHealthLevel.WARNING
         }
         val recommendation = when {
-            checklist.any { it.title.startsWith("بیمه‌نامه") || it.title == "معاینه فنی" && !it.isOk } ->
+            checklist.any { (it.title.startsWith("بیمه‌نامه") || it.title == "معاینه فنی") && !it.isOk } ->
                 "اعتبار بیمه‌نامه‌ها و معاینه فنی را بررسی و موارد فاقد اعتبار را تمدید کنید."
             checklist.any { !it.isOk || it.isWarning } ->
                 "سوابق سرویس و موعد تعویض قطعات را بررسی کنید؛ برای موارد ثبت‌نشده، اطلاعات سرویس را وارد کنید."
