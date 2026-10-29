@@ -2,134 +2,100 @@ package com.example.financial_health.domain
 
 import kotlin.math.roundToInt
 
-/**
- * Core business engine for evaluating financial pressure, health status, and generating actionable insights.
- * Completely decoupled from UI logic.
- */
+/** Deterministic rules for the commitment-to-income ratio. */
 object FinancialAnalyzerEngine {
-
-    /**
-     * Calculates financial pressure percentage: (Total Commitments / Monthly Income) * 100
-     */
-    fun calculateFinancialPressure(commitments: Long, income: Long): Float {
-        if (income <= 0L) return 100.0f
-        if (commitments <= 0L) return 0.0f
-        val ratio = (commitments.toDouble() / income.toDouble()) * 100.0
-        // Round to 1 decimal place
-        val rounded = (ratio * 10.0).roundToInt() / 10.0f
-        return rounded.coerceIn(0.0f, 100.0f)
+    fun calculateFinancialPressure(commitments: Long, income: Long): Float? {
+        if (income <= 0L || commitments < 0L) return null
+        return ((commitments.toDouble() / income.toDouble()) * 100.0)
+            .let { (it * 10.0).roundToInt() / 10.0f }
     }
 
-    /**
-     * Categorizes financial pressure percentage into predefined health tiers:
-     * - 0% to 30%: SAFE (مناسب)
-     * - 30% to 50%: MEDIUM (متوسط)
-     * - 50% and above: HIGH (بالا)
-     */
-    fun calculateHealthStatus(pressurePercentage: Float): FinancialHealthStatus {
-        return when {
-            pressurePercentage <= 30.0f -> FinancialHealthStatus.SAFE
-            pressurePercentage <= 50.0f -> FinancialHealthStatus.MEDIUM
-            else -> FinancialHealthStatus.HIGH
-        }
+    fun calculateHealthStatus(pressurePercentage: Float): FinancialHealthStatus = when {
+        pressurePercentage <= 30.0f -> FinancialHealthStatus.SAFE
+        pressurePercentage <= 50.0f -> FinancialHealthStatus.MEDIUM
+        else -> FinancialHealthStatus.HIGH
     }
 
-    /**
-     * Generates analytical insights and smart recommendations based on user commitment metrics.
-     */
     fun generateInsights(
-        income: Long,
-        installments: Long,
-        fixedExpenses: Long,
-        currentPressure: Float,
-        previousMonthPressure: Float,
+        income: Long, installments: Long, fixedExpenses: Long,
+        currentPressure: Float?, previousMonthPressure: Float?,
         nextMonthPrediction: NextMonthPrediction
     ): List<FinancialHealthInsight> {
         val insights = mutableListOf<FinancialHealthInsight>()
-
-        // 1. Month-over-month comparison alert
-        val diff = currentPressure - previousMonthPressure
-        val diffAbs = (Math.abs(diff) * 10).roundToInt() / 10.0f
-        when {
-            diff > 2.0f -> {
-                insights.add(
-                    FinancialHealthInsight(
-                        id = "trend_alert",
-                        title = "تحلیل دارینو: افزایش فشار مالی",
-                        description = "فشار مالی شما نسبت به ماه قبل $diffAbs٪ افزایش داشته است (از $previousMonthPressure٪ به $currentPressure٪). تعهدات جدید یا نوسان مخارج نیازمند پایش هستند.",
-                        type = InsightType.WARNING,
-                        recommendation = "بررسی و اولویت‌بندی تسویه زودتر اقساط خرد برای کاهش بار ماهانه"
-                    )
-                )
-            }
-            diff < -2.0f -> {
-                insights.add(
-                    FinancialHealthInsight(
-                        id = "trend_alert",
-                        title = "تحلیل دارینو: بهبود وضعیت تعهدات",
-                        description = "فشار مالی شما نسبت به ماه قبل $diffAbs٪ کاهش یافته و تعادل درآمد به تعهدات بهتر شده است.",
-                        type = InsightType.POSITIVE,
-                        recommendation = "تخصیص مازاد آزادشده به صندوق پس‌انداز اضطراری"
-                    )
-                )
-            }
-            else -> {
-                insights.add(
-                    FinancialHealthInsight(
-                        id = "trend_alert",
-                        title = "تحلیل دارینو: ثبات تعهدات ماهانه",
-                        description = "بار تعهدات مالی شما نسبت به ماه قبل در وضعیتی باثبات و قابل پیش‌بینی قرار دارد.",
-                        type = InsightType.INFO
-                    )
-                )
-            }
-        }
-
-        // 2. Installments Weight Insight
-        if (income > 0L) {
-            val installmentRatio = ((installments.toDouble() / income.toDouble()) * 100.0).roundToInt()
-            if (installmentRatio > 25) {
-                insights.add(
-                    FinancialHealthInsight(
-                        id = "installments_weight",
-                        title = "سهم اقساط از درآمد",
-                        description = "اقساط فعال به تنهایی $installmentRatio٪ از کل درآمد ماهانه شما را به خود اختصاص داده‌اند.",
-                        type = if (installmentRatio > 35) InsightType.ALERT else InsightType.WARNING,
-                        recommendation = "از ایجاد تسهیلات و خریدهای اقساطی جدید تا تسویه حداقل یک مورد خودداری کنید."
-                    )
-                )
-            }
-        }
-
-        // 3. Safe Zone recommendation
-        if (currentPressure > 30.0f && income > 0L) {
-            val maxSafeCommitment = (income * 0.30).toLong()
-            val excessCommitment = (installments + fixedExpenses) - maxSafeCommitment
-            if (excessCommitment > 0L) {
-                val excessInMillions = (excessCommitment / 1_000_000.0 * 10).roundToInt() / 10.0
-                insights.add(
-                    FinancialHealthInsight(
-                        id = "safe_zone_target",
-                        title = "هدف‌گذاری منطقه امن (زیر ۳۰٪)",
-                        description = "برای بازگشت به محدوده سبز و امن، کاهش حدود $excessInMillions میلیون تومان از تعهدات ماهانه لازم است.",
-                        type = InsightType.INFO,
-                        recommendation = "کاهش برخی هزینه‌های ثابت اشتراکی یا بازپرداخت زودتر یک وام کم‌مبلغ"
-                    )
-                )
-            }
-        }
-
-        // 4. Next month outlook
-        val nextMonthPressure = calculateFinancialPressure(nextMonthPrediction.total, income)
-        insights.add(
-            FinancialHealthInsight(
-                id = "next_month_outlook",
-                title = "چشم‌انداز تعهدات ماه آینده",
-                description = "پیش‌بینی تعهدات ماه بعد مجموعاً ${(nextMonthPrediction.total / 1_000_000.0 * 10).roundToInt() / 10.0} میلیون تومان (فشار معادل $nextMonthPressure٪) خواهد بود.",
-                type = if (nextMonthPressure > 45f) InsightType.WARNING else InsightType.INFO
+        if (income <= 0L || currentPressure == null) {
+            insights += FinancialHealthInsight(
+                id = "income_required", title = "برای تحلیل، درآمد ماهانه را ثبت کنید",
+                description = "تا زمانی که درآمد ماهانه معتبر ثبت نشود، درصد فشار مالی و مقایسه ماهانه قابل محاسبه نیست.",
+                type = InsightType.INFO
             )
-        )
+            return insights
+        }
 
+        if (previousMonthPressure != null) {
+            val diff = currentPressure - previousMonthPressure
+            val diffAbs = (kotlin.math.abs(diff) * 10).roundToInt() / 10.0f
+            when {
+                diff > 2.0f -> insights += FinancialHealthInsight(
+                    id = "trend_alert", title = "افزایش فشار تعهدات نسبت به ماه قبل",
+                    description = "سهم اقساط ثبت‌شده از درآمد از ${previousMonthPressure}٪ به ${currentPressure}٪ رسیده است.",
+                    type = InsightType.WARNING,
+                    recommendation = "اقساط سررسیدشونده و درآمد ثبت‌شده هر دو ماه را بررسی کنید."
+                )
+                diff < -2.0f -> insights += FinancialHealthInsight(
+                    id = "trend_alert", title = "کاهش فشار تعهدات نسبت به ماه قبل",
+                    description = "سهم اقساط ثبت‌شده از درآمد ${diffAbs} واحد درصد کاهش یافته است.",
+                    type = InsightType.POSITIVE,
+                    recommendation = "در صورت وجود مازاد واقعی، برای هزینه‌های پیش‌بینی‌نشده ذخیره در نظر بگیرید."
+                )
+                else -> insights += FinancialHealthInsight(
+                    id = "trend_alert", title = "تغییر چشمگیری در سهم اقساط دیده نمی‌شود",
+                    description = "مقایسه بر اساس درآمد و سررسیدهای ثبت‌شده در دو ماه انجام شده است.",
+                    type = InsightType.INFO
+                )
+            }
+        } else {
+            insights += FinancialHealthInsight(
+                id = "trend_unavailable", title = "مقایسه ماهانه هنوز در دسترس نیست",
+                description = "برای مقایسه معتبر، اطلاعات درآمد و سررسیدهای ماه قبل کافی نیست.",
+                type = InsightType.INFO
+            )
+        }
+
+        val installmentRatio = installments.toDouble() / income.toDouble() * 100.0
+        if (installmentRatio > 25.0) {
+            insights += FinancialHealthInsight(
+                id = "installments_weight", title = "سهم بالای اقساط از درآمد",
+                description = "اقساط سررسیدشونده ثبت‌شده حدود ${(installmentRatio * 10).roundToInt() / 10.0}٪ از درآمد ماهانه ثبت‌شده را تشکیل می‌دهند.",
+                type = if (installmentRatio > 35.0) InsightType.ALERT else InsightType.WARNING,
+                recommendation = "پیش از ایجاد تعهد جدید، توان پرداخت پس از کسر هزینه‌های ثابت را بررسی کنید."
+            )
+        }
+
+        val excess = installments + fixedExpenses - (income * 0.30).toLong()
+        if (excess > 0L) {
+            insights += FinancialHealthInsight(
+                id = "safe_zone_target", title = "مقایسه با محدوده هدف ۳۰٪",
+                description = "تعهدات ثبت‌شده ${excess / 1_000_000.0} میلیون تومان بالاتر از ۳۰٪ درآمد هستند؛ این یک معیار راهنماست، نه ارزیابی قطعی.",
+                type = InsightType.INFO,
+                recommendation = "درآمد و هزینه‌های ثابت ثبت‌شده را بازبینی کنید و از ایجاد تعهد غیرضروری بپرهیزید."
+            )
+        }
+
+        if (nextMonthPrediction.installments > 0L) {
+            val nextMonthPressure = calculateFinancialPressure(nextMonthPrediction.installments, income)
+            val ratioText = nextMonthPressure?.let { " (معادل ${it}٪ درآمد ماهانه ثبت‌شده)" } ?: ""
+            insights += FinancialHealthInsight(
+                id = "next_month_outlook", title = "اقساط سررسیدشونده ماه آینده",
+                description = "بر اساس برنامه اقساط ثبت‌شده، مبلغ اقساط ماه آینده ${nextMonthPrediction.installments / 1_000_000.0} میلیون تومان است${ratioText}. یادآورها و هزینه‌های خودرو در این جمع نیستند، چون مبلغ قابل محاسبه‌ای برای آن‌ها ثبت نشده است.",
+                type = if ((nextMonthPressure ?: 0f) > 45f) InsightType.WARNING else InsightType.INFO
+            )
+        } else {
+            insights += FinancialHealthInsight(
+                id = "next_month_outlook", title = "اطلاعات کافی برای پیش‌بینی ماه آینده وجود ندارد",
+                description = "برای ماه آینده سررسید قسط دارای مبلغ و تاریخ معتبر پیدا نشد؛ این به معنی صفر بودن هزینه‌های آینده نیست.",
+                type = InsightType.INFO
+            )
+        }
         return insights
     }
 }
