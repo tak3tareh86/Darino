@@ -918,7 +918,7 @@ private fun SmartAlertsSection(state: FinancialHealthState) {
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = if (state.hasIncomeData) "ماه جاری: ${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪" else "ماه جاری: درآمد ثبت نشده",
+                    text = if (state.hasPreviousMonthData) "ماه جاری: ${IranianPhoneUtils.convertDigitsToPersian((state.currentMonthComparisonPressure ?: 0f).toInt().toString())}٪" else "ماه جاری: داده کافی نیست",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = state.healthStatus.color
