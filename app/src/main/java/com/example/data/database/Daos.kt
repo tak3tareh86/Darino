@@ -380,11 +380,11 @@ interface NotificationLogDao {
     @Query("UPDATE notification_logs SET syncState = :syncState, serverId = :serverId WHERE userId = :userId AND id = :id")
     suspend fun updateSyncStatus(userId: String, id: Int, serverId: String?, syncState: String)
 
-    @Query("DELETE FROM notification_logs WHERE userId = :userId AND id = :id")
-    suspend fun deleteNotification(userId: String, id: Int)
+    @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND id = :id")
+    suspend fun deleteNotification(userId: String, id: Int, deletedAt: Long = System.currentTimeMillis())
 
-    @Query("DELETE FROM notification_logs WHERE userId = :userId")
-    suspend fun deleteAllNotifications(userId: String)
+    @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND deletedAt IS NULL")
+    suspend fun deleteAllNotifications(userId: String, deletedAt: Long = System.currentTimeMillis())
 }
 
 @Dao
