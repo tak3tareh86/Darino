@@ -111,8 +111,7 @@ data class FinancialEvent(
 ) {
     val formattedAmount: String?
         get() = amount?.let {
-            val formatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(it)
-            com.example.util.IranianPhoneUtils.convertDigitsToPersian(formatted) + " تومان"
+            com.example.util.MoneyFormatter.formatToman(it)
         }
 
     val displayDatePersian: String
