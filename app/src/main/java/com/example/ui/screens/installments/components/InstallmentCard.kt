@@ -97,17 +97,17 @@ fun InstallmentCard(
             ) {
                 MetricColumn(
                     title = "کل:",
-                    value = item.totalAmountFormatted,
+                    value = item.displayTotal,
                     modifier = Modifier.weight(1f)
                 )
                 MetricColumn(
                     title = "پرداخت‌شده:",
-                    value = item.paidAmountFormatted,
+                    value = item.displayPaid,
                     modifier = Modifier.weight(1f)
                 )
                 MetricColumn(
                     title = "باقیمانده:",
-                    value = item.remainingAmountFormatted,
+                    value = item.displayRemaining,
                     highlight = true,
                     modifier = Modifier.weight(1f)
                 )
