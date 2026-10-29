@@ -120,6 +120,7 @@ fun ReminderScreen(
 
         ReminderSubScreen.LIST -> {
             var isCompletedExpanded by remember { mutableStateOf(false) }
+            var showCategoryFilterSheet by remember { mutableStateOf(false) }
             val snackbarHostState = remember { SnackbarHostState() }
 
             LaunchedEffect(uiState.userMessage) {
@@ -303,48 +304,67 @@ fun ReminderScreen(
                         }
                     }
 
-                    // Main Tabs (همه / امروز / مالی / اقساط / خودرو / شخصی / انجام‌شده)
                     item {
+                        val primaryTabs = listOf(ReminderTab.ALL, ReminderTab.TODAY, ReminderTab.UPCOMING, ReminderTab.COMPLETED)
                         ScrollableTabRow(
-                            selectedTabIndex = uiState.selectedTab.ordinal,
+                            selectedTabIndex = primaryTabs.indexOf(uiState.selectedTab).coerceAtLeast(0),
                             edgePadding = 0.dp,
                             containerColor = Color.Transparent,
-                            divider = {}
+                            divider = {},
+                            indicator = {}
                         ) {
-                            ReminderTab.entries.forEach { tab ->
-                                val isSelected = uiState.selectedTab == tab
+                            primaryTabs.forEach { tab ->
+                                val selected = uiState.selectedTab == tab
                                 Tab(
-                                    selected = isSelected,
+                                    selected = selected,
                                     onClick = { viewModel.selectTab(tab) },
+                                    modifier = Modifier.padding(horizontal = 3.dp),
                                     text = {
-                                        Text(
-                                            text = tab.title,
-                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (isSelected) EmeraldPrimaryLight else MaterialTheme.colorScheme.onSurfaceVariant
+                                        Surface(
+                                            shape = RoundedCornerShape(18.dp),
+                                            color = if (selected) EmeraldPrimaryLight else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                        ) {
+                                            Text(
+                                                text = tab.title,
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+                                                style = MaterialTheme.typography.labelLarge.copy(
+                                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                                    color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
                                             )
-                                        )
+                                        }
                                     }
                                 )
                             }
                         }
                     }
 
-                    // Filter Chips (همه، شخصی، اقساط، خودرو، بیمه، سرویس، سوخت)
                     item {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            ReminderFilterChip.entries.forEach { chip ->
-                                val isSelected = uiState.selectedFilterChip == chip
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { viewModel.selectFilterChip(chip) },
-                                    label = { Text(chip.title, fontSize = 12.sp) }
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text("دسته‌بندی", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold))
+                                Text(
+                                    if (uiState.selectedFilterChip == ReminderFilterChip.ALL) "همه دسته‌ها" else "فیلتر: ${uiState.selectedFilterChip.title}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                            OutlinedButton(
+                                onClick = { showCategoryFilterSheet = true },
+                                shape = RoundedCornerShape(14.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (uiState.selectedFilterChip != ReminderFilterChip.ALL) EmeraldPrimaryLight else MaterialTheme.colorScheme.outlineVariant
+                                )
+                            ) {
+                                Icon(Icons.Rounded.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (uiState.selectedFilterChip == ReminderFilterChip.ALL) "انتخاب دسته" else "تغییر فیلتر")
                             }
                         }
                     }
@@ -490,6 +510,49 @@ fun ReminderScreen(
 
                     item {
                         Spacer(modifier = Modifier.height(70.dp))
+                    }
+                }
+            }
+
+            if (showCategoryFilterSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = { showCategoryFilterSheet = false },
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                    containerColor = MaterialTheme.colorScheme.surface
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("فیلتر دسته‌بندی", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+                        Text(
+                            "یک دسته را انتخاب کنید؛ این فیلتر با بازه زمانی ترکیب می‌شود.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        ReminderFilterChip.entries.forEach { chip ->
+                            val selected = uiState.selectedFilterChip == chip
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable {
+                                    viewModel.selectFilterChip(chip)
+                                    showCategoryFilterSheet = false
+                                },
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (selected) EmeraldPrimaryLight.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                border = if (selected) androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimaryLight.copy(alpha = 0.65f)) else null
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(chip.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                                    ))
+                                    if (selected) Icon(Icons.Rounded.CheckCircle, contentDescription = "انتخاب‌شده", tint = EmeraldPrimaryLight)
+                                }
+                            }
+                        }
                     }
                 }
             }
