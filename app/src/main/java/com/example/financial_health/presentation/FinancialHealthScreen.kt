@@ -112,6 +112,17 @@ fun FinancialHealthScreen(
             contentPadding = PaddingValues(vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            state.errorMessage?.let { message ->
+                item {
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+                    )
+                }
+            }
+
             // 1. Hero 3D Health Meter Card
             item {
                 HealthOverviewHeroCard(
