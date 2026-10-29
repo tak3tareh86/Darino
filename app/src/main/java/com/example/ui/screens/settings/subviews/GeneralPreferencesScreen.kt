@@ -204,7 +204,7 @@ fun GeneralPreferencesScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         CompactOptionChip(
-                            title = "فارسی: ۰۱۲۳۴۵۶۷۸۹",
+                            title = if (isEn) "Persian: 0123456789" else "فارسی: ۰۱۲۳۴۵۶۷۸۹",
                             extra = "🇮🇷",
                             isSelected = currentNumberMode == NumberDisplayMode.PERSIAN,
                             onClick = {
@@ -218,7 +218,7 @@ fun GeneralPreferencesScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                         CompactOptionChip(
-                            title = "انگلیسی: 0123456789",
+                            title = if (isEn) "English: 0123456789" else "انگلیسی: 0123456789",
                             extra = "🇬🇧",
                             isSelected = currentNumberMode == NumberDisplayMode.ENGLISH,
                             onClick = {
