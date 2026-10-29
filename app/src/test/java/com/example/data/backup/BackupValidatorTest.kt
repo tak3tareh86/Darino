@@ -30,6 +30,31 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun versionThreeBackupCountsGeneralAppSettings() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 3,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 1,
+                    checksum = "",
+                    currencyUnit = "TOMAN"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "BOTH",
+                    navigationTransition = "DYNAMIC"
+                )
+            )
+        )
+
+        assertEquals(1, backup.metadata.recordCount)
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Valid)
+    }
+
+    @Test
     fun versionThreeBackupRejectsRecordCountMismatch() {
         val backup = BackupValidator.withChecksum(
             DarinoBackup(
