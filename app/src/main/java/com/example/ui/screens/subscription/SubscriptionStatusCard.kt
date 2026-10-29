@@ -21,14 +21,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +53,10 @@ import com.example.util.MoneyFormatter
 fun SubscriptionStatusCard(
     state: SubscriptionState,
     onOpenSubscription: () -> Unit,
+    onPurchaseClick: () -> Unit = onOpenSubscription,
+    onRestoreClick: () -> Unit = {},
+    isPurchaseLoading: Boolean = false,
+    isRestoreLoading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val info = state.info
@@ -380,29 +387,74 @@ fun SubscriptionStatusCard(
                             )
                         }
 
-                        Button(
-                            onClick = onOpenSubscription,
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF0D9488),
-                                contentColor = Color.White
-                            ),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                            modifier = Modifier
-                                .height(34.dp)
-                                .testTag("btn_buy_annual_subscription")
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = "خرید اشتراک سالیانه",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.5.sp
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.Default.ChevronLeft,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp)
-                            )
+                            Button(
+                                onClick = onPurchaseClick,
+                                enabled = !isPurchaseLoading && !isRestoreLoading,
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF0D9488),
+                                    contentColor = Color.White
+                                ),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 5.dp),
+                                modifier = Modifier
+                                    .height(34.dp)
+                                    .testTag("btn_buy_annual_subscription")
+                            ) {
+                                if (isPurchaseLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(15.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text(
+                                        text = "خرید اشتراک سالیانه",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.5.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.ChevronLeft,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = onRestoreClick,
+                                enabled = !isPurchaseLoading && !isRestoreLoading,
+                                shape = RoundedCornerShape(9.dp),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                                contentPadding = PaddingValues(horizontal = 9.dp, vertical = 0.dp),
+                                modifier = Modifier
+                                    .height(28.dp)
+                                    .testTag("btn_restore_subscription")
+                            ) {
+                                if (isRestoreLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(13.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "بازیابی خرید",
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 9.5.sp,
+                                        color = Color.White
+                                    )
+                                }
+                            }
                         }
                     }
                 }

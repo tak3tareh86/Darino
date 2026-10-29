@@ -28,7 +28,6 @@ class LocalSubscriptionDataSource(context: Context) {
      * Enforces that trialStartAt is set ONCE upon first successful registration/login and is preserved.
      */
     fun ensureTrialInitialized(userId: String): SubscriptionInfo {
-        val existingUserId = prefs.getString(KEY_USER_ID, null)
         val existingTrialStart = prefs.getLong(KEY_TRIAL_START_AT, 0L)
 
         val trialStart: Long
@@ -36,7 +35,12 @@ class LocalSubscriptionDataSource(context: Context) {
 
         if (existingTrialStart > 0L) {
             trialStart = existingTrialStart
-            trialEnd = prefs.getLong(KEY_TRIAL_END_AT, trialStart + MarketConfig.TRIAL_DURATION_DAYS * 86_400_000L)
+            val maxTrialEnd = trialStart + MarketConfig.TRIAL_DURATION_DAYS * 86_400_000L
+            val storedTrialEnd = prefs.getLong(KEY_TRIAL_END_AT, maxTrialEnd)
+            trialEnd = if (storedTrialEnd <= 0L || storedTrialEnd > maxTrialEnd) maxTrialEnd else storedTrialEnd
+            if (trialEnd != storedTrialEnd) {
+                prefs.edit().putLong(KEY_TRIAL_END_AT, trialEnd).apply()
+            }
         } else {
             trialStart = System.currentTimeMillis()
             trialEnd = trialStart + MarketConfig.TRIAL_DURATION_DAYS * 86_400_000L

@@ -23,7 +23,7 @@ object MarketConfig {
     /**
      * Free Trial Duration in Days (30 Days)
      */
-    const val TRIAL_DURATION_DAYS = 30L
+    const val TRIAL_DURATION_DAYS = 15L
 
     /**
      * Subscription Validity Duration in Days (365 Days)

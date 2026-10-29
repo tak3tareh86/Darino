@@ -4,12 +4,14 @@ import android.app.Application
 import androidx.activity.result.ActivityResultRegistry
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.subscription.MarketConfig
 import com.example.data.subscription.SubscriptionRepositoryImpl
 import com.example.domain.subscription.SubscriptionInfo
 import com.example.domain.subscription.SubscriptionManager
 import com.example.domain.subscription.SubscriptionStatus
 import com.example.domain.subscription.SubscriptionValidator
 import ir.cafebazaar.poolakey.entity.PurchaseInfo
+import ir.cafebazaar.poolakey.entity.PurchaseState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -116,16 +118,40 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
             },
             onSucceed = { purchaseInfo ->
                 viewModelScope.launch {
-                    val updatedInfo = manager.recordSuccessfulPurchase(purchaseInfo)
-                    updateStateWithInfo(updatedInfo)
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            userMessage = "خرید اشتراک سالیانه دارینو با موفقیت انجام شد.",
-                            isError = false
-                        )
+                    if (purchaseInfo.productId != MarketConfig.YEARLY_PRODUCT_ID ||
+                        purchaseInfo.purchaseState != PurchaseState.PURCHASED ||
+                        purchaseInfo.purchaseToken.isBlank()
+                    ) {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                userMessage = "خرید از بازار تأیید نشد؛ اشتراک فعال نشد.",
+                                isError = true
+                            )
+                        }
+                        return@launch
                     }
-                    onSuccessNavigation()
+
+                    try {
+                        val updatedInfo = manager.recordSuccessfulPurchase(purchaseInfo)
+                        updateStateWithInfo(updatedInfo)
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                userMessage = "خرید اشتراک سالیانه دارینو با موفقیت انجام شد.",
+                                isError = false
+                            )
+                        }
+                        onSuccessNavigation()
+                    } catch (error: Exception) {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                userMessage = error.localizedMessage ?: "تأیید خرید انجام نشد؛ اشتراک فعال نشد.",
+                                isError = true
+                            )
+                        }
+                    }
                 }
             },
             onCanceled = {

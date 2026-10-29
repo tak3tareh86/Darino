@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -78,6 +79,13 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) {
         viewModel.loadDashboardData()
+    }
+
+    LaunchedEffect(subState.userMessage) {
+        subState.userMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            subscriptionViewModel.clearUserMessage()
+        }
     }
 
     // Permission launcher for SMS runtime permission
@@ -166,6 +174,19 @@ fun HomeScreen(
                     SubscriptionStatusCard(
                         state = subState,
                         onOpenSubscription = onOpenSubscription,
+                        onPurchaseClick = {
+                            val hostActivity = context as? ComponentActivity
+                            if (hostActivity != null) {
+                                subscriptionViewModel.startPurchaseFlow(hostActivity.activityResultRegistry) {}
+                            } else {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("امکان شروع پرداخت در این صفحه وجود ندارد.")
+                                }
+                            }
+                        },
+                        onRestoreClick = { subscriptionViewModel.manualRestorePurchase() },
+                        isPurchaseLoading = subState.isLoading,
+                        isRestoreLoading = subState.isSyncing,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
 

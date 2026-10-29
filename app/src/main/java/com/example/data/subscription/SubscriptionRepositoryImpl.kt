@@ -105,6 +105,12 @@ class SubscriptionRepositoryImpl(
     }
 
     override suspend fun recordSuccessfulPurchase(purchaseInfo: PurchaseInfo): SubscriptionInfo = withContext(Dispatchers.IO) {
+        require(purchaseInfo.productId == MarketConfig.YEARLY_PRODUCT_ID) {
+            "شناسه محصول خرید با اشتراک سالیانه دارینو مطابقت ندارد."
+        }
+        require(purchaseInfo.purchaseState == PurchaseState.PURCHASED && purchaseInfo.purchaseToken.isNotBlank()) {
+            "اطلاعات خرید معتبر نیست."
+        }
         val currentLocal = localDataSource.getSubscriptionInfo()
         val now = System.currentTimeMillis()
         val subEnd = now + MarketConfig.SUBSCRIPTION_DURATION_DAYS * 86_400_000L
