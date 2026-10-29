@@ -786,7 +786,7 @@ private fun NextMonthPredictionSectionCard(
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                 ) {
                     Text(
-                        text = if (prediction.total > 0L) "مجموع مبالغ ثبت‌شده: ${IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(prediction.total))} تومان" else "مبالغ آینده ثبت نشده",
+                        text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) "مجموع مبالغ ثبت‌شده: ${IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(prediction.total))} تومان" else "مبالغ آینده ثبت نشده",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.5.sp,
