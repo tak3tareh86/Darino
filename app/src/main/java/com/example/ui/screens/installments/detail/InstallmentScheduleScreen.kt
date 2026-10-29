@@ -52,6 +52,9 @@ fun InstallmentScheduleScreen(
     var editingScheduleItem by remember { mutableStateOf<PaymentHistoryItem?>(null) }
     var isSavingScheduleEdit by remember { mutableStateOf(false) }
     var scheduleEditError by remember { mutableStateOf<String?>(null) }
+    var markingPaidScheduleItem by remember { mutableStateOf<PaymentHistoryItem?>(null) }
+    var isSavingPaymentMark by remember { mutableStateOf(false) }
+    var paymentMarkError by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -129,12 +132,115 @@ fun InstallmentScheduleScreen(
                     onEditClick = {
                         scheduleEditError = null
                         editingScheduleItem = scheduleItem
+                    },
+                    onMarkPaidClick = {
+                        paymentMarkError = null
+                        markingPaidScheduleItem = scheduleItem
                     }
                 )
             }
 
             item {
                 Spacer(modifier = Modifier.navigationBarsPadding())
+            }
+        }
+    }
+
+    // Mark an externally paid installment as paid; this intentionally does not create a finance transaction.
+    if (markingPaidScheduleItem != null) {
+        val targetItem = markingPaidScheduleItem!!
+        var paymentDateStr by remember(targetItem.id) {
+            mutableStateOf(com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate())
+        }
+
+        Dialog(
+            onDismissRequest = { if (!isSavingPaymentMark) markingPaidScheduleItem = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp,
+                shadowElevation = 12.dp,
+                modifier = Modifier
+                    .widthIn(max = 350.dp)
+                    .fillMaxWidth(0.92f)
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp).fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "ثبت پرداخت قسط ${targetItem.installmentNumber}",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "مبلغ ${targetItem.amountFormatted} قبلاً خارج از برنامه پرداخت شده است؟ با تأیید، این قسط در سوابق پرداخت‌شده ثبت می‌شود.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    PersianDateInputField(
+                        value = paymentDateStr,
+                        onValueChange = { paymentDateStr = it; paymentMarkError = null },
+                        label = "تاریخ واقعی پرداخت",
+                        useOuterHeader = false,
+                        showSubLabel = false
+                    )
+                    if (paymentMarkError != null) {
+                        Text(
+                            text = paymentMarkError.orEmpty(),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { if (!isSavingPaymentMark) markingPaidScheduleItem = null },
+                            enabled = !isSavingPaymentMark,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) { Text("انصراف") }
+                        Button(
+                            onClick = {
+                                if (paymentDateStr.isBlank()) {
+                                    paymentMarkError = "تاریخ پرداخت را وارد کنید."
+                                } else {
+                                    isSavingPaymentMark = true
+                                    paymentMarkError = null
+                                    scope.launch {
+                                        val success = installmentRepository.payInstallment(
+                                            installmentId = currentItem.id,
+                                            paymentDate = paymentDateStr,
+                                            context = context,
+                                            scheduleItemId = targetItem.id,
+                                            financialTransaction = null
+                                        )
+                                        isSavingPaymentMark = false
+                                        if (success) {
+                                            markingPaidScheduleItem = null
+                                        } else {
+                                            paymentMarkError = "ثبت پرداخت انجام نشد. تاریخ را بررسی کنید و دوباره تلاش کنید."
+                                        }
+                                    }
+                                }
+                            },
+                            enabled = !isSavingPaymentMark,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            if (isSavingPaymentMark) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text("تأیید پرداخت")
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -275,8 +381,11 @@ fun InstallmentScheduleScreen(
 @Composable
 private fun ScheduleTimelineItem(
     item: PaymentHistoryItem,
-    onEditClick: () -> Unit
+    onEditClick: () -> Unit,
+    onMarkPaidClick: () -> Unit
 ) {
+    val isPaid = item.status == com.example.ui.screens.installments.model.InstallmentStatus.PAID ||
+        item.status == com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED
     Layered3DCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(RadiusMD),
@@ -284,11 +393,15 @@ private fun ScheduleTimelineItem(
         elevation = 1.5.dp,
         contentPadding = PaddingValues(12.dp)
     ) {
-        Row(
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+          Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
-        ) {
+          ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -365,6 +478,23 @@ private fun ScheduleTimelineItem(
                     )
                 }
             }
+          }
+          if (!isPaid) {
+              Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.End
+              ) {
+                  OutlinedButton(
+                      onClick = onMarkPaidClick,
+                      modifier = Modifier.heightIn(min = 38.dp),
+                      contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                      shape = RoundedCornerShape(10.dp),
+                      colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                  ) {
+                      Text("ثبت پرداخت", style = MaterialTheme.typography.labelMedium)
+                  }
+              }
+          }
         }
     }
 }
