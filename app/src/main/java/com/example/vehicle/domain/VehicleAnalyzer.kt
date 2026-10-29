@@ -77,7 +77,8 @@ data class VehicleMonthlyExpenseBar(
     val serviceAmount: Long,
     val insuranceAmount: Long,
     val totalAmount: Long,
-    val isCurrentMonth: Boolean = false
+    val isCurrentMonth: Boolean = false,
+    val otherAmount: Long = 0L
 )
 
 /**
