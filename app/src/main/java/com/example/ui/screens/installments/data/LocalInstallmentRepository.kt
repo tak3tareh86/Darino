@@ -449,7 +449,7 @@ class LocalInstallmentRepository private constructor() {
         }
     }
 
-    fun updateScheduleItem(
+    suspend fun updateScheduleItem(
         installmentId: String,
         scheduleItemId: String,
         newAmountLong: Long? = null,
@@ -458,72 +458,82 @@ class LocalInstallmentRepository private constructor() {
         note: String? = null,
         context: Context? = null
     ): Boolean {
-        var found = false
-        val targetContext = context?.applicationContext ?: appContext
-        val current = _installments.value.map { item ->
-            if (item.id == installmentId) {
-                val updatedHistory = item.paymentHistory.map { hist ->
-                    if (hist.id == scheduleItemId) {
-                        found = true
-                        val targetStatus = newStatus ?: hist.status
-                        val targetAmount = newAmountLong ?: hist.amount
-                        val targetDueDate = newDueDate ?: hist.dueDate
-                        hist.copy(
-                            amount = targetAmount,
-                            amountFormatted = MoneyFormatter.formatToman(targetAmount),
-                            dueDate = targetDueDate,
-                            status = targetStatus,
-                            note = note ?: hist.note,
-                            paidDate = if (targetStatus == InstallmentStatus.PAID && hist.paidDate.isNullOrBlank()) {
-                                PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-                            } else hist.paidDate
-                        )
-                    } else {
-                        hist
-                    }
-                }
-                val paidCount = updatedHistory.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
-                val remainingCount = (item.totalInstallments - paidCount).coerceAtLeast(0)
-                val paidSum = updatedHistory.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }.sumOf { it.amount }
-                val totalSum = updatedHistory.sumOf { it.amount }.coerceAtLeast(item.totalAmount)
-                val remainingSum = (totalSum - paidSum).coerceAtLeast(0L)
-                val status = if (remainingCount == 0) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
+        val targetContext = context?.applicationContext ?: appContext ?: return false
+        if (newDueDate != null && parseJalaliStringToMillis(newDueDate) == null) return false
+        if (newAmountLong != null && newAmountLong <= 0L) return false
 
-                item.copy(
-                    totalAmount = totalSum,
-                    totalAmountFormatted = MoneyFormatter.formatToman(totalSum),
-                    paidAmount = paidSum,
-                    paidAmountFormatted = MoneyFormatter.formatToman(paidSum),
-                    remainingAmount = remainingSum,
-                    remainingAmountFormatted = MoneyFormatter.formatToman(remainingSum),
-                    remainingInstallments = remainingCount,
-                    status = status,
-                    paymentHistory = updatedHistory
-                )
-            } else {
-                item
-            }
-        }
-        if (found && targetContext != null) {
-            if (newDueDate != null && parseJalaliStringToMillis(newDueDate) == null) {
-                return false
-            }
-            if (newAmountLong != null && newAmountLong <= 0L) {
-                return false
-            }
-            repositoryScope.launch {
-                try {
-                    saveToRoom(targetContext, current)
-                    val userId = SessionManager.userId
-                    if (userId != null) {
-                        reloadForUser(targetContext, userId)
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
+        return saveMutex.withLock {
+            val userId = SessionManager.userId ?: return@withLock false
+            val currentItems = _installments.value
+            val targetInstallment = currentItems.firstOrNull { it.id == installmentId }
+                ?: return@withLock false
+            val targetScheduleItem = targetInstallment.paymentHistory.firstOrNull { it.id == scheduleItemId }
+                ?: return@withLock false
+
+            val targetAmount = newAmountLong ?: targetScheduleItem.amount
+            val updatedHistory = targetInstallment.paymentHistory.map { historyItem ->
+                if (historyItem.id != scheduleItemId) {
+                    historyItem
+                } else {
+                    val targetStatus = newStatus ?: historyItem.status
+                    historyItem.copy(
+                        amount = targetAmount,
+                        amountFormatted = MoneyFormatter.formatToman(targetAmount),
+                        dueDate = newDueDate ?: historyItem.dueDate,
+                        status = targetStatus,
+                        note = note ?: historyItem.note,
+                        paidDate = if (targetStatus == InstallmentStatus.PAID && historyItem.paidDate.isNullOrBlank()) {
+                            PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                        } else historyItem.paidDate
+                    )
                 }
             }
+
+            val paidItems = updatedHistory.filter {
+                it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED
+            }
+            val paidCount = paidItems.size
+            val paidSum = paidItems.sumOf { it.amount }
+            // Adjust the contract total by the edited installment's delta, allowing both increases and decreases.
+            val totalSum = (targetInstallment.totalAmount - targetScheduleItem.amount + targetAmount).coerceAtLeast(0L)
+            val remainingSum = (totalSum - paidSum).coerceAtLeast(0L)
+            val remainingCount = (targetInstallment.totalInstallments - paidCount).coerceAtLeast(0)
+            val nextPending = updatedHistory
+                .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                .minByOrNull { parseJalaliStringToMillis(it.dueDate) ?: Long.MAX_VALUE }
+            val nextPaymentDate = nextPending?.dueDate ?: targetInstallment.nextPaymentDate
+            val nextDueMillis = parseJalaliStringToMillis(nextPaymentDate) ?: return@withLock false
+            val nextStatus = if (remainingCount == 0) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
+            val updatedInstallment = targetInstallment.copy(
+                totalAmount = totalSum,
+                totalAmountFormatted = MoneyFormatter.formatToman(totalSum),
+                paidAmount = paidSum,
+                paidAmountFormatted = MoneyFormatter.formatToman(paidSum),
+                remainingAmount = remainingSum,
+                remainingAmountFormatted = MoneyFormatter.formatToman(remainingSum),
+                remainingInstallments = remainingCount,
+                status = nextStatus,
+                nextPaymentDate = nextPaymentDate,
+                nextDueDaysText = computeDueDaysText(nextDueMillis, nextStatus, remainingCount),
+                paymentHistory = updatedHistory
+            )
+            val updatedItems = currentItems.map {
+                if (it.id == installmentId) updatedInstallment else it
+            }
+
+            try {
+                val db = AppDatabase.getDatabase(targetContext)
+                db.withTransaction {
+                    persistInstallmentStateToRoom(db, userId, updatedItems)
+                }
+                // Refresh the repository state only after Room has committed the update.
+                reloadForUser(targetContext, userId)
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
         }
-        return found
     }
 
     fun clearAllInstallments(context: Context? = null) {
