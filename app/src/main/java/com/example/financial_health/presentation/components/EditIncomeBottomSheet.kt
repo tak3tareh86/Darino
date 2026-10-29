@@ -42,6 +42,8 @@ fun EditIncomeBottomSheet(
         mutableStateOf(if (currentFixedExpenses > 0) currentFixedExpenses.toString() else "")
     }
 
+    var validationError by remember { mutableStateOf<String?>(null) }
+
     val decimalFormat = remember { DecimalFormat("#,###") }
 
     val formattedIncomePreview = remember(rawIncomeText) {
@@ -227,12 +229,27 @@ fun EditIncomeBottomSheet(
                 )
             }
 
+            validationError?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
             // Save Action Button
             Button(
                 onClick = {
-                    val incomeVal = IranianAmountUtils.parseAmountToLong(rawIncomeText).let { if (it > 0L) it else 30_000_000L }
-                    val fixedVal = IranianAmountUtils.parseAmountToLong(rawFixedText).let { if (it > 0L) it else 4_000_000L }
-                    onSave(incomeVal, fixedVal)
+                    val incomeVal = IranianAmountUtils.parseAmountToLong(rawIncomeText)
+                    val fixedVal = IranianAmountUtils.parseAmountToLong(rawFixedText)
+                    if (incomeVal <= 0L) {
+                        validationError = "درآمد ماهانه باید بیشتر از صفر باشد."
+                    } else if (fixedVal < 0L) {
+                        validationError = "هزینه ثابت نمی‌تواند منفی باشد."
+                    } else {
+                        validationError = null
+                        onSave(incomeVal, fixedVal)
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
