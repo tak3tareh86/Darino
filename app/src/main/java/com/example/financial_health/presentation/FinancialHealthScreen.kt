@@ -470,7 +470,7 @@ private fun FinancialCommitmentsBreakdownCard(
                     decimalFormat = decimalFormat,
                     color = Color(0xFF8B5CF6),
                     icon = Icons.Rounded.HomeWork,
-                    percentageText = if (state.hasFixedExpensesData && state.monthlyIncome > 0L) "${IranianPhoneUtils.convertDigitsToPersian(((state.fixedExpenses.toDouble() / state.monthlyIncome) * 100).toInt().toString())}٪ از درآمد" else "هزینه ثابت ثبت نشده",
+                    percentageText = if (state.hasFixedExpensesData && state.monthlyIncome > 0L) "${formatFinancialPercentage(((state.fixedExpenses.toDouble() / state.monthlyIncome) * 100).toFloat())}٪ از درآمد" else "هزینه ثابت ثبت نشده",
                     amountLabelOverride = if (state.hasFixedExpensesData) null else "ثبت نشده"
                 )
 
@@ -521,7 +521,7 @@ private fun FinancialCommitmentsBreakdownCard(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) "معادل ${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪ درآمد" else "برای محاسبه، درآمد و هزینه ثابت را ثبت کنید و برنامه اقساط را کامل کنید",
+                            text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) "معادل ${formatFinancialPercentage(state.pressurePercentage)}٪ درآمد" else "برای محاسبه، درآمد و هزینه ثابت را ثبت کنید و برنامه اقساط را کامل کنید",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
@@ -799,7 +799,7 @@ private fun NextMonthPredictionSectionCard(
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                 ) {
                     Text(
-                        text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) "مجموع مبالغ ثبت‌شده: ${MoneyFormatter.formatToman(prediction.total)}" else "مبالغ آینده ثبت نشده",
+                        text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) { if (!prediction.installmentsAmountRecorded || !prediction.fixedExpensesAmountRecorded) "مبالغ شناخته‌شده: ${MoneyFormatter.formatToman(prediction.total)}" else "مجموع مبالغ ثبت‌شده: ${MoneyFormatter.formatToman(prediction.total)}" } else "مبالغ آینده ثبت نشده",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.5.sp,
@@ -817,28 +817,32 @@ private fun NextMonthPredictionSectionCard(
                     amount = prediction.installments,
                     decimalFormat = decimalFormat,
                     color = Color(0xFF3B82F6),
-                    amountRecorded = prediction.installmentsAmountRecorded
+                    amountRecorded = prediction.installmentsAmountRecorded,
+                    unavailableText = "برنامه اقساط ناقص است"
                 )
                 PredictionItemRow(
                     label = "هزینه ثابت (با فرض تکرار)",
                     amount = prediction.fixedExpenses,
                     decimalFormat = decimalFormat,
                     color = Color(0xFF8B5CF6),
-                    amountRecorded = prediction.fixedExpensesAmountRecorded
+                    amountRecorded = prediction.fixedExpensesAmountRecorded,
+                    unavailableText = "هزینه ثابت ثبت نشده"
                 )
                 PredictionItemRow(
                     label = "یادآورها",
                     amount = prediction.reminders,
                     decimalFormat = decimalFormat,
                     color = Color(0xFFF59E0B),
-                    amountRecorded = prediction.remindersAmountRecorded
+                    amountRecorded = prediction.remindersAmountRecorded,
+                    unavailableText = "هنوز به تحلیل مالی متصل نیست"
                 )
                 PredictionItemRow(
                     label = "هزینه خودرو",
                     amount = prediction.vehicleExpenses,
                     decimalFormat = decimalFormat,
                     color = Color(0xFF10B981),
-                    amountRecorded = prediction.vehicleExpensesAmountRecorded
+                    amountRecorded = prediction.vehicleExpensesAmountRecorded,
+                    unavailableText = "هزینه‌ای با مبلغ و سررسید معتبر ثبت نشده"
                 )
             }
         }
@@ -851,7 +855,8 @@ private fun PredictionItemRow(
     amount: Long,
     decimalFormat: DecimalFormat,
     color: Color,
-    amountRecorded: Boolean = true
+    amountRecorded: Boolean = true,
+    unavailableText: String = "مبلغ ثبت نشده"
 ) {
     Row(
         modifier = Modifier
@@ -883,7 +888,7 @@ private fun PredictionItemRow(
         }
 
         Text(
-            text = if (amountRecorded) MoneyFormatter.formatToman(amount) else "مبلغ ثبت نشده",
+            text = if (amountRecorded) MoneyFormatter.formatToman(amount) else unavailableText,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.5.sp
