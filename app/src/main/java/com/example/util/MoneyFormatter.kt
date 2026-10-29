@@ -9,6 +9,9 @@ import com.example.ui.screens.settings.model.AppLanguage
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 val LocalAppCurrency = compositionLocalOf { AppCurrency.TOMAN }
 val LocalAppLanguage = compositionLocalOf { AppLanguage.PERSIAN }
@@ -22,7 +25,16 @@ object MoneyFormatter {
 
     // Snapshot state makes every composable that formats money react to preference changes.
     // This prevents UI elements from retaining strings formatted with the previous currency.
-    var activeCurrency: AppCurrency by mutableStateOf(AppCurrency.TOMAN)
+    private val _activeCurrencyFlow = MutableStateFlow(AppCurrency.TOMAN)
+    val activeCurrencyFlow: StateFlow<AppCurrency> = _activeCurrencyFlow.asStateFlow()
+
+    private var currencySnapshot by mutableStateOf(AppCurrency.TOMAN)
+    var activeCurrency: AppCurrency
+        get() = currencySnapshot
+        set(value) {
+            currencySnapshot = value
+            _activeCurrencyFlow.value = value
+        }
 
     var activeLanguage: AppLanguage by mutableStateOf(AppLanguage.PERSIAN)
 
