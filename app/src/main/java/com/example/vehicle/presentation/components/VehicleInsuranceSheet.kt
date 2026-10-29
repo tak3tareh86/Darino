@@ -68,7 +68,7 @@ fun VehicleInsuranceSheet(
         mutableStateOf(editingInsurance?.reminderDays?.toSet()?.takeIf { it.isNotEmpty() } ?: setOf(30, 15, 7, 1, 0))
     }
     var inspectionReminderDays by remember(editingInspection) {
-        mutableStateOf(editingInspection?.reminderDays?.toSet()?.takeIf { it.isNotEmpty() } ?: setOf(30, 7, 1, 0))
+        mutableStateOf(editingInspection?.reminderDays?.toSet()?.takeIf { it.isNotEmpty() } ?: setOf(30, 15, 7, 1, 0))
     }
 
     val companies = listOf("بیمه ایران", "بیمه آسیا", "بیمه دانا", "بیمه البرز", "بیمه پاسارگاد", "بیمه سامان")
@@ -118,6 +118,25 @@ fun VehicleInsuranceSheet(
                             repeat(3 - rowCompanies.size) { Spacer(Modifier.weight(1f)) }
                         }
                     }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        FilterChip(
+                            selected = insuranceCompany !in companies,
+                            onClick = { if (insuranceCompany in companies) insuranceCompany = "" },
+                            label = { Text("سایر", fontSize = 10.sp, maxLines = 1) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.weight(2f))
+                    }
+                    if (insuranceCompany !in companies) {
+                        OutlinedTextField(
+                            value = insuranceCompany,
+                            onValueChange = { insuranceCompany = it },
+                            label = { Text("نام شرکت بیمه‌گر") },
+                            placeholder = { Text("نام شرکت موردنظر را وارد کنید") },
+                            modifier = Modifier.fillMaxWidth().testTag("insurance_custom_company_input"),
+                            singleLine = true
+                        )
+                    }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PersianDateInputField(value = startDate, onValueChange = { startDate = it }, label = "تاریخ شروع", placeholder = "۱۴۰۵/۰۱/۰۱", dialogTitle = "انتخاب تاریخ شروع بیمه‌نامه", modifier = Modifier.weight(1f), testTag = "insurance_start_date_input")
@@ -147,8 +166,8 @@ fun VehicleInsuranceSheet(
                     PersianDateInputField(value = inspectionExpiryDate, onValueChange = { inspectionExpiryDate = it }, label = "تاریخ انقضا", placeholder = "۱۴۰۶/۰۱/۰۱", dialogTitle = "انتخاب تاریخ انقضای معاینه فنی", modifier = Modifier.weight(1f), testTag = "inspection_expiry_date_input")
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PersianAmountInputField(value = inspectionCostText, onValueChange = { inspectionCostText = it }, label = "هزینه معاینه فنی", unitLabel = "تومان", placeholder = "مثال: ۱۸۰,۰۰۰", showWordsPreview = false, modifier = Modifier.weight(1f), testTag = "inspection_cost_input")
-                    OutlinedTextField(value = centerName, onValueChange = { centerName = it }, label = { Text("مرکز معاینه فنی") }, modifier = Modifier.weight(1.2f), singleLine = true)
+                    PersianAmountInputField(value = inspectionCostText, onValueChange = { inspectionCostText = it }, label = "هزینه معاینه فنی", unitLabel = "تومان", placeholder = "مثال: ۱۸۰,۰۰۰", showWordsPreview = false, modifier = Modifier.weight(1f).height(56.dp), testTag = "inspection_cost_input")
+                    OutlinedTextField(value = centerName, onValueChange = { centerName = it }, label = { Text("مرکز معاینه فنی") }, modifier = Modifier.weight(1.2f).height(56.dp), singleLine = true)
                 }
                 OutlinedTextField(value = inspectionStatus, onValueChange = { inspectionStatus = it }, label = { Text("وضعیت گواهی معاینه فنی") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 VehicleReminderSettings(
@@ -197,12 +216,15 @@ private fun VehicleReminderSettings(
                     singleLine = true, modifier = Modifier.fillMaxWidth().testTag("${tag}_time")
                 )
                 Text("زمان‌های هشدار پیش از انقضا", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                val options = listOf(30 to "۳۰ روز", 15 to "۱۵ روز", 7 to "۷ روز", 1 to "۱ روز", 0 to "روز سررسید")
-                options.chunked(3).forEach { rowOptions ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        rowOptions.forEach { (value, label) ->
-                            FilterChip(selected = value in days, onClick = { onDaysChange(if (value in days) days - value else days + value) }, label = { Text(label, fontSize = 10.sp, maxLines = 1) })
-                        }
+                val options = listOf(30 to "۳۰ روز", 15 to "۱۵ روز", 7 to "۷ روز", 1 to "۱ روز", 0 to "سررسید")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    options.forEach { (value, label) ->
+                        FilterChip(
+                            selected = value in days,
+                            onClick = { onDaysChange(if (value in days) days - value else days + value) },
+                            label = { Text(label, fontSize = 8.sp, maxLines = 1) },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
                 if (days.isEmpty()) Text("حداقل یک زمان هشدار انتخاب کن.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
