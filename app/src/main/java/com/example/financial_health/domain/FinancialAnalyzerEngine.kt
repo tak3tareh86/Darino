@@ -81,7 +81,7 @@ object FinancialAnalyzerEngine {
             )
         }
 
-        if (nextMonthPrediction.total > 0L) {
+        if (nextMonthPrediction.total > 0L || nextMonthPrediction.fixedExpensesAmountRecorded) {
             val nextMonthPressure = calculateFinancialPressure(nextMonthPrediction.total, income)
             val ratioText = nextMonthPressure?.let { " (معادل ${it}٪ درآمد ماهانه ثبت‌شده)" } ?: ""
             insights += FinancialHealthInsight(
