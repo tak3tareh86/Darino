@@ -513,7 +513,6 @@ fun InstallmentsScreen(
                     }
                 }
 
-                val computedEndDate = PersianCalendarHelper.addMonthsToPersianDate(effectiveDueDate, totalInstallments)
                 val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
 
                 val initialPaymentHistory = if (!customScheduleItems.isNullOrEmpty()) {
@@ -560,6 +559,17 @@ fun InstallmentsScreen(
                         )
                     }
                 }
+                // Contract dates follow the actual payment schedule, not the date the record is created.
+                // This also supports custom schedules whose due dates are not evenly spaced.
+                val computedEndDate = paymentHistoryList
+                    .maxByOrNull { payment ->
+                        com.example.calendar.domain.CalendarDateUtils.parseJalali(payment.dueDate)?.let {
+                            PersianCalendarHelper.jalaliToEpochMillis(it.first, it.second, it.third, 9, 0)
+                        } ?: Long.MIN_VALUE
+                    }
+                    ?.dueDate
+                    ?: effectiveDueDate
+
                 val paidAmount = paymentHistoryList
                     .filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
                     .sumOf { it.amount }
@@ -623,7 +633,7 @@ fun InstallmentsScreen(
                     remainingInstallments = remainingInstallments,
                     nextPaymentDate = nextPaymentDate,
                     nextDueDaysText = computedDueDaysText,
-                    startDate = todayJalali,
+                    startDate = effectiveDueDate,
                     endDate = computedEndDate,
                     status = if (remainingInstallments == 0) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING,
                     notes = noteText,
