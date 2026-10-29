@@ -44,7 +44,11 @@ object MoneyFormatter {
      */
     fun convertFromToman(amountInToman: Long, targetCurrency: AppCurrency = activeCurrency): Long {
         return when (targetCurrency) {
-            AppCurrency.RIAL -> amountInToman * 10L
+            AppCurrency.RIAL -> when {
+                amountInToman > Long.MAX_VALUE / 10L -> Long.MAX_VALUE
+                amountInToman < Long.MIN_VALUE / 10L -> Long.MIN_VALUE
+                else -> amountInToman * 10L
+            }
             AppCurrency.TOMAN -> amountInToman
         }
     }
