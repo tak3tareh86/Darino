@@ -42,6 +42,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
 
     override suspend fun addCheck(check: Check): CheckOperationResult = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
+        val database = db ?: return@withContext CheckOperationResult.PERSISTENCE_ERROR
         
         if (check.amount <= 0 || check.checkNumber.isBlank() || check.bankName.isBlank()) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
@@ -57,7 +58,8 @@ class LocalCheckRepository private constructor() : CheckRepository {
         }
 
         try {
-            val insertedId = db?.checkDao()?.insertCheck(check.toEntity(userId)) ?: 0L
+            val insertedId = database.checkDao().insertCheck(check.toEntity(userId))
+            if (insertedId <= 0L) return@withContext CheckOperationResult.PERSISTENCE_ERROR
             if (insertedId > 0 && (check.status == CheckStatus.REGISTERED || check.status == CheckStatus.PENDING) && check.reminderDateTime != null) {
                 try {
                     reminderManager?.syncCheckReminder(
@@ -81,6 +83,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
 
     override suspend fun updateCheck(check: Check): CheckOperationResult = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
+        val database = db ?: return@withContext CheckOperationResult.PERSISTENCE_ERROR
         
         if (check.amount <= 0 || check.checkNumber.isBlank() || check.bankName.isBlank()) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
@@ -94,7 +97,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
-        val currentEntity = db?.checkDao()?.getCheckById(userId, check.id)
+        val currentEntity = database.checkDao().getCheckById(userId, check.id)
             ?: return@withContext CheckOperationResult.NOT_FOUND
         if (currentEntity.deletedAt != null) return@withContext CheckOperationResult.NOT_FOUND
         // A cleared check is linked to a financial transaction. Never allow an ordinary
@@ -113,7 +116,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
 
         try {
             val entity = check.toEntity(userId)
-            val rowsAffected = db?.checkDao()?.updateCheckWithOwner(
+            val rowsAffected = database.checkDao().updateCheckWithOwner(
                 id = entity.id,
                 userId = userId,
                 type = entity.type,
@@ -131,7 +134,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 accountId = entity.accountId,
                 reminderDateTime = entity.reminderDateTime,
                 updatedAt = entity.updatedAt
-            ) ?: 0
+            )
             
             if (rowsAffected == 0) return@withContext CheckOperationResult.NOT_FOUND
 
@@ -165,8 +168,9 @@ class LocalCheckRepository private constructor() : CheckRepository {
 
     override suspend fun deleteCheck(id: Int): CheckOperationResult = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
+        val database = db ?: return@withContext CheckOperationResult.PERSISTENCE_ERROR
         try {
-            val rowsAffected = db?.checkDao()?.softDeleteCheck(userId, id, System.currentTimeMillis(), System.currentTimeMillis()) ?: 0
+            val rowsAffected = database.checkDao().softDeleteCheck(userId, id, System.currentTimeMillis(), System.currentTimeMillis())
             if (rowsAffected == 0) return@withContext CheckOperationResult.NOT_FOUND
             
             try {
@@ -183,15 +187,16 @@ class LocalCheckRepository private constructor() : CheckRepository {
 
     override suspend fun settleCheck(check: Check, account: com.example.ui.screens.finance.model.Account): CheckOperationResult = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
+        val database = db ?: return@withContext CheckOperationResult.PERSISTENCE_ERROR
         
         // 1. Verify account ownership and validity
-        val accountEntity = db?.accountDao()?.getAccountByStringId(userId, account.id)
+        val accountEntity = database.accountDao().getAccountByStringId(userId, account.id)
         if (accountEntity == null || accountEntity.userId != userId || !accountEntity.isActive || accountEntity.deletedAt != null) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
         // 2. Verify check ownership and current status from Database
-        val existingCheck = db?.checkDao()?.getCheckById(userId, check.id)
+        val existingCheck = database.checkDao().getCheckById(userId, check.id)
         if (existingCheck == null || existingCheck.userId != userId) {
             return@withContext CheckOperationResult.NOT_FOUND
         }
@@ -238,11 +243,11 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 timeFormatted = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedTime()
             )
 
-            val success = db?.checkDao()?.settleCheckWithTransaction(
+            val success = database.checkDao().settleCheckWithTransaction(
                 check = updatedCheckEntity,
                 transaction = transaction,
-                transactionDao = db!!.transactionDao()
-            ) ?: false
+                transactionDao = database.transactionDao()
+            )
 
             if (success) {
                 try {
