@@ -37,7 +37,7 @@ object BackupValidator {
 
     fun validate(backup: DarinoBackup, rawJson: String? = null): ValidationResult {
         val version = backup.metadata.backupVersion
-        if (version !in 1..4) {
+        if (version !in 1..5) {
             return ValidationResult.Invalid("نسخه فایل پشتیبان پشتیبانی نمی‌شود.")
         }
         if (backup.metadata.createdAt <= 0L || backup.metadata.recordCount < 0) {
@@ -68,7 +68,8 @@ object BackupValidator {
                 (if (version >= 3) backup.financialHealthProfiles.size +
                     backup.loanCalculations.size + (if (backup.userPreference != null) 1 else 0) +
                     (if (backup.appSettings != null) 1 else 0) else 0) +
-                (if (version >= 4) backup.notificationLogs.size + backup.smsLogs.size else 0)
+                (if (version >= 4) backup.notificationLogs.size + backup.smsLogs.size else 0) +
+                (if (version >= 5) backup.reminderDeliveryLogs.size + (if (backup.vehicleStore != null) 1 else 0) else 0)
         }
         if (backup.metadata.recordCount != expectedCount) {
             return ValidationResult.Invalid("تعداد رکوردهای فایل با اطلاعات ثبت‌شده در سربرگ آن مطابقت ندارد.")
@@ -78,6 +79,7 @@ object BackupValidator {
             1 -> legacyV1Checksum(backup)
             2 -> legacyV2Checksum(backup)
             3 -> legacyV3Checksum(backup)
+            4 -> legacyV4Checksum(backup)
             else -> withChecksum(backup).metadata.checksum
         }
         if (!backup.metadata.checksum.equals(expectedChecksum, ignoreCase = true)) {
@@ -90,6 +92,32 @@ object BackupValidator {
             return ValidationResult.Invalid("فایل پشتیبان دارای پرداخت قسط بدون قسط مرتبط است.")
         }
         return ValidationResult.Valid
+    }
+
+    private fun legacyV4Checksum(backup: DarinoBackup): String {
+        val legacy = LegacyDarinoBackupV4(
+            metadata = backup.metadata.copy(checksum = ""),
+            accounts = backup.accounts,
+            checks = backup.checks,
+            transactions = backup.transactions,
+            installments = backup.installments,
+            installmentPayments = backup.installmentPayments,
+            vehicles = backup.vehicles,
+            vehicleServices = backup.vehicleServices,
+            vehicleExpenses = backup.vehicleExpenses,
+            vehicleInsurances = backup.vehicleInsurances,
+            vehicleInspections = backup.vehicleInspections,
+            reminders = backup.reminders,
+            reminderSchedules = backup.reminderSchedules,
+            financialEvents = backup.financialEvents,
+            financialHealthProfiles = backup.financialHealthProfiles,
+            loanCalculations = backup.loanCalculations,
+            userPreference = backup.userPreference,
+            appSettings = backup.appSettings,
+            notificationLogs = backup.notificationLogs,
+            smsLogs = backup.smsLogs
+        )
+        return calculateChecksum(moshi.adapter(LegacyDarinoBackupV4::class.java).toJson(legacy))
     }
 
     private fun legacyV3Checksum(backup: DarinoBackup): String {
@@ -154,6 +182,29 @@ object BackupValidator {
         return calculateChecksum(moshi.adapter(LegacyDarinoBackupV1::class.java).toJson(legacy))
     }
 }
+
+private data class LegacyDarinoBackupV4(
+    val metadata: BackupMetadata,
+    val accounts: List<AccountEntity> = emptyList(),
+    val checks: List<CheckEntity> = emptyList(),
+    val transactions: List<TransactionEntity> = emptyList(),
+    val installments: List<InstallmentEntity> = emptyList(),
+    val installmentPayments: List<InstallmentPaymentEntity> = emptyList(),
+    val vehicles: List<VehicleEntity> = emptyList(),
+    val vehicleServices: List<VehicleServiceEntity> = emptyList(),
+    val vehicleExpenses: List<VehicleExpenseRoomEntity> = emptyList(),
+    val vehicleInsurances: List<VehicleInsuranceRoomEntity> = emptyList(),
+    val vehicleInspections: List<VehicleInspectionRoomEntity> = emptyList(),
+    val reminders: List<ReminderEntity> = emptyList(),
+    val reminderSchedules: List<ReminderScheduleEntity> = emptyList(),
+    val financialEvents: List<FinancialEventEntity> = emptyList(),
+    val financialHealthProfiles: List<com.example.financial_health.data.FinancialHealthEntity> = emptyList(),
+    val loanCalculations: List<com.example.loan.data.LoanCalculationEntity> = emptyList(),
+    val userPreference: com.example.data.database.UserPreferenceEntity? = null,
+    val appSettings: AppSettingsBackup? = null,
+    val notificationLogs: List<com.example.data.database.NotificationLogEntity> = emptyList(),
+    val smsLogs: List<com.example.data.database.SmsLogEntity> = emptyList()
+)
 
 private data class LegacyDarinoBackupV3(
     val metadata: BackupMetadata,
