@@ -317,7 +317,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             type = type.name,
             amount = amount,
             checkNumber = checkNumber,
-            sayadId = sayadId,
+            sayadId = sayadId?.normalizeCheckDigits(),
             bankName = bankName,
             branch = branch,
             holderName = holderName,
