@@ -453,8 +453,8 @@ private fun FinancialCommitmentsBreakdownCard(
                     decimalFormat = decimalFormat,
                     color = Color(0xFF3B82F6),
                     icon = Icons.Rounded.ReceiptLong,
-                    percentageText = if (state.monthlyIncome > 0L && state.totalInstallments > 0L) "${IranianPhoneUtils.convertDigitsToPersian(((state.totalInstallments.toDouble() / state.monthlyIncome) * 100).toInt().toString())}٪ از درآمد" else "مبلغ سررسید ثبت نشده",
-                    amountLabelOverride = if (state.totalInstallments > 0L) null else "ثبت نشده"
+                    percentageText = if (state.totalInstallments > 0L && state.monthlyIncome > 0L) "${IranianPhoneUtils.convertDigitsToPersian(((state.totalInstallments.toDouble() / state.monthlyIncome) * 100).toInt().toString())}٪ از درآمد" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "مبلغ سررسید ثبت نشده",
+                    amountLabelOverride = if (state.totalInstallments > 0L) null else if (state.activeInstallmentsCount == 0) "۰ تومان" else "ثبت نشده"
                 )
 
                 CommitmentRowItem(
@@ -804,7 +804,7 @@ private fun NextMonthPredictionSectionCard(
                     amount = prediction.installments,
                     decimalFormat = decimalFormat,
                     color = Color(0xFF3B82F6),
-                    amountRecorded = prediction.installments > 0L
+                    amountRecorded = prediction.installments > 0L || state.activeInstallmentsCount == 0
                 )
                 PredictionItemRow(
                     label = "هزینه‌های ثابت",
