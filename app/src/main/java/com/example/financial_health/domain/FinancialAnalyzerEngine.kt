@@ -36,13 +36,13 @@ object FinancialAnalyzerEngine {
             val diffAbs = (kotlin.math.abs(diff) * 10).roundToInt() / 10.0f
             when {
                 diff > 2.0f -> insights += FinancialHealthInsight(
-                    id = "trend_alert", title = "افزایش فشار تعهدات نسبت به ماه قبل",
+                    id = "trend_alert", title = "افزایش سهم اقساط از درآمد",
                     description = "سهم اقساط ثبت‌شده از درآمد از ${previousMonthPressure}٪ به ${currentPressure}٪ رسیده است.",
                     type = InsightType.WARNING,
                     recommendation = "اقساط سررسیدشونده و درآمد ثبت‌شده هر دو ماه را بررسی کنید."
                 )
                 diff < -2.0f -> insights += FinancialHealthInsight(
-                    id = "trend_alert", title = "کاهش فشار تعهدات نسبت به ماه قبل",
+                    id = "trend_alert", title = "کاهش سهم اقساط از درآمد",
                     description = "سهم اقساط ثبت‌شده از درآمد ${diffAbs} واحد درصد کاهش یافته است.",
                     type = InsightType.POSITIVE,
                     recommendation = "در صورت وجود مازاد واقعی، برای هزینه‌های پیش‌بینی‌نشده ذخیره در نظر بگیرید."
