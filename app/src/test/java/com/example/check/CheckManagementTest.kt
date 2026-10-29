@@ -873,4 +873,26 @@ class CheckManagementTest {
         assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.addCheck(invalid))
     }
 
+    @Test
+    fun `test duplicate Sayad identifier is rejected`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val first = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "SAYAD-1",
+            sayadId = "1234567890123456",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = now,
+            dueDate = now + 86400000,
+            status = CheckStatus.REGISTERED
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(first))
+        val duplicate = first.copy(id = 0, checkNumber = "SAYAD-2")
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.addCheck(duplicate))
+    }
+
 }
