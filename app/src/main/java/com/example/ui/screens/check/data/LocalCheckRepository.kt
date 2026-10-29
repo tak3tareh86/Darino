@@ -100,13 +100,9 @@ class LocalCheckRepository private constructor() : CheckRepository {
         val currentEntity = database.checkDao().getCheckById(userId, check.id)
             ?: return@withContext CheckOperationResult.NOT_FOUND
         if (currentEntity.deletedAt != null) return@withContext CheckOperationResult.NOT_FOUND
-        // A cleared check is linked to a financial transaction. Never allow an ordinary
-        // edit to alter its amount/type or to undo its settlement without reversing that transaction.
-        if (currentEntity.status == CheckStatus.CLEARED.name &&
-            (check.status != CheckStatus.CLEARED ||
-                check.amount != currentEntity.amount ||
-                check.type.name != currentEntity.type)
-        ) {
+        // A cleared check is part of the financial ledger. Editing it without updating the
+        // linked transaction would leave the check and ledger inconsistent.
+        if (currentEntity.status == CheckStatus.CLEARED.name) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
         // Settlement must go through settleCheck(), which creates the matching ledger transaction.
@@ -170,6 +166,13 @@ class LocalCheckRepository private constructor() : CheckRepository {
         val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
         val database = db ?: return@withContext CheckOperationResult.PERSISTENCE_ERROR
         try {
+            val existing = database.checkDao().getCheckById(userId, id)
+                ?: return@withContext CheckOperationResult.NOT_FOUND
+            if (existing.deletedAt != null) return@withContext CheckOperationResult.NOT_FOUND
+            // Do not orphan a financial transaction by deleting its settled check.
+            if (existing.status == CheckStatus.CLEARED.name) {
+                return@withContext CheckOperationResult.VALIDATION_ERROR
+            }
             val rowsAffected = database.checkDao().softDeleteCheck(userId, id, System.currentTimeMillis(), System.currentTimeMillis())
             if (rowsAffected == 0) return@withContext CheckOperationResult.NOT_FOUND
             
