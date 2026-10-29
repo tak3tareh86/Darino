@@ -34,5 +34,15 @@ data class DarinoBackup(
     val financialEvents: List<FinancialEventEntity> = emptyList(),
     val financialHealthProfiles: List<FinancialHealthEntity> = emptyList(),
     val loanCalculations: List<LoanCalculationEntity> = emptyList(),
-    val userPreference: UserPreferenceEntity? = null
+    val userPreference: UserPreferenceEntity? = null,
+    val appSettings: AppSettingsBackup? = null
+)
+
+/** User-visible general preferences stored outside Room. */
+data class AppSettingsBackup(
+    val themeMode: String,
+    val language: String,
+    val currency: String,
+    val alertDelivery: String,
+    val navigationTransition: String
 )
