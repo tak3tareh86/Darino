@@ -213,10 +213,11 @@ private fun HealthOverviewHeroCard(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val status = state.healthStatus
-    val statusColor = status.color
+    val hasValidPressure = state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData
+    val statusColor = if (hasValidPressure) status.color else MaterialTheme.colorScheme.onSurfaceVariant
 
     val animatedProgress by animateFloatAsState(
-        targetValue = (state.pressurePercentage / 100f).coerceIn(0f, 1f),
+        targetValue = if (hasValidPressure) (state.pressurePercentage / 100f).coerceIn(0f, 1f) else 0f,
         animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
         label = "HeroPressureGauge"
     )
@@ -508,7 +509,9 @@ private fun FinancialCommitmentsBreakdownCard(
 
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(state.totalCommitments)) + " تومان",
+                            text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) {
+                            IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(state.totalCommitments)) + " تومان"
+                        } else "اطلاعات ناقص",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 15.sp
@@ -521,7 +524,7 @@ private fun FinancialCommitmentsBreakdownCard(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
                             ),
-                            color = state.healthStatus.color
+                            color = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) state.healthStatus.color else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -642,9 +645,9 @@ private fun InstallmentsAnalysisSectionCard(
             ) {
                 // Metric 1: Count
                 AnalysisMetricTile(
-                    title = "تعداد اقساط فعال",
+                    title = "قراردادهای اقساط فعال",
                     value = "${IranianPhoneUtils.convertDigitsToPersian(state.activeInstallmentsCount.toString())} مورد",
-                    subtext = "در حال بازپرداخت",
+                    subtext = "قراردادهای در حال بازپرداخت",
                     modifier = Modifier.weight(1f),
                     accentColor = Color(0xFF3B82F6)
                 )
