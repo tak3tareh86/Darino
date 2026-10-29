@@ -13,6 +13,7 @@ data class FinancialHealthState(
     val pressurePercentage: Float = 0.0f,
     val healthStatus: FinancialHealthStatus = FinancialHealthStatus.MEDIUM,
     val hasIncomeData: Boolean = false,
+    val incomeFromTransactions: Boolean = false,
     val hasFixedExpensesData: Boolean = false,
     val hasInstallmentScheduleData: Boolean = false,
     val hasPreviousMonthData: Boolean = false,
