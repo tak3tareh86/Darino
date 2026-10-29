@@ -177,7 +177,7 @@ fun InstallmentScheduleScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "مبلغ ${targetItem.amountFormatted} قبلاً خارج از برنامه پرداخت شده است؟ با تأیید، این قسط در سوابق پرداخت‌شده ثبت می‌شود.",
+                        text = "مبلغ ${targetItem.displayAmount} قبلاً خارج از برنامه پرداخت شده است؟ با تأیید، این قسط در سوابق پرداخت‌شده ثبت می‌شود.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -445,7 +445,7 @@ private fun ScheduleTimelineItem(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = item.amountFormatted,
+                        text = item.displayAmount,
                         style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold),
                         color = if (item.isPaidLate) ExpenseRoseLight else MaterialTheme.colorScheme.onSurface
                     )
