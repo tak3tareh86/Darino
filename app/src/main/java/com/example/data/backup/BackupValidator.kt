@@ -82,17 +82,6 @@ object BackupValidator {
         if (backup.installmentPayments.any { it.installmentId !in installmentIds }) {
             return ValidationResult.Invalid("فایل پشتیبان دارای پرداخت قسط بدون قسط مرتبط است.")
         }
-        val vehicleIds = backup.vehicles.map { it.id.toString() }.toSet() +
-            backup.vehicles.mapNotNull { it.serverId }.toSet()
-        if (backup.vehicleServices.any { it.vehicleId !in vehicleIds }) {
-            return ValidationResult.Invalid("فایل پشتیبان دارای سرویس خودرو بدون خودروی مرتبط است.")
-        }
-        if (backup.vehicleExpenses.any { it.vehicleId !in vehicleIds } ||
-            backup.vehicleInsurances.any { it.vehicleId !in vehicleIds } ||
-            backup.vehicleInspections.any { it.vehicleId !in vehicleIds }) {
-            return ValidationResult.Invalid("فایل پشتیبان دارای اطلاعات خودرو بدون خودروی مرتبط است.")
-        }
-
         return ValidationResult.Valid
     }
 
