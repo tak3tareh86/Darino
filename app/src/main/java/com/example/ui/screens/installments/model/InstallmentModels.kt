@@ -205,7 +205,7 @@ object InstallmentMockDataSource {
         return true
     }
 
-    fun updateScheduleItem(
+    suspend fun updateScheduleItem(
         installmentId: String,
         scheduleItemId: String,
         newAmountLong: Long,
