@@ -123,13 +123,14 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
     }
 
     val uiState: StateFlow<FinancialHealthState> = combine(
-        repository.profileFlow, repository.transactionsFlow, installmentRepository.installments, repository.vehicleServicesFlow, operationError
-    ) { profile, transactions, allInstallments, vehicleServices, currentError ->
+        repository.profileFlow, repository.transactionsFlow, installmentRepository.installments,
+        installmentRepository.installmentDataAvailable, repository.vehicleServicesFlow, operationError
+    ) { profile, transactions, allInstallments, installmentDataAvailable, vehicleServices, currentError ->
         val currentMonth = monthRange(0)
         val previousMonth = monthRange(-1)
         val active = activeItems(allInstallments)
         // An empty active list is a valid zero-commitment state. Any active installment must have a complete, dated, positive-amount schedule.
-        val hasCompleteInstallmentSchedule = active.all(::hasCompleteSchedule)
+        val hasCompleteInstallmentSchedule = installmentDataAvailable && active.all(::hasCompleteSchedule)
         // Current commitments are unpaid scheduled dues only, never already-paid installments.
         val scheduledCurrentMonth = if (hasCompleteInstallmentSchedule) {
             scheduledAmount(active, currentMonth, includePaid = false)
