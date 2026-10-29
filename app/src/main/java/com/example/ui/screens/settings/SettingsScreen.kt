@@ -82,6 +82,7 @@ import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
 import com.example.financial_health.presentation.FinancialHealthScreen
 import com.example.financial_health.presentation.components.EditIncomeBottomSheet
 import com.example.financial_health.viewmodel.FinancialHealthViewModel
@@ -474,7 +475,7 @@ private fun SettingsMainView(
                         SettingsSectionCard(title = "مدیریت مالی و تعهدات") {
                             SettingsItem(
                                 title = "درآمد ماهانه من",
-                                subtitle = "تنظیم و ویرایش درآمد ماهانه جهت تحلیل سلامت مالی (${IranianPhoneUtils.convertDigitsToPersian("%,d".format(monthlyIncome))} تومان)",
+                                subtitle = "تنظیم و ویرایش درآمد ماهانه جهت تحلیل سلامت مالی (${MoneyFormatter.formatToman(monthlyIncome))",
                                 vectorIcon = Icons.Rounded.MonetizationOn,
                                 iconAccentColor = Color(0xFF10B981),
                                 onClick = onEditIncomeClick
