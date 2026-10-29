@@ -365,6 +365,12 @@ interface ReminderDao {
 
 @Dao
 interface NotificationLogDao {
+    @Query("SELECT * FROM notification_logs WHERE userId = :userId ORDER BY timestamp DESC")
+    suspend fun getAllNotificationsForBackup(userId: String): List<NotificationLogEntity>
+
+    @Query("DELETE FROM notification_logs WHERE userId = :userId")
+    suspend fun clearAllNotificationsForBackup(userId: String)
+
     @Query("SELECT * FROM notification_logs WHERE userId = :userId AND deletedAt IS NULL ORDER BY timestamp DESC")
     fun getAllNotifications(userId: String): Flow<List<NotificationLogEntity>>
 
@@ -398,6 +404,12 @@ interface NotificationLogDao {
 
 @Dao
 interface SmsLogDao {
+    @Query("SELECT * FROM sms_logs WHERE userId = :userId ORDER BY id DESC")
+    suspend fun getAllSmsLogsForBackup(userId: String): List<SmsLogEntity>
+
+    @Query("DELETE FROM sms_logs WHERE userId = :userId")
+    suspend fun clearAllSmsLogsForBackup(userId: String)
+
     @Query("SELECT * FROM sms_logs WHERE userId = :userId ORDER BY id DESC")
     fun getAllSmsLogs(userId: String): Flow<List<SmsLogEntity>>
 
