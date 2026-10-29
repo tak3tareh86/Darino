@@ -24,6 +24,8 @@ class LocalBackupRepository(
         withContext(Dispatchers.IO) {
             val userId = getEffectiveUserId()
 
+            // Keep all table reads in one SQLite snapshot so related records cannot drift mid-backup.
+            db.withTransaction {
             val accounts = db.accountDao().getAllAccountsRaw(userId)
 
             val checks = db.checkDao().getAllChecksList(userId)
@@ -98,6 +100,7 @@ class LocalBackupRepository(
                 reminderSchedules = schedules,
                 financialEvents = events
             ))
+            }
         }
 
     override suspend fun restoreBackup(
