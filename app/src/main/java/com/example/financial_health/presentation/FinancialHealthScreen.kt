@@ -656,7 +656,7 @@ private fun InstallmentsAnalysisSectionCard(
                 // Metric 2: Monthly Payment
                 AnalysisMetricTile(
                     title = "مجموع پرداخت ماهانه",
-                    value = state.totalInstallmentsMonthlyFormatted,
+                    value = if (state.hasInstallmentScheduleData) MoneyFormatter.formatToman(state.totalInstallments) else state.totalInstallmentsMonthlyFormatted,
                     subtext = "تعهد ماه جاری",
                     modifier = Modifier.weight(1f),
                     accentColor = MaterialTheme.colorScheme.primary
