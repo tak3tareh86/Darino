@@ -12,6 +12,9 @@ interface LoanCalculationDao {
     @Query("SELECT * FROM loan_calculations ORDER BY createdAt DESC")
     fun getAllCalculations(): Flow<List<LoanCalculationEntity>>
 
+    @Query("SELECT * FROM loan_calculations ORDER BY createdAt DESC")
+    suspend fun getAllCalculationsList(): List<LoanCalculationEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCalculation(entity: LoanCalculationEntity)
 
