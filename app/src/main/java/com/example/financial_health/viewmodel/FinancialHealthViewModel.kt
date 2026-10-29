@@ -90,7 +90,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val currentMonth = monthRange(0)
         val previousMonth = monthRange(-1)
         val active = activeItems(allInstallments)
-        val scheduledCurrentMonth = scheduledAmount(active, currentMonth)
+        val scheduledCurrentMonth = scheduledAmount(allInstallments, currentMonth, includePaid = true)
         val nextMonthRange = monthRange(1)
         val scheduledNextMonth = scheduledAmount(active, nextMonthRange)
         val nextMonthVehicleExpenses = scheduledVehicleExpenses(vehicleServices, nextMonthRange)
