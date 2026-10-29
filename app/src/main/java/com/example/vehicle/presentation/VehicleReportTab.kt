@@ -5,6 +5,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,6 +25,8 @@ import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.domain.VehicleStatistics
 import com.example.vehicle.data.VehicleExpenseEntity
+import com.example.vehicle.data.VehicleExpenseCategory
+import com.example.util.PersianCalendarHelper
 import com.example.vehicle.presentation.components.VehicleCostChart
 import com.example.vehicle.presentation.components.VehicleExpenseInsightsSection
 import com.example.util.MoneyFormatter
@@ -48,6 +55,38 @@ fun VehicleReportTab(
     val monthCostFormatted = MoneyFormatter.formatToman(statistics.currentMonthCost)
     val yearCostFormatted = MoneyFormatter.formatToman(statistics.yearlyCost)
     val topCostAmountFormatted = MoneyFormatter.formatToman(statistics.topCostAmount)
+    val today = remember { PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()) }
+    val currentYear = today.year
+    val currentMonth = today.month
+    val shortMonthNames = listOf("فرو", "ارد", "خرد", "تیر", "مرد", "شهر", "مهر", "آبا", "آذر", "دی", "بهم", "اسف")
+    val parsedExpenses = remember(expenses) {
+        expenses.mapNotNull { expense ->
+            val parts = IranianPhoneUtils.convertDigitsToEnglish(expense.date).trim().split("/")
+            val year = parts.getOrNull(0)?.toIntOrNull()
+            val month = parts.getOrNull(1)?.toIntOrNull()
+            if (year != null && month != null && year in 1300..1500 && month in 1..12) Triple(expense, year, month) else null
+        }
+    }
+    val availableYears = remember(parsedExpenses, currentYear) {
+        (parsedExpenses.map { it.second } + currentYear).distinct().filter { it in 1300..1500 }.sorted()
+    }
+    var selectedChartYear by rememberSaveable { mutableIntStateOf(currentYear) }
+    val chartYear = selectedChartYear.takeIf { it in availableYears } ?: currentYear
+    val annualChartBars = remember(parsedExpenses, chartYear, currentYear, currentMonth) {
+        (1..12).map { month ->
+            val items = parsedExpenses.filter { it.second == chartYear && it.third == month }.map { it.first }
+            val fuel = items.filter { it.category == VehicleExpenseCategory.FUEL }.sumOf { it.amount }
+            val repair = items.filter { it.category == VehicleExpenseCategory.REPAIRS || it.category == VehicleExpenseCategory.PARTS }.sumOf { it.amount }
+            val service = items.filter { it.category == VehicleExpenseCategory.SERVICE }.sumOf { it.amount }
+            val insurance = items.filter { it.category == VehicleExpenseCategory.INSURANCE }.sumOf { it.amount }
+            val other = items.filter { it.category !in setOf(VehicleExpenseCategory.FUEL, VehicleExpenseCategory.REPAIRS, VehicleExpenseCategory.PARTS, VehicleExpenseCategory.SERVICE, VehicleExpenseCategory.INSURANCE) }.sumOf { it.amount }
+            com.example.vehicle.domain.VehicleMonthlyExpenseBar(
+                monthName = shortMonthNames[month - 1], fuelAmount = fuel, repairAmount = repair,
+                serviceAmount = service, insuranceAmount = insurance, totalAmount = items.sumOf { it.amount },
+                isCurrentMonth = chartYear == currentYear && month == currentMonth, otherAmount = other
+            )
+        }
+    }
 
     LazyColumn(
         modifier = modifier
@@ -246,14 +285,30 @@ fun VehicleReportTab(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                         }
-                        Text(
-                            text = "تفکیک ۶ ماهه",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        var yearMenuExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            Surface(
+                                onClick = { yearMenuExpanded = true },
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+                            ) {
+                                Row(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Icon(Icons.Rounded.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                    Text(IranianPhoneUtils.convertDigitsToPersian(chartYear.toString()), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    Icon(Icons.Rounded.ExpandMore, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            DropdownMenu(expanded = yearMenuExpanded, onDismissRequest = { yearMenuExpanded = false }) {
+                                availableYears.asReversed().forEach { year ->
+                                    DropdownMenuItem(text = { Text(IranianPhoneUtils.convertDigitsToPersian(year.toString())) }, onClick = { selectedChartYear = year; yearMenuExpanded = false })
+                                }
+                            }
+                        }
                     }
 
-                    VehicleCostChart(bars = statistics.monthlyChartData)
+                    Text("هزینه‌های ثبت‌شده در ۱۲ ماه سال ${IranianPhoneUtils.convertDigitsToPersian(chartYear.toString())}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    VehicleCostChart(bars = annualChartBars)
                 }
             }
         }
