@@ -47,7 +47,7 @@ fun EditIncomeBottomSheet(
     val decimalFormat = remember { DecimalFormat("#,###") }
 
     val formattedIncomePreview = remember(rawIncomeText) {
-        val num = rawIncomeText.toLongOrNull() ?: 0L
+        val num = IranianAmountUtils.parseAmountToLong(rawIncomeText)
         if (num > 0) {
             IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(num)) + " تومان"
         } else {
@@ -56,7 +56,7 @@ fun EditIncomeBottomSheet(
     }
 
     val formattedFixedPreview = remember(rawFixedText) {
-        val num = rawFixedText.toLongOrNull() ?: 0L
+        val num = IranianAmountUtils.parseAmountToLong(rawFixedText)
         if (num > 0) {
             IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(num)) + " تومان"
         } else {
