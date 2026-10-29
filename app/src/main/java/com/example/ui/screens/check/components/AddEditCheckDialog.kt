@@ -51,6 +51,10 @@ fun AddEditCheckDialog(
 
     val isDateInvalid = dueDate < issueDate
     val isReminderInvalid = reminderDateTime != null && reminderDateTime!! > dueDate
+    val amountValueForValidation = amount.toEnglishDigits().toLongOrNull()
+    val isAmountInvalid = amountValueForValidation == null || amountValueForValidation <= 0L
+    val isCheckNumberInvalid = checkNumber.isBlank()
+    val isBankNameInvalid = bankName.isBlank()
     val normalizedSayadId = sayadId.toEnglishDigits().filter { it.isDigit() }
     val isSayadIdInvalid = normalizedSayadId.isNotBlank() && normalizedSayadId.length != 16
     var showError by remember { mutableStateOf(false) }
@@ -86,7 +90,7 @@ fun AddEditCheckDialog(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (showError && (isDateInvalid || isReminderInvalid || isSayadIdInvalid)) {
+                if (showError && (isDateInvalid || isReminderInvalid || isSayadIdInvalid || isAmountInvalid || isCheckNumberInvalid || isBankNameInvalid)) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                         modifier = Modifier.fillMaxWidth()
@@ -99,6 +103,9 @@ fun AddEditCheckDialog(
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 when {
+                                    isAmountInvalid -> "مبلغ چک باید عددی بزرگ‌تر از صفر و به ریال باشد."
+                                    isCheckNumberInvalid -> "شماره چک را وارد کنید."
+                                    isBankNameInvalid -> "نام بانک را وارد کنید."
                                     isDateInvalid -> "تاریخ سررسید نمی‌تواند قبل از تاریخ صدور باشد."
                                     isReminderInvalid -> "زمان یادآور باید در روز سررسید یا قبل از آن باشد."
                                     else -> "شناسه صیادی واردشده باید ۱۶ رقم داشته باشد."
@@ -138,6 +145,7 @@ fun AddEditCheckDialog(
                     value = amount,
                     onValueChange = { amount = it.toEnglishDigits().filter { char -> char.isDigit() } },
                     label = { Text("مبلغ چک (ریال)") },
+                    isError = showError && isAmountInvalid,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = check?.status != CheckStatus.CLEARED,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -151,6 +159,7 @@ fun AddEditCheckDialog(
                         value = checkNumber,
                         onValueChange = { checkNumber = it },
                         label = { Text("شماره چک") },
+                        isError = showError && isCheckNumberInvalid,
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
@@ -168,6 +177,7 @@ fun AddEditCheckDialog(
                         value = bankName,
                         onValueChange = { bankName = it },
                         label = { Text("نام بانک") },
+                        isError = showError && isBankNameInvalid,
                         modifier = Modifier.weight(1.2f),
                         leadingIcon = { Icon(Icons.Rounded.AccountBalance, null) },
                         singleLine = true
