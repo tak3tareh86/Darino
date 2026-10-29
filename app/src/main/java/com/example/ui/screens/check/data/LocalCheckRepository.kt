@@ -57,6 +57,13 @@ class LocalCheckRepository private constructor() : CheckRepository {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
+        val normalizedSayadId = check.sayadId?.normalizeCheckDigits()?.trim().orEmpty()
+        if (normalizedSayadId.isNotBlank() &&
+            database.checkDao().getCheckBySayadId(userId, normalizedSayadId) != null
+        ) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR
+        }
+
         try {
             val insertedId = database.checkDao().insertCheck(check.toEntity(userId))
             if (insertedId <= 0L) return@withContext CheckOperationResult.PERSISTENCE_ERROR
@@ -100,6 +107,13 @@ class LocalCheckRepository private constructor() : CheckRepository {
         val currentEntity = database.checkDao().getCheckById(userId, check.id)
             ?: return@withContext CheckOperationResult.NOT_FOUND
         if (currentEntity.deletedAt != null) return@withContext CheckOperationResult.NOT_FOUND
+        val normalizedSayadId = check.sayadId?.normalizeCheckDigits()?.trim().orEmpty()
+        if (normalizedSayadId.isNotBlank()) {
+            val duplicate = database.checkDao().getCheckBySayadId(userId, normalizedSayadId)
+            if (duplicate != null && duplicate.id != check.id) {
+                return@withContext CheckOperationResult.VALIDATION_ERROR
+            }
+        }
         // A cleared check is part of the financial ledger. Editing it without updating the
         // linked transaction would leave the check and ledger inconsistent.
         if (currentEntity.status == CheckStatus.CLEARED.name) {
@@ -280,7 +294,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             type = CheckType.valueOf(type),
             amount = amount,
             checkNumber = checkNumber,
-            sayadId = sayadId,
+            sayadId = sayadId?.normalizeCheckDigits(),
             bankName = bankName,
             branch = branch,
             holderName = holderName,
@@ -323,3 +337,12 @@ class LocalCheckRepository private constructor() : CheckRepository {
         val instance: LocalCheckRepository by lazy { LocalCheckRepository() }
     }
 }
+
+
+private fun String.normalizeCheckDigits(): String = map { char ->
+    when (char) {
+        in '۰'..'۹' -> ('0'.code + (char.code - '۰'.code)).toChar()
+        in '٠'..'٩' -> ('0'.code + (char.code - '٠'.code)).toChar()
+        else -> char
+    }
+}.joinToString("")
