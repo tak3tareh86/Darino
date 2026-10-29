@@ -62,16 +62,19 @@ data class Check(
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
             }
-            var days = 0L
-            while (today.before(due)) {
-                today.add(Calendar.DAY_OF_YEAR, 1)
-                days++
+            fun Calendar.epochDay(): Long {
+                val year = get(Calendar.YEAR)
+                val month = get(Calendar.MONTH)
+                val day = get(Calendar.DAY_OF_MONTH)
+                val adjustedYear = year - if (month <= Calendar.FEBRUARY) 1 else 0
+                val era = Math.floorDiv(adjustedYear, 400)
+                val yearOfEra = adjustedYear - era * 400
+                val monthPrime = month + if (month > Calendar.FEBRUARY) -2 else 10
+                val dayOfYear = (153L * monthPrime + 2) / 5 + day - 1
+                val dayOfEra = yearOfEra * 365L + yearOfEra / 4 - yearOfEra / 100 + dayOfYear
+                return era * 146097L + dayOfEra
             }
-            while (today.after(due)) {
-                today.add(Calendar.DAY_OF_YEAR, -1)
-                days--
-            }
-            return days
+            return due.epochDay() - today.epochDay()
         }
 
     val isOverdue: Boolean
