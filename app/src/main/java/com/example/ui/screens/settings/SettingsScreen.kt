@@ -6,6 +6,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -114,7 +116,7 @@ fun SettingsScreen(
     var currentCalendar by remember { mutableStateOf(AppCalendar.SHAMSI) }
     var currentWeekStart by remember { mutableStateOf(WeekStartDay.SATURDAY) }
     var currentAccent by remember { mutableStateOf(AccentColorOption.TEAL) }
-    var currentDeliveryMode by remember { mutableStateOf(AlertDeliveryPreference.BOTH) }
+    val currentDeliveryMode by prefsRepo.alertDelivery.collectAsState()
 
     val lockViewModel: AppLockViewModel = viewModel()
     val lockUiState by lockViewModel.uiState.collectAsState()
@@ -155,14 +157,23 @@ fun SettingsScreen(
     AnimatedContent(
         targetState = currentDestination,
         transitionSpec = {
-            if (targetState != SettingsDestination.MAIN) {
-                (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(
-                    slideOutHorizontally { width -> width } + fadeOut()
-                )
-            } else {
-                (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
-                    slideOutHorizontally { width -> -width } + fadeOut()
-                )
+            val forward = targetState != SettingsDestination.MAIN
+            when (currentNavTransition) {
+                com.example.ui.screens.settings.model.NavigationTransitionAnimation.FADE ->
+                    fadeIn().togetherWith(fadeOut())
+                com.example.ui.screens.settings.model.NavigationTransitionAnimation.SCALE ->
+                    (scaleIn(initialScale = if (forward) 0.92f else 1.08f) + fadeIn())
+                        .togetherWith(scaleOut(targetScale = if (forward) 1.08f else 0.92f) + fadeOut())
+                com.example.ui.screens.settings.model.NavigationTransitionAnimation.ZOOM ->
+                    (scaleIn(initialScale = if (forward) 0.75f else 1.15f) + fadeIn())
+                        .togetherWith(scaleOut(targetScale = if (forward) 1.15f else 0.75f) + fadeOut())
+                com.example.ui.screens.settings.model.NavigationTransitionAnimation.SLIDE ->
+                    slideInHorizontally { width -> if (forward) -width else width }
+                        .togetherWith(slideOutHorizontally { width -> if (forward) width else -width })
+                com.example.ui.screens.settings.model.NavigationTransitionAnimation.SLIDE_FADE,
+                com.example.ui.screens.settings.model.NavigationTransitionAnimation.DYNAMIC ->
+                    (slideInHorizontally { width -> if (forward) -width else width } + fadeIn())
+                        .togetherWith(slideOutHorizontally { width -> if (forward) width else -width } + fadeOut())
             }
         },
         label = "settingsDestinationTransition"
@@ -211,7 +222,7 @@ fun SettingsScreen(
                     currentNumberMode = currentNumberMode,
                     onNumberModeChanged = { prefsRepo.setNumberDisplayMode(it) },
                     currentDeliveryMode = currentDeliveryMode,
-                    onDeliveryModeChanged = { currentDeliveryMode = it },
+                    onDeliveryModeChanged = { prefsRepo.setAlertDelivery(it) },
                     currentNavTransition = currentNavTransition,
                     onNavTransitionChanged = { prefsRepo.setNavTransition(it) },
                     onBackClick = { currentDestination = SettingsDestination.MAIN }
