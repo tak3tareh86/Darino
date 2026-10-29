@@ -1,6 +1,7 @@
 package com.example.ui.screens.check.model
 
 import com.example.util.PersianCalendarHelper
+import java.util.Calendar
 
 enum class CheckType(val title: String) {
     RECEIVED("دریافتی"),
@@ -41,12 +42,38 @@ data class Check(
     val formattedIssueDate: String
         get() = PersianCalendarHelper.fromEpochMillis(issueDate).toFormattedDate()
 
+    /**
+     * Calendar-day difference in the device's local time zone.
+     * Comparing date boundaries avoids off-by-one results caused by the current time
+     * and daylight-saving transitions.
+     */
     val daysToDueDate: Long
         get() {
-            val today = System.currentTimeMillis()
-            return (dueDate - today) / (24 * 60 * 60 * 1000)
+            val today = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val due = Calendar.getInstance().apply {
+                timeInMillis = dueDate
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            var days = 0L
+            while (today.before(due)) {
+                today.add(Calendar.DAY_OF_YEAR, 1)
+                days++
+            }
+            while (today.after(due)) {
+                today.add(Calendar.DAY_OF_YEAR, -1)
+                days--
+            }
+            return days
         }
 
     val isOverdue: Boolean
-        get() = dueDate < System.currentTimeMillis() && (status == CheckStatus.REGISTERED || status == CheckStatus.PENDING || status == CheckStatus.BOUNCED)
+        get() = daysToDueDate < 0 && (status == CheckStatus.REGISTERED || status == CheckStatus.PENDING || status == CheckStatus.BOUNCED)
 }
