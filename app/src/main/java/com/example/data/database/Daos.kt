@@ -382,6 +382,9 @@ interface NotificationLogDao {
 
     @Query("DELETE FROM notification_logs WHERE userId = :userId AND id = :id")
     suspend fun deleteNotification(userId: String, id: Int)
+
+    @Query("DELETE FROM notification_logs WHERE userId = :userId")
+    suspend fun deleteAllNotifications(userId: String)
 }
 
 @Dao
