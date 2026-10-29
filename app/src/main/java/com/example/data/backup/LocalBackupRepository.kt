@@ -71,7 +71,7 @@ class LocalBackupRepository(
                         schedules.size +
                         events.size
 
-            DarinoBackup(
+            BackupValidator.withChecksum(DarinoBackup(
                 metadata = BackupMetadata(
                     backupVersion = 1,
                     appVersion = "1.0",
@@ -92,7 +92,7 @@ class LocalBackupRepository(
                 reminders = reminders,
                 reminderSchedules = schedules,
                 financialEvents = events
-            )
+            ))
         }
 
     override suspend fun restoreBackup(
