@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.util.IranianPhoneUtils
 import com.example.util.PersianCalendarHelper
+import com.example.vehicle.data.VehicleExpenseCategory
 import com.example.vehicle.data.VehicleExpenseEntity
 import java.text.NumberFormat
 import java.util.Locale
@@ -76,6 +77,17 @@ fun VehicleExpenseInsightsSection(
     val secondTotal = datedExpenses.filter { it.second.year == secondYear && it.second.month == secondMonth }.sumOf { it.first.amount }
     val firstCount = datedExpenses.count { it.second.year == firstYear && it.second.month == firstMonth }
     val secondCount = datedExpenses.count { it.second.year == secondYear && it.second.month == secondMonth }
+    val categoryComparison = remember(datedExpenses, firstYear, firstMonth, secondYear, secondMonth) {
+        VehicleExpenseCategory.values().map { category ->
+            val firstAmount = datedExpenses.filter {
+                it.first.category == category && it.second.year == firstYear && it.second.month == firstMonth
+            }.sumOf { it.first.amount }
+            val secondAmount = datedExpenses.filter {
+                it.first.category == category && it.second.year == secondYear && it.second.month == secondMonth
+            }.sumOf { it.first.amount }
+            Triple(category, firstAmount, secondAmount)
+        }.filter { it.second > 0L || it.third > 0L }
+    }
 
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(
@@ -171,6 +183,30 @@ fun VehicleExpenseInsightsSection(
                     AmountSummary(expenseMonthNames[secondMonth - 1] + " " + fa(secondYear), secondTotal, secondCount, Modifier.weight(1f))
                 }
                 DifferenceSummary(firstTotal, secondTotal, firstCount, secondCount)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Text("مقایسه به تفکیک دسته‌بندی", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                if (categoryComparison.isEmpty()) {
+                    EmptyExpenseMessage("در هیچ‌یک از دو بازه، هزینه دسته‌بندی‌شده‌ای ثبت نشده است.")
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("دسته‌بندی", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("بازه اول", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("بازه دوم", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    categoryComparison.forEach { (category, firstAmount, secondAmount) ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(category.title, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(money(firstAmount), Modifier.width(94.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(money(secondAmount), Modifier.width(94.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
             }
         }
 
