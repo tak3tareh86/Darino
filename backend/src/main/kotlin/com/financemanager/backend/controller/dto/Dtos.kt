@@ -48,7 +48,25 @@ data class AuthResponse(
     val userId: String,
     val username: String,
     val phoneNumber: String?,
-    val phoneVerified: Boolean
+    val phoneVerified: Boolean,
+    val email: String? = null,
+    // Keep the flat fields for existing clients while also providing the nested
+    // user object expected by the Android app's NetworkAuthResponse model.
+    val user: AuthUserDto = AuthUserDto(
+        id = userId,
+        username = username,
+        email = email,
+        phoneNumber = phoneNumber,
+        phoneVerified = phoneVerified
+    )
+)
+
+data class AuthUserDto(
+    val id: String,
+    val username: String,
+    val email: String? = null,
+    val phoneNumber: String? = null,
+    val phoneVerified: Boolean = false
 )
 
 // Phone DTOs
