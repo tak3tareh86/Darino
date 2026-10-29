@@ -12,6 +12,7 @@ import java.util.Calendar
 import java.util.TimeZone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -54,8 +55,8 @@ class FinancialHealthRepository(context: Context) {
                 else -> null
             }
             if (userId == null) flowOf(emptyProfile())
-            else dao.getProfile(userId, DEFAULT_PROFILE_ID).map { entity ->
-                if (entity == null) calculateProfile(userId)
+            else dao.getProfile(userId, DEFAULT_PROFILE_ID).combine(db.transactionDao().getAllTransactions(userId)) { entity, transactions ->
+                if (entity == null) calculateProfile(userId, transactions)
                 else {
                     val status = runCatching { FinancialHealthStatus.valueOf(entity.healthStatus) }
                         .getOrElse { FinancialAnalyzerEngine.calculateHealthStatus(entity.financialPressure) }
@@ -71,9 +72,8 @@ class FinancialHealthRepository(context: Context) {
             }
         }
 
-    private suspend fun calculateProfile(userId: String): FinancialHealthProfile {
-        val transactions = runCatching { db.transactionDao().getAllTransactionsList(userId) }
-            .getOrDefault(emptyList()).filter { it.deletedAt == null }
+    private fun calculateProfile(userId: String, sourceTransactions: List<TransactionEntity>): FinancialHealthProfile {
+        val transactions = sourceTransactions.filter { it.deletedAt == null }
         val (start, end) = currentMonthRange()
         val income = transactions.filter {
             it.type == "INCOME" && it.timestamp >= start && it.timestamp < end
