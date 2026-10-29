@@ -505,7 +505,7 @@ private fun FinancialCommitmentsBreakdownCard(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "معادل ${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪ درآمد",
+                            text = if (state.hasIncomeData) "معادل ${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪ درآمد" else "برای محاسبه، درآمد را ثبت کنید",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
@@ -918,7 +918,7 @@ private fun SmartAlertsSection(state: FinancialHealthState) {
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "ماه جاری: ${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪",
+                    text = if (state.hasIncomeData) "ماه جاری: ${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪" else "ماه جاری: درآمد ثبت نشده",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = state.healthStatus.color
