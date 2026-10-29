@@ -154,16 +154,22 @@ fun FinancialHealthScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "تحلیل سلامت مالی در ماه‌های اخیر",
+                        text = "روند سهم اقساط از درآمد در ماه‌های اخیر",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    FinancialPressureChart(
-                        dataPoints = state.historicalPressureList
-                    )
+                    if (state.historicalPressureList.isEmpty()) {
+                        Text(
+                            text = "برای نمایش روند واقعی، باید درآمد ثبت‌شده و برنامه اقساط دارای تاریخ و مبلغ در ماه‌های اخیر وجود داشته باشد. در حال حاضر داده کافی برای نمودار نداریم.",
+                            style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        FinancialPressureChart(dataPoints = state.historicalPressureList)
+                    }
                 }
             }
 
@@ -254,7 +260,7 @@ private fun HealthOverviewHeroCard(
                     border = BorderStroke(1.dp, statusColor.copy(alpha = 0.5f))
                 ) {
                     Text(
-                        text = status.badgeText,
+                        text = if (state.hasIncomeData) status.badgeText else "⚪ نیازمند ثبت درآمد",
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
@@ -277,7 +283,7 @@ private fun HealthOverviewHeroCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪",
+                            text = if (state.hasIncomeData) "${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪" else "—",
                             style = MaterialTheme.typography.displaySmall.copy(
                                 fontWeight = FontWeight.Black,
                                 fontSize = 42.sp
@@ -295,7 +301,7 @@ private fun HealthOverviewHeroCard(
                         )
                     }
                     Text(
-                        text = status.defaultMessage,
+                        text = if (state.hasIncomeData) status.defaultMessage else "برای محاسبه معتبر، درآمد ماهانه را ثبت کنید. تا آن زمان درصد و وضعیت سلامت مالی قابل تعیین نیست.",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 12.sp,
                             lineHeight = 18.sp,
@@ -552,7 +558,7 @@ private fun CommitmentRowItem(
         }
 
         Text(
-            text = IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(amount)) + " تومان",
+            text = if (amountRecorded) IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(amount)) + " تومان" else "مبلغ ثبت نشده",
             style = MaterialTheme.typography.titleSmall.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.5.sp
@@ -637,7 +643,14 @@ private fun InstallmentsAnalysisSectionCard(
                 // Metric 3: Nearest Due Date
                 AnalysisMetricTile(
                     title = "نزدیک‌ترین سررسید",
-                    value = "${IranianPhoneUtils.convertDigitsToPersian(state.nearestDueDateDays.toString())} روز دیگر",
+                    value = if (state.hasNearestDueDate) {
+                        val days = state.nearestDueDateDays
+                        when {
+                            days < 0 -> "${IranianPhoneUtils.convertDigitsToPersian(kotlin.math.abs(days).toString())} روز از سررسید گذشته"
+                            days == 0 -> "امروز"
+                            else -> "${IranianPhoneUtils.convertDigitsToPersian(days.toString())} روز دیگر"
+                        }
+                    } else "سررسید ثبت نشده",
                     subtext = state.nearestDueDateTitle,
                     modifier = Modifier.weight(1f),
                     accentColor = Color(0xFFF59E0B)
@@ -647,7 +660,7 @@ private fun InstallmentsAnalysisSectionCard(
                 AnalysisMetricTile(
                     title = "بیشترین قسط",
                     value = state.largestInstallmentTitle,
-                    subtext = IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(state.largestInstallmentAmount)) + " ت",
+                    subtext = if (state.hasLargestInstallment) IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(state.largestInstallmentAmount)) + " تومان" else "مبلغ ثبت نشده",
                     modifier = Modifier.weight(1f),
                     accentColor = Color(0xFFEF4444)
                 )
@@ -758,7 +771,7 @@ private fun NextMonthPredictionSectionCard(
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                 ) {
                     Text(
-                        text = "مجموع: ${IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(prediction.total))} ت",
+                        text = if (prediction.total > 0L) "مجموع مبالغ ثبت‌شده: ${IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(prediction.total))} تومان" else "مبالغ آینده ثبت نشده",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.5.sp,
@@ -775,19 +788,22 @@ private fun NextMonthPredictionSectionCard(
                     label = "اقساط",
                     amount = prediction.installments,
                     decimalFormat = decimalFormat,
-                    color = Color(0xFF3B82F6)
+                    color = Color(0xFF3B82F6),
+                    amountRecorded = prediction.installments > 0L
                 )
                 PredictionItemRow(
                     label = "یادآورها",
                     amount = prediction.reminders,
                     decimalFormat = decimalFormat,
-                    color = Color(0xFFF59E0B)
+                    color = Color(0xFFF59E0B),
+                    amountRecorded = prediction.remindersAmountRecorded
                 )
                 PredictionItemRow(
                     label = "هزینه خودرو",
                     amount = prediction.vehicleExpenses,
                     decimalFormat = decimalFormat,
-                    color = Color(0xFF10B981)
+                    color = Color(0xFF10B981),
+                    amountRecorded = prediction.vehicleExpensesAmountRecorded
                 )
             }
         }
@@ -799,7 +815,8 @@ private fun PredictionItemRow(
     label: String,
     amount: Long,
     decimalFormat: DecimalFormat,
-    color: Color
+    color: Color,
+    amountRecorded: Boolean = true
 ) {
     Row(
         modifier = Modifier
@@ -880,7 +897,7 @@ private fun SmartAlertsSection(state: FinancialHealthState) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "ماه قبل: ${IranianPhoneUtils.convertDigitsToPersian(state.previousMonthPressure.toInt().toString())}٪",
+                    text = if (state.hasPreviousMonthData) "ماه قبل: ${IranianPhoneUtils.convertDigitsToPersian(state.previousMonthPressure.toInt().toString())}٪" else "ماه قبل: داده کافی نیست",
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
