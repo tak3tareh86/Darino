@@ -29,7 +29,8 @@ class AuthController(
             username = request.username,
             rawPhone = request.phoneNumber,
             passwordRaw = request.password,
-            fullName = request.fullName
+            fullName = request.fullName,
+            rawEmail = request.email
         )
         val response = AuthResponse(
             accessToken = result.accessToken,
