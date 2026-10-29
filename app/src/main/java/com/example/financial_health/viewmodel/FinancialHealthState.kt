@@ -14,6 +14,7 @@ data class FinancialHealthState(
     val healthStatus: FinancialHealthStatus = FinancialHealthStatus.MEDIUM,
     val hasIncomeData: Boolean = false,
     val hasFixedExpensesData: Boolean = false,
+    val hasInstallmentScheduleData: Boolean = false,
     val hasPreviousMonthData: Boolean = false,
     val currentMonthComparisonPressure: Float? = null,
     val insights: List<FinancialHealthInsight> = emptyList(),
