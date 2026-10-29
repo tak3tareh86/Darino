@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,9 +36,6 @@ import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.RadioButtonChecked
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.SwapHoriz
-import androidx.compose.material.icons.rounded.CleaningServices
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.SettingsBackupRestore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -47,9 +43,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,11 +56,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
-import kotlinx.coroutines.launch
 import com.example.ui.screens.settings.components.SettingsHeader
 import androidx.compose.material.icons.rounded.Calculate
 import com.example.ui.screens.settings.model.AlertDeliveryPreference
@@ -296,246 +290,55 @@ fun GeneralPreferencesScreen(
                     }
                 }
 
-                // 4. Navigation Transition Animation (انیمیشن جابجایی بین منوها - کشویی و جمع‌وجور)
+                GeneralCompactCard(
+                    title = if (isEn) "Alert Delivery" else "روش دریافت هشدار",
+                    subtitle = if (isEn) "Choose how reminders are delivered" else "روش ارسال پیامک و اعلان‌های برنامه را انتخاب کنید",
+                    icon = Icons.Rounded.NotificationsActive,
+                    iconColor = Color(0xFF0EA5E9)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        DeliveryModeCompactItem(
+                            title = if (isEn) "SMS and notifications" else "پیامک و نوتیفیکیشن",
+                            subtitle = if (isEn) "Send both types of alert" else "ارسال هم‌زمان پیامک و اعلان",
+                            emoji = "🔔📲",
+                            isSelected = currentDeliveryMode == AlertDeliveryPreference.BOTH,
+                            onClick = { onDeliveryModeChanged(AlertDeliveryPreference.BOTH) }
+                        )
+                        DeliveryModeCompactItem(
+                            title = if (isEn) "Notifications only" else "فقط نوتیفیکیشن",
+                            subtitle = if (isEn) "System notifications, no SMS" else "فقط اعلان سیستمی، بدون پیامک",
+                            emoji = "🔔",
+                            isSelected = currentDeliveryMode == AlertDeliveryPreference.NOTIFICATION_ONLY,
+                            onClick = { onDeliveryModeChanged(AlertDeliveryPreference.NOTIFICATION_ONLY) }
+                        )
+                        DeliveryModeCompactItem(
+                            title = if (isEn) "SMS only" else "فقط پیامک",
+                            subtitle = if (isEn) "Text messages, no system notification" else "فقط پیامک، بدون اعلان سیستمی",
+                            emoji = "💬",
+                            isSelected = currentDeliveryMode == AlertDeliveryPreference.SMS_ONLY,
+                            onClick = { onDeliveryModeChanged(AlertDeliveryPreference.SMS_ONLY) }
+                        )
+                        DeliveryModeCompactItem(
+                            title = if (isEn) "Disabled" else "غیرفعال",
+                            subtitle = if (isEn) "Turn off delivery of alerts" else "ارسال هشدارها غیرفعال شود",
+                            emoji = "🔕",
+                            isSelected = currentDeliveryMode == AlertDeliveryPreference.DISABLED,
+                            onClick = { onDeliveryModeChanged(AlertDeliveryPreference.DISABLED) }
+                        )
+                    }
+                }
+
+                // 5. Navigation Transition Animation
                 NavigationTransitionCard(
                     isEn = isEn,
                     currentTransition = currentNavTransition,
                     onTransitionChanged = onNavTransitionChanged
                 )
-
-                // 5. Developer Mode / Clean Slate Section (خام‌سازی و پاکسازی داده‌های تستی)
-                CleanSlateDeveloperCard(isEn = isEn)
             }
         }
-    }
-}
-
-@Composable
-private fun CleanSlateDeveloperCard(
-    isEn: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    var isExpanded by remember { mutableStateOf(false) }
-    var showConfirmDialog by remember { mutableStateOf(false) }
-    var dialogAction by remember { mutableStateOf("clean") } // "clean" or "restore"
-
-    val financeRepo = com.example.ui.screens.finance.data.LocalFinanceRepository.instance
-    val vehicleRepo = com.example.vehicle.data.VehicleRepository.instance
-    val backupRepo = com.example.data.backup.LocalBackupRepository(context)
-    val scope = rememberCoroutineScope()
-
-    Surface(
-        shape = RoundedCornerShape(RadiusLG),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            1.dp,
-            if (isExpanded) Color(0xFFEF4444).copy(alpha = 0.35f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-        ),
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { isExpanded = !isExpanded }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFEF4444).copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.CleaningServices,
-                        contentDescription = null,
-                        tint = Color(0xFFEF4444),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = if (isEn) "Developer Mode / Test Data" else "تنظیمات توسعه‌دهنده و داده‌های آزمایشی",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFFEF4444).copy(alpha = 0.15f),
-                        ) {
-                            Text(
-                                text = if (isEn) "RESET" else "پاکسازی",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
-                                ),
-                                color = Color(0xFFEF4444),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-
-                    Text(
-                        text = if (isEn) "Clean slate & erase mock sample records" else "خام‌سازی برنامه و حذف داده‌های فرضی جهت ورود اطلاعات واقعی",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Icon(
-                    imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            AnimatedVisibility(
-                visible = isExpanded,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = if (isEn)
-                            "You can erase all sample mock entries (transactions, vehicles, loans) to start using the app with your real data, or restore them anytime for testing."
-                        else
-                            "با لمس دکمه زیر، تمامی اطلاعات فرضی و آزمایشی برنامه (تراکنش‌ها، خودروها، اقساط، بودجه‌ها) به صورت کامل حذف شده و برنامه آماده ثبت اطلاعات واقعی شما می‌شود.",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp, lineHeight = 16.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        // Clean Slate Button
-                        Surface(
-                            shape = RoundedCornerShape(RadiusSM),
-                            color = Color(0xFFEF4444),
-                            modifier = Modifier
-                                .weight(1.3f)
-                                .clickable {
-                                    dialogAction = "clean"
-                                    showConfirmDialog = true
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.DeleteOutline,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (isEn) "Erase Test Data" else "پاکسازی داده‌های تستی",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 11.5.sp),
-                                    color = Color.White
-                                )
-                            }
-                        }
-
-                        // Restore Samples Button
-                        Surface(
-                            shape = RoundedCornerShape(RadiusSM),
-                            color = EmeraldPrimaryLight.copy(alpha = 0.15f),
-                            border = BorderStroke(1.dp, EmeraldPrimaryLight.copy(alpha = 0.4f)),
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable {
-                                    dialogAction = "restore"
-                                    showConfirmDialog = true
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.SettingsBackupRestore,
-                                    contentDescription = null,
-                                    tint = EmeraldPrimaryLight,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (isEn) "Restore Mock" else "بازیابی نمونه‌ها",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 11.5.sp),
-                                    color = EmeraldPrimaryLight
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (showConfirmDialog) {
-        com.example.ui.screens.settings.components.SettingsConfirmationDialog(
-            isOpen = true,
-            title = if (dialogAction == "clean")
-                (if (isEn) "Clean Slate App" else "خام‌سازی برنامه و حذف داده‌های تستی")
-            else
-                (if (isEn) "Restore Mock Data" else "بازیابی داده‌های تستی"),
-            message = if (dialogAction == "clean")
-                (if (isEn) "All sample transactions, vehicles, and loan records will be wiped out. Are you sure?"
-                else "تمامی داده‌های تستی و فرضی پاک شده و برنامه به حالت خام می‌رود تا اطلاعات واقعی خود را وارد کنید. آیا ادامه می‌دهید؟")
-            else
-                (if (isEn) "Restore sample test data for demo purposes?"
-                else "آیا داده‌های نمونه و تستی برنامه جهت دمو و بررسی مجدداً بارگذاری شوند؟"),
-            confirmButtonText = if (dialogAction == "clean")
-                (if (isEn) "Confirm & Wipe" else "تأیید و پاکسازی")
-            else
-                (if (isEn) "Restore" else "تأیید و بازیابی"),
-            onConfirm = {
-                showConfirmDialog = false
-                scope.launch {
-                    if (dialogAction == "clean") {
-                        financeRepo.clearAllTransactionsData()
-                        vehicleRepo.clearAllVehiclesData()
-                        com.example.ui.screens.installments.data.LocalInstallmentRepository.instance.clearAllInstallments(context)
-                        backupRepo.deleteAllData()
-                        Toast.makeText(
-                            context,
-                            if (isEn) "App reset to clean slate." else "برنامه با موفقیت خام‌سازی شد و داده‌های تستی پاک شدند.",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    } else {
-                        financeRepo.restoreSampleTransactions()
-                        Toast.makeText(
-                            context,
-                            if (isEn) "Sample data restored." else "داده‌های تستی و نمونه با موفقیت بازیابی شدند.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-            },
-            onDismiss = { showConfirmDialog = false }
-        )
     }
 }
 
