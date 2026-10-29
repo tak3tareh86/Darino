@@ -2,127 +2,121 @@ package com.example.financial_health.data
 
 import android.content.Context
 import com.example.data.database.AppDatabase
+import com.example.data.database.TransactionEntity
+import com.example.data.security.SessionManager
+import com.example.data.security.SessionState
 import com.example.financial_health.domain.FinancialAnalyzerEngine
 import com.example.financial_health.domain.FinancialHealthProfile
 import com.example.financial_health.domain.FinancialHealthStatus
+import java.util.Calendar
+import java.util.TimeZone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import com.example.data.security.SessionManager
 
 class FinancialHealthRepository(context: Context) {
-
     private val db = AppDatabase.getDatabase(context)
     private val dao = db.financialHealthDao()
 
-    companion object {
-        const val DEFAULT_PROFILE_ID = "default_user_profile"
-        const val DEFAULT_INCOME = 30_000_000L
-        const val DEFAULT_INSTALLMENTS = 8_000_000L
-        const val DEFAULT_FIXED_EXPENSES = 4_000_000L
+    companion object { const val DEFAULT_PROFILE_ID = "default_user_profile" }
+
+    private fun currentMonthRange(): Pair<Long, Long> {
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tehran"))
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val start = calendar.timeInMillis
+        calendar.add(Calendar.MONTH, 1)
+        return start to calendar.timeInMillis
     }
+
+    val transactionsFlow: Flow<List<TransactionEntity>> =
+        SessionManager.sessionState.flatMapLatest { state ->
+            val userId = when (state) {
+                is SessionState.Authenticated -> state.user.id
+                is SessionState.PhoneVerificationRequired -> state.user.id
+                else -> null
+            }
+            if (userId == null) flowOf(emptyList())
+            else db.transactionDao().getAllTransactions(userId).map { rows -> rows.filter { it.deletedAt == null } }
+        }
 
     val profileFlow: Flow<FinancialHealthProfile> =
         SessionManager.sessionState.flatMapLatest { state ->
             val userId = when (state) {
-                is com.example.data.security.SessionState.Authenticated -> state.user.id
-                is com.example.data.security.SessionState.PhoneVerificationRequired -> state.user.id
+                is SessionState.Authenticated -> state.user.id
+                is SessionState.PhoneVerificationRequired -> state.user.id
                 else -> null
             }
-
-            if (userId == null) {
-                kotlinx.coroutines.flow.flowOf(defaultProfile())
-            } else {
-                dao.getProfile(userId, DEFAULT_PROFILE_ID).map { entity ->
-                    if (entity == null) {
-                        calculateProfile(userId)
-                    } else {
-                        val status = try {
-                            FinancialHealthStatus.valueOf(entity.healthStatus)
-                        } catch (e: Exception) {
-                            FinancialAnalyzerEngine.calculateHealthStatus(entity.financialPressure)
-                        }
-                        FinancialHealthProfile(
-                            id = entity.id,
-                            monthlyIncome = entity.monthlyIncome,
-                            monthlyInstallments = entity.monthlyInstallments,
-                            fixedExpenses = entity.fixedExpenses,
-                            financialPressure = entity.financialPressure,
-                            healthStatus = status,
-                            updatedAt = entity.updatedAt
-                        )
-                    }
+            if (userId == null) flowOf(emptyProfile())
+            else dao.getProfile(userId, DEFAULT_PROFILE_ID).map { entity ->
+                if (entity == null) calculateProfile(userId)
+                else {
+                    val status = runCatching { FinancialHealthStatus.valueOf(entity.healthStatus) }
+                        .getOrElse { FinancialAnalyzerEngine.calculateHealthStatus(entity.financialPressure) }
+                    FinancialHealthProfile(
+                        id = entity.id,
+                        monthlyIncome = entity.monthlyIncome.coerceAtLeast(0L),
+                        monthlyInstallments = entity.monthlyInstallments.coerceAtLeast(0L),
+                        fixedExpenses = entity.fixedExpenses.coerceAtLeast(0L),
+                        financialPressure = entity.financialPressure.coerceAtLeast(0f),
+                        healthStatus = status, updatedAt = entity.updatedAt
+                    )
                 }
             }
         }
 
     private suspend fun calculateProfile(userId: String): FinancialHealthProfile {
-        val transactions = try { db.transactionDao().getAllTransactionsList(userId) } catch (_: Exception) { emptyList() }
-        val installmentsList = try { db.installmentDao().getAllInstallmentsList(userId) } catch (_: Exception) { emptyList() }
-        val computedIncome = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }.let { if (it > 0) it else DEFAULT_INCOME }
-        val computedInstallments = installmentsList
-            .filter { it.status == "ACTIVE" || it.status == "PENDING" || it.status == "OVERDUE" }
-            .sumOf { it.amount / it.totalInstallments.coerceAtLeast(1) }
-            .let { if (it > 0) it else DEFAULT_INSTALLMENTS }
-        val commitments = computedInstallments + DEFAULT_FIXED_EXPENSES
-        val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(commitments, computedIncome)
+        val transactions = runCatching { db.transactionDao().getAllTransactionsList(userId) }
+            .getOrDefault(emptyList()).filter { it.deletedAt == null }
+        val (start, end) = currentMonthRange()
+        val income = transactions.filter {
+            it.type == "INCOME" && it.timestamp >= start && it.timestamp < end
+        }.sumOf { it.amount.coerceAtLeast(0L) }
+        // Fixed expenses are user-entered. Never invent a value when they are unknown.
+        val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(0L, income) ?: 0f
         return FinancialHealthProfile(
-            id = DEFAULT_PROFILE_ID,
-            monthlyIncome = computedIncome,
-            monthlyInstallments = computedInstallments,
-            fixedExpenses = DEFAULT_FIXED_EXPENSES,
-            financialPressure = pressure,
+            id = DEFAULT_PROFILE_ID, monthlyIncome = income, monthlyInstallments = 0L,
+            fixedExpenses = 0L, financialPressure = pressure,
             healthStatus = FinancialAnalyzerEngine.calculateHealthStatus(pressure)
         )
     }
 
-    private fun defaultProfile() = FinancialHealthProfile(
-        id = DEFAULT_PROFILE_ID,
-        monthlyIncome = DEFAULT_INCOME,
-        monthlyInstallments = DEFAULT_INSTALLMENTS,
-        fixedExpenses = DEFAULT_FIXED_EXPENSES,
-        financialPressure = 40f,
-        healthStatus = FinancialHealthStatus.MEDIUM
+    private fun emptyProfile() = FinancialHealthProfile(
+        id = DEFAULT_PROFILE_ID, monthlyIncome = 0L, monthlyInstallments = 0L,
+        fixedExpenses = 0L, financialPressure = 0f, healthStatus = FinancialHealthStatus.MEDIUM
     )
 
     private fun requireUserId(): String =
-        SessionManager.userId ?: throw IllegalStateException("Authenticated user is required")
+        SessionManager.userId ?: throw IllegalStateException("برای ذخیره اطلاعات مالی باید وارد حساب کاربری شوید.")
 
-    suspend fun saveProfile(
-        monthlyIncome: Long,
-        monthlyInstallments: Long,
-        fixedExpenses: Long
-    ) = withContext(Dispatchers.IO) {
-        val totalCommitments = monthlyInstallments + fixedExpenses
-        val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(totalCommitments, monthlyIncome)
+    suspend fun saveProfile(monthlyIncome: Long, monthlyInstallments: Long, fixedExpenses: Long) = withContext(Dispatchers.IO) {
+        require(monthlyIncome >= 0L) { "درآمد نمی‌تواند منفی باشد." }
+        require(monthlyInstallments >= 0L) { "مبلغ اقساط نمی‌تواند منفی باشد." }
+        require(fixedExpenses >= 0L) { "هزینه ثابت نمی‌تواند منفی باشد." }
+        val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(monthlyInstallments + fixedExpenses, monthlyIncome) ?: 0f
         val status = FinancialAnalyzerEngine.calculateHealthStatus(pressure)
-
-        val entity = FinancialHealthEntity(
-            id = DEFAULT_PROFILE_ID,
-            userId = requireUserId(),
-            monthlyIncome = monthlyIncome,
-            monthlyInstallments = monthlyInstallments,
-            fixedExpenses = fixedExpenses,
-            financialPressure = pressure,
-            healthStatus = status.name,
-            updatedAt = System.currentTimeMillis()
-        )
-        dao.saveProfile(entity)
+        dao.saveProfile(FinancialHealthEntity(
+            id = DEFAULT_PROFILE_ID, userId = requireUserId(), monthlyIncome = monthlyIncome,
+            monthlyInstallments = monthlyInstallments, fixedExpenses = fixedExpenses,
+            financialPressure = pressure, healthStatus = status.name, updatedAt = System.currentTimeMillis()
+        ))
     }
 
     suspend fun updateIncome(newIncome: Long) = withContext(Dispatchers.IO) {
+        require(newIncome >= 0L)
         val existing = dao.getProfileSync(requireUserId(), DEFAULT_PROFILE_ID)
-        val installments = existing?.monthlyInstallments ?: DEFAULT_INSTALLMENTS
-        val fixed = existing?.fixedExpenses ?: DEFAULT_FIXED_EXPENSES
-        saveProfile(newIncome, installments, fixed)
+        saveProfile(newIncome, existing?.monthlyInstallments ?: 0L, existing?.fixedExpenses ?: 0L)
     }
 
     suspend fun updateFixedExpenses(newFixed: Long) = withContext(Dispatchers.IO) {
+        require(newFixed >= 0L)
         val existing = dao.getProfileSync(requireUserId(), DEFAULT_PROFILE_ID)
-        val income = existing?.monthlyIncome ?: DEFAULT_INCOME
-        val installments = existing?.monthlyInstallments ?: DEFAULT_INSTALLMENTS
-        saveProfile(income, installments, newFixed)
+        saveProfile(existing?.monthlyIncome ?: 0L, existing?.monthlyInstallments ?: 0L, newFixed)
     }
 }
