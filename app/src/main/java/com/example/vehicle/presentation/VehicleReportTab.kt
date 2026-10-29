@@ -19,7 +19,9 @@ import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.domain.VehicleStatistics
+import com.example.vehicle.data.VehicleExpenseEntity
 import com.example.vehicle.presentation.components.VehicleCostChart
+import com.example.vehicle.presentation.components.VehicleExpenseInsightsSection
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -29,6 +31,7 @@ import java.util.Locale
 @Composable
 fun VehicleReportTab(
     statistics: VehicleStatistics?,
+    expenses: List<VehicleExpenseEntity>,
     modifier: Modifier = Modifier
 ) {
     if (statistics == null) {
@@ -260,7 +263,12 @@ fun VehicleReportTab(
             }
         }
 
-        // 3. Category Breakdown List
+        // 3. Real database-backed expense comparison and annual trends
+        item {
+            VehicleExpenseInsightsSection(expenses = expenses)
+        }
+
+        // 4. Category Breakdown List
         item {
             Layered3DCard(
                 modifier = Modifier.fillMaxWidth(),
