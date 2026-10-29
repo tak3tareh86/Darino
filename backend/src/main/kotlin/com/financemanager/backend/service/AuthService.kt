@@ -25,7 +25,8 @@ data class AuthTokensDto(
     val userId: String,
     val username: String,
     val phoneNumber: String?,
-    val phoneVerified: Boolean
+    val phoneVerified: Boolean,
+    val email: String? = null
 )
 
 @Service
@@ -152,7 +153,8 @@ class AuthService(
             userId = user.id,
             username = user.username,
             phoneNumber = user.phoneNumber,
-            phoneVerified = user.phoneVerified
+            phoneVerified = user.phoneVerified,
+            email = user.email
         )
     }
 
