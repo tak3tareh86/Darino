@@ -200,8 +200,9 @@ fun FinancialHealthScreen(
             sheetState = editSheetState,
             onDismiss = { showEditSheet = false },
             onSave = { income, fixed ->
-                viewModel.saveProfile(income, state.totalInstallments, fixed)
-                showEditSheet = false
+                viewModel.saveProfile(income, state.totalInstallments, fixed) { saved ->
+                    if (saved) showEditSheet = false
+                }
             }
         )
     }
@@ -260,7 +261,7 @@ private fun HealthOverviewHeroCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "سهم تعهدات از کل درآمد شما",
+                            text = "سهم تعهدات ثبت‌شده از درآمد شما",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -296,7 +297,7 @@ private fun HealthOverviewHeroCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) "${IranianPhoneUtils.convertDigitsToPersian(state.pressurePercentage.toInt().toString())}٪" else "—",
+                            text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) "${formatFinancialPercentage(state.pressurePercentage)}٪" else "—",
                             style = MaterialTheme.typography.displaySmall.copy(
                                 fontWeight = FontWeight.Black,
                                 fontSize = 42.sp
@@ -931,7 +932,7 @@ private fun SmartAlertsSection(state: FinancialHealthState) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (state.hasPreviousMonthData) "سهم اقساط ماه قبل: ${IranianPhoneUtils.convertDigitsToPersian(state.previousMonthPressure.toInt().toString())}٪" else "سهم اقساط ماه قبل: داده کافی نیست",
+                    text = if (state.hasPreviousMonthData) "سهم اقساط ماه قبل: ${formatFinancialPercentage(state.previousMonthPressure)}٪" else "سهم اقساط ماه قبل: داده کافی نیست",
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -941,7 +942,7 @@ private fun SmartAlertsSection(state: FinancialHealthState) {
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = if (state.hasPreviousMonthData) "سهم اقساط ماه جاری: ${IranianPhoneUtils.convertDigitsToPersian((state.currentMonthComparisonPressure ?: 0f).toInt().toString())}٪" else "سهم اقساط ماه جاری: داده کافی نیست",
+                    text = if (state.hasPreviousMonthData) "سهم اقساط ماه جاری: ${formatFinancialPercentage(state.currentMonthComparisonPressure ?: 0f)}٪" else "سهم اقساط ماه جاری: داده کافی نیست",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = state.healthStatus.color
@@ -956,3 +957,7 @@ private fun SmartAlertsSection(state: FinancialHealthState) {
         }
     }
 }
+
+
+private fun formatFinancialPercentage(value: Float): String =
+    IranianPhoneUtils.convertDigitsToPersian(DecimalFormat("0.#").format(value))
