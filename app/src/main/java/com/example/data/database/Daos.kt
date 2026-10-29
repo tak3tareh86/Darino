@@ -479,6 +479,9 @@ interface CheckDao {
     @Query("SELECT * FROM checks WHERE userId = :userId AND deletedAt IS NULL ORDER BY dueDate ASC")
     fun getAllChecks(userId: String): Flow<List<CheckEntity>>
 
+    @Query("SELECT * FROM checks WHERE userId = :userId ORDER BY dueDate ASC")
+    suspend fun getAllChecksList(userId: String): List<CheckEntity>
+
     @Query("SELECT * FROM checks WHERE userId = :userId AND id = :checkId LIMIT 1")
     suspend fun getCheckById(userId: String, checkId: Int): CheckEntity?
 
