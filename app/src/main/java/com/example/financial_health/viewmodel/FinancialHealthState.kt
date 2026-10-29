@@ -30,7 +30,7 @@ data class FinancialHealthState(
     val hasLargestInstallment: Boolean = false,
     val nextMonthPrediction: NextMonthPrediction = NextMonthPrediction(
         installments = 0L, fixedExpenses = 0L, reminders = 0L, vehicleExpenses = 0L,
-        fixedExpensesAmountRecorded = false, remindersAmountRecorded = false, vehicleExpensesAmountRecorded = false
+        installmentsAmountRecorded = false, fixedExpensesAmountRecorded = false, remindersAmountRecorded = false, vehicleExpensesAmountRecorded = false
     ),
     val previousMonthPressure: Float = 0.0f,
     val historicalPressureList: List<MonthlyPressureData> = emptyList()
