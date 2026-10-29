@@ -271,7 +271,7 @@ private fun HealthOverviewHeroCard(
                     border = BorderStroke(1.dp, statusColor.copy(alpha = 0.5f))
                 ) {
                     Text(
-                        text = if (state.hasIncomeData && state.hasFixedExpensesData) status.badgeText else "⚪ تکمیل اطلاعات مالی",
+                        text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) status.badgeText else "⚪ تکمیل اطلاعات مالی",
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
@@ -312,7 +312,7 @@ private fun HealthOverviewHeroCard(
                         )
                     }
                     Text(
-                        text = if (state.hasIncomeData && state.hasFixedExpensesData) status.defaultMessage else "برای محاسبه معتبر، درآمد و هزینه‌های ثابت ماهانه را در پروفایل ثبت کنید. تا آن زمان درصد فشار مالی کامل قابل تعیین نیست.",
+                        text = if (state.hasIncomeData && state.hasFixedExpensesData) status.defaultMessage else "برای محاسبه معتبر، درآمد و هزینه‌های ثابت را ثبت کنید و برنامه پرداخت همه اقساط فعال را کامل نگه دارید.",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 12.sp,
                             lineHeight = 18.sp,
@@ -453,8 +453,8 @@ private fun FinancialCommitmentsBreakdownCard(
                     decimalFormat = decimalFormat,
                     color = Color(0xFF3B82F6),
                     icon = Icons.Rounded.ReceiptLong,
-                    percentageText = if (state.totalInstallments > 0L && state.monthlyIncome > 0L) "${IranianPhoneUtils.convertDigitsToPersian(((state.totalInstallments.toDouble() / state.monthlyIncome) * 100).toInt().toString())}٪ از درآمد" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "مبلغ سررسید ثبت نشده",
-                    amountLabelOverride = if (state.totalInstallments > 0L) null else if (state.activeInstallmentsCount == 0) "۰ تومان" else "ثبت نشده"
+                    percentageText = if (state.hasInstallmentScheduleData && state.monthlyIncome > 0L) "${IranianPhoneUtils.convertDigitsToPersian(((state.totalInstallments.toDouble() / state.monthlyIncome) * 100).toInt().toString())}٪ از درآمد" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "برنامه بعضی اقساط ناقص است",
+                    amountLabelOverride = if (state.hasInstallmentScheduleData) null else if (state.activeInstallmentsCount == 0) "۰ تومان" else "اطلاعات ناقص"
                 )
 
                 CommitmentRowItem(
@@ -484,7 +484,7 @@ private fun FinancialCommitmentsBreakdownCard(
                 ) {
                     Column {
                         Text(
-                            text = if (state.hasFixedExpensesData) "مجموع کل تعهدات" else "مجموع مبالغ ثبت‌شده",
+                            text = if (state.hasFixedExpensesData && state.hasInstallmentScheduleData) "مجموع کل تعهدات" else "مجموع مبالغ ثبت‌شده",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
@@ -492,7 +492,11 @@ private fun FinancialCommitmentsBreakdownCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = if (state.hasFixedExpensesData) "اقساط + هزینه‌های ثابت" else "هزینه ثابت هنوز ثبت نشده",
+                            text = when {
+                                !state.hasFixedExpensesData -> "هزینه ثابت هنوز ثبت نشده"
+                                !state.hasInstallmentScheduleData -> "برنامه اقساط ناقص است"
+                                else -> "اقساط + هزینه‌های ثابت"
+                            },
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -804,7 +808,7 @@ private fun NextMonthPredictionSectionCard(
                     amount = prediction.installments,
                     decimalFormat = decimalFormat,
                     color = Color(0xFF3B82F6),
-                    amountRecorded = prediction.installments > 0L || state.activeInstallmentsCount == 0
+                    amountRecorded = prediction.installmentsAmountRecorded
                 )
                 PredictionItemRow(
                     label = "هزینه‌های ثابت",
