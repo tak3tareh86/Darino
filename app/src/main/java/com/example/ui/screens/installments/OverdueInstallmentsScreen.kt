@@ -448,7 +448,7 @@ private fun OverdueInstallmentCard(
                     }
 
                     Text(
-                        text = "${item.monthlyPaymentFormatted} تومان",
+                        text = item.displayMonthlyPayment,
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.5.sp,
