@@ -68,7 +68,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         items.filter { it.remainingInstallments > 0 && it.status != InstallmentStatus.COMPLETED }
 
     private fun historicalData(transactions: List<TransactionEntity>, installments: List<InstallmentItem>): List<MonthlyPressureData> {
-        if (installments.any { it.remainingInstallments > 0 && it.paymentHistory.isEmpty() }) return emptyList()
+        if (installments.any { it.totalInstallments > 0 && it.paymentHistory.isEmpty() }) return emptyList()
         val result = mutableListOf<MonthlyPressureData>()
         for (offset in -5..0) {
             val range = monthRange(offset)
