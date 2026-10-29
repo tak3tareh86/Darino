@@ -674,7 +674,12 @@ private fun SmsGrantedContentView(
                         }
 
                         Text(
-                            text = item.formattedAmount,
+                            text = when (item.type) {
+                                TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(item.amount, isExpense = true)
+                                TransactionType.INCOME -> MoneyFormatter.formatSignedToman(item.amount, isExpense = false)
+                                TransactionType.TRANSFER -> MoneyFormatter.formatToman(item.amount)
+                                null -> MoneyFormatter.formatToman(item.amount)
+                            },
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
