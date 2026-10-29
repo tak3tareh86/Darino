@@ -76,7 +76,7 @@ class FinancialHealthRepository(context: Context) {
                         monthlyInstallments = entity.monthlyInstallments.coerceAtLeast(0L),
                         fixedExpenses = entity.fixedExpenses.coerceAtLeast(0L),
                         financialPressure = entity.financialPressure.coerceAtLeast(0f),
-                        healthStatus = status, updatedAt = entity.updatedAt
+                        healthStatus = status, isConfigured = true, updatedAt = entity.updatedAt
                     )
                 }
             }
