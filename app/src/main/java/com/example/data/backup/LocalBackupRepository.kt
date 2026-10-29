@@ -74,6 +74,8 @@ class LocalBackupRepository(
                 db.userPreferenceDao().getPreference(userId)
             val notificationLogs = db.notificationLogDao().getAllNotificationsForBackup(userId)
             val smsLogs = db.smsLogDao().getAllSmsLogsForBackup(userId)
+            val vehicleStore = db.vehicleDao().getVehicleStore(userId)
+            val reminderDeliveryLogs = db.smartReminderDao().getAllDeliveryLogsForBackup(userId)
             val appPreferences = AppPreferencesRepository.getInstance(context)
             val appSettings = AppSettingsBackup(
                 themeMode = appPreferences.themeMode.value.name,
@@ -96,12 +98,12 @@ class LocalBackupRepository(
                         schedules.size +
                         events.size +
                         financialHealthProfiles.size +
-                        loanCalculations.size + notificationLogs.size + smsLogs.size +
-                        (if (userPreference != null) 1 else 0) + 1
+                        loanCalculations.size + notificationLogs.size + smsLogs.size + reminderDeliveryLogs.size +
+                        (if (vehicleStore != null) 1 else 0) + (if (userPreference != null) 1 else 0) + 1
 
             BackupValidator.withChecksum(DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 4,
+                    backupVersion = 5,
                     appVersion = "1.0",
                     createdAt = System.currentTimeMillis(),
                     recordCount = totalRecords,
@@ -127,7 +129,9 @@ class LocalBackupRepository(
                 userPreference = userPreference,
                 appSettings = appSettings,
                 notificationLogs = notificationLogs,
-                smsLogs = smsLogs
+                smsLogs = smsLogs,
+                vehicleStore = vehicleStore,
+                reminderDeliveryLogs = reminderDeliveryLogs
             ))
             }
         }
@@ -180,6 +184,10 @@ class LocalBackupRepository(
                     if (backup.metadata.backupVersion >= 4) {
                         db.notificationLogDao().clearAllNotificationsForBackup(userId)
                         db.smsLogDao().clearAllSmsLogsForBackup(userId)
+                    }
+                    if (backup.metadata.backupVersion >= 5) {
+                        db.vehicleDao().clearVehicleStoreForUser(userId)
+                        db.smartReminderDao().clearAllDeliveryLogsForBackup(userId)
                     }
                     if (backup.metadata.backupVersion >= 3) {
                         db.financialHealthDao().clearProfilesForUser(userId)
@@ -282,6 +290,11 @@ class LocalBackupRepository(
                     db.financialEventDao().insertEvent(
                         event.copy(userId = userId)
                     )
+                }
+
+                if (backup.metadata.backupVersion >= 5) {
+                    backup.vehicleStore?.let { db.vehicleDao().insertVehicleStore(it.copy(userId = userId)) }
+                    backup.reminderDeliveryLogs.forEach { db.smartReminderDao().insertDeliveryLog(it) }
                 }
 
                 if (backup.metadata.backupVersion >= 4) {
