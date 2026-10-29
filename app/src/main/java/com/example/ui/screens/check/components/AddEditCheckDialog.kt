@@ -1,6 +1,8 @@
 package com.example.ui.screens.check.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -40,6 +42,7 @@ fun AddEditCheckDialog(
     var dueDate by remember { mutableStateOf(check?.dueDate ?: (System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000)) }
     var status by remember { mutableStateOf(check?.status ?: CheckStatus.REGISTERED) }
     var reminderDateTime by remember { mutableStateOf(check?.reminderDateTime) }
+    var notes by remember { mutableStateOf(check?.notes.orEmpty()) }
 
     var showIssueDatePicker by remember { mutableStateOf(false) }
     var showDueDatePicker by remember { mutableStateOf(false) }
@@ -47,6 +50,9 @@ fun AddEditCheckDialog(
     var showReminderTimePicker by remember { mutableStateOf(false) }
 
     val isDateInvalid = dueDate < issueDate
+    val isReminderInvalid = reminderDateTime != null && reminderDateTime!! > dueDate
+    val normalizedSayadId = sayadId.toEnglishDigits().filter { it.isDigit() }
+    val isSayadIdInvalid = normalizedSayadId.isNotBlank() && normalizedSayadId.length != 16
     var showError by remember { mutableStateOf(false) }
 
     Dialog(
@@ -75,10 +81,12 @@ fun AddEditCheckDialog(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (showError && isDateInvalid) {
+                if (showError && (isDateInvalid || isReminderInvalid || isSayadIdInvalid)) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                         modifier = Modifier.fillMaxWidth()
@@ -90,7 +98,11 @@ fun AddEditCheckDialog(
                             Icon(Icons.Rounded.Error, null, tint = MaterialTheme.colorScheme.error)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                "تاریخ سررسید نمی‌تواند قبل از تاریخ صدور باشد.",
+                                when {
+                                    isDateInvalid -> "تاریخ سررسید نمی‌تواند قبل از تاریخ صدور باشد."
+                                    isReminderInvalid -> "زمان یادآور باید در روز سررسید یا قبل از آن باشد."
+                                    else -> "شناسه صیادی واردشده باید ۱۶ رقم داشته باشد."
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
@@ -105,6 +117,7 @@ fun AddEditCheckDialog(
                     SegmentedButton(
                         selected = type == CheckType.RECEIVED,
                         onClick = { type = CheckType.RECEIVED },
+                        enabled = check?.status != CheckStatus.CLEARED,
                         shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                         icon = { Icon(Icons.Rounded.CallReceived, null) }
                     ) {
@@ -113,6 +126,7 @@ fun AddEditCheckDialog(
                     SegmentedButton(
                         selected = type == CheckType.PAID,
                         onClick = { type = CheckType.PAID },
+                        enabled = check?.status != CheckStatus.CLEARED,
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                         icon = { Icon(Icons.Rounded.CallMade, null) }
                     ) {
@@ -122,10 +136,12 @@ fun AddEditCheckDialog(
 
                 OutlinedTextField(
                     value = amount,
-                    onValueChange = { amount = it.filter { char -> char.isDigit() } },
+                    onValueChange = { amount = it.toEnglishDigits().filter { char -> char.isDigit() } },
                     label = { Text("مبلغ چک (ریال)") },
                     modifier = Modifier.fillMaxWidth(),
+                    enabled = check?.status != CheckStatus.CLEARED,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    supportingText = { Text("مبلغ را به ریال وارد کنید.") },
                     leadingIcon = { Icon(Icons.Rounded.Payments, null) },
                     singleLine = true
                 )
@@ -140,7 +156,7 @@ fun AddEditCheckDialog(
                     )
                     OutlinedTextField(
                         value = sayadId,
-                        onValueChange = { sayadId = it },
+                        onValueChange = { sayadId = it.toEnglishDigits().filter { char -> char.isDigit() } },
                         label = { Text("شناسه صیادی") },
                         modifier = Modifier.weight(1.5f),
                         singleLine = true
@@ -246,7 +262,8 @@ fun AddEditCheckDialog(
                             if (it) {
                                 // Default reminder: 1 day before due date at 09:00
                                 val calendar = Calendar.getInstance()
-                                calendar.timeInMillis = dueDate - 24 * 60 * 60 * 1000
+                                calendar.timeInMillis = dueDate
+                                calendar.add(Calendar.DAY_OF_YEAR, -1)
                                 calendar.set(Calendar.HOUR_OF_DAY, 9)
                                 calendar.set(Calendar.MINUTE, 0)
                                 reminderDateTime = calendar.timeInMillis
@@ -289,27 +306,46 @@ fun AddEditCheckDialog(
                     }
                 }
 
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("توضیحات (اختیاری)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4,
+                    leadingIcon = { Icon(Icons.Rounded.Notes, null) }
+                )
+
                 if (check != null) {
                     Text("وضعیت چک", style = MaterialTheme.typography.titleSmall)
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        CheckStatus.entries.forEach { s ->
-                            FilterChip(
-                                selected = status == s,
-                                onClick = { status = s },
-                                label = { Text(s.title) }
-                            )
+                    if (check.status == CheckStatus.CLEARED) {
+                        Text(
+                            "این چک تسویه شده است؛ برای جلوگیری از مغایرت حساب، وضعیت تسویه از این فرم تغییر نمی‌کند.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CheckStatus.entries.filter { it != CheckStatus.CLEARED }.forEach { s ->
+                                FilterChip(
+                                    selected = status == s,
+                                    onClick = { status = s },
+                                    label = { Text(s.title) }
+                                )
+                            }
                         }
                     }
                 }
 
                 Button(
                     onClick = {
-                        val amountValue = amount.toLongOrNull() ?: 0L
-                        if (amountValue > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() && !isDateInvalid) {
+                        val amountValue = amount.toEnglishDigits().toLongOrNull() ?: 0L
+                        if (amountValue > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() &&
+                            !isDateInvalid && !isReminderInvalid && !isSayadIdInvalid) {
                             onConfirm(
                                 Check(
                                     id = check?.id ?: 0,
@@ -317,22 +353,22 @@ fun AddEditCheckDialog(
                                     type = type,
                                     amount = amountValue,
                                     checkNumber = checkNumber,
-                                    sayadId = sayadId.ifBlank { null },
-                                    bankName = bankName,
+                                    sayadId = normalizedSayadId.ifBlank { null },
+                                    bankName = bankName.trim(),
                                     branch = branch.ifBlank { null },
-                                    holderName = holderName,
-                                    receiverName = receiverName,
+                                    holderName = holderName.trim(),
+                                    receiverName = receiverName.trim(),
                                     issueDate = issueDate,
                                     dueDate = dueDate,
                                     status = status,
-                                    notes = check?.notes,
+                                    notes = notes.trim().ifBlank { null },
                                     accountId = check?.accountId,
                                     reminderDateTime = reminderDateTime,
                                     createdAt = check?.createdAt ?: System.currentTimeMillis(),
                                     updatedAt = System.currentTimeMillis()
                                 )
                             )
-                        } else if (isDateInvalid) {
+                        } else {
                             showError = true
                         }
                     },
@@ -493,3 +529,12 @@ private fun FlowRow(
         content()
     }
 }
+
+
+private fun String.toEnglishDigits(): String = map { char ->
+    when (char) {
+        in '۰'..'۹' -> ('0'.code + (char.code - '۰'.code)).toChar()
+        in '٠'..'٩' -> ('0'.code + (char.code - '٠'.code)).toChar()
+        else -> char
+    }
+}.joinToString("")
