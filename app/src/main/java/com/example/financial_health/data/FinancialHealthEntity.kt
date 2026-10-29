@@ -9,10 +9,10 @@ import androidx.room.Entity
 data class FinancialHealthEntity(
     val id: String,
     val userId: String,
-    val monthlyIncome: Long = 30_000_000L,
-    val monthlyInstallments: Long = 8_000_000L,
-    val fixedExpenses: Long = 4_000_000L,
-    val financialPressure: Float = 40.0f,
+    val monthlyIncome: Long = 0L,
+    val monthlyInstallments: Long = 0L,
+    val fixedExpenses: Long = 0L,
+    val financialPressure: Float = 0.0f,
     val healthStatus: String = "MEDIUM", // "SAFE", "MEDIUM", "HIGH"
     val updatedAt: Long = System.currentTimeMillis()
 )
