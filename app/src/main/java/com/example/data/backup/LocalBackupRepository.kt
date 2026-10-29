@@ -68,6 +68,7 @@ class LocalBackupRepository(
                         insurances.size +
                         inspections.size +
                         reminders.size +
+                        schedules.size +
                         events.size
 
             DarinoBackup(
