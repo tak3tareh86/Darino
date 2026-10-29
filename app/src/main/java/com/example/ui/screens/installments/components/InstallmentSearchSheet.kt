@@ -176,7 +176,7 @@ fun InstallmentSearchSheet(
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Text(
-                                    text = item.remainingAmountFormatted,
+                                    text = item.displayRemaining,
                                     style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp),
                                     color = item.category.accentColor
                                 )
