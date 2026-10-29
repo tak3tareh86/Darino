@@ -176,7 +176,16 @@ fun CheckScreen(
             }
 
             // 5. List of checks or empty state
-            if (uiState.filteredChecks.isEmpty()) {
+            if (uiState.isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            } else if (uiState.filteredChecks.isEmpty()) {
                 item {
                     EmptyChecksState()
                 }
