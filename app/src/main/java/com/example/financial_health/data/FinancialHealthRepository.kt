@@ -65,15 +65,7 @@ class FinancialHealthRepository(context: Context) {
             if (userId == null) flowOf(emptyProfile())
             else dao.getProfile(userId, DEFAULT_PROFILE_ID).combine(db.transactionDao().getAllTransactions(userId)) { entity, transactions ->
                 if (entity == null) calculateProfile(userId, transactions)
-                else if (
-                    entity.monthlyIncome == 30_000_000L &&
-                    entity.monthlyInstallments == 8_000_000L &&
-                    entity.fixedExpenses == 4_000_000L
-                ) {
-                    // This exact tuple was the previous version's silent fallback. Treat it as unverified
-                    // and ask the user to confirm their real values instead of presenting it as factual.
-                    calculateProfile(userId, transactions)
-                } else {
+                else {
                     val status = runCatching { FinancialHealthStatus.valueOf(entity.healthStatus) }
                         .getOrElse { FinancialAnalyzerEngine.calculateHealthStatus(entity.financialPressure) }
                     FinancialHealthProfile(
