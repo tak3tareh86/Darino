@@ -8,6 +8,7 @@ import com.example.data.security.SessionState
 import com.example.financial_health.domain.FinancialAnalyzerEngine
 import com.example.financial_health.domain.FinancialHealthProfile
 import com.example.financial_health.domain.FinancialHealthStatus
+import com.example.util.PersianCalendarHelper
 import java.util.Calendar
 import java.util.TimeZone
 import kotlinx.coroutines.Dispatchers
@@ -25,15 +26,12 @@ class FinancialHealthRepository(context: Context) {
     companion object { const val DEFAULT_PROFILE_ID = "default_user_profile" }
 
     private fun currentMonthRange(): Pair<Long, Long> {
-        val calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tehran"))
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val start = calendar.timeInMillis
-        calendar.add(Calendar.MONTH, 1)
-        return start to calendar.timeInMillis
+        val today = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val start = PersianCalendarHelper.jalaliToEpochMillis(today.year, today.month, 1, 0, 0)
+        val nextYear = if (today.month == 12) today.year + 1 else today.year
+        val nextMonth = if (today.month == 12) 1 else today.month + 1
+        val end = PersianCalendarHelper.jalaliToEpochMillis(nextYear, nextMonth, 1, 0, 0)
+        return start to end
     }
 
     val transactionsFlow: Flow<List<TransactionEntity>> =
