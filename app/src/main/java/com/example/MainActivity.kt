@@ -97,7 +97,17 @@ class MainActivity : FragmentActivity() {
 
         // 2. Schedule periodic background sync worker with network constraints
         SyncWorker.enqueuePeriodic(this)
-        WeeklyBackupWorker.enqueueWeekly(this)
+        val backupPreferences = getSharedPreferences("darino_backup_prefs", MODE_PRIVATE)
+        if (backupPreferences.getBoolean("auto_backup_weekly", true)) {
+            WeeklyBackupWorker.enqueueWeekly(this)
+        } else {
+            WeeklyBackupWorker.cancelWeekly(this)
+        }
+        if (backupPreferences.getBoolean("auto_backup_daily", false)) {
+            WeeklyBackupWorker.enqueueDaily(this)
+        } else {
+            WeeklyBackupWorker.cancelDaily(this)
+        }
         com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(this)
 
         // 3. Monitor network connectivity and auto-trigger sync when back online
