@@ -43,9 +43,23 @@ fun CheckScreen(
     var selectedCheckForDetail by remember { mutableStateOf<Check?>(null) }
 
     val accounts by viewModel.accounts.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
+    fun showOperationResult(result: com.example.ui.screens.check.data.CheckOperationResult, successMessage: String) {
+        val message = when (result) {
+            com.example.ui.screens.check.data.CheckOperationResult.SUCCESS -> successMessage
+            com.example.ui.screens.check.data.CheckOperationResult.VALIDATION_ERROR -> "اطلاعات چک معتبر نیست؛ مبلغ و تاریخ‌ها را بررسی کنید."
+            com.example.ui.screens.check.data.CheckOperationResult.NOT_FOUND -> "این چک دیگر در پایگاه داده وجود ندارد؛ فهرست را بررسی کنید."
+            com.example.ui.screens.check.data.CheckOperationResult.PERSISTENCE_ERROR -> "ذخیره‌سازی انجام نشد. اطلاعات تغییری نکرده؛ دوباره تلاش کنید."
+            com.example.ui.screens.check.data.CheckOperationResult.NO_AUTHENTICATED_USER -> "برای مدیریت چک‌ها ابتدا وارد حساب کاربری شوید."
+        }
+        coroutineScope.launch { snackbarHostState.showSnackbar(message) }
+    }
 
     Scaffold(
         topBar = {},
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
@@ -144,7 +158,7 @@ fun CheckScreen(
                         label = { Text("همه وضعیت‌ها") }
                     )
                     
-                    CheckStatus.entries.take(3).forEach { status ->
+                    CheckStatus.entries.forEach { status ->
                         FilterChip(
                             selected = uiState.selectedStatus == status,
                             onClick = { viewModel.onStatusSelected(status) },
@@ -175,9 +189,11 @@ fun CheckScreen(
     if (showAddDialog) {
         AddEditCheckDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = {
-                viewModel.addCheck(it)
-                showAddDialog = false
+            onConfirm = { newCheck ->
+                viewModel.addCheck(newCheck) { result ->
+                    showOperationResult(result, "چک با موفقیت ثبت شد.")
+                    if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) showAddDialog = false
+                }
             }
         )
     }
@@ -186,9 +202,11 @@ fun CheckScreen(
         AddEditCheckDialog(
             check = selectedCheckForEdit,
             onDismiss = { selectedCheckForEdit = null },
-            onConfirm = {
-                viewModel.updateCheck(it)
-                selectedCheckForEdit = null
+            onConfirm = { updatedCheck ->
+                viewModel.updateCheck(updatedCheck) { result ->
+                    showOperationResult(result, "تغییرات چک ذخیره شد.")
+                    if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) selectedCheckForEdit = null
+                }
             }
         )
     }
@@ -203,16 +221,22 @@ fun CheckScreen(
                 selectedCheckForDetail = null
             },
             onDelete = {
-                viewModel.deleteCheck(selectedCheckForDetail!!.id)
-                selectedCheckForDetail = null
+                viewModel.deleteCheck(selectedCheckForDetail!!.id) { result ->
+                    showOperationResult(result, "چک حذف شد.")
+                    if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) selectedCheckForDetail = null
+                }
             },
             onSettle = { account ->
-                viewModel.settleCheck(selectedCheckForDetail!!, account)
-                selectedCheckForDetail = null
+                viewModel.settleCheck(selectedCheckForDetail!!, account) { result ->
+                    showOperationResult(result, "تسویه ثبت شد و تراکنش مالی به حساب اضافه شد.")
+                    if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) selectedCheckForDetail = null
+                }
             },
             onStatusChange = { newStatus ->
-                viewModel.updateCheckStatus(selectedCheckForDetail!!, newStatus)
-                selectedCheckForDetail = null
+                viewModel.updateCheckStatus(selectedCheckForDetail!!, newStatus) { result ->
+                    showOperationResult(result, "وضعیت چک به‌روزرسانی شد.")
+                    if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) selectedCheckForDetail = null
+                }
             }
         )
     }
