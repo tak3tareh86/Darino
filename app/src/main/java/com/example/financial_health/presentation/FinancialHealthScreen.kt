@@ -438,7 +438,8 @@ private fun FinancialCommitmentsBreakdownCard(
                     decimalFormat = decimalFormat,
                     color = MaterialTheme.colorScheme.primary,
                     icon = Icons.Rounded.AccountBalanceWallet,
-                    percentageText = "پایه ۱۰۰٪"
+                    percentageText = if (state.hasIncomeData) "درآمد ماهانه ثبت‌شده" else "درآمد این ماه ثبت نشده",
+                    amountLabelOverride = if (state.hasIncomeData) null else "ثبت نشده"
                 )
 
                 HorizontalDivider(
@@ -447,12 +448,13 @@ private fun FinancialCommitmentsBreakdownCard(
                 )
 
                 CommitmentRowItem(
-                    title = "اقساط فعال",
+                    title = "اقساط سررسیدشونده این ماه",
                     amount = state.totalInstallments,
                     decimalFormat = decimalFormat,
                     color = Color(0xFF3B82F6),
                     icon = Icons.Rounded.ReceiptLong,
-                    percentageText = "${IranianPhoneUtils.convertDigitsToPersian(((state.totalInstallments.toDouble() / state.monthlyIncome.coerceAtLeast(1)) * 100).toInt().toString())}٪ از درآمد"
+                    percentageText = if (state.monthlyIncome > 0L && state.totalInstallments > 0L) "${IranianPhoneUtils.convertDigitsToPersian(((state.totalInstallments.toDouble() / state.monthlyIncome) * 100).toInt().toString())}٪ از درآمد" else "مبلغ سررسید ثبت نشده",
+                    amountLabelOverride = if (state.totalInstallments > 0L) null else "ثبت نشده"
                 )
 
                 CommitmentRowItem(
@@ -461,7 +463,8 @@ private fun FinancialCommitmentsBreakdownCard(
                     decimalFormat = decimalFormat,
                     color = Color(0xFF8B5CF6),
                     icon = Icons.Rounded.HomeWork,
-                    percentageText = "${IranianPhoneUtils.convertDigitsToPersian(((state.fixedExpenses.toDouble() / state.monthlyIncome.coerceAtLeast(1)) * 100).toInt().toString())}٪ از درآمد"
+                    percentageText = if (state.hasFixedExpensesData && state.monthlyIncome > 0L) "${IranianPhoneUtils.convertDigitsToPersian(((state.fixedExpenses.toDouble() / state.monthlyIncome) * 100).toInt().toString())}٪ از درآمد" else "هزینه ثابت ثبت نشده",
+                    amountLabelOverride = if (state.hasFixedExpensesData) null else "ثبت نشده"
                 )
 
                 HorizontalDivider(
@@ -481,7 +484,7 @@ private fun FinancialCommitmentsBreakdownCard(
                 ) {
                     Column {
                         Text(
-                            text = "مجموع کل تعهدات",
+                            text = if (state.hasFixedExpensesData) "مجموع کل تعهدات" else "مجموع مبالغ ثبت‌شده",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
@@ -489,7 +492,7 @@ private fun FinancialCommitmentsBreakdownCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "اقساط + هزینه‌های ثابت",
+                            text = if (state.hasFixedExpensesData) "اقساط + هزینه‌های ثابت" else "هزینه ثابت هنوز ثبت نشده",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -526,7 +529,8 @@ private fun CommitmentRowItem(
     decimalFormat: DecimalFormat,
     color: Color,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    percentageText: String
+    percentageText: String,
+    amountLabelOverride: String? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -569,7 +573,7 @@ private fun CommitmentRowItem(
         }
 
         Text(
-            text = IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(amount)) + " تومان",
+            text = amountLabelOverride ?: (IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(amount)) + " تومان"),
             style = MaterialTheme.typography.titleSmall.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.5.sp
