@@ -350,9 +350,8 @@ fun SettingsScreen(
             currentFixedExpenses = healthState.fixedExpenses,
             sheetState = incomeSheetState,
             onDismiss = { showIncomeSheet = false },
-            onSave = { income, fixed ->
-                healthViewModel.saveProfile(income, healthState.totalInstallments, fixed)
-                showIncomeSheet = false
+            onSave = { income, fixed, onResult ->
+                healthViewModel.saveProfile(income, healthState.totalInstallments, fixed, onResult)
             }
         )
     }
