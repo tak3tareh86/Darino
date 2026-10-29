@@ -280,9 +280,7 @@ fun VehicleReportTab(
                     )
 
                     statistics.categoryBreakdown.forEach { item ->
-                        val amountStr = IranianPhoneUtils.convertDigitsToPersian(
-                            NumberFormat.getNumberInstance(Locale.US).format(item.amount)
-                        )
+                        val amountStr = MoneyFormatter.formatToman(item.amount, includeUnit = false)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
