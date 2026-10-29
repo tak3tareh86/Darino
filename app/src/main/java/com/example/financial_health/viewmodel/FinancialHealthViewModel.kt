@@ -223,6 +223,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             totalCommitments = totalCommitments, pressurePercentage = pressure ?: 0f, healthStatus = status,
             hasIncomeData = income > 0L, hasFixedExpensesData = profile.isConfigured,
             incomeFromTransactions = !profile.isConfigured && income > 0L,
+            profileUpdatedAt = profile.updatedAt.takeIf { profile.isConfigured } ?: 0L,
             hasInstallmentScheduleData = hasCompleteInstallmentSchedule,
             hasPreviousMonthData = previousPressure != null && currentHistoryPressure != null,
             currentMonthComparisonPressure = currentHistoryPressure, insights = insights,
