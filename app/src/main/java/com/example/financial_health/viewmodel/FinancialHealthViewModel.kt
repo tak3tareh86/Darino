@@ -68,6 +68,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         items.filter { it.remainingInstallments > 0 && it.status != InstallmentStatus.COMPLETED }
 
     private fun historicalData(transactions: List<TransactionEntity>, installments: List<InstallmentItem>): List<MonthlyPressureData> {
+        if (installments.any { it.remainingInstallments > 0 && it.paymentHistory.isEmpty() }) return emptyList()
         val result = mutableListOf<MonthlyPressureData>()
         for (offset in -5..0) {
             val range = monthRange(offset)
@@ -88,9 +89,12 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val currentMonth = monthRange(0)
         val previousMonth = monthRange(-1)
         val active = activeItems(allInstallments)
-        val scheduledCurrentMonth = scheduledAmount(allInstallments, currentMonth, includePaid = true)
+        val hasCompleteInstallmentSchedule = active.all { it.paymentHistory.isNotEmpty() }
+        val scheduledCurrentMonth = if (hasCompleteInstallmentSchedule) {
+            scheduledAmount(allInstallments, currentMonth, includePaid = true)
+        } else 0L
         val nextMonthRange = monthRange(1)
-        val scheduledNextMonth = scheduledAmount(active, nextMonthRange)
+        val scheduledNextMonth = if (hasCompleteInstallmentSchedule) scheduledAmount(active, nextMonthRange) else 0L
         val nextMonthVehicleExpenses = scheduledVehicleExpenses(vehicleServices, nextMonthRange)
         val hasNextMonthVehicleExpenseAmount = vehicleServices.any { service ->
             service.status != "COMPLETED" && service.cost > 0L && service.dueDate?.let { it >= nextMonthRange.start && it < nextMonthRange.end } == true
@@ -127,18 +131,20 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
 
         val nextMonth = NextMonthPrediction(
             installments = scheduledNextMonth, fixedExpenses = fixedExpenses, reminders = 0L, vehicleExpenses = nextMonthVehicleExpenses,
-            fixedExpensesAmountRecorded = profile.isConfigured, remindersAmountRecorded = false,
+            installmentsAmountRecorded = hasCompleteInstallmentSchedule, fixedExpensesAmountRecorded = profile.isConfigured, remindersAmountRecorded = false,
             vehicleExpensesAmountRecorded = hasNextMonthVehicleExpenseAmount
         )
         val insights = FinancialAnalyzerEngine.generateInsights(
             income = income, installments = monthlyInstallments, fixedExpenses = fixedExpenses,
-            currentPressure = currentHistoryPressure, previousMonthPressure = previousPressure, nextMonthPrediction = nextMonth
+            currentPressure = currentHistoryPressure, previousMonthPressure = previousPressure, nextMonthPrediction = nextMonth,
+            installmentDataComplete = hasCompleteInstallmentSchedule
         )
         val formatter = DecimalFormat("#,###")
         FinancialHealthState(
             monthlyIncome = income, totalInstallments = monthlyInstallments, fixedExpenses = fixedExpenses,
             totalCommitments = totalCommitments, pressurePercentage = pressure ?: 0f, healthStatus = status,
             hasIncomeData = income > 0L, hasFixedExpensesData = profile.isConfigured,
+            hasInstallmentScheduleData = hasCompleteInstallmentSchedule,
             hasPreviousMonthData = previousPressure != null && currentHistoryPressure != null,
             currentMonthComparisonPressure = currentHistoryPressure, insights = insights,
             isLoading = false, errorMessage = currentError, activeInstallmentsCount = active.size,
