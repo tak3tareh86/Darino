@@ -116,201 +116,144 @@ object VehicleAnalyzer {
     ): VehicleHealthReport {
         val carServices = services.filter { it.vehicleId == vehicle.id }
         val carInsurances = insurances.filter { it.vehicleId == vehicle.id }
-        val carInspection = inspections.find { it.vehicleId == vehicle.id }
+        val carInspections = inspections.filter { it.vehicleId == vehicle.id }
 
-        val lastOilService = carServices.find { it.serviceType == ServiceType.OIL_CHANGE }
-        val lastBrakeService = carServices.find { it.serviceType == ServiceType.BRAKE_PADS }
+        val currentPdt = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val today = parseAndValidateJalaliDate(currentPdt.toFormattedDate())
+            ?: "%04d/%02d/%02d".format(currentPdt.year, currentPdt.month, currentPdt.day)
 
-        val checklist = mutableListOf<VehicleHealthCheckItem>()
-        var score = 100
+        fun latestService(type: ServiceType): VehicleServiceEntity? =
+            carServices.filter { it.serviceType == type }
+                .maxByOrNull { parseAndValidateJalaliDate(it.date) ?: "" }
 
-        val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
-        val todayJalali = currentPdt.toFormattedDate()
-        val cleanToday = parseAndValidateJalaliDate(todayJalali) ?: "%04d/%02d/%02d".format(currentPdt.year, currentPdt.month, currentPdt.day)
-
-        // 1. Oil & Filter Health
-        if (lastOilService != null) {
-            val nextKm = lastOilService.nextReminderMileage ?: (lastOilService.mileage + 5000)
-            val kmRemaining = nextKm - vehicle.currentMileage
-            if (kmRemaining < 0) {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "روغن و فیلتر موتور",
-                        statusText = "تعویض معوق (${Math.abs(kmRemaining)} کیلومتر گذشته)",
-                        isOk = false,
-                        isWarning = true,
-                        iconRes = R.drawable.img_3d_oil
-                    )
-                )
-                score -= 30
-            } else if (kmRemaining <= 500) {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "روغن و فیلتر موتور",
-                        statusText = "سررسید نزدیک ($kmRemaining کیلومتر باقیمانده)",
-                        isOk = true,
-                        isWarning = true,
-                        iconRes = R.drawable.img_3d_oil
-                    )
-                )
-                score -= 15
-            } else {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "روغن و فیلتر موتور",
-                        statusText = "سالم و استاندارد ($kmRemaining کیلومتر تا سرویس بعدی)",
-                        isOk = true,
-                        iconRes = R.drawable.img_3d_oil
-                    )
-                )
-            }
-        } else {
-            checklist.add(
-                VehicleHealthCheckItem(
-                    title = "روغن و فیلتر موتور",
-                    statusText = "بدون سابقه ثبت شده",
+        fun serviceStatus(
+            title: String,
+            types: List<ServiceType>,
+            iconRes: Int,
+            defaultIntervalKm: Int = 0
+        ): VehicleHealthCheckItem {
+            val records = types.mapNotNull { type -> latestService(type)?.let { type to it } }
+            if (records.size < types.size) {
+                return VehicleHealthCheckItem(
+                    title = title,
+                    statusText = "سابقه ثبت نشده",
                     isOk = false,
                     isWarning = true,
-                    iconRes = R.drawable.img_3d_oil
-                )
-            )
-            score -= 20
-        }
-
-        // 2. Insurance Status
-        val thirdPartyInsurance = carInsurances.find { it.type.contains("ثالث") } ?: carInsurances.firstOrNull()
-        if (thirdPartyInsurance != null) {
-            val cleanEndDate = parseAndValidateJalaliDate(thirdPartyInsurance.endDate)
-            if (cleanEndDate == null) {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "بیمه‌نامه خودرو",
-                        statusText = "تاریخ انقضا نامعتبر یا ثبت نشده (${thirdPartyInsurance.company})",
-                        isOk = false,
-                        isWarning = true,
-                        iconRes = R.drawable.img_3d_insurance
-                    )
-                )
-                score -= 25
-            } else if (cleanEndDate < cleanToday) {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "بیمه‌نامه خودرو",
-                        statusText = "منقضی شده در ${thirdPartyInsurance.endDate} (${thirdPartyInsurance.company})",
-                        isOk = false,
-                        isWarning = true,
-                        iconRes = R.drawable.img_3d_insurance
-                    )
-                )
-                score -= 35
-            } else {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "بیمه‌نامه خودرو",
-                        statusText = "دارای اعتبار (${thirdPartyInsurance.company})",
-                        isOk = true,
-                        iconRes = R.drawable.img_3d_insurance
-                    )
+                    iconRes = iconRes
                 )
             }
-        } else {
-            checklist.add(
-                VehicleHealthCheckItem(
-                    title = "بیمه‌نامه خودرو",
-                    statusText = "ثبت نشده یا نیازمند تمدید",
-                    isOk = false,
-                    isWarning = true,
-                    iconRes = R.drawable.img_3d_insurance
-                )
-            )
-            score -= 25
-        }
 
-        // 3. Brake Pads & Safety
-        if (lastBrakeService != null) {
-            checklist.add(
-                VehicleHealthCheckItem(
-                    title = "لنت و سیستم ترمز",
-                    statusText = "بررسی شده در کیلومتر ${lastBrakeService.mileage}",
-                    isOk = true,
-                    iconRes = R.drawable.img_3d_tire
-                )
-            )
-        } else {
-            checklist.add(
-                VehicleHealthCheckItem(
-                    title = "لنت و سیستم ترمز",
-                    statusText = "نیازمند بازدید دوره‌ای",
-                    isOk = false,
-                    isWarning = false,
-                    iconRes = R.drawable.img_3d_tire
-                )
-            )
-            score -= 10
-        }
+            var dueSoon = false
+            for ((type, record) in records) {
+                val nextKm = record.nextReminderMileage
+                    ?: if (type == ServiceType.OIL_CHANGE && defaultIntervalKm > 0) record.mileage + defaultIntervalKm else null
+                if (nextKm != null) {
+                    val remaining = nextKm - vehicle.currentMileage
+                    if (remaining < 0) {
+                        return VehicleHealthCheckItem(title, "سررسید گذشته", false, true, iconRes)
+                    }
+                    if (remaining <= 500) dueSoon = true
+                }
 
-        // 4. Technical Inspection
-        if (carInspection != null) {
-            val cleanInspectionExpiry = parseAndValidateJalaliDate(carInspection.expiryDate)
-            if (cleanInspectionExpiry == null) {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "معاینه فنی و آلایندگی",
-                        statusText = "تاریخ انقضا نامعتبر یا ثبت نشده",
-                        isOk = false,
-                        isWarning = true,
-                        iconRes = R.drawable.img_3d_settings_gear
-                    )
-                )
-                score -= 15
-            } else if (cleanInspectionExpiry < cleanToday) {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "معاینه فنی و آلایندگی",
-                        statusText = "معاینه فنی منقضی شده (${carInspection.expiryDate})",
-                        isOk = false,
-                        isWarning = true,
-                        iconRes = R.drawable.img_3d_settings_gear
-                    )
-                )
-                score -= 20
-            } else {
-                checklist.add(
-                    VehicleHealthCheckItem(
-                        title = "معاینه فنی و آلایندگی",
-                        statusText = carInspection.status.ifBlank { "دارای اعتبار تا ${carInspection.expiryDate}" },
-                        isOk = true,
-                        iconRes = R.drawable.img_3d_settings_gear
-                    )
-                )
+                val nextDate = record.nextReminderDate
+                if (!nextDate.isNullOrBlank()) {
+                    val cleanDueDate = parseAndValidateJalaliDate(nextDate)
+                    if (cleanDueDate == null) {
+                        return VehicleHealthCheckItem(title, "تاریخ سرویس نامعتبر", false, true, iconRes)
+                    }
+                    if (cleanDueDate < today) {
+                        return VehicleHealthCheckItem(title, "سررسید گذشته", false, true, iconRes)
+                    }
+                    if (cleanDueDate <= today) dueSoon = true
+                } else if (nextKm == null) {
+                    // A record without a defined interval cannot be presented as confirmed healthy.
+                    dueSoon = true
+                }
             }
-        } else {
-            checklist.add(
-                VehicleHealthCheckItem(
-                    title = "معاینه فنی و آلایندگی",
-                    statusText = "معاف از معاینه / استعلام ثبت نشده",
-                    isOk = true,
-                    iconRes = R.drawable.img_3d_settings_gear
-                )
-            )
+
+            return if (dueSoon) {
+                VehicleHealthCheckItem(title, "نیاز به بررسی موعد", false, true, iconRes)
+            } else {
+                VehicleHealthCheckItem(title, "در موعد سرویس", true, false, iconRes)
+            }
         }
 
-        val clampedScore = score.coerceIn(10, 100)
+        fun insuranceStatus(title: String, typeMatch: (String) -> Boolean): VehicleHealthCheckItem {
+            val insurance = carInsurances.filter { typeMatch(it.type) }
+                .maxByOrNull { parseAndValidateJalaliDate(it.startDate) ?: "" }
+                ?: return VehicleHealthCheckItem(title, "ثبت نشده", false, true, R.drawable.img_3d_insurance)
+
+            val expiry = parseAndValidateJalaliDate(insurance.endDate)
+            return if (expiry != null && expiry >= today) {
+                VehicleHealthCheckItem(title, "دارای اعتبار", true, false, R.drawable.img_3d_insurance)
+            } else {
+                VehicleHealthCheckItem(title, "فاقد اعتبار", false, true, R.drawable.img_3d_insurance)
+            }
+        }
+
+        val checklist = listOf(
+            insuranceStatus("بیمه‌نامه شخص ثالث") { it.contains("ثالث") },
+            insuranceStatus("بیمه‌نامه بدنه") { it.contains("بدنه") },
+            run {
+                val inspection = carInspections.maxByOrNull { parseAndValidateJalaliDate(it.lastInspectionDate) ?: "" }
+                if (inspection == null) {
+                    VehicleHealthCheckItem("معاینه فنی", "ثبت نشده", false, true, R.drawable.img_3d_settings_gear)
+                } else {
+                    val expiry = parseAndValidateJalaliDate(inspection.expiryDate)
+                    if (expiry != null && expiry >= today) {
+                        VehicleHealthCheckItem("معاینه فنی", "دارای اعتبار", true, false, R.drawable.img_3d_settings_gear)
+                    } else {
+                        VehicleHealthCheckItem("معاینه فنی", "فاقد اعتبار", false, true, R.drawable.img_3d_settings_gear)
+                    }
+                }
+            },
+            serviceStatus(
+                "سرویس دوره‌ای روغن و فیلترها",
+                listOf(ServiceType.OIL_CHANGE, ServiceType.FILTERS),
+                R.drawable.img_3d_oil,
+                defaultIntervalKm = 5000
+            ),
+            serviceStatus(
+                "روغن گیربکس",
+                listOf(ServiceType.TRANSMISSION_OIL_CHANGE),
+                R.drawable.img_3d_oil
+            ),
+            serviceStatus(
+                "تسمه دینام",
+                listOf(ServiceType.ALTERNATOR_BELT_CHANGE),
+                R.drawable.img_3d_settings_gear
+            ),
+            serviceStatus(
+                "تسمه تایم",
+                listOf(ServiceType.TIMING_BELT_CHANGE),
+                R.drawable.img_3d_settings_gear
+            )
+        )
+
+        val penalties = checklist.sumOf { item ->
+            when {
+                item.isWarning -> 15
+                !item.isOk -> 15
+                else -> 0
+            }
+        }
+        val score = (100 - penalties).coerceIn(10, 100)
         val level = when {
-            clampedScore >= 80 -> VehicleHealthLevel.GOOD
-            clampedScore >= 55 -> VehicleHealthLevel.SERVICE_DUE
+            score >= 80 -> VehicleHealthLevel.GOOD
+            score >= 55 -> VehicleHealthLevel.SERVICE_DUE
             else -> VehicleHealthLevel.WARNING
         }
-
-        val recommendation = when (level) {
-            VehicleHealthLevel.GOOD -> "خودروی شما در وضعیت مطلوب فنی قرار دارد. نیازی به اقدام فوری نیست."
-            VehicleHealthLevel.SERVICE_DUE -> "پیشنهاد می‌شود برای حفظ راندمان خودرو، سرویس روغن و فیلترها را در اسرع وقت انجام دهید."
-            VehicleHealthLevel.WARNING -> "هشدار: وضعیت بیمه‌نامه یا سرویس‌های معوق خودرو نیاز به بررسی فوری دارد."
+        val recommendation = when {
+            checklist.any { it.title.startsWith("بیمه‌نامه") || it.title == "معاینه فنی" && !it.isOk } ->
+                "اعتبار بیمه‌نامه‌ها و معاینه فنی را بررسی و موارد فاقد اعتبار را تمدید کنید."
+            checklist.any { !it.isOk || it.isWarning } ->
+                "سوابق سرویس و موعد تعویض قطعات را بررسی کنید؛ برای موارد ثبت‌نشده، اطلاعات سرویس را وارد کنید."
+            else -> "موارد ثبت‌شده در موعد هستند؛ سرویس‌های بعدی را طبق دفترچه خودروی خود انجام دهید."
         }
 
         return VehicleHealthReport(
             level = level,
-            healthScorePercent = clampedScore,
+            healthScorePercent = score,
             checklist = checklist,
             recommendation = recommendation
         )
