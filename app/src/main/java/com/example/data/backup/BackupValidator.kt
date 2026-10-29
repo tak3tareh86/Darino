@@ -66,7 +66,8 @@ object BackupValidator {
                 backup.reminders.size + backup.reminderSchedules.size +
                 backup.financialEvents.size +
                 (if (version >= 3) backup.financialHealthProfiles.size +
-                    backup.loanCalculations.size + (if (backup.userPreference != null) 1 else 0) else 0)
+                    backup.loanCalculations.size + (if (backup.userPreference != null) 1 else 0) +
+                    (if (backup.appSettings != null) 1 else 0) else 0)
         }
         if (backup.metadata.recordCount != expectedCount) {
             return ValidationResult.Invalid("تعداد رکوردهای فایل با اطلاعات ثبت‌شده در سربرگ آن مطابقت ندارد.")
