@@ -481,7 +481,7 @@ fun InstallmentsScreen(
                 prefillMonthly = ""
                 prefillCount = ""
             },
-            onAddConfirm = { cat, title, totalStr, monthlyStr, countStr, dueDateStr, provider, itemNotes, reminderEnabled, reminderDays, reminderTime, selectedOffsets, customScheduleItems ->
+            onAddConfirm = { cat, title, totalStr, monthlyStr, countStr, paidCountStr, dueDateStr, provider, itemNotes, reminderEnabled, reminderDays, reminderTime, selectedOffsets, customScheduleItems ->
                 prefillTitle = ""
                 prefillTotal = ""
                 prefillMonthly = ""
@@ -489,7 +489,8 @@ fun InstallmentsScreen(
 
                 val rawTotal = com.example.util.IranianAmountUtils.parseAmountToLong(totalStr)
                 val rawMonthly = com.example.util.IranianAmountUtils.parseAmountToLong(monthlyStr)
-                val parsedCount = countStr.filter { it.isDigit() }.toIntOrNull() ?: 0
+                val parsedCount = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(countStr).filter { it.isDigit() }.toIntOrNull() ?: 0
+                val requestedPaidCount = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(paidCountStr).filter { it.isDigit() }.toIntOrNull() ?: 0
 
                 if (customScheduleItems.isNullOrEmpty()) {
                     if (rawTotal <= 0L || parsedCount <= 0 || rawMonthly <= 0L) {
@@ -512,14 +513,16 @@ fun InstallmentsScreen(
 
                 val totalAmount = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.sumOf { it.amount } else parsedTotal
                 val totalInstallments = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.size else parsedCount
-                val remainingInstallments = totalInstallments
-                val paidAmount = 0L
-                val remainingAmount = totalAmount
+
+                if (requestedPaidCount < 0 || requestedPaidCount > totalInstallments) {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("تعداد اقساط پرداخت‌شده باید بین صفر و تعداد کل اقساط باشد.")
+                    }
+                    return@AddInstallmentSheet
+                }
 
                 val monthlyFormatted = com.example.util.MoneyFormatter.formatToman(parsedMonthly)
                 val totalFormatted = com.example.util.MoneyFormatter.formatToman(totalAmount)
-                val remainingFormatted = com.example.util.MoneyFormatter.formatToman(remainingAmount)
-                val paidFormatted = com.example.util.MoneyFormatter.formatToman(paidAmount)
 
                 val effectiveDueDate = if (!customScheduleItems.isNullOrEmpty()) {
                     customScheduleItems.firstOrNull()?.dueDate.orEmpty()
@@ -556,7 +559,7 @@ fun InstallmentsScreen(
                 val computedEndDate = PersianCalendarHelper.addMonthsToPersianDate(effectiveDueDate, totalInstallments)
                 val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
 
-                val paymentHistoryList = if (!customScheduleItems.isNullOrEmpty()) {
+                val initialPaymentHistory = if (!customScheduleItems.isNullOrEmpty()) {
                     customScheduleItems
                 } else {
                     val defaultList = mutableListOf<PaymentHistoryItem>()
@@ -570,13 +573,51 @@ fun InstallmentsScreen(
                                 amountFormatted = monthlyFormatted,
                                 status = if (i == 1) InstallmentStatus.DUE_SOON else InstallmentStatus.PENDING,
                                 note = null,
-                                amount = parsedMonthly,
+                                amount = if (i == totalInstallments) {
+                                    (totalAmount - parsedMonthly * (totalInstallments - 1)).coerceAtLeast(1L)
+                                } else parsedMonthly,
                                 isPaidLate = false
                             )
                         )
                     }
                     defaultList
                 }
+
+                val paidInstallmentNumbers = initialPaymentHistory
+                    .sortedBy { it.installmentNumber }
+                    .take(requestedPaidCount)
+                    .map { it.installmentNumber }
+                    .toSet()
+                val paymentHistoryList = initialPaymentHistory.map { payment ->
+                    if (payment.installmentNumber in paidInstallmentNumbers) {
+                        payment.copy(
+                            status = InstallmentStatus.PAID,
+                            paidDate = todayJalali
+                        )
+                    } else {
+                        payment.copy(
+                            status = if (payment.status == InstallmentStatus.PAID || payment.status == InstallmentStatus.COMPLETED) {
+                                InstallmentStatus.PENDING
+                            } else payment.status,
+                            paidDate = null
+                        )
+                    }
+                }
+                val paidAmount = paymentHistoryList
+                    .filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
+                    .sumOf { it.amount }
+                val remainingAmount = (totalAmount - paidAmount).coerceAtLeast(0L)
+                val remainingInstallments = (totalInstallments - requestedPaidCount).coerceAtLeast(0)
+                val nextUnpaidPayment = paymentHistoryList
+                    .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                    .minByOrNull { payment ->
+                        com.example.calendar.domain.CalendarDateUtils.parseJalali(payment.dueDate)?.let {
+                            PersianCalendarHelper.jalaliToEpochMillis(it.first, it.second, it.third, 9, 0)
+                        } ?: Long.MAX_VALUE
+                    }
+                val nextPaymentDate = nextUnpaidPayment?.dueDate ?: effectiveDueDate
+                val paidFormatted = com.example.util.MoneyFormatter.formatToman(paidAmount)
+                val remainingFormatted = com.example.util.MoneyFormatter.formatToman(remainingAmount)
 
                 val targetMillis = PersianCalendarHelper.jalaliToEpochMillis(parsedTriple.first, parsedTriple.second, parsedTriple.third, 9, 0)
 
@@ -588,6 +629,7 @@ fun InstallmentsScreen(
 
                 val diffDays = (targetEpochDay - nowEpochDay).toInt()
                 val computedDueDaysText = when {
+                    remainingInstallments == 0 -> "تکمیل شده"
                     diffDays == 0 -> "امروز"
                     diffDays > 0 -> "${IranianPhoneUtils.convertDigitsToPersian(diffDays.toString())} روز دیگر"
                     else -> "${IranianPhoneUtils.convertDigitsToPersian(kotlin.math.abs(diffDays).toString())} روز گذشته"
@@ -615,17 +657,17 @@ fun InstallmentsScreen(
                     monthlyPaymentFormatted = monthlyFormatted,
                     totalInstallments = totalInstallments,
                     remainingInstallments = remainingInstallments,
-                    nextPaymentDate = effectiveDueDate,
+                    nextPaymentDate = nextPaymentDate,
                     nextDueDaysText = computedDueDaysText,
                     startDate = todayJalali,
                     endDate = computedEndDate,
-                    status = InstallmentStatus.PENDING,
+                    status = if (remainingInstallments == 0) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING,
                     notes = noteText,
                     paymentHistory = paymentHistoryList
                 )
                 LocalInstallmentRepository.instance.addInstallment(newItem, context)
 
-                if (reminderEnabled) {
+                if (reminderEnabled && remainingInstallments > 0) {
                     coroutineScope.launch {
                         try {
                             val scheduledCount = com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
@@ -649,7 +691,12 @@ fun InstallmentsScreen(
                     }
                 } else {
                     coroutineScope.launch {
-                        snackbarHostState.showSnackbar("قسط با موفقیت ثبت شد (یادآور غیرفعال است).")
+                        val message = if (remainingInstallments == 0) {
+                            "وام با تمام اقساط پرداخت‌شده ثبت شد."
+                        } else {
+                            "قسط با موفقیت ثبت شد (یادآور غیرفعال است)."
+                        }
+                        snackbarHostState.showSnackbar(message)
                     }
                 }
             }
