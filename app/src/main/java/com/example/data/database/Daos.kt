@@ -482,6 +482,9 @@ interface CheckDao {
     @Query("SELECT * FROM checks WHERE userId = :userId AND id = :checkId LIMIT 1")
     suspend fun getCheckById(userId: String, checkId: Int): CheckEntity?
 
+    @Query("SELECT * FROM checks WHERE userId = :userId AND sayadId = :sayadId AND deletedAt IS NULL LIMIT 1")
+    suspend fun getCheckBySayadId(userId: String, sayadId: String): CheckEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCheck(check: CheckEntity): Long
 
