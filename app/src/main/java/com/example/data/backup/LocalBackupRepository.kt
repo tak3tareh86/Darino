@@ -56,8 +56,7 @@ class LocalBackupRepository(
                 db.smartReminderDao().getAllRemindersList(userId)
 
             val schedules =
-                db.smartReminderDao()
-                    .getAllFutureActiveSchedules(userId)
+                db.smartReminderDao().getAllSchedulesList(userId)
 
             val events =
                 db.financialEventDao().getAllEventsList(userId)
