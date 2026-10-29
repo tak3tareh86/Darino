@@ -198,10 +198,11 @@ fun AddInstallmentSheet(
                     onBackToCategories = { currentStep = 1 },
                     onDismiss = onDismiss,
                     onSubmit = {
+                        val currentCustomScheduleItems = customScheduleItems
                         val paidCountValue = IranianPhoneUtils.convertDigitsToEnglish(paidInstallmentsCount)
                             .filter { it.isDigit() }.toIntOrNull() ?: 0
-                        val totalCountValue = if (!customScheduleItems.isNullOrEmpty()) {
-                            customScheduleItems.size
+                        val totalCountValue = if (!currentCustomScheduleItems.isNullOrEmpty()) {
+                            currentCustomScheduleItems.size
                         } else {
                             IranianPhoneUtils.convertDigitsToEnglish(installmentsCount)
                                 .filter { it.isDigit() }.toIntOrNull() ?: 0
@@ -212,7 +213,7 @@ fun AddInstallmentSheet(
                             submitValidationError = "تعداد اقساط پرداخت‌شده نمی‌تواند از تعداد کل اقساط بیشتر باشد."
                             return@FormDetailsStep
                         }
-                        if (customScheduleItems.isNullOrEmpty() &&
+                        if (currentCustomScheduleItems.isNullOrEmpty() &&
                             totalCountValue > 1 &&
                             parsedMonthlyForValidation * (totalCountValue - 1L) >= parsedTotalForValidation
                         ) {
