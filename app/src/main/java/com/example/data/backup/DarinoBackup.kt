@@ -13,6 +13,9 @@ import com.example.data.database.VehicleInspectionRoomEntity
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.data.ReminderScheduleEntity
 import com.example.calendar.data.FinancialEventEntity
+import com.example.financial_health.data.FinancialHealthEntity
+import com.example.loan.data.LoanCalculationEntity
+import com.example.data.database.UserPreferenceEntity
 
 data class DarinoBackup(
     val metadata: BackupMetadata,
@@ -28,5 +31,8 @@ data class DarinoBackup(
     val vehicleInspections: List<VehicleInspectionRoomEntity> = emptyList(),
     val reminders: List<ReminderEntity> = emptyList(),
     val reminderSchedules: List<ReminderScheduleEntity> = emptyList(),
-    val financialEvents: List<FinancialEventEntity> = emptyList()
+    val financialEvents: List<FinancialEventEntity> = emptyList(),
+    val financialHealthProfiles: List<FinancialHealthEntity> = emptyList(),
+    val loanCalculations: List<LoanCalculationEntity> = emptyList(),
+    val userPreference: UserPreferenceEntity? = null
 )
