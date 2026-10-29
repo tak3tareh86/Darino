@@ -17,10 +17,12 @@ class WeeklyBackupWorker(
     override suspend fun doWork(): Result {
         Log.i(TAG, "WeeklyBackupWorker started...")
         val prefs = applicationContext.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
-        val isEnabled = prefs.getBoolean("auto_backup_weekly", true)
+        val frequency = inputData.getString(KEY_FREQUENCY) ?: FREQUENCY_WEEKLY
+        val preferenceKey = if (frequency == FREQUENCY_DAILY) "auto_backup_daily" else "auto_backup_weekly"
+        val isEnabled = prefs.getBoolean(preferenceKey, frequency == FREQUENCY_WEEKLY)
 
         if (!isEnabled) {
-            Log.i(TAG, "Weekly auto-backup is disabled in settings. Skipping.")
+            Log.i(TAG, "$frequency auto-backup is disabled in settings. Skipping.")
             return Result.success()
         }
 
@@ -43,7 +45,7 @@ class WeeklyBackupWorker(
             val jsonString = adapter.toJson(backup)
 
             val (y, m, d) = CalendarDateUtils.getCurrentJalaliDate()
-            val filename = "auto_backup_${y}_${m.toString().padStart(2, '0')}_${d.toString().padStart(2, '0')}.json"
+            val filename = "${frequency}_auto_backup_${y}_${m.toString().padStart(2, '0')}_${d.toString().padStart(2, '0')}.json"
 
             val autoBackupsDir = File(applicationContext.filesDir, "auto_backups")
             if (!autoBackupsDir.exists()) {
@@ -53,7 +55,7 @@ class WeeklyBackupWorker(
             val backupFile = File(autoBackupsDir, filename)
             backupFile.writeText(jsonString, Charsets.UTF_8)
 
-            Log.i(TAG, "Weekly auto-backup file created successfully: ${backupFile.absolutePath}")
+            Log.i(TAG, "$frequency auto-backup file created successfully: ${backupFile.absolutePath}")
 
             // Update last backup time
             prefs.edit()
@@ -65,14 +67,18 @@ class WeeklyBackupWorker(
             Log.w(TAG, "Weekly auto-backup skipped: ${e.message}")
             Result.success()
         } catch (e: Exception) {
-            Log.e(TAG, "Error performing weekly auto-backup", e)
+            Log.e(TAG, "Error performing $frequency auto-backup", e)
             Result.retry()
         }
     }
 
     companion object {
         private const val TAG = "WeeklyBackupWorker"
+        private const val KEY_FREQUENCY = "backup_frequency"
+        private const val FREQUENCY_WEEKLY = "weekly"
+        private const val FREQUENCY_DAILY = "daily"
         const val UNIQUE_WORK_NAME = "weekly_auto_backup_work"
+        const val DAILY_UNIQUE_WORK_NAME = "daily_auto_backup_work"
 
         fun enqueueWeekly(context: Context) {
             val constraints = Constraints.Builder()
@@ -97,6 +103,31 @@ class WeeklyBackupWorker(
         fun cancelWeekly(context: Context) {
             WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME)
             Log.i(TAG, "Cancelled weekly auto-backup WorkManager request")
+        }
+
+        fun enqueueDaily(context: Context) {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                .setRequiresBatteryNotLow(true)
+                .build()
+
+            val request = PeriodicWorkRequestBuilder<WeeklyBackupWorker>(1, TimeUnit.DAYS)
+                .setInputData(workDataOf(KEY_FREQUENCY to FREQUENCY_DAILY))
+                .setConstraints(constraints)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.HOURS)
+                .build()
+
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                DAILY_UNIQUE_WORK_NAME,
+                ExistingPeriodicWorkPolicy.KEEP,
+                request
+            )
+            Log.i(TAG, "Enqueued daily auto-backup WorkManager request")
+        }
+
+        fun cancelDaily(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(DAILY_UNIQUE_WORK_NAME)
+            Log.i(TAG, "Cancelled daily auto-backup WorkManager request")
         }
     }
 }
