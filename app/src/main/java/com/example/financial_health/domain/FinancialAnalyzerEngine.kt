@@ -96,8 +96,8 @@ object FinancialAnalyzerEngine {
             val nextMonthPressure = calculateFinancialPressure(nextMonthPrediction.total, income)
             val ratioText = nextMonthPressure?.let { " (معادل ${it}٪ درآمد ماهانه ثبت‌شده)" } ?: ""
             insights += FinancialHealthInsight(
-                id = "next_month_outlook", title = "اقساط سررسیدشونده ماه آینده",
-                                description = if (installmentDataComplete) {
+                id = "next_month_outlook", title = "چشم‌انداز مبالغ ثبت‌شده ماه آینده",
+                description = if (installmentDataComplete) {
                     "بر اساس اقساط سررسیدشونده، هزینه‌های ثابت ثبت‌شده و هزینه‌های خودروی دارای مبلغ و سررسید ثبت‌شده، مجموع مبالغ شناخته‌شده ماه آینده ${nextMonthPrediction.total / 1_000_000.0} میلیون تومان است${ratioText}. هزینه‌های خودرو بدون مبلغ یا تاریخ معتبر و یادآورها در جمع لحاظ نشده‌اند."
                 } else {
                     "به دلیل ناقص بودن برنامه بعضی اقساط، مبلغ اقساط در این برآورد لحاظ نشده است. مجموع مبالغ ثبت‌شده برای هزینه‌های ثابت و خودرو ${nextMonthPrediction.total / 1_000_000.0} میلیون تومان است${ratioText}؛ هزینه‌های ثبت‌نشده و یادآورها در جمع نیستند."
