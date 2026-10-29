@@ -30,7 +30,7 @@ import com.example.ui.screens.check.model.Check
 import com.example.ui.screens.check.model.CheckStatus
 import com.example.ui.screens.check.model.CheckType
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CheckScreen(
     viewModel: CheckViewModel = viewModel(),
@@ -148,16 +148,17 @@ fun CheckScreen(
 
             // 4. Status Filters appropriately below tabs
             item {
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     FilterChip(
                         selected = uiState.selectedStatus == null,
                         onClick = { viewModel.onStatusSelected(null) },
                         label = { Text("همه وضعیت‌ها") }
                     )
-                    
+
                     CheckStatus.entries.forEach { status ->
                         FilterChip(
                             selected = uiState.selectedStatus == status,
