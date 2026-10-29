@@ -848,7 +848,7 @@ private fun PredictionItemRow(
         }
 
         Text(
-            text = IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(amount)) + " تومان",
+            text = if (amountRecorded) IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(amount)) + " تومان" else "مبلغ ثبت نشده",
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.5.sp
