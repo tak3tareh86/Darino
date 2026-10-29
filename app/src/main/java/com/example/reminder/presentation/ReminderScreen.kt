@@ -306,9 +306,9 @@ fun ReminderScreen(
 
                     item {
                         val primaryTabs = listOf(ReminderTab.ALL, ReminderTab.TODAY, ReminderTab.UPCOMING, ReminderTab.COMPLETED)
-                        ScrollableTabRow(
+                        TabRow(
                             selectedTabIndex = primaryTabs.indexOf(uiState.selectedTab).coerceAtLeast(0),
-                            edgePadding = 0.dp,
+                            modifier = Modifier.fillMaxWidth(),
                             containerColor = Color.Transparent,
                             divider = {},
                             indicator = {}
