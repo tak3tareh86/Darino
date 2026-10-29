@@ -2,6 +2,7 @@ package com.example.vehicle.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +32,7 @@ import com.example.vehicle.domain.VehicleHealthReport
 @Composable
 fun VehicleHealthCard(
     report: VehicleHealthReport,
+    onItemClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val statusColor = Color(report.level.colorHex)
@@ -159,6 +161,7 @@ fun VehicleHealthCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(9.dp))
+                            .clickable { onItemClick(item.title) }
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f))
                             .padding(horizontal = 8.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
