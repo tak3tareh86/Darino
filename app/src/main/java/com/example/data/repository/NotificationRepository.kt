@@ -49,6 +49,16 @@ class NotificationRepository(
         }
     }
 
+    suspend fun deleteNotification(id: Int) = withContext(Dispatchers.IO) {
+        val userId = SessionManager.userId ?: return@withContext
+        notificationLogDao.deleteNotification(userId, id)
+    }
+
+    suspend fun deleteAllNotifications() = withContext(Dispatchers.IO) {
+        val userId = SessionManager.userId ?: return@withContext
+        notificationLogDao.deleteAllNotifications(userId)
+    }
+
     suspend fun refreshNotifications() = withContext(Dispatchers.IO) {
         syncManager.syncNotifications()
     }
