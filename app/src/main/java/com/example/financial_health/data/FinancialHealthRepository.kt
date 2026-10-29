@@ -119,12 +119,14 @@ class FinancialHealthRepository(context: Context) {
     suspend fun updateIncome(newIncome: Long) = withContext(Dispatchers.IO) {
         require(newIncome >= 0L)
         val existing = dao.getProfileSync(requireUserId(), DEFAULT_PROFILE_ID)
-        saveProfile(newIncome, existing?.monthlyInstallments ?: 0L, existing?.fixedExpenses ?: 0L)
+            ?: throw IllegalStateException("ابتدا درآمد و هزینه‌های ثابت را هم‌زمان از فرم سلامت مالی ثبت کنید.")
+        saveProfile(newIncome, existing.monthlyInstallments, existing.fixedExpenses)
     }
 
     suspend fun updateFixedExpenses(newFixed: Long) = withContext(Dispatchers.IO) {
         require(newFixed >= 0L)
         val existing = dao.getProfileSync(requireUserId(), DEFAULT_PROFILE_ID)
-        saveProfile(existing?.monthlyIncome ?: 0L, existing?.monthlyInstallments ?: 0L, newFixed)
+            ?: throw IllegalStateException("ابتدا درآمد و هزینه‌های ثابت را هم‌زمان از فرم سلامت مالی ثبت کنید.")
+        saveProfile(existing.monthlyIncome, existing.monthlyInstallments, newFixed)
     }
 }
