@@ -63,6 +63,15 @@ class LocalBackupRepository(
             val events =
                 db.financialEventDao().getAllEventsList(userId)
 
+            val financialHealthProfiles =
+                db.financialHealthDao().getAllProfilesForUser(userId)
+
+            val loanCalculations =
+                db.loanCalculationDao().getAllCalculationsList()
+
+            val userPreference =
+                db.userPreferenceDao().getPreference(userId)
+
             val totalRecords =
                 accounts.size + checks.size + transactions.size +
                         installments.size +
@@ -74,11 +83,14 @@ class LocalBackupRepository(
                         inspections.size +
                         reminders.size +
                         schedules.size +
-                        events.size
+                        events.size +
+                        financialHealthProfiles.size +
+                        loanCalculations.size +
+                        (if (userPreference != null) 1 else 0)
 
             BackupValidator.withChecksum(DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 2,
+                    backupVersion = 3,
                     appVersion = "1.0",
                     createdAt = System.currentTimeMillis(),
                     recordCount = totalRecords,
@@ -98,7 +110,10 @@ class LocalBackupRepository(
                 vehicleInspections = inspections,
                 reminders = reminders,
                 reminderSchedules = schedules,
-                financialEvents = events
+                financialEvents = events,
+                financialHealthProfiles = financialHealthProfiles,
+                loanCalculations = loanCalculations,
+                userPreference = userPreference
             ))
             }
         }
@@ -147,6 +162,12 @@ class LocalBackupRepository(
 
                     db.financialEventDao()
                         .clearAllEvents(userId)
+
+                    if (backup.metadata.backupVersion >= 3) {
+                        db.financialHealthDao().clearProfilesForUser(userId)
+                        db.loanCalculationDao().clearAllCalculations()
+                        db.userPreferenceDao().clearPreference(userId)
+                    }
                 }
 
                 // Re-create auto-generated primary keys instead of risking collisions with another
@@ -240,6 +261,18 @@ class LocalBackupRepository(
                     db.financialEventDao().insertEvent(
                         event.copy(userId = userId)
                     )
+                }
+
+                if (backup.metadata.backupVersion >= 3) {
+                    backup.financialHealthProfiles.forEach { profile ->
+                        db.financialHealthDao().saveProfile(profile.copy(userId = userId))
+                    }
+                    backup.loanCalculations.forEach { calculation ->
+                        db.loanCalculationDao().insertCalculation(calculation)
+                    }
+                    backup.userPreference?.let { preference ->
+                        db.userPreferenceDao().insertOrUpdate(preference.copy(userId = userId))
+                    }
                 }
             }
 
