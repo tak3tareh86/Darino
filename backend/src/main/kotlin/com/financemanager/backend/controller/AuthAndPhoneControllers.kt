@@ -38,7 +38,8 @@ class AuthController(
             userId = result.userId,
             username = result.username,
             phoneNumber = result.phoneNumber,
-            phoneVerified = result.phoneVerified
+            phoneVerified = result.phoneVerified,
+            email = result.email
         )
         return ResponseEntity.ok(ApiResponse.success(response, "ثبت نام با موفقیت انجام شد"))
     }
@@ -53,7 +54,8 @@ class AuthController(
             userId = result.userId,
             username = result.username,
             phoneNumber = result.phoneNumber,
-            phoneVerified = result.phoneVerified
+            phoneVerified = result.phoneVerified,
+            email = result.email
         )
         return ResponseEntity.ok(ApiResponse.success(response, "ورود با موفقیت انجام شد"))
     }
@@ -68,7 +70,8 @@ class AuthController(
             userId = result.userId,
             username = result.username,
             phoneNumber = result.phoneNumber,
-            phoneVerified = result.phoneVerified
+            phoneVerified = result.phoneVerified,
+            email = result.email
         )
         return ResponseEntity.ok(ApiResponse.success(response, "توکن با موفقیت تمدید شد"))
     }
