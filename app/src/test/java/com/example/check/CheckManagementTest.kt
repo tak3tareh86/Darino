@@ -801,7 +801,7 @@ class CheckManagementTest {
     fun `test reminder cancellation on settlement`() = runBlocking {
         SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
-        val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "CANCEL-REM", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 100, status = CheckStatus.REGISTERED, reminderDateTime = System.currentTimeMillis() + 100000)
+        val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "CANCEL-REM", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = System.currentTimeMillis() + 86400000, status = CheckStatus.REGISTERED, reminderDateTime = System.currentTimeMillis() + 100000)
         repository.addCheck(check)
         val savedCheck = repository.getChecks().first()[0]
         
@@ -812,4 +812,65 @@ class CheckManagementTest {
         val result = repository.settleCheck(savedCheck, account)
         assertEquals(CheckOperationResult.SUCCESS, result)
     }
+    @Test
+    fun `test settled check cannot be edited or deleted directly`() = runBlocking {
+        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val check = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 12000,
+            checkNumber = "SETTLED-LOCK",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis() + 86400000,
+            status = CheckStatus.REGISTERED
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(check))
+        val saved = repository.getChecks().first().single { it.checkNumber == "SETTLED-LOCK" }
+        val account = com.example.ui.screens.finance.model.Account(
+            id = "settled_lock_account",
+            userId = "user_1",
+            name = "Main",
+            type = com.example.ui.screens.finance.model.AccountType.BANK
+        )
+        database.accountDao().insertAccount(
+            com.example.data.database.AccountEntity(
+                userId = "user_1",
+                stringId = account.id,
+                name = account.name,
+                type = "BANK"
+            )
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.settleCheck(saved, account))
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.updateCheck(saved.copy(checkNumber = "CHANGED")))
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.deleteCheck(saved.id))
+        assertNotNull(repository.getCheckById(saved.id))
+        assertTrue(database.transactionDao().getAllTransactionsList("user_1").any {
+            it.stringId == "check_settle_${saved.id}"
+        })
+    }
+
+    @Test
+    fun `test invalid Sayad identifier is rejected`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val invalid = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "SAYAD-INVALID",
+            sayadId = "12345",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = now,
+            dueDate = now + 86400000,
+            status = CheckStatus.REGISTERED
+        )
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.addCheck(invalid))
+    }
+
 }
