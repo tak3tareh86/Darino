@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.calendar.domain.CalendarDateUtils
 import com.example.data.database.TransactionEntity
+import com.example.data.database.VehicleServiceEntity
 import com.example.financial_health.data.FinancialHealthRepository
 import com.example.financial_health.domain.FinancialAnalyzerEngine
 import com.example.financial_health.domain.FinancialHealthStatus
@@ -60,6 +61,11 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         }.sumOf { it.amount }
     }
 
+    private fun scheduledVehicleExpenses(services: List<VehicleServiceEntity>, range: MonthRange): Long = services.sumOf { service ->
+        val due = service.dueDate
+        if (service.status != "COMPLETED" && service.cost > 0L && due != null && due >= range.start && due < range.end) service.cost else 0L
+    }
+
     private fun activeItems(items: List<InstallmentItem>) =
         items.filter { it.remainingInstallments > 0 && it.status != InstallmentStatus.COMPLETED }
 
@@ -79,13 +85,18 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
     }
 
     val uiState: StateFlow<FinancialHealthState> = combine(
-        repository.profileFlow, repository.transactionsFlow, installmentRepository.installments, operationError
-    ) { profile, transactions, allInstallments, currentError ->
+        repository.profileFlow, repository.transactionsFlow, installmentRepository.installments, repository.vehicleServicesFlow, operationError
+    ) { profile, transactions, allInstallments, vehicleServices, currentError ->
         val currentMonth = monthRange(0)
         val previousMonth = monthRange(-1)
         val active = activeItems(allInstallments)
         val scheduledCurrentMonth = scheduledAmount(active, currentMonth)
-        val scheduledNextMonth = scheduledAmount(active, monthRange(1))
+        val nextMonthRange = monthRange(1)
+        val scheduledNextMonth = scheduledAmount(active, nextMonthRange)
+        val nextMonthVehicleExpenses = scheduledVehicleExpenses(vehicleServices, nextMonthRange)
+        val hasNextMonthVehicleExpenseAmount = vehicleServices.any { service ->
+            service.status != "COMPLETED" && service.cost > 0L && service.dueDate?.let { it >= nextMonthRange.start && it < nextMonthRange.end } == true
+        }
         val income = profile.monthlyIncome.coerceAtLeast(0L)
         val fixedExpenses = profile.fixedExpenses.coerceAtLeast(0L)
         val monthlyInstallments = scheduledCurrentMonth
@@ -110,8 +121,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         }.maxByOrNull { it.second.amount }
 
         val nextMonth = NextMonthPrediction(
-            installments = scheduledNextMonth, reminders = 0L, vehicleExpenses = 0L,
-            remindersAmountRecorded = false, vehicleExpensesAmountRecorded = false
+            installments = scheduledNextMonth, reminders = 0L, vehicleExpenses = nextMonthVehicleExpenses,
+            remindersAmountRecorded = false, vehicleExpensesAmountRecorded = hasNextMonthVehicleExpenseAmount
         )
         val insights = FinancialAnalyzerEngine.generateInsights(
             income = income, installments = monthlyInstallments, fixedExpenses = fixedExpenses,
