@@ -119,7 +119,7 @@ fun GeneralPreferencesScreen(
                 // 1. Language Setting (تنظیمات زبان برنامه)
                 GeneralCompactCard(
                     title = if (isEn) "App Language" else "زبان برنامه",
-                    subtitle = if (isEn) "Display language for texts and numbers" else "زبان نمایش متون و اعداد",
+                    subtitle = if (isEn) "Language for supported settings labels; numeral style is separate" else "زبان برچسب‌های پشتیبانی‌شده تنظیمات؛ شیوه نمایش اعداد جداگانه است",
                     icon = Icons.Rounded.Language,
                     iconColor = Color(0xFF0EA5E9)
                 ) {
@@ -133,7 +133,7 @@ fun GeneralPreferencesScreen(
                             isSelected = currentLanguage == AppLanguage.PERSIAN,
                             onClick = {
                                 onLanguageSelected(AppLanguage.PERSIAN)
-                                Toast.makeText(context, "زبان برنامه به فارسی تنظیم شد", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, if (isEn) "App language set to Persian" else "زبان برنامه به فارسی تنظیم شد", Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier.weight(1f)
                         )
