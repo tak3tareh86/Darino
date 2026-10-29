@@ -91,6 +91,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val totalCommitments = monthlyInstallments + fixedExpenses
         val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(totalCommitments, income)
         val history = historicalData(transactions, allInstallments)
+        val currentHistoryPressure = history.lastOrNull { it.monthName == currentMonth.label }?.pressurePercentage
         val previousPressure = history.lastOrNull { it.monthName == previousMonth.label }?.pressurePercentage
         val status = pressure?.let { FinancialAnalyzerEngine.calculateHealthStatus(it) } ?: FinancialHealthStatus.MEDIUM
 
@@ -113,13 +114,13 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         )
         val insights = FinancialAnalyzerEngine.generateInsights(
             income = income, installments = monthlyInstallments, fixedExpenses = fixedExpenses,
-            currentPressure = history.lastOrNull()?.pressurePercentage, previousMonthPressure = previousPressure, nextMonthPrediction = nextMonth
+            currentPressure = currentHistoryPressure, previousMonthPressure = previousPressure, nextMonthPrediction = nextMonth
         )
         val formatter = DecimalFormat("#,###")
         FinancialHealthState(
             monthlyIncome = income, totalInstallments = monthlyInstallments, fixedExpenses = fixedExpenses,
             totalCommitments = totalCommitments, pressurePercentage = pressure ?: 0f, healthStatus = status,
-            hasIncomeData = income > 0L, hasPreviousMonthData = previousPressure != null, insights = insights,
+            hasIncomeData = income > 0L, hasPreviousMonthData = previousPressure != null && currentHistoryPressure != null, insights = insights,
             isLoading = false, errorMessage = null, activeInstallmentsCount = active.size,
             totalInstallmentsMonthlyFormatted = if (scheduledCurrentMonth > 0L) formatter.format(scheduledCurrentMonth) + " تومان" else "سررسید مبلغ‌دار ثبت نشده",
             nearestDueDateDays = daysToNearest, nearestDueDateTitle = nearest?.first?.title ?: "سررسیدی ثبت نشده",
