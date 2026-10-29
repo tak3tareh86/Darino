@@ -760,7 +760,7 @@ private fun VehicleServicesTabContent(
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
-                        text = "سرویس‌های دوره‌ای و فاکتورها",
+                        text = "سرویس‌های دوره‌ای",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -844,71 +844,84 @@ private fun ServiceRecordCard(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // Service title and mileage stay together on the right; date and cost sit on the left.
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f)
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    Soft3DIcon(
-                        imageRes = service.serviceType.iconRes,
-                        contentDescription = service.title,
-                        size = 28.dp,
-                        accentColor = MaterialTheme.colorScheme.primary
-                    )
-                    Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Soft3DIcon(
+                            imageRes = service.serviceType.iconRes,
+                            contentDescription = service.title,
+                            size = 28.dp,
+                            accentColor = MaterialTheme.colorScheme.primary
+                        )
                         Text(
                             text = service.title,
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
+                    }
+                    Text(
+                        text = "کیلومتر ${IranianPhoneUtils.convertDigitsToPersian(service.mileage.toString())}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (service.description.isNotBlank()) {
                         Text(
-                            text = "کیلومتر ${IranianPhoneUtils.convertDigitsToPersian(service.mileage.toString())} • تاریخ ${IranianPhoneUtils.convertDigitsToPersian(service.date)}",
-                            style = MaterialTheme.typography.labelSmall,
+                            text = service.description,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "$costFormatted تومان",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        text = "تاریخ ${IranianPhoneUtils.convertDigitsToPersian(service.date)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (onDeleteService != null) {
-                        IconButton(
-                            onClick = { onDeleteService(service) },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.DeleteOutline,
-                                contentDescription = "حذف سرویس",
-                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                                modifier = Modifier.size(18.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = "$costFormatted تومان",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
                             )
+                        )
+                        if (onDeleteService != null) {
+                            IconButton(
+                                onClick = { onDeleteService(service) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.DeleteOutline,
+                                    contentDescription = "حذف سرویس",
+                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }
-            }
-
-            if (service.description.isNotBlank()) {
-                Text(
-                    text = service.description,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
 
             if (service.nextReminderMileage != null || service.nextReminderDate != null) {
@@ -916,22 +929,27 @@ private fun ServiceRecordCard(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.NotificationsActive,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = "موعد بعدی: ${service.nextReminderMileage?.let { "${IranianPhoneUtils.convertDigitsToPersian(it.toString())} کیلومتر" } ?: ""} ${service.nextReminderDate?.let { "(${IranianPhoneUtils.convertDigitsToPersian(it)})" } ?: ""}",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.NotificationsActive,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "موعد بعدی: ${service.nextReminderMileage?.let { "${IranianPhoneUtils.convertDigitsToPersian(it.toString())} کیلومتر" } ?: ""} ${service.nextReminderDate?.let { "(${IranianPhoneUtils.convertDigitsToPersian(it)})" } ?: ""}",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 
