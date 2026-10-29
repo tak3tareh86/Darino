@@ -30,6 +30,7 @@ fun CheckDetailDialog(
     onStatusChange: (CheckStatus) -> Unit
 ) {
     var showSettleDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
     var selectedAccount by remember { mutableStateOf<com.example.ui.screens.finance.model.Account?>(null) }
 
     ModalBottomSheet(
@@ -142,7 +143,7 @@ fun CheckDetailDialog(
                 }
                 
                 OutlinedButton(
-                    onClick = onDelete,
+                    onClick = { showDeleteConfirmation = true },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
@@ -155,6 +156,29 @@ fun CheckDetailDialog(
         }
     }
 
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            icon = { Icon(Icons.Rounded.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("حذف این چک؟") },
+            text = {
+                Text("چک شماره ${check.checkNumber} از فهرست شما حذف می‌شود. این کار قابل بازگشت نیست.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("حذف چک") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+            }
+        )
+    }
+
     if (showSettleDialog) {
         AlertDialog(
             onDismissRequest = { showSettleDialog = false },
@@ -162,7 +186,15 @@ fun CheckDetailDialog(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("حساب مورد نظر برای ثبت تراکنش تسویه را انتخاب کنید:")
-                    
+
+                    if (accounts.isEmpty()) {
+                        Text(
+                            "حساب فعالی برای ثبت تراکنش پیدا نشد. ابتدا از بخش حساب‌ها یک حساب فعال ایجاد کنید.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
                     accounts.forEach { account ->
                         Row(
                             modifier = Modifier
