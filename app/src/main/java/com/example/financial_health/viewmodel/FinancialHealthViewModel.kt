@@ -159,7 +159,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val insights = FinancialAnalyzerEngine.generateInsights(
             income = income, installments = monthlyInstallments, fixedExpenses = fixedExpenses,
             currentPressure = currentHistoryPressure, previousMonthPressure = previousPressure, nextMonthPrediction = nextMonth,
-            installmentDataComplete = hasCompleteInstallmentSchedule
+            installmentDataComplete = hasCompleteInstallmentSchedule,
+            fixedExpensesRecorded = profile.isConfigured
         )
         val formatter = DecimalFormat("#,###")
         FinancialHealthState(
