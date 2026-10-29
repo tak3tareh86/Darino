@@ -16,6 +16,7 @@ import com.example.ui.screens.installments.model.InstallmentStatus
 import com.example.util.PersianCalendarHelper
 import java.util.Calendar
 import java.util.TimeZone
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -26,6 +27,7 @@ import java.text.DecimalFormat
 class FinancialHealthViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FinancialHealthRepository(application)
     private val installmentRepository = LocalInstallmentRepository.instance
+    private val operationError = MutableStateFlow<String?>(null)
 
     private data class MonthRange(val start: Long, val end: Long, val label: String)
 
@@ -78,8 +80,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
     }
 
     val uiState: StateFlow<FinancialHealthState> = combine(
-        repository.profileFlow, repository.transactionsFlow, installmentRepository.installments
-    ) { profile, transactions, allInstallments ->
+        repository.profileFlow, repository.transactionsFlow, installmentRepository.installments, operationError
+    ) { profile, transactions, allInstallments, currentError ->
         val currentMonth = monthRange(0)
         val previousMonth = monthRange(-1)
         val active = activeItems(allInstallments)
@@ -121,7 +123,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             monthlyIncome = income, totalInstallments = monthlyInstallments, fixedExpenses = fixedExpenses,
             totalCommitments = totalCommitments, pressurePercentage = pressure ?: 0f, healthStatus = status,
             hasIncomeData = income > 0L, hasPreviousMonthData = previousPressure != null && currentHistoryPressure != null, insights = insights,
-            isLoading = false, errorMessage = null, activeInstallmentsCount = active.size,
+            isLoading = false, errorMessage = currentError, activeInstallmentsCount = active.size,
             totalInstallmentsMonthlyFormatted = if (scheduledCurrentMonth > 0L) formatter.format(scheduledCurrentMonth) + " تومان" else "سررسید مبلغ‌دار ثبت نشده",
             nearestDueDateDays = daysToNearest, nearestDueDateTitle = nearest?.first?.title ?: "سررسیدی ثبت نشده",
             hasNearestDueDate = nearest != null, largestInstallmentTitle = largest?.first?.title ?: "قسطی ثبت نشده",
@@ -130,9 +132,27 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FinancialHealthState())
 
-    fun updateMonthlyIncome(newIncome: Long) { viewModelScope.launch { repository.updateIncome(newIncome) } }
-    fun updateFixedExpenses(newFixed: Long) { viewModelScope.launch { repository.updateFixedExpenses(newFixed) } }
+    fun updateMonthlyIncome(newIncome: Long) {
+        viewModelScope.launch {
+            runCatching { repository.updateIncome(newIncome) }
+                .onSuccess { operationError.value = null }
+                .onFailure { operationError.value = it.message ?: "ذخیره درآمد انجام نشد." }
+        }
+    }
+
+    fun updateFixedExpenses(newFixed: Long) {
+        viewModelScope.launch {
+            runCatching { repository.updateFixedExpenses(newFixed) }
+                .onSuccess { operationError.value = null }
+                .onFailure { operationError.value = it.message ?: "ذخیره هزینه ثابت انجام نشد." }
+        }
+    }
+
     fun saveProfile(income: Long, installments: Long, fixed: Long) {
-        viewModelScope.launch { repository.saveProfile(income, installments, fixed) }
+        viewModelScope.launch {
+            runCatching { repository.saveProfile(income, installments, fixed) }
+                .onSuccess { operationError.value = null }
+                .onFailure { operationError.value = it.message ?: "ذخیره اطلاعات مالی انجام نشد." }
+        }
     }
 }
