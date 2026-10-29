@@ -192,7 +192,16 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             ?: itemDueDates.filter { it.second < todayStart }.maxByOrNull { it.second }
         val nearestDueMillis = nearest?.third ?: nearestItemFallback?.second
         val nearestTitle = nearest?.first?.title ?: nearestItemFallback?.first?.title
-        val daysToNearest = nearestDueMillis?.let { ((dayStartMillis(it) - todayStart) / 86_400_000L).toInt() } ?: 0
+        // Compare Jalali calendar days directly instead of dividing epoch milliseconds,
+        // which can be off by one around time-zone/DST transitions.
+        val todayJalali = PersianCalendarHelper.fromEpochMillis(now)
+        val todayEpochDay = PersianCalendarHelper.getJalaliEpochDay(
+            todayJalali.year, todayJalali.month, todayJalali.day
+        )
+        val daysToNearest = nearestDueMillis?.let { due ->
+            val dueJalali = PersianCalendarHelper.fromEpochMillis(due)
+            (PersianCalendarHelper.getJalaliEpochDay(dueJalali.year, dueJalali.month, dueJalali.day) - todayEpochDay).toInt()
+        } ?: 0
         val largest = active.flatMap { item ->
             item.paymentHistory.filter { isUnpaid(it.status) && it.amount > 0L }.map { item to it }
         }.maxByOrNull { it.second.amount }
