@@ -162,11 +162,20 @@ fun AddInstallmentSheet(
                     provider = providerOrPerson,
                     onProviderChange = { providerOrPerson = it },
                     totalAmount = totalAmount,
-                    onTotalAmountChange = { totalAmount = it },
+                    onTotalAmountChange = {
+                        totalAmount = it
+                        submitValidationError = null
+                    },
                     installmentAmount = installmentAmount,
-                    onInstallmentAmountChange = { installmentAmount = it },
+                    onInstallmentAmountChange = {
+                        installmentAmount = it
+                        submitValidationError = null
+                    },
                     installmentsCount = installmentsCount,
-                    onInstallmentsCountChange = { installmentsCount = it },
+                    onInstallmentsCountChange = {
+                        installmentsCount = it
+                        submitValidationError = null
+                    },
                     paidInstallmentsCount = paidInstallmentsCount,
                     onPaidInstallmentsCountChange = {
                         paidInstallmentsCount = it
@@ -419,6 +428,7 @@ fun AddInstallmentSheet(
             onDismiss = { showCustomScheduleDialog = false },
             onConfirm = { updatedList ->
                 customScheduleItems = updatedList
+                submitValidationError = null
                 showCustomScheduleDialog = false
             }
         )
@@ -800,7 +810,7 @@ private fun FormDetailsStep(
                     )
                     if (submitValidationError != null) {
                         Text(
-                            text = submitValidationError,
+                            text = submitValidationError.orEmpty(),
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall
                         )
