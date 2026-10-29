@@ -19,7 +19,8 @@ object FinancialAnalyzerEngine {
     fun generateInsights(
         income: Long, installments: Long, fixedExpenses: Long,
         currentPressure: Float?, previousMonthPressure: Float?,
-        nextMonthPrediction: NextMonthPrediction
+        nextMonthPrediction: NextMonthPrediction,
+        installmentDataComplete: Boolean = true
     ): List<FinancialHealthInsight> {
         val insights = mutableListOf<FinancialHealthInsight>()
         if (income <= 0L) {
@@ -31,7 +32,7 @@ object FinancialAnalyzerEngine {
             return insights
         }
 
-        if (currentPressure != null && previousMonthPressure != null) {
+        if (installmentDataComplete && currentPressure != null && previousMonthPressure != null) {
             val diff = currentPressure - previousMonthPressure
             val diffAbs = (kotlin.math.abs(diff) * 10).roundToInt() / 10.0f
             when {
@@ -61,8 +62,18 @@ object FinancialAnalyzerEngine {
             )
         }
 
+        if (!installmentDataComplete) {
+            insights += FinancialHealthInsight(
+                id = "installment_schedule_incomplete",
+                title = "برنامه بعضی اقساط ناقص است",
+                description = "حداقل یک قسط فعال تاریخچه پرداخت یا زمان‌بندی کامل ندارد؛ بنابراین فشار مالی و روند اقساط به‌صورت کامل قابل محاسبه نیست.",
+                type = InsightType.WARNING,
+                recommendation = "برنامه پرداخت اقساط فعال را تکمیل کنید تا شاخص‌ها دقیق‌تر شوند."
+            )
+        }
+
         val installmentRatio = installments.toDouble() / income.toDouble() * 100.0
-        if (installmentRatio > 25.0) {
+        if (installmentDataComplete && installmentRatio > 25.0) {
             insights += FinancialHealthInsight(
                 id = "installments_weight", title = "سهم بالای اقساط از درآمد",
                 description = "اقساط سررسیدشونده ثبت‌شده حدود ${(installmentRatio * 10).roundToInt() / 10.0}٪ از درآمد ماهانه ثبت‌شده را تشکیل می‌دهند.",
@@ -72,7 +83,7 @@ object FinancialAnalyzerEngine {
         }
 
         val excess = installments + fixedExpenses - (income * 0.30).toLong()
-        if (excess > 0L) {
+        if (installmentDataComplete && excess > 0L) {
             insights += FinancialHealthInsight(
                 id = "safe_zone_target", title = "مقایسه با محدوده هدف ۳۰٪",
                 description = "تعهدات ثبت‌شده ${excess / 1_000_000.0} میلیون تومان بالاتر از ۳۰٪ درآمد هستند؛ این یک معیار راهنماست، نه ارزیابی قطعی.",
@@ -86,7 +97,11 @@ object FinancialAnalyzerEngine {
             val ratioText = nextMonthPressure?.let { " (معادل ${it}٪ درآمد ماهانه ثبت‌شده)" } ?: ""
             insights += FinancialHealthInsight(
                 id = "next_month_outlook", title = "اقساط سررسیدشونده ماه آینده",
-                description = "بر اساس اقساط سررسیدشونده، هزینه‌های ثابت ثبت‌شده و هزینه‌های خودروی دارای مبلغ و سررسید ثبت‌شده، مجموع مبالغ شناخته‌شده ماه آینده ${nextMonthPrediction.total / 1_000_000.0} میلیون تومان است${ratioText}. هزینه‌های ثابت در صورت ثبت پروفایل محاسبه شده‌اند؛ هزینه‌های خودرو بدون مبلغ یا تاریخ معتبر و یادآورها در جمع لحاظ نشده‌اند.",
+                                description = if (installmentDataComplete) {
+                    "بر اساس اقساط سررسیدشونده، هزینه‌های ثابت ثبت‌شده و هزینه‌های خودروی دارای مبلغ و سررسید ثبت‌شده، مجموع مبالغ شناخته‌شده ماه آینده ${nextMonthPrediction.total / 1_000_000.0} میلیون تومان است${ratioText}. هزینه‌های خودرو بدون مبلغ یا تاریخ معتبر و یادآورها در جمع لحاظ نشده‌اند."
+                } else {
+                    "به دلیل ناقص بودن برنامه بعضی اقساط، مبلغ اقساط در این برآورد لحاظ نشده است. مجموع مبالغ ثبت‌شده برای هزینه‌های ثابت و خودرو ${nextMonthPrediction.total / 1_000_000.0} میلیون تومان است${ratioText}؛ هزینه‌های ثبت‌نشده و یادآورها در جمع نیستند."
+                },
                 type = if ((nextMonthPressure ?: 0f) > 45f) InsightType.WARNING else InsightType.INFO
             )
         } else {
