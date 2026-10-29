@@ -29,7 +29,7 @@ class LocalBackupRepository(
             val checks = db.checkDao().getAllChecksList(userId)
 
             val transactions =
-                db.transactionDao().getAllTransactionsList(userId)
+                db.transactionDao().getAllTransactionsForBackup(userId)
 
             val installments =
                 db.installmentDao().getAllInstallmentsList(userId)
@@ -38,10 +38,10 @@ class LocalBackupRepository(
                 db.installmentDao().getAllPaymentsList(userId)
 
             val vehicles =
-                db.vehicleDao().getAllVehiclesList(userId)
+                db.vehicleDao().getAllVehiclesForBackup(userId)
 
             val services =
-                db.vehicleDao().getAllServicesList(userId)
+                db.vehicleDao().getAllServicesForBackup(userId)
 
             val expenses =
                 db.vehicleDao().getAllExpensesList(userId)
