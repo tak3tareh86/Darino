@@ -226,7 +226,12 @@ class LocalInstallmentRepository private constructor() {
         val appCtx = context.applicationContext
         appContext = appCtx
         repositoryScope.launch {
-            val userId = SessionManager.userId ?: return@launch
+            val userId = SessionManager.userId
+            if (userId == null) {
+                _installmentDataAvailable.value = false
+                updateInternalState(emptyList())
+                return@launch
+            }
             reloadForUser(appCtx, userId)
         }
     }
