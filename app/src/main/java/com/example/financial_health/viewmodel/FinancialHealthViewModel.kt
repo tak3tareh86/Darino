@@ -56,9 +56,12 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         if (item.remainingInstallments <= 0 || item.status == InstallmentStatus.PAID || item.status == InstallmentStatus.COMPLETED) return true
         val expectedCount = item.totalInstallments
         if (expectedCount <= 0 || item.paymentHistory.size < expectedCount) return false
-        return item.paymentHistory.count { payment ->
-            payment.amount > 0L && dueMillis(payment.dueDate) != null
-        } >= expectedCount
+        val validScheduleNumbers = item.paymentHistory
+            .filter { payment -> payment.amount > 0L && dueMillis(payment.dueDate) != null }
+            .map { it.installmentNumber }
+            .filter { it > 0 }
+            .distinct()
+        return validScheduleNumbers.size >= expectedCount
     }
 
     private fun dayStartMillis(epochMillis: Long): Long {
