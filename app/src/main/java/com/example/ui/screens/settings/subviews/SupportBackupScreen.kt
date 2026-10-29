@@ -225,7 +225,7 @@ fun SupportBackupScreen(
         SettingsConfirmationDialog(
             isOpen = true,
             title = "پشتیبان‌گیری موفق",
-            message = "نسخه پشتیبان از داده‌های حساب‌ها، تراکنش‌ها و خودروها با موفقیت در محل انتخابی شما ذخیره شد.\n$backupSummaryInfo",
+            message = "نسخه پشتیبان از تراکنش‌ها، اقساط، خودروها، یادآورها و رویدادهای مالی با موفقیت در محل انتخابی شما ذخیره شد.\n$backupSummaryInfo",
             confirmButtonText = "متوجه شدم",
             isDanger = false,
             onConfirm = { showBackupSuccessDialog = false },
