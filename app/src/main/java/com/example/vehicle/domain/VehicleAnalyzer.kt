@@ -208,10 +208,15 @@ object VehicleAnalyzer {
                 }
             },
             serviceStatus(
-                "سرویس دوره‌ای روغن و فیلترها",
-                listOf(ServiceType.OIL_CHANGE, ServiceType.FILTERS),
+                "روغن موتور",
+                listOf(ServiceType.OIL_CHANGE),
                 R.drawable.img_3d_oil,
                 defaultIntervalKm = 5000
+            ),
+            serviceStatus(
+                "فیلترها",
+                listOf(ServiceType.FILTERS),
+                R.drawable.img_3d_oil
             ),
             serviceStatus(
                 "روغن گیربکس",
