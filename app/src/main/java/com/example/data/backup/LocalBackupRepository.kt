@@ -174,6 +174,10 @@ class LocalBackupRepository(
                         .clearAllVehicles(userId)
 
                     db.smartReminderDao().clearAllSchedules(userId)
+                    if (backup.metadata.backupVersion >= 5) {
+                        // Delivery logs are linked by reminder ID without a foreign key; clear them before reminders.
+                        db.smartReminderDao().clearAllDeliveryLogsForBackup(userId)
+                    }
 
                     db.smartReminderDao()
                         .clearAllReminders(userId)
@@ -187,7 +191,6 @@ class LocalBackupRepository(
                     }
                     if (backup.metadata.backupVersion >= 5) {
                         db.vehicleDao().clearVehicleStoreForUser(userId)
-                        db.smartReminderDao().clearAllDeliveryLogsForBackup(userId)
                     }
                     if (backup.metadata.backupVersion >= 3) {
                         db.financialHealthDao().clearProfilesForUser(userId)
