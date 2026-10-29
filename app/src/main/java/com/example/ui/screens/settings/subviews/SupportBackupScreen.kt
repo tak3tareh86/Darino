@@ -43,6 +43,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -83,6 +84,22 @@ fun SupportBackupScreen(
     // Backup state
     val prefs = remember { context.getSharedPreferences("darino_backup_prefs", android.content.Context.MODE_PRIVATE) }
     var autoBackupWeekly by remember { mutableStateOf(prefs.getBoolean("auto_backup_weekly", true)) }
+    var autoBackupDaily by remember { mutableStateOf(prefs.getBoolean("auto_backup_daily", false)) }
+
+    // Reconcile persisted switches with WorkManager whenever this screen is opened.
+    // This also repairs the case where weekly backup was enabled by default but never enqueued.
+    LaunchedEffect(Unit) {
+        if (prefs.getBoolean("auto_backup_weekly", true)) {
+            com.example.data.backup.WeeklyBackupWorker.enqueueWeekly(context)
+        } else {
+            com.example.data.backup.WeeklyBackupWorker.cancelWeekly(context)
+        }
+        if (prefs.getBoolean("auto_backup_daily", false)) {
+            com.example.data.backup.WeeklyBackupWorker.enqueueDaily(context)
+        } else {
+            com.example.data.backup.WeeklyBackupWorker.cancelDaily(context)
+        }
+    }
 
     var lastBackupDate by remember {
         val lastTime = prefs.getLong("last_backup_time", 0L)
@@ -114,8 +131,11 @@ fun SupportBackupScreen(
                     val adapter = moshi.adapter(com.example.data.backup.DarinoBackup::class.java)
                     val jsonString = adapter.toJson(backup)
 
-                    context.contentResolver.openOutputStream(uri)?.use { os ->
+                    val outputStream = context.contentResolver.openOutputStream(uri)
+                        ?: throw java.io.IOException("امکان نوشتن در فایل انتخاب‌شده وجود ندارد")
+                    outputStream.use { os ->
                         os.write(jsonString.toByteArray(Charsets.UTF_8))
+                        os.flush()
                     }
 
                     val nowTime = System.currentTimeMillis()
@@ -437,6 +457,45 @@ fun SupportBackupScreen(
                                         } else {
                                             com.example.data.backup.WeeklyBackupWorker.cancelWeekly(context)
                                             Toast.makeText(context, "پشتیبان‌گیری خودکار هفتگی غیرفعال شد.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = Color.White,
+                                        checkedTrackColor = EmeraldPrimaryLight
+                                    )
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "پشتیبان‌گیری خودکار روزانه",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "ذخیره خودکار نسخه پشتیبان تقریباً هر ۲۴ ساعت روی دستگاه",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = autoBackupDaily,
+                                    onCheckedChange = { isChecked ->
+                                        autoBackupDaily = isChecked
+                                        prefs.edit().putBoolean("auto_backup_daily", isChecked).apply()
+                                        if (isChecked) {
+                                            com.example.data.backup.WeeklyBackupWorker.enqueueDaily(context)
+                                            Toast.makeText(context, "پشتیبان‌گیری خودکار روزانه فعال شد.", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            com.example.data.backup.WeeklyBackupWorker.cancelDaily(context)
+                                            Toast.makeText(context, "پشتیبان‌گیری خودکار روزانه غیرفعال شد.", Toast.LENGTH_SHORT).show()
                                         }
                                     },
                                     colors = SwitchDefaults.colors(
