@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
@@ -51,6 +52,8 @@ fun NotificationCenterScreen(
     val unreadCount by viewModel.unreadCount.collectAsState()
     val logs by viewModel.notifications.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    var notificationToDelete by remember { mutableStateOf<NotificationLogEntity?>(null) }
+    var showDeleteAllConfirmation by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.refresh()
@@ -122,7 +125,20 @@ fun NotificationCenterScreen(
                         }
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        if (logs.isNotEmpty()) {
+                            IconButton(
+                                onClick = { showDeleteAllConfirmation = true },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Delete,
+                                    contentDescription = "حذف همه اعلان‌ها",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                            }
+                        }
                         IconButton(
                             onClick = viewModel::refresh,
                             modifier = Modifier.size(32.dp)
@@ -196,7 +212,8 @@ fun NotificationCenterScreen(
                                     viewModel.markAsRead(log.id)
                                 }
                                 onNotificationClick(log.id)
-                            }
+                            },
+                            onDelete = { notificationToDelete = log }
                         )
                     }
 
@@ -209,12 +226,47 @@ fun NotificationCenterScreen(
             }
         }
     }
+
+    notificationToDelete?.let { log ->
+        AlertDialog(
+            onDismissRequest = { notificationToDelete = null },
+            title = { Text("حذف اعلان") },
+            text = { Text("اعلان «${log.title}» حذف شود؟") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteNotification(log.id)
+                    notificationToDelete = null
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { notificationToDelete = null }) { Text("انصراف") }
+            }
+        )
+    }
+
+    if (showDeleteAllConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAllConfirmation = false },
+            title = { Text("حذف همه اعلان‌ها") },
+            text = { Text("تمام اعلان‌های این صندوق حذف شوند؟ این کار قابل بازگشت نیست.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteAllNotifications()
+                    showDeleteAllConfirmation = false
+                }) { Text("حذف همه", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAllConfirmation = false }) { Text("انصراف") }
+            }
+        )
+    }
 }
 
 @Composable
 fun CompactNotificationItem(
     log: NotificationLogEntity,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDelete: () -> Unit
 ) {
     val accentColor = when (log.type.uppercase(Locale.ROOT)) {
         "INSTALLMENT" -> EmeraldPrimaryLight
@@ -271,6 +323,7 @@ fun CompactNotificationItem(
                 ) {
                     Text(
                         text = log.title,
+                        modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Medium,
                             fontSize = 12.sp
@@ -278,6 +331,18 @@ fun CompactNotificationItem(
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1
                     )
+
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(26.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Delete,
+                            contentDescription = "حذف اعلان",
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
 
                     if (!log.isRead) {
                         Surface(
