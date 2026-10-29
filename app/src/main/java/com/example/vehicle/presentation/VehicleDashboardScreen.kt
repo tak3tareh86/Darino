@@ -836,9 +836,7 @@ private fun ServiceRecordCard(
     onDeleteService: ((VehicleServiceEntity) -> Unit)? = null,
     onRetryReminder: ((VehicleServiceEntity) -> Unit)? = null
 ) {
-    val costFormatted = IranianPhoneUtils.convertDigitsToPersian(
-        NumberFormat.getNumberInstance(Locale.US).format(service.cost)
-    )
+    val costFormatted = MoneyFormatter.formatToman(service.cost)
 
     Layered3DCard(
         modifier = Modifier.fillMaxWidth(),
