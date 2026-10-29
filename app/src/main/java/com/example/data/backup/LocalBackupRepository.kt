@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.room.withTransaction
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
+import com.example.data.preferences.AppPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
