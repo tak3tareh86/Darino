@@ -58,11 +58,14 @@ class LocalCheckRepository private constructor() : CheckRepository {
         }
 
         val normalizedSayadId = check.sayadId?.normalizeCheckDigits()?.trim().orEmpty()
-        if (normalizedSayadId.isNotBlank() &&
-            database.checkDao().getCheckBySayadId(userId, normalizedSayadId) != null
-        ) {
-            return@withContext CheckOperationResult.VALIDATION_ERROR
+        val duplicateSayad = try {
+            if (normalizedSayadId.isBlank()) null
+            else database.checkDao().getCheckBySayadId(userId, normalizedSayadId)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext CheckOperationResult.PERSISTENCE_ERROR
         }
+        if (duplicateSayad != null) return@withContext CheckOperationResult.VALIDATION_ERROR
 
         try {
             val insertedId = database.checkDao().insertCheck(check.toEntity(userId))
@@ -104,12 +107,21 @@ class LocalCheckRepository private constructor() : CheckRepository {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
-        val currentEntity = database.checkDao().getCheckById(userId, check.id)
-            ?: return@withContext CheckOperationResult.NOT_FOUND
+        val currentEntity = try {
+            database.checkDao().getCheckById(userId, check.id)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext CheckOperationResult.PERSISTENCE_ERROR
+        } ?: return@withContext CheckOperationResult.NOT_FOUND
         if (currentEntity.deletedAt != null) return@withContext CheckOperationResult.NOT_FOUND
         val normalizedSayadId = check.sayadId?.normalizeCheckDigits()?.trim().orEmpty()
         if (normalizedSayadId.isNotBlank()) {
-            val duplicate = database.checkDao().getCheckBySayadId(userId, normalizedSayadId)
+            val duplicate = try {
+                database.checkDao().getCheckBySayadId(userId, normalizedSayadId)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return@withContext CheckOperationResult.PERSISTENCE_ERROR
+            }
             if (duplicate != null && duplicate.id != check.id) {
                 return@withContext CheckOperationResult.VALIDATION_ERROR
             }
