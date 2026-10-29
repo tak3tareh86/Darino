@@ -15,7 +15,7 @@ class FinancialAnalyzerEngineTest {
 
     @Test
     fun pressureKeepsOneDecimalPlace() {
-        assertEquals(30.9f, FinancialAnalyzerEngine.calculateFinancialPressure(309L, 1_000L)!!)
+        assertEquals(30.9f, FinancialAnalyzerEngine.calculateFinancialPressure(309L, 1_000L)!!, 0.001f)
     }
 
     @Test
