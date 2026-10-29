@@ -238,7 +238,16 @@ fun ReminderScreen(
                                 horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                                ) {
+                                    Text(
+                                        text = "سررسید امروز",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    )
                                     Text(
                                         text = "${uiState.todayCount}",
                                         style = MaterialTheme.typography.titleLarge.copy(
@@ -246,20 +255,23 @@ fun ReminderScreen(
                                             color = WarningAmberLight
                                         )
                                     )
+                                }
+
+                                VerticalDivider(
+                                    modifier = Modifier.height(42.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                )
+
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                                ) {
                                     Text(
-                                        text = "سررسید امروز",
+                                        text = "این هفته",
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     )
-                                }
-
-                                VerticalDivider(
-                                    modifier = Modifier.height(32.dp),
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                                )
-
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
                                         text = "${uiState.thisWeekCount}",
                                         style = MaterialTheme.typography.titleLarge.copy(
@@ -267,23 +279,24 @@ fun ReminderScreen(
                                             color = InfoIndigoLight
                                         )
                                     )
-                                    Text(
-                                        text = "این هفته",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    )
                                 }
 
                                 VerticalDivider(
-                                    modifier = Modifier.height(32.dp),
+                                    modifier = Modifier.height(42.dp),
                                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                                 )
 
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(7.dp),
                                     modifier = Modifier.widthIn(max = 120.dp)
                                 ) {
+                                    Text(
+                                        text = "نزدیک‌ترین",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    )
                                     Text(
                                         text = uiState.nearestReminder?.title ?: "بدون سررسید",
                                         style = MaterialTheme.typography.bodyMedium.copy(
@@ -293,17 +306,18 @@ fun ReminderScreen(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    Text(
-                                        text = uiState.nearestReminder?.date ?: "نزدیک‌ترین",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    uiState.nearestReminder?.date?.let { date ->
+                                        Text(
+                                            text = date,
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         )
-                                    )
+                                    }
                                 }
                             }
                         }
                     }
-
                     item {
                         val primaryTabs = listOf(ReminderTab.ALL, ReminderTab.TODAY, ReminderTab.UPCOMING, ReminderTab.COMPLETED)
                         TabRow(
