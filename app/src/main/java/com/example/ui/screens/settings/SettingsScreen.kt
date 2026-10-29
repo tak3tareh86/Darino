@@ -23,7 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ColorLens
 import androidx.compose.material.icons.rounded.DateRange
-import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.MonetizationOn
 import androidx.compose.material.icons.rounded.Notifications
@@ -69,7 +68,6 @@ import com.example.ui.screens.settings.subviews.AppearanceSettingsScreen
 import com.example.ui.screens.settings.subviews.AppLockSettingsScreen
 import com.example.ui.screens.settings.subviews.CategoriesScreen
 import com.example.ui.screens.settings.subviews.DataBackupScreen
-import com.example.ui.screens.settings.subviews.DataManagementScreen
 import com.example.ui.screens.settings.subviews.GeneralPreferencesScreen
 import com.example.ui.screens.settings.subviews.NotificationSettingsScreen
 import com.example.ui.screens.settings.subviews.ReminderPreferencesScreen
@@ -264,12 +262,6 @@ fun SettingsScreen(
                     currentAccent = currentAccent,
                     onAccentChanged = { currentAccent = it },
                     onBackClick = { currentDestination = SettingsDestination.MAIN }
-                )
-            }
-            SettingsDestination.DATA_MANAGEMENT -> {
-                DataManagementScreen(
-                    onBackClick = { currentDestination = SettingsDestination.MAIN },
-                    prefsRepo = prefsRepo
                 )
             }
             SettingsDestination.SECURITY -> {
@@ -509,14 +501,6 @@ private fun SettingsMainView(
                                 onClick = { onNavigate(SettingsDestination.SUPPORT_BACKUP) }
                             )
 
-                            SettingsItem(
-                                title = "مدیریت داده‌ها و پاکسازی",
-                                subtitle = "خام‌سازی برنامه، حذف داده‌های فرضی تستی یا بازنشانی کارخانه",
-                                vectorIcon = Icons.Rounded.DeleteSweep,
-                                iconAccentColor = Color(0xFFEF4444),
-                                isDanger = true,
-                                onClick = { onNavigate(SettingsDestination.DATA_MANAGEMENT) }
-                            )
                         }
                     }
 
