@@ -297,7 +297,7 @@ fun SubscriptionStatusCard(
                         Row(
                             verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.weight(1f, fill = false)
+                            modifier = Modifier.weight(1f)
                         ) {
                             Surface(
                                 shape = CircleShape,
@@ -316,7 +316,9 @@ fun SubscriptionStatusCard(
                             }
 
                             Column(
-                                modifier = Modifier.padding(end = 8.dp)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp)
                             ) {
                                 Text(
                                     text = when {
@@ -333,15 +335,16 @@ fun SubscriptionStatusCard(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = when {
-                                        isExpired -> "دوره آزمایشی به اتمام رسید؛ برای ادامه استفاده از امکانات دارینو، اشتراک سالیانه تهیه کنید."
-                                        isTrial -> "از تمام امکانات دارینو در دوره آزمایشی لذت ببرید. برای ادامه استفاده پس از پایان این دوره، اشتراک سالیانه خود را تهیه کنید."
-                                        else -> "دسترسی نامحدود به تمامی امکانات مدیریت مالی"
+                                        isExpired -> "دوره آزمایشی تمام شده؛ برای ادامه، اشتراک سالیانه تهیه کنید."
+                                        isTrial -> "از تمام امکانات دارینو استفاده کنید؛ برای ادامه، اشتراک سالیانه تهیه کنید."
+                                        else -> "دسترسی نامحدود به امکانات مدیریت مالی"
                                     },
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontSize = 10.5.sp,
-                                        lineHeight = 15.sp,
+                                        lineHeight = 14.sp,
                                         color = Color(0xFFE2E8F0).copy(alpha = 0.9f)
-                                    )
+                                    ),
+                                    maxLines = 2
                                 )
                             }
                         }
