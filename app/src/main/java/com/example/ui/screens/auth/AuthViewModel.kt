@@ -96,6 +96,59 @@ class AuthViewModel @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Creates a device-local profile without requiring a server or password.
+     * This is a profile entry flow, not identity verification or cross-device account sync.
+     */
+    fun continueWithName(firstName: String, lastName: String) {
+        val first = firstName.trim()
+        val last = lastName.trim()
+        if (first.isBlank() || last.isBlank()) {
+            _uiState.value = _uiState.value.copy(
+                generalErrorMessage = "لطفاً نام و نام خانوادگی را وارد کنید."
+            )
+            return
+        }
+
+        val fullName = "$first $last".trim()
+        viewModelScope.launch {
+            try {
+                val sessionManager = com.example.data.security.AuthSessionManager(getApplication())
+                val existing = sessionManager.getActiveSession()
+                val userId = existing?.userId ?: "local_" + java.util.UUID.randomUUID().toString()
+                sessionManager.createSession(
+                    userId = userId,
+                    username = fullName,
+                    fullName = fullName
+                )
+                val user = UserProfile(
+                    id = userId,
+                    username = fullName,
+                    phoneVerified = true
+                )
+                try {
+                    SubscriptionManager(SubscriptionRepositoryImpl.getInstance(getApplication()))
+                        .ensureTrialStarted(user.id)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("AuthViewModel", "Non-fatal trial initialization issue for local profile", e)
+                }
+                _uiState.value = _uiState.value.copy(
+                    isAuthenticated = true,
+                    loggedInUser = user,
+                    generalErrorMessage = null,
+                    successMessage = null
+                )
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Could not create local profile", e)
+                _uiState.value = _uiState.value.copy(
+                    generalErrorMessage = "ساخت پروفایل انجام نشد. دوباره تلاش کنید."
+                )
+            }
+        }
+    }
+
     fun selectTab(tab: AuthTab) {
         _uiState.value = _uiState.value.copy(
             selectedTab = tab,
