@@ -34,6 +34,7 @@ import com.example.financial_health.viewmodel.FinancialHealthViewModel
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -459,7 +460,7 @@ private fun FinancialCommitmentsBreakdownCard(
                     color = Color(0xFF3B82F6),
                     icon = Icons.Rounded.ReceiptLong,
                     percentageText = if (state.hasInstallmentScheduleData && state.monthlyIncome > 0L) "${IranianPhoneUtils.convertDigitsToPersian(((state.totalInstallments.toDouble() / state.monthlyIncome) * 100).toInt().toString())}٪ از درآمد" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "برنامه بعضی اقساط ناقص است",
-                    amountLabelOverride = if (state.hasInstallmentScheduleData) null else if (state.activeInstallmentsCount == 0) "۰ تومان" else "اطلاعات ناقص"
+                    amountLabelOverride = if (state.hasInstallmentScheduleData) null else if (state.activeInstallmentsCount == 0) MoneyFormatter.formatToman(0L) else "اطلاعات ناقص"
                 )
 
                 CommitmentRowItem(
@@ -510,7 +511,7 @@ private fun FinancialCommitmentsBreakdownCard(
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) {
-                            IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(state.totalCommitments)) + " تومان"
+                            MoneyFormatter.formatToman(state.totalCommitments)
                         } else "اطلاعات ناقص",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
@@ -584,7 +585,7 @@ private fun CommitmentRowItem(
         }
 
         Text(
-            text = amountLabelOverride ?: (IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(amount)) + " تومان"),
+            text = amountLabelOverride ?: MoneyFormatter.formatToman(amount),
             style = MaterialTheme.typography.titleSmall.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.5.sp
@@ -686,7 +687,7 @@ private fun InstallmentsAnalysisSectionCard(
                 AnalysisMetricTile(
                     title = "بیشترین قسط",
                     value = state.largestInstallmentTitle,
-                    subtext = if (state.hasLargestInstallment) IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(state.largestInstallmentAmount)) + " تومان" else "مبلغ ثبت نشده",
+                    subtext = if (state.hasLargestInstallment) MoneyFormatter.formatToman(state.largestInstallmentAmount) else "مبلغ ثبت نشده",
                     modifier = Modifier.weight(1f),
                     accentColor = Color(0xFFEF4444)
                 )
@@ -797,7 +798,7 @@ private fun NextMonthPredictionSectionCard(
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                 ) {
                     Text(
-                        text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) "مجموع مبالغ ثبت‌شده: ${IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(prediction.total))} تومان" else "مبالغ آینده ثبت نشده",
+                        text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) "مجموع مبالغ ثبت‌شده: ${MoneyFormatter.formatToman(prediction.total)}" else "مبالغ آینده ثبت نشده",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.5.sp,
@@ -881,7 +882,7 @@ private fun PredictionItemRow(
         }
 
         Text(
-            text = if (amountRecorded) IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(amount)) + " تومان" else "مبلغ ثبت نشده",
+            text = if (amountRecorded) MoneyFormatter.formatToman(amount) else "مبلغ ثبت نشده",
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.5.sp
