@@ -2003,18 +2003,22 @@ class VehicleRepository {
             )
 
             db.withTransaction {
-                db.vehicleDao().insertInspection(
-                    VehicleInspectionRoomEntity(
-                        id = inspectionId,
-                        userId = userId,
-                        vehicleId = vehicleId,
-                        lastInspectionDate = lastInspectionDate.trim(),
-                        expiryDate = expiryDate.trim(),
-                        cost = cost,
-                        status = status.trim(),
-                        centerName = centerName.trim()
-                    )
+                val inspectionRow = VehicleInspectionRoomEntity(
+                    id = inspectionId,
+                    userId = userId,
+                    vehicleId = vehicleId,
+                    lastInspectionDate = lastInspectionDate.trim(),
+                    expiryDate = expiryDate.trim(),
+                    cost = cost,
+                    status = status.trim(),
+                    centerName = centerName.trim()
                 )
+                if (recordId.isNullOrBlank()) {
+                    db.vehicleDao().insertInspection(inspectionRow)
+                } else {
+                    val updatedRows = db.vehicleDao().updateInspection(inspectionRow)
+                    check(updatedRows > 0) { "معاینه فنی موردنظر برای ویرایش پیدا نشد؛ برای جلوگیری از ثبت تکراری، تغییری ذخیره نشد." }
+                }
 
                 if (cost > 0L) {
                     db.vehicleDao().insertExpense(
