@@ -12,6 +12,7 @@ import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,7 +43,7 @@ fun VehicleInsuranceSheet(
     val todayPdt = remember { com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()) }
     val todayJalali = remember { todayPdt.toFormattedDate() }
     val nextYearJalali = remember { com.example.util.IranianDateUtils.createFormattedDate(todayPdt.year + 1, todayPdt.month, todayPdt.day) }
-    var selectedSection by remember(editingInsurance, editingInspection) {
+    var selectedSection by rememberSaveable(editingInsurance?.id, editingInspection?.id) {
         mutableIntStateOf(
             when {
                 editingInspection != null -> 2
@@ -98,9 +99,9 @@ fun VehicleInsuranceSheet(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             PrimaryTabRow(selectedTabIndex = selectedSection, modifier = Modifier.fillMaxWidth()) {
-                Tab(selected = selectedSection == 0, enabled = editingInsurance == null && editingInspection == null, onClick = { selectedSection = 0 }, text = { Text("شخص ثالث", maxLines = 1) })
-                Tab(selected = selectedSection == 1, enabled = editingInsurance == null && editingInspection == null, onClick = { selectedSection = 1 }, text = { Text("بیمه بدنه", maxLines = 1) })
-                Tab(selected = selectedSection == 2, enabled = editingInsurance == null && editingInspection == null, onClick = { selectedSection = 2 }, text = { Text("معاینه فنی", maxLines = 1) })
+                Tab(selected = selectedSection == 0, onClick = { selectedSection = 0 }, modifier = Modifier.testTag("insurance_form_tab_third_party"), text = { Text("شخص ثالث", maxLines = 1) })
+                Tab(selected = selectedSection == 1, onClick = { selectedSection = 1 }, modifier = Modifier.testTag("insurance_form_tab_body"), text = { Text("بیمه بدنه", maxLines = 1) })
+                Tab(selected = selectedSection == 2, onClick = { selectedSection = 2 }, modifier = Modifier.testTag("insurance_form_tab_inspection"), text = { Text("معاینه فنی", maxLines = 1) })
             }
 
             if (selectedSection != 2) {
