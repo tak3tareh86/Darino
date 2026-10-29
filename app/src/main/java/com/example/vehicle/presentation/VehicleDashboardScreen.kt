@@ -36,6 +36,7 @@ import com.example.ui.components.IranianLicensePlate
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
+import com.example.vehicle.data.ServiceType
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleInspectionEntity
 import com.example.vehicle.data.VehicleInsuranceEntity
@@ -393,6 +394,7 @@ fun DarinoVehicleMainDashboard(
                                 onEditProfile = { viewModel.openProfile() },
                                 onMileageClick = { viewModel.openMileageDialog() },
                                 onAddService = { viewModel.openAddService() },
+                                onAddServiceForType = { type -> viewModel.openAddService(type) },
                                 onAddExpense = { viewModel.openAddExpense() },
                                 onInsuranceClick = { viewModel.openInsuranceSheet() },
                                 onDeleteService = { serviceToDeleteDashboard = it },
@@ -499,7 +501,8 @@ fun DarinoVehicleMainDashboard(
             onAddService = { t, type, d, km, c, desc, remD, remKm, en, offsets, time ->
                 viewModel.addServiceRecord(t, type, d, km, c, desc, remD, remKm, en, offsets, time)
             },
-            onDismiss = { viewModel.closeAddService() }
+            onDismiss = { viewModel.closeAddService() },
+            initialServiceType = state.requestedServiceType
         )
     }
 
@@ -613,6 +616,7 @@ private fun VehicleServicesTabContent(
     onEditProfile: () -> Unit,
     onMileageClick: () -> Unit,
     onAddService: () -> Unit,
+    onAddServiceForType: (ServiceType) -> Unit,
     onAddExpense: () -> Unit,
     onInsuranceClick: () -> Unit,
     onDeleteService: ((VehicleServiceEntity) -> Unit)? = null,
@@ -733,7 +737,20 @@ private fun VehicleServicesTabContent(
                             enter = expandVertically() + fadeIn(),
                             exit = shrinkVertically() + fadeOut()
                         ) {
-                            VehicleHealthCard(report = healthReport)
+                            VehicleHealthCard(
+                                report = healthReport,
+                                onItemClick = { itemTitle ->
+                                    when {
+                                        itemTitle.startsWith("بیمه‌نامه") || itemTitle == "معاینه فنی" -> onInsuranceClick()
+                                        itemTitle == "روغن موتور" -> onAddServiceForType(ServiceType.OIL_CHANGE)
+                                        itemTitle == "فیلترها" -> onAddServiceForType(ServiceType.FILTERS)
+                                        itemTitle == "روغن گیربکس" -> onAddServiceForType(ServiceType.TRANSMISSION_OIL_CHANGE)
+                                        itemTitle == "تسمه دینام" -> onAddServiceForType(ServiceType.ALTERNATOR_BELT_CHANGE)
+                                        itemTitle == "تسمه تایم" -> onAddServiceForType(ServiceType.TIMING_BELT_CHANGE)
+                                        else -> onAddService()
+                                    }
+                                }
+                            )
                         }
                     }
                 }
