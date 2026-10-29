@@ -1,6 +1,8 @@
 package com.example.data.backup
 
 import com.example.data.database.UserPreferenceEntity
+import com.example.data.database.VehicleStoreEntity
+import com.example.reminder.data.ReminderDeliveryLogEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -74,4 +76,35 @@ class BackupValidatorTest {
 
         assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
     }
+    @Test
+    fun versionFiveBackupCountsVehicleStoreAndReminderDeliveryHistory() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 5,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    checksum = "",
+                    currencyUnit = "TOMAN"
+                ),
+                vehicleStore = VehicleStoreEntity(
+                    key = "vehicle_data",
+                    userId = "backup-user",
+                    vehiclesJson = "[]"
+                ),
+                reminderDeliveryLogs = listOf(
+                    ReminderDeliveryLogEntity(
+                        id = "delivery-1",
+                        reminderId = "reminder-1",
+                        channel = "NOTIFICATION",
+                        scheduledAt = 1_800_000_000_000L
+                    )
+                )
+            )
+        )
+
+        assertEquals(2, backup.metadata.recordCount)
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Valid)
+    }
+
 }
