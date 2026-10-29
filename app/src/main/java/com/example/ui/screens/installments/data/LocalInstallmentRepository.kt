@@ -92,7 +92,7 @@ class LocalInstallmentRepository private constructor() {
         try {
             val db = AppDatabase.getDatabase(appCtx)
             val dao = db.installmentDao()
-            val dbInsts = dao.getAllInstallmentsList(userId)
+            val dbInsts = dao.getAllInstallmentsList(userId).filter { it.deletedAt == null }
             val dbPayments = dao.getAllPaymentsList(userId)
 
             if (dbInsts.isNotEmpty()) {
