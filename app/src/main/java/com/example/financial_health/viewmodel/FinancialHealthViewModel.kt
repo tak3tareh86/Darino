@@ -52,6 +52,20 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
 
     private fun isUnpaid(status: InstallmentStatus) = status != InstallmentStatus.PAID && status != InstallmentStatus.COMPLETED
 
+    private fun hasCompleteSchedule(item: InstallmentItem): Boolean {
+        if (item.remainingInstallments <= 0 || item.status == InstallmentStatus.PAID || item.status == InstallmentStatus.COMPLETED) return true
+        val expectedCount = item.totalInstallments
+        if (expectedCount <= 0 || item.paymentHistory.size < expectedCount) return false
+        return item.paymentHistory.count { payment ->
+            payment.amount > 0L && dueMillis(payment.dueDate) != null
+        } >= expectedCount
+    }
+
+    private fun dayStartMillis(epochMillis: Long): Long {
+        val date = PersianCalendarHelper.fromEpochMillis(epochMillis)
+        return PersianCalendarHelper.jalaliToEpochMillis(date.year, date.month, date.day, 0, 0)
+    }
+
     private fun scheduledAmount(items: List<InstallmentItem>, range: MonthRange, includePaid: Boolean = false): Long = items.sumOf { item ->
         item.paymentHistory.filter { payment ->
             (includePaid || isUnpaid(payment.status)) && payment.amount > 0L &&
@@ -65,10 +79,10 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
     }
 
     private fun activeItems(items: List<InstallmentItem>) =
-        items.filter { it.remainingInstallments > 0 && it.status != InstallmentStatus.COMPLETED }
+        items.filter { it.remainingInstallments > 0 && isUnpaid(it.status) }
 
     private fun historicalData(transactions: List<TransactionEntity>, installments: List<InstallmentItem>): List<MonthlyPressureData> {
-        if (installments.any { it.totalInstallments > 0 && it.paymentHistory.size < it.totalInstallments }) return emptyList()
+        if (activeItems(installments).any { !hasCompleteSchedule(it) }) return emptyList()
         val result = mutableListOf<MonthlyPressureData>()
         for (offset in -5..0) {
             val range = monthRange(offset)
@@ -89,7 +103,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val currentMonth = monthRange(0)
         val previousMonth = monthRange(-1)
         val active = activeItems(allInstallments)
-        val hasCompleteInstallmentSchedule = active.all { it.totalInstallments <= 0 || it.paymentHistory.size >= it.totalInstallments }
+        // An empty active list is a valid zero-commitment state. Any active installment must have a complete, dated, positive-amount schedule.
+        val hasCompleteInstallmentSchedule = active.all(::hasCompleteSchedule)
         val scheduledCurrentMonth = if (hasCompleteInstallmentSchedule) {
             scheduledAmount(allInstallments, currentMonth, includePaid = true)
         } else 0L
@@ -102,8 +117,11 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val income = profile.monthlyIncome.coerceAtLeast(0L)
         val fixedExpenses = profile.fixedExpenses.coerceAtLeast(0L)
         val monthlyInstallments = scheduledCurrentMonth
-        val totalCommitments = monthlyInstallments + fixedExpenses
-        val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(totalCommitments, income)
+        val totalCommitments = (monthlyInstallments + fixedExpenses).coerceAtLeast(0L)
+        // Do not publish a definitive pressure score when required user data or any active schedule is missing.
+        val pressure = if (income > 0L && profile.isConfigured && hasCompleteInstallmentSchedule) {
+            FinancialAnalyzerEngine.calculateFinancialPressure(totalCommitments, income)
+        } else null
         val history = historicalData(transactions, allInstallments)
         val currentHistoryPressure = history.lastOrNull { it.monthName == currentMonth.label }?.pressurePercentage
         val previousPressure = history.lastOrNull { it.monthName == previousMonth.label }?.pressurePercentage
@@ -115,16 +133,17 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             }
         }
         val now = System.currentTimeMillis()
-        val nearest = unpaidPayments.filter { it.third >= currentMonth.start }.minByOrNull { it.third }
-            ?: unpaidPayments.filter { it.third < currentMonth.start }.maxByOrNull { it.third }
+        val nearest = unpaidPayments.filter { it.third >= dayStartMillis(now) }.minByOrNull { it.third }
+            ?: unpaidPayments.filter { it.third < dayStartMillis(now) }.maxByOrNull { it.third }
         val itemDueDates = active.mapNotNull { item ->
             dueMillis(item.nextPaymentDate)?.let { item to it }
         }
-        val nearestItemFallback = itemDueDates.filter { it.second >= currentMonth.start }.minByOrNull { it.second }
-            ?: itemDueDates.filter { it.second < currentMonth.start }.maxByOrNull { it.second }
+        val todayStart = dayStartMillis(now)
+        val nearestItemFallback = itemDueDates.filter { it.second >= todayStart }.minByOrNull { it.second }
+            ?: itemDueDates.filter { it.second < todayStart }.maxByOrNull { it.second }
         val nearestDueMillis = nearest?.third ?: nearestItemFallback?.second
         val nearestTitle = nearest?.first?.title ?: nearestItemFallback?.first?.title
-        val daysToNearest = nearestDueMillis?.let { ((it - now) / 86_400_000L).toInt() } ?: 0
+        val daysToNearest = nearestDueMillis?.let { ((dayStartMillis(it) - todayStart) / 86_400_000L).toInt() } ?: 0
         val largest = active.flatMap { item ->
             item.paymentHistory.filter { isUnpaid(it.status) && it.amount > 0L }.map { item to it }
         }.maxByOrNull { it.second.amount }
@@ -144,6 +163,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             monthlyIncome = income, totalInstallments = monthlyInstallments, fixedExpenses = fixedExpenses,
             totalCommitments = totalCommitments, pressurePercentage = pressure ?: 0f, healthStatus = status,
             hasIncomeData = income > 0L, hasFixedExpensesData = profile.isConfigured,
+            incomeFromTransactions = !profile.isConfigured && income > 0L,
             hasInstallmentScheduleData = hasCompleteInstallmentSchedule,
             hasPreviousMonthData = previousPressure != null && currentHistoryPressure != null,
             currentMonthComparisonPressure = currentHistoryPressure, insights = insights,
