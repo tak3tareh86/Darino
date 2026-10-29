@@ -82,6 +82,6 @@ data class FinancialHealthProfile(
     val fixedExpenses: Long,
     val financialPressure: Float,
     val healthStatus: FinancialHealthStatus,
-    val isConfigured: Boolean = false,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val isConfigured: Boolean = false
 )
