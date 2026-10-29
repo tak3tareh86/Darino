@@ -270,7 +270,6 @@ object SettingsMockDataSource {
         SettingsSearchItem("s_num_mode", "نحوه نمایش اعداد", "فارسی (۰۱۲۳۴۵۶۷۸۹) یا انگلیسی (0123456789)", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "🔢"),
         SettingsSearchItem("s_night_mode", "حالت شب و روز", "تم روشن، تاریک و هماهنگ با سیستم", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "🌓"),
         SettingsSearchItem("s_transition", "انیمیشن جابجایی بین منوها", "اسلاید، محو شدن (fade)، بزرگ‌نمایی (scale)، زوم و حالت پویا و فنری", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "⚡"),
-        SettingsSearchItem("s_clean_slate", "خام‌سازی برنامه و حذف داده‌های تستی", "پاکسازی اطلاعات فرضی، خودروها، تراکنش‌ها و اقساط تستی جهت ورود اطلاعات واقعی", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "🧹"),
         SettingsSearchItem("s_data_mgmt", "مدیریت داده‌ها و بازنشانی", "پاکسازی تراکنش‌ها، خودروها، اقساط یا بازنشانی کامل به حالت اولیه", "تنظیمات", SettingsDestination.DATA_MANAGEMENT, null, "🗑️"),
         SettingsSearchItem("s_alerts", "ارسال پیامک و نوتیفیکیشن", "تنظیم نحوه ارسال هشدارها: هر دو، فقط نوتیفیکیشن، فقط پیامک", "تنظیمات عمومی", SettingsDestination.GENERAL, R.drawable.img_3d_bell_notification),
         SettingsSearchItem("s_backup_sup", "پشتیبانی و بک‌آپ‌گیری", "تهیه نسخه پشتیبان، بازیابی فایل، راهنما و ارتباط با کارشناسان", "پشتیبانی و بک‌آپ", SettingsDestination.SUPPORT_BACKUP, R.drawable.img_3d_cloud_backup),
