@@ -77,6 +77,7 @@ class AppPreferencesRepository private constructor(context: Context) {
         MoneyFormatter.activeCurrency = _currency.value
         MoneyFormatter.activeLanguage = _language.value
         AppNumberFormatter.setMode(_numberDisplayMode.value)
+        MoneyFormatter.activeNumberMode = _numberDisplayMode.value
 
         val initialUserId = SessionManager.userId
         if (!initialUserId.isNullOrBlank()) {
@@ -188,6 +189,7 @@ class AppPreferencesRepository private constructor(context: Context) {
                 } ?: NumberDisplayMode.PERSIAN
 
                 _numberDisplayMode.value = mode
+                MoneyFormatter.activeNumberMode = mode
                 withContext(Dispatchers.Main) {
                     AppNumberFormatter.setMode(mode)
                 }
@@ -203,6 +205,7 @@ class AppPreferencesRepository private constructor(context: Context) {
     fun setNumberDisplayMode(mode: NumberDisplayMode, userId: String? = null) {
         val effectiveUserId = userId ?: currentActiveUserId ?: SessionManager.userId
         _numberDisplayMode.value = mode
+        MoneyFormatter.activeNumberMode = mode
         AppNumberFormatter.setMode(mode)
 
         if (!effectiveUserId.isNullOrBlank()) {
@@ -231,6 +234,7 @@ class AppPreferencesRepository private constructor(context: Context) {
         observePreferenceJob = null
         currentActiveUserId = null
         _numberDisplayMode.value = NumberDisplayMode.PERSIAN
+        MoneyFormatter.activeNumberMode = NumberDisplayMode.PERSIAN
         AppNumberFormatter.setMode(NumberDisplayMode.PERSIAN)
     }
 
