@@ -218,17 +218,6 @@ fun CheckScreen(
         )
     }
 
-    operationErrorDialog?.let { message ->
-        AlertDialog(
-            onDismissRequest = { operationErrorDialog = null },
-            title = { Text("عملیات انجام نشد") },
-            text = { Text(message) },
-            confirmButton = {
-                TextButton(onClick = { operationErrorDialog = null }) { Text("متوجه شدم") }
-            }
-        )
-    }
-
     if (selectedCheckForDetail != null) {
         com.example.ui.screens.check.components.CheckDetailDialog(
             check = selectedCheckForDetail!!,
@@ -250,6 +239,17 @@ fun CheckScreen(
                     if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) selectedCheckForDetail = null
                 }
             },
+        )
+    }
+
+    operationErrorDialog?.let { message ->
+        AlertDialog(
+            onDismissRequest = { operationErrorDialog = null },
+            title = { Text("عملیات انجام نشد") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { operationErrorDialog = null }) { Text("متوجه شدم") }
+            }
         )
     }
 }
