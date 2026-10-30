@@ -84,6 +84,26 @@ fun AddVehicleSheet(
     )
 
     var showBrandDialog by remember { mutableStateOf(false) }
+    var showYearDialog by remember { mutableStateOf(false) }
+    var showColorDialog by remember { mutableStateOf(false) }
+    var showTransmissionDialog by remember { mutableStateOf(false) }
+    val vehicleColors = remember {
+        listOf(
+            "سفید" to Color(0xFFF5F5F0), "سفید صدفی" to Color(0xFFECE8DC), "سفید یخچالی" to Color(0xFFFFFFFF),
+            "مشکی" to Color(0xFF171717), "مشکی متالیک" to Color(0xFF303238), "نقره‌ای" to Color(0xFFC0C0C0),
+            "نقره‌ای متالیک" to Color(0xFFAEB6BE), "خاکستری" to Color(0xFF888888), "خاکستری متالیک" to Color(0xFF70777D),
+            "نوک‌مدادی" to Color(0xFF454A50), "دودی" to Color(0xFF55565A), "سرمه‌ای" to Color(0xFF172B50),
+            "آبی" to Color(0xFF1769AA), "آبی کبود" to Color(0xFF263B73), "آبی روشن" to Color(0xFF72B7E5),
+            "قرمز" to Color(0xFFC62828), "زرشکی" to Color(0xFF800020), "عنابی" to Color(0xFF6D263A),
+            "سبز" to Color(0xFF27834A), "سبز یشمی" to Color(0xFF176B55), "سبز زیتونی" to Color(0xFF687343),
+            "کرم" to Color(0xFFE5D2A8), "بژ" to Color(0xFFD5C2A1), "طلایی" to Color(0xFFC6A04A),
+            "قهوه‌ای" to Color(0xFF79513A), "مسی" to Color(0xFFB66A45), "نارنجی" to Color(0xFFED861F),
+            "زرد" to Color(0xFFF2D13D), "بنفش" to Color(0xFF75458A), "زیتونی متالیک" to Color(0xFF73784A)
+        )
+    }
+    val availableYears = remember(currentYear) {
+        (1380..maxOf(1405, currentYear.toIntOrNull() ?: 1405)).map { it.toString() }
+    }
     var brandSearchQuery by remember { mutableStateOf("") }
     val filteredBrands = remember(brands, brandSearchQuery) {
         brands.filter { it.contains(brandSearchQuery.trim(), ignoreCase = true) }
@@ -326,6 +346,117 @@ fun AddVehicleSheet(
                 )
             }
 
+            if (showYearDialog) {
+                AlertDialog(
+                    onDismissRequest = { showYearDialog = false },
+                    title = { Text("انتخاب سال ساخت") },
+                    text = {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(4),
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+                            contentPadding = PaddingValues(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(availableYears) { option ->
+                                val selected = year == option
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(9.dp))
+                                        .clickable { year = option; showYearDialog = false },
+                                    color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                    shape = RoundedCornerShape(9.dp),
+                                    border = if (selected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 2.dp)) {
+                                        Text(option, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                                            textAlign = TextAlign.Center, fontSize = 13.sp,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = { TextButton(onClick = { showYearDialog = false }) { Text("بستن") } }
+                )
+            }
+
+            if (showColorDialog) {
+                AlertDialog(
+                    onDismissRequest = { showColorDialog = false },
+                    title = { Text("انتخاب رنگ بدنه") },
+                    text = {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(3),
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+                            contentPadding = PaddingValues(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(vehicleColors) { option ->
+                                val selected = color == option.first
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(10.dp))
+                                        .clickable { color = option.first; showColorDialog = false },
+                                    color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = if (selected) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null
+                                ) {
+                                    Column(
+                                        modifier = Modifier.fillMaxSize().padding(horizontal = 3.dp, vertical = 7.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Box(Modifier.size(34.dp).clip(RoundedCornerShape(50)).background(option.second))
+                                        Spacer(Modifier.height(7.dp))
+                                        Text(option.first, modifier = Modifier.fillMaxWidth(), maxLines = 1, softWrap = false,
+                                            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, fontSize = 10.sp,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = { TextButton(onClick = { showColorDialog = false }) { Text("بستن") } }
+                )
+            }
+
+            if (showTransmissionDialog) {
+                AlertDialog(
+                    onDismissRequest = { showTransmissionDialog = false },
+                    title = { Text("انتخاب نوع گیربکس") },
+                    text = {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(listOf("دنده‌ای", "اتوماتیک")) { option ->
+                                val selected = transmission == option
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(10.dp))
+                                        .clickable { transmission = option; showTransmissionDialog = false },
+                                    color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = if (selected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 4.dp)) {
+                                        Text(option, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                                            textAlign = TextAlign.Center,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = { TextButton(onClick = { showTransmissionDialog = false }) { Text("بستن") } }
+                )
+            }
+
             if (brand == "سایر") {
                 OutlinedTextField(
                     value = customBrand,
@@ -357,6 +488,11 @@ fun AddVehicleSheet(
                     label = { Text("سال ساخت") },
                     placeholder = { Text("1402") },
                     modifier = Modifier.weight(1f),
+                    trailingIcon = {
+                        IconButton(onClick = { showYearDialog = true }) {
+                            Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب سال ساخت")
+                        }
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
@@ -378,10 +514,16 @@ fun AddVehicleSheet(
                 )
                 OutlinedTextField(
                     value = transmission,
-                    onValueChange = { transmission = it },
+                    onValueChange = {},
+                    readOnly = true,
                     label = { Text("نوع گیربکس", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp) },
-                    placeholder = { Text("دنده‌ای، اتوماتیک") },
+                    placeholder = { Text("انتخاب کنید") },
                     modifier = Modifier.weight(1f),
+                    trailingIcon = {
+                        IconButton(onClick = { showTransmissionDialog = true }) {
+                            Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب نوع گیربکس")
+                        }
+                    },
                     singleLine = true
                 )
             }
@@ -397,6 +539,11 @@ fun AddVehicleSheet(
                     label = { Text("رنگ بدنه") },
                     placeholder = { Text("سفید") },
                     modifier = Modifier.weight(1f),
+                    trailingIcon = {
+                        IconButton(onClick = { showColorDialog = true }) {
+                            Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب رنگ بدنه")
+                        }
+                    },
                     singleLine = true
                 )
 
