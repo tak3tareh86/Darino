@@ -19,6 +19,15 @@ class FinancialAnalyzerEngineTest {
     }
 
     @Test
+    fun paymentScheduleMustExactlyMatchContractTotal() {
+        assertTrue(FinancialAnalyzerEngine.isPaymentScheduleTotalConsistent(1_000L, listOf(300L, 300L, 400L)))
+        assertTrue(!FinancialAnalyzerEngine.isPaymentScheduleTotalConsistent(1_000L, listOf(300L, 300L, 399L)))
+        assertTrue(!FinancialAnalyzerEngine.isPaymentScheduleTotalConsistent(1_000L, listOf(300L, 300L, 401L)))
+        assertTrue(!FinancialAnalyzerEngine.isPaymentScheduleTotalConsistent(1_000L, listOf(500L, 0L, 500L)))
+        assertTrue(!FinancialAnalyzerEngine.isPaymentScheduleTotalConsistent(1_000L, listOf(Long.MAX_VALUE, 1L)))
+    }
+
+    @Test
     fun statusThresholdsAreConsistentAtBoundaries() {
         assertEquals(FinancialHealthStatus.SAFE, FinancialAnalyzerEngine.calculateHealthStatus(30.0f))
         assertEquals(FinancialHealthStatus.MEDIUM, FinancialAnalyzerEngine.calculateHealthStatus(30.1f))
