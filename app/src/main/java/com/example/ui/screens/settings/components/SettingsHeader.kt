@@ -115,7 +115,7 @@ fun SettingsHeader(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                                 contentDescription = "بازگشت",
-                                tint = Color.White,
+                                tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
@@ -149,7 +149,7 @@ fun SettingsHeader(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 19.sp
                             ),
-                            color = Color.White
+                            color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
                         )
 
                         Text(
