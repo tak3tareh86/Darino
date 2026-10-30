@@ -92,7 +92,7 @@ fun PersianAmountInputField(
                 onRawAmountChange?.invoke(newClean, newClean.toLongOrNull() ?: 0L)
             },
             label = if (!useOuterHeader && effectiveLabel.isNotBlank()) {
-                { Text(text = effectiveLabel, maxLines = if (singleLineLabel) 1 else Int.MAX_VALUE, softWrap = !singleLineLabel, overflow = if (singleLineLabel) TextOverflow.Ellipsis else TextOverflow.Clip, style = if (singleLineLabel) MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp) else MaterialTheme.typography.bodySmall) }
+                { if (singleLineLabel) Text(text = effectiveLabel, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) else Text(text = effectiveLabel) }
             } else null,
             modifier = Modifier
                 .fillMaxWidth()
