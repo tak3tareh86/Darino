@@ -38,9 +38,11 @@ object MoneyFormatter {
 
     var activeLanguage: AppLanguage by mutableStateOf(AppLanguage.PERSIAN)
 
-    var isPrivacyModeEnabled: Boolean by mutableStateOf(false)
-        private set
-    fun setPrivacyModeEnabled(enabled: Boolean) { isPrivacyModeEnabled = enabled }
+    private var privacyModeEnabled: Boolean by mutableStateOf(false)
+    val isPrivacyModeEnabled: Boolean
+        get() = privacyModeEnabled
+
+    fun setPrivacyModeEnabled(enabled: Boolean) { privacyModeEnabled = enabled }
     private fun maskedAmount(includeUnit: Boolean, currency: AppCurrency, language: AppLanguage): String =
         if (includeUnit) "•••• ${getUnitLabel(currency, language)}" else "••••"
 
