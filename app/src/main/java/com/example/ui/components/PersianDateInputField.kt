@@ -41,7 +41,9 @@ fun PersianDateInputField(
     shape: Shape = RoundedCornerShape(RadiusMD),
     dialogTitle: String = "انتخاب تاریخ (شمسی)",
     testTag: String = "date_input_field",
-    colors: TextFieldColors = OutlinedTextFieldDefaults.colors()
+    colors: TextFieldColors = OutlinedTextFieldDefaults.colors(),
+    fieldHeight: androidx.compose.ui.unit.Dp? = null,
+    singleLineLabel: Boolean = false
 ) {
     var showCalendarDialog by remember { mutableStateOf(false) }
 
@@ -87,10 +89,18 @@ fun PersianDateInputField(
                 onValueChange(formatted)
             },
             label = if (!useOuterHeader && !label.isNullOrBlank()) {
-                { Text(text = label) }
+                {
+                    Text(
+                        text = label,
+                        maxLines = if (singleLineLabel) 1 else Int.MAX_VALUE,
+                        softWrap = !singleLineLabel,
+                        style = if (singleLineLabel) MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp) else MaterialTheme.typography.bodySmall
+                    )
+                }
             } else null,
             modifier = Modifier
                 .fillMaxWidth()
+                .then(if (fieldHeight != null) Modifier.height(fieldHeight) else Modifier)
                 .testTag(testTag),
             placeholder = {
                 Text(
