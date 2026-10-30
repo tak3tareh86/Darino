@@ -232,7 +232,7 @@ fun ReminderCard(
                 // Amount / Target Kilometer and compact actions on the left side
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (reminder.amount != null && reminder.amount > 0) {
                         Text(
@@ -269,19 +269,25 @@ fun ReminderCard(
                         onClick = onToggleCompleted,
                         modifier = Modifier
                             .size(30.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isCompleted) EmeraldPrimaryLight.copy(alpha = 0.15f)
-                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                            )
                             .testTag("btn_toggle_complete_${reminder.id}")
                     ) {
-                        Icon(
-                            imageVector = if (isCompleted) Icons.Rounded.CheckCircle else Icons.Rounded.CheckCircleOutline,
-                            contentDescription = if (isCompleted) "علامت به عنوان فعال" else "علامت به عنوان انجام شده",
-                            tint = if (isCompleted) EmeraldPrimaryLight else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(21.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isCompleted) EmeraldPrimaryLight.copy(alpha = 0.15f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isCompleted) Icons.Rounded.CheckCircle else Icons.Rounded.CheckCircleOutline,
+                                contentDescription = if (isCompleted) "علامت به عنوان فعال" else "علامت به عنوان انجام شده",
+                                tint = if (isCompleted) EmeraldPrimaryLight else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
 
                     if (!isCompleted) {
@@ -289,16 +295,22 @@ fun ReminderCard(
                             onClick = onSnoozeClick,
                             modifier = Modifier
                                 .size(30.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                                 .testTag("btn_snooze_${reminder.id}")
                         ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Snooze,
-                                contentDescription = "به تعویق انداختن",
-                                tint = WarningAmberLight,
-                                modifier = Modifier.size(15.dp)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(21.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Snooze,
+                                    contentDescription = "به تعویق انداختن",
+                                    tint = WarningAmberLight,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
                         }
                     }
                 }
