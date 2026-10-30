@@ -38,7 +38,4 @@ class BackupManager(private val repository: BackupRepository) {
         repository.getLastBackupTime()
     }
 
-    suspend fun deleteAllData() = withContext(Dispatchers.IO) {
-        repository.deleteAllData()
-    }
 }
