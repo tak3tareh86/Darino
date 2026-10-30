@@ -4,8 +4,8 @@ import kotlin.math.pow
 import kotlin.math.roundToLong
 
 /**
- * Pure domain calculation engine for loans and installments.
- * Fully decoupled from Android UI.
+ * Mathematical estimates for common repayment models.
+ * These calculations are not a substitute for a bank's contract or official schedule.
  */
 class LoanCalculatorEngine {
 
@@ -14,38 +14,34 @@ class LoanCalculatorEngine {
         data class Invalid(val message: String) : ValidationResult()
     }
 
-    /**
-     * Validates user inputs before performing calculation.
-     */
     fun validateInputs(
         amount: Long?,
         interestRate: Double?,
-        duration: Int?
+        duration: Int?,
+        interestPeriod: InterestPeriod = InterestPeriod.ANNUAL,
+        durationType: DurationType = DurationType.MONTHS
     ): ValidationResult {
-        if (amount == null) {
-            return ValidationResult.Invalid("لطفاً مبلغ وام را وارد کنید")
+        if (amount == null) return ValidationResult.Invalid("لطفاً مبلغ وام را وارد کنید")
+        if (amount <= 0L || amount > MAX_PRINCIPAL) {
+            return ValidationResult.Invalid("مبلغ وام باید بین ۱ تومان تا ۱٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰ تومان باشد")
         }
-        if (amount <= 0L) {
-            return ValidationResult.Invalid("مبلغ وام باید بیشتر از صفر تومان باشد")
+        if (interestRate == null || !interestRate.isFinite()) {
+            return ValidationResult.Invalid("لطفاً نرخ سود معتبر وارد کنید")
         }
-        if (interestRate == null) {
-            return ValidationResult.Invalid("لطفاً نرخ سود را وارد کنید")
+        if (interestRate < 0.0) return ValidationResult.Invalid("نرخ سود نمی‌تواند منفی باشد")
+        val annualRate = if (interestPeriod == InterestPeriod.MONTHLY) interestRate * 12.0 else interestRate
+        if (!annualRate.isFinite() || annualRate > MAX_ANNUAL_RATE) {
+            return ValidationResult.Invalid("نرخ سالانه‌شده نباید بیشتر از ۱۰۰۰ درصد باشد")
         }
-        if (interestRate < 0.0) {
-            return ValidationResult.Invalid("نرخ سود نمی‌تواند منفی باشد")
-        }
-        if (duration == null) {
-            return ValidationResult.Invalid("لطفاً مدت زمان بازپرداخت را مشخص کنید")
-        }
-        if (duration <= 0) {
-            return ValidationResult.Invalid("مدت بازپرداخت باید حداقل ۱ ماه باشد")
+        if (duration == null) return ValidationResult.Invalid("لطفاً مدت زمان بازپرداخت را مشخص کنید")
+        if (duration <= 0) return ValidationResult.Invalid("مدت بازپرداخت باید بیشتر از صفر باشد")
+        val months = if (durationType == DurationType.YEARS) duration.toLong() * 12L else duration.toLong()
+        if (months > MAX_DURATION_MONTHS) {
+            return ValidationResult.Invalid("مدت بازپرداخت نمی‌تواند بیشتر از ۶۰۰ ماه باشد")
         }
         return ValidationResult.Valid
     }
 
-    /**
-     * Calculates the complete loan details.
-     */
     fun calculate(
         amount: Long,
         interestRate: Double,
@@ -54,18 +50,11 @@ class LoanCalculatorEngine {
         durationType: DurationType = DurationType.MONTHS,
         method: CalculationMethod = CalculationMethod.ANNUITY
     ): CalculationResult {
-        // Normalize duration to months
-        val totalMonths = when (durationType) {
-            DurationType.MONTHS -> duration.coerceAtLeast(1)
-            DurationType.YEARS -> (duration * 12).coerceAtLeast(1)
+        require(validateInputs(amount, interestRate, duration, interestPeriod, durationType) is ValidationResult.Valid) {
+            "ورودی‌های محاسبه تسهیلات معتبر نیستند"
         }
-
-        // Normalize interest to annual percentage
-        val annualRate = when (interestPeriod) {
-            InterestPeriod.ANNUAL -> interestRate.coerceAtLeast(0.0)
-            InterestPeriod.MONTHLY -> (interestRate * 12.0).coerceAtLeast(0.0)
-        }
-
+        val totalMonths = if (durationType == DurationType.YEARS) duration * 12 else duration
+        val annualRate = if (interestPeriod == InterestPeriod.MONTHLY) interestRate * 12.0 else interestRate
         return when (method) {
             CalculationMethod.ANNUITY -> calculateAnnuity(amount, annualRate, totalMonths)
             CalculationMethod.SIMPLE_INTEREST -> calculateSimpleInterest(amount, annualRate, totalMonths)
@@ -74,135 +63,70 @@ class LoanCalculatorEngine {
     }
 
     /**
-     * 1. Standard Banking Equal Monthly Installments (Annuity / French Method).
-     * Formula:
-     *   r = monthly interest rate = (annualRate / 100) / 12
-     *   Monthly Payment M = P * [ r * (1 + r)^n ] / [ (1 + r)^n - 1 ]
-     * If r == 0 (Interest free):
-     *   M = P / n
+     * Equal-payment amortization estimate: monthly rate = nominal annual rate / 12.
+     * The displayed installment is rounded to whole tomans; totals are derived from it
+     * so total payment always reconciles with the displayed monthly installment.
      */
-    private fun calculateAnnuity(
-        principal: Long,
-        annualRate: Double,
-        months: Int
-    ): CalculationResult {
-        if (annualRate <= 0.00001) {
-            val monthly = (principal.toDouble() / months).roundToLong()
-            val totalPayment = monthly * months
-            return CalculationResult(
-                principalAmount = principal,
-                durationMonths = months,
-                annualInterestRate = annualRate,
-                monthlyPayment = monthly,
-                totalPayment = totalPayment,
-                totalInterest = 0L,
-                realCostPercentage = 0.0,
-                method = CalculationMethod.ANNUITY
-            )
-        }
-
-        val monthlyRate = (annualRate / 100.0) / 12.0
-        val compound = (1.0 + monthlyRate).pow(months.toDouble())
-        val monthlyDouble = principal.toDouble() * ((monthlyRate * compound) / (compound - 1.0))
-        val monthlyPayment = monthlyDouble.roundToLong()
-        val totalPayment = monthlyPayment * months
+    private fun calculateAnnuity(principal: Long, annualRate: Double, months: Int): CalculationResult {
+        val monthlyRate = annualRate / 1200.0
+        val payment = if (monthlyRate == 0.0) {
+            (principal.toDouble() / months).roundToLong()
+        } else {
+            val factor = (1.0 + monthlyRate).pow(months.toDouble())
+            (principal.toDouble() * monthlyRate * factor / (factor - 1.0)).roundToLong()
+        }.coerceAtLeast(1L)
+        val totalPayment = Math.multiplyExact(payment, months.toLong())
         val totalInterest = (totalPayment - principal).coerceAtLeast(0L)
-        val realCostPercentage = (totalInterest.toDouble() / principal.toDouble()) * 100.0
-
-        return CalculationResult(
-            principalAmount = principal,
-            durationMonths = months,
-            annualInterestRate = annualRate,
-            monthlyPayment = monthlyPayment,
-            totalPayment = totalPayment,
-            totalInterest = totalInterest,
-            realCostPercentage = realCostPercentage,
-            method = CalculationMethod.ANNUITY
-        )
+        return result(principal, annualRate, months, payment, totalPayment, totalInterest, CalculationMethod.ANNUITY)
     }
 
     /**
-     * 2. Simple Interest (سود ساده):
-     *   Total Interest = Principal * (annualRate / 100) * (months / 12)
-     *   Total Payment = Principal + Total Interest
-     *   Monthly Payment = Total Payment / months
+     * Flat/simple-interest estimate. Interest is charged on the original principal
+     * for the full term; this is deliberately NOT represented as standard bank amortization.
      */
-    private fun calculateSimpleInterest(
+    private fun calculateSimpleInterest(principal: Long, annualRate: Double, months: Int): CalculationResult {
+        val interest = (principal.toDouble() * annualRate / 1200.0 * months).roundToLong()
+        val total = Math.addExact(principal, interest)
+        val regularPayment = total / months
+        // Keep totals exactly reconcilable; monthlyPayment is the regular rounded estimate.
+        val payment = (total.toDouble() / months).roundToLong()
+        return result(principal, annualRate, months, payment, total, interest, CalculationMethod.SIMPLE_INTEREST)
+    }
+
+    /**
+     * Pro-rated flat fee estimate. No artificial one-year minimum is applied:
+     * fee = principal × annual fee rate × actual months / 12.
+     * The applicable fee must still be taken from the specific contract/regulation.
+     */
+    private fun calculateCustomFlatFee(principal: Long, annualRate: Double, months: Int): CalculationResult {
+        val fee = (principal.toDouble() * annualRate / 1200.0 * months).roundToLong()
+        val total = Math.addExact(principal, fee)
+        val payment = (total.toDouble() / months).roundToLong()
+        return result(principal, annualRate, months, payment, total, fee, CalculationMethod.CUSTOM)
+    }
+
+    private fun result(
         principal: Long,
         annualRate: Double,
-        months: Int
-    ): CalculationResult {
-        val years = months.toDouble() / 12.0
-        val totalInterestDouble = principal.toDouble() * (annualRate / 100.0) * years
-        val totalInterest = totalInterestDouble.roundToLong().coerceAtLeast(0L)
-        val totalPayment = principal + totalInterest
-        val monthlyPayment = (totalPayment.toDouble() / months).roundToLong()
-        val realCostPercentage = (totalInterest.toDouble() / principal.toDouble()) * 100.0
+        months: Int,
+        monthlyPayment: Long,
+        totalPayment: Long,
+        totalInterest: Long,
+        method: CalculationMethod
+    ) = CalculationResult(
+        principalAmount = principal,
+        durationMonths = months,
+        annualInterestRate = annualRate,
+        monthlyPayment = monthlyPayment,
+        totalPayment = totalPayment,
+        totalInterest = totalInterest,
+        realCostPercentage = totalInterest.toDouble() / principal.toDouble() * 100.0,
+        method = method
+    )
 
-        return CalculationResult(
-            principalAmount = principal,
-            durationMonths = months,
-            annualInterestRate = annualRate,
-            monthlyPayment = monthlyPayment,
-            totalPayment = totalPayment,
-            totalInterest = totalInterest,
-            realCostPercentage = realCostPercentage,
-            method = CalculationMethod.SIMPLE_INTEREST
-        )
-    }
-
-    /**
-     * 3. Custom Flat Fee / Qarz al-Hasana (کارمزد ۴٪ سالانه):
-     */
-    private fun calculateCustomFlatFee(
-        principal: Long,
-        annualRate: Double,
-        months: Int
-    ): CalculationResult {
-        val years = (months.toDouble() / 12.0).coerceAtLeast(1.0)
-        // Flat annual commission on loan
-        val totalFee = (principal.toDouble() * (annualRate / 100.0) * years).roundToLong()
-        val totalPayment = principal + totalFee
-        val monthlyPayment = (totalPayment.toDouble() / months).roundToLong()
-        val realCostPercentage = (totalFee.toDouble() / principal.toDouble()) * 100.0
-
-        return CalculationResult(
-            principalAmount = principal,
-            durationMonths = months,
-            annualInterestRate = annualRate,
-            monthlyPayment = monthlyPayment,
-            totalPayment = totalPayment,
-            totalInterest = totalFee,
-            realCostPercentage = realCostPercentage,
-            method = CalculationMethod.CUSTOM
-        )
-    }
-
-    /**
-     * Compares two distinct loan structures and computes differences.
-     */
-    fun compareLoans(
-        loan1Input: ComparisonLoanInput,
-        loan2Input: ComparisonLoanInput
-    ): ComparisonResult {
-        val result1 = calculate(
-            amount = loan1Input.amount,
-            interestRate = loan1Input.interestRate,
-            interestPeriod = InterestPeriod.ANNUAL,
-            duration = loan1Input.durationMonths,
-            durationType = DurationType.MONTHS,
-            method = loan1Input.method
-        )
-
-        val result2 = calculate(
-            amount = loan2Input.amount,
-            interestRate = loan2Input.interestRate,
-            interestPeriod = InterestPeriod.ANNUAL,
-            duration = loan2Input.durationMonths,
-            durationType = DurationType.MONTHS,
-            method = loan2Input.method
-        )
-
+    fun compareLoans(loan1Input: ComparisonLoanInput, loan2Input: ComparisonLoanInput): ComparisonResult {
+        val result1 = calculate(loan1Input.amount, loan1Input.interestRate, duration = loan1Input.durationMonths, method = loan1Input.method)
+        val result2 = calculate(loan2Input.amount, loan2Input.interestRate, duration = loan2Input.durationMonths, method = loan2Input.method)
         return ComparisonResult(
             loan1 = result1,
             loan2 = result2,
@@ -210,5 +134,11 @@ class LoanCalculatorEngine {
             totalInterestDiff = result2.totalInterest - result1.totalInterest,
             totalPaymentDiff = result2.totalPayment - result1.totalPayment
         )
+    }
+
+    companion object {
+        private const val MAX_PRINCIPAL = 1_000_000_000_000_000L
+        private const val MAX_ANNUAL_RATE = 1000.0
+        private const val MAX_DURATION_MONTHS = 600L
     }
 }
