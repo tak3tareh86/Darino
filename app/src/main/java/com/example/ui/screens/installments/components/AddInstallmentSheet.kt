@@ -1008,7 +1008,7 @@ private fun CustomInstallmentsDialog(
     onConfirm: (List<com.example.ui.screens.installments.model.PaymentHistoryItem>) -> Unit
 ) {
     val totalAmountLong = IranianAmountUtils.parseAmountToLong(totalAmountStr)
-    val countInt = installmentsCountStr.filter { it.isDigit() }.toIntOrNull()?.coerceAtLeast(1) ?: 12
+    val countInt = IranianPhoneUtils.convertDigitsToEnglish(installmentsCountStr).filter { it.isDigit() }.toIntOrNull()?.coerceAtLeast(1) ?: 12
 
     var rangeStartStr by remember { mutableStateOf("۱") }
     var rangeEndStr by remember { mutableStateOf(IranianPhoneUtils.convertDigitsToPersian(countInt.toString())) }
