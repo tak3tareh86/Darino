@@ -315,43 +315,35 @@ fun SubscriptionStatusCard(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Top Row: Title + Icon + Badge
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
+                    // Header: Star + greeting on one side, remaining-days badge on the other.
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = Color(0xFFF59E0B).copy(alpha = 0.25f),
-                                border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.8f)),
-                                modifier = Modifier.size(34.dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.AutoAwesome,
-                                        contentDescription = null,
-                                        tint = Color(0xFFFDE047),
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFFF59E0B).copy(alpha = 0.25f),
+                                    border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.8f)),
+                                    modifier = Modifier.size(34.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = Color(0xFFFDE047),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
-                            }
-
-                            // Centered greeting and fully justified offer copy
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 2.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
                                 Text(
                                     text = if (isExpired) "پایان دوره آزمایشی" else "دوست خوبم سلام",
-                                    modifier = Modifier.fillMaxWidth(),
                                     textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
@@ -359,50 +351,57 @@ fun SubscriptionStatusCard(
                                         color = offerTextColor
                                     )
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                            }
+
+                            // Gold Yearly Tag
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFF59E0B),
+                                contentColor = Color(0xFF451A03)
+                            ) {
                                 Text(
-                                    text = if (isExpired) {
-                                        "دوره آزمایشی تمام شده؛ برای ادامه اشتراک سالیانه تهیه کنید."
-                                    } else {
-                                        "از تمام امکانات برنامه به مدت ۱۴ روز رایگان و بدون محدودیت استفاده کن. اگر از تجربه کار با برنامه رضایت داشتی پس از پایان دوره آزمایشی اشتراک سالیانه را تهیه کن و با خیال راحت به استفاده از امکانات برنامه"
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 2.dp),
-                                    textAlign = TextAlign.Justify,
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontSize = 10.5.sp,
-                                        lineHeight = 15.sp,
-                                        color = offerMutedTextColor
-                                    )
+                                    text = if (isTrial) "${IranianPhoneUtils.convertDigitsToPersian(state.trialDaysRemaining.toString())} روز مانده" else "ویژه ۳۶۵ روز",
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
-                                if (!isExpired) {
-                                    Text(
-                                        text = "ادامه بده.",
-                                        modifier = Modifier.fillMaxWidth(),
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            fontSize = 10.5.sp,
-                                            lineHeight = 15.sp,
-                                            color = Color(0xFFE2E8F0).copy(alpha = 0.9f)
-                                        )
-                                    )
-                                }
                             }
                         }
 
-                        // Gold Yearly Tag
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFF59E0B),
-                            contentColor = Color(0xFF451A03)
+                        // Use the full card width below both header elements, with a small inset.
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = if (isTrial) "${IranianPhoneUtils.convertDigitsToPersian(state.trialDaysRemaining.toString())} روز مانده" else "ویژه ۳۶۵ روز",
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                text = if (isExpired) {
+                                    "دوره آزمایشی تمام شده؛ برای ادامه اشتراک سالیانه تهیه کنید."
+                                } else {
+                                    "از تمام امکانات برنامه به مدت ۱۴ روز رایگان و بدون محدودیت استفاده کن. اگر از تجربه کار با برنامه رضایت داشتی پس از پایان دوره آزمایشی اشتراک سالیانه را تهیه کن و با خیال راحت به استفاده از امکانات برنامه"
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Justify,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 10.5.sp,
+                                    lineHeight = 15.sp,
+                                    color = offerMutedTextColor
+                                )
                             )
+                            if (!isExpired) {
+                                Text(
+                                    text = "ادامه بده.",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 10.5.sp,
+                                        lineHeight = 15.sp,
+                                        color = Color(0xFFE2E8F0).copy(alpha = 0.9f)
+                                    )
+                                )
+                            }
                         }
                     }
 
