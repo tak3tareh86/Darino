@@ -65,9 +65,9 @@ fun SettingsHeader(
     } else {
         Brush.verticalGradient(
             colors = listOf(
-                Color(0xFF0F172A),
-                Color(0xFF134E4A),
-                Color(0xFF0D9488)
+                MaterialTheme.colorScheme.surface,
+                MaterialTheme.colorScheme.surfaceVariant,
+                MaterialTheme.colorScheme.primaryContainer
             )
         )
     }
@@ -78,11 +78,11 @@ fun SettingsHeader(
             .shadow(
                 elevation = 12.dp,
                 shape = HeaderShape,
-                ambientColor = Color.Black.copy(alpha = 0.3f),
-                spotColor = Color.Black.copy(alpha = 0.4f)
+                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
             ),
         shape = HeaderShape,
-        color = Color.Transparent
+        color = MaterialTheme.colorScheme.surface
     ) {
         Box(
             modifier = Modifier
@@ -107,7 +107,7 @@ fun SettingsHeader(
                             modifier = Modifier
                                 .size(42.dp)
                                 .clip(RoundedCornerShape(RadiusMD))
-                                .background(Color.White.copy(alpha = 0.12f))
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
                                 .clickable(onClick = onBackClick)
                                 .testTag("settings_header_back_button"),
                             contentAlignment = Alignment.Center
@@ -126,7 +126,7 @@ fun SettingsHeader(
                                 .size(46.dp)
                                 .shadow(8.dp, RoundedCornerShape(RadiusMD), spotColor = Color(0xFF14B8A6))
                                 .clip(RoundedCornerShape(RadiusMD))
-                                .background(Color.White.copy(alpha = 0.15f)),
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Image(
@@ -157,7 +157,7 @@ fun SettingsHeader(
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontSize = 12.sp
                             ),
-                            color = Color.White.copy(alpha = 0.78f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -169,7 +169,7 @@ fun SettingsHeader(
                             .size(42.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isSearchActive) Color(0xFF14B8A6) else Color.White.copy(alpha = 0.12f)
+                                if (isSearchActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
                             )
                             .clickable(onClick = onSearchToggle)
                             .testTag("settings_search_toggle_button"),
@@ -178,7 +178,7 @@ fun SettingsHeader(
                         Icon(
                             imageVector = Icons.Rounded.Search,
                             contentDescription = "جستجو در تنظیمات",
-                            tint = Color.White,
+                            tint = if (isSearchActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
