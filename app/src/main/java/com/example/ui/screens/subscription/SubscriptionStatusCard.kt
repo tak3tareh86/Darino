@@ -324,7 +324,7 @@ fun SubscriptionStatusCard(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = if (isExpired) "پایان دوره آزمایشی" else "دوست خوبم",
+                                    text = if (isExpired) "پایان دوره آزمایشی" else "دوست خوبم سلام",
                                     modifier = Modifier.fillMaxWidth(),
                                     textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.titleMedium.copy(
@@ -338,7 +338,7 @@ fun SubscriptionStatusCard(
                                     text = if (isExpired) {
                                         "دوره آزمایشی تمام شده؛ برای ادامه اشتراک سالیانه تهیه کنید."
                                     } else {
-                                        "از تمام امکانات برنامه به مدت ۱۴ روز رایگان و بدون محدودیت استفاده کن. اگر از تجربه کار با برنامه رضایت داشتی پس از پایان دوره آزمایشی اشتراک سالیانه را تهیه کن و با خیال راحت به استفاده از امکانات برنامه ادامه بده."
+                                        "از تمام امکانات برنامه به مدت ۱۴ روز رایگان و بدون محدودیت استفاده کن. اگر از تجربه کار با برنامه رضایت داشتی پس از پایان دوره آزمایشی اشتراک سالیانه را تهیه کن و با خیال راحت به استفاده از امکانات برنامه"
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -350,6 +350,18 @@ fun SubscriptionStatusCard(
                                         color = Color(0xFFE2E8F0).copy(alpha = 0.9f)
                                     )
                                 )
+                                if (!isExpired) {
+                                    Text(
+                                        text = "ادامه بده.",
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Center,
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontSize = 10.5.sp,
+                                            lineHeight = 15.sp,
+                                            color = Color(0xFFE2E8F0).copy(alpha = 0.9f)
+                                        )
+                                    )
+                                }
                             }
                         }
 
