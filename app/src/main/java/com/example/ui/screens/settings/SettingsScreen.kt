@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ColorLens
 import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.MonetizationOn
 import androidx.compose.material.icons.rounded.Notifications
@@ -265,6 +266,7 @@ fun SettingsScreen(
                     onBackClick = { currentDestination = SettingsDestination.MAIN }
                 )
             }
+            SettingsDestination.APP_LOCK,
             SettingsDestination.LOCK_AND_AUTH -> {
                 com.example.ui.screens.settings.subviews.LockAndAuthenticationScreen(
                     viewModel = lockViewModel,
