@@ -1115,6 +1115,11 @@ private fun CustomInstallmentsDialog(
                                 val first = IranianPhoneUtils.convertDigitsToEnglish(rangeStartStr).filter { it.isDigit() }.toIntOrNull()
                                 val last = IranianPhoneUtils.convertDigitsToEnglish(rangeEndStr).filter { it.isDigit() }.toIntOrNull()
                                 val amountRaw = IranianAmountUtils.parseAmountToLong(rangeAmountStr)
+                                val isRialInput = MoneyFormatter.activeCurrency == com.example.ui.screens.settings.model.AppCurrency.RIAL
+                                if (isRialInput && amountRaw % 10L != 0L) {
+                                    validationError = "در حالت ورود ریال، مبلغ باید مضربی از ۱۰ باشد تا تبدیل به تومان بدون حذف باقی‌مانده انجام شود."
+                                    return@Button
+                                }
                                 val amountToman = MoneyFormatter.convertToToman(amountRaw)
                                 if (first == null || last == null || first < 1 || last < first || last > scheduleList.size) {
                                     validationError = "بازه شماره اقساط معتبر نیست؛ شماره شروع و پایان را بررسی کنید."
@@ -1221,9 +1226,17 @@ private fun CustomInstallmentsDialog(
                                 item.dueDate.isBlank() ||
                                 !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(item.dueDate)
                             }
+                            val isRialInput = MoneyFormatter.activeCurrency == com.example.ui.screens.settings.model.AppCurrency.RIAL
+                            val hasInvalidRialTotal = isRialInput && totalAmountLong % 10L != 0L
                             val expectedTotal = MoneyFormatter.convertToToman(totalAmountLong)
                             val actualTotal = scheduleList.sumOf { it.amount }
-                            if (invalidItem != null) {
+                            val expectedNumbers = (1..countInt).toList()
+                            val actualNumbers = scheduleList.map { it.installmentNumber }.sorted()
+                            if (hasInvalidRialTotal) {
+                                validationError = "مبلغ کل وام در حالت ریال باید مضربی از ۱۰ باشد تا تبدیل دقیق انجام شود."
+                            } else if (scheduleList.size != countInt || actualNumbers != expectedNumbers) {
+                                validationError = "شماره اقساط باید از ۱ تا ${IranianPhoneUtils.convertDigitsToPersian(countInt.toString())} کامل و بدون تکرار باشد."
+                            } else if (invalidItem != null) {
                                 validationError = "تمام اقساط باید شماره معتبر، مبلغ بیشتر از صفر و تاریخ سررسید معتبر شمسی داشته باشند."
                             } else if (expectedTotal <= 0L || actualTotal != expectedTotal) {
                                 val difference = kotlin.math.abs(expectedTotal - actualTotal)
