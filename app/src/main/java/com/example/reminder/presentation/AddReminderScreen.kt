@@ -24,7 +24,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.data.security.SessionManager
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.domain.PredefinedOffset
 import com.example.reminder.domain.Priority
@@ -82,9 +81,7 @@ fun AddReminderScreen(
 
     // Channels
     var notificationEnabled by remember { mutableStateOf(true) }
-    var smsEnabled by remember { mutableStateOf(false) }
-    val sessionPhone = remember { SessionManager.currentUser?.phoneNumber ?: "" }
-    var phoneNumber by remember { mutableStateOf(sessionPhone) }
+    var fullScreenAlarmEnabled by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -381,7 +378,7 @@ fun AddReminderScreen(
                 }
             }
 
-            // 7. Notification & SMS Channels
+            // 7. Notification & Full-screen Alarm Channels
             Layered3DCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
@@ -394,7 +391,7 @@ fun AddReminderScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "اعلان سیستم (Push Notification)",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
@@ -418,32 +415,20 @@ fun AddReminderScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "یادآوری پیامکی (SMS Mock)",
+                                text = "آلارم تمام‌صفحه",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
-                                text = "ارسال پیامک یادآوری به شماره ثبت‌شده",
+                                text = "باز شدن صفحه هشدار در زمان سررسید (نیازمند مجوز اندروید)",
                                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                             )
                         }
                         Switch(
-                            checked = smsEnabled,
-                            onCheckedChange = { smsEnabled = it },
-                            modifier = Modifier.testTag("switch_sms_enabled")
-                        )
-                    }
-
-                    if (smsEnabled) {
-                        OutlinedTextField(
-                            value = phoneNumber,
-                            onValueChange = { phoneNumber = it },
-                            label = { Text("شماره دریافت‌کننده پیامک") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(RadiusMD),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                            singleLine = true
+                            checked = fullScreenAlarmEnabled,
+                            onCheckedChange = { fullScreenAlarmEnabled = it },
+                            modifier = Modifier.testTag("switch_full_screen_alarm_enabled")
                         )
                     }
                 }
@@ -469,8 +454,7 @@ fun AddReminderScreen(
                         date = date.trim(),
                         time = time.trim(),
                         notificationEnabled = notificationEnabled,
-                        smsEnabled = smsEnabled,
-                        phoneNumber = if (smsEnabled) phoneNumber else null,
+                        fullScreenAlarmEnabled = fullScreenAlarmEnabled,
                         amount = parsedAmount,
                         targetKilometer = parsedKm
                     )
