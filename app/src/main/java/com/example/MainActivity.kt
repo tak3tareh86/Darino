@@ -90,6 +90,10 @@ class MainActivity : FragmentActivity() {
 
         // 1. Initialize secure session manager and persistent data sources
         SessionManager.init(this)
+        com.example.util.MoneyFormatter.setPrivacyModeEnabled(
+            getSharedPreferences("darino_security_prefs", MODE_PRIVATE).getBoolean("privacy_mode_enabled", false)
+        )
+        getSharedPreferences("darino_security_prefs", MODE_PRIVATE).edit().remove("show_balance_on_home").apply()
         LocalInstallmentRepository.instance.init(this)
         com.example.ui.screens.finance.data.LocalFinanceRepository.instance.init(this)
         com.example.ui.screens.check.data.LocalCheckRepository.instance.init(this)
