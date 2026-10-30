@@ -475,6 +475,19 @@ private fun SettingsMainView(
                         }
                     }
 
+                    // About Section
+                    item {
+                        SettingsSectionCard(title = "درباره و اطلاعات برنامه") {
+                            SettingsItem(
+                                title = "درباره برنامه",
+                                subtitle = "اطلاعات نسخه، مشخصات فنی و مجوزهای برنامه",
+                                vectorIcon = Icons.Rounded.Description,
+                                iconAccentColor = Color(0xFF6366F1),
+                                onClick = { onNavigate(SettingsDestination.ABOUT) }
+                            )
+                        }
+                    }
+
                     // Bottom Padding
                     item {
                         Spacer(modifier = Modifier.height(84.dp))
