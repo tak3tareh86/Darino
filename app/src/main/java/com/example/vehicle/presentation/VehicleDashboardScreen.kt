@@ -1074,10 +1074,88 @@ private fun VehicleInsuranceDocumentsTabContent(
                 Text("ثبت اطلاعات", style = MaterialTheme.typography.labelSmall)
             }
         }
-        PrimaryTabRow(selectedTabIndex = selectedDocumentTab) {
-            Tab(selected = selectedDocumentTab == 0, onClick = { selectedDocumentTab = 0 }, modifier = Modifier.testTag("insurance_document_tab_third_party"), text = { Text("شخص ثالث", maxLines = 1) })
-            Tab(selected = selectedDocumentTab == 1, onClick = { selectedDocumentTab = 1 }, modifier = Modifier.testTag("insurance_document_tab_body"), text = { Text("بیمه بدنه", maxLines = 1) })
-            Tab(selected = selectedDocumentTab == 2, onClick = { selectedDocumentTab = 2 }, modifier = Modifier.testTag("insurance_document_tab_inspection"), text = { Text("معاینه فنی", maxLines = 1) })
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                .padding(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val tabShape = RoundedCornerShape(12.dp)
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+                    .clip(tabShape)
+                    .background(
+                        if (selectedDocumentTab == 0) MaterialTheme.colorScheme.primary
+                        else Color.Transparent
+                    )
+                    .clickable { selectedDocumentTab = 0 }
+                    .testTag("insurance_document_tab_third_party"),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "شخص ثالث",
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = if (selectedDocumentTab == 0) FontWeight.Bold else FontWeight.Medium
+                    ),
+                    color = if (selectedDocumentTab == 0) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+                    .clip(tabShape)
+                    .background(
+                        if (selectedDocumentTab == 1) MaterialTheme.colorScheme.primary
+                        else Color.Transparent
+                    )
+                    .clickable { selectedDocumentTab = 1 }
+                    .testTag("insurance_document_tab_body"),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "بیمه بدنه",
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = if (selectedDocumentTab == 1) FontWeight.Bold else FontWeight.Medium
+                    ),
+                    color = if (selectedDocumentTab == 1) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+                    .clip(tabShape)
+                    .background(
+                        if (selectedDocumentTab == 2) MaterialTheme.colorScheme.primary
+                        else Color.Transparent
+                    )
+                    .clickable { selectedDocumentTab = 2 }
+                    .testTag("insurance_document_tab_inspection"),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "معاینه فنی",
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = if (selectedDocumentTab == 2) FontWeight.Bold else FontWeight.Medium
+                    ),
+                    color = if (selectedDocumentTab == 2) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         if (selectedDocumentTab == 0 || selectedDocumentTab == 1) {
             if (visibleInsurances.isEmpty()) {
