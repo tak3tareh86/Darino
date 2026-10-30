@@ -117,7 +117,7 @@ class NotificationDispatcher(private val context: Context) {
         val deliveryPref = try {
             AppPreferencesRepository.getInstance(context).alertDelivery.value
         } catch (e: Exception) {
-            AlertDeliveryPreference.BOTH
+            AlertDeliveryPreference.NOTIFICATION_ONLY
         }
         val useFullScreenAlarm = deliveryPref == AlertDeliveryPreference.FULL_SCREEN_ALARM ||
             deliveryPref == AlertDeliveryPreference.BOTH
