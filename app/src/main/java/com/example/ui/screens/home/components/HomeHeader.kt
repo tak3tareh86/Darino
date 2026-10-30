@@ -214,7 +214,7 @@ fun NotificationButton(
         Icon(
             imageVector = Icons.Rounded.Notifications,
             contentDescription = "مرکز اعلان‌ها",
-            tint = Color.White,
+            tint = if (MaterialTheme.colorScheme.background.red < 0.2f) Color.White else MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(18.dp)
         )
 
