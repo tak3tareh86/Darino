@@ -96,6 +96,7 @@ class ReminderAlarmActivity : ComponentActivity() {
                 action = ReminderBroadcastReceiver.ACTION_SNOOZE_REMINDER
                 putExtra(ReminderBroadcastReceiver.EXTRA_REMINDER_ID, reminderId)
                 putExtra(ReminderBroadcastReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+                putExtra(ReminderBroadcastReceiver.EXTRA_SECONDARY_NOTIFICATION_ID, secondaryNotificationId)
                 putExtra(ReminderBroadcastReceiver.EXTRA_SNOOZE_MINUTES, 15)
             })
         }
