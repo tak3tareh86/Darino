@@ -44,6 +44,9 @@ interface ReminderDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReminder(reminder: ReminderEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertReminderForBackup(reminder: ReminderEntity): Long
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReminders(reminders: List<ReminderEntity>): List<Long>
 
@@ -90,6 +93,9 @@ interface ReminderDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedule(schedule: ReminderScheduleEntity)
 
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertScheduleForBackup(schedule: ReminderScheduleEntity)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedules(schedules: List<ReminderScheduleEntity>)
 
@@ -113,6 +119,9 @@ interface ReminderDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDeliveryLog(log: ReminderDeliveryLogEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertDeliveryLogForBackup(log: ReminderDeliveryLogEntity)
 
     @Query("UPDATE smart_reminders SET status = :status, updatedAt = :updatedAt, completedAt = :completedAt, cancelledAt = :cancelledAt WHERE id = :id")
     suspend fun updateStatusGlobal(
