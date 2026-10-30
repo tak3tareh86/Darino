@@ -194,20 +194,28 @@ class LocalBackupRepository(
                     }
                     if (backup.metadata.backupVersion >= 3) {
                         db.financialHealthDao().clearProfilesForUser(userId)
-                        db.loanCalculationDao().clearAllCalculations()
                         db.userPreferenceDao().clearPreference(userId)
                     }
                 }
 
                 // Re-create auto-generated primary keys instead of risking collisions with another
                 // local profile. Keep stable string IDs for cross-record references where available.
+                val restoredAccountIds = mutableMapOf<String, String>()
                 backup.accounts.forEach { account ->
-                    db.accountDao().insertAccount(account.copy(id = 0, userId = userId))
+                    val newId = db.accountDao().insertAccountForBackup(
+                        account.copy(id = 0, userId = userId)
+                    ).toString()
+                    restoredAccountIds[account.id.toString()] = newId
+                    restoredAccountIds[account.stringId] = newId
                 }
+                fun remapAccountId(oldId: String?): String? =
+                    oldId?.let { restoredAccountIds[it] ?: it }
 
                 val restoredCheckIds = mutableMapOf<Int, Int>()
                 backup.checks.forEach { check ->
-                    val newId = db.checkDao().insertCheck(check.copy(id = 0, userId = userId)).toInt()
+                    val newId = db.checkDao().insertCheck(
+                        check.copy(id = 0, userId = userId, accountId = remapAccountId(check.accountId))
+                    ).toInt()
                     restoredCheckIds[check.id] = newId
                 }
 
@@ -217,7 +225,14 @@ class LocalBackupRepository(
                             ?: transaction.sourceId
                     } else transaction.sourceId
                     db.transactionDao().insertTransaction(
-                        transaction.copy(id = 0, userId = userId, sourceId = remappedSourceId)
+                        transaction.copy(
+                            id = 0,
+                            userId = userId,
+                            sourceId = remappedSourceId,
+                            accountId = remapAccountId(transaction.accountId),
+                            transferSourceAccountId = remapAccountId(transaction.transferSourceAccountId),
+                            transferDestinationAccountId = remapAccountId(transaction.transferDestinationAccountId)
+                        )
                     )
                 }
 
