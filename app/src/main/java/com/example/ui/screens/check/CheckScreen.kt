@@ -40,6 +40,7 @@ fun CheckScreen(
     val uiState by viewModel.uiState.collectAsState()
     
     var showAddDialog by remember { mutableStateOf(false) }
+    var showStatusFilters by remember { mutableStateOf(false) }
     var selectedCheckForEdit by remember { mutableStateOf<Check?>(null) }
     var selectedCheckForDetail by remember { mutableStateOf<Check?>(null) }
 
@@ -90,28 +91,66 @@ fun CheckScreen(
                 CheckSummaryCards(checks = uiState.checks)
             }
 
-            // 2. Search Bar
+            // 2. Compact search and status-filter controls with matching dimensions
             item {
-                OutlinedTextField(
-                    value = uiState.searchQuery,
-                    onValueChange = { viewModel.onSearchQueryChanged(it) },
-                    placeholder = { Text("جستجو در چک‌ها...") },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                    trailingIcon = if (uiState.searchQuery.isNotEmpty()) {
-                        {
-                            IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                Icon(Icons.Rounded.Clear, null)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = uiState.searchQuery,
+                        onValueChange = { viewModel.onSearchQueryChanged(it) },
+                        placeholder = { Text("جستجو در چک‌ها...", maxLines = 1) },
+                        modifier = Modifier.weight(1f).height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                        trailingIcon = if (uiState.searchQuery.isNotEmpty()) {
+                            {
+                                IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                    Icon(Icons.Rounded.Clear, null)
+                                }
                             }
-                        }
-                    } else null,
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        } else null,
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        )
                     )
-                )
+
+                    OutlinedButton(
+                        onClick = { showStatusFilters = !showStatusFilters },
+                        modifier = Modifier.weight(1f).height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.primary
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (showStatusFilters) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outline
+                        )
+                    ) {
+                        Icon(Icons.Rounded.FilterList, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = when {
+                                uiState.selectedStatus == null -> "فیلتر وضعیت"
+                                else -> uiState.selectedStatus.title
+                            },
+                            maxLines = 1,
+                            softWrap = false,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Spacer(Modifier.width(2.dp))
+                        Icon(
+                            if (showStatusFilters) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                            contentDescription = null
+                        )
+                    }
+                }
             }
 
             // 3. Main Tabs ("همه", "دریافتی", "پرداختی") right below search bar
@@ -152,25 +191,53 @@ fun CheckScreen(
                 }
             }
 
-            // 4. Status Filters appropriately below tabs
+            // 4. Expandable, fixed two-column status-filter panel
             item {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    FilterChip(
-                        selected = uiState.selectedStatus == null,
-                        onClick = { viewModel.onStatusSelected(null) },
-                        label = { Text("همه وضعیت‌ها") }
-                    )
-
-                    CheckStatus.entries.forEach { status ->
-                        FilterChip(
-                            selected = uiState.selectedStatus == status,
-                            onClick = { viewModel.onStatusSelected(status) },
-                            label = { Text(status.title) }
+                AnimatedVisibility(visible = showStatusFilters) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
                         )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val statusOptions: List<CheckStatus?> = listOf(null) + CheckStatus.entries
+                            statusOptions.chunked(2).forEach { rowOptions ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    rowOptions.forEach { status ->
+                                        FilterChip(
+                                            selected = uiState.selectedStatus == status,
+                                            onClick = {
+                                                viewModel.onStatusSelected(status)
+                                                showStatusFilters = false
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            label = {
+                                                Text(
+                                                    text = status?.title ?: "همه وضعیت‌ها",
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    style = MaterialTheme.typography.labelMedium
+                                                )
+                                            }
+                                        )
+                                    }
+                                    if (rowOptions.size == 1) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
