@@ -430,6 +430,9 @@ class LocalInstallmentRepository private constructor() {
                         if (!confirmedInstallment) {
                             return@withLock false
                         }
+                        // Publish the committed Room snapshot to every installment StateFlow so
+                        // the schedule and parent loan summaries update without leaving the screen.
+                        reloadForUser(targetContext, userId)
                         if (financialTransaction != null) {
                             com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
                         }
