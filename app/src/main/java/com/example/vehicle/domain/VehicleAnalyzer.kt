@@ -379,7 +379,15 @@ object VehicleAnalyzer {
             )
         }
 
-        expenses.filter { it.vehicleId == vehicleId && it.category != VehicleExpenseCategory.SERVICE && it.category != VehicleExpenseCategory.INSURANCE }.forEach { e ->
+        // Service, insurance, and inspection costs are already represented by their
+        // dedicated timeline events. Keep them in expense totals/reports, but do not
+        // render their linked expense rows as a second timeline event.
+        expenses.filter {
+            it.vehicleId == vehicleId &&
+                it.category != VehicleExpenseCategory.SERVICE &&
+                it.category != VehicleExpenseCategory.INSURANCE &&
+                it.category != VehicleExpenseCategory.INSPECTION
+        }.forEach { e ->
             timeline.add(
                 VehicleTimelineEvent.ExpenseEvent(
                     id = e.id,
