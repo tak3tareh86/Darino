@@ -235,7 +235,7 @@ fun NotificationSettingsScreen(
                                             priority = "HIGH"
                                         )
                                         dispatcher.dispatchNotification(testReminder)
-                                        snackbarHostState.showSnackbar("اعلان تستی با موفقیت به نوار وضعیت ارسال شد.")
+                                        snackbarHostState.showSnackbar("هشدار آزمایشی به اندروید ارسال شد؛ نمایش تمام‌صفحه به مجوزها و وضعیت قفل گوشی بستگی دارد.")
                                     } catch (e: Exception) {
                                         snackbarHostState.showSnackbar("خطا در ارسال اعلان تست: ${e.localizedMessage}")
                                     }
