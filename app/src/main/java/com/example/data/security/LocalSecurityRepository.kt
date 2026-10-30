@@ -32,6 +32,11 @@ interface LocalSecurityRepository {
     fun shouldLockAppOnResume(currentTime: Long = System.currentTimeMillis()): Boolean
 
     fun hasAnyActiveLock(): Boolean
+    fun getFailedAttempts(): Int
+    fun incrementFailedAttempts(): Int
+    fun getLockoutUntilTimestamp(): Long
+    fun setLockoutUntilTimestamp(timestamp: Long)
+    fun resetFailedAttempts()
 }
 
 class MockLocalSecurityRepository(
@@ -110,10 +115,9 @@ class MockLocalSecurityRepository(
     }
 
     override fun removePin() {
-        prefs.edit()
-            .remove(KEY_PIN_HASH)
-            .putLong(KEY_LAST_MODIFIED, System.currentTimeMillis())
-            .apply()
+        prefs.edit().remove(KEY_PIN_HASH)
+            .putBoolean(KEY_APP_LOCK_ENABLED, isPatternConfigured() || prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false))
+            .putLong(KEY_LAST_MODIFIED, System.currentTimeMillis()).apply()
         updateState()
     }
 
@@ -144,10 +148,9 @@ class MockLocalSecurityRepository(
     }
 
     override fun removePattern() {
-        prefs.edit()
-            .remove(KEY_PATTERN_HASH)
-            .putLong(KEY_LAST_MODIFIED, System.currentTimeMillis())
-            .apply()
+        prefs.edit().remove(KEY_PATTERN_HASH)
+            .putBoolean(KEY_APP_LOCK_ENABLED, isPinConfigured() || prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false))
+            .putLong(KEY_LAST_MODIFIED, System.currentTimeMillis()).apply()
         updateState()
     }
 
@@ -205,6 +208,17 @@ class MockLocalSecurityRepository(
         val current = _securitySettings.value
         return current.appLockEnabled && (current.pinEnabled || current.patternEnabled || current.biometricEnabled)
     }
+    override fun getFailedAttempts(): Int = prefs.getInt(KEY_FAILED_ATTEMPTS, 0)
+    override fun incrementFailedAttempts(): Int {
+        val attempts = getFailedAttempts() + 1
+        prefs.edit().putInt(KEY_FAILED_ATTEMPTS, attempts).apply()
+        return attempts
+    }
+    override fun getLockoutUntilTimestamp(): Long = prefs.getLong(KEY_LOCKOUT_UNTIL, 0L)
+    override fun setLockoutUntilTimestamp(timestamp: Long) { prefs.edit().putLong(KEY_LOCKOUT_UNTIL, timestamp).apply() }
+    override fun resetFailedAttempts() {
+        prefs.edit().putInt(KEY_FAILED_ATTEMPTS, 0).putLong(KEY_LOCKOUT_UNTIL, 0L).apply()
+    }
 
     private fun hashWithSalt(input: String): String {
         val salt = com.example.util.PasswordHasher.generateSalt()
@@ -241,5 +255,7 @@ class MockLocalSecurityRepository(
         private const val KEY_LOCK_TIMEOUT = "sec_lock_timeout"
         private const val KEY_LAST_BG_TIME = "sec_last_bg_time"
         private const val KEY_LAST_MODIFIED = "sec_last_modified"
+        private const val KEY_FAILED_ATTEMPTS = "sec_failed_attempts"
+        private const val KEY_LOCKOUT_UNTIL = "sec_lockout_until"
     }
 }
