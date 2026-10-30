@@ -10,6 +10,17 @@ object FinancialAnalyzerEngine {
             .let { (it * 10.0).roundToInt() / 10.0f }
     }
 
+    /** A schedule is financially complete only when its positive rows add up to the contract total. */
+    fun isPaymentScheduleTotalConsistent(contractTotal: Long, scheduledAmounts: List<Long>): Boolean {
+        if (contractTotal <= 0L || scheduledAmounts.isEmpty() || scheduledAmounts.any { it <= 0L }) return false
+        var total = 0L
+        for (amount in scheduledAmounts) {
+            if (total > Long.MAX_VALUE - amount) return false
+            total += amount
+        }
+        return total == contractTotal
+    }
+
     fun calculateHealthStatus(pressurePercentage: Float): FinancialHealthStatus = when {
         pressurePercentage <= 30.0f -> FinancialHealthStatus.SAFE
         pressurePercentage <= 50.0f -> FinancialHealthStatus.MEDIUM
