@@ -365,36 +365,48 @@ fun CategoryItemCard(
                         onClick = onEdit,
                         modifier = Modifier
                             .size(36.dp)
-                            .background(
-                                if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
-                                CircleShape
-                            )
                             .testTag("edit_category_${category.id}")
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Edit,
-                            contentDescription = "ویرایش دسته‌بندی",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .background(
+                                    if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = "ویرایش دسته‌بندی",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
                     IconButton(
                         onClick = onDelete,
                         modifier = Modifier
                             .size(36.dp)
-                            .background(
-                                if (isDark) Color(0xFF451A20) else Color(0xFFFEE2E2),
-                                CircleShape
-                            )
                             .testTag("delete_category_${category.id}")
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Delete,
-                            contentDescription = "حذف دسته‌بندی",
-                            modifier = Modifier.size(16.dp),
-                            tint = Color(0xFFEF4444)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .background(
+                                    if (isDark) Color(0xFF451A20) else Color(0xFFFEE2E2),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Delete,
+                                contentDescription = "حذف دسته‌بندی",
+                                modifier = Modifier.size(16.dp),
+                                tint = Color(0xFFEF4444)
+                            )
+                        }
                     }
                 }
             }
