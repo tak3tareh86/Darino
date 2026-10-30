@@ -79,7 +79,6 @@ import com.example.ui.screens.settings.subviews.VehicleManagementScreen
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.WarningAmberLight
-import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.financial_health.presentation.FinancialHealthScreen
 import com.example.financial_health.presentation.components.EditIncomeBottomSheet
@@ -196,8 +195,6 @@ fun SettingsScreen(
                     currentLockType = currentLockType,
                     currentNumberMode = currentNumberMode,
                     monthlyIncome = healthState.monthlyIncome,
-                    pressurePercentage = healthState.pressurePercentage,
-                    healthStatusTitle = healthState.healthStatus.title,
                     onEditIncomeClick = { showIncomeSheet = true },
                     onNavigate = { currentDestination = it },
                     onOpenLanguageSheet = { showLanguageSheet = true },
@@ -372,8 +369,6 @@ private fun SettingsMainView(
     currentLockType: AppLockType,
     currentNumberMode: com.example.ui.screens.settings.model.NumberDisplayMode = com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN,
     monthlyIncome: Long = 25_000_000L,
-    pressurePercentage: Float = 35f,
-    healthStatusTitle: String = "مناسب",
     onEditIncomeClick: () -> Unit = {},
     onNavigate: (SettingsDestination) -> Unit,
     onOpenLanguageSheet: () -> Unit,
@@ -472,13 +467,6 @@ private fun SettingsMainView(
                                 onClick = onEditIncomeClick
                             )
 
-                            SettingsItem(
-                                title = "سلامت تعهدات مالی",
-                                subtitle = "شاخص فشار ماهانه (${IranianPhoneUtils.convertDigitsToPersian(pressurePercentage.toInt().toString())}٪ - $healthStatusTitle) و پیش‌بینی ماه آینده",
-                                iconRes = R.drawable.img_3d_analytics,
-                                iconAccentColor = Color(0xFF3B82F6),
-                                onClick = { onNavigate(SettingsDestination.FINANCIAL_HEALTH) }
-                            )
                         }
                     }
 
