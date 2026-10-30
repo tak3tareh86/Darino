@@ -213,7 +213,7 @@ fun FinancialSummaryCard(
                     Surface(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(RadiusMD),
-                        color = Color.White.copy(alpha = 0.12f)
+                        color = translucentSurfaceColor
                     ) {
                         Row(
                             modifier = Modifier.padding(8.dp),
@@ -239,7 +239,7 @@ fun FinancialSummaryCard(
                                 Text(
                                     text = "هزینه",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = Color(0xFFE2E8F0).copy(alpha = 0.8f)
+                                    color = mutedTextColor
                                 )
                                 Text(
                                     text = formattedExpense,
