@@ -211,7 +211,34 @@ fun SupportBackupScreen(
     var ticketSubject by remember { mutableStateOf("") }
     var ticketMessage by remember { mutableStateOf("") }
 
+    // Single source of truth for the support mailbox used by every contact action.
     val defaultSupportGmail = "support.financeapp@gmail.com"
+
+    fun openSupportEmail(subject: String, message: String = "") {
+        val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.fromParts("mailto", defaultSupportGmail, null)
+            putExtra(Intent.EXTRA_EMAIL, arrayOf(defaultSupportGmail))
+            putExtra(Intent.EXTRA_SUBJECT, subject)
+            if (message.isNotBlank()) putExtra(Intent.EXTRA_TEXT, message)
+        }
+        try {
+            context.startActivity(Intent.createChooser(emailIntent, "انتخاب برنامه ایمیل"))
+            Toast.makeText(
+                context,
+                "پیش‌نویس ایمیل آماده شد؛ برای ارسال نهایی، دکمه ارسال را در برنامه ایمیل بزنید.",
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(
+                context,
+                "هیچ برنامه ایمیلی روی دستگاه پیدا نشد. می‌توانید به این نشانی ایمیل بزنید: $defaultSupportGmail",
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (e: Exception) {
+            Log.e("SupportBackupScreen", "Unable to open support email app", e)
+            Toast.makeText(context, "باز کردن برنامه ایمیل ناموفق بود.", Toast.LENGTH_LONG).show()
+        }
+    }
 
     if (showBackupSuccessDialog) {
         SettingsConfirmationDialog(
@@ -265,7 +292,7 @@ fun SupportBackupScreen(
         topBar = {
             SettingsHeader(
                 title = "پشتیبانی و بک‌آپ‌گیری",
-                subtitle = "تهیه نسخه پشتیبان و ارتباط با پشتیبانی از طریق جیمیل",
+                subtitle = "تهیه نسخه پشتیبان و ارتباط با پشتیبانی از طریق برنامه ایمیل",
                 showBack = true,
                 showSearch = false,
                 onBackClick = onBackClick
@@ -470,24 +497,15 @@ fun SupportBackupScreen(
                 } else {
                     // TAB 2: SUPPORT (فقط جیمیل پیش‌فرض)
                     item {
-                        SettingsSectionCard(title = "ارتباط با پشتیبانی از طریق جیمیل") {
-                            // Single default Gmail contact row
+                        SettingsSectionCard(title = "ارتباط با پشتیبانی از طریق ایمیل") {
                             SupportContactRow(
-                                title = "پشتیبانی رسمی از طریق جیمیل (Gmail)",
+                                title = "نشانی ایمیل پشتیبانی",
                                 subtitle = defaultSupportGmail,
                                 icon = Icons.Rounded.Mail,
                                 iconColor = Color(0xFFEA4335),
                                 actionText = "ارسال ایمیل",
                                 onClick = {
-                                    val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                        data = Uri.parse("mailto:$defaultSupportGmail")
-                                        putExtra(Intent.EXTRA_SUBJECT, "درخواست پشتیبانی - نرم‌افزار حسابداری و مدیریت خودرو")
-                                    }
-                                    try {
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        Toast.makeText(context, "برنامه ایمیل در دسترس نیست. می‌توانید به این نشانی پیام بدهید: $defaultSupportGmail", Toast.LENGTH_LONG).show()
-                                    }
+                                    openSupportEmail("درخواست پشتیبانی - نرم‌افزار حسابداری و مدیریت خودرو")
                                 }
                             )
                         }
@@ -495,7 +513,7 @@ fun SupportBackupScreen(
 
                     // Ticket / Direct Message Form
                     item {
-                        SettingsSectionCard(title = "ارسال سریع پیام به جیمیل پشتیبانی") {
+                        SettingsSectionCard(title = "ارسال پیام به ایمیل پشتیبانی") {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 OutlinedTextField(
                                     value = ticketSubject,
@@ -518,18 +536,10 @@ fun SupportBackupScreen(
 
                                 Button(
                                     onClick = {
-                                        if (ticketSubject.isNotBlank() && ticketMessage.isNotBlank()) {
-                                            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                                data = Uri.parse("mailto:$defaultSupportGmail")
-                                                putExtra(Intent.EXTRA_SUBJECT, ticketSubject)
-                                                putExtra(Intent.EXTRA_TEXT, ticketMessage)
-                                            }
-                                            try {
-                                                context.startActivity(Intent.createChooser(intent, "ارسال پیام پشتیبانی با..."))
-                                                Toast.makeText(context, "پیش‌نویس ایمیل باز شد؛ برای ارسال نهایی باید آن را در برنامه ایمیل تأیید کنید.", Toast.LENGTH_LONG).show()
-                                            } catch (e: Exception) {
-                                                Toast.makeText(context, "خطا در باز کردن برنامه ایمیل: ${e.message}", Toast.LENGTH_LONG).show()
-                                            }
+                                        val subject = ticketSubject.trim()
+                                        val message = ticketMessage.trim()
+                                        if (subject.isNotEmpty() && message.isNotEmpty()) {
+                                            openSupportEmail(subject, message)
                                         } else {
                                             Toast.makeText(context, "لطفاً موضوع و متن پیام را وارد کنید.", Toast.LENGTH_SHORT).show()
                                         }
@@ -540,7 +550,7 @@ fun SupportBackupScreen(
                                     shape = RoundedCornerShape(RadiusMD),
                                     colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimaryLight)
                                 ) {
-                                    Text("ارسال پیام با جیمیل", fontWeight = FontWeight.Bold)
+                                    Text("باز کردن پیش‌نویس ایمیل", fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
