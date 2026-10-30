@@ -104,53 +104,6 @@ fun AddEditCheckDialog(
                     },
                 )
             },
-            bottomBar = {
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 3.dp
-                ) {
-                    Button(
-                        onClick = {
-                            val enteredAmount = amount.toEnglishDigits().toLongOrNull() ?: 0L
-                            val amountInToman = MoneyFormatter.convertToToman(enteredAmount)
-                            if (amountInToman > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() &&
-                                !isDateInvalid && !isReminderInvalid && !isSayadIdInvalid) {
-                                onConfirm(
-                                    Check(
-                                        id = check?.id ?: 0,
-                                        userId = check?.userId ?: "",
-                                        type = type,
-                                        amount = amountInToman,
-                                        checkNumber = checkNumber,
-                                        sayadId = normalizedSayadId.ifBlank { null },
-                                        bankName = bankName.trim(),
-                                        branch = branch.ifBlank { null },
-                                        holderName = holderName.trim(),
-                                        receiverName = receiverName.trim(),
-                                        issueDate = issueDate,
-                                        dueDate = dueDate,
-                                        status = status,
-                                        notes = notes.trim().ifBlank { null },
-                                        accountId = check?.accountId,
-                                        reminderDateTime = reminderDateTime,
-                                        createdAt = check?.createdAt ?: System.currentTimeMillis(),
-                                        updatedAt = System.currentTimeMillis()
-                                    )
-                                )
-                            } else {
-                                showError = true
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("ذخیره", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
         ) { padding ->
             Column(
                 modifier = Modifier
@@ -452,6 +405,47 @@ fun AddEditCheckDialog(
                     maxLines = 4,
                     leadingIcon = { Icon(Icons.Rounded.Notes, null) }
                 )
+
+                Button(
+                    onClick = {
+                        val enteredAmount = amount.toEnglishDigits().toLongOrNull() ?: 0L
+                        val amountInToman = MoneyFormatter.convertToToman(enteredAmount)
+                        if (amountInToman > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() &&
+                            !isDateInvalid && !isReminderInvalid && !isSayadIdInvalid) {
+                            onConfirm(
+                                Check(
+                                    id = check?.id ?: 0,
+                                    userId = check?.userId ?: "",
+                                    type = type,
+                                    amount = amountInToman,
+                                    checkNumber = checkNumber,
+                                    sayadId = normalizedSayadId.ifBlank { null },
+                                    bankName = bankName.trim(),
+                                    branch = branch.ifBlank { null },
+                                    holderName = holderName.trim(),
+                                    receiverName = receiverName.trim(),
+                                    issueDate = issueDate,
+                                    dueDate = dueDate,
+                                    status = status,
+                                    notes = notes.trim().ifBlank { null },
+                                    accountId = check?.accountId,
+                                    reminderDateTime = reminderDateTime,
+                                    createdAt = check?.createdAt ?: System.currentTimeMillis(),
+                                    updatedAt = System.currentTimeMillis()
+                                )
+                            )
+                        } else {
+                            showError = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("ذخیره", fontWeight = FontWeight.Bold)
+                }
 
                 if (check != null) {
                     Text("وضعیت چک", style = MaterialTheme.typography.titleSmall)
