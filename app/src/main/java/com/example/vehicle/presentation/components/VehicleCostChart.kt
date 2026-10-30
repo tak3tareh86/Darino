@@ -140,7 +140,7 @@ fun VehicleCostChart(
                         Text(
                             text = bar.monthName,
                             modifier = Modifier
-                                .width(54.dp)
+                                .requiredWidth(54.dp)
                                 .graphicsLayer(rotationZ = -90f),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 9.sp,
