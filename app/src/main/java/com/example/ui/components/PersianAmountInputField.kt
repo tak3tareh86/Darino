@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,7 +47,8 @@ fun PersianAmountInputField(
     shape: Shape = RoundedCornerShape(RadiusMD),
     testTag: String = "amount_input_field",
     colors: TextFieldColors = OutlinedTextFieldDefaults.colors(),
-    fieldHeight: androidx.compose.ui.unit.Dp? = null
+    fieldHeight: androidx.compose.ui.unit.Dp? = null,
+    singleLineLabel: Boolean = false
 ) {
     val effectiveLabel = label ?: if (unitLabel.isNotBlank()) "مبلغ ($unitLabel)" else "مبلغ"
     val cleanDigits = remember(value) { IranianAmountUtils.cleanAmountDigits(value) }
@@ -90,7 +92,7 @@ fun PersianAmountInputField(
                 onRawAmountChange?.invoke(newClean, newClean.toLongOrNull() ?: 0L)
             },
             label = if (!useOuterHeader && effectiveLabel.isNotBlank()) {
-                { Text(text = effectiveLabel) }
+                { Text(text = effectiveLabel, maxLines = if (singleLineLabel) 1 else Int.MAX_VALUE, softWrap = !singleLineLabel, overflow = if (singleLineLabel) TextOverflow.Ellipsis else TextOverflow.Clip, style = if (singleLineLabel) MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp) else MaterialTheme.typography.bodySmall) }
             } else null,
             modifier = Modifier
                 .fillMaxWidth()
