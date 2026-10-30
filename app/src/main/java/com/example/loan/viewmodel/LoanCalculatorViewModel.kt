@@ -156,7 +156,9 @@ class LoanCalculatorViewModel(
         val validation = engine.validateInputs(
             amount = if (current.amountInput.isBlank()) null else current.amount,
             interestRate = if (current.interestRateInput.isBlank()) null else current.interestRate,
-            duration = if (current.durationInput.isBlank()) null else current.duration
+            duration = if (current.durationInput.isBlank()) null else current.duration,
+            interestPeriod = current.interestPeriod,
+            durationType = current.durationType
         )
 
         when (validation) {
