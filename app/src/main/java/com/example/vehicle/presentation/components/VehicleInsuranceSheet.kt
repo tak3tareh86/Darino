@@ -98,10 +98,88 @@ fun VehicleInsuranceSheet(
                 IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, contentDescription = "بستن") }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-            PrimaryTabRow(selectedTabIndex = selectedSection, modifier = Modifier.fillMaxWidth()) {
-                Tab(selected = selectedSection == 0, onClick = { selectedSection = 0 }, modifier = Modifier.testTag("insurance_form_tab_third_party"), text = { Text("شخص ثالث", maxLines = 1) })
-                Tab(selected = selectedSection == 1, onClick = { selectedSection = 1 }, modifier = Modifier.testTag("insurance_form_tab_body"), text = { Text("بیمه بدنه", maxLines = 1) })
-                Tab(selected = selectedSection == 2, onClick = { selectedSection = 2 }, modifier = Modifier.testTag("insurance_form_tab_inspection"), text = { Text("معاینه فنی", maxLines = 1) })
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                    .padding(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val tabShape = RoundedCornerShape(12.dp)
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .clip(tabShape)
+                        .background(
+                            if (selectedSection == 0) MaterialTheme.colorScheme.primary
+                            else Color.Transparent
+                        )
+                        .clickable { selectedSection = 0 }
+                        .testTag("insurance_form_tab_third_party"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "شخص ثالث",
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = if (selectedSection == 0) FontWeight.Bold else FontWeight.Medium
+                        ),
+                        color = if (selectedSection == 0) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .clip(tabShape)
+                        .background(
+                            if (selectedSection == 1) MaterialTheme.colorScheme.primary
+                            else Color.Transparent
+                        )
+                        .clickable { selectedSection = 1 }
+                        .testTag("insurance_form_tab_body"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "بیمه بدنه",
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = if (selectedSection == 1) FontWeight.Bold else FontWeight.Medium
+                        ),
+                        color = if (selectedSection == 1) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .clip(tabShape)
+                        .background(
+                            if (selectedSection == 2) MaterialTheme.colorScheme.primary
+                            else Color.Transparent
+                        )
+                        .clickable { selectedSection = 2 }
+                        .testTag("insurance_form_tab_inspection"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "معاینه فنی",
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = if (selectedSection == 2) FontWeight.Bold else FontWeight.Medium
+                        ),
+                        color = if (selectedSection == 2) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             if (selectedSection != 2) {
