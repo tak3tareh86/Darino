@@ -348,7 +348,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
     override fun deleteCategory(id: String) {
         val current = _categories.value.toMutableList()
-        current.removeAll { it.id == id && !it.isDefault }
+        current.removeAll { it.id == id }
         _categories.value = current
         saveMetadataToDisk()
     }
