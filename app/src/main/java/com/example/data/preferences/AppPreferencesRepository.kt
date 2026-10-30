@@ -118,21 +118,32 @@ class AppPreferencesRepository private constructor(context: Context) {
     }
 
     private fun loadAlertDelivery(): AlertDeliveryPreference {
-        val storedName = prefs.getString(KEY_ALERT_DELIVERY, AlertDeliveryPreference.BOTH.name)
-            ?: AlertDeliveryPreference.BOTH.name
-        val migrated = when (storedName) {
-            AlertDeliveryPreference.NOTIFICATION_ONLY.name -> AlertDeliveryPreference.NOTIFICATION_ONLY
-            AlertDeliveryPreference.FULL_SCREEN_ALARM.name -> AlertDeliveryPreference.FULL_SCREEN_ALARM
-            AlertDeliveryPreference.BOTH.name -> AlertDeliveryPreference.BOTH
-            // Preserve a usable alert method for users upgrading from the old SMS-only
-            // or disabled choices; those choices no longer exist in the general menu.
-            "SMS_ONLY", "DISABLED" -> AlertDeliveryPreference.NOTIFICATION_ONLY
-            else -> AlertDeliveryPreference.NOTIFICATION_ONLY
+        val storedName = prefs.getString(KEY_ALERT_DELIVERY, null)
+        val migrationDone = prefs.getBoolean(KEY_ALERT_DELIVERY_V2_MIGRATED, false)
+
+        val selected = if (!migrationDone) {
+            // The old BOTH value meant SMS + notification, not full-screen alarm.
+            // Never silently opt existing users into an intrusive full-screen alert.
+            val migrated = when (storedName) {
+                AlertDeliveryPreference.NOTIFICATION_ONLY.name -> AlertDeliveryPreference.NOTIFICATION_ONLY
+                AlertDeliveryPreference.FULL_SCREEN_ALARM.name -> AlertDeliveryPreference.FULL_SCREEN_ALARM
+                else -> AlertDeliveryPreference.NOTIFICATION_ONLY
+            }
+            prefs.edit()
+                .putString(KEY_ALERT_DELIVERY, migrated.name)
+                .putBoolean(KEY_ALERT_DELIVERY_V2_MIGRATED, true)
+                .apply()
+            migrated
+        } else {
+            storedName?.let {
+                try {
+                    AlertDeliveryPreference.valueOf(it)
+                } catch (_: IllegalArgumentException) {
+                    AlertDeliveryPreference.NOTIFICATION_ONLY
+                }
+            } ?: AlertDeliveryPreference.NOTIFICATION_ONLY
         }
-        if (storedName != migrated.name) {
-            prefs.edit().putString(KEY_ALERT_DELIVERY, migrated.name).apply()
-        }
-        return migrated
+        return selected
     }
 
     private fun loadNavTransition(): NavigationTransitionAnimation {
@@ -165,7 +176,10 @@ class AppPreferencesRepository private constructor(context: Context) {
     }
 
     fun setAlertDelivery(delivery: AlertDeliveryPreference) {
-        prefs.edit().putString(KEY_ALERT_DELIVERY, delivery.name).apply()
+        prefs.edit()
+            .putString(KEY_ALERT_DELIVERY, delivery.name)
+            .putBoolean(KEY_ALERT_DELIVERY_V2_MIGRATED, true)
+            .apply()
         _alertDelivery.value = delivery
     }
 
@@ -255,6 +269,7 @@ class AppPreferencesRepository private constructor(context: Context) {
         private const val KEY_LANGUAGE = "pref_language"
         private const val KEY_CURRENCY = "pref_currency"
         private const val KEY_ALERT_DELIVERY = "pref_alert_delivery"
+        private const val KEY_ALERT_DELIVERY_V2_MIGRATED = "pref_alert_delivery_v2_migrated"
         private const val KEY_NAV_TRANSITION = "pref_nav_transition_animation"
         private const val KEY_IS_CLEAN_SLATE = "pref_is_clean_slate"
 
