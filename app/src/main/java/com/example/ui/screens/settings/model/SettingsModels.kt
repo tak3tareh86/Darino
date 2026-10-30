@@ -59,10 +59,9 @@ enum class AlertDeliveryPreference(
     val description: String,
     val iconEmoji: String
 ) {
-    BOTH("پیامک و نوتیفیکیشن", "ارسال همزمان پیامک به تلفن همراه و نمایش اعلان سیستمی", "🔔📲"),
-    NOTIFICATION_ONLY("فقط نوتیفیکیشن", "ارسال تنها اعلان هوشمند بدون پیامک", "🔔"),
-    SMS_ONLY("فقط پیامک", "ارسال تنها پیامک متنی به شماره همراه", "💬"),
-    DISABLED("غیرفعال", "غیرفعال‌سازی موقت ارسال هشدارها", "🔕")
+    NOTIFICATION_ONLY("فقط نوتیفیکیشن", "نمایش اعلان معمولی در نوار اعلان گوشی", "🔔"),
+    FULL_SCREEN_ALARM("آلارم تمام‌صفحه", "نمایش صفحه اختصاصی هشدار در زمان مقرر، در صورت مجاز بودن دسترسی اندروید", "⏰"),
+    BOTH("نوتیفیکیشن و آلارم تمام‌صفحه", "نمایش اعلان و تلاش برای نمایش صفحه اختصاصی هشدار", "🔔⏰")
 }
 
 enum class NavigationTransitionAnimation(
@@ -269,7 +268,7 @@ object SettingsMockDataSource {
         SettingsSearchItem("s_num_mode", "نحوه نمایش اعداد", "فارسی (۰۱۲۳۴۵۶۷۸۹) یا انگلیسی (0123456789)", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "🔢"),
         SettingsSearchItem("s_night_mode", "حالت شب و روز", "تم روشن، تاریک و هماهنگ با سیستم", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "🌓"),
         SettingsSearchItem("s_transition", "انیمیشن جابجایی بین منوها", "اسلاید، محو شدن (fade)، بزرگ‌نمایی (scale)، زوم و حالت پویا و فنری", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "⚡"),
-        SettingsSearchItem("s_alerts", "ارسال پیامک و نوتیفیکیشن", "تنظیم نحوه ارسال هشدارها: هر دو، فقط نوتیفیکیشن، فقط پیامک", "تنظیمات عمومی", SettingsDestination.GENERAL, R.drawable.img_3d_bell_notification),
+        SettingsSearchItem("s_alerts", "روش دریافت هشدار", "فقط نوتیفیکیشن، آلارم تمام‌صفحه یا هر دو", "تنظیمات عمومی", SettingsDestination.GENERAL, R.drawable.img_3d_bell_notification),
         SettingsSearchItem("s_backup_sup", "پشتیبانی و بک‌آپ‌گیری", "تهیه نسخه پشتیبان، بازیابی فایل، راهنما و ارتباط با کارشناسان", "پشتیبانی و بک‌آپ", SettingsDestination.SUPPORT_BACKUP, R.drawable.img_3d_cloud_backup),
         SettingsSearchItem("s_sec", "امنیت و قفل ورود", "قفل با اثر انگشت، رمز عبور و حریم خصوصی", "امنیت", SettingsDestination.SECURITY, R.drawable.img_3d_shield_security),
         SettingsSearchItem("s_about", "درباره برنامه", "اطلاعات نسخه و مجوزها", "درباره", SettingsDestination.ABOUT, R.drawable.img_3d_settings_gear)
