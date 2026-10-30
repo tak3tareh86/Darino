@@ -80,6 +80,33 @@ fun InstallmentDetailScreen(
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+    val nextUnpaidPayment = remember(item.paymentHistory) {
+        item.paymentHistory
+            .filter {
+                it.status != InstallmentStatus.PAID &&
+                    it.status != InstallmentStatus.COMPLETED
+            }
+            .minWithOrNull(
+                compareBy<PaymentHistoryItem> { payment ->
+                    com.example.calendar.domain.CalendarDateUtils
+                        .parseJalali(payment.dueDate)
+                        ?.let { date ->
+                            com.example.util.PersianCalendarHelper.jalaliToEpochMillis(
+                                date.first,
+                                date.second,
+                                date.third,
+                                9,
+                                0
+                            )
+                        } ?: Long.MAX_VALUE
+                }.thenBy { it.installmentNumber }
+            )
+    }
+    val nextInstallmentAmount = when {
+        nextUnpaidPayment != null -> nextUnpaidPayment.amountFormatted
+        item.remainingInstallments <= 0 -> "همه اقساط پرداخت شده‌اند"
+        else -> "اطلاعات قسط موجود نیست"
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -244,8 +271,8 @@ fun InstallmentDetailScreen(
 
                     InfoRow(
                         icon = Icons.Rounded.Payments,
-                        label = "مبلغ هر قسط:",
-                        value = item.monthlyPaymentFormatted
+                        label = "مبلغ قسط پیش‌رو:",
+                        value = nextInstallmentAmount
                     )
                     InfoRow(
                         icon = Icons.Rounded.ReceiptLong,
