@@ -275,14 +275,17 @@ fun EventCard(
                 }
             }
 
+            // Read the computed property once so Kotlin can safely smart-cast the local value.
+            val formattedAmount = event.formattedAmount
+
             // Centered event amount below the title row
-            if (event.formattedAmount != null) {
+            if (formattedAmount != null) {
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = event.formattedAmount,
+                        text = formattedAmount,
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 14.sp
