@@ -19,8 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Code
-import androidx.compose.material.icons.rounded.Copyright
-import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.Icon
@@ -46,7 +44,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.ui.screens.settings.components.SettingsConfirmationDialog
 import com.example.ui.screens.settings.components.SettingsHeader
 import com.example.ui.screens.settings.components.SettingsItem
 import com.example.ui.screens.settings.components.SettingsSectionCard
@@ -61,15 +58,13 @@ fun AboutScreen(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
-    var showLicensesDialog by remember { mutableStateOf(false) }
-    var showTermsDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             SettingsHeader(
                 title = "درباره برنامه",
-                subtitle = "اطلاعات نسخه، تکنولوژی‌ها و مجوزها",
+                subtitle = "اطلاعات نسخه و مشخصات فنی",
                 showBack = true,
                 showSearch = false,
                 onBackClick = onBackClick
@@ -181,27 +176,6 @@ fun AboutScreen(
                 }
             }
 
-            // Legal & Open Source
-            item {
-                SettingsSectionCard(title = "قوانین و مجوزها") {
-                    SettingsItem(
-                        title = "مجوزهای متن‌باز (Open Source Licenses)",
-                        subtitle = "کتابخانه‌ها و ابزارهای مورد استفاده در پروژه",
-                        vectorIcon = Icons.Rounded.Description,
-                        iconAccentColor = Color(0xFF6366F1),
-                        onClick = { showLicensesDialog = true }
-                    )
-
-                    SettingsItem(
-                        title = "شرایط و قوانین استفاده",
-                        subtitle = "توافقنامه حقوق کاربری و سلب مسئولیت",
-                        vectorIcon = Icons.Rounded.Copyright,
-                        iconAccentColor = Color(0xFF64748B),
-                        onClick = { showTermsDialog = true }
-                    )
-                }
-            }
-
             // Heart Footer
             item {
                 Row(
@@ -236,25 +210,4 @@ fun AboutScreen(
         }
     }
 
-    SettingsConfirmationDialog(
-        isOpen = showLicensesDialog,
-        title = "مجوزهای نرم‌افزاری",
-        message = "این برنامه از کتابخانه‌های متن‌باز شامل AndroidX Jetpack, Compose Material3, Coroutines, Vico Charts و سایر پکیج‌های استاندارد تحت مجوز Apache 2.0 و MIT استفاده می‌نماید.",
-        confirmButtonText = "بستن",
-        cancelButtonText = "",
-        isDanger = false,
-        onConfirm = { showLicensesDialog = false },
-        onDismiss = { showLicensesDialog = false }
-    )
-
-    SettingsConfirmationDialog(
-        isOpen = showTermsDialog,
-        title = "شرایط استفاده",
-        message = "استفاده از این برنامه رایگان بوده و به عنوان دستیار کمکی برای امور مالی و نگهداری خودرو طراحی شده است. لطفاً در ثبت ارقام دقیق دقت کافی مبذول فرمایید.",
-        confirmButtonText = "تأیید",
-        cancelButtonText = "",
-        isDanger = false,
-        onConfirm = { showTermsDialog = false },
-        onDismiss = { showTermsDialog = false }
-    )
 }
