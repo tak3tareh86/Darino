@@ -76,9 +76,9 @@ val HeaderGradientDark = Brush.verticalGradient(
 
 val SummaryCardGradientLight = Brush.linearGradient(
     colors = listOf(
-        Color(0xFF0F172A),
-        Color(0xFF1E293B),
-        Color(0xFF0F766E)
+        Color(0xFFF8FAFC),
+        Color(0xFFE6FFFB),
+        Color(0xFFCCFBF1)
     )
 )
 
