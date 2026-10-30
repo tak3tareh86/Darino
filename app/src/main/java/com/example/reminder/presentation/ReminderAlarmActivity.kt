@@ -1,12 +1,12 @@
 package com.example.reminder.presentation
 
-import android.app.NotificationManager
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Alarm
@@ -120,7 +121,8 @@ private fun ReminderAlarmContent(
     onComplete: () -> Unit,
     onSnooze: () -> Unit,
     onDismiss: () -> Unit
-) {
+ ) {
+    BackHandler(onBack = onDismiss)
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color(0xFF101827)
@@ -181,7 +183,7 @@ private fun ReminderAlarmContent(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A995))
             ) {
                 Icon(Icons.Rounded.CheckCircle, contentDescription = null)
-                Spacer(Modifier.height(0.dp))
+                Spacer(Modifier.width(8.dp))
                 Text("انجام شد", fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(12.dp))
