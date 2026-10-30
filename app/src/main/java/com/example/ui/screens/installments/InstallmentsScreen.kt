@@ -456,7 +456,7 @@ fun InstallmentsScreen(
 
                 val isRialInput = com.example.util.MoneyFormatter.activeCurrency ==
                     com.example.ui.screens.settings.model.AppCurrency.RIAL
-                if (isRialInput && rawTotal % 10L != 0L) {
+                if (!customScheduleItems.isNullOrEmpty() && isRialInput && rawTotal % 10L != 0L) {
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar("مبلغ کل وام در حالت ریال باید مضربی از ۱۰ باشد تا تبدیل دقیق انجام شود.")
                     }
