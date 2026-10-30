@@ -43,7 +43,9 @@ data class DarinoBackup(
     val notificationLogs: List<NotificationLogEntity> = emptyList(),
     val smsLogs: List<SmsLogEntity> = emptyList(),
     val vehicleStore: VehicleStoreEntity? = null,
-    val reminderDeliveryLogs: List<ReminderDeliveryLogEntity> = emptyList()
+    val reminderDeliveryLogs: List<ReminderDeliveryLogEntity> = emptyList(),
+    val legacyReminders: List<com.example.data.database.ReminderEntity> = emptyList(),
+    val legacyReminderSchedules: List<com.example.data.database.ReminderScheduleEntity> = emptyList()
 )
 
 /** User-visible general preferences stored outside Room. */
