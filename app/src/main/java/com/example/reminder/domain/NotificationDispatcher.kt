@@ -121,6 +121,14 @@ class NotificationDispatcher(private val context: Context) {
         }
         val useFullScreenAlarm = deliveryPref == AlertDeliveryPreference.FULL_SCREEN_ALARM ||
             deliveryPref == AlertDeliveryPreference.BOTH
+        // BOTH combines a full-screen alarm with a separately retained standard notification.
+        val standardNotificationId = if (deliveryPref == AlertDeliveryPreference.BOTH) {
+            NotificationIdGenerator.generateNotificationId(
+                reminderId = reminder.id,
+                scheduleId = "standard:${schedule?.id.orEmpty()}",
+                triggerTime = triggerTime
+            )
+        } else -1
         val channelId = if (useFullScreenAlarm) {
             CHANNEL_FULL_SCREEN_ALARMS
         } else {
@@ -152,6 +160,7 @@ class NotificationDispatcher(private val context: Context) {
             action = ReminderBroadcastReceiver.ACTION_COMPLETE_REMINDER
             putExtra(ReminderBroadcastReceiver.EXTRA_REMINDER_ID, reminder.id)
             putExtra(ReminderBroadcastReceiver.EXTRA_NOTIFICATION_ID, notifId)
+            putExtra(ReminderBroadcastReceiver.EXTRA_SECONDARY_NOTIFICATION_ID, standardNotificationId)
         }
         val completePendingIntent = PendingIntent.getBroadcast(
             context,
@@ -165,6 +174,7 @@ class NotificationDispatcher(private val context: Context) {
             action = ReminderBroadcastReceiver.ACTION_SNOOZE_REMINDER
             putExtra(ReminderBroadcastReceiver.EXTRA_REMINDER_ID, reminder.id)
             putExtra(ReminderBroadcastReceiver.EXTRA_NOTIFICATION_ID, notifId)
+            putExtra(ReminderBroadcastReceiver.EXTRA_SECONDARY_NOTIFICATION_ID, standardNotificationId)
             putExtra(ReminderBroadcastReceiver.EXTRA_SNOOZE_MINUTES, 15)
         }
         val snoozePendingIntent = PendingIntent.getBroadcast(
@@ -204,6 +214,7 @@ class NotificationDispatcher(private val context: Context) {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(ReminderAlarmActivity.EXTRA_REMINDER_ID, reminder.id)
                 putExtra(ReminderAlarmActivity.EXTRA_NOTIFICATION_ID, notifId)
+                putExtra(ReminderAlarmActivity.EXTRA_SECONDARY_NOTIFICATION_ID, standardNotificationId)
                 putExtra(ReminderAlarmActivity.EXTRA_TITLE, reminder.title)
                 putExtra(ReminderAlarmActivity.EXTRA_BODY, bodyText)
             }
@@ -249,6 +260,32 @@ class NotificationDispatcher(private val context: Context) {
                     try {
                         notificationManager.notify(notifId, notification)
                         notificationPosted = true
+                        if (deliveryPref == AlertDeliveryPreference.BOTH) {
+                            val standardChannelId = when (reminder.type.uppercase()) {
+                                "INSTALLMENT" -> CHANNEL_INSTALLMENTS
+                                "VEHICLE", "INSURANCE", "MAINTENANCE", "FUEL" -> CHANNEL_VEHICLES
+                                else -> CHANNEL_REMINDERS
+                            }
+                            val standardChannelEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+                                notificationManager.getNotificationChannel(standardChannelId)?.importance != NotificationManager.IMPORTANCE_NONE
+                            if (standardChannelEnabled) {
+                                val standardNotification = NotificationCompat.Builder(context, standardChannelId)
+                                    .setSmallIcon(R.drawable.img_3d_bell_notification)
+                                    .setContentTitle(reminder.title)
+                                    .setContentText(bodyText)
+                                    .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
+                                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                                    .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                                    .setAutoCancel(true)
+                                    .setContentIntent(contentPendingIntent)
+                                    .addAction(R.drawable.img_3d_installment, "انجام شد", completePendingIntent)
+                                    .addAction(R.drawable.img_3d_calendar, "۱۵ دقیقه بعد", snoozePendingIntent)
+                                    .build()
+                                notificationManager.notify(standardNotificationId, standardNotification)
+                            } else {
+                                Log.w("NotificationDispatcher", "The additional standard notification channel is disabled for reminderId=${reminder.id}.")
+                            }
+                        }
                         Log.i("NotificationDispatcher", "Notification posted to Android notification manager: id=$notifId, reminderId=${reminder.id}")
                     } catch (e: SecurityException) {
                         deliveryFailure = "Notification permission/security exception: ${e.message}"
