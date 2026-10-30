@@ -31,7 +31,7 @@ import androidx.room.RoomDatabase
         UserPreferenceEntity::class,
         CheckEntity::class
     ],
-    version = 27,
+    version = 28,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -436,6 +436,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_27_28 = object : androidx.room.migration.Migration(27, 28) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Per-reminder full-screen alarm is opt-in for existing records.
+                db.execSQL("ALTER TABLE `smart_reminders` ADD COLUMN `fullScreenAlarmEnabled` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -448,7 +455,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
                          MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
-                         MIGRATION_25_26, MIGRATION_26_27
+                         MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28
                      )
                     .build()
                 INSTANCE = instance
