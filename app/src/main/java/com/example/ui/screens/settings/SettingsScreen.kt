@@ -262,35 +262,8 @@ fun SettingsScreen(
             }
             SettingsDestination.SECURITY -> {
                 SecurityPrivacyScreen(
-                    currentLockType = currentLockType,
-                    onNavigateToAppLock = { currentDestination = SettingsDestination.APP_LOCK },
                     onNavigateToLockAndAuth = { currentDestination = SettingsDestination.LOCK_AND_AUTH },
                     onBackClick = { currentDestination = SettingsDestination.MAIN }
-                )
-            }
-            SettingsDestination.APP_LOCK -> {
-                AppLockSettingsScreen(
-                    currentLockType = currentLockType,
-                    onLockTypeSelected = { type ->
-                        when (type) {
-                            AppLockType.NONE -> {
-                                lockViewModel.disableAppLock()
-                            }
-                            AppLockType.PIN -> {
-                                lockViewModel.toggleAppLock(true)
-                                lockViewModel.setDefaultUnlockMethod(UnlockMethod.PIN)
-                            }
-                            AppLockType.BIOMETRIC -> {
-                                lockViewModel.toggleAppLock(true)
-                                lockViewModel.setBiometricEnabledDirectly(true)
-                                lockViewModel.setDefaultUnlockMethod(UnlockMethod.BIOMETRIC)
-                            }
-                        }
-                    },
-                    onSavePin = { pin ->
-                        lockViewModel.setPin(pin)
-                    },
-                    onBackClick = { currentDestination = SettingsDestination.SECURITY }
                 )
             }
             SettingsDestination.LOCK_AND_AUTH -> {
