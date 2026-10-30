@@ -217,7 +217,7 @@ class LocalBackupRepository(
                         account.copy(id = 0, userId = userId)
                     ).toString()
                     restoredAccountIds[account.id.toString()] = newId
-                    restoredAccountIds[account.stringId] = newId
+                    account.stringId.takeIf { it.isNotBlank() }?.let { restoredAccountIds[it] = newId }
                 }
                 fun remapAccountId(oldId: String?): String? =
                     oldId?.let { restoredAccountIds[it] ?: it }
