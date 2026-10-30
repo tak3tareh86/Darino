@@ -152,6 +152,12 @@ class LocalBackupRepository(
                 is ValidationResult.Invalid -> throw IllegalArgumentException(validation.reason)
             }
             val userId = getEffectiveUserId()
+            val previousSmartSchedules = if (mode == RestoreMode.REPLACE) {
+                db.smartReminderDao().getAllSchedulesList(userId)
+            } else emptyList()
+            val previousLegacyReminders = if (mode == RestoreMode.REPLACE) {
+                db.reminderDao().getActiveRemindersSnapshot(userId)
+            } else emptyList()
 
             db.withTransaction {
                 if (mode == RestoreMode.REPLACE) {
@@ -388,6 +394,19 @@ class LocalBackupRepository(
                             .getOrNull()?.let { appPreferences.setNavTransition(it) }
                     }
                 }
+            }
+
+            // AlarmManager is outside the Room transaction: cancel old registrations only
+            // after the database replacement commits, then rebuild from the restored rows.
+            if (mode == RestoreMode.REPLACE) {
+                val reminderScheduler = com.example.reminder.domain.ReminderScheduler(context)
+                previousSmartSchedules.forEach { reminderScheduler.cancelSchedule(it.id) }
+                val legacyScheduler = com.example.data.receiver.ReminderScheduler(context)
+                previousLegacyReminders.forEach { legacyScheduler.cancel(it.id) }
+            }
+            com.example.reminder.domain.ReminderManager(context).rebuildAllSchedules()
+            db.reminderDao().getActiveRemindersSnapshot(userId).forEach { reminder ->
+                com.example.data.receiver.ReminderScheduler(context).schedule(reminder)
             }
 
             try {
