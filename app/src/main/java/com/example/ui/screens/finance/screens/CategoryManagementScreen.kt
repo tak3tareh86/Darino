@@ -270,6 +270,7 @@ fun CategoryItemCard(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            // Category details and activation switch stay on the same row.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -277,7 +278,8 @@ fun CategoryItemCard(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
                     Box(
                         modifier = Modifier
@@ -311,8 +313,6 @@ fun CategoryItemCard(
                                 ),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            
-                            // Compact Premium Badge
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = if (category.isCustom) {
@@ -333,7 +333,6 @@ fun CategoryItemCard(
                                 )
                             }
                         }
-                        
                         Text(
                             text = if (category.isActive) "فعال و در دسترس" else "غیرفعال شده",
                             style = MaterialTheme.typography.bodySmall.copy(
@@ -344,6 +343,79 @@ fun CategoryItemCard(
                         )
                     }
                 }
+
+                Switch(
+                    checked = category.isActive,
+                    onCheckedChange = onToggleActive,
+                    modifier = Modifier.scale(0.8f).padding(start = 4.dp),
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = category.accentColor,
+                        uncheckedThumbColor = Color(0xFF94A3B8),
+                        uncheckedTrackColor = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
+                    )
+                )
+            }
+
+            // Edit and delete actions are grouped at the lower-left of the card.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    IconButton(
+                        onClick = onEdit,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .testTag("edit_category_${category.id}")
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .background(
+                                    if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = "ویرایش دسته‌بندی",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .testTag("delete_category_${category.id}")
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .background(
+                                    if (isDark) Color(0xFF451A20) else Color(0xFFFEE2E2),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Delete,
+                                contentDescription = "حذف دسته‌بندی",
+                                modifier = Modifier.size(16.dp),
+                                tint = Color(0xFFEF4444)
+                            )
+                        }
+                    }
+                }
+            }
+
             // Subcategories chips
             if (category.subCategories.isNotEmpty() && category.isActive) {
                 FlowRow(
