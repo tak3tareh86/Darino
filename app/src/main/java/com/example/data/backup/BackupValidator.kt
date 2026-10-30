@@ -103,7 +103,7 @@ object BackupValidator {
         val vehicleIds = buildSet {
             backup.vehicles.forEach { vehicle ->
                 add(vehicle.id.toString())
-                vehicle.serverId?.takeIf { it.isNotBlank() }?.let(::add)
+                vehicle.serverId?.takeIf { it.isNotBlank() }?.let { add(it) }
             }
         }
         val referencedVehicleIds = buildList {
