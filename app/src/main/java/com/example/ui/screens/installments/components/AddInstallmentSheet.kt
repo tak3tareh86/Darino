@@ -1106,7 +1106,7 @@ private fun CustomInstallmentsDialog(
                                 rangeAmountStr = it
                                 validationError = null
                             },
-                            label = "مبلغ هر قسط در این بازه (تومان)",
+                            label = "مبلغ هر قسط در این بازه (${MoneyFormatter.getUnitLabel()})",
                             showWordsPreview = false,
                             useOuterHeader = false
                         )
