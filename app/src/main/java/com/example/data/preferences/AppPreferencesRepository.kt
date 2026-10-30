@@ -30,7 +30,7 @@ import kotlinx.coroutines.withContext
  * - Currency (Toman / Rial)
  * - Number Display Mode (Persian / English - Persisted in Room user_preferences)
  * - Theme Mode (Light / Dark / System)
- * - Alert Delivery Preference (Both / Notification Only / SMS Only)
+ * - Alert Delivery Preference (Notification Only / Full-screen Alarm / Both)
  */
 class AppPreferencesRepository private constructor(context: Context) {
 
