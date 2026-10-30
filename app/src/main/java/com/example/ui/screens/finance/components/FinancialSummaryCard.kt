@@ -53,6 +53,12 @@ fun FinancialSummaryCard(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val cardGradient = if (isDark) SummaryCardGradientDark else SummaryCardGradientLight
+    val primaryTextColor = if (isDark) Color.White else Color(0xFF0F172A)
+    val secondaryTextColor = if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.85f) else Color(0xFF475569)
+    val mutedTextColor = if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.8f) else Color(0xFF64748B)
+    val translucentSurfaceColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFF0F766E).copy(alpha = 0.08f)
+    val iconBackgroundColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF0D9488).copy(alpha = 0.12f)
+    val badgeSurfaceColor = if (isDark) Color.White.copy(alpha = 0.18f) else Color(0xFF0D9488).copy(alpha = 0.12f)
 
     Layered3DCard(
         modifier = modifier.fillMaxWidth(),
@@ -87,7 +93,7 @@ fun FinancialSummaryCard(
                             modifier = Modifier
                                 .size(28.dp)
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.15f)),
+                                .background(iconBackgroundColor),
                             contentAlignment = Alignment.Center
                         ) {
                             Image(
@@ -104,15 +110,15 @@ fun FinancialSummaryCard(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
                             ),
-                            color = Color.White
+                            color = primaryTextColor
                         )
                     }
 
                     // Savings Rate Badge
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.White.copy(alpha = 0.18f),
-                        contentColor = Color.White
+                        color = badgeSurfaceColor,
+                        contentColor = primaryTextColor
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -125,7 +131,7 @@ fun FinancialSummaryCard(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.sp
                                 ),
-                                color = Color.White
+                                color = primaryTextColor
                             )
                         }
                     }
@@ -142,7 +148,7 @@ fun FinancialSummaryCard(
                     Text(
                         text = "مانده پس‌انداز و نقدینگی",
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                        color = Color(0xFFE2E8F0).copy(alpha = 0.85f)
+                        color = secondaryTextColor
                     )
                     Text(
                         text = formattedBalance,
@@ -150,7 +156,7 @@ fun FinancialSummaryCard(
                             fontWeight = FontWeight.Black,
                             fontSize = 22.sp
                         ),
-                        color = Color.White
+                        color = primaryTextColor
                     )
                 }
 
@@ -163,7 +169,7 @@ fun FinancialSummaryCard(
                     Surface(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(RadiusMD),
-                        color = Color.White.copy(alpha = 0.12f)
+                        color = translucentSurfaceColor
                     ) {
                         Row(
                             modifier = Modifier.padding(8.dp),
@@ -189,7 +195,7 @@ fun FinancialSummaryCard(
                                 Text(
                                     text = "درآمد",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = Color(0xFFE2E8F0).copy(alpha = 0.8f)
+                                    color = mutedTextColor
                                 )
                                 Text(
                                     text = formattedIncome,
@@ -197,7 +203,7 @@ fun FinancialSummaryCard(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp
                                     ),
-                                    color = Color.White
+                                    color = primaryTextColor
                                 )
                             }
                         }
