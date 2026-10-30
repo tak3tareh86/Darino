@@ -24,12 +24,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Login
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.LockReset
 import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -368,54 +366,7 @@ fun LockedAppScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
 
-                // Bottom Actions: Emergency Recovery Flow: Re-login with Username & Password
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(RadiusMD),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(RadiusMD))
-                            .clickable(onClick = onRecoverWithOtp)
-                            .testTag("account_recovery_button")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.LockReset,
-                                    contentDescription = null,
-                                    tint = EmeraldPrimaryLight,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(
-                                    text = "ورود مجدد با نام کاربری و رمز عبور",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                    color = if (isDark) Color.White else Color(0xFF0F172A)
-                                )
-                            }
-
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.Login,
-                                contentDescription = null,
-                                tint = EmeraldPrimaryLight,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                }
             }
         }
     }
