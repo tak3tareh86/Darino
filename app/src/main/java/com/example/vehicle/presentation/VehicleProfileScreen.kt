@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Save
@@ -73,6 +74,7 @@ fun VehicleProfileScreen(
         mutableStateOf(if (vehicle.estimatedValue > 0) vehicle.estimatedValue.toString() else "")
     }
     var currentMileageText by remember(vehicle) { mutableStateOf(vehicle.currentMileage.toString()) }
+    val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
 
     Scaffold(
         modifier = modifier
@@ -358,7 +360,6 @@ fun VehicleProfileScreen(
                             val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
                             val km = IranianPhoneUtils.convertDigitsToEnglish(currentMileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onUpdateMileage(km)
-                            val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
                             onSaveSpecs(brand, model, year, color, plate, vin, estVal)
                             onBack()
                         },
