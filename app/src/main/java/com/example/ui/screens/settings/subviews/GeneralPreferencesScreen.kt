@@ -55,6 +55,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
+import android.app.NotificationManager
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.compose.material3.Button
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -90,7 +100,28 @@ fun GeneralPreferencesScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val isEn = currentLanguage == AppLanguage.ENGLISH
+    fun checkFullScreenIntentAccess(): Boolean {
+        if (Build.VERSION.SDK_INT < 34) return true
+        return try {
+            context.getSystemService(NotificationManager::class.java)?.canUseFullScreenIntent() == true
+        } catch (_: Exception) {
+            false
+        }
+    }
+    var canUseFullScreenIntent by remember(context) {
+        mutableStateOf(checkFullScreenIntentAccess())
+    }
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                canUseFullScreenIntent = checkFullScreenIntentAccess()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     CompositionLocalProvider(
         LocalLayoutDirection provides if (isEn) LayoutDirection.Ltr else LayoutDirection.Rtl
@@ -292,7 +323,7 @@ fun GeneralPreferencesScreen(
 
                 GeneralCompactCard(
                     title = if (isEn) "Alert Delivery" else "روش دریافت هشدار",
-                    subtitle = if (isEn) "Choose how reminders are delivered" else "روش ارسال پیامک و اعلان‌های برنامه را انتخاب کنید",
+                    subtitle = if (isEn) "Choose notification, full-screen alarm, or both" else "نحوه نمایش اعلان و آلارم تمام‌صفحه را انتخاب کنید",
                     icon = Icons.Rounded.NotificationsActive,
                     iconColor = Color(0xFF0EA5E9)
                 ) {
@@ -301,33 +332,59 @@ fun GeneralPreferencesScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         DeliveryModeCompactItem(
-                            title = if (isEn) "SMS and notifications" else "پیامک و نوتیفیکیشن",
-                            subtitle = if (isEn) "Send both types of alert" else "ارسال هم‌زمان پیامک و اعلان",
-                            emoji = "🔔📲",
-                            isSelected = currentDeliveryMode == AlertDeliveryPreference.BOTH,
-                            onClick = { onDeliveryModeChanged(AlertDeliveryPreference.BOTH) }
-                        )
-                        DeliveryModeCompactItem(
                             title = if (isEn) "Notifications only" else "فقط نوتیفیکیشن",
-                            subtitle = if (isEn) "System notifications, no SMS" else "فقط اعلان سیستمی، بدون پیامک",
+                            subtitle = if (isEn) "Standard Android notification" else "نمایش اعلان معمولی در نوار اعلان گوشی",
                             emoji = "🔔",
                             isSelected = currentDeliveryMode == AlertDeliveryPreference.NOTIFICATION_ONLY,
                             onClick = { onDeliveryModeChanged(AlertDeliveryPreference.NOTIFICATION_ONLY) }
                         )
                         DeliveryModeCompactItem(
-                            title = if (isEn) "SMS only" else "فقط پیامک",
-                            subtitle = if (isEn) "Text messages, no system notification" else "فقط پیامک، بدون اعلان سیستمی",
-                            emoji = "💬",
-                            isSelected = currentDeliveryMode == AlertDeliveryPreference.SMS_ONLY,
-                            onClick = { onDeliveryModeChanged(AlertDeliveryPreference.SMS_ONLY) }
+                            title = if (isEn) "Full-screen alarm" else "آلارم تمام‌صفحه",
+                            subtitle = if (isEn) "Open the reminder alarm screen at its scheduled time" else "نمایش صفحه اختصاصی هشدار در زمان تعیین‌شده",
+                            emoji = "⏰",
+                            isSelected = currentDeliveryMode == AlertDeliveryPreference.FULL_SCREEN_ALARM,
+                            onClick = { onDeliveryModeChanged(AlertDeliveryPreference.FULL_SCREEN_ALARM) }
                         )
                         DeliveryModeCompactItem(
-                            title = if (isEn) "Disabled" else "غیرفعال",
-                            subtitle = if (isEn) "Turn off delivery of alerts" else "ارسال هشدارها غیرفعال شود",
-                            emoji = "🔕",
-                            isSelected = currentDeliveryMode == AlertDeliveryPreference.DISABLED,
-                            onClick = { onDeliveryModeChanged(AlertDeliveryPreference.DISABLED) }
+                            title = if (isEn) "Notification and full-screen alarm" else "نوتیفیکیشن و آلارم تمام‌صفحه",
+                            subtitle = if (isEn) "Use both alert experiences" else "نمایش اعلان و آلارم تمام‌صفحه",
+                            emoji = "🔔⏰",
+                            isSelected = currentDeliveryMode == AlertDeliveryPreference.BOTH,
+                            onClick = { onDeliveryModeChanged(AlertDeliveryPreference.BOTH) }
                         )
+                        if (Build.VERSION.SDK_INT >= 34 &&
+                            currentDeliveryMode != AlertDeliveryPreference.NOTIFICATION_ONLY &&
+                            !canUseFullScreenIntent
+                        ) {
+                            Text(
+                                text = if (isEn)
+                                    "Android requires special access for full-screen alarms. Without it, Darino can only show a normal notification."
+                                else
+                                    "برای نمایش تمام‌صفحه، اندروید دسترسی ویژه می‌خواهد. بدون این دسترسی، برنامه فقط اعلان معمولی نمایش می‌دهد.",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Button(
+                                onClick = {
+                                    try {
+                                        context.startActivity(
+                                            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                                                data = Uri.parse("package:${context.packageName}")
+                                            }
+                                        )
+                                    } catch (_: Exception) {
+                                        Toast.makeText(
+                                            context,
+                                            if (isEn) "Full-screen alarm access settings are unavailable." else "تنظیمات دسترسی آلارم تمام‌صفحه در این دستگاه در دسترس نیست.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (isEn) "Enable full-screen alarm access" else "فعال‌سازی دسترسی آلارم تمام‌صفحه")
+                            }
+                        }
                     }
                 }
 
