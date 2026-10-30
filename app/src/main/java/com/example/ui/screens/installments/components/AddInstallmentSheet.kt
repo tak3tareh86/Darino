@@ -1010,7 +1010,9 @@ private fun CustomInstallmentsDialog(
     val totalAmountLong = IranianAmountUtils.parseAmountToLong(totalAmountStr)
     val countInt = installmentsCountStr.filter { it.isDigit() }.toIntOrNull()?.coerceAtLeast(1) ?: 12
 
-    var feeAmountStr by remember { mutableStateOf("") }
+    var rangeStartStr by remember { mutableStateOf("۱") }
+    var rangeEndStr by remember { mutableStateOf(IranianPhoneUtils.convertDigitsToPersian(countInt.toString())) }
+    var rangeAmountStr by remember { mutableStateOf("") }
     var validationError by remember { mutableStateOf<String?>(null) }
 
     var scheduleList by remember {
@@ -1059,7 +1061,7 @@ private fun CustomInstallmentsDialog(
                 )
 
                 Text(
-                    text = "مبلغ قسط اول (کارمزد ۴٪) یا هر قسط را به صورت دلخواه تغییر دهید:",
+                    text = "شماره شروع و پایان بازه را مشخص کنید و مبلغ هر قسط در آن بازه را وارد کنید:",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp, bottom = 10.dp)
@@ -1068,118 +1070,94 @@ private fun CustomInstallmentsDialog(
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 10.dp)
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            PersianAmountInputField(
-                                value = feeAmountStr,
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = rangeStartStr,
                                 onValueChange = {
-                                    feeAmountStr = it
-                                    if (validationError != null) validationError = null
+                                    rangeStartStr = IranianPhoneUtils.convertDigitsToPersian(it.filter { ch -> ch.isDigit() })
+                                    validationError = null
                                 },
-                                label = "مبلغ قسط ۱ (کارمزد)",
-                                showWordsPreview = false,
-                                useOuterHeader = false
+                                modifier = Modifier.weight(1f),
+                                label = { Text("از قسط شماره") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                            OutlinedTextField(
+                                value = rangeEndStr,
+                                onValueChange = {
+                                    rangeEndStr = IranianPhoneUtils.convertDigitsToPersian(it.filter { ch -> ch.isDigit() })
+                                    validationError = null
+                                },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("تا قسط شماره") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                             )
                         }
+                        PersianAmountInputField(
+                            value = rangeAmountStr,
+                            onValueChange = {
+                                rangeAmountStr = it
+                                validationError = null
+                            },
+                            label = "مبلغ هر قسط در این بازه (تومان)",
+                            showWordsPreview = false,
+                            useOuterHeader = false
+                        )
                         Button(
                             onClick = {
-                                val feeLong = IranianAmountUtils.parseAmountToLong(feeAmountStr)
-                                if (feeLong <= 0L) {
-                                    validationError = "لطفاً مبلغ معتبری برای کارمزد قسط اول وارد کنید."
+                                val first = IranianPhoneUtils.convertDigitsToEnglish(rangeStartStr).filter { it.isDigit() }.toIntOrNull()
+                                val last = IranianPhoneUtils.convertDigitsToEnglish(rangeEndStr).filter { it.isDigit() }.toIntOrNull()
+                                val amountRaw = IranianAmountUtils.parseAmountToLong(rangeAmountStr)
+                                val amountToman = MoneyFormatter.convertToToman(amountRaw)
+                                if (first == null || last == null || first < 1 || last < first || last > scheduleList.size) {
+                                    validationError = "بازه شماره اقساط معتبر نیست؛ شماره شروع و پایان را بررسی کنید."
                                     return@Button
                                 }
-                                if (countInt < 2) {
-                                    validationError = "تعداد اقساط برای توزیع باید حداقل ۲ قسط باشد."
+                                if (amountRaw <= 0L || amountToman <= 0L) {
+                                    validationError = "لطفاً مبلغی بیشتر از صفر برای هر قسط وارد کنید."
                                     return@Button
                                 }
-
-                                val totalToman = MoneyFormatter.convertToToman(totalAmountLong)
-                                val feeToman = MoneyFormatter.convertToToman(feeLong)
-
-                                if (feeToman > totalToman) {
-                                    validationError = "مبلغ کارمزد نمی‌تواند از مبلغ کل بیشتر باشد."
-                                    return@Button
+                                scheduleList = scheduleList.map { item ->
+                                    if (item.installmentNumber in first..last) {
+                                        item.copy(amount = amountToman, amountFormatted = MoneyFormatter.formatToman(amountToman))
+                                    } else item
                                 }
-
                                 validationError = null
-                                val remTotalToman = totalToman - feeToman
-                                val remCount = countInt - 1
-                                val quotient = remTotalToman / remCount
-                                val remainder = remTotalToman % remCount
-                                val lastIndex = countInt - 1
-
-                                scheduleList = scheduleList.mapIndexed { idx, item ->
-                                    when (idx) {
-                                        0 -> {
-                                            item.copy(amount = feeToman, amountFormatted = MoneyFormatter.formatToman(feeToman))
-                                        }
-                                        lastIndex -> {
-                                            val lastAmount = quotient + remainder
-                                            item.copy(amount = lastAmount, amountFormatted = MoneyFormatter.formatToman(lastAmount))
-                                        }
-                                        else -> {
-                                            item.copy(amount = quotient, amountFormatted = MoneyFormatter.formatToman(quotient))
-                                        }
-                                    }
-                                }
                             },
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(48.dp)
+                            modifier = Modifier.fillMaxWidth().height(46.dp),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("توزیع", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("اعمال", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
 
                 Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState()),
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    scheduleList.forEachIndexed { index, item ->
+                    scheduleList.forEach { item ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "قسط ${item.installmentNumber}:",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                modifier = Modifier.width(55.dp)
+                                text = "قسط ${IranianPhoneUtils.convertDigitsToPersian(item.installmentNumber.toString())}",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                             )
-                            val displayAmount = MoneyFormatter.convertFromToman(item.amount)
-                            var rawInput by remember(item.amount) {
-                                mutableStateOf(if (displayAmount > 0L) IranianAmountUtils.formatWithCommas(displayAmount.toString()) else "")
-                            }
-                            Box(modifier = Modifier.weight(1f)) {
-                                PersianAmountInputField(
-                                    value = rawInput,
-                                    onValueChange = { newStr ->
-                                        rawInput = newStr
-                                        val parsedRaw = IranianAmountUtils.parseAmountToLong(newStr)
-                                        val parsedToman = MoneyFormatter.convertToToman(parsedRaw)
-                                        scheduleList = scheduleList.toMutableList().apply {
-                                            this[index] = item.copy(
-                                                amount = parsedToman,
-                                                amountFormatted = MoneyFormatter.formatToman(parsedToman)
-                                            )
-                                        }
-                                    },
-                                    showWordsPreview = false,
-                                    useOuterHeader = false
-                                )
-                            }
+                            Text(
+                                text = if (item.amount > 0L) MoneyFormatter.formatToman(item.amount) else "تعیین نشده",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (item.amount > 0L) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                 }
@@ -1228,8 +1206,13 @@ private fun CustomInstallmentsDialog(
                                 item.dueDate.isBlank() ||
                                 !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(item.dueDate)
                             }
+                            val expectedTotal = MoneyFormatter.convertToToman(totalAmountLong)
+                            val actualTotal = scheduleList.sumOf { it.amount }
                             if (invalidItem != null) {
                                 validationError = "تمام اقساط باید شماره معتبر، مبلغ بیشتر از صفر و تاریخ سررسید معتبر شمسی داشته باشند."
+                            } else if (expectedTotal <= 0L || actualTotal != expectedTotal) {
+                                val difference = kotlin.math.abs(expectedTotal - actualTotal)
+                                validationError = "جمع اقساط باید دقیقاً برابر مبلغ کل وام باشد. مبلغ کل: ${MoneyFormatter.formatToman(expectedTotal)}، جمع اقساط: ${MoneyFormatter.formatToman(actualTotal)}، اختلاف: ${MoneyFormatter.formatToman(difference)}"
                             } else {
                                 validationError = null
                                 onConfirm(scheduleList)
