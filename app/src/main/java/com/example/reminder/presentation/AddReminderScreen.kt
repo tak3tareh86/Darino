@@ -79,10 +79,6 @@ fun AddReminderScreen(
         mutableStateListOf(PredefinedOffset.AT_TIME, PredefinedOffset.BEFORE_1_DAY)
     }
 
-    // Channels
-    var notificationEnabled by remember { mutableStateOf(true) }
-    var fullScreenAlarmEnabled by remember { mutableStateOf(false) }
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -378,62 +374,6 @@ fun AddReminderScreen(
                 }
             }
 
-            // 7. Notification & Full-screen Alarm Channels
-            Layered3DCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "اعلان سیستم (Push Notification)",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                text = "نمایش اعلان در نوار وضعیت گوشی",
-                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            )
-                        }
-                        Switch(
-                            checked = notificationEnabled,
-                            onCheckedChange = { notificationEnabled = it },
-                            modifier = Modifier.testTag("switch_notif_enabled")
-                        )
-                    }
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "آلارم تمام‌صفحه",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                text = "باز شدن صفحه هشدار؛ فعال‌سازی آلارم تمام‌صفحه در تنظیمات عمومی نیز لازم است",
-                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            )
-                        }
-                        Switch(
-                            checked = fullScreenAlarmEnabled,
-                            onCheckedChange = { fullScreenAlarmEnabled = it },
-                            modifier = Modifier.testTag("switch_full_screen_alarm_enabled")
-                        )
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(10.dp))
 
             // Save Button
@@ -453,8 +393,6 @@ fun AddReminderScreen(
                         status = "ACTIVE",
                         date = date.trim(),
                         time = time.trim(),
-                        notificationEnabled = notificationEnabled,
-                        fullScreenAlarmEnabled = fullScreenAlarmEnabled,
                         amount = parsedAmount,
                         targetKilometer = parsedKm
                     )
