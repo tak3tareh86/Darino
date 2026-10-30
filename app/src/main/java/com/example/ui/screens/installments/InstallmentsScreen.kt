@@ -454,11 +454,37 @@ fun InstallmentsScreen(
                     }
                 }
 
+                val isRialInput = com.example.util.MoneyFormatter.activeCurrency ==
+                    com.example.ui.screens.settings.model.AppCurrency.RIAL
+                if (isRialInput && rawTotal % 10L != 0L) {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("مبلغ کل وام در حالت ریال باید مضربی از ۱۰ باشد تا تبدیل دقیق انجام شود.")
+                    }
+                    return@AddInstallmentSheet
+                }
+
                 val parsedTotal = com.example.util.MoneyFormatter.convertToToman(rawTotal)
                 val parsedMonthly = com.example.util.MoneyFormatter.convertToToman(rawMonthly)
 
                 val totalAmount = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.sumOf { it.amount } else parsedTotal
                 val totalInstallments = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.size else parsedCount
+
+                if (!customScheduleItems.isNullOrEmpty()) {
+                    val sortedNumbers = customScheduleItems.map { it.installmentNumber }.sorted()
+                    val expectedNumbers = if (parsedCount > 0) (1..parsedCount).toList() else emptyList()
+                    val customTotal = customScheduleItems.sumOf { it.amount }
+                    if (parsedTotal <= 0L || customScheduleItems.size != parsedCount ||
+                        sortedNumbers != expectedNumbers || customTotal != parsedTotal
+                    ) {
+                        coroutineScope.launch {
+                            val difference = kotlin.math.abs(parsedTotal - customTotal)
+                            snackbarHostState.showSnackbar(
+                                "برنامه اقساط قابل ثبت نیست. تعداد و شماره اقساط باید کامل و بدون تکرار باشند و جمع اقساط دقیقاً برابر مبلغ وام باشد. اختلاف: ${com.example.util.MoneyFormatter.formatToman(difference)}"
+                            )
+                        }
+                        return@AddInstallmentSheet
+                    }
+                }
 
                 if (requestedPaidCount < 0 || requestedPaidCount > totalInstallments) {
                     coroutineScope.launch {
