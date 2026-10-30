@@ -65,7 +65,6 @@ import com.example.ui.screens.settings.model.WeekStartDay
 import com.example.ui.screens.settings.subviews.AboutScreen
 import com.example.ui.screens.settings.subviews.AccountsScreen
 import com.example.ui.screens.settings.subviews.AppearanceSettingsScreen
-import com.example.ui.screens.settings.subviews.AppLockSettingsScreen
 import com.example.ui.screens.settings.subviews.CategoriesScreen
 import com.example.ui.screens.settings.subviews.GeneralPreferencesScreen
 import com.example.ui.screens.settings.subviews.NotificationSettingsScreen
