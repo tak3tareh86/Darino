@@ -33,7 +33,7 @@ enum class LoanType(
     PERSONAL_LOAN(
         id = "personal",
         title = "وام شخصی",
-        subtitle = "قرض‌الحسنه و صندوق خانگی",
+        subtitle = "وام شخصی و قرض‌الحسنه؛ نرخ تابع قرارداد",
         defaultInterest = 4.0,
         defaultDuration = 10,
         iconRes = R.drawable.img_3d_home
