@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.Layered3DCard
@@ -510,18 +511,21 @@ private fun DetailMetric(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
         Text(
             text = value,
             style = MaterialTheme.typography.titleSmall.copy(fontSize = 12.5.sp),
             color = color,
-            maxLines = 1
+            maxLines = 1,
+            textAlign = TextAlign.Center
         )
     }
 }
