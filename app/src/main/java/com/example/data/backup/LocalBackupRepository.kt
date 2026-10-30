@@ -342,8 +342,10 @@ class LocalBackupRepository(
                 if (backup.metadata.backupVersion >= 6) {
                     backup.legacyReminders.forEach { reminder ->
                         val remappedSourceId = when (reminder.sourceType) {
-                            "INSTALLMENT" -> reminder.sourceId?.let { restoredInstallmentReferenceIds[it] ?: it }
-                            "VEHICLE_SERVICE", "VEHICLE" -> reminder.sourceId?.let { restoredServiceIds[it] ?: it }
+                            "INSTALLMENT" -> reminder.sourceId?.let { restoredInstallmentIds[it] ?: it }
+                            "VEHICLE_SERVICE", "VEHICLE" -> reminder.sourceId?.let {
+                                restoredServiceIds[it.toString()]?.toIntOrNull() ?: it
+                            }
                             else -> reminder.sourceId
                         }
                         val newId = db.reminderDao().insertReminder(
