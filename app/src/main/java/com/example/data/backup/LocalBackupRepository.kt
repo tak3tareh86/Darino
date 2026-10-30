@@ -462,41 +462,4 @@ class LocalBackupRepository(
                 .takeIf { it != 0L }
         }
 
-    override suspend fun deleteAllData() {
-        withContext(Dispatchers.IO) {
-            val userId = getEffectiveUserId()
-
-            db.withTransaction {
-                db.transactionDao()
-                    .clearAllTransactions(userId)
-
-                db.installmentDao()
-                    .clearAllPayments(userId)
-
-                db.installmentDao()
-                    .clearAllInstallments(userId)
-
-                db.vehicleDao()
-                    .clearAllInspections(userId)
-
-                db.vehicleDao()
-                    .clearAllInsurances(userId)
-
-                db.vehicleDao()
-                    .clearAllExpenses(userId)
-
-                db.vehicleDao()
-                    .clearAllServices(userId)
-
-                db.vehicleDao()
-                    .clearAllVehicles(userId)
-
-                db.smartReminderDao()
-                    .clearAllReminders(userId)
-
-                db.financialEventDao()
-                    .clearAllEvents(userId)
-            }
-        }
-    }
 }
