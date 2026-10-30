@@ -56,6 +56,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -116,7 +117,10 @@ fun LockAndAuthenticationScreen(
 
     val prefs = remember { context.getSharedPreferences("darino_security_prefs", android.content.Context.MODE_PRIVATE) }
     var isPrivacyModeEnabled by remember { mutableStateOf(prefs.getBoolean("privacy_mode_enabled", false)) }
-    var showBalanceOnHome by remember { mutableStateOf(prefs.getBoolean("show_balance_on_home", true)) }
+    LaunchedEffect(Unit) {
+        com.example.util.MoneyFormatter.setPrivacyModeEnabled(isPrivacyModeEnabled)
+        prefs.edit().remove("show_balance_on_home").apply()
+    }
 
     // Sheet visibility states
     var showCreatePinSheet by remember { mutableStateOf(false) }
@@ -180,6 +184,7 @@ fun LockAndAuthenticationScreen(
             item {
                 DefaultMethodSelectorCard(
                     settings = uiState.securitySettings,
+                    isBiometricAvailable = uiState.isBiometricAvailable,
                     isDark = isDark,
                     onSelectMethod = { viewModel.setDefaultUnlockMethod(it) }
                 )
@@ -192,11 +197,7 @@ fun LockAndAuthenticationScreen(
                     onPrivacyModeChange = {
                         isPrivacyModeEnabled = it
                         prefs.edit().putBoolean("privacy_mode_enabled", it).apply()
-                    },
-                    showBalanceOnHome = showBalanceOnHome,
-                    onShowBalanceChange = {
-                        showBalanceOnHome = it
-                        prefs.edit().putBoolean("show_balance_on_home", it).apply()
+                        com.example.util.MoneyFormatter.setPrivacyModeEnabled(it)
                     },
                     isDark = isDark
                 )
@@ -754,6 +755,7 @@ private fun LockTimeoutPickerCard(
 @Composable
 private fun DefaultMethodSelectorCard(
     settings: com.example.data.security.LocalSecuritySettings,
+    isBiometricAvailable: Boolean,
     isDark: Boolean,
     onSelectMethod: (UnlockMethod) -> Unit
 ) {
@@ -818,7 +820,7 @@ private fun DefaultMethodSelectorCard(
                         val isAvailable = when (method) {
                             UnlockMethod.PIN -> settings.pinEnabled
                             UnlockMethod.PATTERN -> settings.patternEnabled
-                            UnlockMethod.BIOMETRIC -> settings.biometricEnabled
+                            UnlockMethod.BIOMETRIC -> settings.biometricEnabled && isBiometricAvailable
                         }
                         DropdownMenuItem(
                             text = {
@@ -846,8 +848,6 @@ private fun DefaultMethodSelectorCard(
 private fun PrivacyManagementCard(
     isPrivacyModeEnabled: Boolean,
     onPrivacyModeChange: (Boolean) -> Unit,
-    showBalanceOnHome: Boolean,
-    onShowBalanceChange: (Boolean) -> Unit,
     isDark: Boolean
 ) {
     SettingsSectionCard(title = "حریم خصوصی و نمایش مبالغ") {
@@ -893,34 +893,6 @@ private fun PrivacyManagementCard(
                     .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             )
 
-            // Balance on home toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "نمایش موجودی کل در صفحه اصلی",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = if (isDark) Color.White else Color(0xFF0F172A)
-                    )
-                    Text(
-                        text = "نمایش یا عدم نمایش مانده حساب در خلاصه داشبورد",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Switch(
-                    checked = showBalanceOnHome,
-                    onCheckedChange = onShowBalanceChange,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = EmeraldPrimaryLight
-                    )
-                )
-            }
         }
     }
 }
