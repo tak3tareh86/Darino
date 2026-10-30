@@ -276,6 +276,7 @@ class NotificationDispatcher(private val context: Context) {
                                     .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
                                     .setPriority(NotificationCompat.PRIORITY_HIGH)
                                     .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                                    .setSilent(true)
                                     .setAutoCancel(true)
                                     .setContentIntent(contentPendingIntent)
                                     .addAction(R.drawable.img_3d_installment, "انجام شد", completePendingIntent)
