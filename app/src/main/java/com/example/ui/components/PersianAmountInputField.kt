@@ -45,7 +45,8 @@ fun PersianAmountInputField(
     enabled: Boolean = true,
     shape: Shape = RoundedCornerShape(RadiusMD),
     testTag: String = "amount_input_field",
-    colors: TextFieldColors = OutlinedTextFieldDefaults.colors()
+    colors: TextFieldColors = OutlinedTextFieldDefaults.colors(),
+    fieldHeight: androidx.compose.ui.unit.Dp? = null
 ) {
     val effectiveLabel = label ?: if (unitLabel.isNotBlank()) "مبلغ ($unitLabel)" else "مبلغ"
     val cleanDigits = remember(value) { IranianAmountUtils.cleanAmountDigits(value) }
@@ -93,6 +94,7 @@ fun PersianAmountInputField(
             } else null,
             modifier = Modifier
                 .fillMaxWidth()
+                .then(if (fieldHeight != null) Modifier.height(fieldHeight) else Modifier)
                 .testTag(testTag),
             placeholder = {
                 Text(
