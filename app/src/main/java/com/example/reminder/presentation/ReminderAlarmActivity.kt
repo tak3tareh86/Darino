@@ -44,6 +44,7 @@ class ReminderAlarmActivity : ComponentActivity() {
 
     private var reminderId: String = ""
     private var notificationId: Int = -1
+    private var secondaryNotificationId: Int = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +58,7 @@ class ReminderAlarmActivity : ComponentActivity() {
 
         reminderId = intent.getStringExtra(EXTRA_REMINDER_ID).orEmpty()
         notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
+        secondaryNotificationId = intent.getIntExtra(EXTRA_SECONDARY_NOTIFICATION_ID, -1)
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "یادآوری دارینو" }
         val body = intent.getStringExtra(EXTRA_BODY).orEmpty()
 
@@ -79,6 +81,7 @@ class ReminderAlarmActivity : ComponentActivity() {
                 action = ReminderBroadcastReceiver.ACTION_COMPLETE_REMINDER
                 putExtra(ReminderBroadcastReceiver.EXTRA_REMINDER_ID, reminderId)
                 putExtra(ReminderBroadcastReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+                putExtra(ReminderBroadcastReceiver.EXTRA_SECONDARY_NOTIFICATION_ID, secondaryNotificationId)
             })
         } else {
             dismissAlarm()
@@ -100,8 +103,9 @@ class ReminderAlarmActivity : ComponentActivity() {
     }
 
     private fun dismissAlarm() {
-        if (notificationId != -1) {
-            NotificationManagerCompat.from(this).cancel(notificationId)
+        NotificationManagerCompat.from(this).apply {
+            if (notificationId != -1) cancel(notificationId)
+            if (secondaryNotificationId != -1) cancel(secondaryNotificationId)
         }
         finish()
     }
@@ -109,6 +113,7 @@ class ReminderAlarmActivity : ComponentActivity() {
     companion object {
         const val EXTRA_REMINDER_ID = "alarm_extra_reminder_id"
         const val EXTRA_NOTIFICATION_ID = "alarm_extra_notification_id"
+        const val EXTRA_SECONDARY_NOTIFICATION_ID = "alarm_extra_secondary_notification_id"
         const val EXTRA_TITLE = "alarm_extra_title"
         const val EXTRA_BODY = "alarm_extra_body"
     }
