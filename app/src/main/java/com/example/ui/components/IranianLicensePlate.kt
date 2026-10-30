@@ -224,29 +224,21 @@ fun IranianLicensePlate(
                             .background(Color.Black.copy(alpha = 0.25f))
                     )
 
-                    // Right section: "ایران" on top, 2 digits city code below
-                    Column(
+                    // Right section: city code only, vertically aligned with the plate digits
+                    Box(
                         modifier = Modifier
                             .width(if (isSmall) 34.dp else 42.dp)
                             .fillMaxHeight()
-                            .background(Color(0xFFF9FAFB))
-                            .padding(vertical = 1.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                            .background(Color(0xFFF9FAFB)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "ایران",
-                            fontSize = fontSizeLabel,
-                            color = Color(0xFF374151),
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = fontSizeLabel
-                        )
                         Text(
                             text = IranianPhoneUtils.convertDigitsToPersian(iranCode),
                             fontSize = fontSizeCity,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.Black,
-                            lineHeight = fontSizeCity
+                            lineHeight = fontSizeCity,
+                            textAlign = TextAlign.Center
                         )
                     }
                 } else {
