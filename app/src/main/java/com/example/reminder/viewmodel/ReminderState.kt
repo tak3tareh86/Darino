@@ -37,7 +37,7 @@ data class ReminderState(
     val searchQuery: String = "",
     val notificationCount: Int = 0,
     val todayCount: Int = 0,
-    val thisWeekCount: Int = 0,
+    val tomorrowCount: Int = 0,
     val nearestReminder: ReminderEntity? = null,
     val smartSuggestions: List<SmartSuggestion> = emptyList(),
     val isLoading: Boolean = false,
