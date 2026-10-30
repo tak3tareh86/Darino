@@ -120,6 +120,7 @@ fun ReminderScreen(
 
         ReminderSubScreen.LIST -> {
             var isCompletedExpanded by remember { mutableStateOf(false) }
+            var showDeleteCompletedDialog by remember { mutableStateOf(false) }
             var showCategoryFilterSheet by remember { mutableStateOf(false) }
             val snackbarHostState = remember { SnackbarHostState() }
 
@@ -404,6 +405,18 @@ fun ReminderScreen(
                         }
                     }
 
+                    if (uiState.selectedTab == ReminderTab.COMPLETED && uiState.completedReminders.isNotEmpty()) {
+                        item {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                TextButton(onClick = { showDeleteCompletedDialog = true }) {
+                                    Icon(Icons.Rounded.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("حذف همه یادآورهای تکمیل‌شده", color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+                    }
+
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -525,6 +538,12 @@ fun ReminderScreen(
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
+                                            IconButton(
+                                                onClick = { showDeleteCompletedDialog = true },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(Icons.Rounded.DeleteSweep, contentDescription = "حذف همه یادآورهای تکمیل‌شده", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                            }
                                         }
                                         Icon(
                                             imageVector = if (isCompletedExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
@@ -620,6 +639,23 @@ fun ReminderScreen(
                         }
                     }
                 }
+            }
+
+            if (showDeleteCompletedDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteCompletedDialog = false },
+                    title = { Text("حذف همه یادآورهای تکمیل‌شده؟") },
+                    text = { Text("تمام یادآورهایی که وضعیت تکمیل‌شده دارند حذف می‌شوند. این کار قابل بازگشت نیست.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            viewModel.deleteAllCompletedReminders()
+                            showDeleteCompletedDialog = false
+                        }) { Text("حذف همه", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteCompletedDialog = false }) { Text("انصراف") }
+                    }
+                )
             }
 
             // Snooze Dialog
