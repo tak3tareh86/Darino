@@ -189,9 +189,10 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         SessionManager.init(context.applicationContext)
         try {
             val userId = SessionManager.userId
+            val dao = AppDatabase.getDatabase(context).smartReminderDao()
+            val now = System.currentTimeMillis()
             if (userId != null) {
-                val now = System.currentTimeMillis()
-                AppDatabase.getDatabase(context).smartReminderDao().updateStatus(
+                dao.updateStatus(
                     userId = userId,
                     id = reminderId,
                     status = "COMPLETED",
@@ -200,8 +201,21 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                     cancelledAt = null
                 )
             } else {
-                Log.w(TAG, "Cannot mark reminder $reminderId completed: no active user session after initialization.")
+                dao.updateStatusGlobal(
+                    id = reminderId,
+                    status = "COMPLETED",
+                    updatedAt = now,
+                    completedAt = now,
+                    cancelledAt = null
+                )
             }
+            // A completed reminder must not leave its future AlarmManager entries armed.
+            val schedules = if (userId != null) {
+                dao.getSchedulesForReminderSync(userId, reminderId)
+            } else {
+                dao.getSchedulesForReminderGlobal(reminderId)
+            }
+            ReminderScheduler(context).cancel(reminderId, schedules)
         } finally {
             val dispatcher = NotificationDispatcher(context)
             if (notificationId != -1) dispatcher.cancelNotification(notificationId)
