@@ -421,7 +421,7 @@ fun AddReminderScreen(
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
-                                text = "باز شدن صفحه هشدار در زمان سررسید (نیازمند مجوز اندروید)",
+                                text = "باز شدن صفحه هشدار؛ فعال‌سازی آلارم تمام‌صفحه در تنظیمات عمومی نیز لازم است",
                                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                             )
                         }
