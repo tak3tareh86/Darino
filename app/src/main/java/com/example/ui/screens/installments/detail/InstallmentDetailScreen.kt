@@ -578,11 +578,22 @@ private fun PaymentHistoryRow(item: PaymentHistoryItem) {
                         ),
                         color = if (item.isPaidLate) ExpenseRoseLight else MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = "سررسید: ${item.dueDate}" + (item.paidDate?.let { " • پرداخت: $it" } ?: ""),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                        color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "تاریخ سررسید: ${item.dueDate}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                            color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        item.paidDate?.let { paidDate ->
+                            Text(
+                                text = "تاریخ پرداخت: $paidDate",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                                color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 
@@ -614,7 +625,7 @@ private fun PaymentHistoryRow(item: PaymentHistoryItem) {
                     }
                 }
             } else {
-                InstallmentStatusBadge(status = item.status, compact = true)
+                InstallmentStatusBadge(status = item.status, compact = true, singleLine = true)
             }
         }
     }
