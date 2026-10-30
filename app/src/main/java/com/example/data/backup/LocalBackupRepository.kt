@@ -254,11 +254,16 @@ class LocalBackupRepository(
                 }
 
                 val restoredInstallmentIds = mutableMapOf<Int, Int>()
+                val restoredInstallmentReferenceIds = mutableMapOf<String, String>()
                 backup.installments.forEach { installment ->
                     val newId = db.installmentDao().insertInstallment(
                         installment.copy(id = 0, userId = userId)
                     ).toInt()
                     restoredInstallmentIds[installment.id] = newId
+                    restoredInstallmentReferenceIds[installment.id.toString()] = newId.toString()
+                    installment.serverId?.takeIf { it.isNotBlank() }?.let {
+                        restoredInstallmentReferenceIds[it] = newId.toString()
+                    }
                 }
 
                 backup.installmentPayments.forEach { payment ->
@@ -316,8 +321,8 @@ class LocalBackupRepository(
 
                 backup.reminders.forEach { reminder ->
                     val remappedSourceId = when (reminder.sourceType) {
-                        "INSTALLMENT" -> reminder.sourceId?.toIntOrNull()
-                            ?.let { restoredInstallmentIds[it]?.toString() } ?: reminder.sourceId
+                        "INSTALLMENT" -> reminder.sourceId
+                            ?.let { restoredInstallmentReferenceIds[it] ?: it }
                         "CHECK" -> reminder.sourceId?.toIntOrNull()
                             ?.let { restoredCheckIds[it]?.toString() } ?: reminder.sourceId
                         "VEHICLE", "VEHICLE_SERVICE" -> reminder.sourceId
