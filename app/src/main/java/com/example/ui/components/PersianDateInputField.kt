@@ -90,12 +90,16 @@ fun PersianDateInputField(
             },
             label = if (!useOuterHeader && !label.isNullOrBlank()) {
                 {
-                    Text(
-                        text = label,
-                        maxLines = if (singleLineLabel) 1 else Int.MAX_VALUE,
-                        softWrap = !singleLineLabel,
-                        style = if (singleLineLabel) MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp) else MaterialTheme.typography.bodySmall
-                    )
+                    if (singleLineLabel) {
+                        Text(
+                            text = label,
+                            maxLines = 1,
+                            softWrap = false,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
+                        )
+                    } else {
+                        Text(text = label)
+                    }
                 }
             } else null,
             modifier = Modifier
