@@ -168,7 +168,7 @@ fun EventCard(
                                 fontSize = 14.sp
                             ),
                             color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 2,
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
@@ -227,22 +227,11 @@ fun EventCard(
                     }
                 }
 
-                // Amount & Status Action
+                // Status Action
                 Column(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (event.formattedAmount != null) {
-                        Text(
-                            text = event.formattedAmount ?: "",
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 14.sp
-                            ),
-                            color = if (isPaid) EmeraldPrimaryLight else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
                     // Interactive Status Chip
                     Surface(
                         onClick = onToggleStatus,
@@ -283,6 +272,23 @@ fun EventCard(
                             )
                         }
                     }
+                }
+            }
+
+            // Centered event amount below the title row
+            if (event.formattedAmount != null) {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = event.formattedAmount,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 14.sp
+                        ),
+                        color = if (isPaid) EmeraldPrimaryLight else MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
 
