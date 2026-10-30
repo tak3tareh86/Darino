@@ -123,7 +123,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
 
         when (decision) {
             DispatchDecision.DeliverNow -> {
-                if (reminder.notificationEnabled) {
+                if (reminder.notificationEnabled || reminder.fullScreenAlarmEnabled) {
                     NotificationDispatcher(context).dispatchNotification(reminder, schedule)
                 }
 
