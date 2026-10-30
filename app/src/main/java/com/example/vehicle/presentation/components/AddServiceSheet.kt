@@ -113,10 +113,10 @@ fun AddServiceSheet(
         listOf(
             ServiceOption("تعویض روغن موتور", ServiceType.OIL_CHANGE),
             ServiceOption("تعویض فیلترها", ServiceType.FILTERS),
-            ServiceOption("فیلتر بنزین", ServiceType.FUEL_FILTER_CHANGE),
+            ServiceOption("تعویض فیلتر بنزین", ServiceType.FUEL_FILTER_CHANGE),
             ServiceOption("تعویض لنت ترمز", ServiceType.BRAKE_PADS),
-            ServiceOption("دیسک و صفحه کلاچ", ServiceType.CLUTCH_DISC_PLATE_CHANGE),
-            ServiceOption("شمع و وایر", ServiceType.SPARK_PLUG_WIRE_CHANGE),
+            ServiceOption("تعویض دیسک و صفحه", ServiceType.CLUTCH_DISC_PLATE_CHANGE),
+            ServiceOption("تعویض شمع و وایر", ServiceType.SPARK_PLUG_WIRE_CHANGE),
             ServiceOption("تعویض لاستیک ها", ServiceType.TIRE_CHANGE),
             ServiceOption("تعویض باتری", ServiceType.BATTERY),
             ServiceOption("تعویض روغن گیربکس", ServiceType.TRANSMISSION_OIL_CHANGE),
