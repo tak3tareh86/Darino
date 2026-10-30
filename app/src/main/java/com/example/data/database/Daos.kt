@@ -307,6 +307,18 @@ interface VehicleDao {
 
 @Dao
 interface ReminderDao {
+    @Query("SELECT * FROM reminders WHERE userId = :userId")
+    suspend fun getAllRemindersForBackup(userId: String): List<ReminderEntity>
+
+    @Query("SELECT s.* FROM reminder_schedules s INNER JOIN reminders r ON r.id = s.reminderId WHERE r.userId = :userId")
+    suspend fun getAllSchedulesForBackup(userId: String): List<ReminderScheduleEntity>
+
+    @Query("DELETE FROM reminder_schedules WHERE reminderId IN (SELECT id FROM reminders WHERE userId = :userId)")
+    suspend fun clearAllSchedulesForBackup(userId: String)
+
+    @Query("DELETE FROM reminders WHERE userId = :userId")
+    suspend fun clearAllRemindersForBackup(userId: String)
+
     @Query("SELECT * FROM reminders WHERE userId = :userId AND deletedAt IS NULL ORDER BY scheduledDateTime ASC")
     fun getAllReminders(userId: String): Flow<List<ReminderEntity>>
 
