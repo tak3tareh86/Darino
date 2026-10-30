@@ -239,6 +239,7 @@ fun ReminderScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(
+                                    modifier = Modifier.weight(1f),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(7.dp)
                                 ) {
@@ -263,6 +264,7 @@ fun ReminderScreen(
                                 )
 
                                 Column(
+                                    modifier = Modifier.weight(1f),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(7.dp)
                                 ) {
@@ -287,9 +289,9 @@ fun ReminderScreen(
                                 )
 
                                 Column(
+                                    modifier = Modifier.weight(1f),
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(7.dp),
-                                    modifier = Modifier.widthIn(max = 120.dp)
+                                    verticalArrangement = Arrangement.spacedBy(7.dp)
                                 ) {
                                     Text(
                                         text = "نزدیک‌ترین",
@@ -299,12 +301,13 @@ fun ReminderScreen(
                                     )
                                     Text(
                                         text = uiState.nearestReminder?.title ?: "بدون سررسید",
+                                        modifier = Modifier.fillMaxWidth(),
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = EmeraldPrimaryLight
                                         ),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        softWrap = true
                                     )
                                     uiState.nearestReminder?.date?.let { date ->
                                         Text(
@@ -332,20 +335,29 @@ fun ReminderScreen(
                                 Tab(
                                     selected = selected,
                                     onClick = { viewModel.selectTab(tab) },
-                                    modifier = Modifier.padding(horizontal = 3.dp),
+                                    modifier = Modifier.weight(1f).padding(horizontal = 1.dp),
                                     text = {
                                         Surface(
+                                            modifier = Modifier.fillMaxWidth(),
                                             shape = RoundedCornerShape(18.dp),
                                             color = if (selected) EmeraldPrimaryLight else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                                         ) {
-                                            Text(
-                                                text = tab.title,
-                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
-                                                style = MaterialTheme.typography.labelLarge.copy(
-                                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                                                    color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                            Box(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = tab.title,
+                                                    modifier = Modifier.padding(horizontal = 3.dp, vertical = 9.dp),
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    style = MaterialTheme.typography.labelLarge.copy(
+                                                        fontSize = 11.sp,
+                                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                                        color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
                                                 )
-                                            )
+                                            }
                                         }
                                     }
                                 )
