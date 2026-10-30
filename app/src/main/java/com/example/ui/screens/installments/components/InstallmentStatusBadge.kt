@@ -23,7 +23,8 @@ import com.example.ui.screens.installments.model.InstallmentStatus
 fun InstallmentStatusBadge(
     status: InstallmentStatus,
     modifier: Modifier = Modifier,
-    compact: Boolean = false
+    compact: Boolean = false,
+    singleLine: Boolean = false
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val bgAlpha = if (isDark) 0.22f else 0.12f
@@ -37,24 +38,26 @@ fun InstallmentStatusBadge(
     ) {
         Row(
             modifier = Modifier.padding(
-                horizontal = if (compact) 8.dp else 10.dp,
-                vertical = if (compact) 3.dp else 5.dp
+                horizontal = if (singleLine) 5.dp else if (compact) 8.dp else 10.dp,
+                vertical = if (singleLine) 3.dp else if (compact) 3.dp else 5.dp
             ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (singleLine) 3.dp else 5.dp)
         ) {
             Icon(
                 imageVector = status.icon,
                 contentDescription = null,
                 tint = status.color,
-                modifier = Modifier.size(if (compact) 12.dp else 15.dp)
+                modifier = Modifier.size(if (singleLine) 10.dp else if (compact) 12.dp else 15.dp)
             )
             Text(
                 text = status.title,
                 style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = if (compact) 10.5.sp else 11.5.sp,
+                    fontSize = if (singleLine) 9.sp else if (compact) 10.5.sp else 11.5.sp,
                     fontWeight = FontWeight.Medium
                 ),
+                maxLines = if (singleLine) 1 else Int.MAX_VALUE,
+                softWrap = !singleLine
                 color = status.color
             )
         }
