@@ -87,11 +87,20 @@ class NotificationDispatcher(private val context: Context) {
                     "آلارم‌های تمام‌صفحه دارینو",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "هشدارهای زمان‌بندی‌شده‌ای که کاربر برای نمایش تمام‌صفحه انتخاب کرده است"
+                    description = "هشدارهای زمان‌بندی‌شده هنگام قفل بودن صفحه؛ صدای ممتد در صفحه آلارم پخش می‌شود"
                     enableVibration(true)
-                    // The alarm screen owns continuous ringtone playback. Keep this
-                    // channel silent to avoid a short notification sound playing over it.
+                    // The alarm screen owns continuous ringtone playback while the device is locked.
                     setSound(null, null)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                },
+                NotificationChannel(
+                    CHANNEL_ALARM_HEADS_UP,
+                    "هشدار آلارم هنگام استفاده از گوشی",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "هشدار صوتی و برجسته هنگام روشن و فعال بودن صفحه گوشی"
+                    enableVibration(true)
+                    setSound(defaultSoundUri, audioAttributes)
                     lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 }
             )
@@ -140,10 +149,20 @@ class NotificationDispatcher(private val context: Context) {
                 triggerTime = triggerTime
             )
         } else -1
-        val channelId = if (useFullScreenAlarm) {
-            CHANNEL_FULL_SCREEN_ALARMS
-        } else {
-            when (reminder.type.uppercase()) {
+        val fullScreenAccessGranted = Build.VERSION.SDK_INT < 34 ||
+            notificationManager.canUseFullScreenIntent()
+        val isDeviceInteractive = (context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager)
+            .isInteractive
+        // Android normally presents a heads-up notification instead of launching an
+        // activity while the user is interacting with the device. Use an audible,
+        // high-importance channel in that case. Keep the lock-screen FSI channel silent
+        // because ReminderAlarmActivity plays the continuous alarm ringtone itself.
+        val useAudibleAlarmFallback = useFullScreenAlarm &&
+            (isDeviceInteractive || !fullScreenAccessGranted)
+        val channelId = when {
+            useAudibleAlarmFallback -> CHANNEL_ALARM_HEADS_UP
+            useFullScreenAlarm -> CHANNEL_FULL_SCREEN_ALARMS
+            else -> when (reminder.type.uppercase()) {
                 "INSTALLMENT" -> CHANNEL_INSTALLMENTS
                 "VEHICLE", "INSURANCE", "MAINTENANCE", "FUEL" -> CHANNEL_VEHICLES
                 else -> CHANNEL_REMINDERS
@@ -268,9 +287,6 @@ class NotificationDispatcher(private val context: Context) {
                     ) == android.content.pm.PackageManager.PERMISSION_GRANTED)
             val channelEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
                 notificationManager.getNotificationChannel(channelId)?.importance != NotificationManager.IMPORTANCE_NONE
-            val fullScreenAccessGranted = Build.VERSION.SDK_INT < 34 ||
-                notificationManager.canUseFullScreenIntent()
-
             if (useFullScreenAlarm && !fullScreenAccessGranted) {
                 Log.w("NotificationDispatcher", "Full-screen intent access is not granted. Android will show the high-priority notification fallback for reminderId=${reminder.id}.")
             }
@@ -380,8 +396,9 @@ class NotificationDispatcher(private val context: Context) {
         const val CHANNEL_INSTALLMENTS = "channel_installments"
         const val CHANNEL_VEHICLES = "channel_vehicles"
         const val CHANNEL_GENERAL = "channel_general"
-        // Versioned so existing installations receive the updated silent channel
-        // (Android does not let apps change a channel's sound after creation).
+        // Keep the lock-screen channel silent: the alarm activity plays its continuous ringtone.
         const val CHANNEL_FULL_SCREEN_ALARMS = "channel_full_screen_alarms_v2"
+        // Separate audible channel for heads-up delivery while the device is interactive.
+        const val CHANNEL_ALARM_HEADS_UP = "channel_alarm_heads_up_v1"
     }
 }
