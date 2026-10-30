@@ -53,12 +53,16 @@ fun FinancialHeader(
     } else {
         Brush.verticalGradient(
             colors = listOf(
-                Color(0xFF0F172A),
-                Color(0xFF134E4A),
-                Color(0xFF0D9488)
+                Color(0xFFF8FAFC),
+                Color(0xFFE6FFFB),
+                Color(0xFFD1FAE5)
             )
         )
     }
+    val headerTextColor = if (isDark) Color.White else Color(0xFF0F172A)
+    val headerSubtitleColor = if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.8f) else Color(0xFF475569)
+    val filterSurfaceColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF0D9488).copy(alpha = 0.10f)
+    val filterBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF0D9488).copy(alpha = 0.22f)
 
     Box(
         modifier = modifier
@@ -89,12 +93,12 @@ fun FinancialHeader(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     ),
-                    color = Color.White
+                    color = headerTextColor
                 )
                 Text(
                     text = "مدیریت درآمد و هزینه",
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                    color = Color(0xFFE2E8F0).copy(alpha = 0.8f)
+                    color = headerSubtitleColor
                 )
             }
 
@@ -112,8 +116,8 @@ fun FinancialHeader(
                     .clip(RoundedCornerShape(8.dp))
                     .clickable(onClick = onFilterClick),
                 shape = RoundedCornerShape(8.dp),
-                color = Color.White.copy(alpha = 0.15f),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+                color = filterSurfaceColor,
+                border = BorderStroke(1.dp, filterBorderColor)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -123,14 +127,14 @@ fun FinancialHeader(
                     Icon(
                         imageVector = Icons.Rounded.FilterList,
                         contentDescription = "فیلتر بازه زمانی",
-                        tint = Color.White,
+                        tint = headerTextColor,
                         modifier = Modifier.size(16.dp)
                     )
 
                     Text(
                         text = currentFilterText,
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = Color.White
+                        color = headerTextColor
                     )
                 }
             }
