@@ -55,10 +55,10 @@ fun VehicleReportTab(
     val monthCostFormatted = MoneyFormatter.formatToman(statistics.currentMonthCost)
     val yearCostFormatted = MoneyFormatter.formatToman(statistics.yearlyCost)
     val topCostAmountFormatted = MoneyFormatter.formatToman(statistics.topCostAmount)
-    val today = remember { PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()) }
+    val today = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
     val currentYear = today.year
     val currentMonth = today.month
-    val shortMonthNames = listOf("فرو", "ارد", "خرد", "تیر", "مرد", "شهر", "مهر", "آبا", "آذر", "دی", "بهم", "اسف")
+    val shortMonthNames = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
     val parsedExpenses = remember(expenses) {
         expenses.mapNotNull { expense ->
             val parts = IranianPhoneUtils.convertDigitsToEnglish(expense.date).trim().split("/")
@@ -70,7 +70,7 @@ fun VehicleReportTab(
     val availableYears = remember(parsedExpenses, currentYear) {
         (parsedExpenses.map { it.second } + currentYear).distinct().filter { it in 1300..1500 }.sorted()
     }
-    var selectedChartYear by rememberSaveable { mutableIntStateOf(currentYear) }
+    var selectedChartYear by rememberSaveable(currentYear) { mutableIntStateOf(currentYear) }
     val chartYear = selectedChartYear.takeIf { it in availableYears } ?: currentYear
     val annualChartBars = remember(parsedExpenses, chartYear, currentYear, currentMonth) {
         (1..12).map { month ->
