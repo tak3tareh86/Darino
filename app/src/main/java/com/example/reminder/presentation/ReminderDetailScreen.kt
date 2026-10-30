@@ -23,11 +23,8 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.domain.ReminderType
-import com.example.reminder.domain.SnoozeOption
 import com.example.ui.components.Layered3DCard
-import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
-import com.example.ui.screens.reminder.components.PersianTimeInputField
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
@@ -43,18 +40,10 @@ import com.example.util.MoneyFormatter
 fun ReminderDetailScreen(
     reminder: ReminderEntity,
     onBackClick: () -> Unit,
-    onToggleCompleted: () -> Unit,
-    onSnooze: (option: SnoozeOption, customTargetMillis: Long?) -> Unit,
     onDelete: () -> Unit,
-    onUpdateDateTime: (newDate: String, newTime: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showSnoozeDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-    var showEditDateTimeDialog by remember { mutableStateOf(false) }
-
-    var editDate by remember { mutableStateOf(reminder.date) }
-    var editTime by remember { mutableStateOf(reminder.time) }
 
     val isCompleted = reminder.status == "COMPLETED"
     val reminderType = when (reminder.type) {
@@ -103,23 +92,23 @@ fun ReminderDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(12.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Header 3D Card
             Layered3DCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
+                        .padding(14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Soft3DIcon(
                         imageRes = reminderType.iconRes,
                         contentDescription = reminderType.title,
-                        size = 64.dp,
+                        size = 48.dp,
                         accentColor = reminderType.accentColor
                     )
 
@@ -127,7 +116,7 @@ fun ReminderDetailScreen(
                         text = reminder.title,
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
+                            fontSize = 18.sp
                         )
                     )
 
@@ -178,8 +167,8 @@ fun ReminderDetailScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
                         text = "مشخصات زمان‌بندی و مقادیر",
@@ -230,126 +219,8 @@ fun ReminderDetailScreen(
                 }
             }
 
-            // Quick Operations Buttons
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Complete Button
-                Button(
-                    onClick = {
-                        onToggleCompleted()
-                        onBackClick()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("detail_complete_btn"),
-                    shape = RoundedCornerShape(RadiusMD),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isCompleted) MaterialTheme.colorScheme.surfaceVariant else EmeraldPrimaryLight,
-                        contentColor = if (isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else Color.White
-                    )
-                ) {
-                    Icon(
-                        imageVector = if (isCompleted) Icons.Rounded.Undo else Icons.Rounded.CheckCircle,
-                        contentDescription = null
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (isCompleted) "فعال‌سازی مجدد یادآور" else "علامت‌گذاری به عنوان انجام شده",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
 
-                // Snooze & Reschedule Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { showSnoozeDialog = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("detail_snooze_btn"),
-                        shape = RoundedCornerShape(RadiusMD)
-                    ) {
-                        Icon(imageVector = Icons.Rounded.Snooze, contentDescription = null, tint = WarningAmberLight)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("تعویق (Snooze)")
-                    }
-
-                    OutlinedButton(
-                        onClick = { showEditDateTimeDialog = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("detail_edit_time_btn"),
-                        shape = RoundedCornerShape(RadiusMD)
-                    ) {
-                        Icon(imageVector = Icons.Rounded.EditCalendar, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("تغییر زمان")
-                    }
-                }
-            }
         }
-    }
-
-    // Snooze Dialog
-    if (showSnoozeDialog) {
-        SnoozeReminderDialog(
-            reminderTitle = reminder.title,
-            onDismiss = { showSnoozeDialog = false },
-            onSnoozePreset = { option ->
-                onSnooze(option, null)
-                showSnoozeDialog = false
-                onBackClick()
-            },
-            onSnoozeCustom = { targetMillis ->
-                onSnooze(SnoozeOption.CUSTOM, targetMillis)
-                showSnoozeDialog = false
-                onBackClick()
-            }
-        )
-    }
-
-    // Edit Date/Time Dialog
-    if (showEditDateTimeDialog) {
-        AlertDialog(
-            onDismissRequest = { showEditDateTimeDialog = false },
-            title = { Text("تغییر زمان سررسید", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PersianDateInputField(
-                        value = editDate,
-                        onValueChange = { editDate = it },
-                        label = "تاریخ جدید (شمسی)",
-                        placeholder = "۱۴۰۴/۰۱/۰۱"
-                    )
-                    PersianTimeInputField(
-                        value = editTime,
-                        onValueChange = { editTime = it },
-                        label = "ساعت جدید",
-                        testTag = "input_edit_reminder_time"
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onUpdateDateTime(editDate, editTime)
-                        showEditDateTimeDialog = false
-                        onBackClick()
-                    }
-                ) {
-                    Text("ذخیره زمان جدید")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditDateTimeDialog = false }) {
-                    Text("انصراف")
-                }
-            }
-        )
     }
 
     // Delete Confirmation Dialog
