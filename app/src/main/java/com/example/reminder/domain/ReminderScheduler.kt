@@ -21,8 +21,8 @@ class ReminderScheduler(private val context: Context) {
      * Propagates errors to caller and cancels newly registered alarms from this batch if any trigger fails.
      */
     fun schedule(reminder: ReminderEntity, schedules: List<ReminderScheduleEntity>): Int {
-        if (!reminder.notificationEnabled && !reminder.smsEnabled) {
-            Log.i("ReminderScheduler", "Skipping schedule for reminder ${reminder.id} because all channels are disabled.")
+        if (!reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled && !reminder.smsEnabled) {
+            Log.i("ReminderScheduler", "Skipping schedule for reminder ${reminder.id} because all delivery channels are disabled.")
             return 0
         }
 
