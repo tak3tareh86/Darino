@@ -281,10 +281,13 @@ class LocalBackupRepository(
                 }
                 fun remapVehicleId(oldId: String): String = restoredVehicleIds[oldId] ?: oldId
 
+                val restoredServiceIds = mutableMapOf<String, String>()
                 backup.vehicleServices.forEach { service ->
-                    db.vehicleDao().insertService(
+                    val newId = db.vehicleDao().insertService(
                         service.copy(id = 0, userId = userId, vehicleId = remapVehicleId(service.vehicleId))
-                    )
+                    ).toString()
+                    restoredServiceIds[service.id.toString()] = newId
+                    service.serverId?.takeIf { it.isNotBlank() }?.let { restoredServiceIds[it] = newId }
                 }
 
                 if (backup.vehicleExpenses.isNotEmpty()) {
@@ -312,8 +315,17 @@ class LocalBackupRepository(
                 }
 
                 backup.reminders.forEach { reminder ->
+                    val remappedSourceId = when (reminder.sourceType) {
+                        "INSTALLMENT" -> reminder.sourceId?.toIntOrNull()
+                            ?.let { restoredInstallmentIds[it]?.toString() } ?: reminder.sourceId
+                        "CHECK" -> reminder.sourceId?.toIntOrNull()
+                            ?.let { restoredCheckIds[it]?.toString() } ?: reminder.sourceId
+                        "VEHICLE", "VEHICLE_SERVICE" -> reminder.sourceId
+                            ?.let { restoredServiceIds[it] ?: it }
+                        else -> reminder.sourceId
+                    }
                     db.smartReminderDao().insertReminder(
-                        reminder.copy(userId = userId)
+                        reminder.copy(userId = userId, sourceId = remappedSourceId)
                     )
                 }
 
@@ -324,8 +336,13 @@ class LocalBackupRepository(
                 val restoredLegacyReminderIds = mutableMapOf<Int, Int>()
                 if (backup.metadata.backupVersion >= 6) {
                     backup.legacyReminders.forEach { reminder ->
+                        val remappedSourceId = when (reminder.sourceType) {
+                            "INSTALLMENT" -> reminder.sourceId?.let { restoredInstallmentIds[it]?.toString()?.toIntOrNull() ?: it }
+                            "VEHICLE_SERVICE", "VEHICLE" -> reminder.sourceId?.let { restoredServiceIds[it]?.toIntOrNull() ?: it }
+                            else -> reminder.sourceId
+                        }
                         val newId = db.reminderDao().insertReminder(
-                            reminder.copy(id = 0, userId = userId)
+                            reminder.copy(id = 0, userId = userId, sourceId = remappedSourceId)
                         ).toInt()
                         restoredLegacyReminderIds[reminder.id] = newId
                     }
