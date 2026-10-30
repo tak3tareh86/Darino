@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -196,6 +197,22 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                 manager.deleteReminder(reminderId)
             } catch (e: Exception) {
                 _errorMessage.value = "خطا در حذف یادآور"
+            }
+        }
+    }
+
+    fun deleteAllCompletedReminders() {
+        viewModelScope.launch {
+            try {
+                val completed = repository.getCompletedReminders().first()
+                completed.forEach { reminder -> manager.deleteReminder(reminder.id) }
+                _userMessage.value = if (completed.isEmpty()) {
+                    "یادآور تکمیل‌شده‌ای برای حذف وجود ندارد."
+                } else {
+                    completed.size.toString() + " یادآور تکمیل‌شده حذف شد."
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "خطا در حذف یادآورهای تکمیل‌شده"
             }
         }
     }
