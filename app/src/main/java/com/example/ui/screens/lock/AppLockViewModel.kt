@@ -51,6 +51,7 @@ class AppLockViewModel @JvmOverloads constructor(
     val uiState: StateFlow<LockUiState> = _uiState.asStateFlow()
 
     private var lockoutJob: Job? = null
+    companion object { private const val LOCKOUT_DURATION_MILLIS = 30_000L }
 
     init {
         refreshBiometricStatus()
@@ -60,8 +61,18 @@ class AppLockViewModel @JvmOverloads constructor(
                     securitySettings = settings,
                     activeUnlockMethod = determineActiveUnlockMethod(settings)
                 )
+                val selectedAvailable = when (settings.defaultUnlockMethod) {
+                    UnlockMethod.PIN -> settings.pinEnabled
+                    UnlockMethod.PATTERN -> settings.patternEnabled
+                    UnlockMethod.BIOMETRIC -> settings.biometricEnabled && _uiState.value.isBiometricAvailable
+                }
+                if ((settings.pinEnabled || settings.patternEnabled || settings.biometricEnabled) && !selectedAvailable) {
+                    fallbackUnlockMethod(settings.defaultUnlockMethod)?.let(securityRepository::setDefaultUnlockMethod)
+                }
             }
         }
+        _uiState.value = _uiState.value.copy(failedAttempts = securityRepository.getFailedAttempts())
+        restoreLockoutState()
         checkSessionAndLockStatus()
     }
 
@@ -192,7 +203,7 @@ class AppLockViewModel @JvmOverloads constructor(
         } else {
             securityRepository.setBiometricEnabled(false)
             if (_uiState.value.securitySettings.defaultUnlockMethod == UnlockMethod.BIOMETRIC) {
-                securityRepository.setDefaultUnlockMethod(UnlockMethod.PIN)
+                fallbackUnlockMethod(UnlockMethod.BIOMETRIC)?.let(securityRepository::setDefaultUnlockMethod)
             }
             _uiState.value = _uiState.value.copy(successMessage = "قفل بیومتریک غیرفعال شد.")
             onComplete(true)
@@ -231,46 +242,50 @@ class AppLockViewModel @JvmOverloads constructor(
     }
 
     private fun onUnlockSuccess() {
-        _uiState.value = _uiState.value.copy(
-            appLockState = AppLockState.Unlocked,
-            failedAttempts = 0,
-            errorMessage = null,
-            biometricError = null,
-            isTemporarilyLocked = false
-        )
+        securityRepository.resetFailedAttempts()
+        _uiState.value = _uiState.value.copy(appLockState = AppLockState.Unlocked, failedAttempts = 0,
+            errorMessage = null, biometricError = null, isTemporarilyLocked = false, lockoutSecondsRemaining = 0)
     }
 
     private fun handleFailedAttempt(message: String) {
-        val attempts = _uiState.value.failedAttempts + 1
+        val attempts = securityRepository.incrementFailedAttempts()
+        _uiState.value = _uiState.value.copy(failedAttempts = attempts)
         if (attempts >= 5) {
-            startLockoutTimer()
-        } else {
-            _uiState.value = _uiState.value.copy(
-                failedAttempts = attempts,
-                errorMessage = "$message ($attempts از ۵ تلاش مجاز)"
-            )
+            val until = System.currentTimeMillis() + LOCKOUT_DURATION_MILLIS
+            securityRepository.setLockoutUntilTimestamp(until)
+            startLockoutTimer(until)
+        } else _uiState.value = _uiState.value.copy(errorMessage = "$message ($attempts از ۵ تلاش مجاز)")
+    }
+
+    private fun restoreLockoutState() {
+        val until = securityRepository.getLockoutUntilTimestamp()
+        if (until > System.currentTimeMillis()) startLockoutTimer(until)
+        else {
+            securityRepository.resetFailedAttempts()
+            _uiState.value = _uiState.value.copy(failedAttempts = 0)
         }
     }
 
-    private fun startLockoutTimer() {
+    private fun startLockoutTimer(until: Long) {
         lockoutJob?.cancel()
-        _uiState.value = _uiState.value.copy(
-            isTemporarilyLocked = true,
-            lockoutSecondsRemaining = 30,
-            errorMessage = "بیش از حد تلاش کردید. لطفاً ۳۰ ثانیه صبر کنید."
-        )
-
+        val remaining = ((until - System.currentTimeMillis() + 999L) / 1000L).toInt().coerceAtLeast(0)
+        if (remaining == 0) {
+            securityRepository.resetFailedAttempts()
+            _uiState.value = _uiState.value.copy(isTemporarilyLocked = false, failedAttempts = 0, lockoutSecondsRemaining = 0)
+            return
+        }
+        _uiState.value = _uiState.value.copy(isTemporarilyLocked = true, lockoutSecondsRemaining = remaining,
+            failedAttempts = 5, errorMessage = "بیش از حد تلاش کردید. لطفاً تا پایان زمان مسدودی صبر کنید.")
         lockoutJob = viewModelScope.launch {
-            for (sec in 30 downTo 1) {
-                _uiState.value = _uiState.value.copy(lockoutSecondsRemaining = sec)
-                delay(1000)
+            while (true) {
+                val left = ((until - System.currentTimeMillis() + 999L) / 1000L).toInt()
+                if (left <= 0) break
+                _uiState.value = _uiState.value.copy(lockoutSecondsRemaining = left)
+                delay(minOf(1000L, until - System.currentTimeMillis()).coerceAtLeast(1L))
             }
-            _uiState.value = _uiState.value.copy(
-                isTemporarilyLocked = false,
-                lockoutSecondsRemaining = 0,
-                failedAttempts = 0,
-                errorMessage = null
-            )
+            securityRepository.resetFailedAttempts()
+            _uiState.value = _uiState.value.copy(isTemporarilyLocked = false, lockoutSecondsRemaining = 0,
+                failedAttempts = 0, errorMessage = null)
         }
     }
 
@@ -283,7 +298,7 @@ class AppLockViewModel @JvmOverloads constructor(
     fun disablePin() {
         securityRepository.removePin()
         if (_uiState.value.securitySettings.defaultUnlockMethod == UnlockMethod.PIN) {
-            securityRepository.setDefaultUnlockMethod(UnlockMethod.PATTERN)
+            fallbackUnlockMethod(UnlockMethod.PIN)?.let(securityRepository::setDefaultUnlockMethod)
         }
         _uiState.value = _uiState.value.copy(successMessage = "رمز PIN غیرفعال شد.")
     }
@@ -297,14 +312,32 @@ class AppLockViewModel @JvmOverloads constructor(
     fun disablePattern() {
         securityRepository.removePattern()
         if (_uiState.value.securitySettings.defaultUnlockMethod == UnlockMethod.PATTERN) {
-            securityRepository.setDefaultUnlockMethod(UnlockMethod.PIN)
+            fallbackUnlockMethod(UnlockMethod.PATTERN)?.let(securityRepository::setDefaultUnlockMethod)
         }
         _uiState.value = _uiState.value.copy(successMessage = "الگوی امنیتی غیرفعال شد.")
     }
 
     fun setDefaultUnlockMethod(method: UnlockMethod) {
+        val settings = _uiState.value.securitySettings
+        val available = when (method) {
+            UnlockMethod.PIN -> settings.pinEnabled
+            UnlockMethod.PATTERN -> settings.patternEnabled
+            UnlockMethod.BIOMETRIC -> settings.biometricEnabled && _uiState.value.isBiometricAvailable
+        }
+        if (!available) return
         securityRepository.setDefaultUnlockMethod(method)
         _uiState.value = _uiState.value.copy(activeUnlockMethod = method)
+    }
+
+    private fun fallbackUnlockMethod(excluding: UnlockMethod): UnlockMethod? {
+        val settings = _uiState.value.securitySettings
+        return listOf(UnlockMethod.PIN, UnlockMethod.PATTERN, UnlockMethod.BIOMETRIC).firstOrNull { method ->
+            method != excluding && when (method) {
+                UnlockMethod.PIN -> settings.pinEnabled
+                UnlockMethod.PATTERN -> settings.patternEnabled
+                UnlockMethod.BIOMETRIC -> settings.biometricEnabled && _uiState.value.isBiometricAvailable
+            }
+        }
     }
 
     fun toggleAppLock(enable: Boolean) {
@@ -324,6 +357,7 @@ class AppLockViewModel @JvmOverloads constructor(
         securityRepository.removePattern()
         securityRepository.setBiometricEnabled(false)
         securityRepository.setAppLockEnabled(false)
+        securityRepository.resetFailedAttempts()
         _uiState.value = _uiState.value.copy(
             appLockState = AppLockState.Unlocked,
             successMessage = "قفل برنامه غیرفعال شد."
