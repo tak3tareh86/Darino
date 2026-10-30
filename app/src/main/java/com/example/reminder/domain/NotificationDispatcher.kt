@@ -89,7 +89,9 @@ class NotificationDispatcher(private val context: Context) {
                 ).apply {
                     description = "هشدارهای زمان‌بندی‌شده‌ای که کاربر برای نمایش تمام‌صفحه انتخاب کرده است"
                     enableVibration(true)
-                    setSound(alarmSoundUri, alarmAudioAttributes)
+                    // The alarm screen owns continuous ringtone playback. Keep this
+                    // channel silent to avoid a short notification sound playing over it.
+                    setSound(null, null)
                     lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 }
             )
@@ -121,9 +123,11 @@ class NotificationDispatcher(private val context: Context) {
         }
         // The global preference is the master policy; the per-reminder switch opts this
         // reminder into full-screen delivery. Standard notifications remain independently selectable.
-        val useFullScreenAlarm = reminder.fullScreenAlarmEnabled &&
-            (deliveryPref == AlertDeliveryPreference.FULL_SCREEN_ALARM ||
-                deliveryPref == AlertDeliveryPreference.BOTH)
+        // The per-reminder switch is an explicit opt-in and must work even when
+        // the app-wide default is "notifications only".
+        val useFullScreenAlarm = reminder.fullScreenAlarmEnabled ||
+            deliveryPref == AlertDeliveryPreference.FULL_SCREEN_ALARM ||
+            deliveryPref == AlertDeliveryPreference.BOTH
         val showStandardNotification = reminder.notificationEnabled &&
             (deliveryPref == AlertDeliveryPreference.NOTIFICATION_ONLY ||
                 deliveryPref == AlertDeliveryPreference.BOTH)
@@ -359,6 +363,8 @@ class NotificationDispatcher(private val context: Context) {
         const val CHANNEL_INSTALLMENTS = "channel_installments"
         const val CHANNEL_VEHICLES = "channel_vehicles"
         const val CHANNEL_GENERAL = "channel_general"
-        const val CHANNEL_FULL_SCREEN_ALARMS = "channel_full_screen_alarms"
+        // Versioned so existing installations receive the updated silent channel
+        // (Android does not let apps change a channel's sound after creation).
+        const val CHANNEL_FULL_SCREEN_ALARMS = "channel_full_screen_alarms_v2"
     }
 }
