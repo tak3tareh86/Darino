@@ -218,16 +218,29 @@ private fun VehicleReminderSettings(
                 Switch(checked = enabled, onCheckedChange = onEnabledChange, modifier = Modifier.testTag("${tag}_enabled"))
             }
             if (enabled) {
-                OutlinedTextField(
-                    value = time,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("ساعت هشدار (۲۴ ساعته)") },
-                    placeholder = { Text("۰۹:۰۰") },
-                    trailingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = "انتخاب ساعت", tint = MaterialTheme.colorScheme.primary) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().clickable { showTimePicker = true }.testTag("${tag}_time")
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("${tag}_time")
+                ) {
+                    OutlinedTextField(
+                        value = time,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("ساعت هشدار (۲۴ ساعته)") },
+                        placeholder = { Text("۰۹:۰۰") },
+                        trailingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = "انتخاب ساعت", tint = MaterialTheme.colorScheme.primary) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // Transparent hit target over the complete field, including its label,
+                    // displayed value, icon and outline.
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { showTimePicker = true }
+                    )
+                }
                 Text("زمان‌های هشدار پیش از انقضا", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 val options = listOf(30 to "۳۰ روز", 15 to "۱۵ روز", 7 to "۷ روز", 1 to "۱ روز", 0 to "سررسید")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
