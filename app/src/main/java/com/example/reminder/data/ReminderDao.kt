@@ -114,6 +114,15 @@ interface ReminderDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDeliveryLog(log: ReminderDeliveryLogEntity)
 
+    @Query("UPDATE smart_reminders SET status = :status, updatedAt = :updatedAt, completedAt = :completedAt, cancelledAt = :cancelledAt WHERE id = :id")
+    suspend fun updateStatusGlobal(
+        id: String,
+        status: String,
+        updatedAt: Long = System.currentTimeMillis(),
+        completedAt: Long? = null,
+        cancelledAt: Long? = null
+    ): Int
+
     @Query("SELECT * FROM smart_reminders WHERE status = 'ACTIVE'")
     suspend fun getAllActiveRemindersGlobal(): List<ReminderEntity>
 
