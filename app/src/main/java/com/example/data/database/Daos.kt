@@ -214,6 +214,9 @@ interface VehicleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExpenses(expenses: List<VehicleExpenseRoomEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertExpensesForBackup(expenses: List<VehicleExpenseRoomEntity>)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExpense(expense: VehicleExpenseRoomEntity)
 
@@ -228,6 +231,9 @@ interface VehicleDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInsurances(insurances: List<VehicleInsuranceRoomEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertInsurancesForBackup(insurances: List<VehicleInsuranceRoomEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInsurance(insurance: VehicleInsuranceRoomEntity)
@@ -246,6 +252,9 @@ interface VehicleDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInspections(inspections: List<VehicleInspectionRoomEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertInspectionsForBackup(inspections: List<VehicleInspectionRoomEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInspection(inspection: VehicleInspectionRoomEntity)
@@ -300,6 +309,9 @@ interface VehicleDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVehicleStore(store: VehicleStoreEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertVehicleStoreForBackup(store: VehicleStoreEntity): Long
 
     @Query("DELETE FROM vehicle_store WHERE userId = :userId")
     suspend fun clearVehicleStoreForUser(userId: String)
