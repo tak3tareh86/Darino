@@ -428,11 +428,20 @@ private fun ScheduleTimelineItem(
                         style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp, fontWeight = if (item.isPaidLate) FontWeight.Bold else FontWeight.Medium),
                         color = if (item.isPaidLate) ExpenseRoseLight else MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = "سررسید: ${item.dueDate}" + (item.paidDate?.let { " • پرداخت: $it" } ?: ""),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                        color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "تاریخ سررسید: ${item.dueDate}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        item.paidDate?.let { paidDate ->
+                            Text(
+                                text = "تاریخ پرداخت: $paidDate",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 
