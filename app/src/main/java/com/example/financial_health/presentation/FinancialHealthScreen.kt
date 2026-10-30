@@ -237,17 +237,18 @@ private fun HealthOverviewHeroCard(
             // Title & Status Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Soft3DIcon(
                         imageRes = R.drawable.img_3d_analytics,
                         contentDescription = "آیکون تحلیل سلامت مالی",
-                        size = 44.dp,
+                        size = 40.dp,
                         accentColor = statusColor
                     )
                     Column {
@@ -255,31 +256,33 @@ private fun HealthOverviewHeroCard(
                             text = "شاخص فشار مالی",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
+                                fontSize = 15.sp
                             ),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "سهم تعهدات ثبت‌شده از درآمد شما",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(9.dp),
                     color = if (isDark) status.darkContainerColor.copy(alpha = 0.7f) else status.lightContainerColor,
                     border = BorderStroke(1.dp, statusColor.copy(alpha = 0.5f))
                 ) {
                     Text(
                         text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) status.badgeText else "⚪ تکمیل اطلاعات مالی",
+                        maxLines = 1,
+                        softWrap = false,
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            fontSize = 10.5.sp
                         ),
                         color = if (isDark) Color.White else statusColor,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
