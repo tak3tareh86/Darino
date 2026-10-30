@@ -88,24 +88,11 @@ fun ReminderScreen(
                         selectedReminderForDetail = null
                         currentSubScreen = ReminderSubScreen.LIST
                     },
-                    onToggleCompleted = {
-                        if (rem.status == "COMPLETED") {
-                            viewModel.toggleReminderEnabled(rem.id, true)
-                        } else {
-                            viewModel.completeReminder(rem.id)
-                        }
-                    },
-                    onSnooze = { option, customMillis ->
-                        viewModel.snoozeReminder(rem.id, option, customMillis)
-                    },
                     onDelete = {
                         viewModel.deleteReminder(rem.id)
                         selectedReminderForDetail = null
                         currentSubScreen = ReminderSubScreen.LIST
                     },
-                    onUpdateDateTime = { newDate, newTime ->
-                        viewModel.updateReminder(rem.copy(date = newDate, time = newTime))
-                    }
                 )
             } else {
                 currentSubScreen = ReminderSubScreen.LIST
