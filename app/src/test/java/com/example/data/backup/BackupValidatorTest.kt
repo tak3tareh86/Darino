@@ -107,4 +107,46 @@ class BackupValidatorTest {
         assertTrue(BackupValidator.validate(backup) is ValidationResult.Valid)
     }
 
+    @Test
+    fun versionSixBackupIncludesLegacyReminderTablesAndValidates() {
+        val legacyReminder = com.example.data.database.ReminderEntity(
+            id = 12,
+            userId = "backup-user",
+            type = "GENERAL",
+            title = "یادآور آزمایشی",
+            description = "توضیحات",
+            scheduledDateTime = 1_800_000_000_000L
+        )
+        val legacySchedule = com.example.data.database.ReminderScheduleEntity(
+            id = 21,
+            reminderId = 12,
+            triggerDateTime = 1_800_000_000_000L,
+            status = "PENDING",
+            notificationStatus = "PENDING",
+            smsStatus = "DISABLED"
+        )
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 6,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    checksum = "",
+                    currencyUnit = "TOMAN"
+                ),
+                legacyReminders = listOf(legacyReminder),
+                legacyReminderSchedules = listOf(legacySchedule)
+            )
+        )
+
+        assertEquals(2, backup.metadata.recordCount)
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Valid)
+    }
+
+    @Test
+    fun backupJsonCodecRejectsEmptyFiles() {
+        val result = runCatching { BackupFileCodec.decode("") }
+        assertTrue(result.isFailure)
+    }
+
 }
