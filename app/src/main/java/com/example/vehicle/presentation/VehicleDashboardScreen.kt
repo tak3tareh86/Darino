@@ -719,7 +719,7 @@ private fun VehicleServicesTabContent(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "شاخص سلامت قطعات، روغن و لنت‌ها",
+                                        text = "شاخص نگهداری و سلامت خودرو",
                                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
