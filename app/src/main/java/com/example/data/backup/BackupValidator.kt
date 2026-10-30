@@ -91,6 +91,31 @@ object BackupValidator {
         if (backup.installmentPayments.any { it.installmentId !in installmentIds }) {
             return ValidationResult.Invalid("فایل پشتیبان دارای پرداخت قسط بدون قسط مرتبط است.")
         }
+
+        val reminderIds = backup.reminders.map { it.id }.toSet()
+        if (backup.reminderSchedules.any { it.reminderId !in reminderIds }) {
+            return ValidationResult.Invalid("فایل پشتیبان دارای زمان‌بندی یادآور بدون یادآور مرتبط است.")
+        }
+        if (backup.reminderDeliveryLogs.any { it.reminderId !in reminderIds }) {
+            return ValidationResult.Invalid("فایل پشتیبان دارای گزارش ارسال بدون یادآور مرتبط است.")
+        }
+
+        val vehicleIds = buildSet {
+            backup.vehicles.forEach { vehicle ->
+                add(vehicle.id.toString())
+                vehicle.serverId?.takeIf { it.isNotBlank() }?.let(::add)
+            }
+        }
+        val referencedVehicleIds = buildList {
+            backup.vehicleServices.forEach { add(it.vehicleId) }
+            backup.vehicleExpenses.forEach { add(it.vehicleId) }
+            backup.vehicleInsurances.forEach { add(it.vehicleId) }
+            backup.vehicleInspections.forEach { add(it.vehicleId) }
+        }
+        if (referencedVehicleIds.any { it !in vehicleIds }) {
+            return ValidationResult.Invalid("فایل پشتیبان دارای اطلاعات خودرو بدون خودروی مرتبط است.")
+        }
+
         return ValidationResult.Valid
     }
 
