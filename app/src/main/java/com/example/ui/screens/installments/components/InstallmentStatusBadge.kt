@@ -57,7 +57,7 @@ fun InstallmentStatusBadge(
                     fontWeight = FontWeight.Medium
                 ),
                 maxLines = if (singleLine) 1 else Int.MAX_VALUE,
-                softWrap = !singleLine
+                softWrap = !singleLine,
                 color = status.color
             )
         }
