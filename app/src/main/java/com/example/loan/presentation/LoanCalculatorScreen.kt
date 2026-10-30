@@ -557,10 +557,10 @@ private fun CalculatorMainTab(
                     ) {
                         val ratePresets = listOf(
                             0.0 to "۰٪ (بدون کارمزد)",
-                            4.0 to "۴٪ (قرض‌الحسنه)",
-                            18.0 to "۱۸٪ (بانکی)",
-                            23.0 to "۲۳٪ (مصوب)",
-                            28.0 to "۲۸٪ (خرید کالا)"
+                            4.0 to "۴٪ (نمونه کارمزد)",
+                            18.0 to "۱۸٪ (نمونه)",
+                            23.0 to "۲۳٪ (نمونه)",
+                            28.0 to "۲۸٪ (نمونه)"
                         )
                         ratePresets.forEach { (rate, label) ->
                             val isCurrent = state.interestRate == rate
