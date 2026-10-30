@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.subscription.SubscriptionStatus
@@ -315,36 +316,39 @@ fun SubscriptionStatusCard(
                                 }
                             }
 
+                            // Centered greeting and fully justified offer copy
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(end = 8.dp)
+                                    .padding(horizontal = 2.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = when {
-                                        isExpired -> "پایان دوره آزمایشی"
-                                        isTrial -> "دوره آزمایشی دارینو"
-                                        else -> "اشتراک سالیانه دارینو"
-                                    },
+                                    text = if (isExpired) "پایان دوره آزمایشی" else "دوست خوبم",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 14.sp,
                                         color = Color.White
                                     )
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = when {
-                                        isExpired -> "دوره آزمایشی تمام شده؛ برای ادامه، اشتراک سالیانه تهیه کنید."
-                                        isTrial -> "از تمام امکانات دارینو استفاده کنید؛ برای ادامه، اشتراک سالیانه تهیه کنید."
-                                        else -> "دسترسی نامحدود به امکانات مدیریت مالی"
+                                    text = if (isExpired) {
+                                        "دوره آزمایشی تمام شده؛ برای ادامه اشتراک سالیانه تهیه کنید."
+                                    } else {
+                                        "از تمام امکانات برنامه به مدت ۱۴ روز رایگان و بدون محدودیت استفاده کن. اگر از تجربه کار با برنامه رضایت داشتی پس از پایان دوره آزمایشی اشتراک سالیانه را تهیه کن و با خیال راحت به استفاده از امکانات برنامه ادامه بده."
                                     },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 2.dp),
+                                    textAlign = TextAlign.Justify,
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontSize = 10.5.sp,
-                                        lineHeight = 14.sp,
+                                        lineHeight = 15.sp,
                                         color = Color(0xFFE2E8F0).copy(alpha = 0.9f)
-                                    ),
-                                    maxLines = 2
+                                    )
                                 )
                             }
                         }
@@ -381,7 +385,7 @@ fun SubscriptionStatusCard(
                                 )
                             )
                             Text(
-                                text = "${MoneyFormatter.formatToman(state.priceDisplayToman)} / سالانه",
+                                text = MoneyFormatter.formatToman(state.priceDisplayToman),
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
@@ -390,10 +394,11 @@ fun SubscriptionStatusCard(
                             )
                         }
 
-                        Column(
-                            horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // In RTL layout the purchase action appears to the right of restore.
                             Button(
                                 onClick = onPurchaseClick,
                                 enabled = !isPurchaseLoading && !isRestoreLoading,
@@ -402,7 +407,7 @@ fun SubscriptionStatusCard(
                                     containerColor = Color(0xFF0D9488),
                                     contentColor = Color.White
                                 ),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 5.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
                                 modifier = Modifier
                                     .height(34.dp)
                                     .testTag("btn_buy_annual_subscription")
@@ -417,9 +422,10 @@ fun SubscriptionStatusCard(
                                     Text(
                                         text = "خرید اشتراک سالیانه",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 11.5.sp
+                                        fontSize = 10.5.sp,
+                                        maxLines = 1
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
                                     Icon(
                                         imageVector = Icons.Default.ChevronLeft,
                                         contentDescription = null,
@@ -432,9 +438,9 @@ fun SubscriptionStatusCard(
                                 enabled = !isPurchaseLoading && !isRestoreLoading,
                                 shape = RoundedCornerShape(9.dp),
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
-                                contentPadding = PaddingValues(horizontal = 9.dp, vertical = 0.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                                 modifier = Modifier
-                                    .height(28.dp)
+                                    .height(34.dp)
                                     .testTag("btn_restore_subscription")
                             ) {
                                 if (isRestoreLoading) {
@@ -449,12 +455,13 @@ fun SubscriptionStatusCard(
                                         contentDescription = null,
                                         modifier = Modifier.size(13.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
                                     Text(
                                         text = "بازیابی خرید",
                                         fontWeight = FontWeight.Medium,
                                         fontSize = 9.5.sp,
-                                        color = Color.White
+                                        color = Color.White,
+                                        maxLines = 1
                                     )
                                 }
                             }
