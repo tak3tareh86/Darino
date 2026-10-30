@@ -17,7 +17,6 @@ interface BackupRepository {
 
     suspend fun getLastBackupTime(): Long?
 
-    suspend fun deleteAllData()
 }
 
 enum class RestoreMode {
