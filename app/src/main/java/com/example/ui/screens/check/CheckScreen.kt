@@ -138,7 +138,7 @@ fun CheckScreen(
                         Text(
                             text = when {
                                 uiState.selectedStatus == null -> "فیلتر وضعیت"
-                                else -> uiState.selectedStatus.title
+                                else -> uiState.selectedStatus?.title.orEmpty()
                             },
                             maxLines = 1,
                             softWrap = false,
