@@ -19,6 +19,7 @@ import com.example.reminder.data.ReminderDeliveryLogEntity
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.data.ReminderScheduleEntity
 import com.example.reminder.receiver.ReminderBroadcastReceiver
+import com.example.reminder.presentation.ReminderAlarmActivity
 import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import com.example.util.MoneyFormatter
 
@@ -41,6 +42,11 @@ class NotificationDispatcher(private val context: Context) {
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                 .build()
 
+            val alarmSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            val alarmAudioAttributes = AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .build()
             val channels = listOf(
                 NotificationChannel(
                     CHANNEL_REMINDERS,
@@ -75,6 +81,16 @@ class NotificationDispatcher(private val context: Context) {
                     NotificationManager.IMPORTANCE_DEFAULT
                 ).apply {
                     description = "گزارشات و اعلان‌های کلی برنامه"
+                },
+                NotificationChannel(
+                    CHANNEL_FULL_SCREEN_ALARMS,
+                    "آلارم‌های تمام‌صفحه دارینو",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "هشدارهای زمان‌بندی‌شده‌ای که کاربر برای نمایش تمام‌صفحه انتخاب کرده است"
+                    enableVibration(true)
+                    setSound(alarmSoundUri, alarmAudioAttributes)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 }
             )
 
@@ -98,10 +114,21 @@ class NotificationDispatcher(private val context: Context) {
             triggerTime = triggerTime
         )
 
-        val channelId = when (reminder.type.uppercase()) {
-            "INSTALLMENT" -> CHANNEL_INSTALLMENTS
-            "VEHICLE", "INSURANCE", "MAINTENANCE", "FUEL" -> CHANNEL_VEHICLES
-            else -> CHANNEL_REMINDERS
+        val deliveryPref = try {
+            AppPreferencesRepository.getInstance(context).alertDelivery.value
+        } catch (e: Exception) {
+            AlertDeliveryPreference.BOTH
+        }
+        val useFullScreenAlarm = deliveryPref == AlertDeliveryPreference.FULL_SCREEN_ALARM ||
+            deliveryPref == AlertDeliveryPreference.BOTH
+        val channelId = if (useFullScreenAlarm) {
+            CHANNEL_FULL_SCREEN_ALARMS
+        } else {
+            when (reminder.type.uppercase()) {
+                "INSTALLMENT" -> CHANNEL_INSTALLMENTS
+                "VEHICLE", "INSURANCE", "MAINTENANCE", "FUEL" -> CHANNEL_VEHICLES
+                else -> CHANNEL_REMINDERS
+            }
         }
 
         // 1. Content Intent (Open App + Deep Link)
@@ -155,35 +182,41 @@ class NotificationDispatcher(private val context: Context) {
             "سررسید یادآوری: ${reminder.date} ساعت ${reminder.time}$amountText"
         }
 
-        val notification = NotificationCompat.Builder(context, channelId)
+        val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.img_3d_bell_notification)
             .setContentTitle(reminder.title)
             .setContentText(bodyText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
             .setPriority(
-                if (reminder.priority.equals("HIGH", ignoreCase = true))
+                if (useFullScreenAlarm || reminder.priority.equals("HIGH", ignoreCase = true))
                     NotificationCompat.PRIORITY_MAX
                 else NotificationCompat.PRIORITY_HIGH
             )
-            .setAutoCancel(true)
+            .setCategory(if (useFullScreenAlarm) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
+            .setAutoCancel(!useFullScreenAlarm)
+            .setOngoing(useFullScreenAlarm)
             .setContentIntent(contentPendingIntent)
             .addAction(R.drawable.img_3d_installment, "انجام شد", completePendingIntent)
             .addAction(R.drawable.img_3d_calendar, "۱۵ دقیقه بعد", snoozePendingIntent)
-            .build()
 
-        val deliveryPref = try {
-            AppPreferencesRepository.getInstance(context).alertDelivery.value
-        } catch (e: Exception) {
-            AlertDeliveryPreference.BOTH
+        if (useFullScreenAlarm) {
+            val alarmActivityIntent = Intent(context, ReminderAlarmActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(ReminderAlarmActivity.EXTRA_REMINDER_ID, reminder.id)
+                putExtra(ReminderAlarmActivity.EXTRA_NOTIFICATION_ID, notifId)
+                putExtra(ReminderAlarmActivity.EXTRA_TITLE, reminder.title)
+                putExtra(ReminderAlarmActivity.EXTRA_BODY, bodyText)
+            }
+            val fullScreenPendingIntent = PendingIntent.getActivity(
+                context,
+                notifId + 3000,
+                alarmActivityIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            notificationBuilder.setFullScreenIntent(fullScreenPendingIntent, true)
         }
-
-        if (deliveryPref == AlertDeliveryPreference.DISABLED) {
-            Log.i("NotificationDispatcher", "Alert delivery disabled by user setting. Skipping.")
-            return notifId
-        }
-
-        val showNotification = deliveryPref == AlertDeliveryPreference.BOTH ||
-                deliveryPref == AlertDeliveryPreference.NOTIFICATION_ONLY
+        val notification = notificationBuilder.build()
+        val showNotification = true
 
         var notificationPosted = false
         var deliveryFailure: String? = null
@@ -195,6 +228,12 @@ class NotificationDispatcher(private val context: Context) {
                 ) == android.content.pm.PackageManager.PERMISSION_GRANTED
             val channelEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
                 notificationManager.getNotificationChannel(channelId)?.importance != NotificationManager.IMPORTANCE_NONE
+            val fullScreenAccessGranted = Build.VERSION.SDK_INT < 34 ||
+                notificationManager.canUseFullScreenIntent()
+
+            if (useFullScreenAlarm && !fullScreenAccessGranted) {
+                Log.w("NotificationDispatcher", "Full-screen intent access is not granted. Android will show the high-priority notification fallback for reminderId=${reminder.id}.")
+            }
 
             when {
                 !hasRuntimePermission -> {
@@ -274,5 +313,6 @@ class NotificationDispatcher(private val context: Context) {
         const val CHANNEL_INSTALLMENTS = "channel_installments"
         const val CHANNEL_VEHICLES = "channel_vehicles"
         const val CHANNEL_GENERAL = "channel_general"
+        const val CHANNEL_FULL_SCREEN_ALARMS = "channel_full_screen_alarms"
     }
 }
