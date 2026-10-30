@@ -133,6 +133,7 @@ fun AddServiceSheet(
     var remind1DayBefore by remember { mutableStateOf(true) }
     var remind3DaysBefore by remember { mutableStateOf(true) }
     var remind1WeekBefore by remember { mutableStateOf(true) }
+    var remindAtDueDate by remember { mutableStateOf(true) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -470,25 +471,45 @@ fun AddServiceSheet(
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Row(
+                        LazyRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            FilterChip(
-                                selected = remind1WeekBefore,
-                                onClick = { remind1WeekBefore = !remind1WeekBefore },
-                                label = { Text("۷ روز قبل", fontSize = 11.sp) }
-                            )
-                            FilterChip(
-                                selected = remind3DaysBefore,
-                                onClick = { remind3DaysBefore = !remind3DaysBefore },
-                                label = { Text("۳ روز قبل", fontSize = 11.sp) }
-                            )
-                            FilterChip(
-                                selected = remind1DayBefore,
-                                onClick = { remind1DayBefore = !remind1DayBefore },
-                                label = { Text("۱ روز قبل", fontSize = 11.sp) }
+                            item {
+                                FilterChip(
+                                    selected = remind1WeekBefore,
+                                    onClick = { remind1WeekBefore = !remind1WeekBefore },
+                                    label = { Text("۷ روز قبل", fontSize = 11.sp) }
+                                )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = remind3DaysBefore,
+                                    onClick = { remind3DaysBefore = !remind3DaysBefore },
+                                    label = { Text("۳ روز قبل", fontSize = 11.sp) }
+                                )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = remind1DayBefore,
+                                    onClick = { remind1DayBefore = !remind1DayBefore },
+                                    label = { Text("۱ روز قبل", fontSize = 11.sp) }
+                                )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = remindAtDueDate,
+                                    onClick = { remindAtDueDate = !remindAtDueDate },
+                                    label = { Text("روز سررسید", fontSize = 11.sp) }
+                                )
+                            }
+                        }
+                        if (!remind1WeekBefore && !remind3DaysBefore && !remind1DayBefore && !remindAtDueDate) {
+                            Text(
+                                text = "حداقل یک زمان یادآوری را انتخاب کنید.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error
                             )
                         }
                     } else {
@@ -540,7 +561,7 @@ fun AddServiceSheet(
                             if (remind1WeekBefore) add(com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS)
                             if (remind3DaysBefore) add(com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS)
                             if (remind1DayBefore) add(com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY)
-                            add(com.example.reminder.domain.PredefinedOffset.AT_TIME)
+                            if (remindAtDueDate) add(com.example.reminder.domain.PredefinedOffset.AT_TIME)
                         }
                         onAddService(
                             title,
@@ -557,7 +578,10 @@ fun AddServiceSheet(
                         )
                     }
                 },
-                enabled = title.isNotBlank(),
+                enabled = title.isNotBlank() && (
+                    !isReminderEnabled || remind1WeekBefore || remind3DaysBefore ||
+                        remind1DayBefore || remindAtDueDate
+                    ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
