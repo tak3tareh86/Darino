@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -24,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -109,7 +113,10 @@ fun AddServiceSheet(
         listOf(
             ServiceOption("تعویض روغن موتور", ServiceType.OIL_CHANGE),
             ServiceOption("تعویض فیلترها", ServiceType.FILTERS),
+            ServiceOption("فیلتر بنزین", ServiceType.FUEL_FILTER_CHANGE),
             ServiceOption("تعویض لنت ترمز", ServiceType.BRAKE_PADS),
+            ServiceOption("دیسک و صفحه کلاچ", ServiceType.CLUTCH_DISC_PLATE_CHANGE),
+            ServiceOption("شمع و وایر", ServiceType.SPARK_PLUG_WIRE_CHANGE),
             ServiceOption("تعویض لاستیک ها", ServiceType.TIRE_CHANGE),
             ServiceOption("تعویض باتری", ServiceType.BATTERY),
             ServiceOption("تعویض روغن گیربکس", ServiceType.TRANSMISSION_OIL_CHANGE),
@@ -232,19 +239,22 @@ fun AddServiceSheet(
                     onDismissRequest = { showServiceTypeDialog = false },
                     title = { Text("انتخاب نوع سرویس", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
                     text = {
-                        LazyColumn(
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(3),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(max = 380.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            items(serviceTypeOptions) { item ->
+                            gridItems(serviceTypeOptions) { item ->
                                 val displayName = item.title
                                 val type = item.type
                                 val isSelected = selectedType == type
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .height(58.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                         .clickable {
                                             selectedType = type
@@ -253,28 +263,34 @@ fun AddServiceSheet(
                                             customIntervalMonthsText = ""
                                             showServiceTypeDialog = false
                                         },
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                                            .fillMaxSize()
+                                            .padding(horizontal = 4.dp, vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        horizontalArrangement = Arrangement.Center
                                     ) {
                                         Soft3DIcon(
                                             imageRes = type.iconRes,
                                             contentDescription = displayName,
-                                            size = 24.dp,
+                                            size = 18.dp,
                                             accentColor = MaterialTheme.colorScheme.primary
                                         )
+                                        Spacer(modifier = Modifier.width(3.dp))
                                         Text(
                                             text = displayName,
-                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis,
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 9.sp,
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                             ),
-                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                         )
                                     }
                                 }
@@ -389,7 +405,7 @@ fun AddServiceSheet(
 
                     if (requiresManualInterval) {
                         Text(
-                            text = if (selectedType == ServiceType.CUSTOM) "فاصلهٔ یادآوری سرویس سفارشی را مطابق دفترچهٔ خودرو یا نظر متخصص وارد کنید." else "برای این مدل و سرویس، بازهٔ اختصاصیِ مستند در بانک دارینو موجود نیست. فاصله را از دفترچهٔ همان خودرو وارد کنید؛ از بازهٔ خودروی دیگری استفاده نکنید.",
+                            text = if (selectedType == ServiceType.CUSTOM) "فاصلهٔ یادآوری سرویس سفارشی را مطابق دفترچهٔ خودرو یا نظر متخصص وارد کنید." else "برای جلوگیری از ارائهٔ بازهٔ حدسی، فاصلهٔ سرویس را از دفترچه یا کاتالوگ همین خودرو استخراج و در این قسمت وارد کنید. از بازهٔ خودروی دیگری استفاده نکنید.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
