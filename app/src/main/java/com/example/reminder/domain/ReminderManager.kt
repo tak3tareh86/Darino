@@ -153,8 +153,11 @@ class ReminderManager(
             throw IllegalStateException("هیچ زمان‌بندی‌ای برای این یادآور ذخیره نشده است.")
         }
 
-        // Re-enable both the notification channel and schedule rows in Room before registering alarms.
-        val enabledReminder = reminder.copy(notificationEnabled = true, status = "ACTIVE", updatedAt = System.currentTimeMillis())
+        // Preserve the user's per-reminder delivery choices when re-arming a disabled reminder.
+        if (!reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled && !reminder.smsEnabled) {
+            throw IllegalStateException("برای فعال‌سازی یادآور، حداقل یکی از روش‌های اعلان، آلارم تمام‌صفحه یا پیامک باید فعال باشد.")
+        }
+        val enabledReminder = reminder.copy(status = "ACTIVE", updatedAt = System.currentTimeMillis())
         val enabledSchedules = storedSchedules.map { it.copy(enabled = true) }
         repository.updateReminderWithSchedules(enabledReminder, enabledSchedules)
         try {
@@ -167,7 +170,7 @@ class ReminderManager(
             Log.e("ReminderManager", "Failed to schedule alarms when enabling reminder $reminderId. Rolling back to disabled state.", e)
             try {
                 val disabledSchedules = enabledSchedules.map { it.copy(enabled = false) }
-                repository.updateReminderWithSchedules(enabledReminder.copy(notificationEnabled = false, status = "DISABLED"), disabledSchedules)
+                repository.updateReminderWithSchedules(enabledReminder.copy(status = "DISABLED"), disabledSchedules)
                 scheduler.cancel(reminderId, enabledSchedules)
             } catch (rollbackEx: Exception) {
                 Log.e("ReminderManager", "Failed to rollback reminder to DISABLED", rollbackEx)
