@@ -142,10 +142,18 @@ fun SettingsScreen(
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
+    // Track the previous settings destination so nested screens return
+    // to the screen from which they were opened.
+    var previousDestination by remember { mutableStateOf(SettingsDestination.MAIN) }
+
     // Handle Back Press when in subscreen
     BackHandler(enabled = currentDestination != SettingsDestination.MAIN || onBackClick != null) {
         if (currentDestination != SettingsDestination.MAIN) {
-            currentDestination = SettingsDestination.MAIN
+            currentDestination = when (currentDestination) {
+                SettingsDestination.LOCK_AND_AUTH,
+                SettingsDestination.APP_LOCK -> previousDestination
+                else -> SettingsDestination.MAIN
+            }
         } else if (onBackClick != null) {
             onBackClick()
         }
@@ -262,7 +270,10 @@ fun SettingsScreen(
             }
             SettingsDestination.SECURITY -> {
                 SecurityPrivacyScreen(
-                    onNavigateToLockAndAuth = { currentDestination = SettingsDestination.LOCK_AND_AUTH },
+                    onNavigateToLockAndAuth = {
+                        previousDestination = SettingsDestination.SECURITY
+                        currentDestination = SettingsDestination.LOCK_AND_AUTH
+                    },
                     onBackClick = { currentDestination = SettingsDestination.MAIN }
                 )
             }
@@ -270,7 +281,7 @@ fun SettingsScreen(
             SettingsDestination.LOCK_AND_AUTH -> {
                 com.example.ui.screens.settings.subviews.LockAndAuthenticationScreen(
                     viewModel = lockViewModel,
-                    onBackClick = { currentDestination = SettingsDestination.SECURITY }
+                    onBackClick = { currentDestination = previousDestination }
                 )
             }
             SettingsDestination.ABOUT -> {
