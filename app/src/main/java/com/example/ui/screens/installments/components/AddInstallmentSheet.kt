@@ -1165,14 +1165,29 @@ private fun CustomInstallmentsDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 val sumCustom = scheduleList.sumOf { it.amount }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                val expectedTotal = MoneyFormatter.convertToToman(totalAmountLong)
+                val totalDifference = expectedTotal - sumCustom
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
                         text = "جمع کل اقساط: ${MoneyFormatter.formatToman(sumCustom)}",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "مبلغ کل وام: ${MoneyFormatter.formatToman(expectedTotal)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = if (totalDifference == 0L) {
+                            "مجموع اقساط با مبلغ کل وام برابر است."
+                        } else if (totalDifference > 0L) {
+                            "مبلغ اقساط ${MoneyFormatter.formatToman(totalDifference)} کمتر از مبلغ وام است."
+                        } else {
+                            "مبلغ اقساط ${MoneyFormatter.formatToman(kotlin.math.abs(totalDifference))} بیشتر از مبلغ وام است."
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = if (totalDifference == 0L) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                     )
                 }
 
