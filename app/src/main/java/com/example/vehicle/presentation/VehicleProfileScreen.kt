@@ -229,7 +229,7 @@ fun VehicleProfileScreen(
                                     if (digits.length <= 2) platePart1 = digits
                                 },
                                 label = { Text("۲ رقم") },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(0.95f),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true
                             )
@@ -242,7 +242,7 @@ fun VehicleProfileScreen(
                                 ExposedDropdownMenuBox(
                                     expanded = showPlateLetterMenu,
                                     onExpandedChange = { showPlateLetterMenu = it },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1.2f)
                                 ) {
                                     OutlinedTextField(
                                         value = plateLetter,
@@ -296,7 +296,7 @@ fun VehicleProfileScreen(
                                     if (digits.length <= 3) platePart2 = digits
                                 },
                                 label = { Text("۳ رقم") },
-                                modifier = Modifier.weight(1.1f),
+                                modifier = Modifier.weight(1.05f),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true
                             )
@@ -308,7 +308,7 @@ fun VehicleProfileScreen(
                                     if (digits.length <= 2) plateIranCode = digits
                                 },
                                 label = { Text("ایران") },
-                                modifier = Modifier.weight(0.9f),
+                                modifier = Modifier.weight(0.8f),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true
                             )
