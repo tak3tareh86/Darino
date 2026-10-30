@@ -67,9 +67,9 @@ enum class DurationType(val title: String, val shortTitle: String) {
 }
 
 enum class CalculationMethod(val title: String, val subtitle: String) {
-    ANNUITY("اقساط ثابت ماهانه (Annuity)", "فرمول مصوب بانکی با اقساط ماهانه یکسان"),
+    ANNUITY("اقساط ثابت ماهانه (Annuity)", "مدل ریاضی اقساط مساوی؛ برآورد غیرقراردادی"),
     SIMPLE_INTEREST("سود ساده", "سود بر مبنای اصل وام و مدت زمان"),
-    CUSTOM("کارمزد / قرض‌الحسنه", "کارمزد ثابت سالانه (مانند قرض‌الحسنه ۴٪)")
+    CUSTOM("کارمزد / قرض‌الحسنه", "کارمزد ساده سالانه متناسب با مدت؛ تابع قرارداد")
 }
 
 data class CalculationResult(
