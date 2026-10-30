@@ -462,6 +462,9 @@ interface AccountDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertAccount(account: AccountEntity)
 
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertAccountForBackup(account: AccountEntity): Long
+
     @Update
     suspend fun updateAccount(account: AccountEntity)
 
