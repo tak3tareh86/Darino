@@ -1,6 +1,9 @@
 package com.example.reminder.presentation
 
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -45,6 +48,7 @@ class ReminderAlarmActivity : ComponentActivity() {
     private var reminderId: String = ""
     private var notificationId: Int = -1
     private var secondaryNotificationId: Int = -1
+    private var alarmPlayer: MediaPlayer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,6 +63,7 @@ class ReminderAlarmActivity : ComponentActivity() {
         reminderId = intent.getStringExtra(EXTRA_REMINDER_ID).orEmpty()
         notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
         secondaryNotificationId = intent.getIntExtra(EXTRA_SECONDARY_NOTIFICATION_ID, -1)
+        startAlarmSound()
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "یادآوری دارینو" }
         val body = intent.getStringExtra(EXTRA_BODY).orEmpty()
 
@@ -75,7 +80,53 @@ class ReminderAlarmActivity : ComponentActivity() {
         }
     }
 
+    private fun startAlarmSound() {
+        stopAlarmSound()
+        try {
+            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                ?: return
+            alarmPlayer = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                setDataSource(this@ReminderAlarmActivity, alarmUri)
+                isLooping = true
+                setOnErrorListener { player, _, _ ->
+                    try { player.release() } catch (_: Exception) {}
+                    if (alarmPlayer === player) alarmPlayer = null
+                    true
+                }
+                prepare()
+                start()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ReminderAlarmActivity", "Could not start alarm ringtone", e)
+            stopAlarmSound()
+        }
+    }
+
+    private fun stopAlarmSound() {
+        val player = alarmPlayer ?: return
+        alarmPlayer = null
+        try {
+            if (player.isPlaying) player.stop()
+        } catch (_: Exception) {
+        } finally {
+            try { player.release() } catch (_: Exception) {}
+        }
+    }
+
+    override fun onDestroy() {
+        stopAlarmSound()
+        super.onDestroy()
+    }
+
     private fun completeReminder() {
+        stopAlarmSound()
         if (reminderId.isNotBlank()) {
             sendBroadcast(Intent(this, ReminderBroadcastReceiver::class.java).apply {
                 action = ReminderBroadcastReceiver.ACTION_COMPLETE_REMINDER
@@ -91,6 +142,7 @@ class ReminderAlarmActivity : ComponentActivity() {
     }
 
     private fun snoozeReminder() {
+        stopAlarmSound()
         if (reminderId.isNotBlank()) {
             sendBroadcast(Intent(this, ReminderBroadcastReceiver::class.java).apply {
                 action = ReminderBroadcastReceiver.ACTION_SNOOZE_REMINDER
@@ -104,6 +156,7 @@ class ReminderAlarmActivity : ComponentActivity() {
     }
 
     private fun dismissAlarm() {
+        stopAlarmSound()
         NotificationManagerCompat.from(this).apply {
             if (notificationId != -1) cancel(notificationId)
             if (secondaryNotificationId != -1) cancel(secondaryNotificationId)
