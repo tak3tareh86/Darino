@@ -5,7 +5,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -47,7 +46,7 @@ import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusXL
 import com.example.util.IranianPhoneUtils
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FinancialCalendarScreen(
     onBack: (() -> Unit)? = null,
@@ -233,40 +232,94 @@ fun FinancialCalendarScreen(
                 }
             }
 
-            // Category Filter Chips: responsive multi-row layout without horizontal scrolling
+            // Compact category filter dropdown with a two-column option grid
             item {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    // All Filter
-                    FilterChip(
-                        selected = state.selectedFilterType == null,
-                        onClick = { viewModel.setFilterType(null) },
-                        label = { Text("همه رویدادها") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Rounded.FilterList,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    )
+                var filterMenuExpanded by remember { mutableStateOf(false) }
+                val filterOptions: List<FinancialEventType?> =
+                    listOf<FinancialEventType?>(null) + FinancialEventType.entries
 
-                    FinancialEventType.entries.forEach { type ->
-                        val isSelected = state.selectedFilterType == type
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = {
-                                viewModel.setFilterType(if (isSelected) null else type)
-                            },
-                            label = { Text(type.title) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = type.primaryColor.copy(alpha = if (isDark) 0.25f else 0.15f),
-                                selectedLabelColor = type.primaryColor
-                            )
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    OutlinedButton(
+                        onClick = { filterMenuExpanded = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("calendar_category_filter"),
+                        shape = RoundedCornerShape(RadiusMD),
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.75f)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.FilterList,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
                         )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = state.selectedFilterType?.title ?: "همه رویدادها",
+                            maxLines = 1,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Icon(
+                            imageVector = if (filterMenuExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                            contentDescription = null
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = filterMenuExpanded,
+                        onDismissRequest = { filterMenuExpanded = false },
+                        modifier = Modifier
+                            .widthIn(min = 260.dp, max = 320.dp)
+                            .background(MaterialTheme.colorScheme.surface)
+                    ) {
+                        filterOptions.chunked(2).forEach { optionRow ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                optionRow.forEach { option ->
+                                    val selected = state.selectedFilterType == option
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = option?.title ?: "همه رویدادها",
+                                                maxLines = 1,
+                                                textAlign = TextAlign.Center,
+                                                style = MaterialTheme.typography.labelLarge
+                                            )
+                                        },
+                                        onClick = {
+                                            viewModel.setFilterType(option)
+                                            filterMenuExpanded = false
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        trailingIcon = if (selected) {
+                                            {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Check,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        } else null,
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 10.dp)
+                                    )
+                                }
+                                if (optionRow.size == 1) {
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -295,7 +348,7 @@ fun FinancialCalendarScreen(
                 )
             }
 
-            // Day Events Header
+            // Day Events Header: date on the right and event count on the left
             item {
                 val displaySelected = CalendarDateUtils.toPersianDisplay(state.selectedDate)
                 Row(
@@ -305,30 +358,37 @@ fun FinancialCalendarScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = if (state.searchQuery.isNotBlank()) "نتایج جستجو" else "رویدادهای $displaySelected",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "${IranianPhoneUtils.convertDigitsToPersian(dayEvents.size.toString())} مورد در این بخش",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = if (state.searchQuery.isNotBlank()) "نتایج جستجو" else "رویدادهای $displaySelected",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
+                    )
 
-                    if (state.searchQuery.isBlank() && dayEvents.isNotEmpty()) {
-                        TextButton(
-                            onClick = { selectedDayForFullDetail = state.selectedDate },
-                            modifier = Modifier.testTag("open_day_details_button")
-                        ) {
-                            Text("مشاهده کامل روز")
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "${IranianPhoneUtils.convertDigitsToPersian(dayEvents.size.toString())} ${if (state.searchQuery.isNotBlank()) "مورد یافت شد" else "مورد در این روز"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+
+                        if (state.searchQuery.isBlank() && dayEvents.isNotEmpty()) {
+                            TextButton(
+                                onClick = { selectedDayForFullDetail = state.selectedDate },
+                                modifier = Modifier.testTag("open_day_details_button"),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                            ) {
+                                Text("مشاهده کامل روز", maxLines = 1)
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
                     }
                 }
