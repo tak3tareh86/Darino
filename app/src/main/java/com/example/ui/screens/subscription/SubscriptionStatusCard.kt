@@ -98,7 +98,7 @@ fun SubscriptionStatusCard(
         Card(
             modifier = modifier
                 .fillMaxWidth()
-                .heightIn(min = 140.dp)
+                .heightIn(min = 210.dp)
                 .testTag("active_subscription_card")
                 .shadow(
                     elevation = 4.dp,
@@ -184,6 +184,33 @@ fun SubscriptionStatusCard(
                                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                             )
                         }
+                    }
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "دوست خوبم به جمع ما خوش اومدی 🌟",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color.White
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(5.dp))
+                        Text(
+                            text = "از اینکه اشتراک سالانه رو انتخاب کردی ممنونیم. حالا می‌تونی با خیال راحت از تمام امکانات استفاده کنی. امیدواریم همراه خوبی برای مدیریت بهتر امور مالی و زندگی روزمره‌ات باشیم.",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Justify,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 10.5.sp,
+                                lineHeight = 15.sp,
+                                color = Color(0xFFE2E8F0).copy(alpha = 0.9f)
+                            )
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
