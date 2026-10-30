@@ -1,5 +1,8 @@
 package com.example.ui.screens.check.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,15 +16,32 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.SharedPersianDatePickerDialog
 import com.example.ui.screens.check.model.Check
 import com.example.ui.screens.check.model.CheckStatus
 import com.example.ui.screens.check.model.CheckType
+import com.example.util.IranianAmountUtils
+import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import java.util.*
+
+private val IRANIAN_BANK_NAMES = listOf(
+    "ملی", "ملت", "صادرات", "تجارت",
+    "سپـه", "رفاه", "مسکن", "کشاورزی",
+    "پاسارگاد", "پارسیان", "سامان", "شهر",
+    "اقتصاد نوین", "کارآفرین", "گردشگری", "دی",
+    "ایران‌زمین", "سینا", "سرمایه", "توسعه تعاون",
+    "پست بانک", "قوامین", "آینده", "مهر ایران",
+    "رسالت", "خاورمیانه", "توسعه صادرات", "صنعت و معدن",
+    "حکمت ایرانیان", "انصار", "موسسه ملل", "موسسه نور"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,7 +51,12 @@ fun AddEditCheckDialog(
     onConfirm: (Check) -> Unit
 ) {
     var type by remember { mutableStateOf(check?.type ?: CheckType.RECEIVED) }
-    var amount by remember { mutableStateOf(check?.amount?.toString() ?: "") }
+    var amount by remember {
+        mutableStateOf(
+            check?.amount?.let { MoneyFormatter.convertFromToman(it).toString() }.orEmpty()
+        )
+    }
+    var isBankMenuExpanded by remember { mutableStateOf(false) }
     var checkNumber by remember { mutableStateOf(check?.checkNumber ?: "") }
     var sayadId by remember { mutableStateOf(check?.sayadId ?: "") }
     var bankName by remember { mutableStateOf(check?.bankName ?: "") }
@@ -52,6 +77,7 @@ fun AddEditCheckDialog(
     val isDateInvalid = dueDate < issueDate
     val isReminderInvalid = reminderDateTime != null && reminderDateTime!! > dueDate
     val amountValueForValidation = amount.toEnglishDigits().toLongOrNull()
+    val amountUnitLabel = MoneyFormatter.getUnitLabel()
     val isAmountInvalid = amountValueForValidation == null || amountValueForValidation <= 0L
     val isCheckNumberInvalid = checkNumber.isBlank()
     val isBankNameInvalid = bankName.isBlank()
@@ -64,6 +90,7 @@ fun AddEditCheckDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Scaffold(
+            modifier = Modifier.fillMaxSize().imePadding(),
             topBar = {
                 CenterAlignedTopAppBar(
                     title = {
@@ -79,13 +106,59 @@ fun AddEditCheckDialog(
                         }
                     },
                 )
+            },
+            bottomBar = {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 3.dp
+                ) {
+                    Button(
+                        onClick = {
+                            val enteredAmount = amount.toEnglishDigits().toLongOrNull() ?: 0L
+                            val amountInToman = MoneyFormatter.convertToToman(enteredAmount)
+                            if (amountInToman > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() &&
+                                !isDateInvalid && !isReminderInvalid && !isSayadIdInvalid) {
+                                onConfirm(
+                                    Check(
+                                        id = check?.id ?: 0,
+                                        userId = check?.userId ?: "",
+                                        type = type,
+                                        amount = amountInToman,
+                                        checkNumber = checkNumber,
+                                        sayadId = normalizedSayadId.ifBlank { null },
+                                        bankName = bankName.trim(),
+                                        branch = branch.ifBlank { null },
+                                        holderName = holderName.trim(),
+                                        receiverName = receiverName.trim(),
+                                        issueDate = issueDate,
+                                        dueDate = dueDate,
+                                        status = status,
+                                        notes = notes.trim().ifBlank { null },
+                                        accountId = check?.accountId,
+                                        reminderDateTime = reminderDateTime,
+                                        createdAt = check?.createdAt ?: System.currentTimeMillis(),
+                                        updatedAt = System.currentTimeMillis()
+                                    )
+                                )
+                            } else {
+                                showError = true
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("ذخیره", fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         ) { padding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .imePadding()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -103,7 +176,7 @@ fun AddEditCheckDialog(
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 when {
-                                    isAmountInvalid -> "مبلغ چک باید عددی بزرگ‌تر از صفر و به ریال باشد."
+                                    isAmountInvalid -> "مبلغ چک باید عددی بزرگ‌تر از صفر و به $amountUnitLabel باشد."
                                     isCheckNumberInvalid -> "شماره چک را وارد کنید."
                                     isBankNameInvalid -> "نام بانک را وارد کنید."
                                     isDateInvalid -> "تاریخ سررسید نمی‌تواند قبل از تاریخ صدور باشد."
@@ -141,17 +214,17 @@ fun AddEditCheckDialog(
                     }
                 }
 
-                OutlinedTextField(
+                PersianAmountInputField(
                     value = amount,
-                    onValueChange = { amount = it.toEnglishDigits().filter { char -> char.isDigit() } },
-                    label = { Text("مبلغ چک (ریال)") },
+                    onValueChange = { amount = IranianAmountUtils.cleanAmountDigits(it) },
+                    label = "مبلغ چک ($amountUnitLabel)",
+                    unitLabel = amountUnitLabel,
+                    showWordsPreview = false,
                     isError = showError && isAmountInvalid,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = check?.status != CheckStatus.CLEARED,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    supportingText = { Text("مبلغ را به ریال وارد کنید.") },
                     leadingIcon = { Icon(Icons.Rounded.Payments, null) },
-                    singleLine = true
+                    testTag = "check_amount_input"
                 )
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -173,15 +246,72 @@ fun AddEditCheckDialog(
                 }
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = bankName,
-                        onValueChange = { bankName = it },
-                        label = { Text("نام بانک") },
-                        isError = showError && isBankNameInvalid,
-                        modifier = Modifier.weight(1.2f),
-                        leadingIcon = { Icon(Icons.Rounded.AccountBalance, null) },
-                        singleLine = true
-                    )
+                    Box(modifier = Modifier.weight(1.2f)) {
+                        OutlinedTextField(
+                            value = bankName,
+                            onValueChange = { bankName = it },
+                            label = { Text("نام بانک") },
+                            isError = showError && isBankNameInvalid,
+                            modifier = Modifier.fillMaxWidth(),
+                            leadingIcon = { Icon(Icons.Rounded.AccountBalance, null) },
+                            trailingIcon = {
+                                IconButton(onClick = { isBankMenuExpanded = !isBankMenuExpanded }) {
+                                    Icon(
+                                        if (isBankMenuExpanded) Icons.Rounded.ArrowDropUp else Icons.Rounded.ArrowDropDown,
+                                        contentDescription = "انتخاب بانک"
+                                    )
+                                }
+                            },
+                            singleLine = true
+                        )
+                        DropdownMenu(
+                            expanded = isBankMenuExpanded,
+                            onDismissRequest = { isBankMenuExpanded = false },
+                            modifier = Modifier
+                                .width(320.dp)
+                                .heightIn(max = 320.dp)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            IRANIAN_BANK_NAMES.chunked(4).forEach { bankRow ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    bankRow.forEach { bank ->
+                                        Surface(
+                                            onClick = {
+                                                bankName = bank
+                                                isBankMenuExpanded = false
+                                            },
+                                            modifier = Modifier.weight(1f).padding(2.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (bankName == bank) MaterialTheme.colorScheme.primaryContainer
+                                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 2.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = bank,
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    textAlign = TextAlign.Center,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = if (bankName == bank) FontWeight.Bold else FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                    }
+                                    repeat(4 - bankRow.size) {
+                                        Spacer(Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+                    }
                     OutlinedTextField(
                         value = branch,
                         onValueChange = { branch = it },
@@ -351,45 +481,6 @@ fun AddEditCheckDialog(
                     }
                 }
 
-                Button(
-                    onClick = {
-                        val amountValue = amount.toEnglishDigits().toLongOrNull() ?: 0L
-                        if (amountValue > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() &&
-                            !isDateInvalid && !isReminderInvalid && !isSayadIdInvalid) {
-                            onConfirm(
-                                Check(
-                                    id = check?.id ?: 0,
-                                    userId = check?.userId ?: "",
-                                    type = type,
-                                    amount = amountValue,
-                                    checkNumber = checkNumber,
-                                    sayadId = normalizedSayadId.ifBlank { null },
-                                    bankName = bankName.trim(),
-                                    branch = branch.ifBlank { null },
-                                    holderName = holderName.trim(),
-                                    receiverName = receiverName.trim(),
-                                    issueDate = issueDate,
-                                    dueDate = dueDate,
-                                    status = status,
-                                    notes = notes.trim().ifBlank { null },
-                                    accountId = check?.accountId,
-                                    reminderDateTime = reminderDateTime,
-                                    createdAt = check?.createdAt ?: System.currentTimeMillis(),
-                                    updatedAt = System.currentTimeMillis()
-                                )
-                            )
-                        } else {
-                            showError = true
-                        }
-                    },
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("ذخیره", fontWeight = FontWeight.Bold)
-                }
             }
         }
 
