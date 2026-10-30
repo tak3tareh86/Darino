@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -47,7 +48,7 @@ fun VehicleCostChart(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(182.dp)
+                .height(210.dp)
                 .padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
@@ -128,14 +129,27 @@ fun VehicleCostChart(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    Text(
-                        text = bar.monthName,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 8.sp,
-                            fontWeight = if (bar.isCurrentMonth) FontWeight.Bold else FontWeight.Normal
-                        ),
-                        color = if (bar.isCurrentMonth) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // Full month names are rotated vertically to remain readable
+                    // beneath their own bars without colliding with the legend.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = bar.monthName,
+                            modifier = Modifier
+                                .width(54.dp)
+                                .graphicsLayer(rotationZ = -90f),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 9.sp,
+                                fontWeight = if (bar.isCurrentMonth) FontWeight.Bold else FontWeight.Normal
+                            ),
+                            color = if (bar.isCurrentMonth) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }
