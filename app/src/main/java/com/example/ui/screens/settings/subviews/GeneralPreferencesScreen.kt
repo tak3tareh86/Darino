@@ -60,6 +60,9 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.compose.material3.Button
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
@@ -113,10 +116,18 @@ fun GeneralPreferencesScreen(
     var canUseFullScreenIntent by remember(context) {
         mutableStateOf(checkFullScreenIntentAccess())
     }
+    fun checkNotificationPermission(): Boolean =
+        Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+    var canPostNotifications by remember(context) {
+        mutableStateOf(checkNotificationPermission())
+    }
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 canUseFullScreenIntent = checkFullScreenIntentAccess()
+                canPostNotifications = checkNotificationPermission()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -352,37 +363,59 @@ fun GeneralPreferencesScreen(
                             isSelected = currentDeliveryMode == AlertDeliveryPreference.BOTH,
                             onClick = { onDeliveryModeChanged(AlertDeliveryPreference.BOTH) }
                         )
-                        if (Build.VERSION.SDK_INT >= 34 &&
+                        val needsFullScreenAccess = Build.VERSION.SDK_INT >= 34 &&
                             currentDeliveryMode != AlertDeliveryPreference.NOTIFICATION_ONLY &&
                             !canUseFullScreenIntent
-                        ) {
+                        val needsNotificationPermission = !canPostNotifications
+                        if (needsFullScreenAccess || needsNotificationPermission) {
                             Text(
-                                text = if (isEn)
-                                    "Android requires special access for full-screen alarms. Without it, Darino can only show a normal notification."
-                                else
-                                    "برای نمایش تمام‌صفحه، اندروید دسترسی ویژه می‌خواهد. بدون این دسترسی، برنامه فقط اعلان معمولی نمایش می‌دهد.",
+                                text = when {
+                                    needsNotificationPermission && needsFullScreenAccess -> if (isEn)
+                                        "Allow app notifications and full-screen alarm access in Android settings. Otherwise, scheduled alerts may not appear."
+                                    else
+                                        "برای دریافت هشدارها، اعلان‌های برنامه و دسترسی آلارم تمام‌صفحه را در تنظیمات اندروید فعال کنید؛ در غیر این صورت ممکن است هشدار نمایش داده نشود."
+                                    needsNotificationPermission -> if (isEn)
+                                        "App notifications are disabled. Scheduled alerts cannot be displayed until you allow notifications."
+                                    else
+                                        "اعلان‌های برنامه غیرفعال است. تا زمانی که اجازه اعلان‌ها را فعال نکنید، هشدارها نمایش داده نمی‌شوند."
+                                    else -> if (isEn)
+                                        "Android requires special access for full-screen alarms. Without it, only a normal notification fallback can be shown."
+                                    else
+                                        "برای نمایش تمام‌صفحه، اندروید دسترسی ویژه می‌خواهد. بدون آن فقط اعلان معمولی نمایش داده می‌شود."
+                                },
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Button(
                                 onClick = {
                                     try {
-                                        context.startActivity(
+                                        val settingsIntent = if (needsNotificationPermission) {
+                                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                            }
+                                        } else {
                                             Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
                                                 data = Uri.parse("package:${context.packageName}")
                                             }
-                                        )
+                                        }
+                                        context.startActivity(settingsIntent)
                                     } catch (_: Exception) {
                                         Toast.makeText(
                                             context,
-                                            if (isEn) "Full-screen alarm access settings are unavailable." else "تنظیمات دسترسی آلارم تمام‌صفحه در این دستگاه در دسترس نیست.",
+                                            if (isEn) "Required notification settings are unavailable." else "تنظیمات دسترسی موردنیاز در این دستگاه در دسترس نیست.",
                                             Toast.LENGTH_LONG
                                         ).show()
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(if (isEn) "Enable full-screen alarm access" else "فعال‌سازی دسترسی آلارم تمام‌صفحه")
+                                Text(
+                                    when {
+                                        needsNotificationPermission && needsFullScreenAccess -> if (isEn) "Open notification settings" else "بازکردن تنظیمات اعلان‌ها"
+                                        needsNotificationPermission -> if (isEn) "Enable app notifications" else "فعال‌سازی اعلان‌های برنامه"
+                                        else -> if (isEn) "Enable full-screen alarm access" else "فعال‌سازی دسترسی آلارم تمام‌صفحه"
+                                    }
+                                )
                             }
                         }
                     }
