@@ -31,7 +31,14 @@ object BackupValidator {
 
     fun withChecksum(backup: DarinoBackup): DarinoBackup {
         val unsignedBackup = backup.copy(metadata = backup.metadata.copy(checksum = ""))
-        val checksum = calculateChecksum(moshi.adapter(DarinoBackup::class.java).toJson(unsignedBackup))
+        val checksum = when (unsignedBackup.metadata.backupVersion) {
+            1 -> legacyV1Checksum(unsignedBackup)
+            2 -> legacyV2Checksum(unsignedBackup)
+            3 -> legacyV3Checksum(unsignedBackup)
+            4 -> legacyV4Checksum(unsignedBackup)
+            5 -> legacyV5Checksum(unsignedBackup)
+            else -> calculateChecksum(moshi.adapter(DarinoBackup::class.java).toJson(unsignedBackup))
+        }
         return unsignedBackup.copy(metadata = unsignedBackup.metadata.copy(checksum = checksum))
     }
 
@@ -98,10 +105,6 @@ object BackupValidator {
         if (backup.reminderSchedules.any { it.reminderId !in reminderIds }) {
             return ValidationResult.Invalid("فایل پشتیبان دارای زمان‌بندی یادآور بدون یادآور مرتبط است.")
         }
-        if (backup.reminderDeliveryLogs.any { it.reminderId !in reminderIds }) {
-            return ValidationResult.Invalid("فایل پشتیبان دارای گزارش ارسال بدون یادآور مرتبط است.")
-        }
-
         if (backup.metadata.backupVersion >= 6) {
             val legacyReminderIds = backup.legacyReminders.map { it.id }.toSet()
             if (backup.legacyReminderSchedules.any { it.reminderId !in legacyReminderIds }) {
