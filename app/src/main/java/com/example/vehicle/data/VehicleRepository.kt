@@ -361,6 +361,24 @@ class VehicleRepository {
         else -> null
     }
 
+    /**
+     * Subtract calendar days while preserving the selected local wall-clock time,
+     * including across daylight-saving transitions.
+     */
+    private fun calculateReminderTriggerMillis(
+        baseMillis: Long,
+        offset: com.example.reminder.domain.PredefinedOffset
+    ): Long {
+        return if (offset.unit == com.example.reminder.domain.OffsetUnit.DAY) {
+            java.util.Calendar.getInstance().apply {
+                timeInMillis = baseMillis
+                add(java.util.Calendar.DAY_OF_YEAR, -offset.value)
+            }.timeInMillis
+        } else {
+            baseMillis - (offset.value.toLong() * offset.unit.millisMultiplier)
+        }
+    }
+
     private suspend fun syncReminderPersistenceInternal(
         db: com.example.data.database.AppDatabase,
         userId: String,
@@ -406,7 +424,7 @@ class VehicleRepository {
         val schedules = if (!date.isNullOrBlank()) {
             val baseMillis = com.example.reminder.domain.ReminderManager.parsePersianDateTimeToMillis(persianDate, persianTime)
             offsets.map { offset ->
-                val triggerMillis = baseMillis - (offset.value * offset.unit.millisMultiplier)
+                val triggerMillis = calculateReminderTriggerMillis(baseMillis, offset)
                 com.example.reminder.data.ReminderScheduleEntity(
                     id = "sched_${id}_${offset.name}",
                     reminderId = id,
@@ -843,7 +861,7 @@ class VehicleRepository {
                 )
             }
             offsets.distinct().filter { offset ->
-                reminderBaseMillis - (offset.value.toLong() * offset.unit.millisMultiplier) > System.currentTimeMillis()
+                calculateReminderTriggerMillis(reminderBaseMillis, offset) > System.currentTimeMillis()
             }.also { future ->
                 if (future.isEmpty()) {
                     return@withContext Result.failure(
