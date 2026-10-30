@@ -114,8 +114,19 @@ fun GeneralPreferencesScreen(
             false
         }
     }
+    fun checkExactAlarmAccess(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        return try {
+            context.getSystemService(android.app.AlarmManager::class.java)?.canScheduleExactAlarms() == true
+        } catch (_: Exception) {
+            false
+        }
+    }
     var canUseFullScreenIntent by remember(context) {
         mutableStateOf(checkFullScreenIntentAccess())
+    }
+    var canScheduleExactAlarms by remember(context) {
+        mutableStateOf(checkExactAlarmAccess())
     }
     fun checkNotificationPermission(): Boolean =
         NotificationManagerCompat.from(context).areNotificationsEnabled() &&
@@ -125,11 +136,37 @@ fun GeneralPreferencesScreen(
     var canPostNotifications by remember(context) {
         mutableStateOf(checkNotificationPermission())
     }
+    var pendingDeliveryMode by remember { mutableStateOf<AlertDeliveryPreference?>(null) }
+
+    fun requestDeliveryMode(mode: AlertDeliveryPreference) {
+        val needsFullScreen = mode != AlertDeliveryPreference.NOTIFICATION_ONLY
+        val ready = canPostNotifications && canScheduleExactAlarms &&
+            (!needsFullScreen || canUseFullScreenIntent)
+        if (ready) {
+            pendingDeliveryMode = null
+            onDeliveryModeChanged(mode)
+        } else {
+            // Keep the existing preference until the user grants every required access manually.
+            pendingDeliveryMode = mode
+        }
+    }
+
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 canUseFullScreenIntent = checkFullScreenIntentAccess()
+                canScheduleExactAlarms = checkExactAlarmAccess()
                 canPostNotifications = checkNotificationPermission()
+
+                pendingDeliveryMode?.let { requestedMode ->
+                    val needsFullScreen = requestedMode != AlertDeliveryPreference.NOTIFICATION_ONLY
+                    if (canPostNotifications && canScheduleExactAlarms &&
+                        (!needsFullScreen || canUseFullScreenIntent)
+                    ) {
+                        onDeliveryModeChanged(requestedMode)
+                        pendingDeliveryMode = null
+                    }
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -349,41 +386,48 @@ fun GeneralPreferencesScreen(
                             subtitle = if (isEn) "Standard Android notification" else "نمایش اعلان معمولی در نوار اعلان گوشی",
                             emoji = "🔔",
                             isSelected = currentDeliveryMode == AlertDeliveryPreference.NOTIFICATION_ONLY,
-                            onClick = { onDeliveryModeChanged(AlertDeliveryPreference.NOTIFICATION_ONLY) }
+                            onClick = { requestDeliveryMode(AlertDeliveryPreference.NOTIFICATION_ONLY) }
                         )
                         DeliveryModeCompactItem(
                             title = if (isEn) "Full-screen alarm" else "آلارم تمام‌صفحه",
                             subtitle = if (isEn) "Open the reminder alarm screen at its scheduled time" else "نمایش صفحه اختصاصی هشدار در زمان تعیین‌شده",
                             emoji = "⏰",
                             isSelected = currentDeliveryMode == AlertDeliveryPreference.FULL_SCREEN_ALARM,
-                            onClick = { onDeliveryModeChanged(AlertDeliveryPreference.FULL_SCREEN_ALARM) }
+                            onClick = { requestDeliveryMode(AlertDeliveryPreference.FULL_SCREEN_ALARM) }
                         )
                         DeliveryModeCompactItem(
                             title = if (isEn) "Notification and full-screen alarm" else "نوتیفیکیشن و آلارم تمام‌صفحه",
                             subtitle = if (isEn) "Use both alert experiences" else "نمایش اعلان و آلارم تمام‌صفحه",
                             emoji = "🔔⏰",
                             isSelected = currentDeliveryMode == AlertDeliveryPreference.BOTH,
-                            onClick = { onDeliveryModeChanged(AlertDeliveryPreference.BOTH) }
+                            onClick = { requestDeliveryMode(AlertDeliveryPreference.BOTH) }
                         )
-                        val needsFullScreenAccess = Build.VERSION.SDK_INT >= 34 &&
-                            currentDeliveryMode != AlertDeliveryPreference.NOTIFICATION_ONLY &&
+                        val needsFullScreenAccess = pendingDeliveryMode != null &&
+                            pendingDeliveryMode != AlertDeliveryPreference.NOTIFICATION_ONLY &&
                             !canUseFullScreenIntent
-                        val needsNotificationPermission = !canPostNotifications
-                        if (needsFullScreenAccess || needsNotificationPermission) {
+                        val needsExactAlarmAccess = pendingDeliveryMode != null && !canScheduleExactAlarms
+                        val needsNotificationPermission = pendingDeliveryMode != null && !canPostNotifications
+                        if (pendingDeliveryMode != null) {
                             Text(
                                 text = when {
-                                    needsNotificationPermission && needsFullScreenAccess -> if (isEn)
-                                        "Allow app notifications and full-screen alarm access in Android settings. Otherwise, scheduled alerts may not appear."
-                                    else
-                                        "برای دریافت هشدارها، اعلان‌های برنامه و دسترسی آلارم تمام‌صفحه را در تنظیمات اندروید فعال کنید؛ در غیر این صورت ممکن است هشدار نمایش داده نشود."
-                                    needsNotificationPermission -> if (isEn)
-                                        "App notifications are disabled. Scheduled alerts cannot be displayed until you allow notifications."
-                                    else
-                                        "اعلان‌های برنامه غیرفعال است. تا زمانی که اجازه اعلان‌ها را فعال نکنید، هشدارها نمایش داده نمی‌شوند."
-                                    else -> if (isEn)
-                                        "Android requires special access for full-screen alarms. Without it, only a normal notification fallback can be shown."
-                                    else
-                                        "برای نمایش تمام‌صفحه، اندروید دسترسی ویژه می‌خواهد. بدون آن فقط اعلان معمولی نمایش داده می‌شود."
+                                    needsNotificationPermission && needsExactAlarmAccess && needsFullScreenAccess ->
+                                        if (isEn) "To use this alert method, allow notifications, exact alarms, and full-screen alarms in Android settings. Darino will not enable these accesses automatically."
+                                        else "برای استفاده از این روش هشدار، باید اعلان‌ها، آلارم دقیق و نمایش تمام‌صفحه را در تنظیمات گوشی خودتان فعال کنید. دارینو هیچ‌کدام را خودکار فعال نمی‌کند."
+                                    needsNotificationPermission && needsExactAlarmAccess ->
+                                        if (isEn) "Allow app notifications and exact alarms in Android settings. Darino will not enable them automatically."
+                                        else "لطفاً اعلان‌های برنامه و دسترسی آلارم دقیق را دستی از تنظیمات گوشی فعال کنید. دارینو این دسترسی‌ها را خودکار فعال نمی‌کند."
+                                    needsNotificationPermission && needsFullScreenAccess ->
+                                        if (isEn) "Allow app notifications and full-screen alarm access in Android settings. Darino will not enable them automatically."
+                                        else "لطفاً اعلان‌های برنامه و دسترسی آلارم تمام‌صفحه را دستی از تنظیمات گوشی فعال کنید. دارینو آن‌ها را خودکار فعال نمی‌کند."
+                                    needsNotificationPermission ->
+                                        if (isEn) "App notifications are disabled. Enable them manually in Android settings."
+                                        else "اعلان‌های برنامه غیرفعال است. لطفاً آن را دستی از تنظیمات گوشی فعال کنید."
+                                    needsExactAlarmAccess ->
+                                        if (isEn) "Exact alarm access is required for scheduled reminders. Enable it manually in Android settings."
+                                        else "برای اجرای دقیق یادآورها، دسترسی آلارم دقیق لازم است. لطفاً آن را دستی از تنظیمات گوشی فعال کنید."
+                                    else ->
+                                        if (isEn) "Full-screen alarm access is required for this method. Enable it manually in Android settings."
+                                        else "برای این روش، دسترسی آلارم تمام‌صفحه لازم است. لطفاً آن را دستی از تنظیمات گوشی فعال کنید."
                                 },
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall
@@ -391,20 +435,25 @@ fun GeneralPreferencesScreen(
                             Button(
                                 onClick = {
                                     try {
-                                        val settingsIntent = if (needsNotificationPermission) {
-                                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                        val settingsIntent = when {
+                                            needsNotificationPermission -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
                                                 putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                                             }
-                                        } else {
-                                            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                                            needsExactAlarmAccess -> Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
                                                 data = Uri.parse("package:${context.packageName}")
                                             }
+                                            needsFullScreenAccess -> Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                                                data = Uri.parse("package:${context.packageName}")
+                                            }
+                                            else -> null
                                         }
-                                        context.startActivity(settingsIntent)
+                                        if (settingsIntent != null) {
+                                            context.startActivity(settingsIntent)
+                                        }
                                     } catch (_: Exception) {
                                         Toast.makeText(
                                             context,
-                                            if (isEn) "Required notification settings are unavailable." else "تنظیمات دسترسی موردنیاز در این دستگاه در دسترس نیست.",
+                                            if (isEn) "Required Android settings are unavailable on this device." else "صفحه تنظیمات دسترسی موردنیاز در این دستگاه در دسترس نیست.",
                                             Toast.LENGTH_LONG
                                         ).show()
                                     }
@@ -413,9 +462,9 @@ fun GeneralPreferencesScreen(
                             ) {
                                 Text(
                                     when {
-                                        needsNotificationPermission && needsFullScreenAccess -> if (isEn) "Open notification settings" else "بازکردن تنظیمات اعلان‌ها"
-                                        needsNotificationPermission -> if (isEn) "Enable app notifications" else "فعال‌سازی اعلان‌های برنامه"
-                                        else -> if (isEn) "Enable full-screen alarm access" else "فعال‌سازی دسترسی آلارم تمام‌صفحه"
+                                        needsNotificationPermission -> if (isEn) "Open notification settings" else "رفتن به تنظیمات اعلان‌ها"
+                                        needsExactAlarmAccess -> if (isEn) "Open exact alarm settings" else "رفتن به تنظیمات آلارم دقیق"
+                                        else -> if (isEn) "Open full-screen alarm settings" else "رفتن به تنظیمات آلارم تمام‌صفحه"
                                     }
                                 )
                             }
