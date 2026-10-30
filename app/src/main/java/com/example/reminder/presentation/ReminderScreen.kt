@@ -335,7 +335,7 @@ fun ReminderScreen(
                                 Tab(
                                     selected = selected,
                                     onClick = { viewModel.selectTab(tab) },
-                                    modifier = Modifier.weight(1f).padding(horizontal = 1.dp),
+                                    modifier = Modifier.padding(horizontal = 1.dp),
                                     text = {
                                         Surface(
                                             modifier = Modifier.fillMaxWidth(),
