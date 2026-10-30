@@ -3,6 +3,7 @@ package com.example.ui.screens.settings.subviews
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import android.util.Log
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -132,30 +133,40 @@ fun SupportBackupScreen(
             scope.launch {
                 try {
                     val backup = backupManager.createBackup()
-                    val moshi = com.squareup.moshi.Moshi.Builder()
-                        .add(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
-                        .build()
-                    val adapter = moshi.adapter(com.example.data.backup.DarinoBackup::class.java)
-                    val jsonString = adapter.toJson(backup)
+                    // Serialize and validate before touching the user-selected document.
+                    val jsonString = com.example.data.backup.BackupFileCodec.encode(backup)
+                    val payload = jsonString.toByteArray(Charsets.UTF_8)
+                    if (payload.isEmpty()) throw java.io.IOException("محتوای پشتیبان خالی است.")
 
-                    // Explicitly truncate an existing document and close it before verifying.
-                    val outputStream = context.contentResolver.openOutputStream(uri, "wt")
-                        ?: throw java.io.IOException("امکان نوشتن در فایل انتخاب‌شده وجود ندارد")
-                    outputStream.use { os ->
-                        os.write(jsonString.toByteArray(Charsets.UTF_8))
-                        os.flush()
-                    }
+                    val stagedFile = java.io.File.createTempFile("darino-backup-", ".json", context.cacheDir)
+                    try {
+                        stagedFile.outputStream().buffered().use { stream ->
+                            stream.write(payload)
+                            stream.flush()
+                        }
+                        val stagedJson = stagedFile.inputStream().bufferedReader(Charsets.UTF_8).use { it.readText() }
+                        val stagedBackup = com.example.data.backup.BackupFileCodec.decode(stagedJson)
+                        if (stagedBackup.metadata.checksum != backup.metadata.checksum) {
+                            throw java.io.IOException("بررسی فایل موقت پشتیبان ناموفق بود.")
+                        }
 
-                    // Do not report success until the saved document can be read back and validated.
-                    val savedJson = context.contentResolver.openInputStream(uri)
-                        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
-                        ?: throw java.io.IOException("فایل ذخیره شد اما امکان بررسی مجدد آن وجود ندارد")
-                    val savedBackup = adapter.fromJson(savedJson)
-                        ?: throw java.io.IOException("فایل ذخیره‌شده قابل خواندن نیست")
-                    val savedValidation = backupManager.validateBackup(savedBackup)
-                    if (savedValidation !is com.example.data.backup.ValidationResult.Valid ||
-                        savedBackup.metadata.checksum != backup.metadata.checksum) {
-                        throw java.io.IOException("بررسی صحت فایل ذخیره‌شده ناموفق بود")
+                        val outputStream = context.contentResolver.openOutputStream(uri, "w")
+                            ?: throw java.io.IOException("امکان نوشتن در فایل انتخاب‌شده وجود ندارد.")
+                        outputStream.buffered().use { stream ->
+                            stream.write(payload)
+                            stream.flush()
+                        }
+
+                        val savedJson = context.contentResolver.openInputStream(uri)
+                            ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                            ?: throw java.io.IOException("فایل نوشته شد اما امکان خواندن مجدد آن وجود ندارد.")
+                        val savedBackup = com.example.data.backup.BackupFileCodec.decode(savedJson)
+                        if (savedJson.toByteArray(Charsets.UTF_8).size != payload.size ||
+                            savedBackup.metadata.checksum != backup.metadata.checksum) {
+                            throw java.io.IOException("حجم یا صحت فایل ذخیره‌شده با نسخه اصلی مطابقت ندارد.")
+                        }
+                    } finally {
+                        stagedFile.delete()
                     }
 
                     val nowTime = System.currentTimeMillis()
@@ -168,7 +179,9 @@ fun SupportBackupScreen(
                     showBackupSuccessDialog = true
                 } catch (e: Exception) {
                     isBackingUp = false
-                    Toast.makeText(context, "خطا در ایجاد پشتیبان: ${e.message}", Toast.LENGTH_LONG).show()
+                    Log.e("SupportBackupScreen", "Backup creation failed", e)
+                    runCatching { android.provider.DocumentsContract.deleteDocument(context.contentResolver, uri) }
+                    Toast.makeText(context, "خطا در ایجاد پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -180,31 +193,15 @@ fun SupportBackupScreen(
         if (uri != null) {
             scope.launch {
                 try {
-                    val inputStream = context.contentResolver.openInputStream(uri)
-                    val jsonString = inputStream?.bufferedReader()?.use { it.readText() }
-                    if (jsonString != null) {
-                        val moshi = com.squareup.moshi.Moshi.Builder()
-                            .add(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
-                            .build()
-                        val adapter = moshi.adapter(com.example.data.backup.DarinoBackup::class.java)
-                        val backup = adapter.fromJson(jsonString)
-                        if (backup != null) {
-                            val validation = backupManager.validateBackup(backup)
-                            if (validation is com.example.data.backup.ValidationResult.Valid) {
-                                pendingRestoreBackup = backup
-                                showRestoreConfirmation = true
-                            } else {
-                                val reason = (validation as com.example.data.backup.ValidationResult.Invalid).reason
-                                Toast.makeText(context, "خطا در صحت‌سنجی فایل: $reason", Toast.LENGTH_LONG).show()
-                            }
-                        } else {
-                            Toast.makeText(context, "فایل پشتیبان نامعتبر است.", Toast.LENGTH_LONG).show()
-                        }
-                    } else {
-                        Toast.makeText(context, "امکان خواندن فایل وجود ندارد.", Toast.LENGTH_LONG).show()
-                    }
+                    val jsonString = context.contentResolver.openInputStream(uri)
+                        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                        ?: throw java.io.IOException("امکان خواندن فایل انتخاب‌شده وجود ندارد.")
+                    val backup = com.example.data.backup.BackupFileCodec.decode(jsonString)
+                    pendingRestoreBackup = backup
+                    showRestoreConfirmation = true
                 } catch (e: Exception) {
-                    Toast.makeText(context, "خطا در بازیابی: ${e.message}", Toast.LENGTH_LONG).show()
+                    Log.e("SupportBackupScreen", "Backup file reading failed", e)
+                    Toast.makeText(context, "خطا در خواندن پشتیبان: ${e.message ?: "فایل نامعتبر است"}", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -416,17 +413,19 @@ fun SupportBackupScreen(
                                     scope.launch {
                                         try {
                                             val backup = backupManager.createBackup()
-                                            val moshi = com.squareup.moshi.Moshi.Builder()
-                                                .add(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
-                                                .build()
-                                            val adapter = moshi.adapter(com.example.data.backup.DarinoBackup::class.java)
-                                            val jsonString = adapter.toJson(backup)
+                                            val jsonString = com.example.data.backup.BackupFileCodec.encode(backup)
 
                                             val (y, m, d) = com.example.calendar.domain.CalendarDateUtils.getCurrentJalaliDate()
                                             val defaultFilename = "backup_${y}_${m.toString().padStart(2, '0')}_${d.toString().padStart(2, '0')}.json"
 
                                             val cacheFile = java.io.File(context.cacheDir, defaultFilename)
-                                            cacheFile.writeText(jsonString, Charsets.UTF_8)
+                                            cacheFile.outputStream().buffered().use { stream ->
+                                                stream.write(jsonString.toByteArray(Charsets.UTF_8))
+                                                stream.flush()
+                                            }
+                                            if (!cacheFile.isFile || cacheFile.length() <= 0L) {
+                                                throw java.io.IOException("فایل پشتیبان برای اشتراک‌گذاری خالی است.")
+                                            }
 
                                             val contentUri = androidx.core.content.FileProvider.getUriForFile(
                                                 context,
