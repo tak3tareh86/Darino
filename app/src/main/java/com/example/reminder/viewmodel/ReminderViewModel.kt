@@ -58,13 +58,20 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val userMsg = triple.second
         val unreadCount = triple.third
 
-        val todayPersian = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+        val now = System.currentTimeMillis()
+        val todayCalendar = java.util.Calendar.getInstance().apply { timeInMillis = now }
+        val todayPersian = PersianCalendarHelper.fromEpochMillis(now).toFormattedDate()
+        val tomorrowCalendar = (todayCalendar.clone() as java.util.Calendar).apply {
+            add(java.util.Calendar.DAY_OF_YEAR, 1)
+        }
+        val tomorrowPersian = PersianCalendarHelper.fromEpochMillis(tomorrowCalendar.timeInMillis).toFormattedDate()
 
         val activeList = allReminders.filter { it.status.equals("ACTIVE", ignoreCase = true) }
         val completedList = allReminders.filter { it.status.equals("COMPLETED", ignoreCase = true) }
         val missedList = allReminders.filter { it.status.equals("MISSED", ignoreCase = true) }
 
         val todayReminders = activeList.filter { it.date == todayPersian }
+        val tomorrowReminders = activeList.filter { it.date == tomorrowPersian }
         val upcomingReminders = activeList.filter { it.date >= todayPersian }
 
         // Filter by Tab
@@ -116,7 +123,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             searchQuery = filters.searchQuery,
             notificationCount = unreadCount,
             todayCount = todayReminders.size,
-            thisWeekCount = activeList.size,
+            tomorrowCount = tomorrowReminders.size,
             nearestReminder = nearest,
             smartSuggestions = suggestions,
             isLoading = isLoading,
