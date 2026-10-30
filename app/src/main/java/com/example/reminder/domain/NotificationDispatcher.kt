@@ -221,11 +221,12 @@ class NotificationDispatcher(private val context: Context) {
         var notificationPosted = false
         var deliveryFailure: String? = null
         if (showNotification) {
-            val hasRuntimePermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                androidx.core.content.ContextCompat.checkSelfPermission(
-                    context,
-                    android.Manifest.permission.POST_NOTIFICATIONS
-                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            val hasRuntimePermission = notificationManager.areNotificationsEnabled() &&
+                (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                    androidx.core.content.ContextCompat.checkSelfPermission(
+                        context,
+                        android.Manifest.permission.POST_NOTIFICATIONS
+                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED)
             val channelEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
                 notificationManager.getNotificationChannel(channelId)?.importance != NotificationManager.IMPORTANCE_NONE
             val fullScreenAccessGranted = Build.VERSION.SDK_INT < 34 ||
