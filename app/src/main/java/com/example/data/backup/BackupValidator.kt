@@ -102,6 +102,13 @@ object BackupValidator {
             return ValidationResult.Invalid("فایل پشتیبان دارای گزارش ارسال بدون یادآور مرتبط است.")
         }
 
+        if (backup.metadata.backupVersion >= 6) {
+            val legacyReminderIds = backup.legacyReminders.map { it.id }.toSet()
+            if (backup.legacyReminderSchedules.any { it.reminderId !in legacyReminderIds }) {
+                return ValidationResult.Invalid("فایل پشتیبان دارای زمان‌بندی قدیمی بدون یادآور مرتبط است.")
+            }
+        }
+
         val vehicleIds = buildSet {
             backup.vehicles.forEach { vehicle ->
                 add(vehicle.id.toString())
