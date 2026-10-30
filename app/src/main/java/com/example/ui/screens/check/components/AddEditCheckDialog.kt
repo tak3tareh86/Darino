@@ -1,13 +1,10 @@
 package com.example.ui.screens.check.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -15,7 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,7 +30,7 @@ import java.util.*
 
 private val IRANIAN_BANK_NAMES = listOf(
     "ملی", "ملت", "صادرات", "تجارت",
-    "سپـه", "رفاه", "مسکن", "کشاورزی",
+    "سپه", "رفاه", "مسکن", "کشاورزی",
     "پاسارگاد", "پارسیان", "سامان", "شهر",
     "اقتصاد نوین", "کارآفرین", "گردشگری", "دی",
     "ایران‌زمین", "سینا", "سرمایه", "توسعه تعاون",
@@ -78,7 +74,8 @@ fun AddEditCheckDialog(
     val isReminderInvalid = reminderDateTime != null && reminderDateTime!! > dueDate
     val amountValueForValidation = amount.toEnglishDigits().toLongOrNull()
     val amountUnitLabel = MoneyFormatter.getUnitLabel()
-    val isAmountInvalid = amountValueForValidation == null || amountValueForValidation <= 0L
+    val isAmountInvalid = amountValueForValidation == null ||
+        MoneyFormatter.convertToToman(amountValueForValidation ?: 0L) <= 0L
     val isCheckNumberInvalid = checkNumber.isBlank()
     val isBankNameInvalid = bankName.isBlank()
     val normalizedSayadId = sayadId.toEnglishDigits().filter { it.isDigit() }
