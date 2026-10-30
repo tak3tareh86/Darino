@@ -471,39 +471,63 @@ fun AddServiceSheet(
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        LazyRow(
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            item {
-                                FilterChip(
-                                    selected = remind1WeekBefore,
-                                    onClick = { remind1WeekBefore = !remind1WeekBefore },
-                                    label = { Text("۷ روز قبل", fontSize = 11.sp) }
-                                )
-                            }
-                            item {
-                                FilterChip(
-                                    selected = remind3DaysBefore,
-                                    onClick = { remind3DaysBefore = !remind3DaysBefore },
-                                    label = { Text("۳ روز قبل", fontSize = 11.sp) }
-                                )
-                            }
-                            item {
-                                FilterChip(
-                                    selected = remind1DayBefore,
-                                    onClick = { remind1DayBefore = !remind1DayBefore },
-                                    label = { Text("۱ روز قبل", fontSize = 11.sp) }
-                                )
-                            }
-                            item {
-                                FilterChip(
-                                    selected = remindAtDueDate,
-                                    onClick = { remindAtDueDate = !remindAtDueDate },
-                                    label = { Text("روز سررسید", fontSize = 11.sp) }
-                                )
-                            }
+                            FilterChip(
+                                modifier = Modifier.weight(1f),
+                                selected = remind1WeekBefore,
+                                onClick = { remind1WeekBefore = !remind1WeekBefore },
+                                label = {
+                                    Text(
+                                        "۷ روز قبل",
+                                        fontSize = 9.sp,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
+                            )
+                            FilterChip(
+                                modifier = Modifier.weight(1f),
+                                selected = remind3DaysBefore,
+                                onClick = { remind3DaysBefore = !remind3DaysBefore },
+                                label = {
+                                    Text(
+                                        "۳ روز قبل",
+                                        fontSize = 9.sp,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
+                            )
+                            FilterChip(
+                                modifier = Modifier.weight(1f),
+                                selected = remind1DayBefore,
+                                onClick = { remind1DayBefore = !remind1DayBefore },
+                                label = {
+                                    Text(
+                                        "۱ روز قبل",
+                                        fontSize = 9.sp,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
+                            )
+                            FilterChip(
+                                modifier = Modifier.weight(1f),
+                                selected = remindAtDueDate,
+                                onClick = { remindAtDueDate = !remindAtDueDate },
+                                label = {
+                                    Text(
+                                        "روز سررسید",
+                                        fontSize = 9.sp,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
+                            )
                         }
                         if (!remind1WeekBefore && !remind3DaysBefore && !remind1DayBefore && !remindAtDueDate) {
                             Text(
