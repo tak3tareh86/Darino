@@ -360,6 +360,12 @@ fun LoanResultCard(
                 }
             }
 
+            Text(
+                text = "این ارقام برآورد ریاضی بر اساس ورودی‌های شما هستند و نرخ، کارمزد یا برنامه قطعی هیچ بانک یا قرارداد خاصی را تأیید نمی‌کنند. مبلغ نهایی را از قرارداد و جدول رسمی اقساط بانک دریافت کنید.",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
             // Action Buttons (Save Calculation & Convert to Installment)
             Row(
                 modifier = Modifier.fillMaxWidth(),
