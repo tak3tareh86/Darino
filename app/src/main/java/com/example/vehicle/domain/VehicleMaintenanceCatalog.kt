@@ -23,7 +23,7 @@ data class VehicleServiceInterval(
 object VehicleMaintenanceCatalog {
 
     private const val CONSERVATIVE_OIL_KM = 5_000
-    private const val CONSERVATIVE_OIL_MONTHS = 6
+    private const val CONSERVATIVE_OIL_MONTHS = 3
     private const val INSPECTION_KM = 10_000
     private const val INSPECTION_MONTHS = 6
 
@@ -38,7 +38,7 @@ object VehicleMaintenanceCatalog {
             ServiceType.OIL_CHANGE -> VehicleServiceInterval(
                 CONSERVATIVE_OIL_KM,
                 CONSERVATIVE_OIL_MONTHS,
-                "پیش‌فرض محافظه‌کارانه دارینو: هر ۵٬۰۰۰ کیلومتر یا ۶ ماه؛ دفترچهٔ همان خودرو، مشخصات روغن و شرایط کارکرد اولویت دارد. این عدد الزام یکسان سازنده برای همهٔ خودروها نیست.",
+                "پیش‌فرض محافظه‌کارانه دارینو: هر ۵٬۰۰۰ کیلومتر یا ۳ ماه؛ دفترچهٔ همان خودرو، مشخصات روغن و شرایط کارکرد اولویت دارد. این عدد الزام یکسان سازنده برای همهٔ خودروها نیست.",
                 false
             )
 
