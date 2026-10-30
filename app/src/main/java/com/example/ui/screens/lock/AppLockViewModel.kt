@@ -211,11 +211,12 @@ class AppLockViewModel @JvmOverloads constructor(
     }
 
     fun setBiometricEnabledDirectly(enabled: Boolean) {
+        if (enabled && !_uiState.value.isBiometricAvailable) return
         securityRepository.setBiometricEnabled(enabled)
         if (enabled) {
             securityRepository.setDefaultUnlockMethod(UnlockMethod.BIOMETRIC)
         } else if (_uiState.value.securitySettings.defaultUnlockMethod == UnlockMethod.BIOMETRIC) {
-            securityRepository.setDefaultUnlockMethod(UnlockMethod.PIN)
+            fallbackUnlockMethod(UnlockMethod.BIOMETRIC)?.let(securityRepository::setDefaultUnlockMethod)
         }
     }
 
@@ -258,11 +259,20 @@ class AppLockViewModel @JvmOverloads constructor(
     }
 
     private fun restoreLockoutState() {
+        val now = System.currentTimeMillis()
         val until = securityRepository.getLockoutUntilTimestamp()
-        if (until > System.currentTimeMillis()) startLockoutTimer(until)
-        else {
-            securityRepository.resetFailedAttempts()
-            _uiState.value = _uiState.value.copy(failedAttempts = 0)
+        when {
+            until > now -> startLockoutTimer(until)
+            until > 0L -> {
+                securityRepository.resetFailedAttempts()
+                _uiState.value = _uiState.value.copy(failedAttempts = 0)
+            }
+            securityRepository.getFailedAttempts() >= 5 -> {
+                val newUntil = now + LOCKOUT_DURATION_MILLIS
+                securityRepository.setLockoutUntilTimestamp(newUntil)
+                startLockoutTimer(newUntil)
+            }
+            else -> _uiState.value = _uiState.value.copy(failedAttempts = securityRepository.getFailedAttempts())
         }
     }
 
