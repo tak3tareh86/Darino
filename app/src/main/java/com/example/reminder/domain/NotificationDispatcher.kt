@@ -119,10 +119,17 @@ class NotificationDispatcher(private val context: Context) {
         } catch (e: Exception) {
             AlertDeliveryPreference.NOTIFICATION_ONLY
         }
-        val useFullScreenAlarm = deliveryPref == AlertDeliveryPreference.FULL_SCREEN_ALARM ||
-            deliveryPref == AlertDeliveryPreference.BOTH
-        // BOTH combines a full-screen alarm with a separately retained standard notification.
-        val standardNotificationId = if (deliveryPref == AlertDeliveryPreference.BOTH) {
+        // The global preference is the master policy; the per-reminder switch opts this
+        // reminder into full-screen delivery. Standard notifications remain independently selectable.
+        val useFullScreenAlarm = reminder.fullScreenAlarmEnabled &&
+            (deliveryPref == AlertDeliveryPreference.FULL_SCREEN_ALARM ||
+                deliveryPref == AlertDeliveryPreference.BOTH)
+        val showStandardNotification = reminder.notificationEnabled &&
+            (deliveryPref == AlertDeliveryPreference.NOTIFICATION_ONLY ||
+                deliveryPref == AlertDeliveryPreference.BOTH)
+        // BOTH keeps a separate standard notification only when this reminder also uses FSI.
+        val standardNotificationId = if (useFullScreenAlarm && showStandardNotification &&
+            deliveryPref == AlertDeliveryPreference.BOTH) {
             NotificationIdGenerator.generateNotificationId(
                 reminderId = reminder.id,
                 scheduleId = "standard:${schedule?.id.orEmpty()}",
@@ -227,7 +234,7 @@ class NotificationDispatcher(private val context: Context) {
             notificationBuilder.setFullScreenIntent(fullScreenPendingIntent, true)
         }
         val notification = notificationBuilder.build()
-        val showNotification = true
+        val showNotification = useFullScreenAlarm || showStandardNotification
 
         var notificationPosted = false
         var deliveryFailure: String? = null
@@ -260,7 +267,7 @@ class NotificationDispatcher(private val context: Context) {
                     try {
                         notificationManager.notify(notifId, notification)
                         notificationPosted = true
-                        if (deliveryPref == AlertDeliveryPreference.BOTH) {
+                        if (useFullScreenAlarm && showStandardNotification && deliveryPref == AlertDeliveryPreference.BOTH) {
                             val standardChannelId = when (reminder.type.uppercase()) {
                                 "INSTALLMENT" -> CHANNEL_INSTALLMENTS
                                 "VEHICLE", "INSURANCE", "MAINTENANCE", "FUEL" -> CHANNEL_VEHICLES
