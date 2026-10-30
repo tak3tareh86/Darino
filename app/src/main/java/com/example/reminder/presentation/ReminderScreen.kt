@@ -216,134 +216,113 @@ fun ReminderScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
 
-                    // Summary Stats Cards (امروز / این هفته / نزدیک‌ترین سررسید)
+                    // Compact reminder summary: today / nearest / tomorrow
                     item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 104.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
                         ) {
-                            Surface(
-                                modifier = Modifier.weight(1f).height(116.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                )
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
+                                // In RTL the first item is displayed on the right.
                                 Column(
-                                    modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 10.dp),
+                                    modifier = Modifier.width(54.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
+                                    verticalArrangement = Arrangement.spacedBy(3.dp)
                                 ) {
                                     Text(
-                                        text = "سررسید امروز",
+                                        text = "امروز",
                                         maxLines = 1,
-                                        softWrap = false,
-                                        overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontSize = 10.sp
                                         )
                                     )
-                                    Spacer(Modifier.height(8.dp))
                                     Text(
-                                        text = "${uiState.todayCount}",
-                                        maxLines = 1,
-                                        style = MaterialTheme.typography.titleLarge.copy(
+                                        text = IranianPhoneUtils.convertDigitsToPersian(uiState.todayCount.toString()),
+                                        style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = WarningAmberLight
                                         )
                                     )
                                 }
-                            }
 
-                            Surface(
-                                modifier = Modifier.weight(1f).height(116.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                )
-                            ) {
                                 Column(
-                                    modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 10.dp),
+                                    modifier = Modifier.weight(1f),
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        text = "این هفته",
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 10.sp
-                                        )
-                                    )
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        text = "${uiState.thisWeekCount}",
-                                        maxLines = 1,
-                                        style = MaterialTheme.typography.titleLarge.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = InfoIndigoLight
-                                        )
-                                    )
-                                }
-                            }
-
-                            Surface(
-                                modifier = Modifier.weight(1f).height(116.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 10.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
+                                    verticalArrangement = Arrangement.spacedBy(3.dp)
                                 ) {
                                     Text(
                                         text = "نزدیک‌ترین",
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontSize = 10.sp
                                         )
                                     )
-                                    Spacer(Modifier.height(6.dp))
                                     Text(
                                         text = uiState.nearestReminder?.title ?: "بدون سررسید",
                                         modifier = Modifier.fillMaxWidth(),
-                                        maxLines = 1,
-                                        softWrap = false,
+                                        maxLines = 2,
+                                        softWrap = true,
                                         overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.bodySmall.copy(
+                                        style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = EmeraldPrimaryLight
                                         ),
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                     )
-                                    uiState.nearestReminder?.date?.let { date ->
+                                    uiState.nearestReminder?.let { reminder ->
                                         Text(
-                                            text = date,
+                                            text = reminder.date,
                                             maxLines = 1,
                                             softWrap = false,
-                                            overflow = TextOverflow.Ellipsis,
                                             style = MaterialTheme.typography.labelSmall.copy(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 9.sp
-                                            )
+                                                fontSize = 10.sp
+                                            ),
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                        Text(
+                                            text = reminder.time,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 10.sp
+                                            ),
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                         )
                                     }
+                                }
+
+                                Column(
+                                    modifier = Modifier.width(54.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Text(
+                                        text = "فردا",
+                                        maxLines = 1,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 10.sp
+                                        )
+                                    )
+                                    Text(
+                                        text = IranianPhoneUtils.convertDigitsToPersian(uiState.tomorrowCount.toString()),
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = InfoIndigoLight
+                                        )
+                                    )
                                 }
                             }
                         }
