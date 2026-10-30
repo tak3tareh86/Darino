@@ -402,7 +402,7 @@ private fun SettingsMainView(
         topBar = {
             SettingsHeader(
                 title = "تنظیمات و مدیریت",
-                subtitle = "شخصی‌سازی، مدیریت حساب‌ها و گاراژ",
+                subtitle = "مدیریت و شخصی‌سازی",
                 showBack = onBackClick != null,
                 onBackClick = onBackClick ?: {},
                 showSearch = true,
