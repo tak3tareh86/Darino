@@ -61,6 +61,7 @@ fun SubscriptionStatusCard(
     modifier: Modifier = Modifier
 ) {
     val info = state.info
+    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val isExpired = info.subscriptionStatus == SubscriptionStatus.EXPIRED || info.subscriptionStatus == SubscriptionStatus.LOCKED
     val isActive = info.subscriptionStatus == SubscriptionStatus.ACTIVE
     val isTrial = info.subscriptionStatus == SubscriptionStatus.TRIAL
@@ -77,23 +78,22 @@ fun SubscriptionStatusCard(
 
     if (isActive) {
         // Active Annual Subscriber Card
-        val activeGradient = if (isWarningActive) {
-            Brush.horizontalGradient(
-                colors = listOf(
-                    Color(0xFF881337), // Rose/Crimson dark warning
-                    Color(0xFFBE123C),
-                    Color(0xFFE11D48)
-                )
+        val activeGradient = when {
+            isDark && isWarningActive -> Brush.horizontalGradient(
+                colors = listOf(Color(0xFF881337), Color(0xFFBE123C), Color(0xFFE11D48))
             )
-        } else {
-            Brush.horizontalGradient(
-                colors = listOf(
-                    Color(0xFF064E3B), // Emerald dark
-                    Color(0xFF047857), // Emerald medium
-                    Color(0xFF0F766E)  // Teal
-                )
+            isDark -> Brush.horizontalGradient(
+                colors = listOf(Color(0xFF064E3B), Color(0xFF047857), Color(0xFF0F766E))
+            )
+            isWarningActive -> Brush.horizontalGradient(
+                colors = listOf(Color(0xFFFFE4E6), Color(0xFFFFF1F2), Color(0xFFFFE4E6))
+            )
+            else -> Brush.horizontalGradient(
+                colors = listOf(Color(0xFFECFDF5), Color(0xFFD1FAE5), Color(0xFFCCFBF1))
             )
         }
+        val cardTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+        val cardMutedTextColor = if (isDark) Color(0xFFE2E8F0) else MaterialTheme.colorScheme.onSurfaceVariant
 
         Card(
             modifier = modifier
@@ -153,7 +153,7 @@ fun SubscriptionStatusCard(
                             ) {
                                 Text(
                                     text = if (isWarningActive) "اشتراک شما به‌زودی به پایان می‌رسد" else "اشتراک سالیانه فعال است",
-                                    color = Color.White,
+                                    color = cardTextColor,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
@@ -163,7 +163,7 @@ fun SubscriptionStatusCard(
                                 ) {
                                     Text(
                                         text = if (isWarningActive) "هشدار انقضا" else "طلایی",
-                                        color = Color(0xFFFEF08A),
+                                        color = if (isDark) Color(0xFFFEF08A) else MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 9.5.sp,
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -208,7 +208,7 @@ fun SubscriptionStatusCard(
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontSize = 10.5.sp,
                                 lineHeight = 15.sp,
-                                color = Color(0xFFE2E8F0).copy(alpha = 0.9f)
+                                color = cardMutedTextColor
                             )
                         )
                     }
@@ -227,7 +227,7 @@ fun SubscriptionStatusCard(
                                 text = "وضعیت اعتبار",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontSize = 9.5.sp,
-                                    color = Color(0xFFA7F3D0)
+                                    color = if (isDark) Color(0xFFA7F3D0) else MaterialTheme.colorScheme.primary
                                 )
                             )
                             Text(
@@ -239,7 +239,7 @@ fun SubscriptionStatusCard(
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.5.sp,
-                                    color = Color.White
+                                    color = cardTextColor
                                 )
                             )
                         }
@@ -248,8 +248,8 @@ fun SubscriptionStatusCard(
                             onClick = onOpenSubscription,
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.White,
-                                contentColor = if (isWarningActive) Color(0xFF881337) else Color(0xFF064E3B)
+                                containerColor = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+                                contentColor = if (isDark) { if (isWarningActive) Color(0xFF881337) else Color(0xFF064E3B) } else MaterialTheme.colorScheme.onPrimary
                             ),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 5.dp),
                             modifier = Modifier.height(34.dp)
@@ -272,23 +272,22 @@ fun SubscriptionStatusCard(
         }
     } else {
         // Free / Inactive / Trial User Annual Subscription Offer Card
-        val offerGradient = if (isExpired) {
-            Brush.horizontalGradient(
-                colors = listOf(
-                    Color(0xFF4C0519), // Crimson dark expired
-                    Color(0xFF881337),
-                    Color(0xFF9F1239)
-                )
+        val offerGradient = when {
+            isDark && isExpired -> Brush.horizontalGradient(
+                colors = listOf(Color(0xFF4C0519), Color(0xFF881337), Color(0xFF9F1239))
             )
-        } else {
-            Brush.horizontalGradient(
-                colors = listOf(
-                    Color(0xFF0F172A), // Slate navy
-                    Color(0xFF1E293B),
-                    Color(0xFF093733)  // Deep teal hint
-                )
+            isDark -> Brush.horizontalGradient(
+                colors = listOf(Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF093733))
+            )
+            isExpired -> Brush.horizontalGradient(
+                colors = listOf(Color(0xFFFFE4E6), Color(0xFFFFF1F2), Color(0xFFFFE4E6))
+            )
+            else -> Brush.horizontalGradient(
+                colors = listOf(Color(0xFFEFF6FF), Color(0xFFE0F2FE), Color(0xFFCCFBF1))
             )
         }
+        val offerTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+        val offerMutedTextColor = if (isDark) Color(0xFFE2E8F0) else MaterialTheme.colorScheme.onSurfaceVariant
 
         Card(
             modifier = modifier
@@ -357,7 +356,7 @@ fun SubscriptionStatusCard(
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 14.sp,
-                                        color = Color.White
+                                        color = offerTextColor
                                     )
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
@@ -374,7 +373,7 @@ fun SubscriptionStatusCard(
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontSize = 10.5.sp,
                                         lineHeight = 15.sp,
-                                        color = Color(0xFFE2E8F0).copy(alpha = 0.9f)
+                                        color = offerMutedTextColor
                                     )
                                 )
                                 if (!isExpired) {
@@ -420,7 +419,7 @@ fun SubscriptionStatusCard(
                                 text = "هزینه اشتراک یکساله",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontSize = 9.5.sp,
-                                    color = Color(0xFFCBD5E1)
+                                    color = offerMutedTextColor
                                 )
                             )
                             Text(
@@ -476,7 +475,7 @@ fun SubscriptionStatusCard(
                                 onClick = onRestoreClick,
                                 enabled = !isPurchaseLoading && !isRestoreLoading,
                                 shape = RoundedCornerShape(9.dp),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                                border = BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.35f) else MaterialTheme.colorScheme.outline),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                                 modifier = Modifier
                                     .height(34.dp)
@@ -499,7 +498,7 @@ fun SubscriptionStatusCard(
                                         text = "بازیابی خرید",
                                         fontWeight = FontWeight.Medium,
                                         fontSize = 9.5.sp,
-                                        color = Color.White,
+                                        color = offerTextColor,
                                         maxLines = 1
                                     )
                                 }
