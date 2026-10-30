@@ -101,8 +101,7 @@ fun ReminderCard(
                             textDecoration = if (isCompleted) TextDecoration.LineThrough else TextDecoration.None
                         ),
                         color = if (isCompleted) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        softWrap = true
                     )
 
                     Row(
@@ -158,44 +157,7 @@ fun ReminderCard(
                     }
                 }
 
-                // Complete Action Button
-                IconButton(
-                    onClick = onToggleCompleted,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isCompleted) EmeraldPrimaryLight.copy(alpha = 0.15f)
-                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                        )
-                        .testTag("btn_toggle_complete_${reminder.id}")
-                ) {
-                    Icon(
-                        imageVector = if (isCompleted) Icons.Rounded.CheckCircle else Icons.Rounded.CheckCircleOutline,
-                        contentDescription = if (isCompleted) "علامت به عنوان فعال" else "علامت به عنوان انجام شده",
-                        tint = if (isCompleted) EmeraldPrimaryLight else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
 
-                // Snooze Action Button (if not completed)
-                if (!isCompleted) {
-                    IconButton(
-                        onClick = onSnoozeClick,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                            .testTag("btn_snooze_${reminder.id}")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Snooze,
-                            contentDescription = "به تعویق انداختن",
-                            tint = WarningAmberLight,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
             }
 
             // Row 2: Description if exists
@@ -267,35 +229,77 @@ fun ReminderCard(
                     }
                 }
 
-                // Amount or Target Kilometer
-                if (reminder.amount != null && reminder.amount > 0) {
-                    Text(
-                        text = MoneyFormatter.formatToman(reminder.amount),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = EmeraldPrimaryLight
-                        )
-                    )
-                } else if (reminder.targetKilometer != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Speed,
-                            contentDescription = null,
-                            tint = InfoIndigoLight,
-                            modifier = Modifier.size(13.dp)
-                        )
+                // Amount / Target Kilometer and compact actions on the left side
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    if (reminder.amount != null && reminder.amount > 0) {
                         Text(
-                            text = "${reminder.targetKilometer} کیلومتر",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = InfoIndigoLight
+                            text = MoneyFormatter.formatToman(reminder.amount),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = EmeraldPrimaryLight
                             )
                         )
+                    } else if (reminder.targetKilometer != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Speed,
+                                contentDescription = null,
+                                tint = InfoIndigoLight,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = "${reminder.targetKilometer} کیلومتر",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = InfoIndigoLight
+                                )
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onToggleCompleted,
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isCompleted) EmeraldPrimaryLight.copy(alpha = 0.15f)
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                            )
+                            .testTag("btn_toggle_complete_${reminder.id}")
+                    ) {
+                        Icon(
+                            imageVector = if (isCompleted) Icons.Rounded.CheckCircle else Icons.Rounded.CheckCircleOutline,
+                            contentDescription = if (isCompleted) "علامت به عنوان فعال" else "علامت به عنوان انجام شده",
+                            tint = if (isCompleted) EmeraldPrimaryLight else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    if (!isCompleted) {
+                        IconButton(
+                            onClick = onSnoozeClick,
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                                .testTag("btn_snooze_${reminder.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Snooze,
+                                contentDescription = "به تعویق انداختن",
+                                tint = WarningAmberLight,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
                     }
                 }
             }
