@@ -65,9 +65,9 @@ fun HomeHeader(
     } else {
         Brush.verticalGradient(
             colors = listOf(
-                Color(0xFF0F172A),
-                Color(0xFF134E4A),
-                Color(0xFF0D9488)
+                MaterialTheme.colorScheme.surface,
+                MaterialTheme.colorScheme.surfaceVariant,
+                MaterialTheme.colorScheme.primaryContainer
             )
         )
     }
@@ -78,8 +78,8 @@ fun HomeHeader(
             .shadow(
                 elevation = 4.dp,
                 shape = RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL),
-                ambientColor = Color(0xFF0D9488).copy(alpha = 0.1f),
-                spotColor = Color(0xFF0F172A).copy(alpha = 0.15f)
+                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
             )
             .clip(RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL))
             .background(headerGradient)
@@ -107,7 +107,7 @@ fun HomeHeader(
                             spotColor = Color(0xFF14B8A6).copy(alpha = 0.3f)
                         )
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color.White.copy(alpha = 0.12f))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
                         .padding(1.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -131,7 +131,7 @@ fun HomeHeader(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
                         ),
-                        color = Color.White
+                        color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = todayDateText,
@@ -139,7 +139,7 @@ fun HomeHeader(
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Normal
                         ),
-                        color = Color(0xFFE2E8F0).copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -177,14 +177,14 @@ fun SettingsButton(
                 spotColor = Color(0xFF14B8A6).copy(alpha = 0.2f)
             )
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.15f))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.Rounded.Settings,
             contentDescription = "تنظیمات برنامه",
-            tint = Color.White,
+            tint = if (MaterialTheme.colorScheme.background.red < 0.2f) Color.White else MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(18.dp)
         )
     }
