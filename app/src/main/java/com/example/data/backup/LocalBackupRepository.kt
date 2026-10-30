@@ -296,7 +296,7 @@ class LocalBackupRepository(
                 }
 
                 if (backup.vehicleExpenses.isNotEmpty()) {
-                    db.vehicleDao().insertExpenses(
+                    db.vehicleDao().insertExpensesForBackup(
                         backup.vehicleExpenses.map {
                             it.copy(userId = userId, vehicleId = remapVehicleId(it.vehicleId))
                         }
@@ -304,7 +304,7 @@ class LocalBackupRepository(
                 }
 
                 if (backup.vehicleInsurances.isNotEmpty()) {
-                    db.vehicleDao().insertInsurances(
+                    db.vehicleDao().insertInsurancesForBackup(
                         backup.vehicleInsurances.map {
                             it.copy(userId = userId, vehicleId = remapVehicleId(it.vehicleId))
                         }
@@ -312,7 +312,7 @@ class LocalBackupRepository(
                 }
 
                 if (backup.vehicleInspections.isNotEmpty()) {
-                    db.vehicleDao().insertInspections(
+                    db.vehicleDao().insertInspectionsForBackup(
                         backup.vehicleInspections.map {
                             it.copy(userId = userId, vehicleId = remapVehicleId(it.vehicleId))
                         }
@@ -329,13 +329,13 @@ class LocalBackupRepository(
                             ?.let { restoredServiceIds[it] ?: it }
                         else -> reminder.sourceId
                     }
-                    db.smartReminderDao().insertReminder(
+                    db.smartReminderDao().insertReminderForBackup(
                         reminder.copy(userId = userId, sourceId = remappedSourceId)
                     )
                 }
 
                 backup.reminderSchedules.forEach { schedule ->
-                    db.smartReminderDao().insertSchedule(schedule)
+                    db.smartReminderDao().insertScheduleForBackup(schedule)
                 }
 
                 val restoredLegacyReminderIds = mutableMapOf<Int, Int>()
@@ -367,8 +367,8 @@ class LocalBackupRepository(
                 }
 
                 if (backup.metadata.backupVersion >= 5) {
-                    backup.vehicleStore?.let { db.vehicleDao().insertVehicleStore(it.copy(userId = userId)) }
-                    backup.reminderDeliveryLogs.forEach { db.smartReminderDao().insertDeliveryLog(it) }
+                    backup.vehicleStore?.let { db.vehicleDao().insertVehicleStoreForBackup(it.copy(userId = userId)) }
+                    backup.reminderDeliveryLogs.forEach { db.smartReminderDao().insertDeliveryLogForBackup(it) }
                 }
 
                 if (backup.metadata.backupVersion >= 4) {
