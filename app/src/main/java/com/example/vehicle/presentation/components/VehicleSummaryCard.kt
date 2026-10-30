@@ -103,16 +103,22 @@ fun VehicleSummaryCard(
                         onClick = onEditClick,
                         modifier = Modifier
                             .size(34.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             .testTag("edit_vehicle_btn")
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Edit,
-                            contentDescription = "ویرایش مشخصات خودرو",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(20.4.dp)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = "ویرایش مشخصات خودرو",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
                     }
 
                     if (onDeleteClick != null) {
@@ -120,16 +126,22 @@ fun VehicleSummaryCard(
                             onClick = onDeleteClick,
                             modifier = Modifier
                                 .size(34.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
                                 .testTag("delete_vehicle_btn")
                         ) {
-                            Icon(
-                                imageVector = Icons.Rounded.DeleteOutline,
-                                contentDescription = "حذف خودرو",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(20.4.dp)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.DeleteOutline,
+                                    contentDescription = "حذف خودرو",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
                         }
                     }
                 }
