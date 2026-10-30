@@ -50,14 +50,16 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             ACTION_COMPLETE_REMINDER -> {
                 val reminderId = intent.getStringExtra(EXTRA_REMINDER_ID) ?: return
                 val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
-                goAsyncWork { handleComplete(context.applicationContext, reminderId, notificationId) }
+                val secondaryNotificationId = intent.getIntExtra(EXTRA_SECONDARY_NOTIFICATION_ID, -1)
+                goAsyncWork { handleComplete(context.applicationContext, reminderId, notificationId, secondaryNotificationId) }
             }
 
             ACTION_SNOOZE_REMINDER -> {
                 val reminderId = intent.getStringExtra(EXTRA_REMINDER_ID) ?: return
                 val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
+                val secondaryNotificationId = intent.getIntExtra(EXTRA_SECONDARY_NOTIFICATION_ID, -1)
                 val snoozeMinutes = intent.getIntExtra(EXTRA_SNOOZE_MINUTES, 15).coerceIn(1, 24 * 60)
-                goAsyncWork { handleSnooze(context.applicationContext, reminderId, notificationId, snoozeMinutes) }
+                goAsyncWork { handleSnooze(context.applicationContext, reminderId, notificationId, secondaryNotificationId, snoozeMinutes) }
             }
         }
     }
@@ -177,30 +179,55 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         }
     }
 
-    private suspend fun handleComplete(context: Context, reminderId: String, notificationId: Int) {
-        val userId = SessionManager.userId ?: return
-        val now = System.currentTimeMillis()
-        AppDatabase.getDatabase(context).smartReminderDao().updateStatus(
-            userId = userId,
-            id = reminderId,
-            status = "COMPLETED",
-            updatedAt = now,
-            completedAt = now,
-            cancelledAt = null
-        )
-        if (notificationId != -1) NotificationDispatcher(context).cancelNotification(notificationId)
+    private suspend fun handleComplete(
+        context: Context,
+        reminderId: String,
+        notificationId: Int,
+        secondaryNotificationId: Int
+    ) {
+        // BroadcastReceivers may run in a fresh process; restore the persisted session first.
+        SessionManager.init(context.applicationContext)
+        try {
+            val userId = SessionManager.userId
+            if (userId != null) {
+                val now = System.currentTimeMillis()
+                AppDatabase.getDatabase(context).smartReminderDao().updateStatus(
+                    userId = userId,
+                    id = reminderId,
+                    status = "COMPLETED",
+                    updatedAt = now,
+                    completedAt = now,
+                    cancelledAt = null
+                )
+            } else {
+                Log.w(TAG, "Cannot mark reminder $reminderId completed: no active user session after initialization.")
+            }
+        } finally {
+            val dispatcher = NotificationDispatcher(context)
+            if (notificationId != -1) dispatcher.cancelNotification(notificationId)
+            if (secondaryNotificationId != -1) dispatcher.cancelNotification(secondaryNotificationId)
+        }
     }
 
     private suspend fun handleSnooze(
         context: Context,
         reminderId: String,
         notificationId: Int,
+        secondaryNotificationId: Int,
         snoozeMinutes: Int
     ) {
-        val userId = SessionManager.userId ?: return
+        SessionManager.init(context.applicationContext)
+        val userId = SessionManager.userId
         val db = AppDatabase.getDatabase(context)
         val dao = db.smartReminderDao()
-        val reminder = dao.getReminderById(userId, reminderId) ?: return
+        val reminder = if (userId != null) {
+            dao.getReminderById(userId, reminderId)
+        } else {
+            dao.getReminderByIdGlobal(reminderId)
+        } ?: run {
+            Log.w(TAG, "Cannot snooze reminder $reminderId: reminder was not found after session initialization.")
+            return
+        }
         if (!reminder.status.equals("ACTIVE", ignoreCase = true)) return
 
         val triggerTime = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
@@ -229,7 +256,9 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             }
             return
         }
-        if (notificationId != -1) NotificationDispatcher(context).cancelNotification(notificationId)
+        val dispatcher = NotificationDispatcher(context)
+        if (notificationId != -1) dispatcher.cancelNotification(notificationId)
+        if (secondaryNotificationId != -1) dispatcher.cancelNotification(secondaryNotificationId)
     }
 
     companion object {
@@ -242,6 +271,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         const val EXTRA_REMINDER_ID = "EXTRA_REMINDER_ID"
         const val EXTRA_SCHEDULE_ID = "EXTRA_SCHEDULE_ID"
         const val EXTRA_NOTIFICATION_ID = "EXTRA_NOTIFICATION_ID"
+        const val EXTRA_SECONDARY_NOTIFICATION_ID = "EXTRA_SECONDARY_NOTIFICATION_ID"
         const val EXTRA_SNOOZE_MINUTES = "EXTRA_SNOOZE_MINUTES"
     }
 }
