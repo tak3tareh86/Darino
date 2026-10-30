@@ -38,6 +38,12 @@ object MoneyFormatter {
 
     var activeLanguage: AppLanguage by mutableStateOf(AppLanguage.PERSIAN)
 
+    var isPrivacyModeEnabled: Boolean by mutableStateOf(false)
+        private set
+    fun setPrivacyModeEnabled(enabled: Boolean) { isPrivacyModeEnabled = enabled }
+    private fun maskedAmount(includeUnit: Boolean, currency: AppCurrency, language: AppLanguage): String =
+        if (includeUnit) "•••• ${getUnitLabel(currency, language)}" else "••••"
+
     var activeNumberMode: com.example.ui.screens.settings.model.NumberDisplayMode by
         mutableStateOf(com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN)
 
@@ -85,6 +91,7 @@ object MoneyFormatter {
      * Example (Toman, En): 18000000 -> "18,000,000 Toman"
      */
     fun format(amount: Long, showSign: Boolean = false): String {
+        if (isPrivacyModeEnabled) return maskedAmount(true, activeCurrency, activeLanguage)
         val formatted = formatToman(amount, includeUnit = true)
         return when {
             showSign && amount > 0 -> "+$formatted"
@@ -98,6 +105,7 @@ object MoneyFormatter {
         currency: AppCurrency = activeCurrency,
         language: AppLanguage = activeLanguage
     ): String {
+        if (isPrivacyModeEnabled) return maskedAmount(includeUnit, currency, language)
         val convertedAmount = convertFromToman(amount, currency)
         val absAmount = kotlin.math.abs(convertedAmount)
         val formattedNumber = formatNumberWithCommas(absAmount)
@@ -127,6 +135,7 @@ object MoneyFormatter {
         currency: AppCurrency = activeCurrency,
         language: AppLanguage = activeLanguage
     ): String {
+        if (isPrivacyModeEnabled) return maskedAmount(includeUnit, currency, language)
         val convertedAmount = convertFromToman(amount, currency)
         val absAmount = kotlin.math.abs(convertedAmount)
         val formattedNumber = formatNumberWithCommas(absAmount)
@@ -149,6 +158,7 @@ object MoneyFormatter {
         currency: AppCurrency = activeCurrency,
         language: AppLanguage = activeLanguage
     ): String {
+        if (isPrivacyModeEnabled) return maskedAmount(false, currency, language)
         val convertedAmount = convertFromToman(amount, currency)
         val absAmount = kotlin.math.abs(convertedAmount)
         val formattedNumber = formatNumberWithCommas(absAmount)
@@ -165,6 +175,7 @@ object MoneyFormatter {
         currency: AppCurrency = activeCurrency,
         language: AppLanguage = activeLanguage
     ): String {
+        if (isPrivacyModeEnabled) return maskedAmount(true, currency, language)
         val converted = convertFromToman(amount, currency)
         val abs = kotlin.math.abs(converted)
         val sign = if (converted < 0) "−" else ""
