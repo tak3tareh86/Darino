@@ -21,8 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -60,7 +63,11 @@ fun VehicleProfileScreen(
     var model by remember(vehicle) { mutableStateOf(vehicle.model) }
     var year by remember(vehicle) { mutableStateOf(vehicle.year) }
     var color by remember(vehicle) { mutableStateOf(vehicle.color) }
-    var plate by remember(vehicle) { mutableStateOf(vehicle.plate) }
+    val initialPlateParts = remember(vehicle) { parseVehiclePlateParts(vehicle.plate) }
+    var platePart1 by remember(vehicle) { mutableStateOf(initialPlateParts.part1) }
+    var plateLetter by remember(vehicle) { mutableStateOf(initialPlateParts.letter) }
+    var platePart2 by remember(vehicle) { mutableStateOf(initialPlateParts.part2) }
+    var plateIranCode by remember(vehicle) { mutableStateOf(initialPlateParts.iranCode) }
     var vin by remember(vehicle) { mutableStateOf(vehicle.vin) }
     var estimatedValueText by remember(vehicle) {
         mutableStateOf(if (vehicle.estimatedValue > 0) vehicle.estimatedValue.toString() else "")
@@ -201,13 +208,110 @@ fun VehicleProfileScreen(
                         )
                     }
 
-                    OutlinedTextField(
-                        value = plate,
-                        onValueChange = { plate = it },
-                        label = { Text("شماره پلاک") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                    Text(
+                        text = "شماره پلاک خودرو",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
+
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = IranianPhoneUtils.convertDigitsToPersian(platePart1),
+                                onValueChange = {
+                                    val digits = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
+                                    if (digits.length <= 2) platePart1 = digits
+                                },
+                                label = { Text("۲ رقم") },
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
+                            )
+
+                            var showPlateLetterMenu by remember { mutableStateOf(false) }
+                            val plateLetters = remember {
+                                listOf("الف", "ب", "ت", "ج", "د", "ژ", "س", "ص", "ط", "ع", "ق", "گ", "ل", "م", "ن", "و", "ه", "ی")
+                            }
+                            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                                ExposedDropdownMenuBox(
+                                    expanded = showPlateLetterMenu,
+                                    onExpandedChange = { showPlateLetterMenu = it },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    OutlinedTextField(
+                                        value = plateLetter,
+                                        onValueChange = {},
+                                        readOnly = true,
+                                        label = { Text("حرف", maxLines = 1, fontSize = 11.sp) },
+                                        trailingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Rounded.ArrowDropDown,
+                                                contentDescription = "انتخاب حرف پلاک",
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        },
+                                        singleLine = true,
+                                        textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+                                        modifier = Modifier
+                                            .menuAnchor()
+                                            .fillMaxWidth()
+                                            .testTag("profile_plate_letter_selector")
+                                    )
+                                    ExposedDropdownMenu(
+                                        expanded = showPlateLetterMenu,
+                                        onDismissRequest = { showPlateLetterMenu = false },
+                                        modifier = Modifier.heightIn(max = 240.dp)
+                                    ) {
+                                        plateLetters.forEach { letter ->
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Text(
+                                                        text = letter,
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        textAlign = TextAlign.Center,
+                                                        fontWeight = if (plateLetter == letter) FontWeight.Bold else FontWeight.Normal
+                                                    )
+                                                },
+                                                onClick = {
+                                                    plateLetter = letter
+                                                    showPlateLetterMenu = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = IranianPhoneUtils.convertDigitsToPersian(platePart2),
+                                onValueChange = {
+                                    val digits = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
+                                    if (digits.length <= 3) platePart2 = digits
+                                },
+                                label = { Text("۳ رقم") },
+                                modifier = Modifier.weight(1.1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
+                            )
+
+                            OutlinedTextField(
+                                value = IranianPhoneUtils.convertDigitsToPersian(plateIranCode),
+                                onValueChange = {
+                                    val digits = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
+                                    if (digits.length <= 2) plateIranCode = digits
+                                },
+                                label = { Text("ایران") },
+                                modifier = Modifier.weight(0.9f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
+                            )
+                        }
+                    }
 
                     OutlinedTextField(
                         value = vin,
@@ -222,23 +326,19 @@ fun VehicleProfileScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Column(modifier = Modifier.weight(0.9f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "کیلومتر فعلی",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OutlinedTextField(
-                                value = IranianPhoneUtils.convertDigitsToPersian(currentMileageText),
-                                onValueChange = {
-                                    currentMileageText = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                shape = RoundedCornerShape(12.dp),
-                                singleLine = true
-                            )
-                        }
+                        OutlinedTextField(
+                            value = IranianPhoneUtils.convertDigitsToPersian(currentMileageText),
+                            onValueChange = {
+                                currentMileageText = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
+                            },
+                            label = { Text("کیلومتر فعلی", maxLines = 1) },
+                            modifier = Modifier
+                                .weight(0.9f)
+                                .height(64.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true
+                        )
 
                         PersianAmountInputField(
                             value = estimatedValueText,
@@ -248,6 +348,7 @@ fun VehicleProfileScreen(
                             placeholder = "مثال: ۸۵۰,۰۰۰,۰۰۰",
                             showWordsPreview = false,
                             modifier = Modifier.weight(1.3f),
+                            fieldHeight = 64.dp,
                             testTag = "edit_vehicle_estimated_value_input"
                         )
                     }
@@ -257,6 +358,7 @@ fun VehicleProfileScreen(
                             val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
                             val km = IranianPhoneUtils.convertDigitsToEnglish(currentMileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onUpdateMileage(km)
+                            val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
                             onSaveSpecs(brand, model, year, color, plate, vin, estVal)
                             onBack()
                         },
@@ -274,4 +376,36 @@ fun VehicleProfileScreen(
             }
         }
     }
+}
+
+private data class VehiclePlateParts(
+    val part1: String,
+    val letter: String,
+    val part2: String,
+    val iranCode: String
+)
+
+private fun parseVehiclePlateParts(rawPlate: String): VehiclePlateParts {
+    val normalized = IranianPhoneUtils.convertDigitsToEnglish(rawPlate)
+        .replace("ي", "ی")
+        .replace("ك", "ک")
+        .trim()
+
+    val iranCode = Regex("""ایران\s*(\d{1,2})""").find(normalized)?.groupValues?.get(1).orEmpty()
+    val withoutIranCode = normalized.replace(Regex("""ایران\s*\d{1,2}"""), " ")
+    val letter = Regex("""[^\d\s]""").find(withoutIranCode)?.value ?: "الف"
+    val withoutLetter = withoutIranCode.replace(letter, " ")
+    val digitGroups = Regex("""\d+""").findAll(withoutLetter).map { it.value }.toList()
+
+    val twoDigit = digitGroups.firstOrNull { it.length == 2 }.orEmpty()
+    val threeDigit = digitGroups.firstOrNull { it.length == 3 }.orEmpty()
+    val fallbackPart1 = digitGroups.getOrNull(0).orEmpty().take(2)
+    val fallbackPart2 = digitGroups.getOrNull(1).orEmpty().take(3)
+
+    return VehiclePlateParts(
+        part1 = twoDigit.ifBlank { fallbackPart1 },
+        letter = letter,
+        part2 = threeDigit.ifBlank { fallbackPart2 },
+        iranCode = iranCode.ifBlank { digitGroups.lastOrNull { it.length <= 2 && it != twoDigit }.orEmpty() }.take(2)
+    )
 }
