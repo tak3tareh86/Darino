@@ -72,8 +72,8 @@ class LoanCalculatorEngine {
         val payment = if (monthlyRate == 0.0) {
             (principal.toDouble() / months).roundToLong()
         } else {
-            val factor = (1.0 + monthlyRate).pow(months.toDouble())
-            (principal.toDouble() * monthlyRate * factor / (factor - 1.0)).roundToLong()
+            val discountFactor = (1.0 + monthlyRate).pow(-months.toDouble())
+            (principal.toDouble() * monthlyRate / (1.0 - discountFactor)).roundToLong()
         }.coerceAtLeast(1L)
         val totalPayment = Math.multiplyExact(payment, months.toLong())
         val totalInterest = (totalPayment - principal).coerceAtLeast(0L)
@@ -87,10 +87,10 @@ class LoanCalculatorEngine {
     private fun calculateSimpleInterest(principal: Long, annualRate: Double, months: Int): CalculationResult {
         val interest = (principal.toDouble() * annualRate / 1200.0 * months).roundToLong()
         val total = Math.addExact(principal, interest)
-        val regularPayment = total / months
-        // Keep totals exactly reconcilable; monthlyPayment is the regular rounded estimate.
         val payment = (total.toDouble() / months).roundToLong()
-        return result(principal, annualRate, months, payment, total, interest, CalculationMethod.SIMPLE_INTEREST)
+        val reconciledTotal = Math.multiplyExact(payment, months.toLong())
+        val reconciledInterest = (reconciledTotal - principal).coerceAtLeast(0L)
+        return result(principal, annualRate, months, payment, reconciledTotal, reconciledInterest, CalculationMethod.SIMPLE_INTEREST)
     }
 
     /**
@@ -102,7 +102,9 @@ class LoanCalculatorEngine {
         val fee = (principal.toDouble() * annualRate / 1200.0 * months).roundToLong()
         val total = Math.addExact(principal, fee)
         val payment = (total.toDouble() / months).roundToLong()
-        return result(principal, annualRate, months, payment, total, fee, CalculationMethod.CUSTOM)
+        val reconciledTotal = Math.multiplyExact(payment, months.toLong())
+        val reconciledFee = (reconciledTotal - principal).coerceAtLeast(0L)
+        return result(principal, annualRate, months, payment, reconciledTotal, reconciledFee, CalculationMethod.CUSTOM)
     }
 
     private fun result(
