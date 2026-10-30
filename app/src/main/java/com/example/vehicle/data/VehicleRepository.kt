@@ -830,6 +830,31 @@ class VehicleRepository {
                 ?: return@withContext Result.failure(IllegalArgumentException("تاریخ یادآور سرویس نامعتبر است."))
         } else null
 
+        // Keep only the offsets explicitly selected by the user that still have a future trigger time.
+        val effectiveOffsets = if (isReminderEnabled && dueDateMs != null) {
+            val reminderBaseMillis = try {
+                com.example.reminder.domain.ReminderManager.parsePersianDateTimeToMillis(
+                    com.example.util.IranianPhoneUtils.convertDigitsToPersian(nextReminderDate!!.trim()),
+                    com.example.util.IranianPhoneUtils.convertDigitsToPersian(time.ifBlank { "۰۹:۰۰" })
+                )
+            } catch (e: Exception) {
+                return@withContext Result.failure(
+                    IllegalArgumentException("تاریخ یا ساعت یادآور سرویس معتبر نیست.", e)
+                )
+            }
+            offsets.distinct().filter { offset ->
+                reminderBaseMillis - (offset.value.toLong() * offset.unit.millisMultiplier) > System.currentTimeMillis()
+            }.also { future ->
+                if (future.isEmpty()) {
+                    return@withContext Result.failure(
+                        IllegalArgumentException("زمان همه گزینه‌های یادآوری انتخاب‌شده گذشته است. گزینه دیگری انتخاب کنید یا تاریخ و ساعت سرویس بعدی را تغییر دهید.")
+                    )
+                }
+            }
+        } else {
+            offsets.distinct()
+        }
+
         try {
             val db = AppDatabase.getDatabase(context)
             val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
@@ -918,7 +943,7 @@ class VehicleRepository {
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
                         currentKilometer = mileage,
-                        offsets = offsets
+                        offsets = effectiveOffsets
                     )
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
