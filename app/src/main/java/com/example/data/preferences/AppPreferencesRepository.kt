@@ -118,12 +118,21 @@ class AppPreferencesRepository private constructor(context: Context) {
     }
 
     private fun loadAlertDelivery(): AlertDeliveryPreference {
-        val name = prefs.getString(KEY_ALERT_DELIVERY, AlertDeliveryPreference.BOTH.name) ?: AlertDeliveryPreference.BOTH.name
-        return try {
-            AlertDeliveryPreference.valueOf(name)
-        } catch (e: Exception) {
-            AlertDeliveryPreference.BOTH
+        val storedName = prefs.getString(KEY_ALERT_DELIVERY, AlertDeliveryPreference.BOTH.name)
+            ?: AlertDeliveryPreference.BOTH.name
+        val migrated = when (storedName) {
+            AlertDeliveryPreference.NOTIFICATION_ONLY.name -> AlertDeliveryPreference.NOTIFICATION_ONLY
+            AlertDeliveryPreference.FULL_SCREEN_ALARM.name -> AlertDeliveryPreference.FULL_SCREEN_ALARM
+            AlertDeliveryPreference.BOTH.name -> AlertDeliveryPreference.BOTH
+            // Preserve a usable alert method for users upgrading from the old SMS-only
+            // or disabled choices; those choices no longer exist in the general menu.
+            "SMS_ONLY", "DISABLED" -> AlertDeliveryPreference.NOTIFICATION_ONLY
+            else -> AlertDeliveryPreference.NOTIFICATION_ONLY
         }
+        if (storedName != migrated.name) {
+            prefs.edit().putString(KEY_ALERT_DELIVERY, migrated.name).apply()
+        }
+        return migrated
     }
 
     private fun loadNavTransition(): NavigationTransitionAnimation {
