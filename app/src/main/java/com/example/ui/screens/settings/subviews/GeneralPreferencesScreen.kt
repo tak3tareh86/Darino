@@ -63,6 +63,7 @@ import android.provider.Settings
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.compose.material3.Button
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
@@ -117,9 +118,10 @@ fun GeneralPreferencesScreen(
         mutableStateOf(checkFullScreenIntentAccess())
     }
     fun checkNotificationPermission(): Boolean =
-        Build.VERSION.SDK_INT < 33 ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
+        NotificationManagerCompat.from(context).areNotificationsEnabled() &&
+            (Build.VERSION.SDK_INT < 33 ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED)
     var canPostNotifications by remember(context) {
         mutableStateOf(checkNotificationPermission())
     }
