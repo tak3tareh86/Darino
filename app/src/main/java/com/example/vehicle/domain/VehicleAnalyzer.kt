@@ -371,7 +371,7 @@ object VehicleAnalyzer {
                     date = s.date,
                     title = s.title,
                     amount = s.cost,
-                    subtitle = "سرویس در کیلومتر ${s.mileage} - ${s.description.ifEmpty { "ثبت در سامانه دارینو" }}",
+                    subtitle = "سرویس در کیلومتر ${s.mileage}" + s.description.takeIf { it.isNotBlank() }?.let { " - $it" }.orEmpty(),
                     iconRes = s.serviceType.iconRes,
                     colorHex = 0xFF10B981,
                     mileage = s.mileage
