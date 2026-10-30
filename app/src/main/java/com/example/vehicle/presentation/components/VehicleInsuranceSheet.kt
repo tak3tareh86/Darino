@@ -168,8 +168,8 @@ fun VehicleInsuranceSheet(
                     PersianDateInputField(value = inspectionExpiryDate, onValueChange = { inspectionExpiryDate = it }, label = "تاریخ انقضا", placeholder = "۱۴۰۶/۰۱/۰۱", dialogTitle = "انتخاب تاریخ انقضای معاینه فنی", modifier = Modifier.weight(1f), testTag = "inspection_expiry_date_input")
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PersianAmountInputField(value = inspectionCostText, onValueChange = { inspectionCostText = it }, label = "هزینه معاینه فنی", unitLabel = "تومان", placeholder = "مثال: ۱۸۰,۰۰۰", showWordsPreview = false, modifier = Modifier.weight(1f).height(56.dp), testTag = "inspection_cost_input")
-                    OutlinedTextField(value = centerName, onValueChange = { centerName = it }, label = { Text("مرکز معاینه فنی") }, modifier = Modifier.weight(1.2f).height(56.dp), singleLine = true)
+                    PersianAmountInputField(value = inspectionCostText, onValueChange = { inspectionCostText = it }, label = "هزینه معاینه فنی", unitLabel = "تومان", placeholder = "مثال: ۱۸۰,۰۰۰", showWordsPreview = false, modifier = Modifier.weight(1f).height(56.dp), testTag = "inspection_cost_input", singleLineLabel = true)
+                    OutlinedTextField(value = centerName, onValueChange = { centerName = it }, label = { Text("مرکز معاینه فنی", maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) }, modifier = Modifier.weight(1f).height(56.dp), singleLine = true)
                 }
                 OutlinedTextField(value = inspectionStatus, onValueChange = { inspectionStatus = it }, label = { Text("وضعیت گواهی معاینه فنی") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 VehicleReminderSettings(
