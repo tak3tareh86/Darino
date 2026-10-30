@@ -432,6 +432,8 @@ fun AddServiceSheet(
                                     label = "تاریخ سرویس بعدی",
                                     placeholder = "۱۴۰۵/۰۷/۱۵",
                                     dialogTitle = "انتخاب تاریخ سرویس بعدی",
+                                    fieldHeight = 64.dp,
+                                    singleLineLabel = true,
                                     testTag = "next_service_date_input"
                                 )
                             }
@@ -441,6 +443,7 @@ fun AddServiceSheet(
                                     value = nextServiceTimeText,
                                     onValueChange = { nextServiceTimeText = it },
                                     label = "ساعت اعلان",
+                                    fieldHeight = 64.dp,
                                     testTag = "next_service_time_input"
                                 )
                             }
