@@ -61,6 +61,9 @@ class LocalBackupRepository(
             val schedules =
                 db.smartReminderDao().getAllSchedulesList(userId)
 
+            val legacyReminders = db.reminderDao().getAllRemindersForBackup(userId)
+            val legacyReminderSchedules = db.reminderDao().getAllSchedulesForBackup(userId)
+
             val events =
                 db.financialEventDao().getAllEventsList(userId)
 
@@ -99,11 +102,12 @@ class LocalBackupRepository(
                         events.size +
                         financialHealthProfiles.size +
                         loanCalculations.size + notificationLogs.size + smsLogs.size + reminderDeliveryLogs.size +
+                        legacyReminders.size + legacyReminderSchedules.size +
                         (if (vehicleStore != null) 1 else 0) + (if (userPreference != null) 1 else 0) + 1
 
             BackupValidator.withChecksum(DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 5,
+                    backupVersion = 6,
                     appVersion = "1.0",
                     createdAt = System.currentTimeMillis(),
                     recordCount = totalRecords,
@@ -131,7 +135,9 @@ class LocalBackupRepository(
                 notificationLogs = notificationLogs,
                 smsLogs = smsLogs,
                 vehicleStore = vehicleStore,
-                reminderDeliveryLogs = reminderDeliveryLogs
+                reminderDeliveryLogs = reminderDeliveryLogs,
+                legacyReminders = legacyReminders,
+                legacyReminderSchedules = legacyReminderSchedules
             ))
             }
         }
@@ -175,12 +181,17 @@ class LocalBackupRepository(
 
                     db.smartReminderDao().clearAllSchedules(userId)
                     if (backup.metadata.backupVersion >= 5) {
-                        // Delivery logs are linked by reminder ID without a foreign key; clear them before reminders.
+                        // Delivery logs are linked by reminder ID; clear them before their parents.
                         db.smartReminderDao().clearAllDeliveryLogsForBackup(userId)
                     }
 
                     db.smartReminderDao()
                         .clearAllReminders(userId)
+
+                    if (backup.metadata.backupVersion >= 6) {
+                        db.reminderDao().clearAllSchedulesForBackup(userId)
+                        db.reminderDao().clearAllRemindersForBackup(userId)
+                    }
 
                     db.financialEventDao()
                         .clearAllEvents(userId)
@@ -304,6 +315,23 @@ class LocalBackupRepository(
                     db.smartReminderDao().insertSchedule(schedule)
                 }
 
+                val restoredLegacyReminderIds = mutableMapOf<Int, Int>()
+                if (backup.metadata.backupVersion >= 6) {
+                    backup.legacyReminders.forEach { reminder ->
+                        val newId = db.reminderDao().insertReminder(
+                            reminder.copy(id = 0, userId = userId)
+                        ).toInt()
+                        restoredLegacyReminderIds[reminder.id] = newId
+                    }
+                    backup.legacyReminderSchedules.forEach { schedule ->
+                        val newReminderId = restoredLegacyReminderIds[schedule.reminderId]
+                            ?: throw IllegalStateException("زمان‌بندی یادآور قدیمی به یادآور موجود متصل نیست")
+                        db.reminderDao().insertSchedule(
+                            schedule.copy(id = 0, reminderId = newReminderId)
+                        )
+                    }
+                }
+
                 backup.financialEvents.forEach { event ->
                     db.financialEventDao().insertEvent(
                         event.copy(userId = userId)
@@ -317,10 +345,22 @@ class LocalBackupRepository(
 
                 if (backup.metadata.backupVersion >= 4) {
                     backup.notificationLogs.forEach { log ->
-                        db.notificationLogDao().insertNotification(log.copy(id = 0, userId = userId))
+                        db.notificationLogDao().insertNotification(
+                            log.copy(
+                                id = 0,
+                                userId = userId,
+                                reminderId = log.reminderId?.let { restoredLegacyReminderIds[it] ?: it }
+                            )
+                        )
                     }
                     backup.smsLogs.forEach { log ->
-                        db.smsLogDao().insertSmsLog(log.copy(id = 0, userId = userId))
+                        db.smsLogDao().insertSmsLog(
+                            log.copy(
+                                id = 0,
+                                userId = userId,
+                                reminderId = log.reminderId?.let { restoredLegacyReminderIds[it] ?: it }
+                            )
+                        )
                     }
                 }
 
