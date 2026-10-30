@@ -633,7 +633,8 @@ fun PersianTimeInputField(
     modifier: Modifier = Modifier,
     label: String = "ساعت هشدار",
     enabled: Boolean = true,
-    testTag: String = "input_reminder_time"
+    testTag: String = "input_reminder_time",
+    fieldHeight: androidx.compose.ui.unit.Dp? = null
 ) {
     var showTimePickerDialog by remember { mutableStateOf(false) }
 
@@ -688,6 +689,7 @@ fun PersianTimeInputField(
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
+                .then(if (fieldHeight != null) Modifier.height(fieldHeight) else Modifier)
                 .testTag(testTag)
         )
 
