@@ -195,6 +195,21 @@ class NotificationDispatcher(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // 4. Action: Snooze 5 Minutes (independent PendingIntent from the 15-minute action)
+        val snoozeFiveIntent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
+            action = ReminderBroadcastReceiver.ACTION_SNOOZE_REMINDER
+            putExtra(ReminderBroadcastReceiver.EXTRA_REMINDER_ID, reminder.id)
+            putExtra(ReminderBroadcastReceiver.EXTRA_NOTIFICATION_ID, notifId)
+            putExtra(ReminderBroadcastReceiver.EXTRA_SECONDARY_NOTIFICATION_ID, standardNotificationId)
+            putExtra(ReminderBroadcastReceiver.EXTRA_SNOOZE_MINUTES, 5)
+        }
+        val snoozeFivePendingIntent = PendingIntent.getBroadcast(
+            context,
+            notifId + 4000,
+            snoozeFiveIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         // Build notification body
         val amountText = reminder.amount?.let { " • مبلغ: ${MoneyFormatter.formatToman(it)}" }.orEmpty()
         val bodyText = if (reminder.description.isNotBlank()) {
@@ -217,8 +232,10 @@ class NotificationDispatcher(private val context: Context) {
             .setAutoCancel(!useFullScreenAlarm)
             .setOngoing(useFullScreenAlarm)
             .setContentIntent(contentPendingIntent)
-            .addAction(R.drawable.img_3d_installment, "انجام شد", completePendingIntent)
+            // Keep all three concise actions in a single system-managed action row.
+            .addAction(R.drawable.img_3d_calendar, "۵ دقیقه بعد", snoozeFivePendingIntent)
             .addAction(R.drawable.img_3d_calendar, "۱۵ دقیقه بعد", snoozePendingIntent)
+            .addAction(R.drawable.img_3d_installment, "انجام شد", completePendingIntent)
 
         if (useFullScreenAlarm) {
             val alarmActivityIntent = Intent(context, ReminderAlarmActivity::class.java).apply {
