@@ -260,14 +260,14 @@ fun SupportBackupScreen(
                         if (json != null) {
                             scope.launch {
                                 try {
-                                    val shareDir = java.io.File(context.cacheDir, "shared_backups").apply { mkdirs() }
+                                    val shareRoot = java.io.File(context.cacheDir, "shared_backups").apply { mkdirs() }
+                                    val shareDir = java.io.File(shareRoot, "share-${System.currentTimeMillis()}").apply { mkdirs() }
                                     withContext(Dispatchers.IO) {
-                                        shareDir.listFiles()?.filter {
-                                            it.isFile && it.name.startsWith("darino-share-") &&
-                                                System.currentTimeMillis() - it.lastModified() > 24L * 60L * 60L * 1000L
-                                        }?.forEach { it.delete() }
+                                        shareRoot.listFiles()?.filter {
+                                            it.isDirectory && System.currentTimeMillis() - it.lastModified() > 24L * 60L * 60L * 1000L
+                                        }?.forEach { it.deleteRecursively() }
                                     }
-                                    val cacheFile = java.io.File(shareDir, "darino-share-${System.currentTimeMillis()}-${safeName}")
+                                    val cacheFile = java.io.File(shareDir, safeName)
                                     withContext(Dispatchers.IO) {
                                         cacheFile.outputStream().buffered().use { it.write(json.toByteArray(Charsets.UTF_8)) }
                                         if (!cacheFile.isFile || cacheFile.length() <= 0L) {
