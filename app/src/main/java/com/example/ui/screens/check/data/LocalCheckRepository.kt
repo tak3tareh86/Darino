@@ -51,7 +51,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
         if (check.dueDate < check.issueDate ||
             (check.sayadId != null && check.sayadId.isNotBlank() &&
                 (check.sayadId.length != 16 || !check.sayadId.all { it.isDigit() })) ||
-            (check.reminderDateTime != null && check.reminderDateTime > check.dueDate) ||
+            (check.reminderDateTime != null && isAfterCalendarDay(check.reminderDateTime, check.dueDate)) ||
             check.status == CheckStatus.CLEARED
         ) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
@@ -102,7 +102,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
         if (check.dueDate < check.issueDate ||
             (check.sayadId != null && check.sayadId.isNotBlank() &&
                 (check.sayadId.length != 16 || !check.sayadId.all { it.isDigit() })) ||
-            (check.reminderDateTime != null && check.reminderDateTime > check.dueDate)
+            (check.reminderDateTime != null && isAfterCalendarDay(check.reminderDateTime, check.dueDate))
         ) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
@@ -358,3 +358,20 @@ private fun String.normalizeCheckDigits(): String = map { char ->
         else -> char
     }
 }.joinToString("")
+
+
+/**
+ * Reminder dates are validated by calendar day, matching the check form.
+ * The reminder may be later than the due-date timestamp on the same day.
+ */
+private fun isAfterCalendarDay(reminderMillis: Long, dueMillis: Long): Boolean {
+    fun startOfDay(millis: Long): Long = java.util.Calendar.getInstance().apply {
+        timeInMillis = millis
+        set(java.util.Calendar.HOUR_OF_DAY, 0)
+        set(java.util.Calendar.MINUTE, 0)
+        set(java.util.Calendar.SECOND, 0)
+        set(java.util.Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    return startOfDay(reminderMillis) > startOfDay(dueMillis)
+}
