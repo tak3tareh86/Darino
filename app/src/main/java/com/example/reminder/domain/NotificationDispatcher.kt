@@ -31,8 +31,38 @@ class NotificationDispatcher(private val context: Context) {
      * Cancels only notifications posted for the given reminder. Reminder-tagged
      * notifications are isolated from calendar and other application notifications.
      */
-    fun cancelReminderNotifications(reminderId: String) {
-        notificationManager.cancel("reminder:$reminderId", 0)
+    fun cancelReminderNotifications(
+        reminderId: String,
+        schedules: List<ReminderScheduleEntity> = emptyList()
+    ) {
+        val reminderTag = "reminder:$reminderId"
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            notificationManager.activeNotifications
+                .filter { it.tag == reminderTag }
+                .forEach { notificationManager.cancel(it.tag, it.id) }
+        }
+
+        // Legacy notifications were posted without tags. Rebuild both generated IDs
+        // from schedule data captured before schedule rows are updated or deleted.
+        schedules.forEach { schedule ->
+            val notificationId = NotificationIdGenerator.generateNotificationId(
+                reminderId = reminderId,
+                scheduleId = schedule.id,
+                triggerTime = schedule.triggerDateTime
+            )
+            val standardNotificationId = NotificationIdGenerator.generateNotificationId(
+                reminderId = reminderId,
+                scheduleId = "standard:${schedule.id}",
+                triggerTime = schedule.triggerDateTime
+            )
+            notificationManager.cancel(notificationId)
+            notificationManager.cancel(standardNotificationId)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                notificationManager.cancel(reminderTag, notificationId)
+                notificationManager.cancel(reminderTag, standardNotificationId)
+            }
+        }
     }
 
     /**

@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,6 +33,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.data.preferences.AppPreferencesRepository
 import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
@@ -67,6 +69,14 @@ fun AddServiceSheet(
     onDismiss: () -> Unit,
     initialServiceType: ServiceType = ServiceType.OIL_CHANGE
 ) {
+    val context = LocalContext.current
+    val preferences = remember { AppPreferencesRepository.getInstance(context) }
+    val defaultReminderMinute by preferences.defaultReminderTimeMinute.collectAsState()
+    val defaultReminderTimeText = remember(defaultReminderMinute) {
+        val hour = (defaultReminderMinute / 60).toString().padStart(2, '0')
+        val minute = (defaultReminderMinute % 60).toString().padStart(2, '0')
+        IranianPhoneUtils.convertDigitsToPersian("$hour:$minute")
+    }
     val todayJalali = remember { com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate() }
     var selectedType by remember(initialServiceType) { mutableStateOf(initialServiceType) }
     var title by remember(initialServiceType) { mutableStateOf(initialServiceType.title) }
@@ -100,7 +110,7 @@ fun AddServiceSheet(
     } else recommendedDate
 
     var nextServiceDateText by remember { mutableStateOf(calcDate) }
-    var nextServiceTimeText by remember { mutableStateOf("09:00") }
+    var nextServiceTimeText by remember(defaultReminderTimeText) { mutableStateOf(defaultReminderTimeText) }
     var isNextDateManuallyEdited by remember { mutableStateOf(false) }
 
     LaunchedEffect(calcDate) {

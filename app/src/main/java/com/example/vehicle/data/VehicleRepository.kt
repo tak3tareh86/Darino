@@ -341,6 +341,10 @@ class VehicleRepository {
         setupRoomCollectors(appCtx, userId)
     }
 
+    private fun defaultReminderTime(): String =
+        dbContext?.let { com.example.data.preferences.AppPreferencesRepository.getInstance(it).defaultReminderTime() }
+            ?: "۰۹:۰۰"
+
     private fun isValidReminderTime(value: String): Boolean {
         val normalized = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(value).trim()
         val match = Regex("^(\\d{2}):(\\d{2})$").matchEntire(normalized) ?: return false
@@ -386,7 +390,7 @@ class VehicleRepository {
         title: String,
         description: String,
         date: String?,
-        time: String = "۰۹:۰۰",
+        time: String? = null,
         type: String = "VEHICLE",
         targetKilometer: Int? = null,
         currentKilometer: Int? = null,
@@ -395,8 +399,9 @@ class VehicleRepository {
     ) {
         val effectiveDate = date?.takeIf { it.isNotBlank() }
             ?: PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+        val effectiveTime = time?.takeIf { it.isNotBlank() } ?: defaultReminderTime()
         val persianDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(effectiveDate)
-        val persianTime = com.example.util.IranianPhoneUtils.convertDigitsToPersian(time.ifBlank { "۰۹:۰۰" })
+        val persianTime = com.example.util.IranianPhoneUtils.convertDigitsToPersian(effectiveTime)
         val reminder = com.example.reminder.data.ReminderEntity(
             id = id,
             userId = userId,
@@ -732,15 +737,17 @@ class VehicleRepository {
 
             // Mileage-based service reminders have no calendar alarm. Detect the exact
             // odometer crossing here, when the user records a new mileage, and notify once.
-            val crossedMileageReminders = if (newMileage > existing.currentMileage) {
-                db.vehicleDao().getAllServices(userId).first().filter { service ->
-                    service.vehicleId == canonicalVehicleId &&
-                        service.status != "COMPLETED" &&
-                        service.dueMileage != null &&
-                        service.dueMileage > existing.currentMileage &&
-                        service.dueMileage <= newMileage
-                }
-            } else emptyList()
+            val leadKilometers = com.example.data.preferences.AppPreferencesRepository
+                .getInstance(context).vehicleReminderKilometers.value
+            val crossedMileageReminders = db.vehicleDao().getAllServices(userId).first().filter { service ->
+                service.vehicleId == canonicalVehicleId &&
+                    service.status != "COMPLETED" &&
+                    com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
+                        currentMileage = newMileage,
+                        targetMileage = service.dueMileage,
+                        leadKilometers = leadKilometers
+                    )
+            }
 
             val affectedRows = db.vehicleDao().updateMileage(userId, vehicleId, newMileage)
             if (affectedRows == 0) {
@@ -825,7 +832,7 @@ class VehicleRepository {
         nextReminderDate: String?,
         nextReminderMileage: Int?,
         isReminderEnabled: Boolean,
-        time: String = "۰۹:۰۰",
+        time: String? = null,
         offsets: List<com.example.reminder.domain.PredefinedOffset> = listOf(
             com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
             com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS,
@@ -835,6 +842,7 @@ class VehicleRepository {
     ): Result<VehicleServiceEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+        val effectiveReminderTime = time?.takeIf { it.isNotBlank() } ?: defaultReminderTime()
 
         if (title.isBlank()) return@withContext Result.failure(IllegalArgumentException("عنوان سرویس نمی‌تواند خالی باشد."))
         if (cost < 0L) return@withContext Result.failure(IllegalArgumentException("مبلغ سرویس نمی‌تواند منفی باشد."))
@@ -853,7 +861,7 @@ class VehicleRepository {
             val reminderBaseMillis = try {
                 com.example.reminder.domain.ReminderManager.parsePersianDateTimeToMillis(
                     com.example.util.IranianPhoneUtils.convertDigitsToPersian(nextReminderDate!!.trim()),
-                    com.example.util.IranianPhoneUtils.convertDigitsToPersian(time.ifBlank { "۰۹:۰۰" })
+                    com.example.util.IranianPhoneUtils.convertDigitsToPersian(effectiveReminderTime)
                 )
             } catch (e: Exception) {
                 return@withContext Result.failure(
@@ -878,15 +886,17 @@ class VehicleRepository {
             val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
                 ?: return@withContext Result.failure(NoSuchElementException("خودروی مورد نظر یافت نشد."))
 
-            val crossedMileageReminders = if (mileage > vehicle.currentMileage) {
-                db.vehicleDao().getAllServices(userId).first().filter { service ->
-                    service.vehicleId == vehicleId &&
-                        service.status != "COMPLETED" &&
-                        service.dueMileage != null &&
-                        service.dueMileage > vehicle.currentMileage &&
-                        service.dueMileage <= mileage
-                }
-            } else emptyList()
+            val leadKilometers = com.example.data.preferences.AppPreferencesRepository
+                .getInstance(context).vehicleReminderKilometers.value
+            val crossedMileageReminders = db.vehicleDao().getAllServices(userId).first().filter { service ->
+                service.vehicleId == vehicleId &&
+                    service.status != "COMPLETED" &&
+                    com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
+                        currentMileage = mileage,
+                        targetMileage = service.dueMileage,
+                        leadKilometers = leadKilometers
+                    )
+            }
 
             val serviceId = UUID.randomUUID().toString()
             val encodedNotes = if (cost > 0L) "COST:$cost|$description" else description
@@ -957,7 +967,7 @@ class VehicleRepository {
                             nextReminderMileage?.let { append("؛ کیلومتر هدف: $it") }
                         },
                         date = nextReminderDate?.trim(),
-                        time = time,
+                        time = effectiveReminderTime,
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
                         currentKilometer = mileage,
@@ -1001,8 +1011,11 @@ class VehicleRepository {
             // A historical service entry can already be overdue relative to the vehicle's
             // current odometer. Notify immediately instead of waiting for another mileage edit.
             val effectiveCurrentMileage = maxOf(mileage, vehicle.currentMileage)
-            if (isReminderEnabled && nextReminderMileage != null &&
-                nextReminderMileage <= effectiveCurrentMileage
+            if (isReminderEnabled && com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
+                    currentMileage = effectiveCurrentMileage,
+                    targetMileage = nextReminderMileage,
+                    leadKilometers = leadKilometers
+                )
             ) {
                 val newlyDueService = db.vehicleDao().getServiceByServerId(userId, serviceId)
                 if (newlyDueService != null) {
@@ -1042,8 +1055,13 @@ class VehicleRepository {
     ) {
         val dao = AppDatabase.getDatabase(context).smartReminderDao()
         val dispatcher = com.example.reminder.domain.NotificationDispatcher(context)
+        val leadKilometers = com.example.data.preferences.AppPreferencesRepository
+            .getInstance(context).vehicleReminderKilometers.value
         crossedServices.forEach { service ->
             val reminderId = service.serverId ?: service.id.toString()
+            val targetMileage = service.dueMileage ?: return@forEach
+            val thresholdMileage = com.example.vehicle.domain.VehicleMileageReminderPolicy
+                .thresholdKilometer(targetMileage, leadKilometers)
             try {
                 val storedReminder = dao.getReminderById(userId, reminderId)
                 if (storedReminder != null &&
@@ -1061,8 +1079,10 @@ class VehicleRepository {
                     sourceType = "VEHICLE",
                     sourceId = reminderId,
                     date = PersianCalendarHelper.fromEpochMillis(now).toFormattedDate(),
-                    time = "۰۹:۰۰",
-                    targetKilometer = service.dueMileage?.toLong(),
+                    time = com.example.data.preferences.AppPreferencesRepository
+                        .getInstance(context).defaultReminderTime(),
+                    notificationEnabled = true,
+                    targetKilometer = targetMileage.toLong(),
                     currentKilometer = currentMileage.toLong()
                 )
                 val updatedReminder = baseReminder.copy(currentKilometer = currentMileage.toLong())
@@ -1074,21 +1094,26 @@ class VehicleRepository {
                     dao.insertReminder(updatedReminder)
                 }
                 val thresholdSchedule = com.example.reminder.data.ReminderScheduleEntity(
-                    id = "mileage_${reminderId}_${service.dueMileage}",
+                    id = "mileage_${reminderId}_${targetMileage}",
                     reminderId = reminderId,
                     triggerType = "MILEAGE_THRESHOLD",
                     offsetValue = 0,
                     offsetUnit = "KILOMETER",
-                    triggerDateTime = now,
+                    triggerDateTime = thresholdMileage.toLong(),
                     repeatType = com.example.reminder.domain.RepeatType.NONE.name,
                     repeatInterval = 1,
                     enabled = true,
                     createdAt = now
                 )
+                val alreadyPosted = dao.getDeliveryLogsForReminder(userId, reminderId).first().any {
+                    it.scheduleId == thresholdSchedule.id && it.status == "POSTED"
+                }
+                if (alreadyPosted) return@forEach
+
                 dispatcher.dispatchNotification(
                     updatedReminder.copy(
-                        title = "موعد سرویس خودرو فرا رسیده است",
-                        description = "${baseReminder.description}؛ کیلومتر فعلی: $currentMileage، کیلومتر سرویس: ${service.dueMileage}"
+                        title = "موعد سرویس خودرو نزدیک است",
+                        description = "${baseReminder.description}؛ کیلومتر فعلی: $currentMileage، شروع بازه یادآوری: $thresholdMileage، کیلومتر سرویس: $targetMileage"
                     ),
                     thresholdSchedule
                 )
@@ -1110,7 +1135,7 @@ class VehicleRepository {
         nextReminderDate: String?,
         nextReminderMileage: Int?,
         isReminderEnabled: Boolean,
-        time: String = "۰۹:۰۰",
+        time: String? = null,
         offsets: List<com.example.reminder.domain.PredefinedOffset> = listOf(
             com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
             com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS,
@@ -1120,6 +1145,7 @@ class VehicleRepository {
     ): Result<VehicleServiceEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+        val effectiveReminderTime = time?.takeIf { it.isNotBlank() } ?: defaultReminderTime()
 
         if (title.isBlank()) return@withContext Result.failure(IllegalArgumentException("عنوان سرویس نمی‌تواند خالی باشد."))
         if (cost < 0L) return@withContext Result.failure(IllegalArgumentException("مبلغ سرویس نمی‌تواند منفی باشد."))
@@ -1141,16 +1167,18 @@ class VehicleRepository {
             val vehicle = db.vehicleDao().getVehicleByServerId(userId, existingSvc.vehicleId)
                 ?: return@withContext Result.failure(NoSuchElementException("خودروی مربوط به سرویس یافت نشد."))
 
-            val crossedMileageReminders = if (mileage > vehicle.currentMileage) {
-                db.vehicleDao().getAllServices(userId).first().filter { service ->
-                    service.vehicleId == (vehicle.serverId ?: vehicle.id.toString()) &&
-                        service.id != existingSvc.id &&
-                        service.status != "COMPLETED" &&
-                        service.dueMileage != null &&
-                        service.dueMileage > vehicle.currentMileage &&
-                        service.dueMileage <= mileage
-                }
-            } else emptyList()
+            val leadKilometers = com.example.data.preferences.AppPreferencesRepository
+                .getInstance(context).vehicleReminderKilometers.value
+            val crossedMileageReminders = db.vehicleDao().getAllServices(userId).first().filter { service ->
+                service.vehicleId == (vehicle.serverId ?: vehicle.id.toString()) &&
+                    service.id != existingSvc.id &&
+                    service.status != "COMPLETED" &&
+                    com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
+                        currentMileage = mileage,
+                        targetMileage = service.dueMileage,
+                        leadKilometers = leadKilometers
+                    )
+            }
 
             val encodedNotes = if (cost > 0L) "COST:$cost|$description" else description
 
@@ -1234,7 +1262,7 @@ class VehicleRepository {
                             nextReminderMileage?.let { append("؛ کیلومتر هدف: $it") }
                         },
                         date = nextReminderDate?.trim(),
-                        time = time,
+                        time = effectiveReminderTime,
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
                         currentKilometer = mileage,
@@ -1307,8 +1335,12 @@ class VehicleRepository {
 
             // Editing a reminder to a target already behind the odometer is immediately due.
             val effectiveCurrentMileage = maxOf(mileage, vehicle.currentMileage)
-            if (isReminderEnabled && nextReminderMileage != null &&
-                nextReminderMileage <= effectiveCurrentMileage &&
+            if (isReminderEnabled &&
+                com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
+                    currentMileage = effectiveCurrentMileage,
+                    targetMileage = nextReminderMileage,
+                    leadKilometers = leadKilometers
+                ) &&
                 (existingSvc.dueMileage != nextReminderMileage || existingSvc.status == "COMPLETED")
             ) {
                 val newlyDueService = db.vehicleDao().getServiceByServerId(userId, serviceId)
@@ -1693,15 +1725,16 @@ class VehicleRepository {
         amount: Long,
         policyNumber: String,
         reminderEnabled: Boolean = true,
-        reminderTime: String = "۰۹:۰۰",
+        reminderTime: String? = null,
         reminderDays: List<Int> = listOf(30, 15, 7, 1, 0),
         recordId: String? = null
     ): Result<VehicleInsuranceEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+        val effectiveReminderTime = reminderTime?.takeIf { it.isNotBlank() } ?: defaultReminderTime()
 
         if (reminderEnabled && reminderDays.isEmpty()) return@withContext Result.failure(IllegalArgumentException("برای یادآور فعال، حداقل یک زمان هشدار انتخاب کنید."))
-        if (reminderEnabled && !isValidReminderTime(reminderTime)) return@withContext Result.failure(IllegalArgumentException("ساعت یادآور باید به شکل ساعت:دقیقه و در بازه ۰۰:۰۰ تا ۲۳:۵۹ باشد."))
+        if (reminderEnabled && !isValidReminderTime(effectiveReminderTime)) return@withContext Result.failure(IllegalArgumentException("ساعت یادآور باید به شکل ساعت:دقیقه و در بازه ۰۰:۰۰ تا ۲۳:۵۹ باشد."))
         if (company.isBlank()) return@withContext Result.failure(IllegalArgumentException("نام شرکت بیمه نمی‌تواند خالی باشد."))
         if (amount < 0L) return@withContext Result.failure(IllegalArgumentException("مبلغ حق بیمه نمی‌تواند منفی باشد."))
 
@@ -1731,7 +1764,7 @@ class VehicleRepository {
                 policyNumber = policyNumber.trim(),
                 reminderDays = reminderDays.distinct(),
                 reminderEnabled = reminderEnabled,
-                reminderTime = reminderTime
+                reminderTime = effectiveReminderTime
             )
 
             db.withTransaction {
@@ -1775,7 +1808,7 @@ class VehicleRepository {
                     title = "تمدید $type خودرو",
                     description = "سررسید انقضای بیمه‌نامه برای خودرو ${vehicle.brand} ${vehicle.model}. شماره بیمه‌نامه: $policyNumber",
                     date = endDate.trim(),
-                    time = reminderTime,
+                    time = effectiveReminderTime,
                     type = "INSURANCE",
                     reminderEnabled = reminderEnabled,
                     offsets = reminderDays.distinct().mapNotNull { day -> predefinedOffsetForDays(day) }
@@ -2010,15 +2043,16 @@ class VehicleRepository {
         status: String,
         centerName: String,
         reminderEnabled: Boolean = true,
-        reminderTime: String = "۰۹:۰۰",
+        reminderTime: String? = null,
         reminderDays: List<Int> = listOf(30, 7, 1, 0),
         recordId: String? = null
     ): Result<VehicleInspectionEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+        val effectiveReminderTime = reminderTime?.takeIf { it.isNotBlank() } ?: defaultReminderTime()
 
         if (reminderEnabled && reminderDays.isEmpty()) return@withContext Result.failure(IllegalArgumentException("برای یادآور فعال، حداقل یک زمان هشدار انتخاب کنید."))
-        if (reminderEnabled && !isValidReminderTime(reminderTime)) return@withContext Result.failure(IllegalArgumentException("ساعت یادآور باید به شکل ساعت:دقیقه و در بازه ۰۰:۰۰ تا ۲۳:۵۹ باشد."))
+        if (reminderEnabled && !isValidReminderTime(effectiveReminderTime)) return@withContext Result.failure(IllegalArgumentException("ساعت یادآور باید به شکل ساعت:دقیقه و در بازه ۰۰:۰۰ تا ۲۳:۵۹ باشد."))
         if (cost < 0L) return@withContext Result.failure(IllegalArgumentException("هزینه معاینه فنی نمی‌تواند منفی باشد."))
 
         val lastMs = parseJalaliToTimestamp(lastInspectionDate)
@@ -2041,7 +2075,7 @@ class VehicleRepository {
                 status = status.trim(),
                 centerName = centerName.trim(),
                 reminderEnabled = reminderEnabled,
-                reminderTime = reminderTime,
+                reminderTime = effectiveReminderTime,
                 reminderDays = reminderDays.distinct()
             )
 
@@ -2088,7 +2122,7 @@ class VehicleRepository {
                     title = "معاینه فنی خودرو",
                     description = "موعد سررسید معاینه فنی برای خودرو ${vehicle.brand} ${vehicle.model}. مرکز $centerName",
                     date = expiryDate.trim(),
-                    time = reminderTime,
+                    time = effectiveReminderTime,
                     type = "VEHICLE",
                     reminderEnabled = reminderEnabled,
                     offsets = reminderDays.distinct().mapNotNull { day -> predefinedOffsetForDays(day) }

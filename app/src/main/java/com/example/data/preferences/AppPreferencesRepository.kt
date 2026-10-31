@@ -242,6 +242,14 @@ class AppPreferencesRepository private constructor(context: Context) {
         _defaultReminderTimeMinute.value = safe
     }
 
+    /** Returns the saved default reminder time in Persian HH:mm format. */
+    fun defaultReminderTime(): String {
+        val minutes = _defaultReminderTimeMinute.value.coerceIn(0, 1439)
+        val hour = (minutes / 60).toString().padStart(2, '0')
+        val minute = (minutes % 60).toString().padStart(2, '0')
+        return com.example.util.IranianPhoneUtils.convertDigitsToPersian("$hour:$minute")
+    }
+
     fun setInstallmentReminderDays(days: Int) {
         require(days in setOf(1, 3, 7, 10))
         prefs.edit().putInt(KEY_INSTALLMENT_REMINDER_DAYS, days).apply()

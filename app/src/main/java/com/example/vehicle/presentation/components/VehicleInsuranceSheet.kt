@@ -17,11 +17,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.data.preferences.AppPreferencesRepository
 import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
@@ -41,6 +43,14 @@ fun VehicleInsuranceSheet(
     editingInspection: VehicleInspectionEntity? = null,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val preferences = remember { AppPreferencesRepository.getInstance(context) }
+    val defaultReminderMinute by preferences.defaultReminderTimeMinute.collectAsState()
+    val defaultReminderTimeText = remember(defaultReminderMinute) {
+        val hour = (defaultReminderMinute / 60).toString().padStart(2, '0')
+        val minute = (defaultReminderMinute % 60).toString().padStart(2, '0')
+        IranianPhoneUtils.convertDigitsToPersian("$hour:$minute")
+    }
     val todayPdt = remember { com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()) }
     val todayJalali = remember { todayPdt.toFormattedDate() }
     val nextYearJalali = remember { com.example.util.IranianDateUtils.createFormattedDate(todayPdt.year + 1, todayPdt.month, todayPdt.day) }
@@ -65,8 +75,12 @@ fun VehicleInsuranceSheet(
     var centerName by remember(editingInspection) { mutableStateOf(editingInspection?.centerName ?: "") }
     var insuranceReminderEnabled by remember(editingInsurance) { mutableStateOf(editingInsurance?.reminderEnabled ?: true) }
     var inspectionReminderEnabled by remember(editingInspection) { mutableStateOf(editingInspection?.reminderEnabled ?: true) }
-    var insuranceReminderTime by remember(editingInsurance) { mutableStateOf(editingInsurance?.reminderTime ?: "۰۹:۰۰") }
-    var inspectionReminderTime by remember(editingInspection) { mutableStateOf(editingInspection?.reminderTime ?: "۰۹:۰۰") }
+    var insuranceReminderTime by remember(editingInsurance, defaultReminderTimeText) {
+        mutableStateOf(editingInsurance?.reminderTime ?: defaultReminderTimeText)
+    }
+    var inspectionReminderTime by remember(editingInspection, defaultReminderTimeText) {
+        mutableStateOf(editingInspection?.reminderTime ?: defaultReminderTimeText)
+    }
     var insuranceReminderDays by remember(editingInsurance) {
         mutableStateOf(editingInsurance?.reminderDays?.toSet()?.takeIf { it.isNotEmpty() } ?: setOf(30, 15, 7, 1, 0))
     }

@@ -344,7 +344,7 @@ class VehicleViewModel(
             com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
             com.example.reminder.domain.PredefinedOffset.AT_TIME
         ),
-        time: String = "۰۹:۰۰"
+        time: String? = null
     ) {
         val current = _uiState.value.selectedVehicle ?: return
         viewModelScope.launch {
@@ -407,7 +407,7 @@ class VehicleViewModel(
             com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
             com.example.reminder.domain.PredefinedOffset.AT_TIME
         ),
-        time: String = "۰۹:۰۰"
+        time: String? = null
     ) {
         viewModelScope.launch {
             val result = repository.updateService(
@@ -595,7 +595,7 @@ class VehicleViewModel(
         amount: Long,
         policyNumber: String,
         reminderEnabled: Boolean,
-        reminderTime: String,
+        reminderTime: String?,
         reminderDays: List<Int>,
         recordId: String? = null
     ) {
@@ -681,7 +681,7 @@ class VehicleViewModel(
         status: String,
         centerName: String,
         reminderEnabled: Boolean,
-        reminderTime: String,
+        reminderTime: String?,
         reminderDays: List<Int>,
         recordId: String? = null
     ) {

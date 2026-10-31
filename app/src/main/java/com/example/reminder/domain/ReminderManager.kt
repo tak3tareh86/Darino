@@ -6,6 +6,7 @@ import com.example.reminder.data.LocalReminderRepository
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.data.ReminderRepository
 import com.example.reminder.data.ReminderScheduleEntity
+import com.example.data.preferences.AppPreferencesRepository
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +18,9 @@ class ReminderManager(
     private val repository: ReminderRepository = LocalReminderRepository(context),
     private val scheduler: ReminderScheduler = ReminderScheduler(context)
 ) {
+
+    private fun defaultReminderTime(): String =
+        AppPreferencesRepository.getInstance(context).defaultReminderTime()
 
     /**
      * Creates a new reminder along with its multi-schedule triggers, and registers alarms.
@@ -75,7 +79,7 @@ class ReminderManager(
         val existingReminder = repository.getReminderById(reminder.id)
         val existingSchedules = repository.getSchedulesSync(reminder.id)
         scheduler.cancel(reminder.id, existingSchedules)
-        NotificationDispatcher(context).cancelReminderNotifications(reminder.id)
+        NotificationDispatcher(context).cancelReminderNotifications(reminder.id, existingSchedules)
 
         val baseMillis = parsePersianDateTimeToMillis(reminder.date, reminder.time)
         val newSchedules = offsets.map { offset ->
@@ -119,7 +123,7 @@ class ReminderManager(
     suspend fun deleteReminder(reminderId: String) = withContext(Dispatchers.IO) {
         val schedules = repository.getSchedulesSync(reminderId)
         scheduler.cancel(reminderId, schedules)
-        NotificationDispatcher(context).cancelReminderNotifications(reminderId)
+        NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
         repository.deleteReminderWithSchedules(reminderId)
         Log.i("ReminderManager", "Deleted reminder $reminderId and all its schedules.")
     }
@@ -131,7 +135,7 @@ class ReminderManager(
         repository.updateStatus(reminderId, "COMPLETED")
         val schedules = repository.getSchedulesSync(reminderId)
         scheduler.cancel(reminderId, schedules)
-        NotificationDispatcher(context).cancelReminderNotifications(reminderId)
+        NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
         Log.i("ReminderManager", "Completed reminder $reminderId.")
     }
 
@@ -142,7 +146,7 @@ class ReminderManager(
         repository.updateStatus(reminderId, "CANCELLED")
         val schedules = repository.getSchedulesSync(reminderId)
         scheduler.cancel(reminderId, schedules)
-        NotificationDispatcher(context).cancelReminderNotifications(reminderId)
+        NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
     }
 
     /**
@@ -199,7 +203,7 @@ class ReminderManager(
             repository.updateStatus(reminderId, "DISABLED")
         }
         scheduler.cancel(reminderId, schedules)
-        NotificationDispatcher(context).cancelReminderNotifications(reminderId)
+        NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
     }
 
     /**
@@ -289,9 +293,10 @@ class ReminderManager(
         title: String,
         amount: Long,
         dueDatePersian: String,
-        dueTimePersian: String = "۰۹:۰۰",
+        dueTimePersian: String? = null,
         selectedOffsets: List<PredefinedOffset>? = null
     ): Int = withContext(Dispatchers.IO) {
+        val effectiveDueTime = dueTimePersian?.takeIf { it.isNotBlank() } ?: defaultReminderTime()
         val existing = repository.getReminderBySourceId(installmentId)
         val offsets = selectedOffsets ?: if (existing != null) {
             repository.getSchedulesSync(existing.id).mapNotNull { stored ->
@@ -331,7 +336,7 @@ class ReminderManager(
             title = "سررسید قسط: $title",
             amount = amount,
             date = dueDatePersian,
-            time = dueTimePersian,
+            time = effectiveDueTime,
             status = "ACTIVE"
         ) ?: ReminderEntity(
             id = "rem_inst_$installmentId",
@@ -343,7 +348,7 @@ class ReminderManager(
             priority = "HIGH",
             status = "ACTIVE",
             date = dueDatePersian,
-            time = dueTimePersian,
+            time = effectiveDueTime,
             amount = amount,
             notificationEnabled = false,
             smsEnabled = false
@@ -382,9 +387,11 @@ class ReminderManager(
         type: String = "MAINTENANCE"
     ) = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(serviceId)
+        val effectiveTime = defaultReminderTime()
         val reminder = existing?.copy(
             title = "$serviceTitle ($vehicleName)",
             date = dueDatePersian,
+            time = effectiveTime,
             targetKilometer = dueKilometer,
             currentKilometer = currentKilometer,
             status = "ACTIVE"
@@ -398,7 +405,7 @@ class ReminderManager(
             priority = "NORMAL",
             status = "ACTIVE",
             date = dueDatePersian,
-            time = "۱۰:۰۰",
+            time = effectiveTime,
             targetKilometer = dueKilometer,
             currentKilometer = currentKilometer,
             notificationEnabled = false,
@@ -427,9 +434,11 @@ class ReminderManager(
         expirationDatePersian: String
     ) = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(insuranceId)
+        val effectiveTime = defaultReminderTime()
         val reminder = existing?.copy(
             title = "تمدید بیمه خودرو: $vehicleName",
             date = expirationDatePersian,
+            time = effectiveTime,
             status = "ACTIVE"
         ) ?: ReminderEntity(
             id = "rem_ins_$insuranceId",
@@ -441,7 +450,7 @@ class ReminderManager(
             priority = "HIGH",
             status = "ACTIVE",
             date = expirationDatePersian,
-            time = "۰۹:۰۰",
+            time = effectiveTime,
             notificationEnabled = false,
             smsEnabled = false
         )
