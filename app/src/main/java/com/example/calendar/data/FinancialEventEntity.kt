@@ -41,7 +41,7 @@ data class FinancialEventEntity(
             createdAt = createdAt,
             status = FinancialEventStatus.fromString(status),
             customReminderAt = customReminderAt,
-            reminderLabel = if (customReminderAt != null) "در تاریخ دلخواه" else ReminderBeforeOption.fromCode(reminderBefore).takeUnless { it == ReminderBeforeOption.NONE }?.label
+            reminderLabel = if (customReminderAt != null) "در تاریخ دلخواه" else ReminderBeforeOption.fromCode(reminderBefore).takeUnless { it == ReminderBeforeOption.NONE || it == ReminderBeforeOption.CUSTOM }?.label
         )
     }
 
