@@ -257,8 +257,11 @@ fun CheckSummaryCards(
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
                     ) {
                         Column(
-                            modifier = Modifier.padding(10.dp),
-                            horizontalAlignment = Alignment.Start
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Text(
                                 text = "پرداختی ماه",
