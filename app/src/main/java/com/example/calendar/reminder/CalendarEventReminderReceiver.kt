@@ -9,10 +9,12 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import com.example.MainActivity
 import com.example.R
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
+import com.example.calendar.domain.model.ReminderBeforeOption
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,6 +24,7 @@ class CalendarEventReminderReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                SessionManager.init(context.applicationContext)
                 val dao = AppDatabase.getDatabase(context).financialEventDao()
                 val userId = SessionManager.userId
                 if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
@@ -42,6 +45,7 @@ class CalendarEventReminderReceiver : BroadcastReceiver() {
                     if (userId == null) return@launch
                     val event = dao.getEventById(userId, eventId)?.toDomain() ?: return@launch
                     if (event.status.name == "PAID") return@launch
+                    if (event.reminderBefore != ReminderBeforeOption.CUSTOM) return@launch
                     val triggerAt = event.customReminderAt ?: return@launch
                     if (triggerAt > System.currentTimeMillis()) {
                         CalendarEventReminderScheduler(context).schedule(event)
@@ -59,10 +63,18 @@ class CalendarEventReminderReceiver : BroadcastReceiver() {
 
     private fun showNotification(context: Context, eventId: String, title: String, description: String) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+            Log.i(TAG, "System notifications are disabled; suppressing calendar reminder $eventId.")
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(
                 NotificationChannel(CHANNEL_ID, "یادآوری رویدادهای مالی", NotificationManager.IMPORTANCE_HIGH)
             )
+            if (manager.getNotificationChannel(CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE) {
+                Log.i(TAG, "Calendar reminder channel is disabled; suppressing $eventId.")
+                return
+            }
         }
         val openApp = PendingIntent.getActivity(
             context,
