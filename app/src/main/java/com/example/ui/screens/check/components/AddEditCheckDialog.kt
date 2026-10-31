@@ -126,6 +126,9 @@ fun AddEditCheckDialog(
             },
         ) { padding ->
             val formScrollState = rememberScrollState()
+            LaunchedEffect(showError) {
+                if (showError) formScrollState.animateScrollTo(formScrollState.maxValue)
+            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
