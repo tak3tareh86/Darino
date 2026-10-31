@@ -236,7 +236,7 @@ class NotificationDispatcher(private val context: Context) {
         )
 
         // Build notification body
-        val amountText = reminder.amount?.let { " • مبلغ: ${MoneyFormatter.formatToman(it)}" }.orEmpty()
+        val amountText = reminder.amount?.takeIf { it > 0L }?.let { " • مبلغ: ${MoneyFormatter.formatToman(it)}" }.orEmpty()
         val bodyText = if (reminder.description.isNotBlank()) {
             "${reminder.description}$amountText"
         } else {
