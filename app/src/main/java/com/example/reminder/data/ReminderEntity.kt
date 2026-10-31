@@ -18,7 +18,7 @@ data class ReminderEntity(
     val date: String,
     val time: String = "۰۹:۰۰",
     val timezone: String = "Asia/Tehran",
-    val notificationEnabled: Boolean = true,
+    val notificationEnabled: Boolean = false,
     val fullScreenAlarmEnabled: Boolean = false,
     val smsEnabled: Boolean = false,
     val phoneNumber: String? = null,
