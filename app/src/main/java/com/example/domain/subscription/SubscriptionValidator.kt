@@ -9,7 +9,7 @@ object SubscriptionValidator {
     fun calculateTrialDaysRemaining(info: SubscriptionInfo, currentTimeMillis: Long = System.currentTimeMillis()): Long {
         if (info.trialEndAt <= 0L) return 0L
         val diffMillis = info.trialEndAt - currentTimeMillis
-        return if (diffMillis <= 0L) 0L else (diffMillis / (1000 * 60 * 60 * 24))
+        return if (diffMillis <= 0L) 0L else ((diffMillis + 86_400_000L - 1L) / 86_400_000L)
     }
 
     fun calculateSubscriptionDaysRemaining(info: SubscriptionInfo, currentTimeMillis: Long = System.currentTimeMillis()): Long {
@@ -28,6 +28,12 @@ object SubscriptionValidator {
      * and clock manipulation safeguards.
      */
     fun evaluateStatus(info: SubscriptionInfo, currentTimeMillis: Long = System.currentTimeMillis()): SubscriptionStatus {
+        // An active-looking cached timestamp is not sufficient when Market could not provide
+        // the purchase timestamp needed to establish the entitlement period.
+        if (info.marketAccountState == "PURCHASE_TIME_UNAVAILABLE") {
+            return SubscriptionStatus.LOCKED
+        }
+
         // Clock tampering check: if current time is significantly before last sync time, lock or require sync
         if (info.lastSyncAt > 0L && currentTimeMillis < info.lastSyncAt - (5 * 60 * 1000L)) {
             // Clock was set backwards
