@@ -135,7 +135,7 @@ fun SubscriptionStatusCard(
                                 shape = CircleShape,
                                 color = if (isWarningActive) Color.White.copy(alpha = 0.2f) else Color(0xFFF59E0B).copy(alpha = 0.25f),
                                 border = BorderStroke(1.dp, if (isWarningActive) Color.White else Color(0xFFF59E0B)),
-                                modifier = Modifier.size(34.dp).then(if (onDebugLongPress != null) Modifier.pointerInput(onDebugLongPress) { detectTapGestures(onLongPress = { onDebugLongPress() }) } else Modifier).then(if (onDebugLongPress != null) Modifier.pointerInput(onDebugLongPress) { detectTapGestures(onLongPress = { onDebugLongPress() }) } else Modifier)
+                                modifier = Modifier.size(34.dp).then(if (onDebugLongPress != null) Modifier.pointerInput(onDebugLongPress) { detectTapGestures(onLongPress = { onDebugLongPress() }) } else Modifier)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
@@ -352,7 +352,7 @@ fun SubscriptionStatusCard(
                                     shape = CircleShape,
                                     color = Color(0xFFF59E0B).copy(alpha = 0.25f),
                                     border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.8f)),
-                                    modifier = Modifier.size(34.dp)
+                                    modifier = Modifier.size(34.dp).then(if (onDebugLongPress != null) Modifier.pointerInput(onDebugLongPress) { detectTapGestures(onLongPress = { onDebugLongPress() }) } else Modifier)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
