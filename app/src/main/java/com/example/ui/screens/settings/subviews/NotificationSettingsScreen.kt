@@ -234,10 +234,17 @@ fun NotificationSettingsScreen(
                                             type = "GENERAL",
                                             date = "امروز",
                                             time = "هم‌اکنون",
-                                            priority = "HIGH"
+                                            priority = "HIGH",
+                                            notificationEnabled = true
                                         )
-                                        dispatcher.dispatchNotification(testReminder)
-                                        snackbarHostState.showSnackbar("هشدار آزمایشی به اندروید ارسال شد؛ نمایش تمام‌صفحه به مجوزها و وضعیت قفل گوشی بستگی دارد.")
+                                        val notificationId = dispatcher.dispatchNotification(testReminder)
+                                        snackbarHostState.showSnackbar(
+                                            if (notificationId >= 0) {
+                                                "اعلان آزمایشی ارسال شد؛ نمایش آن به مجوز اعلان اندروید بستگی دارد."
+                                            } else {
+                                                "اعلان ارسال نشد؛ ابتدا اعلان‌های سراسری دارینو و مجوز اعلان اندروید را فعال کنید."
+                                            }
+                                        )
                                     } catch (e: Exception) {
                                         snackbarHostState.showSnackbar("خطا در ارسال اعلان تست: ${e.localizedMessage}")
                                     }
