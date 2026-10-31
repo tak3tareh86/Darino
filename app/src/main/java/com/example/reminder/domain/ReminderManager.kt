@@ -180,6 +180,7 @@ class ReminderManager(
                 val disabledSchedules = enabledSchedules.map { it.copy(enabled = false) }
                 repository.updateReminderWithSchedules(enabledReminder.copy(status = "DISABLED"), disabledSchedules)
                 scheduler.cancel(reminderId, enabledSchedules)
+                NotificationDispatcher(context).cancelReminderNotifications(reminderId, enabledSchedules)
             } catch (rollbackEx: Exception) {
                 Log.e("ReminderManager", "Failed to rollback reminder to DISABLED", rollbackEx)
             }
@@ -322,6 +323,7 @@ class ReminderManager(
             if (existing != null) {
                 val oldSchedules = repository.getSchedulesSync(existing.id)
                 scheduler.cancel(existing.id, oldSchedules)
+                NotificationDispatcher(context).cancelReminderNotifications(existing.id, oldSchedules)
                 val disabled = existing.copy(
                     notificationEnabled = false,
                     fullScreenAlarmEnabled = false,
