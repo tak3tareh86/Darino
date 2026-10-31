@@ -364,7 +364,7 @@ fun FinancialCalendarScreen(
                 ) {
                     Surface(
                         modifier = Modifier
-                            .weight(1.25f)
+                            .weight(1f)
                             .testTag("day_events_title_chip"),
                         shape = chipShape,
                         color = MaterialTheme.colorScheme.surface,
@@ -372,23 +372,23 @@ fun FinancialCalendarScreen(
                     ) {
                         Box(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.CenterEnd
                         ) {
                             Text(
-                                text = if (state.searchQuery.isNotBlank()) "نتایج جستجو" else "رویدادهای $displaySelected",
+                                text = if (state.searchQuery.isNotBlank()) "نتایج جستجو" else displaySelected,
                                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 softWrap = false,
                                 overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.End
                             )
                         }
                     }
 
                     Surface(
                         modifier = Modifier
-                            .weight(0.9f)
+                            .weight(1f)
                             .testTag("day_events_count_chip"),
                         shape = chipShape,
                         color = MaterialTheme.colorScheme.secondaryContainer,
@@ -414,7 +414,7 @@ fun FinancialCalendarScreen(
                         Surface(
                             onClick = { selectedDayForFullDetail = state.selectedDate },
                             modifier = Modifier
-                                .weight(1.05f)
+                                .weight(1f)
                                 .testTag("open_day_details_button"),
                             shape = chipShape,
                             color = MaterialTheme.colorScheme.primaryContainer,
