@@ -319,23 +319,36 @@ class LocalBackupRepository(
                     )
                 }
 
+                // Smart reminder IDs are globally unique primary keys, not user-scoped.
+                // Generate fresh IDs and remap every child reference so a backup can be
+                // restored on the same device, another account, or repeatedly without collisions.
+                val restoredSmartReminderIds = mutableMapOf<String, String>()
                 backup.reminders.forEach { reminder ->
+                    val newReminderId = java.util.UUID.randomUUID().toString()
+                    restoredSmartReminderIds[reminder.id] = newReminderId
                     val remappedSourceId = when (reminder.sourceType) {
                         "INSTALLMENT" -> reminder.sourceId
                             ?.let { restoredInstallmentReferenceIds[it] ?: it }
                         "CHECK" -> reminder.sourceId?.toIntOrNull()
                             ?.let { restoredCheckIds[it]?.toString() } ?: reminder.sourceId
-                        "VEHICLE", "VEHICLE_SERVICE" -> reminder.sourceId
-                            ?.let { restoredServiceIds[it] ?: it }
+                        "VEHICLE" -> reminder.sourceId?.let { restoredVehicleIds[it] ?: it }
+                        "VEHICLE_SERVICE" -> reminder.sourceId?.let { restoredServiceIds[it] ?: it }
                         else -> reminder.sourceId
                     }
                     db.smartReminderDao().insertReminderForBackup(
-                        reminder.copy(userId = userId, sourceId = remappedSourceId)
+                        reminder.copy(id = newReminderId, userId = userId, sourceId = remappedSourceId)
                     )
                 }
 
+                val restoredSmartScheduleIds = mutableMapOf<String, String>()
                 backup.reminderSchedules.forEach { schedule ->
-                    db.smartReminderDao().insertScheduleForBackup(schedule)
+                    val newReminderId = restoredSmartReminderIds[schedule.reminderId]
+                        ?: throw IllegalStateException("زمان‌بندی یادآور به یادآور موجود در فایل پشتیبان متصل نیست")
+                    val newScheduleId = java.util.UUID.randomUUID().toString()
+                    restoredSmartScheduleIds[schedule.id] = newScheduleId
+                    db.smartReminderDao().insertScheduleForBackup(
+                        schedule.copy(id = newScheduleId, reminderId = newReminderId)
+                    )
                 }
 
                 val restoredLegacyReminderIds = mutableMapOf<Int, Int>()
@@ -370,7 +383,21 @@ class LocalBackupRepository(
 
                 if (backup.metadata.backupVersion >= 5) {
                     backup.vehicleStore?.let { db.vehicleDao().insertVehicleStoreForBackup(it.copy(userId = userId)) }
-                    backup.reminderDeliveryLogs.forEach { db.smartReminderDao().insertDeliveryLogForBackup(it) }
+                    backup.reminderDeliveryLogs.forEach { log ->
+                        val newReminderId = restoredSmartReminderIds[log.reminderId]
+                            ?: throw IllegalStateException("سوابق ارسال به یادآور موجود در فایل پشتیبان متصل نیست")
+                        val newScheduleId = log.scheduleId?.let { oldScheduleId ->
+                            restoredSmartScheduleIds[oldScheduleId]
+                                ?: throw IllegalStateException("سوابق ارسال به زمان‌بندی موجود در فایل پشتیبان متصل نیست")
+                        }
+                        db.smartReminderDao().insertDeliveryLogForBackup(
+                            log.copy(
+                                id = java.util.UUID.randomUUID().toString(),
+                                reminderId = newReminderId,
+                                scheduleId = newScheduleId
+                            )
+                        )
+                    }
                 }
 
                 if (backup.metadata.backupVersion >= 4) {
