@@ -7,6 +7,7 @@ import android.content.Intent
 import android.util.Log
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
+import com.example.data.preferences.AppPreferencesRepository
 import com.example.reminder.domain.DispatchDecision
 import com.example.reminder.domain.MockSmsDispatcher
 import com.example.reminder.domain.NotificationDispatcher
@@ -127,7 +128,10 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                     NotificationDispatcher(context).dispatchNotification(reminder, schedule)
                 }
 
-                if (reminder.smsEnabled && !reminder.phoneNumber.isNullOrBlank()) {
+                if (reminder.smsEnabled &&
+                    AppPreferencesRepository.getInstance(context).smsNotificationsEnabled.value &&
+                    !reminder.phoneNumber.isNullOrBlank()
+                ) {
                     val result = MockSmsDispatcher().sendSms(
                         phoneNumber = reminder.phoneNumber,
                         message = buildString {
