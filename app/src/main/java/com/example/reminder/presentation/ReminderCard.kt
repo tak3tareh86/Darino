@@ -86,6 +86,7 @@ fun ReminderCard(
             .testTag("reminder_card_${reminder.id}"),
         onClick = onClick
     ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -108,7 +109,7 @@ fun ReminderCard(
 
                 // Title & Category
                 Column(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).padding(end = 34.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
@@ -327,6 +328,32 @@ fun ReminderCard(
                     }
                 }
             }
+        }
+
+        // Delete action stays inside the card at its physical top-left corner.
+        IconButton(
+            onClick = { showDeleteConfirmDialog = true },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 2.dp, end = 2.dp)
+                .size(30.dp)
+                .testTag("btn_delete_reminder_${reminder.id}")
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.75f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.DeleteOutline,
+                    contentDescription = "حذف یادآور",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+        }
         }
     }
 }
