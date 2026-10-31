@@ -336,55 +336,58 @@ fun SubscriptionStatusCard(
                 ) {
                     // Header: Star + greeting on one side, remaining-days badge on the other.
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
+                        Box(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            contentAlignment = Alignment.Center
                         ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = Color(0xFFF59E0B).copy(alpha = 0.25f),
-                                border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.8f)),
-                                modifier = Modifier.size(34.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.AutoAwesome,
-                                        contentDescription = null,
-                                        tint = Color(0xFFFDE047),
-                                        modifier = Modifier.size(18.dp)
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFFF59E0B).copy(alpha = 0.25f),
+                                    border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.8f)),
+                                    modifier = Modifier.size(34.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = Color(0xFFFDE047),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                // Gold Yearly Tag
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFFF59E0B),
+                                    contentColor = Color(0xFF451A03)
+                                ) {
+                                    Text(
+                                        text = if (isTrial) "${IranianPhoneUtils.convertDigitsToPersian(state.trialDaysRemaining.toString())} روز مانده" else "ویژه ۳۶۵ روز",
+                                        fontSize = 9.5.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                     )
                                 }
                             }
 
-                            // Gold Yearly Tag
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFFF59E0B),
-                                contentColor = Color(0xFF451A03)
-                            ) {
-                                Text(
-                                    text = if (isTrial) "${IranianPhoneUtils.convertDigitsToPersian(state.trialDaysRemaining.toString())} روز مانده" else "ویژه ۳۶۵ روز",
-                                    fontSize = 9.5.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                            Text(
+                                text = if (isExpired) "پایان دوره آزمایشی" else "دوست خوبم سلام",
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = offerTextColor
                                 )
-                            }
-                        }
-
-                        Text(
-                            text = if (isExpired) "پایان دوره آزمایشی" else "دوست خوبم سلام",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 6.dp),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = offerTextColor
                             )
-                        )
-                        // Use the full card width below the centered greeting, with a small inset.
+                        }
+                        // Description starts immediately below the aligned header row.
                         Spacer(modifier = Modifier.height(2.dp))
                         Column(
                             modifier = Modifier
@@ -396,7 +399,7 @@ fun SubscriptionStatusCard(
                                 text = if (isExpired) {
                                     "دوره آزمایشی تمام شده؛ برای ادامه اشتراک سالیانه تهیه کنید."
                                 } else {
-                                    "از تمام امکانات برنامه به مدت ۱۴ روز رایگان و بدون محدودیت استفاده کن. اگر از تجربه کار با برنامه رضایت داشتی پس از پایان دوره آزمایشی اشتراک سالیانه را تهیه کن."
+                                    "از تمام امکانات برنامه به مدت ۱۴ روز رایگان و بدون محدودیت استفاده کن. اگر از تجربه کار با برنامه رضایت داشتی پس از پایان دوره آزمایشی اشتراک سالیانه را تهیه کن"
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 textAlign = TextAlign.Justify,
@@ -414,7 +417,7 @@ fun SubscriptionStatusCard(
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontSize = 10.5.sp,
                                         lineHeight = 15.sp,
-                                        color = Color(0xFFE2E8F0).copy(alpha = 0.9f)
+                                        color = offerTextColor
                                     )
                                 )
                             }
