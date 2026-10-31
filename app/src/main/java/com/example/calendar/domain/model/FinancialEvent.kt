@@ -81,6 +81,7 @@ enum class ReminderBeforeOption(
     val label: String,
     val code: String
 ) {
+    NONE("بدون یادآوری", "NONE"),
     ONE_DAY("یک روز قبل", "1_DAY"),
     THREE_DAYS("سه روز قبل", "3_DAYS"),
     SEVEN_DAYS("هفت روز قبل", "7_DAYS"),
@@ -88,7 +89,7 @@ enum class ReminderBeforeOption(
 
     companion object {
         fun fromCode(code: String): ReminderBeforeOption {
-            return entries.find { it.code.equals(code, ignoreCase = true) } ?: ONE_DAY
+            return entries.find { it.code.equals(code, ignoreCase = true) } ?: NONE
         }
     }
 }
@@ -102,7 +103,8 @@ data class FinancialEvent(
     val date: String, // YYYY/MM/DD in Persian or English digits, e.g. "1405/06/15"
     val time: String? = null, // e.g. "10:00"
     val repeatType: String = "NONE", // "NONE", "MONTHLY", "YEARLY"
-    val reminderBefore: ReminderBeforeOption = ReminderBeforeOption.ONE_DAY,
+    val reminderBefore: ReminderBeforeOption = ReminderBeforeOption.NONE,
+    val reminderLabel: String? = reminderBefore.takeUnless { it == ReminderBeforeOption.NONE }?.label,
     val sourceId: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val status: FinancialEventStatus = FinancialEventStatus.PENDING,
