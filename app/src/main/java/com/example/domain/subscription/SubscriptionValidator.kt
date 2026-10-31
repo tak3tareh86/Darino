@@ -6,6 +6,8 @@ import java.util.Date
 
 object SubscriptionValidator {
 
+    private const val MARKET_VERIFICATION_MAX_AGE_MILLIS = 24 * 60 * 60 * 1000L
+
     fun calculateTrialDaysRemaining(info: SubscriptionInfo, currentTimeMillis: Long = System.currentTimeMillis()): Long {
         if (info.trialEndAt <= 0L) return 0L
         val diffMillis = info.trialEndAt - currentTimeMillis
@@ -40,7 +42,17 @@ object SubscriptionValidator {
             return SubscriptionStatus.LOCKED
         }
 
-        // 1. Active Paid Subscription Check
+        // Poolakey getSubscribedProducts() reports currently active subscriptions.
+        // Trust that Market confirmation for a bounded cache window, even if purchaseTime
+        // still points to the original cycle and its locally estimated 365-day end has passed.
+        val marketVerificationFresh =
+            info.marketAccountState == "MARKET_ACTIVE" &&
+                currentTimeMillis - info.lastSyncAt <= MARKET_VERIFICATION_MAX_AGE_MILLIS
+        if (marketVerificationFresh) {
+            return SubscriptionStatus.ACTIVE
+        }
+
+        // 1. Active Paid Subscription Check (local fallback when Market is unavailable)
         if (info.subscriptionEndAt != null && info.subscriptionEndAt > currentTimeMillis) {
             return SubscriptionStatus.ACTIVE
         }
