@@ -14,6 +14,7 @@ import com.example.MainActivity
 import com.example.R
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
+import com.example.data.preferences.AppPreferencesRepository
 import com.example.calendar.domain.model.ReminderBeforeOption
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +63,10 @@ class CalendarEventReminderReceiver : BroadcastReceiver() {
     }
 
     private fun showNotification(context: Context, eventId: String, title: String, description: String) {
+        if (!AppPreferencesRepository.getInstance(context).notificationsEnabled.value) {
+            Log.i(TAG, "Global Android notifications are disabled; suppressing calendar reminder $eventId.")
+            return
+        }
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             Log.i(TAG, "System notifications are disabled; suppressing calendar reminder $eventId.")
