@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 class SubscriptionViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -30,6 +31,25 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
     init {
         observeSubscription()
         syncWithMarketOnStartup()
+        startEntitlementClock()
+    }
+
+    /**
+     * Re-evaluates the locally stored expiry while the app remains open.
+     * This makes the access gate close even when Market emits no new purchase event.
+     */
+    private fun startEntitlementClock() {
+        viewModelScope.launch {
+            while (true) {
+                delay(60_000L)
+                val latestInfo = _uiState.value.info
+                if (latestInfo.subscriptionStatus != SubscriptionStatus.CHECKING &&
+                    latestInfo.subscriptionStatus != SubscriptionStatus.ERROR
+                ) {
+                    updateStateWithInfo(latestInfo)
+                }
+            }
+        }
     }
 
     fun initializeUserTrial(userId: String) {
@@ -49,14 +69,17 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
 
     private fun updateStateWithInfo(info: SubscriptionInfo) {
         val now = System.currentTimeMillis()
-        val trialDays = SubscriptionValidator.calculateTrialDaysRemaining(info, now)
-        val trialJalali = SubscriptionValidator.formatEndJalaliDate(info.trialEndAt)
-        val subDays = SubscriptionValidator.calculateSubscriptionDaysRemaining(info, now)
-        val subJalali = SubscriptionValidator.formatEndJalaliDate(info.subscriptionEndAt ?: 0L)
+        val evaluatedInfo = info.copy(
+            subscriptionStatus = SubscriptionValidator.evaluateStatus(info, now)
+        )
+        val trialDays = SubscriptionValidator.calculateTrialDaysRemaining(evaluatedInfo, now)
+        val trialJalali = SubscriptionValidator.formatEndJalaliDate(evaluatedInfo.trialEndAt)
+        val subDays = SubscriptionValidator.calculateSubscriptionDaysRemaining(evaluatedInfo, now)
+        val subJalali = SubscriptionValidator.formatEndJalaliDate(evaluatedInfo.subscriptionEndAt ?: 0L)
 
         _uiState.update { current ->
             current.copy(
-                info = info,
+                info = evaluatedInfo,
                 trialDaysRemaining = trialDays,
                 trialEndJalaliDate = trialJalali,
                 subscriptionDaysRemaining = subDays,
