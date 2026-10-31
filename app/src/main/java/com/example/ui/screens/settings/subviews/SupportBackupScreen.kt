@@ -181,12 +181,20 @@ fun SupportBackupScreen(
                                     treeUri,
                                     android.provider.DocumentsContract.getTreeDocumentId(treeUri)
                                 )
-                                android.provider.DocumentsContract.createDocument(
+                                val createdUri = android.provider.DocumentsContract.createDocument(
                                     context.contentResolver,
                                     parentUri,
                                     "application/json",
                                     filename
                                 ) ?: throw java.io.IOException("ساخت فایل در پوشه انتخاب‌شده ناموفق بود.")
+                                val actualName = getDocumentDisplayName(context, createdUri)
+                                if (actualName != filename) {
+                                    runCatching {
+                                        android.provider.DocumentsContract.deleteDocument(context.contentResolver, createdUri)
+                                    }
+                                    throw java.io.IOException("نام فایل در پوشه مقصد تغییر کرد؛ برای جلوگیری از ساخت نام تکراری، ذخیره‌سازی متوقف شد.")
+                                }
+                                createdUri
                             }
                             try {
                                 withContext(Dispatchers.IO) {
@@ -233,25 +241,7 @@ fun SupportBackupScreen(
         }
     }
 
-    val restoreBackupLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) {
-            scope.launch {
-                try {
-                    val jsonString = context.contentResolver.openInputStream(uri)
-                        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
-                        ?: throw java.io.IOException("امکان خواندن فایل انتخاب‌شده وجود ندارد.")
-                    val backup = com.example.data.backup.BackupFileCodec.decode(jsonString)
-                    pendingRestoreBackup = backup
-                    showRestoreConfirmation = true
-                } catch (e: Exception) {
-                    Log.e("SupportBackupScreen", "Backup file reading failed", e)
-                    Toast.makeText(context, "خطا در خواندن پشتیبان: ${e.message ?: "فایل نامعتبر است"}", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-    }
+
 
     // Support state
     var ticketSubject by remember { mutableStateOf("") }
@@ -676,7 +666,9 @@ private fun findExistingBackupDocument(
         android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
     )
 
-    resolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
+    val cursor = resolver.query(childrenUri, projection, null, null, null)
+        ?: throw java.io.IOException("امکان بررسی فایل‌های موجود در پوشه انتخاب‌شده وجود ندارد.")
+    cursor.use {
         val idColumn = cursor.getColumnIndexOrThrow(
             android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID
         )
@@ -692,6 +684,20 @@ private fun findExistingBackupDocument(
                 )
             }
         }
+    }
+    return null
+}
+
+private fun getDocumentDisplayName(
+    context: android.content.Context,
+    documentUri: Uri
+): String? {
+    val projection = arrayOf(android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+    context.contentResolver.query(documentUri, projection, null, null, null)?.use { cursor ->
+        val nameColumn = cursor.getColumnIndex(
+            android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
+        )
+        if (nameColumn >= 0 && cursor.moveToFirst()) return cursor.getString(nameColumn)
     }
     return null
 }
