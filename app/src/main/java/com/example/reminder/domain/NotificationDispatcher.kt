@@ -91,6 +91,8 @@ class NotificationDispatcher(private val context: Context) {
                     NotificationManager.IMPORTANCE_DEFAULT
                 ).apply {
                     description = "گزارشات و اعلان‌های کلی برنامه"
+                    enableVibration(vibrationEnabled)
+                    setSound(if (soundEnabled) defaultSoundUri else null, if (soundEnabled) audioAttributes else null)
                 },
                 NotificationChannel(
                     configuredChannelId(CHANNEL_FULL_SCREEN_ALARMS),
