@@ -33,6 +33,8 @@ import androidx.compose.material.icons.rounded.Mail
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -129,6 +131,9 @@ fun SupportBackupScreen(
     var pendingBackupPayload by remember { mutableStateOf<ByteArray?>(null) }
     var pendingBackupChecksum by remember { mutableStateOf<String?>(null) }
     var pendingBackupSummary by remember { mutableStateOf("") }
+    var showShareNameDialog by remember { mutableStateOf(false) }
+    var shareFilename by remember { mutableStateOf(buildBackupFilename().removeSuffix(".json")) }
+    var pendingSharePayload by remember { mutableStateOf<String?>(null) }
 
     fun updateBackupTimestamp(summary: String) {
         val nowTime = System.currentTimeMillis()
@@ -224,6 +229,80 @@ fun SupportBackupScreen(
             Log.e("SupportBackupScreen", "Unable to open support email app", e)
             Toast.makeText(context, "باز کردن برنامه ایمیل ناموفق بود.", Toast.LENGTH_LONG).show()
         }
+    }
+
+    if (showShareNameDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showShareNameDialog = false
+                pendingSharePayload = null
+            },
+            title = { Text("نام فایل پشتیبان") },
+            text = {
+                OutlinedTextField(
+                    value = shareFilename,
+                    onValueChange = { shareFilename = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("نام فایل") },
+                    supportingText = { Text("پسوند .json به‌صورت خودکار اضافه می‌شود.") }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = shareFilename.isNotBlank() && shareFilename.trim() !in setOf(".", "..") &&
+                        shareFilename.none { it in charArrayOf('/', '\\\\', ':', '*', '?', '"', '<', '>', '|') },
+                    onClick = {
+                        val json = pendingSharePayload
+                        val safeName = shareFilename.trim().removeSuffix(".json").ifBlank { "Darino backup" } + ".json"
+                        showShareNameDialog = false
+                        pendingSharePayload = null
+                        if (json != null) {
+                            scope.launch {
+                                try {
+                                    val shareDir = java.io.File(context.cacheDir, "shared_backups").apply { mkdirs() }
+                                    withContext(Dispatchers.IO) {
+                                        shareDir.listFiles()?.filter {
+                                            it.isFile && it.name.startsWith("darino-share-") &&
+                                                System.currentTimeMillis() - it.lastModified() > 24L * 60L * 60L * 1000L
+                                        }?.forEach { it.delete() }
+                                    }
+                                    val cacheFile = java.io.File(shareDir, "darino-share-${System.currentTimeMillis()}-${safeName}")
+                                    withContext(Dispatchers.IO) {
+                                        cacheFile.outputStream().buffered().use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                                        if (!cacheFile.isFile || cacheFile.length() <= 0L) {
+                                            throw java.io.IOException("فایل پشتیبان برای اشتراک‌گذاری خالی است.")
+                                        }
+                                        com.example.data.backup.BackupFileCodec.decode(
+                                            cacheFile.inputStream().bufferedReader(Charsets.UTF_8).use { it.readText() }
+                                        )
+                                    }
+                                    val contentUri = androidx.core.content.FileProvider.getUriForFile(
+                                        context, "com.example.fileprovider", cacheFile
+                                    )
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "application/json"
+                                        putExtra(Intent.EXTRA_STREAM, contentUri)
+                                        clipData = android.content.ClipData.newUri(context.contentResolver, safeName, contentUri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, "اشتراک‌گذاری فایل پشتیبان"))
+                                } catch (e: Exception) {
+                                    Log.e("SupportBackupScreen", "Backup sharing failed", e)
+                                    Toast.makeText(context, "خطا در اشتراک‌گذاری: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    }
+                ) { Text("ادامه") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showShareNameDialog = false
+                    pendingSharePayload = null
+                }) { Text("انصراف") }
+            }
+        )
     }
 
     if (showBackupSuccessDialog) {
@@ -456,37 +535,21 @@ fun SupportBackupScreen(
                             // Share Backup File
                             OutlinedButton(
                                 onClick = {
-                                    scope.launch {
-                                        try {
-                                            val backup = backupManager.createBackup()
-                                            val jsonString = com.example.data.backup.BackupFileCodec.encode(backup)
-
-                                            val defaultFilename = buildBackupFilename()
-
-                                            val cacheFile = java.io.File(context.cacheDir, defaultFilename)
-                                            cacheFile.outputStream().buffered().use { stream ->
-                                                stream.write(jsonString.toByteArray(Charsets.UTF_8))
-                                                stream.flush()
+                                    if (!isBackingUp) {
+                                        isBackingUp = true
+                                        scope.launch {
+                                            try {
+                                                val backup = backupManager.createBackup()
+                                                val jsonString = com.example.data.backup.BackupFileCodec.encode(backup)
+                                                pendingSharePayload = jsonString
+                                                shareFilename = buildBackupFilename().removeSuffix(".json")
+                                                showShareNameDialog = true
+                                            } catch (e: Exception) {
+                                                Log.e("SupportBackupScreen", "Backup preparation for sharing failed", e)
+                                                Toast.makeText(context, "خطا در آماده‌سازی پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
+                                            } finally {
+                                                isBackingUp = false
                                             }
-                                            if (!cacheFile.isFile || cacheFile.length() <= 0L) {
-                                                throw java.io.IOException("فایل پشتیبان برای اشتراک‌گذاری خالی است.")
-                                            }
-
-                                            val contentUri = androidx.core.content.FileProvider.getUriForFile(
-                                                context,
-                                                "com.example.fileprovider",
-                                                cacheFile
-                                            )
-
-                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                type = "application/json"
-                                                putExtra(Intent.EXTRA_STREAM, contentUri)
-                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            }
-
-                                            context.startActivity(Intent.createChooser(shareIntent, "اشتراک‌گذاری فایل پشتیبان"))
-                                        } catch (e: Exception) {
-                                            Toast.makeText(context, "خطا در اشتراک‌گذاری: ${e.message}", Toast.LENGTH_LONG).show()
                                         }
                                     }
                                 },
