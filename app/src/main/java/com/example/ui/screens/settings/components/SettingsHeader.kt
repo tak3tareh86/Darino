@@ -50,7 +50,8 @@ fun SettingsHeader(
     isSearchActive: Boolean = false,
     onBackClick: () -> Unit = {},
     onSearchToggle: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    compact: Boolean = false
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
@@ -89,7 +90,7 @@ fun SettingsHeader(
                 .fillMaxWidth()
                 .background(headerGradient)
                 .statusBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(horizontal = if (compact) 16.dp else 20.dp, vertical = if (compact) 7.dp else 16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
