@@ -144,7 +144,7 @@ class SubscriptionRepositoryImpl(
             ),
             productId = purchaseInfo.productId,
             purchaseTokenReference = purchaseInfo.purchaseToken,
-            marketAccountState = "ACTIVE",
+            marketAccountState = "MARKET_ACTIVE",
             lastSyncAt = maxOf(currentLocal.lastSyncAt, now)
         )
 
