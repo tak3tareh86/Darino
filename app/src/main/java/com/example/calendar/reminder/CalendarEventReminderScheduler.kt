@@ -14,6 +14,8 @@ class CalendarEventReminderScheduler(private val context: Context) {
 
     fun schedule(event: FinancialEvent) {
         cancel(event.id)
+        // A timestamp alone is not consent: only the explicit CUSTOM choice may arm an alarm.
+        if (event.reminderBefore != com.example.calendar.domain.model.ReminderBeforeOption.CUSTOM) return
         val triggerAt = event.customReminderAt ?: return
         if (triggerAt <= System.currentTimeMillis()) return
 
