@@ -655,6 +655,71 @@ fun SupportBackupScreen(
     }
 }
 
+private fun buildBackupFilename(): String {
+    val (year, month, day) = com.example.calendar.domain.CalendarDateUtils.getCurrentJalaliDate()
+    return "Darino backup ${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}.json"
+}
+
+private fun findExistingBackupDocument(
+    context: android.content.Context,
+    treeUri: Uri,
+    filename: String
+): Uri? {
+    val resolver = context.contentResolver
+    val parentDocumentId = android.provider.DocumentsContract.getTreeDocumentId(treeUri)
+    val childrenUri = android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(
+        treeUri,
+        parentDocumentId
+    )
+    val projection = arrayOf(
+        android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+        android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
+    )
+
+    resolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
+        val idColumn = cursor.getColumnIndexOrThrow(
+            android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID
+        )
+        val nameColumn = cursor.getColumnIndexOrThrow(
+            android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
+        )
+        while (cursor.moveToNext()) {
+            if (cursor.getString(nameColumn) == filename) {
+                val documentId = cursor.getString(idColumn)
+                return android.provider.DocumentsContract.buildDocumentUriUsingTree(
+                    treeUri,
+                    documentId
+                )
+            }
+        }
+    }
+    return null
+}
+
+private fun writeAndVerifyBackup(
+    context: android.content.Context,
+    destinationUri: Uri,
+    payload: ByteArray,
+    expectedChecksum: String
+) {
+    val output = context.contentResolver.openOutputStream(destinationUri, "wt")
+        ?: throw java.io.IOException("ارائه‌دهنده فایل اجازه نوشتن یا جایگزینی فایل را نمی‌دهد.")
+    output.buffered().use { stream ->
+        stream.write(payload)
+        stream.flush()
+    }
+
+    val savedJson = context.contentResolver.openInputStream(destinationUri)
+        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+        ?: throw java.io.IOException("فایل ذخیره شد اما امکان بررسی مجدد آن وجود ندارد.")
+    val savedBackup = com.example.data.backup.BackupFileCodec.decode(savedJson)
+    if (savedJson.toByteArray(Charsets.UTF_8).size != payload.size ||
+        savedBackup.metadata.checksum != expectedChecksum
+    ) {
+        throw java.io.IOException("بررسی صحت فایل ذخیره‌شده ناموفق بود.")
+    }
+}
+
 @Composable
 private fun SupportContactRow(
     title: String,
