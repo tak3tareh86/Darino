@@ -27,6 +27,13 @@ class NotificationDispatcher(private val context: Context) {
 
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+    private fun configuredChannelId(baseId: String): String {
+        val preferences = AppPreferencesRepository.getInstance(context)
+        val sound = if (preferences.notificationSoundEnabled.value) 1 else 0
+        val vibration = if (preferences.notificationVibrationEnabled.value) 1 else 0
+        return "${baseId}_s${sound}_v${vibration}"
+    }
+
     init {
         createNotificationChannels()
     }
@@ -47,27 +54,30 @@ class NotificationDispatcher(private val context: Context) {
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .build()
+            val preferences = AppPreferencesRepository.getInstance(context)
+            val soundEnabled = preferences.notificationSoundEnabled.value
+            val vibrationEnabled = preferences.notificationVibrationEnabled.value
             val channels = listOf(
                 NotificationChannel(
-                    CHANNEL_REMINDERS,
+                    configuredChannelId(CHANNEL_REMINDERS),
                     "یادآورهای عمومی و شخصی",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "اعلان‌های مربوط به یادآوری‌های شخصی، کاری و عمومی"
-                    enableVibration(true)
-                    setSound(defaultSoundUri, audioAttributes)
+                    enableVibration(vibrationEnabled)
+                    setSound(if (soundEnabled) defaultSoundUri else null, if (soundEnabled) audioAttributes else null)
                 },
                 NotificationChannel(
-                    CHANNEL_INSTALLMENTS,
+                    configuredChannelId(CHANNEL_INSTALLMENTS),
                     "اقساط و سررسیدهای مالی",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "اعلان‌های سررسید اقساط بانکی و چک‌ها"
-                    enableVibration(true)
-                    setSound(defaultSoundUri, audioAttributes)
+                    enableVibration(vibrationEnabled)
+                    setSound(if (soundEnabled) defaultSoundUri else null, if (soundEnabled) audioAttributes else null)
                 },
                 NotificationChannel(
-                    CHANNEL_VEHICLES,
+                    configuredChannelId(CHANNEL_VEHICLES),
                     "سرویس و بیمه خودرو",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
@@ -76,25 +86,25 @@ class NotificationDispatcher(private val context: Context) {
                     setSound(defaultSoundUri, audioAttributes)
                 },
                 NotificationChannel(
-                    CHANNEL_GENERAL,
+                    configuredChannelId(CHANNEL_GENERAL),
                     "اعلان‌های عمومی سیستم",
                     NotificationManager.IMPORTANCE_DEFAULT
                 ).apply {
                     description = "گزارشات و اعلان‌های کلی برنامه"
                 },
                 NotificationChannel(
-                    CHANNEL_FULL_SCREEN_ALARMS,
+                    configuredChannelId(CHANNEL_FULL_SCREEN_ALARMS),
                     "آلارم‌های تمام‌صفحه دارینو",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "هشدارهای زمان‌بندی‌شده هنگام قفل بودن صفحه؛ صدای ممتد در صفحه آلارم پخش می‌شود"
-                    enableVibration(true)
+                    enableVibration(vibrationEnabled)
                     // The alarm screen owns continuous ringtone playback while the device is locked.
                     setSound(null, null)
                     lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 },
                 NotificationChannel(
-                    CHANNEL_ALARM_HEADS_UP,
+                    configuredChannelId(CHANNEL_ALARM_HEADS_UP),
                     "هشدار آلارم هنگام استفاده از گوشی",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
@@ -169,13 +179,13 @@ class NotificationDispatcher(private val context: Context) {
         val useAudibleAlarmFallback = useFullScreenAlarm &&
             !launchAlarmActivityDirectly && (isDeviceInteractive || !fullScreenAccessGranted)
         val channelId = when {
-            launchAlarmActivityDirectly -> CHANNEL_FULL_SCREEN_ALARMS
-            useAudibleAlarmFallback -> CHANNEL_ALARM_HEADS_UP
-            useFullScreenAlarm -> CHANNEL_FULL_SCREEN_ALARMS
+            launchAlarmActivityDirectly -> configuredChannelId(CHANNEL_FULL_SCREEN_ALARMS)
+            useAudibleAlarmFallback -> configuredChannelId(CHANNEL_ALARM_HEADS_UP)
+            useFullScreenAlarm -> configuredChannelId(CHANNEL_FULL_SCREEN_ALARMS)
             else -> when (reminder.type.uppercase()) {
-                "INSTALLMENT" -> CHANNEL_INSTALLMENTS
-                "VEHICLE", "INSURANCE", "MAINTENANCE", "FUEL" -> CHANNEL_VEHICLES
-                else -> CHANNEL_REMINDERS
+                "INSTALLMENT" -> configuredChannelId(CHANNEL_INSTALLMENTS)
+                "VEHICLE", "INSURANCE", "MAINTENANCE", "FUEL" -> configuredChannelId(CHANNEL_VEHICLES)
+                else -> configuredChannelId(CHANNEL_REMINDERS)
             }
         }
 
@@ -319,9 +329,9 @@ class NotificationDispatcher(private val context: Context) {
                         notificationPosted = true
                         if (useFullScreenAlarm && showStandardNotification && deliveryPref == AlertDeliveryPreference.BOTH) {
                             val standardChannelId = when (reminder.type.uppercase()) {
-                                "INSTALLMENT" -> CHANNEL_INSTALLMENTS
-                                "VEHICLE", "INSURANCE", "MAINTENANCE", "FUEL" -> CHANNEL_VEHICLES
-                                else -> CHANNEL_REMINDERS
+                                "INSTALLMENT" -> configuredChannelId(CHANNEL_INSTALLMENTS)
+                                "VEHICLE", "INSURANCE", "MAINTENANCE", "FUEL" -> configuredChannelId(CHANNEL_VEHICLES)
+                                else -> configuredChannelId(CHANNEL_REMINDERS)
                             }
                             val standardChannelEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
                                 notificationManager.getNotificationChannel(standardChannelId)?.importance != NotificationManager.IMPORTANCE_NONE
