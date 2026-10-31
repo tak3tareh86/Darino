@@ -247,7 +247,7 @@ fun FinancialSummaryCard(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp
                                     ),
-                                    color = Color.White
+                                    color = primaryTextColor
                                 )
                             }
                         }
