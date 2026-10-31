@@ -887,28 +887,6 @@ private fun FormDetailsStep(
                         )
                     }
 
-                    OutlinedButton(
-                        onClick = onOpenCustomSchedule,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(32.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, if (isCustomScheduleActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Tune,
-                            contentDescription = null,
-                            tint = if (isCustomScheduleActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (isCustomScheduleActive) "اقساط غیرهمسان فعال است" else "تنظیم اقساط غیرهمسان / کارمزددار",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = if (isCustomScheduleActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                 }
             }
 
