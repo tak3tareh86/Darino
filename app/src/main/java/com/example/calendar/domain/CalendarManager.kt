@@ -281,12 +281,15 @@ class CalendarManager(private val context: Context) {
     suspend fun addEvent(event: FinancialEvent) {
         if (!event.id.startsWith("auto_")) {
             repository.insertEvent(event)
+            com.example.calendar.reminder.CalendarEventReminderScheduler(context).schedule(event)
         }
     }
 
     suspend fun updateEvent(event: FinancialEvent) {
         if (!event.id.startsWith("auto_")) {
+            com.example.calendar.reminder.CalendarEventReminderScheduler(context).cancel(event.id)
             repository.updateEvent(event)
+            com.example.calendar.reminder.CalendarEventReminderScheduler(context).schedule(event)
         } else {
             toggleStatus(event)
         }
@@ -294,6 +297,7 @@ class CalendarManager(private val context: Context) {
 
     suspend fun deleteEvent(id: String) {
         if (!id.startsWith("auto_")) {
+            com.example.calendar.reminder.CalendarEventReminderScheduler(context).cancel(id)
             repository.deleteEventById(id)
         }
     }
