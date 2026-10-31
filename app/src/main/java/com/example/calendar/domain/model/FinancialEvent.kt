@@ -109,7 +109,7 @@ data class FinancialEvent(
     val status: FinancialEventStatus = FinancialEventStatus.PENDING,
     val isDueSoon: Boolean = false,
     val isOverdue: Boolean = false,
-    val reminderLabel: String? = reminderBefore.takeUnless { it == ReminderBeforeOption.NONE }?.label,
+    val reminderLabel: String? = reminderBefore.takeUnless { it == ReminderBeforeOption.NONE || it == ReminderBeforeOption.CUSTOM }?.label,
     val customReminderAt: Long? = null
 ) {
     val formattedAmount: String?
