@@ -11,6 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.calendar.domain.CalendarDateUtils
@@ -180,8 +182,11 @@ fun CheckSummaryCards(
                         }
                         Text(
                             text = "خلاصه چک‌های ماه جاری ($monthName)",
+                            modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -190,10 +195,11 @@ fun CheckSummaryCards(
                         color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
                     ) {
                         Text(
-                            text = "${IranianPhoneUtils.convertDigitsToPersian(monthChecks.size.toString())} چک سررسید این ماه",
+                            text = "${IranianPhoneUtils.convertDigitsToPersian(monthChecks.size.toString())} چک این ماه",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
                 }
@@ -207,30 +213,39 @@ fun CheckSummaryCards(
                 ) {
                     // Received Month Item
                     Surface(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).heightIn(min = 108.dp),
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
                     ) {
                         Column(
-                            modifier = Modifier.padding(10.dp),
-                            horizontalAlignment = Alignment.Start
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Text(
                                 text = "دریافتی ماه",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = MoneyFormatter.format(receivedMonthAmount),
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "${IranianPhoneUtils.convertDigitsToPersian(receivedMonthCount.toString())} عدد",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1
                             )
                         }
                     }
@@ -254,13 +269,17 @@ fun CheckSummaryCards(
                             Text(
                                 text = MoneyFormatter.format(paidMonthAmount),
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.error
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "${IranianPhoneUtils.convertDigitsToPersian(paidMonthCount.toString())} عدد",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1
                             )
                         }
                     }
