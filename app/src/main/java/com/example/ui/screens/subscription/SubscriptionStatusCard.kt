@@ -2,7 +2,6 @@ package com.example.ui.screens.subscription
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,8 +52,7 @@ import com.example.util.MoneyFormatter
 @Composable
 fun SubscriptionStatusCard(
     state: SubscriptionState,
-    onOpenSubscription: () -> Unit,
-    onPurchaseClick: () -> Unit = onOpenSubscription,
+    onPurchaseClick: () -> Unit = {},
     onRestoreClick: () -> Unit = {},
     isPurchaseLoading: Boolean = false,
     isRestoreLoading: Boolean = false,
@@ -107,7 +105,7 @@ fun SubscriptionStatusCard(
                     spotColor = if (isWarningActive) Color(0xFF881337).copy(alpha = 0.3f) else Color(0xFF064E3B).copy(alpha = 0.3f)
                 )
                 .clip(RoundedCornerShape(16.dp))
-                .clickable { onOpenSubscription() },
+                ,
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
@@ -266,8 +264,8 @@ fun SubscriptionStatusCard(
                             )
                         }
 
-                        Button(
-                            onClick = onOpenSubscription,
+                        if (isWarningActive) Button(
+                            onClick = onPurchaseClick,
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
@@ -323,7 +321,7 @@ fun SubscriptionStatusCard(
                     spotColor = Color(0xFF0F172A).copy(alpha = 0.35f)
                 )
                 .clip(RoundedCornerShape(16.dp))
-                .clickable { onOpenSubscription() },
+                ,
             elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
             colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
