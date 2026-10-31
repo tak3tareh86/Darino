@@ -89,7 +89,9 @@ fun SubscriptionStatusCard(
         }
         val cardTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
         val cardMutedTextColor = if (isDark) Color(0xFFE2E8F0) else MaterialTheme.colorScheme.onSurfaceVariant
-        val daysText = IranianPhoneUtils.convertDigitsToPersian(remainingDays.toString())
+        val marketConfirmedActive = isActive && info.marketAccountState == "MARKET_ACTIVE"
+    val hasEstimatedEndDate = info.subscriptionEndAt != null && info.subscriptionEndAt > System.currentTimeMillis()
+    val daysText = IranianPhoneUtils.convertDigitsToPersian(remainingDays.toString())
 
         Card(
             modifier = modifier
@@ -134,7 +136,7 @@ fun SubscriptionStatusCard(
                             contentColor = Color(0xFF451A03)
                         ) {
                             Text(
-                                text = "$daysText روز باقی‌مانده",
+                                text = if (marketConfirmedActive && !hasEstimatedEndDate) "فعال طبق تأیید بازار" else "$daysText روز باقی‌مانده",
                                 fontSize = 9.5.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
@@ -233,7 +235,7 @@ fun SubscriptionStatusCard(
                                 )
                             )
                             Text(
-                                text = endDateTime.ifBlank { "نامشخص" },
+                                text = if (marketConfirmedActive && !hasEstimatedEndDate) "تأییدشده توسط بازار" else endDateTime.ifBlank { "نامشخص" },
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.sp,
