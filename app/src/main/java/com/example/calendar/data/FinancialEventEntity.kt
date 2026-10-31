@@ -5,6 +5,7 @@ import com.example.calendar.domain.model.FinancialEvent
 import com.example.calendar.domain.model.FinancialEventStatus
 import com.example.calendar.domain.model.FinancialEventType
 import com.example.calendar.domain.model.ReminderBeforeOption
+import com.example.util.PersianCalendarHelper
 
 @Entity(
     tableName = "financial_events",
@@ -41,7 +42,10 @@ data class FinancialEventEntity(
             createdAt = createdAt,
             status = FinancialEventStatus.fromString(status),
             customReminderAt = customReminderAt,
-            reminderLabel = if (customReminderAt != null) "در تاریخ دلخواه" else ReminderBeforeOption.fromCode(reminderBefore).takeUnless { it == ReminderBeforeOption.NONE || it == ReminderBeforeOption.CUSTOM }?.label
+            reminderLabel = if (customReminderAt != null) {
+                val customDateTime = PersianCalendarHelper.fromEpochMillis(customReminderAt)
+                "${customDateTime.toFormattedDate()}، ساعت ${customDateTime.toFormattedTime()}"
+            } else ReminderBeforeOption.fromCode(reminderBefore).takeUnless { it == ReminderBeforeOption.NONE || it == ReminderBeforeOption.CUSTOM }?.label
         )
     }
 
