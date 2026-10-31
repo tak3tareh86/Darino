@@ -99,7 +99,10 @@ fun NotificationSettingsScreen(
                         iconRes = R.drawable.img_3d_bell_notification,
                         iconAccentColor = EmeraldPrimaryLight,
                         checked = pushNotificationsEnabled,
-                        onCheckedChange = { preferences.setNotificationsEnabled(it) }
+                        onCheckedChange = {
+                            preferences.setNotificationsEnabled(it)
+                            if (!it) NotificationDispatcher(context).cancelAllReminderNotifications()
+                        }
                     )
 
                     SettingsItem(
