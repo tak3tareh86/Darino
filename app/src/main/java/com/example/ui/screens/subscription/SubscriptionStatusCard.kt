@@ -122,6 +122,12 @@ fun SubscriptionStatusCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.img_darino_logo),
+                            contentDescription = "لوگوی دارینو",
+                            modifier = Modifier.size(34.dp).clip(RoundedCornerShape(9.dp))
+                        )
+
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFFF59E0B),
@@ -134,12 +140,6 @@ fun SubscriptionStatusCard(
                                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
                             )
                         }
-
-                        androidx.compose.foundation.Image(
-                            painter = androidx.compose.ui.res.painterResource(id = com.example.R.mipmap.ic_launcher),
-                            contentDescription = "لوگوی دارینو",
-                            modifier = Modifier.size(34.dp).clip(RoundedCornerShape(9.dp))
-                        )
                     }
 
                     Column(
@@ -206,24 +206,6 @@ fun SubscriptionStatusCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "تاریخ انقضا",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 9.5.sp,
-                                    color = if (isDark) Color(0xFFA7F3D0) else MaterialTheme.colorScheme.primary
-                                )
-                            )
-                            Text(
-                                text = endDateTime.ifBlank { "نامشخص" },
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp,
-                                    color = cardTextColor
-                                )
-                            )
-                        }
-
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(5.dp)
@@ -239,6 +221,24 @@ fun SubscriptionStatusCard(
                                 color = Color(0xFFFFD54F),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "تاریخ انقضا",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 9.5.sp,
+                                    color = if (isDark) Color(0xFFA7F3D0) else MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            Text(
+                                text = endDateTime.ifBlank { "نامشخص" },
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    color = cardTextColor
+                                )
                             )
                         }
                     }
