@@ -37,6 +37,7 @@ import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusXL
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
+import com.example.util.PersianCalendarHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,6 +56,9 @@ fun AddFinancialEventSheet(
     var timeText by remember { mutableStateOf("۱۰:۰۰") }
     var description by remember { mutableStateOf("") }
     var selectedReminderBefore by remember { mutableStateOf(ReminderBeforeOption.NONE) }
+    var customReminderDate by remember(initialDate) { mutableStateOf(CalendarDateUtils.toPersianDisplay(initialDate)) }
+    var customReminderTime by remember { mutableStateOf("۰۹:۰۰") }
+    var reminderDateError by remember { mutableStateOf<String?>(null) }
     var dateError by remember { mutableStateOf<String?>(null) }
 
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
@@ -268,6 +272,50 @@ fun AddFinancialEventSheet(
                 }
             }
 
+            if (selectedReminderBefore == ReminderBeforeOption.CUSTOM) {
+                Text(
+                    text = "زمان دقیق یادآوری",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    PersianDateInputField(
+                        value = customReminderDate,
+                        onValueChange = {
+                            customReminderDate = it
+                            reminderDateError = null
+                        },
+                        label = "تاریخ یادآوری (شمسی)",
+                        placeholder = "۱۴۰۵/۰۱/۰۱",
+                        isError = reminderDateError != null,
+                        errorMessage = reminderDateError,
+                        modifier = Modifier.weight(1.2f).testTag("custom_reminder_date_input")
+                    )
+                    OutlinedTextField(
+                        value = customReminderTime,
+                        onValueChange = {
+                            customReminderTime = it
+                            reminderDateError = null
+                        },
+                        label = { Text("ساعت یادآوری") },
+                        placeholder = { Text("۰۹:۰۰") },
+                        leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
+                        modifier = Modifier.weight(0.8f).testTag("custom_reminder_time_input"),
+                        shape = RoundedCornerShape(RadiusMD),
+                        singleLine = true
+                    )
+                }
+                Text(
+                    text = "در زمان انتخاب‌شده، اعلان این رویداد روی گوشی نمایش داده می‌شود.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             // 6. Description / Notes
             OutlinedTextField(
                 value = description,
@@ -293,6 +341,31 @@ fun AddFinancialEventSheet(
                         }
                         dateError = null
 
+                        val customReminderAt = if (selectedReminderBefore == ReminderBeforeOption.CUSTOM) {
+                            if (!CalendarDateUtils.isValidJalaliDate(customReminderDate)) {
+                                reminderDateError = "تاریخ یادآوری معتبر نیست."
+                                return@Button
+                            }
+                            val timeParts = IranianPhoneUtils.convertDigitsToEnglish(customReminderTime.trim()).split(":")
+                            val hour = timeParts.getOrNull(0)?.toIntOrNull()
+                            val minute = timeParts.getOrNull(1)?.toIntOrNull()
+                            if (timeParts.size != 2 || hour == null || minute == null ||
+                                hour !in 0..23 || minute !in 0..59) {
+                                reminderDateError = "ساعت را به شکل ۲۴ ساعته، مانند ۰۹:۳۰ وارد کنید."
+                                return@Button
+                            }
+                            val parts = CalendarDateUtils.parseJalali(customReminderDate)!!
+                            val timestamp = PersianCalendarHelper.jalaliToEpochMillis(
+                                parts.first, parts.second, parts.third, hour, minute
+                            )
+                            if (timestamp <= System.currentTimeMillis()) {
+                                reminderDateError = "زمان یادآوری باید در آینده باشد."
+                                return@Button
+                            }
+                            timestamp
+                        } else null
+                        reminderDateError = null
+
                         val amountLong = IranianAmountUtils.parseAmountToLong(amountText)
                         val newEvent = FinancialEvent(
                             id = "user_ev_${System.currentTimeMillis()}",
@@ -303,6 +376,8 @@ fun AddFinancialEventSheet(
                             date = CalendarDateUtils.normalizeDate(dateText),
                             time = timeText.trim(),
                             reminderBefore = selectedReminderBefore,
+                            customReminderAt = customReminderAt,
+                            reminderLabel = if (selectedReminderBefore == ReminderBeforeOption.CUSTOM) "در تاریخ دلخواه" else selectedReminderBefore.takeUnless { it == ReminderBeforeOption.NONE }?.label,
                             status = FinancialEventStatus.PENDING
                         )
                         onConfirm(newEvent)
