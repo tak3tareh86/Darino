@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.security.SessionManager
+import com.example.data.preferences.AppPreferencesRepository
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.domain.MockSmsDispatcher
 import com.example.reminder.domain.NotificationDispatcher
@@ -41,11 +42,12 @@ fun NotificationSettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val preferences = remember { AppPreferencesRepository.getInstance(context) }
 
-    var pushNotificationsEnabled by remember { mutableStateOf(true) }
-    var smsNotificationsEnabled by remember { mutableStateOf(true) }
-    var soundEnabled by remember { mutableStateOf(true) }
-    var vibrationEnabled by remember { mutableStateOf(true) }
+    val pushNotificationsEnabled by preferences.notificationsEnabled.collectAsState()
+    val smsNotificationsEnabled by preferences.smsNotificationsEnabled.collectAsState()
+    val soundEnabled by preferences.notificationSoundEnabled.collectAsState()
+    val vibrationEnabled by preferences.notificationVibrationEnabled.collectAsState()
 
     // Quiet Hours
     var quietHoursEnabled by remember { mutableStateOf(true) }
@@ -87,7 +89,7 @@ fun NotificationSettingsScreen(
                         iconRes = R.drawable.img_3d_bell_notification,
                         iconAccentColor = EmeraldPrimaryLight,
                         checked = pushNotificationsEnabled,
-                        onCheckedChange = { pushNotificationsEnabled = it }
+                        onCheckedChange = { preferences.setNotificationsEnabled(it) }
                     )
 
                     SettingsItem(
@@ -96,7 +98,7 @@ fun NotificationSettingsScreen(
                         iconRes = R.drawable.img_3d_shield_security,
                         iconAccentColor = InfoIndigoLight,
                         checked = smsNotificationsEnabled,
-                        onCheckedChange = { smsNotificationsEnabled = it }
+                        onCheckedChange = { preferences.setSmsNotificationsEnabled(it) }
                     )
 
                     // Phone Number Card
@@ -198,7 +200,7 @@ fun NotificationSettingsScreen(
                         iconRes = R.drawable.img_3d_bell_notification,
                         iconAccentColor = EmeraldPrimaryLight,
                         checked = soundEnabled,
-                        onCheckedChange = { soundEnabled = it }
+                        onCheckedChange = { preferences.setNotificationSoundEnabled(it) }
                     )
 
                     SettingsItem(
@@ -207,7 +209,7 @@ fun NotificationSettingsScreen(
                         iconRes = R.drawable.img_3d_oil,
                         iconAccentColor = WarningAmberLight,
                         checked = vibrationEnabled,
-                        onCheckedChange = { vibrationEnabled = it }
+                        onCheckedChange = { preferences.setNotificationVibrationEnabled(it) }
                     )
                 }
             }
