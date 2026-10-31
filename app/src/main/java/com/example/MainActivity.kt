@@ -117,18 +117,32 @@ class MainActivity : FragmentActivity() {
         }
 
         setContent {
-            var currentThemeMode by remember { mutableStateOf(AppThemeMode.SYSTEM) }
+            val preferencesRepository = remember {
+                com.example.data.preferences.AppPreferencesRepository.getInstance(this@MainActivity)
+            }
+            val currentThemeMode by preferencesRepository.themeMode.collectAsState()
             val isDark = when (currentThemeMode) {
                 AppThemeMode.LIGHT -> false
                 AppThemeMode.DARK -> true
                 AppThemeMode.SYSTEM -> isSystemInDarkTheme()
             }
 
+            // Keep system-bar icon contrast in sync with the app theme. The Android
+            // notification shade itself remains owned by the operating system.
+            androidx.compose.runtime.SideEffect {
+                val controller = androidx.core.view.WindowCompat.getInsetsController(
+                    window,
+                    window.decorView
+                )
+                controller.isAppearanceLightStatusBars = !isDark
+                controller.isAppearanceLightNavigationBars = !isDark
+            }
+
             FinanceManagerTheme(darkTheme = isDark) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     AppNavigationContainer(
                         currentThemeMode = currentThemeMode,
-                        onThemeModeChanged = { currentThemeMode = it }
+                        onThemeModeChanged = preferencesRepository::setThemeMode
                     )
                 }
             }
