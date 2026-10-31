@@ -72,7 +72,6 @@ import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import com.example.ui.screens.splash.SplashScreen
 import com.example.ui.screens.vehicle.VehicleServicesScreen
 import com.example.ui.screens.subscription.SubscriptionGate
-import com.example.ui.screens.subscription.SubscriptionScreen
 import com.example.ui.screens.subscription.SubscriptionViewModel
 import com.example.ui.theme.FinanceManagerTheme
 import com.example.util.LocalAppCurrency
@@ -194,7 +193,6 @@ fun AppNavigationContainer(
     var isSettingsOpen by remember { mutableStateOf(false) }
     var isNotificationsOpen by remember { mutableStateOf(false) }
     var isFinancialHealthOpen by remember { mutableStateOf(false) }
-    var isSubscriptionOpen by remember { mutableStateOf(false) }
     var showAuthSheet by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
     var showExactAlarmPermissionDialog by remember { mutableStateOf(false) }
@@ -322,9 +320,8 @@ fun AppNavigationContainer(
     ) {
         SubscriptionGate(subscriptionViewModel = subscriptionViewModel) {
             // Back navigation interceptors
-        BackHandler(enabled = isSubscriptionOpen || isSettingsOpen || isNotificationsOpen || isFinancialHealthOpen || currentTab != BottomNavItem.HOME) {
+        BackHandler(enabled = isSettingsOpen || isNotificationsOpen || isFinancialHealthOpen || currentTab != BottomNavItem.HOME) {
             when {
-                isSubscriptionOpen -> isSubscriptionOpen = false
                 isSettingsOpen -> isSettingsOpen = false
                 isNotificationsOpen -> isNotificationsOpen = false
                 isFinancialHealthOpen -> isFinancialHealthOpen = false
@@ -332,11 +329,11 @@ fun AppNavigationContainer(
             }
         }
 
-        BackHandler(enabled = !isSubscriptionOpen && !isSettingsOpen && !isNotificationsOpen && !isFinancialHealthOpen && currentTab == BottomNavItem.HOME) {
+        BackHandler(enabled = !isSettingsOpen && !isNotificationsOpen && !isFinancialHealthOpen && currentTab == BottomNavItem.HOME) {
             showExitDialog = true
         }
 
-        val showBottomBar = !isSubscriptionOpen && !isSettingsOpen && !isNotificationsOpen && !isFinancialHealthOpen
+        val showBottomBar = !isSettingsOpen && !isNotificationsOpen && !isFinancialHealthOpen
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -367,12 +364,7 @@ fun AppNavigationContainer(
                         .fillMaxSize()
                         .widthIn(max = 720.dp)
                 ) {
-                    if (isSubscriptionOpen) {
-                        SubscriptionScreen(
-                            onBackClick = { isSubscriptionOpen = false },
-                            viewModel = subscriptionViewModel
-                        )
-                    } else if (isSettingsOpen) {
+                    if (isSettingsOpen) {
                         SettingsScreen(
                             currentTheme = currentThemeMode,
                             onThemeChanged = onThemeModeChanged,
@@ -496,9 +488,6 @@ fun AppNavigationContainer(
                                         },
                                         onSettingsClick = {
                                             isSettingsOpen = true
-                                        },
-                                        onOpenSubscription = {
-                                            isSubscriptionOpen = true
                                         },
                                         bottomBar = {},
                                         subscriptionViewModel = subscriptionViewModel
