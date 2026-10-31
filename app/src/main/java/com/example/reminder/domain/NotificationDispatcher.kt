@@ -262,22 +262,24 @@ class NotificationDispatcher(private val context: Context) {
             .addAction(R.drawable.img_3d_calendar, "۱۵ دقیقه بعد", snoozePendingIntent)
             .addAction(R.drawable.img_3d_installment, "انجام شد", completePendingIntent)
 
-        val alarmActivityIntent = if (useFullScreenAlarm) Intent(context, ReminderAlarmActivity::class.java).apply {
+        val alarmActivityIntent = if (useFullScreenAlarm) {
+            Intent(context, ReminderAlarmActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(ReminderAlarmActivity.EXTRA_REMINDER_ID, reminder.id)
                 putExtra(ReminderAlarmActivity.EXTRA_NOTIFICATION_ID, notifId)
                 putExtra(ReminderAlarmActivity.EXTRA_SECONDARY_NOTIFICATION_ID, standardNotificationId)
                 putExtra(ReminderAlarmActivity.EXTRA_TITLE, reminder.title)
                 putExtra(ReminderAlarmActivity.EXTRA_BODY, bodyText)
-            }
-            val fullScreenPendingIntent = PendingIntent.getActivity(
-                context,
-                notifId + 3000,
-                alarmActivityIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            if (!launchAlarmActivityDirectly) {
-                notificationBuilder.setFullScreenIntent(fullScreenPendingIntent, true)
+            }.also { alarmIntent ->
+                val fullScreenPendingIntent = PendingIntent.getActivity(
+                    context,
+                    notifId + 3000,
+                    alarmIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                if (!launchAlarmActivityDirectly) {
+                    notificationBuilder.setFullScreenIntent(fullScreenPendingIntent, true)
+                }
             }
         } else null
         val notification = notificationBuilder.build()
