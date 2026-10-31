@@ -51,43 +51,70 @@ class SubscriptionRepositoryImpl(
         when (val poolakeyResult = poolakeyDataSource.getSubscribedProducts()) {
             is PoolakeyResult.Success -> {
                 val purchases = poolakeyResult.data
-                val darinoPurchase = purchases.firstOrNull {
-                    it.productId == MarketConfig.YEARLY_PRODUCT_ID &&
-                            (it.purchaseState == PurchaseState.PURCHASED || it.purchaseState == PurchaseState.REFUNDED)
+                val now = System.currentTimeMillis()
+                val darinoPurchases = purchases.filter {
+                    it.productId == MarketConfig.YEARLY_PRODUCT_ID
+                }
+                // Prefer a purchased item; a refunded item must never grant access.
+                val darinoPurchase = darinoPurchases.firstOrNull {
+                    it.purchaseState == PurchaseState.PURCHASED
+                } ?: darinoPurchases.firstOrNull {
+                    it.purchaseState == PurchaseState.REFUNDED
                 }
 
-                if (darinoPurchase != null && darinoPurchase.purchaseState == PurchaseState.PURCHASED) {
-                    val purchaseTime = darinoPurchase.purchaseTime
-                    val subStart = if (purchaseTime > 0L) purchaseTime else System.currentTimeMillis()
-                    val subEnd = subStart + MarketConfig.SUBSCRIPTION_DURATION_DAYS * 86_400_000L
+                if (darinoPurchase?.purchaseState == PurchaseState.PURCHASED) {
+                    val samePurchase = currentLocal.purchaseTokenReference == darinoPurchase.purchaseToken
+                    val purchaseTime = darinoPurchase.purchaseTime.takeIf { it > 0L }
+                        ?: currentLocal.subscriptionStartAt.takeIf { samePurchase && it != null }
+                        ?: 0L
 
-                    val updatedInfo = currentLocal.copy(
-                        subscriptionStartAt = subStart,
-                        subscriptionEndAt = subEnd,
-                        subscriptionStatus = SubscriptionStatus.ACTIVE,
-                        productId = MarketConfig.YEARLY_PRODUCT_ID,
-                        purchaseTokenReference = darinoPurchase.purchaseToken,
-                        marketAccountState = "SYNCED",
-                        lastSyncAt = System.currentTimeMillis()
-                    )
-
-                    localDataSource.saveSubscriptionInfo(updatedInfo)
-                    _subscriptionFlow.value = updatedInfo
-                    Result.success(updatedInfo)
+                    if (purchaseTime <= 0L) {
+                        // Never grant a fresh year when Market omits the original purchase timestamp.
+                        val lockedInfo = currentLocal.copy(
+                            subscriptionStatus = SubscriptionStatus.LOCKED,
+                            marketAccountState = "PURCHASE_TIME_UNAVAILABLE",
+                            lastSyncAt = now
+                        )
+                        localDataSource.saveSubscriptionInfo(lockedInfo)
+                        _subscriptionFlow.value = lockedInfo
+                        Result.success(lockedInfo)
+                    } else {
+                        val subEnd = purchaseTime + MarketConfig.SUBSCRIPTION_DURATION_DAYS * 86_400_000L
+                        val candidate = currentLocal.copy(
+                            subscriptionStartAt = purchaseTime,
+                            subscriptionEndAt = subEnd,
+                            productId = MarketConfig.YEARLY_PRODUCT_ID,
+                            purchaseTokenReference = darinoPurchase.purchaseToken,
+                            marketAccountState = "SYNCED",
+                            lastSyncAt = now
+                        )
+                        val updatedInfo = candidate.copy(
+                            subscriptionStatus = SubscriptionValidator.evaluateStatus(candidate, now)
+                        )
+                        localDataSource.saveSubscriptionInfo(updatedInfo)
+                        _subscriptionFlow.value = updatedInfo
+                        Result.success(updatedInfo)
+                    }
                 } else {
-                    // No valid active purchase in the current Market account
-                    val evaluated = SubscriptionValidator.evaluateStatus(currentLocal)
-                    val updatedInfo = currentLocal.copy(
+                    // A successful Market query is authoritative: revoke the cached entitlement.
+                    val withoutSubscription = currentLocal.copy(
                         subscriptionStartAt = null,
                         subscriptionEndAt = null,
-                        subscriptionStatus = evaluated,
-                        marketAccountState = "NO_PURCHASE_FOUND",
-                        lastSyncAt = System.currentTimeMillis()
+                        productId = "",
+                        purchaseTokenReference = null,
+                        marketAccountState = if (darinoPurchase?.purchaseState == PurchaseState.REFUNDED) {
+                            "REFUNDED"
+                        } else {
+                            "NO_PURCHASE_FOUND"
+                        },
+                        lastSyncAt = now
                     )
-
-                    localDataSource.saveSubscriptionInfo(updatedInfo)
-                    _subscriptionFlow.value = updatedInfo
-                    Result.success(updatedInfo)
+                    val revoked = withoutSubscription.copy(
+                        subscriptionStatus = SubscriptionValidator.evaluateStatus(withoutSubscription, now)
+                    )
+                    localDataSource.saveSubscriptionInfo(revoked)
+                    _subscriptionFlow.value = revoked
+                    Result.success(revoked)
                 }
             }
             is PoolakeyResult.Error -> {
@@ -113,12 +140,16 @@ class SubscriptionRepositoryImpl(
         }
         val currentLocal = localDataSource.getSubscriptionInfo()
         val now = System.currentTimeMillis()
-        val subEnd = now + MarketConfig.SUBSCRIPTION_DURATION_DAYS * 86_400_000L
+        val purchaseStart = purchaseInfo.purchaseTime.takeIf { it > 0L } ?: now
+        val subEnd = purchaseStart + MarketConfig.SUBSCRIPTION_DURATION_DAYS * 86_400_000L
 
         val updatedInfo = currentLocal.copy(
-            subscriptionStartAt = now,
+            subscriptionStartAt = purchaseStart,
             subscriptionEndAt = subEnd,
-            subscriptionStatus = SubscriptionStatus.ACTIVE,
+            subscriptionStatus = SubscriptionValidator.evaluateStatus(
+                currentLocal.copy(subscriptionStartAt = purchaseStart, subscriptionEndAt = subEnd),
+                now
+            ),
             productId = purchaseInfo.productId,
             purchaseTokenReference = purchaseInfo.purchaseToken,
             marketAccountState = "ACTIVE",
