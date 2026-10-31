@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.BuildConfig
 import com.example.ui.components.DarinoLogoMark
 
 /**
@@ -247,6 +248,12 @@ fun LoginScreen(
                         textAlign = TextAlign.Center
                     )
                 }
+                Text(
+                    text = "نسخه ${com.example.util.IranianPhoneUtils.convertDigitsToPersian(BuildConfig.VERSION_NAME)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
                 Spacer(modifier = Modifier.height(4.dp))
             }
         }
