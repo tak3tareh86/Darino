@@ -59,7 +59,6 @@ fun HomeScreen(
     onNavigateToTab: (BottomNavItem) -> Unit = {},
     onNotificationClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
-    onOpenSubscription: () -> Unit = {},
     bottomBar: (@Composable () -> Unit)? = null,
     viewModel: HomeDashboardViewModel = viewModel(),
     subscriptionViewModel: SubscriptionViewModel = viewModel()
@@ -173,7 +172,6 @@ fun HomeScreen(
                     // 2. Annual Subscription Card (Prominent, real state)
                     SubscriptionStatusCard(
                         state = subState,
-                        onOpenSubscription = onOpenSubscription,
                         onPurchaseClick = {
                             val hostActivity = context as? ComponentActivity
                             if (hostActivity != null) {
