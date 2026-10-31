@@ -251,7 +251,7 @@ fun SupportBackupScreen(
             confirmButton = {
                 TextButton(
                     enabled = shareFilename.isNotBlank() && shareFilename.trim() !in setOf(".", "..") &&
-                        shareFilename.none { it in charArrayOf('/', '\\\\', ':', '*', '?', '"', '<', '>', '|') },
+                        shareFilename.none { it in charArrayOf('/', '\\', ':', '*', '?', '"', '<', '>', '|') },
                     onClick = {
                         val json = pendingSharePayload
                         val safeName = shareFilename.trim().removeSuffix(".json").ifBlank { "Darino backup" } + ".json"
