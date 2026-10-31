@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -67,145 +66,125 @@ fun AboutScreen(
                 subtitle = "اطلاعات نسخه و مشخصات فنی",
                 showBack = true,
                 showSearch = false,
-                onBackClick = onBackClick
+                onBackClick = onBackClick,
+                compact = true
             )
         }
     ) { paddingValues ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(paddingValues)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // App Branding Hero Card
-            item {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(
-                            elevation = if (isDark) 8.dp else 4.dp,
-                            shape = RoundedCornerShape(RadiusLG)
-                        ),
-                    shape = RoundedCornerShape(RadiusLG),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(
-                        width = 1.dp,
-                        brush = Brush.verticalGradient(
-                            listOf(
-                                EmeraldPrimaryLight.copy(alpha = 0.35f),
-                                Color.Transparent
-                            )
+            // Compact branding card
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(
+                        elevation = if (isDark) 6.dp else 3.dp,
+                        shape = RoundedCornerShape(RadiusLG)
+                    ),
+                shape = RoundedCornerShape(RadiusLG),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(
+                    width = 1.dp,
+                    brush = Brush.verticalGradient(
+                        listOf(
+                            EmeraldPrimaryLight.copy(alpha = 0.35f),
+                            Color.Transparent
                         )
                     )
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(
+                    com.example.ui.components.DarinoBrandHeader(
+                        logoSize = 54.dp,
+                        showSubtitle = true,
+                        subtitleText = "سامانه مدیریت جامع مالی، اقساط و خودرو",
+                        isDark = isDark
+                    )
+                    Spacer(modifier = Modifier.height(5.dp))
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                            .clip(CircleShape)
+                            .background(EmeraldPrimaryLight.copy(alpha = 0.12f))
+                            .padding(horizontal = 10.dp, vertical = 3.dp)
                     ) {
-                        com.example.ui.components.DarinoBrandHeader(
-                            logoSize = 80.dp,
-                            showSubtitle = true,
-                            subtitleText = "سامانه مدیریت جامع مالی، اقساط و خودرو",
-                            isDark = isDark
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(EmeraldPrimaryLight.copy(alpha = 0.12f))
-                                .padding(horizontal = 12.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "نسخه ۱.۰.۰ (ساخت رسمی)",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.5.sp
-                                ),
-                                color = EmeraldPrimaryLight
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
                         Text(
-                            text = "سامانه مدرن مدیریت هزینه‌ها، پس‌اندازها، اقساط، چک‌ها و سوابق سرویس‌های دوره‌ای خودرو با رابط کاربری نسل جدید و پشتیبانی کامل از زبان فارسی و تقویم شمسی.",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 12.5.sp,
-                                lineHeight = 19.sp
+                            text = "نسخه ۱.۰.۰ (ساخت رسمی)",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.5.sp
                             ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
+                            color = EmeraldPrimaryLight
                         )
                     }
-                }
-            }
-
-            // Tech Specs
-            item {
-                SettingsSectionCard(title = "مشخصات فنی و پلتفرم") {
-                    SettingsItem(
-                        title = "معماری نرم‌افزار",
-                        subtitle = "Clean Architecture + MVVM Pattern",
-                        vectorIcon = Icons.Rounded.Code,
-                        iconAccentColor = Color(0xFF2563EB),
-                        showChevron = false
-                    )
-
-                    SettingsItem(
-                        title = "رابط کاربری",
-                        subtitle = "Android Jetpack Compose & Material 3",
-                        iconEmoji = "🎨",
-                        showChevron = false
-                    )
-
-                    SettingsItem(
-                        title = "امنیت و پایگاه داده",
-                        subtitle = "مبتنی بر رمزنگاری آفلاین در حافظه امن دستگاه",
-                        vectorIcon = Icons.Rounded.Security,
-                        iconAccentColor = EmeraldPrimaryLight,
-                        showChevron = false
-                    )
-                }
-            }
-
-            // Heart Footer
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "طراحی و توسعه با ",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Icon(
-                        imageVector = Icons.Rounded.Favorite,
-                        contentDescription = null,
-                        tint = Color(0xFFE11D48),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = " برای کاربران ایرانی",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "سامانه مدرن مدیریت هزینه‌ها، پس‌اندازها، اقساط، چک‌ها و سوابق سرویس‌های دوره‌ای خودرو با رابط کاربری نسل جدید و پشتیبانی کامل از زبان فارسی و تقویم شمسی.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
 
-            item {
-                Spacer(modifier = Modifier.height(32.dp))
+            SettingsSectionCard(title = "مشخصات فنی و پلتفرم") {
+                SettingsItem(
+                    title = "معماری نرم‌افزار",
+                    subtitle = "Clean Architecture + MVVM Pattern",
+                    vectorIcon = Icons.Rounded.Code,
+                    iconAccentColor = Color(0xFF2563EB),
+                    showChevron = false
+                )
+                SettingsItem(
+                    title = "رابط کاربری",
+                    subtitle = "Android Jetpack Compose & Material 3",
+                    iconEmoji = "🎨",
+                    showChevron = false
+                )
+                SettingsItem(
+                    title = "امنیت و پایگاه داده",
+                    subtitle = "مبتنی بر رمزنگاری آفلاین در حافظه امن دستگاه",
+                    vectorIcon = Icons.Rounded.Security,
+                    iconAccentColor = EmeraldPrimaryLight,
+                    showChevron = false
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "طراحی و توسعه با ",
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Icon(
+                    imageVector = Icons.Rounded.Favorite,
+                    contentDescription = null,
+                    tint = Color(0xFFE11D48),
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = " برای کاربران ایرانی",
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
