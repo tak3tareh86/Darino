@@ -40,7 +40,8 @@ fun SubscriptionGate(
             SubscriptionLockedScreen(viewModel = subscriptionViewModel)
         }
 
-        SubscriptionStatus.CHECKING -> {
+        SubscriptionStatus.CHECKING,
+        SubscriptionStatus.ERROR -> {
             // Fail closed while the persisted entitlement / Market state is being resolved.
             BackHandler(enabled = true) {}
             Box(
