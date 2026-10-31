@@ -73,7 +73,7 @@ class SubscriptionRepositoryImpl(
                         val lockedInfo = currentLocal.copy(
                             subscriptionStatus = SubscriptionStatus.LOCKED,
                             marketAccountState = "PURCHASE_TIME_UNAVAILABLE",
-                            lastSyncAt = now
+                            lastSyncAt = maxOf(currentLocal.lastSyncAt, now)
                         )
                         localDataSource.saveSubscriptionInfo(lockedInfo)
                         _subscriptionFlow.value = lockedInfo
@@ -86,7 +86,7 @@ class SubscriptionRepositoryImpl(
                             productId = MarketConfig.YEARLY_PRODUCT_ID,
                             purchaseTokenReference = darinoPurchase.purchaseToken,
                             marketAccountState = "SYNCED",
-                            lastSyncAt = now
+                            lastSyncAt = maxOf(currentLocal.lastSyncAt, now)
                         )
                         val updatedInfo = candidate.copy(
                             subscriptionStatus = SubscriptionValidator.evaluateStatus(candidate, now)
@@ -107,7 +107,7 @@ class SubscriptionRepositoryImpl(
                         } else {
                             "NO_PURCHASE_FOUND"
                         },
-                        lastSyncAt = now
+                        lastSyncAt = maxOf(currentLocal.lastSyncAt, now)
                     )
                     val revoked = withoutSubscription.copy(
                         subscriptionStatus = SubscriptionValidator.evaluateStatus(withoutSubscription, now)
@@ -122,7 +122,7 @@ class SubscriptionRepositoryImpl(
                 val evaluated = SubscriptionValidator.evaluateStatus(currentLocal)
                 val updatedInfo = currentLocal.copy(
                     subscriptionStatus = evaluated,
-                    lastSyncAt = System.currentTimeMillis()
+                    lastSyncAt = maxOf(currentLocal.lastSyncAt, System.currentTimeMillis())
                 )
                 localDataSource.saveSubscriptionInfo(updatedInfo)
                 _subscriptionFlow.value = updatedInfo
@@ -153,7 +153,7 @@ class SubscriptionRepositoryImpl(
             productId = purchaseInfo.productId,
             purchaseTokenReference = purchaseInfo.purchaseToken,
             marketAccountState = "ACTIVE",
-            lastSyncAt = now
+            lastSyncAt = maxOf(currentLocal.lastSyncAt, now)
         )
 
         localDataSource.saveSubscriptionInfo(updatedInfo)
