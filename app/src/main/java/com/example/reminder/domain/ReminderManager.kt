@@ -302,7 +302,7 @@ class ReminderManager(
                 1 -> PredefinedOffset.BEFORE_1_DAY
                 3 -> PredefinedOffset.BEFORE_3_DAYS
                 7 -> PredefinedOffset.BEFORE_7_DAYS
-                10 -> PredefinedOffset.BEFORE_7_DAYS // nearest supported preset; exact 10-day support is added below
+                10 -> PredefinedOffset.BEFORE_10_DAYS
                 else -> PredefinedOffset.BEFORE_7_DAYS
             }
             listOf(preferredOffset, PredefinedOffset.AT_TIME)
