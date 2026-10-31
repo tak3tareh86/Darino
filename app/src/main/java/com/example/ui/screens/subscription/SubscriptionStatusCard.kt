@@ -77,7 +77,7 @@ fun SubscriptionStatusCard(
     }
 
     if (isActive) {
-        // Active Annual Subscriber Card
+        // Active annual subscription card. Keep the same minimum dimensions as the trial card.
         val activeGradient = if (isDark) {
             Brush.horizontalGradient(
                 colors = listOf(Color(0xFF064E3B), Color(0xFF047857), Color(0xFF0F766E))
@@ -89,20 +89,21 @@ fun SubscriptionStatusCard(
         }
         val cardTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
         val cardMutedTextColor = if (isDark) Color(0xFFE2E8F0) else MaterialTheme.colorScheme.onSurfaceVariant
+        val daysText = IranianPhoneUtils.convertDigitsToPersian(remainingDays.toString())
 
         Card(
             modifier = modifier
                 .fillMaxWidth()
-                .heightIn(min = 210.dp)
+                .heightIn(min = 140.dp)
                 .testTag("active_subscription_card")
                 .shadow(
-                    elevation = 4.dp,
+                    elevation = 5.dp,
                     shape = RoundedCornerShape(16.dp),
-                    ambientColor = Color(0xFF047857).copy(alpha = 0.2f),
-                    spotColor = Color(0xFF064E3B).copy(alpha = 0.3f)
+                    ambientColor = Color(0xFF0D9488).copy(alpha = 0.2f),
+                    spotColor = Color(0xFF0F172A).copy(alpha = 0.35f)
                 )
                 .clip(RoundedCornerShape(16.dp)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
             colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
             Box(
@@ -115,69 +116,30 @@ fun SubscriptionStatusCard(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Top Row: Title + Badge
+                    // App mark on the upper-right; remaining-time counter on the upper-left.
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = Color(0xFFF59E0B).copy(alpha = 0.25f),
-                                border = BorderStroke(1.dp, Color(0xFFF59E0B)),
-                                modifier = Modifier.size(34.dp).then(if (onDebugLongPress != null) Modifier.pointerInput(onDebugLongPress) { detectTapGestures(onLongPress = { onDebugLongPress() }) } else Modifier)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.WorkspacePremium,
-                                        contentDescription = null,
-                                        tint = Color(0xFFFDE047),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "اشتراک سالیانه فعال است",
-                                    color = cardTextColor,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color.White.copy(alpha = 0.2f)
-                                ) {
-                                    Text(
-                                        text = "طلایی",
-                                        color = if (isDark) Color(0xFFFEF08A) else MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 9.5.sp,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                        }
-
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFFF59E0B),
                             contentColor = Color(0xFF451A03)
                         ) {
                             Text(
-                                text = "ویژه ۳۶۵ روز",
+                                text = "$daysText روز باقی‌مانده",
                                 fontSize = 9.5.sp,
                                 fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
                             )
                         }
+
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = com.example.darino.R.mipmap.ic_launcher),
+                            contentDescription = "لوگوی دارینو",
+                            modifier = Modifier.size(34.dp).clip(RoundedCornerShape(9.dp))
+                        )
                     }
 
                     Column(
@@ -193,22 +155,22 @@ fun SubscriptionStatusCard(
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
-                                color = Color.White
+                                color = cardTextColor
                             )
                         )
                         Text(
-                            text = "به جمع ما خوش اومدی 🌟",
+                            text = "به جمع ما خوش اومدی",
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
-                                color = Color.White
+                                color = cardTextColor
                             )
                         )
                         Spacer(modifier = Modifier.height(5.dp))
                         Text(
-                            text = "از اینکه اشتراک سالانه رو انتخاب کردی ممنونیم. حالا می‌تونی با خیال راحت از تمام امکانات استفاده کنی.",
+                            text = "از اینکه اشتراک سالانه رو انتخاب کردی ممنونیم. حالا می‌تونی با خیال راحت",
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Justify,
                             style = MaterialTheme.typography.bodySmall.copy(
@@ -218,7 +180,17 @@ fun SubscriptionStatusCard(
                             )
                         )
                         Text(
-                            text = "امیدواریم همراه خوبی برای مدیریت بهتر امور مالی و زندگی روزمره‌ات باشیم.",
+                            text = "از تمام امکانات برنامه استفاده کنی. امیدواریم همراه خوبی برای مدیریت بهتر",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Justify,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 10.5.sp,
+                                lineHeight = 15.sp,
+                                color = cardMutedTextColor
+                            )
+                        )
+                        Text(
+                            text = "امور مالی و زندگی روزمره شما باشیم.",
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.bodySmall.copy(
@@ -229,43 +201,51 @@ fun SubscriptionStatusCard(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Expiration & Action Button Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val daysText = IranianPhoneUtils.convertDigitsToPersian(remainingDays.toString())
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "وضعیت اعتبار",
+                                text = "تاریخ انقضا",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontSize = 9.5.sp,
                                     color = if (isDark) Color(0xFFA7F3D0) else MaterialTheme.colorScheme.primary
                                 )
                             )
                             Text(
-                                text = if (endDateTime.isNotBlank()) {
-                                    "$daysText روز تا پایان اشتراک باقی مانده است (انقضا: $endDateTime)"
-                                } else {
-                                    "$daysText روز تا پایان اشتراک باقی مانده است"
-                                },
-                                style = MaterialTheme.typography.titleMedium.copy(
+                                text = endDateTime.ifBlank { "نامشخص" },
+                                style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 11.5.sp,
+                                    fontSize = 11.sp,
                                     color = cardTextColor
                                 )
                             )
                         }
 
-                        // Active subscriptions use one consistent card; renewal timing does not create
-                        // a separate warning card or change the active-state presentation.
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.WorkspacePremium,
+                                contentDescription = null,
+                                tint = Color(0xFFFFD54F),
+                                modifier = Modifier.size(19.dp)
+                            )
+                            Text(
+                                text = "فعال",
+                                color = Color(0xFFFFD54F),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
             }
         }
+else {
     } else {
         // Free / Inactive / Trial User Annual Subscription Offer Card
         val offerGradient = when {
