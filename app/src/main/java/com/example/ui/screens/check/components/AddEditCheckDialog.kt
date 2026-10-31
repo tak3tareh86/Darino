@@ -74,7 +74,24 @@ fun AddEditCheckDialog(
     var showReminderTimePicker by remember { mutableStateOf(false) }
 
     val isDateInvalid = dueDate < issueDate
-    val isReminderInvalid = reminderDateTime != null && reminderDateTime!! > dueDate
+    // Reminder validation is based on calendar day, not time-of-day.
+    val dueCalendarDay = Calendar.getInstance().apply {
+        timeInMillis = dueDate
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    val reminderCalendarDay = reminderDateTime?.let { reminder ->
+        Calendar.getInstance().apply {
+            timeInMillis = reminder
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+    val isReminderInvalid = reminderCalendarDay != null && reminderCalendarDay > dueCalendarDay
     val amountValueForValidation = amount.toEnglishDigits().toLongOrNull()
     val amountUnitLabel = MoneyFormatter.getUnitLabel()
     val isAmountInvalid = amountValueForValidation == null ||
@@ -108,18 +125,19 @@ fun AddEditCheckDialog(
                 )
             },
         ) { padding ->
+            val formScrollState = rememberScrollState()
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(formScrollState)
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (showError && (isDateInvalid || isReminderInvalid || isSayadIdInvalid || isAmountInvalid || isCheckNumberInvalid || isBankNameInvalid)) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().imePadding()
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
