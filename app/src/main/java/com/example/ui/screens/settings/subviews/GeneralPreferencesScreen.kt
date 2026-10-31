@@ -29,7 +29,6 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.MonetizationOn
 import androidx.compose.material.icons.rounded.NotificationsActive
@@ -77,7 +76,6 @@ import com.example.ui.screens.settings.components.SettingsHeader
 import androidx.compose.material.icons.rounded.Calculate
 import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import com.example.ui.screens.settings.model.AppCurrency
-import com.example.ui.screens.settings.model.AppLanguage
 import com.example.ui.screens.settings.model.AppThemeMode
 import com.example.ui.screens.settings.model.NavigationTransitionAnimation
 import com.example.ui.screens.settings.model.NumberDisplayMode
@@ -88,8 +86,6 @@ import com.example.ui.theme.RadiusSM
 
 @Composable
 fun GeneralPreferencesScreen(
-    currentLanguage: AppLanguage,
-    onLanguageSelected: (AppLanguage) -> Unit,
     currentCurrency: AppCurrency,
     onCurrencySelected: (AppCurrency) -> Unit,
     currentTheme: AppThemeMode,
@@ -105,7 +101,7 @@ fun GeneralPreferencesScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val isEn = currentLanguage == AppLanguage.ENGLISH
+    val isEn = false
     fun checkFullScreenIntentAccess(): Boolean {
         if (Build.VERSION.SDK_INT < 34) return true
         return try {
@@ -197,41 +193,7 @@ fun GeneralPreferencesScreen(
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // 1. Language Setting (تنظیمات زبان برنامه)
-                GeneralCompactCard(
-                    title = if (isEn) "App Language" else "زبان برنامه",
-                    subtitle = if (isEn) "Language for supported settings labels; numeral style is separate" else "زبان برچسب‌های پشتیبانی‌شده تنظیمات؛ شیوه نمایش اعداد جداگانه است",
-                    icon = Icons.Rounded.Language,
-                    iconColor = Color(0xFF0EA5E9)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        CompactOptionChip(
-                            title = if (isEn) "Persian" else "فارسی",
-                            extra = "🇮🇷",
-                            isSelected = currentLanguage == AppLanguage.PERSIAN,
-                            onClick = {
-                                onLanguageSelected(AppLanguage.PERSIAN)
-                                Toast.makeText(context, if (isEn) "App language set to Persian" else "زبان برنامه به فارسی تنظیم شد", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                        CompactOptionChip(
-                            title = "English",
-                            extra = "🇬🇧",
-                            isSelected = currentLanguage == AppLanguage.ENGLISH,
-                            onClick = {
-                                onLanguageSelected(AppLanguage.ENGLISH)
-                                Toast.makeText(context, "Language switched to English", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                // 2. Currency Setting (تنظیمات واحد پول: ریال و تومان)
+                // 1. Currency Setting (تنظیمات واحد پول: ریال و تومان)
                 GeneralCompactCard(
                     title = if (isEn) "Currency" else "واحد پول",
                     subtitle = if (isEn) "Transaction calculation unit" else "واحد محاسبه تراکنش‌ها",
