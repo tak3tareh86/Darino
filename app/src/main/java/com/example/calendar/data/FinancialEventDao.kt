@@ -17,6 +17,12 @@ interface FinancialEventDao {
     @Query("SELECT * FROM financial_events WHERE userId = :userId")
     suspend fun getAllEventsList(userId: String): List<FinancialEventEntity>
 
+    @Query("SELECT * FROM financial_events WHERE userId = :userId AND customReminderAt IS NOT NULL")
+    suspend fun getEventsWithCustomReminders(userId: String): List<FinancialEventEntity>
+
+    @Query("SELECT * FROM financial_events WHERE userId = :userId AND id = :id LIMIT 1")
+    suspend fun getEventById(userId: String, id: String): FinancialEventEntity?
+
     @Query("DELETE FROM financial_events WHERE userId = :userId")
     suspend fun clearAllEvents(userId: String)
 
