@@ -296,8 +296,10 @@ class ReminderManager(
         dueTimePersian: String? = null,
         selectedOffsets: List<PredefinedOffset>? = null
     ): Int = withContext(Dispatchers.IO) {
-        val effectiveDueTime = dueTimePersian?.takeIf { it.isNotBlank() } ?: defaultReminderTime()
         val existing = repository.getReminderBySourceId(installmentId)
+        val effectiveDueTime = dueTimePersian?.takeIf { it.isNotBlank() }
+            ?: existing?.time
+            ?: defaultReminderTime()
         val offsets = selectedOffsets ?: if (existing != null) {
             repository.getSchedulesSync(existing.id).mapNotNull { stored ->
                 PredefinedOffset.entries.find {
@@ -387,7 +389,7 @@ class ReminderManager(
         type: String = "MAINTENANCE"
     ) = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(serviceId)
-        val effectiveTime = defaultReminderTime()
+        val effectiveTime = existing?.time ?: defaultReminderTime()
         val reminder = existing?.copy(
             title = "$serviceTitle ($vehicleName)",
             date = dueDatePersian,
@@ -434,7 +436,7 @@ class ReminderManager(
         expirationDatePersian: String
     ) = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(insuranceId)
-        val effectiveTime = defaultReminderTime()
+        val effectiveTime = existing?.time ?: defaultReminderTime()
         val reminder = existing?.copy(
             title = "تمدید بیمه خودرو: $vehicleName",
             date = expirationDatePersian,

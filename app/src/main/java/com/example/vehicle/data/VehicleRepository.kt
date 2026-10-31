@@ -295,7 +295,7 @@ class VehicleRepository {
                             policyNumber = ins.policyNumber,
                             reminderDays = ins.reminderDays.split(",").mapNotNull { it.toIntOrNull() },
                             reminderEnabled = reminder?.notificationEnabled == true && reminder.status == "ACTIVE",
-                            reminderTime = reminder?.time ?: "۰۹:۰۰"
+                            reminderTime = reminder?.time ?: defaultReminderTime()
                         )
                     }
                     _insurances.value = mappedInsurances
@@ -324,7 +324,7 @@ class VehicleRepository {
                             status = insp.status,
                             centerName = insp.centerName,
                             reminderEnabled = reminder?.notificationEnabled == true && reminder.status == "ACTIVE",
-                            reminderTime = reminder?.time ?: "۰۹:۰۰",
+                            reminderTime = reminder?.time ?: defaultReminderTime(),
                             reminderDays = reminderDays
                         )
                     }

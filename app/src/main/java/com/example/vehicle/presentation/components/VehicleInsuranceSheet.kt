@@ -321,7 +321,7 @@ private fun VehicleReminderSettings(
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("ساعت هشدار (۲۴ ساعته)") },
-                        placeholder = { Text("۰۹:۰۰") },
+                        placeholder = { Text(defaultReminderTimeText) },
                         trailingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = "انتخاب ساعت", tint = MaterialTheme.colorScheme.primary) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
