@@ -68,7 +68,6 @@ fun SubscriptionStatusCard(
     val isTrial = info.subscriptionStatus == SubscriptionStatus.TRIAL
 
     val remainingDays = if (isActive) state.subscriptionDaysRemaining else state.trialDaysRemaining
-    val isWarningActive = isActive && state.subscriptionDaysRemaining in 1..7
 
     // Formatted expiration date
     val endDateTime = if (info.subscriptionEndAt != null) {
@@ -79,17 +78,12 @@ fun SubscriptionStatusCard(
 
     if (isActive) {
         // Active Annual Subscriber Card
-        val activeGradient = when {
-            isDark && isWarningActive -> Brush.horizontalGradient(
-                colors = listOf(Color(0xFF881337), Color(0xFFBE123C), Color(0xFFE11D48))
-            )
-            isDark -> Brush.horizontalGradient(
+        val activeGradient = if (isDark) {
+            Brush.horizontalGradient(
                 colors = listOf(Color(0xFF064E3B), Color(0xFF047857), Color(0xFF0F766E))
             )
-            isWarningActive -> Brush.horizontalGradient(
-                colors = listOf(Color(0xFFFFE4E6), Color(0xFFFFF1F2), Color(0xFFFFE4E6))
-            )
-            else -> Brush.horizontalGradient(
+        } else {
+            Brush.horizontalGradient(
                 colors = listOf(Color(0xFFECFDF5), Color(0xFFD1FAE5), Color(0xFFCCFBF1))
             )
         }
@@ -104,8 +98,8 @@ fun SubscriptionStatusCard(
                 .shadow(
                     elevation = 4.dp,
                     shape = RoundedCornerShape(16.dp),
-                    ambientColor = if (isWarningActive) Color(0xFFE11D48).copy(alpha = 0.2f) else Color(0xFF047857).copy(alpha = 0.2f),
-                    spotColor = if (isWarningActive) Color(0xFF881337).copy(alpha = 0.3f) else Color(0xFF064E3B).copy(alpha = 0.3f)
+                    ambientColor = Color(0xFF047857).copy(alpha = 0.2f),
+                    spotColor = Color(0xFF064E3B).copy(alpha = 0.3f)
                 )
                 .clip(RoundedCornerShape(16.dp)),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -133,15 +127,15 @@ fun SubscriptionStatusCard(
                         ) {
                             Surface(
                                 shape = CircleShape,
-                                color = if (isWarningActive) Color.White.copy(alpha = 0.2f) else Color(0xFFF59E0B).copy(alpha = 0.25f),
-                                border = BorderStroke(1.dp, if (isWarningActive) Color.White else Color(0xFFF59E0B)),
+                                color = Color(0xFFF59E0B).copy(alpha = 0.25f),
+                                border = BorderStroke(1.dp, Color(0xFFF59E0B)),
                                 modifier = Modifier.size(34.dp).then(if (onDebugLongPress != null) Modifier.pointerInput(onDebugLongPress) { detectTapGestures(onLongPress = { onDebugLongPress() }) } else Modifier)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
-                                        imageVector = if (isWarningActive) Icons.Default.Warning else Icons.Default.WorkspacePremium,
+                                        imageVector = Icons.Default.WorkspacePremium,
                                         contentDescription = null,
-                                        tint = if (isWarningActive) Color(0xFFFEF08A) else Color(0xFFFDE047),
+                                        tint = Color(0xFFFDE047),
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -152,7 +146,7 @@ fun SubscriptionStatusCard(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = if (isWarningActive) "اشتراک شما به‌زودی به پایان می‌رسد" else "اشتراک سالیانه فعال است",
+                                    text = "اشتراک سالیانه فعال است",
                                     color = cardTextColor,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
@@ -162,7 +156,7 @@ fun SubscriptionStatusCard(
                                     color = Color.White.copy(alpha = 0.2f)
                                 ) {
                                     Text(
-                                        text = if (isWarningActive) "هشدار انقضا" else "طلایی",
+                                        text = "طلایی",
                                         color = if (isDark) Color(0xFFFEF08A) else MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 9.5.sp,
@@ -266,28 +260,8 @@ fun SubscriptionStatusCard(
                             )
                         }
 
-                        if (isWarningActive) Button(
-                            onClick = onPurchaseClick,
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
-                                contentColor = if (isDark) { if (isWarningActive) Color(0xFF881337) else Color(0xFF064E3B) } else MaterialTheme.colorScheme.onPrimary
-                            ),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 5.dp),
-                            modifier = Modifier.height(34.dp)
-                        ) {
-                            Text(
-                                text = "تمدید اشتراک",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.5.sp
-                            )
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Icon(
-                                imageVector = Icons.Default.ChevronLeft,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
+                        // Active subscriptions use one consistent card; renewal timing does not create
+                        // a separate warning card or change the active-state presentation.
                     }
                 }
             }
