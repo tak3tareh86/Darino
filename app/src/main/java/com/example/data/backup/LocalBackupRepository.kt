@@ -388,9 +388,10 @@ class LocalBackupRepository(
                     backup.reminderDeliveryLogs.forEach { log ->
                         val newReminderId = restoredSmartReminderIds[log.reminderId]
                             ?: throw IllegalStateException("سوابق ارسال به یادآور موجود در فایل پشتیبان متصل نیست")
+                        // Historical delivery rows may refer to schedules that were
+                        // intentionally deleted after delivery; keep those logs with no schedule link.
                         val newScheduleId = log.scheduleId?.let { oldScheduleId ->
                             restoredSmartScheduleIds[oldScheduleId]
-                                ?: throw IllegalStateException("سوابق ارسال به زمان‌بندی موجود در فایل پشتیبان متصل نیست")
                         }
                         db.smartReminderDao().insertDeliveryLogForBackup(
                             log.copy(
