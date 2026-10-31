@@ -284,12 +284,7 @@ class ReminderManager(
         selectedOffsets: List<PredefinedOffset>? = null
     ): Int = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(installmentId)
-        val offsets = selectedOffsets ?: listOf(
-            PredefinedOffset.BEFORE_7_DAYS,
-            PredefinedOffset.BEFORE_3_DAYS,
-            PredefinedOffset.BEFORE_1_DAY,
-            PredefinedOffset.AT_TIME
-        )
+        val offsets = selectedOffsets ?: emptyList()
 
         if (offsets.isEmpty()) {
             if (existing != null) {
@@ -317,7 +312,7 @@ class ReminderManager(
             date = dueDatePersian,
             time = dueTimePersian,
             amount = amount,
-            notificationEnabled = true,
+            notificationEnabled = false,
             smsEnabled = false
         )
 
@@ -373,7 +368,7 @@ class ReminderManager(
             time = "۱۰:۰۰",
             targetKilometer = dueKilometer,
             currentKilometer = currentKilometer,
-            notificationEnabled = true,
+            notificationEnabled = false,
             smsEnabled = false
         )
 
@@ -414,7 +409,7 @@ class ReminderManager(
             status = "ACTIVE",
             date = expirationDatePersian,
             time = "۰۹:۰۰",
-            notificationEnabled = true,
+            notificationEnabled = false,
             smsEnabled = false
         )
 
@@ -476,7 +471,7 @@ class ReminderManager(
             date = persianDate,
             time = persianTime,
             amount = amount,
-            notificationEnabled = true,
+            notificationEnabled = false,
             smsEnabled = false
         )
 
