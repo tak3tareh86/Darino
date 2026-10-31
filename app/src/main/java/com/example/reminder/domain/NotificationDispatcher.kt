@@ -130,16 +130,19 @@ class NotificationDispatcher(private val context: Context) {
         } catch (e: Exception) {
             AlertDeliveryPreference.NOTIFICATION_ONLY
         }
-        // The global preference is the master policy; the per-reminder switch opts this
-        // reminder into full-screen delivery. Standard notifications remain independently selectable.
-        // The per-reminder switch is an explicit opt-in and must work even when
-        // the app-wide default is "notifications only".
-        val useFullScreenAlarm = reminder.fullScreenAlarmEnabled ||
-            deliveryPref == AlertDeliveryPreference.FULL_SCREEN_ALARM ||
-            deliveryPref == AlertDeliveryPreference.BOTH
+        // Delivery is strictly opt-in at BOTH levels: the reminder must explicitly
+        // enable a channel, and the global preference must permit that channel.
+        // A global preference alone must never create an alert for an unconfigured reminder.
+        val useFullScreenAlarm = reminder.fullScreenAlarmEnabled &&
+            (deliveryPref == AlertDeliveryPreference.FULL_SCREEN_ALARM ||
+                deliveryPref == AlertDeliveryPreference.BOTH)
         val showStandardNotification = reminder.notificationEnabled &&
             (deliveryPref == AlertDeliveryPreference.NOTIFICATION_ONLY ||
                 deliveryPref == AlertDeliveryPreference.BOTH)
+        if (!useFullScreenAlarm && !showStandardNotification) {
+            Log.i("NotificationDispatcher", "No opted-in Android delivery channel for reminder ${reminder.id}; suppressing notification.")
+            return -1
+        }
         // BOTH keeps a separate standard notification only when this reminder also uses FSI.
         val standardNotificationId = if (useFullScreenAlarm && showStandardNotification &&
             deliveryPref == AlertDeliveryPreference.BOTH) {
