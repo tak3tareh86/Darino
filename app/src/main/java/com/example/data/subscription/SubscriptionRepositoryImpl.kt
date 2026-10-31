@@ -63,38 +63,29 @@ class SubscriptionRepositoryImpl(
                 }
 
                 if (darinoPurchase?.purchaseState == PurchaseState.PURCHASED) {
-                    val samePurchase = currentLocal.purchaseTokenReference == darinoPurchase.purchaseToken
+                    // Poolakey's getSubscribedProducts() returns the user's currently active
+                    // subscriptions. Its presence is the authoritative current entitlement signal.
+                    // purchaseTime is not an expiry timestamp and may refer to the original
+                    // subscription even after renewals, so never use it to override Market's
+                    // active-subscription result.
                     val purchaseTime = darinoPurchase.purchaseTime.takeIf { it > 0L }
-                        ?: currentLocal.subscriptionStartAt.takeIf { samePurchase && it != null }
-                        ?: 0L
-
-                    if (purchaseTime <= 0L) {
-                        // Never grant a fresh year when Market omits the original purchase timestamp.
-                        val lockedInfo = currentLocal.copy(
-                            subscriptionStatus = SubscriptionStatus.LOCKED,
-                            marketAccountState = "PURCHASE_TIME_UNAVAILABLE",
-                            lastSyncAt = maxOf(currentLocal.lastSyncAt, now)
-                        )
-                        localDataSource.saveSubscriptionInfo(lockedInfo)
-                        _subscriptionFlow.value = lockedInfo
-                        Result.success(lockedInfo)
-                    } else {
-                        val subEnd = purchaseTime + MarketConfig.SUBSCRIPTION_DURATION_DAYS * 86_400_000L
-                        val candidate = currentLocal.copy(
-                            subscriptionStartAt = purchaseTime,
-                            subscriptionEndAt = subEnd,
-                            productId = MarketConfig.YEARLY_PRODUCT_ID,
-                            purchaseTokenReference = darinoPurchase.purchaseToken,
-                            marketAccountState = "SYNCED",
-                            lastSyncAt = maxOf(currentLocal.lastSyncAt, now)
-                        )
-                        val updatedInfo = candidate.copy(
-                            subscriptionStatus = SubscriptionValidator.evaluateStatus(candidate, now)
-                        )
-                        localDataSource.saveSubscriptionInfo(updatedInfo)
-                        _subscriptionFlow.value = updatedInfo
-                        Result.success(updatedInfo)
-                    }
+                    val subEnd = purchaseTime?.let {
+                        it + MarketConfig.SUBSCRIPTION_DURATION_DAYS * 86_400_000L
+                    } ?: currentLocal.subscriptionEndAt
+                    val candidate = currentLocal.copy(
+                        subscriptionStartAt = purchaseTime ?: currentLocal.subscriptionStartAt,
+                        subscriptionEndAt = subEnd,
+                        productId = MarketConfig.YEARLY_PRODUCT_ID,
+                        purchaseTokenReference = darinoPurchase.purchaseToken,
+                        marketAccountState = "MARKET_ACTIVE",
+                        lastSyncAt = maxOf(currentLocal.lastSyncAt, now)
+                    )
+                    val updatedInfo = candidate.copy(
+                        subscriptionStatus = SubscriptionValidator.evaluateStatus(candidate, now)
+                    )
+                    localDataSource.saveSubscriptionInfo(updatedInfo)
+                    _subscriptionFlow.value = updatedInfo
+                    Result.success(updatedInfo)
                 } else {
                     // A successful Market query is authoritative: revoke the cached entitlement.
                     val withoutSubscription = currentLocal.copy(
@@ -122,7 +113,8 @@ class SubscriptionRepositoryImpl(
                 val evaluated = SubscriptionValidator.evaluateStatus(currentLocal)
                 val updatedInfo = currentLocal.copy(
                     subscriptionStatus = evaluated,
-                    lastSyncAt = maxOf(currentLocal.lastSyncAt, System.currentTimeMillis())
+                    // A failed query must not refresh the age of the last successful Market verification.
+                    lastSyncAt = currentLocal.lastSyncAt
                 )
                 localDataSource.saveSubscriptionInfo(updatedInfo)
                 _subscriptionFlow.value = updatedInfo
