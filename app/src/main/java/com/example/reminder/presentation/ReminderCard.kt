@@ -40,8 +40,10 @@ fun ReminderCard(
     onClick: () -> Unit,
     onToggleCompleted: () -> Unit,
     onSnoozeClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showDeleteConfirmDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val isCompleted = reminder.status.equals("COMPLETED", ignoreCase = true)
     val isMissed = reminder.status.equals("MISSED", ignoreCase = true)
 
@@ -62,6 +64,20 @@ fun ReminderCard(
         else -> "فعال"
     }
 
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text("حذف یادآور", fontWeight = FontWeight.Bold) },
+            text = { Text("آیا از حذف این یادآور اطمینان دارید؟") },
+            confirmButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false; onDeleteClick() }) {
+                    Text("حذف", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteConfirmDialog = false }) { Text("انصراف") } }
+        )
+    }
+
     Layered3DCard(
         modifier = modifier
             .fillMaxWidth()
@@ -71,8 +87,8 @@ fun ReminderCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             // Row 1: 3D Icon + Title + Priority/Status + Actions
             Row(
@@ -84,7 +100,7 @@ fun ReminderCard(
                 Soft3DIcon(
                     imageRes = reminderType.iconRes,
                     contentDescription = reminderType.title,
-                    size = 46.dp,
+                    size = 36.dp,
                     accentColor = reminderType.accentColor
                 )
 
@@ -97,7 +113,7 @@ fun ReminderCard(
                         text = reminder.title,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
+                            fontSize = 13.sp,
                             textDecoration = if (isCompleted) TextDecoration.LineThrough else TextDecoration.None
                         ),
                         color = if (isCompleted) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface,
@@ -168,16 +184,10 @@ fun ReminderCard(
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-
-            HorizontalDivider(
-                modifier = Modifier.fillMaxWidth(),
-                thickness = 0.5.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-            )
 
             // Row 3: Meta details (Date, Time, Amount / Kilometer, Notification / SMS status)
             Row(
