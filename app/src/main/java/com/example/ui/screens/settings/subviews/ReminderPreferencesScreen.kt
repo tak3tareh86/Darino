@@ -134,7 +134,8 @@ fun ReminderPreferencesScreen(
                                     label = time,
                                     isSelected = isSelected,
                                     onClick = {
-                                        val parts = time.filter { it.isDigit() || it == ':' }.split(':')
+                                        val normalizedTime = time.map { ch -> if (ch in '۰'..'۹') ('0'.code + (ch.code - '۰'.code)).toChar() else ch }.joinToString("")
+                                        val parts = normalizedTime.filter { it.isDigit() || it == ':' }.split(':')
                                         val hour = parts[0].toInt()
                                         val minute = parts[1].toInt()
                                         preferences.setDefaultReminderTimeMinute(hour * 60 + minute)
