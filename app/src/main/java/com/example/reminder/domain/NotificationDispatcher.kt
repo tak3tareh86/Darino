@@ -32,7 +32,19 @@ class NotificationDispatcher(private val context: Context) {
      * notifications are isolated from calendar and other application notifications.
      */
     fun cancelReminderNotifications(reminderId: String) {
-        notificationManager.cancel(reminderId, 0)
+        notificationManager.cancel("reminder:$reminderId", 0)
+    }
+
+    /**
+     * Cancels only this app's reminder notifications, leaving calendar and other
+     * notification categories untouched.
+     */
+    fun cancelAllReminderNotifications() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            notificationManager.activeNotifications
+                .filter { it.tag?.startsWith("reminder:") == true }
+                .forEach { notificationManager.cancel(it.tag, it.id) }
+        }
     }
 
     private fun configuredChannelId(baseId: String): String {
@@ -335,7 +347,7 @@ class NotificationDispatcher(private val context: Context) {
                 }
                 else -> {
                     try {
-                        notificationManager.notify(reminder.id, notifId, notification)
+                        notificationManager.notify("reminder:${reminder.id}", notifId, notification)
                         notificationPosted = true
                         if (useFullScreenAlarm && showStandardNotification && deliveryPref == AlertDeliveryPreference.BOTH) {
                             val standardChannelId = when (reminder.type.uppercase()) {
@@ -359,7 +371,7 @@ class NotificationDispatcher(private val context: Context) {
                                     .addAction(R.drawable.img_3d_installment, "انجام شد", completePendingIntent)
                                     .addAction(R.drawable.img_3d_calendar, "۱۵ دقیقه بعد", snoozePendingIntent)
                                     .build()
-                                notificationManager.notify(reminder.id, standardNotificationId, standardNotification)
+                                notificationManager.notify("reminder:${reminder.id}", standardNotificationId, standardNotification)
                             } else {
                                 Log.w("NotificationDispatcher", "The additional standard notification channel is disabled for reminderId=${reminder.id}.")
                             }
