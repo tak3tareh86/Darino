@@ -104,12 +104,12 @@ data class FinancialEvent(
     val time: String? = null, // e.g. "10:00"
     val repeatType: String = "NONE", // "NONE", "MONTHLY", "YEARLY"
     val reminderBefore: ReminderBeforeOption = ReminderBeforeOption.NONE,
-    val reminderLabel: String? = reminderBefore.takeUnless { it == ReminderBeforeOption.NONE }?.label,
     val sourceId: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val status: FinancialEventStatus = FinancialEventStatus.PENDING,
     val isDueSoon: Boolean = false,
-    val isOverdue: Boolean = false
+    val isOverdue: Boolean = false,
+    val reminderLabel: String? = reminderBefore.takeUnless { it == ReminderBeforeOption.NONE }?.label
 ) {
     val formattedAmount: String?
         get() = amount?.let {
