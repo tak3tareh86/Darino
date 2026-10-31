@@ -24,6 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import androidx.compose.ui.platform.LocalContext
+import com.example.data.preferences.AppPreferencesRepository
 import com.example.ui.screens.settings.components.SettingsHeader
 import com.example.ui.screens.settings.components.SettingsSectionCard
 import com.example.ui.theme.EmeraldPrimaryLight
@@ -49,9 +52,21 @@ fun ReminderPreferencesScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedInstallmentDays by remember { mutableIntStateOf(7) }
-    var selectedVehicleKm by remember { mutableIntStateOf(500) }
-    var selectedReminderTime by remember { mutableStateOf("۰۹:۰۰ صبح") }
+    val context = LocalContext.current
+    val preferences = remember { AppPreferencesRepository.getInstance(context) }
+    val selectedInstallmentDays by preferences.installmentReminderDays.collectAsState()
+    val selectedVehicleKm by preferences.vehicleReminderKilometers.collectAsState()
+    val selectedReminderTimeMinute by preferences.defaultReminderTimeMinute.collectAsState()
+    fun persianDigits(value: String): String = value.map { ch ->
+        if (ch in '0'..'9') ('۰'.code + (ch.code - '0'.code)).toChar() else ch
+    }.joinToString("")
+    fun displayTime(minutes: Int): String {
+        val hour = (minutes / 60).toString().padStart(2, '0')
+        val minute = (minutes % 60).toString().padStart(2, '0')
+        val suffix = when (minutes / 60) { in 0..10 -> "صبح"; 12 -> "ظهر"; in 13..17 -> "عصر"; else -> "شب" }
+        return "${persianDigits(hour)}:${persianDigits(minute)} $suffix"
+    }
+    val selectedReminderTime = displayTime(selectedReminderTimeMinute)
 
     val installmentDayOptions = listOf(
         1 to "۱ روز قبل",
@@ -118,7 +133,12 @@ fun ReminderPreferencesScreen(
                                 ReminderSegmentChip(
                                     label = time,
                                     isSelected = isSelected,
-                                    onClick = { selectedReminderTime = time },
+                                    onClick = {
+                                        val parts = time.filter { it.isDigit() || it == ':' }.split(':')
+                                        val hour = parts[0].toInt()
+                                        val minute = parts[1].toInt()
+                                        preferences.setDefaultReminderTimeMinute(hour * 60 + minute)
+                                    },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -133,7 +153,12 @@ fun ReminderPreferencesScreen(
                                 ReminderSegmentChip(
                                     label = time,
                                     isSelected = isSelected,
-                                    onClick = { selectedReminderTime = time },
+                                    onClick = {
+                                        val parts = time.filter { it.isDigit() || it == ':' }.split(':')
+                                        val hour = parts[0].toInt()
+                                        val minute = parts[1].toInt()
+                                        preferences.setDefaultReminderTimeMinute(hour * 60 + minute)
+                                    },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -164,7 +189,7 @@ fun ReminderPreferencesScreen(
                                 title = label,
                                 subtitle = if (days == 7) "بهترین زمان برای برنامه‌ریزی موجودی حساب" else null,
                                 isSelected = isSelected,
-                                onClick = { selectedInstallmentDays = days }
+                                onClick = { preferences.setInstallmentReminderDays(days) }
                             )
                         }
                     }
@@ -193,7 +218,7 @@ fun ReminderPreferencesScreen(
                                 title = label,
                                 subtitle = if (km == 500) "فرصت کافی برای هماهنگی و مراجعه به تعمیرگاه" else null,
                                 isSelected = isSelected,
-                                onClick = { selectedVehicleKm = km }
+                                onClick = { preferences.setVehicleReminderKilometers(km) }
                             )
                         }
                     }
