@@ -34,14 +34,9 @@ object SubscriptionValidator {
             return SubscriptionStatus.LOCKED
         }
 
-        // Clock tampering check: if current time is significantly before last sync time, lock or require sync
+        // A device clock moved materially backwards since the last trusted Market sync.
+        // Do not grant access based on the now-manipulated local clock.
         if (info.lastSyncAt > 0L && currentTimeMillis < info.lastSyncAt - (5 * 60 * 1000L)) {
-            // Clock was set backwards
-            if (info.subscriptionStartAt != null && info.subscriptionEndAt != null) {
-                if (currentTimeMillis <= info.subscriptionEndAt) {
-                    return SubscriptionStatus.ACTIVE
-                }
-            }
             return SubscriptionStatus.LOCKED
         }
 
