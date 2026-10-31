@@ -34,6 +34,7 @@ import com.example.calendar.domain.CalendarDateUtils
 import com.example.calendar.domain.model.FinancialEvent
 import com.example.calendar.domain.model.FinancialEventStatus
 import com.example.calendar.domain.model.FinancialEventType
+import com.example.util.IranianPhoneUtils
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.theme.EmeraldPrimaryLight
@@ -173,7 +174,17 @@ fun EventCard(
                         )
                     }
 
-                    if (event.description.isNotBlank()) {
+                    // Avoid showing a check amount twice when the description only repeats
+                    // the same amount already displayed in the dedicated amount line.
+                    val descriptionDigits = IranianPhoneUtils
+                        .convertDigitsToEnglish(event.description)
+                        .filter { it.isDigit() }
+                    val amountDigits = event.amount?.toString()
+                    val repeatsDisplayedAmount = event.description.contains("مبلغ چک") &&
+                        !amountDigits.isNullOrBlank() &&
+                        descriptionDigits == amountDigits
+
+                    if (event.description.isNotBlank() && !repeatsDisplayedAmount) {
                         Text(
                             text = event.description,
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
