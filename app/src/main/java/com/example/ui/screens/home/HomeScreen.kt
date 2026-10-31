@@ -31,6 +31,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -48,6 +50,10 @@ import com.example.ui.screens.home.components.UpcomingRemindersCard
 import com.example.ui.screens.home.domain.ObligationType
 import com.example.ui.screens.home.viewmodel.HomeDashboardViewModel
 import com.example.ui.screens.home.viewmodel.SmsAcceptResult
+import com.example.BuildConfig
+import com.example.domain.subscription.SubscriptionStatus
+import com.example.domain.subscription.SubscriptionValidator
+import com.example.ui.screens.subscription.SubscriptionState
 import com.example.ui.screens.subscription.SubscriptionStatusCard
 import com.example.ui.screens.subscription.SubscriptionViewModel
 import kotlinx.coroutines.launch
@@ -65,6 +71,9 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val subState by subscriptionViewModel.uiState.collectAsState()
+    var debugSubscriptionState by remember { mutableStateOf<SubscriptionState?>(null) }
+    var showSubscriptionDebugPanel by remember { mutableStateOf(false) }
+    val displayedSubscriptionState = if (BuildConfig.DEBUG) debugSubscriptionState ?: subState else subState
     val smsPermissionState by viewModel.smsPermissionState.collectAsState()
     val isScanningSms by viewModel.isScanningSms.collectAsState()
     val smsErrorMessage by viewModel.smsErrorMessage.collectAsState()
@@ -171,22 +180,99 @@ fun HomeScreen(
 
                     // 2. Annual Subscription Card (Prominent, real state)
                     SubscriptionStatusCard(
-                        state = subState,
-                        onPurchaseClick = {
-                            val hostActivity = context as? ComponentActivity
-                            if (hostActivity != null) {
-                                subscriptionViewModel.startPurchaseFlow(hostActivity.activityResultRegistry) {}
-                            } else {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("امکان شروع پرداخت در این صفحه وجود ندارد.")
+                        state = displayedSubscriptionState,
+                        onPurchaseClick = if (BuildConfig.DEBUG && debugSubscriptionState != null) {
+                            {}
+                        } else {
+                            {
+                                val hostActivity = context as? ComponentActivity
+                                if (hostActivity != null) {
+                                    subscriptionViewModel.startPurchaseFlow(hostActivity.activityResultRegistry) {}
+                                } else {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("امکان شروع پرداخت در این صفحه وجود ندارد.")
+                                    }
                                 }
                             }
                         },
-                        onRestoreClick = { subscriptionViewModel.manualRestorePurchase() },
-                        isPurchaseLoading = subState.isLoading,
-                        isRestoreLoading = subState.isSyncing,
+                        onRestoreClick = if (BuildConfig.DEBUG && debugSubscriptionState != null) {
+                            {}
+                        } else {
+                            { subscriptionViewModel.manualRestorePurchase() }
+                        },
+                        isPurchaseLoading = if (BuildConfig.DEBUG && debugSubscriptionState != null) false else subState.isLoading,
+                        isRestoreLoading = if (BuildConfig.DEBUG && debugSubscriptionState != null) false else subState.isSyncing,
+                        onDebugLongPress = if (BuildConfig.DEBUG) {
+                            { showSubscriptionDebugPanel = true }
+                        } else null,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
+
+                    if (BuildConfig.DEBUG && showSubscriptionDebugPanel) {
+                        val applyDebugState: (SubscriptionStatus, Long) -> Unit = { status, days ->
+                            val now = System.currentTimeMillis()
+                            val endAt = now + days * 86_400_000L
+                            val trialEndAt = if (status == SubscriptionStatus.TRIAL) endAt else now - 1L
+                            val subscriptionEndAt = if (status == SubscriptionStatus.ACTIVE) endAt
+                                else if (status == SubscriptionStatus.EXPIRED) now - 1L else null
+                            val info = subState.info.copy(
+                                subscriptionStatus = status,
+                                trialEndAt = trialEndAt,
+                                subscriptionStartAt = if (status == SubscriptionStatus.ACTIVE) now else null,
+                                subscriptionEndAt = subscriptionEndAt
+                            )
+                            debugSubscriptionState = subState.copy(
+                                info = info,
+                                trialDaysRemaining = if (status == SubscriptionStatus.TRIAL) days else 0L,
+                                trialEndJalaliDate = if (status == SubscriptionStatus.TRIAL) SubscriptionValidator.formatEndJalaliDate(endAt) else "",
+                                subscriptionDaysRemaining = if (status == SubscriptionStatus.ACTIVE) days else 0L,
+                                subscriptionEndJalaliDate = if (status == SubscriptionStatus.ACTIVE) SubscriptionValidator.formatEndJalaliDate(endAt) else ""
+                            )
+                            showSubscriptionDebugPanel = false
+                        }
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { showSubscriptionDebugPanel = false },
+                            title = { androidx.compose.material3.Text("پنل آزمایش نمایشی اشتراک") },
+                            text = {
+                                androidx.compose.foundation.layout.Column(
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    androidx.compose.material3.Text(
+                                        "این حالت فقط ظاهر کارت را تغییر می‌دهد و هیچ خرید یا اطلاعات ذخیره‌شده‌ای را دست‌کاری نمی‌کند."
+                                    )
+                                    androidx.compose.material3.TextButton(
+                                        onClick = { applyDebugState(SubscriptionStatus.TRIAL, 14L) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { androidx.compose.material3.Text("نمایش دوره آزمایشی") }
+                                    androidx.compose.material3.TextButton(
+                                        onClick = { applyDebugState(SubscriptionStatus.ACTIVE, 365L) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { androidx.compose.material3.Text("نمایش اشتراک فعال") }
+                                    androidx.compose.material3.TextButton(
+                                        onClick = { applyDebugState(SubscriptionStatus.ACTIVE, 7L) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { androidx.compose.material3.Text("نمایش ۷ روز مانده") }
+                                    androidx.compose.material3.TextButton(
+                                        onClick = { applyDebugState(SubscriptionStatus.EXPIRED, 0L) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { androidx.compose.material3.Text("نمایش اشتراک منقضی‌شده") }
+                                }
+                            },
+                            confirmButton = {
+                                androidx.compose.material3.TextButton(
+                                    onClick = {
+                                        debugSubscriptionState = null
+                                        showSubscriptionDebugPanel = false
+                                    }
+                                ) { androidx.compose.material3.Text("خروج از حالت تست") }
+                            },
+                            dismissButton = {
+                                androidx.compose.material3.TextButton(
+                                    onClick = { showSubscriptionDebugPanel = false }
+                                ) { androidx.compose.material3.Text("بستن") }
+                            }
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
