@@ -245,6 +245,7 @@ fun VehicleInsuranceSheet(
                     enabled = insuranceReminderEnabled, onEnabledChange = { insuranceReminderEnabled = it },
                     time = insuranceReminderTime, onTimeChange = { insuranceReminderTime = it },
                     days = insuranceReminderDays, onDaysChange = { insuranceReminderDays = it },
+                    defaultTimeText = defaultReminderTimeText,
                     tag = "insurance_reminder"
                 )
                 Button(
@@ -269,6 +270,7 @@ fun VehicleInsuranceSheet(
                     enabled = inspectionReminderEnabled, onEnabledChange = { inspectionReminderEnabled = it },
                     time = inspectionReminderTime, onTimeChange = { inspectionReminderTime = it },
                     days = inspectionReminderDays, onDaysChange = { inspectionReminderDays = it },
+                    defaultTimeText = defaultReminderTimeText,
                     tag = "inspection_reminder"
                 )
                 Button(
@@ -293,6 +295,7 @@ private fun VehicleReminderSettings(
     onTimeChange: (String) -> Unit,
     days: Set<Int>,
     onDaysChange: (Set<Int>) -> Unit,
+    defaultTimeText: String,
     tag: String
 ) {
     var showTimePicker by remember { mutableStateOf(false) }
@@ -321,7 +324,7 @@ private fun VehicleReminderSettings(
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("ساعت هشدار (۲۴ ساعته)") },
-                        placeholder = { Text(defaultReminderTimeText) },
+                        placeholder = { Text(defaultTimeText) },
                         trailingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = "انتخاب ساعت", tint = MaterialTheme.colorScheme.primary) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
