@@ -126,98 +126,48 @@ fun SupportBackupScreen(
     var showRestoreConfirmation by remember { mutableStateOf(false) }
     var pendingRestoreBackup by remember { mutableStateOf<com.example.data.backup.DarinoBackup?>(null) }
     var backupSummaryInfo by remember { mutableStateOf("") }
-    var pendingBackupOverwriteUri by remember { mutableStateOf<Uri?>(null) }
     var pendingBackupPayload by remember { mutableStateOf<ByteArray?>(null) }
     var pendingBackupChecksum by remember { mutableStateOf<String?>(null) }
     var pendingBackupSummary by remember { mutableStateOf("") }
 
-    fun updateBackupTimestamp(backup: com.example.data.backup.DarinoBackup) {
+    fun updateBackupTimestamp(summary: String) {
         val nowTime = System.currentTimeMillis()
         prefs.edit().putLong("last_backup_time", nowTime).apply()
         val dt = com.example.util.PersianCalendarHelper.fromEpochMillis(nowTime)
         lastBackupDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
             "${dt.year}/${dt.month.toString().padStart(2, '0')}/${dt.day.toString().padStart(2, '0')}"
         )
-        backupSummaryInfo = "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
+        backupSummaryInfo = summary
         showBackupSuccessDialog = true
     }
 
-    val backupFolderLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { treeUri ->
-        if (treeUri != null) {
-            isBackingUp = true
+    val backupFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { destinationUri ->
+        val payload = pendingBackupPayload
+        val checksum = pendingBackupChecksum
+        val summary = pendingBackupSummary
+        pendingBackupPayload = null
+        pendingBackupChecksum = null
+        pendingBackupSummary = ""
+        if (destinationUri == null) {
+            isBackingUp = false
+        } else if (payload != null && checksum != null) {
             scope.launch {
                 try {
-                    val backup = backupManager.createBackup()
-                    val payload = com.example.data.backup.BackupFileCodec.encode(backup)
-                        .toByteArray(Charsets.UTF_8)
-                    if (payload.isEmpty()) throw java.io.IOException("محتوای پشتیبان خالی است.")
-
-                    val stagedFile = withContext(Dispatchers.IO) {
-                        java.io.File.createTempFile("darino-backup-", ".json", context.cacheDir).also { file ->
-                            file.outputStream().buffered().use { it.write(payload) }
-                            val decoded = com.example.data.backup.BackupFileCodec.decode(
-                                file.inputStream().bufferedReader(Charsets.UTF_8).use { it.readText() }
-                            )
-                            if (decoded.metadata.checksum != backup.metadata.checksum) {
-                                throw java.io.IOException("بررسی صحت نسخه موقت پشتیبان ناموفق بود.")
-                            }
-                        }
+                    withContext(Dispatchers.IO) {
+                        writeAndVerifyBackup(context, destinationUri, payload, checksum)
                     }
-                    try {
-                        val filename = buildBackupFilename()
-                        val existingUri = withContext(Dispatchers.IO) {
-                            findExistingBackupDocument(context, treeUri, filename)
-                        }
-                        if (existingUri != null) {
-                            pendingBackupOverwriteUri = existingUri
-                            pendingBackupPayload = payload
-                            pendingBackupChecksum = backup.metadata.checksum
-                            pendingBackupSummary = "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
-                        } else {
-                            val newDocumentUri = withContext(Dispatchers.IO) {
-                                val parentUri = android.provider.DocumentsContract.buildDocumentUriUsingTree(
-                                    treeUri,
-                                    android.provider.DocumentsContract.getTreeDocumentId(treeUri)
-                                )
-                                val createdUri = android.provider.DocumentsContract.createDocument(
-                                    context.contentResolver,
-                                    parentUri,
-                                    "application/json",
-                                    filename
-                                ) ?: throw java.io.IOException("ساخت فایل در پوشه انتخاب‌شده ناموفق بود.")
-                                val actualName = getDocumentDisplayName(context, createdUri)
-                                if (actualName != filename) {
-                                    runCatching {
-                                        android.provider.DocumentsContract.deleteDocument(context.contentResolver, createdUri)
-                                    }
-                                    throw java.io.IOException("نام فایل در پوشه مقصد تغییر کرد؛ برای جلوگیری از ساخت نام تکراری، ذخیره‌سازی متوقف شد.")
-                                }
-                                createdUri
-                            }
-                            try {
-                                withContext(Dispatchers.IO) {
-                                    writeAndVerifyBackup(context, newDocumentUri, payload, backup.metadata.checksum)
-                                }
-                            } catch (e: Exception) {
-                                withContext(Dispatchers.IO) {
-                                    runCatching { android.provider.DocumentsContract.deleteDocument(context.contentResolver, newDocumentUri) }
-                                }
-                                throw e
-                            }
-                            updateBackupTimestamp(backup)
-                        }
-                    } finally {
-                        withContext(Dispatchers.IO) { stagedFile.delete() }
-                    }
+                    updateBackupTimestamp(summary)
                 } catch (e: Exception) {
-                    Log.e("SupportBackupScreen", "Backup creation failed", e)
-                    Toast.makeText(context, "خطا در ایجاد پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
+                    Log.e("SupportBackupScreen", "Backup save failed", e)
+                    Toast.makeText(context, "خطا در ذخیره فایل پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
                 } finally {
                     isBackingUp = false
                 }
             }
+        } else {
+            isBackingUp = false
         }
     }
 
@@ -285,53 +235,6 @@ fun SupportBackupScreen(
             isDanger = false,
             onConfirm = { showBackupSuccessDialog = false },
             onDismiss = { showBackupSuccessDialog = false }
-        )
-    }
-
-    if (pendingBackupOverwriteUri != null && pendingBackupPayload != null && pendingBackupChecksum != null) {
-        SettingsConfirmationDialog(
-            isOpen = true,
-            title = "جایگزینی فایل پشتیبان",
-            message = "فایلی با نام دقیق «${buildBackupFilename()}» در این پوشه وجود دارد. آیا می‌خواهید محتوای همان فایل را جایگزین کنید؟ در صورت انصراف، فایل قبلی بدون تغییر باقی می‌ماند.",
-            confirmButtonText = "جایگزینی فایل",
-            isDanger = true,
-            onConfirm = {
-                val destination = pendingBackupOverwriteUri
-                val payload = pendingBackupPayload
-                val checksum = pendingBackupChecksum
-                val summary = pendingBackupSummary
-                pendingBackupOverwriteUri = null
-                pendingBackupPayload = null
-                pendingBackupChecksum = null
-                if (destination != null && payload != null && checksum != null) {
-                    isBackingUp = true
-                    scope.launch {
-                        try {
-                            withContext(Dispatchers.IO) {
-                                writeAndVerifyBackup(context, destination, payload, checksum)
-                            }
-                            val nowTime = System.currentTimeMillis()
-                            prefs.edit().putLong("last_backup_time", nowTime).apply()
-                            val dt = com.example.util.PersianCalendarHelper.fromEpochMillis(nowTime)
-                            lastBackupDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
-                                "${dt.year}/${dt.month.toString().padStart(2, '0')}/${dt.day.toString().padStart(2, '0')}"
-                            )
-                            backupSummaryInfo = summary
-                            showBackupSuccessDialog = true
-                        } catch (e: Exception) {
-                            Log.e("SupportBackupScreen", "Backup overwrite failed", e)
-                            Toast.makeText(context, "جایگزینی فایل ناموفق بود: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
-                        } finally {
-                            isBackingUp = false
-                        }
-                    }
-                }
-            },
-            onDismiss = {
-                pendingBackupOverwriteUri = null
-                pendingBackupPayload = null
-                pendingBackupChecksum = null
-            }
         )
     }
 
@@ -459,7 +362,42 @@ fun SupportBackupScreen(
                             // Create Backup Button
                             Button(
                                 onClick = {
-                                    backupFolderLauncher.launch(null)
+                                    if (!isBackingUp) {
+                                        isBackingUp = true
+                                        scope.launch {
+                                            try {
+                                                val backup = backupManager.createBackup()
+                                                val payload = com.example.data.backup.BackupFileCodec.encode(backup)
+                                                    .toByteArray(Charsets.UTF_8)
+                                                if (payload.isEmpty()) throw java.io.IOException("محتوای پشتیبان خالی است.")
+                                                withContext(Dispatchers.IO) {
+                                                    val stagedFile = java.io.File.createTempFile("darino-backup-", ".json", context.cacheDir)
+                                                    try {
+                                                        stagedFile.outputStream().buffered().use { it.write(payload) }
+                                                        val decoded = com.example.data.backup.BackupFileCodec.decode(
+                                                            stagedFile.inputStream().bufferedReader(Charsets.UTF_8).use { it.readText() }
+                                                        )
+                                                        if (decoded.metadata.checksum != backup.metadata.checksum) {
+                                                            throw java.io.IOException("بررسی صحت نسخه موقت پشتیبان ناموفق بود.")
+                                                        }
+                                                    } finally {
+                                                        stagedFile.delete()
+                                                    }
+                                                }
+                                                pendingBackupPayload = payload
+                                                pendingBackupChecksum = backup.metadata.checksum
+                                                pendingBackupSummary = "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
+                                                backupFileLauncher.launch(buildBackupFilename())
+                                            } catch (e: Exception) {
+                                                isBackingUp = false
+                                                pendingBackupPayload = null
+                                                pendingBackupChecksum = null
+                                                pendingBackupSummary = ""
+                                                Log.e("SupportBackupScreen", "Backup creation failed", e)
+                                                Toast.makeText(context, "خطا در آماده‌سازی پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
+                                            }
+                                        }
+                                    }
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
