@@ -203,7 +203,7 @@ fun SubscriptionStatusCard(
                             )
                         )
                         Text(
-                            text = "به‌به، به جمع ما خوش اومدی 🌟",
+                            text = "به جمع ما خوش اومدی 🌟",
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.titleSmall.copy(
