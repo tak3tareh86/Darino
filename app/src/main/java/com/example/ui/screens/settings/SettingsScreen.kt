@@ -216,8 +216,6 @@ fun SettingsScreen(
             }
             SettingsDestination.GENERAL -> {
                 GeneralPreferencesScreen(
-                    currentLanguage = currentLanguage,
-                    onLanguageSelected = { prefsRepo.setLanguage(it) },
                     currentCurrency = currentCurrency,
                     onCurrencySelected = { prefsRepo.setCurrency(it) },
                     currentTheme = currentTheme,
