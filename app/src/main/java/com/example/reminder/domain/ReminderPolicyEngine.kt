@@ -38,7 +38,7 @@ object ReminderPolicyEngine {
             return DispatchDecision.DeliverNow
         }
 
-        val tz = TimeZone.getTimeZone("Asia/Tehran")
+        val tz = TimeZone.getDefault()
         val cal = Calendar.getInstance(tz).apply {
             timeInMillis = currentTimestampMillis
         }
@@ -50,7 +50,9 @@ object ReminderPolicyEngine {
         val startMinuteOfDay = quietHours.startHour * 60 + quietHours.startMinute
         val endMinuteOfDay = quietHours.endHour * 60 + quietHours.endMinute
 
-        val isInQuietHours = if (startMinuteOfDay > endMinuteOfDay) {
+        val isInQuietHours = if (startMinuteOfDay == endMinuteOfDay) {
+            false // Equal boundaries represent an empty interval, not 24-hour silence.
+        } else if (startMinuteOfDay > endMinuteOfDay) {
             // Overnight quiet hours (e.g. 23:00 to 07:00)
             currentMinuteOfDay >= startMinuteOfDay || currentMinuteOfDay < endMinuteOfDay
         } else {
