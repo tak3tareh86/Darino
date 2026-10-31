@@ -288,13 +288,29 @@ class ReminderManager(
         selectedOffsets: List<PredefinedOffset>? = null
     ): Int = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(installmentId)
-        val offsets = selectedOffsets ?: emptyList()
+        val offsets = selectedOffsets ?: if (existing != null) {
+            repository.getSchedulesSync(existing.id).mapNotNull { stored ->
+                PredefinedOffset.entries.find {
+                    it.value == stored.offsetValue && it.unit.name.equals(stored.offsetUnit, ignoreCase = true)
+                }
+            }.distinct()
+        } else {
+            emptyList()
+        }
 
         if (offsets.isEmpty()) {
             if (existing != null) {
-                deleteReminder(existing.id)
+                val oldSchedules = repository.getSchedulesSync(existing.id)
+                scheduler.cancel(existing.id, oldSchedules)
+                val disabled = existing.copy(
+                    notificationEnabled = false,
+                    fullScreenAlarmEnabled = false,
+                    smsEnabled = false,
+                    updatedAt = System.currentTimeMillis()
+                )
+                repository.updateReminderWithSchedules(disabled, emptyList())
             }
-            Log.i("ReminderManager", "syncInstallmentReminder: offsets is empty for $installmentId. Deleted existing reminder if any, 0 alarms scheduled.")
+            Log.i("ReminderManager", "syncInstallmentReminder: no selected alert times for $installmentId; no alarms scheduled.")
             return@withContext 0
         }
 
