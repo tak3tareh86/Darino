@@ -187,11 +187,23 @@ fun SubscriptionStatusCard(
                     }
 
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "دوست خوبم به جمع ما خوش اومدی 🌟",
+                            text = "دوست خوبم سلام",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color.White
+                            )
+                        )
+                        Text(
+                            text = "به‌به، به جمع ما خوش اومدی 🌟",
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.titleSmall.copy(
@@ -202,9 +214,19 @@ fun SubscriptionStatusCard(
                         )
                         Spacer(modifier = Modifier.height(5.dp))
                         Text(
-                            text = "از اینکه اشتراک سالانه رو انتخاب کردی ممنونیم. حالا می‌تونی با خیال راحت از تمام امکانات استفاده کنی. امیدواریم همراه خوبی برای مدیریت بهتر امور مالی و زندگی روزمره‌ات باشیم.",
+                            text = "از اینکه اشتراک سالانه رو انتخاب کردی ممنونیم. حالا می‌تونی با خیال راحت از تمام امکانات استفاده کنی.",
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Justify,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 10.5.sp,
+                                lineHeight = 15.sp,
+                                color = cardMutedTextColor
+                            )
+                        )
+                        Text(
+                            text = "امیدواریم همراه خوبی برای مدیریت بهتر امور مالی و زندگی روزمره‌ات باشیم.",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontSize = 10.5.sp,
                                 lineHeight = 15.sp,
@@ -322,35 +344,20 @@ fun SubscriptionStatusCard(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.weight(1f)
+                            Surface(
+                                shape = CircleShape,
+                                color = Color(0xFFF59E0B).copy(alpha = 0.25f),
+                                border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.8f)),
+                                modifier = Modifier.size(34.dp)
                             ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color(0xFFF59E0B).copy(alpha = 0.25f),
-                                    border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.8f)),
-                                    modifier = Modifier.size(34.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Default.AutoAwesome,
-                                            contentDescription = null,
-                                            tint = Color(0xFFFDE047),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = if (isExpired) "پایان دوره آزمایشی" else "دوست خوبم سلام",
-                                    textAlign = TextAlign.Center,
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = offerTextColor
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = Color(0xFFFDE047),
+                                        modifier = Modifier.size(18.dp)
                                     )
-                                )
+                                }
                             }
 
                             // Gold Yearly Tag
@@ -368,8 +375,20 @@ fun SubscriptionStatusCard(
                             }
                         }
 
-                        // Use the full card width below both header elements, with a small inset.
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = if (isExpired) "پایان دوره آزمایشی" else "دوست خوبم سلام",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 6.dp),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = offerTextColor
+                            )
+                        )
+                        // Use the full card width below the centered greeting, with a small inset.
+                        Spacer(modifier = Modifier.height(2.dp))
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
