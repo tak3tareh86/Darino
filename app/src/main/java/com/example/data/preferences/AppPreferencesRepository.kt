@@ -61,6 +61,16 @@ class AppPreferencesRepository private constructor(context: Context) {
     private val _alertDelivery = MutableStateFlow(loadAlertDelivery())
     val alertDelivery: StateFlow<AlertDeliveryPreference> = _alertDelivery.asStateFlow()
 
+    // Global master switches are opt-in. Per-reminder channel selection is also required.
+    private val _notificationsEnabled = MutableStateFlow(prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, false))
+    val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
+    private val _smsNotificationsEnabled = MutableStateFlow(prefs.getBoolean(KEY_SMS_NOTIFICATIONS_ENABLED, false))
+    val smsNotificationsEnabled: StateFlow<Boolean> = _smsNotificationsEnabled.asStateFlow()
+    private val _notificationSoundEnabled = MutableStateFlow(prefs.getBoolean(KEY_NOTIFICATION_SOUND_ENABLED, true))
+    val notificationSoundEnabled: StateFlow<Boolean> = _notificationSoundEnabled.asStateFlow()
+    private val _notificationVibrationEnabled = MutableStateFlow(prefs.getBoolean(KEY_NOTIFICATION_VIBRATION_ENABLED, true))
+    val notificationVibrationEnabled: StateFlow<Boolean> = _notificationVibrationEnabled.asStateFlow()
+
     private val _navTransition = MutableStateFlow(loadNavTransition())
     val navTransition: StateFlow<NavigationTransitionAnimation> = _navTransition.asStateFlow()
 
@@ -168,6 +178,26 @@ class AppPreferencesRepository private constructor(context: Context) {
         _currency.value = valid
     }
 
+    fun setNotificationsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, enabled).apply()
+        _notificationsEnabled.value = enabled
+    }
+
+    fun setSmsNotificationsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SMS_NOTIFICATIONS_ENABLED, enabled).apply()
+        _smsNotificationsEnabled.value = enabled
+    }
+
+    fun setNotificationSoundEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NOTIFICATION_SOUND_ENABLED, enabled).apply()
+        _notificationSoundEnabled.value = enabled
+    }
+
+    fun setNotificationVibrationEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NOTIFICATION_VIBRATION_ENABLED, enabled).apply()
+        _notificationVibrationEnabled.value = enabled
+    }
+
     fun setAlertDelivery(delivery: AlertDeliveryPreference) {
         prefs.edit()
             .putString(KEY_ALERT_DELIVERY, delivery.name)
@@ -263,6 +293,10 @@ class AppPreferencesRepository private constructor(context: Context) {
         private const val KEY_CURRENCY = "pref_currency"
         private const val KEY_ALERT_DELIVERY = "pref_alert_delivery"
         private const val KEY_ALERT_DELIVERY_V2_MIGRATED = "pref_alert_delivery_v2_migrated"
+        private const val KEY_NOTIFICATIONS_ENABLED = "pref_notifications_enabled"
+        private const val KEY_SMS_NOTIFICATIONS_ENABLED = "pref_sms_notifications_enabled"
+        private const val KEY_NOTIFICATION_SOUND_ENABLED = "pref_notification_sound_enabled"
+        private const val KEY_NOTIFICATION_VIBRATION_ENABLED = "pref_notification_vibration_enabled"
         private const val KEY_NAV_TRANSITION = "pref_nav_transition_animation"
         private const val KEY_IS_CLEAN_SLATE = "pref_is_clean_slate"
 
