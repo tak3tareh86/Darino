@@ -157,9 +157,15 @@ class NotificationDispatcher(private val context: Context) {
         // activity while the user is interacting with the device. Use an audible,
         // high-importance channel in that case. Keep the lock-screen FSI channel silent
         // because ReminderAlarmActivity plays the continuous alarm ringtone itself.
+        // If Darino itself is visible, launch the dedicated alarm screen directly.
+        // Android restricts background activity launches, so when another app is in
+        // front we keep the system-managed heads-up / full-screen notification path.
+        val launchAlarmActivityDirectly = useFullScreenAlarm &&
+            isDeviceInteractive && MainActivity.isAppVisible
         val useAudibleAlarmFallback = useFullScreenAlarm &&
-            (isDeviceInteractive || !fullScreenAccessGranted)
+            !launchAlarmActivityDirectly && (isDeviceInteractive || !fullScreenAccessGranted)
         val channelId = when {
+            launchAlarmActivityDirectly -> CHANNEL_FULL_SCREEN_ALARMS
             useAudibleAlarmFallback -> CHANNEL_ALARM_HEADS_UP
             useFullScreenAlarm -> CHANNEL_FULL_SCREEN_ALARMS
             else -> when (reminder.type.uppercase()) {
@@ -256,8 +262,7 @@ class NotificationDispatcher(private val context: Context) {
             .addAction(R.drawable.img_3d_calendar, "۱۵ دقیقه بعد", snoozePendingIntent)
             .addAction(R.drawable.img_3d_installment, "انجام شد", completePendingIntent)
 
-        if (useFullScreenAlarm) {
-            val alarmActivityIntent = Intent(context, ReminderAlarmActivity::class.java).apply {
+        val alarmActivityIntent = if (useFullScreenAlarm) Intent(context, ReminderAlarmActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(ReminderAlarmActivity.EXTRA_REMINDER_ID, reminder.id)
                 putExtra(ReminderAlarmActivity.EXTRA_NOTIFICATION_ID, notifId)
@@ -271,8 +276,10 @@ class NotificationDispatcher(private val context: Context) {
                 alarmActivityIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            notificationBuilder.setFullScreenIntent(fullScreenPendingIntent, true)
-        }
+            if (!launchAlarmActivityDirectly) {
+                notificationBuilder.setFullScreenIntent(fullScreenPendingIntent, true)
+            }
+        } else null
         val notification = notificationBuilder.build()
         val showNotification = useFullScreenAlarm || showStandardNotification
 
@@ -343,6 +350,17 @@ class NotificationDispatcher(private val context: Context) {
             }
         } else {
             Log.i("NotificationDispatcher", "Notification skipped due to delivery preference: $deliveryPref")
+        }
+
+        // When Darino is already on screen, open the alarm UI immediately instead
+        // of relying on a heads-up notification to act like a full-screen alarm.
+        if (launchAlarmActivityDirectly && alarmActivityIntent != null) {
+            try {
+                context.startActivity(alarmActivityIntent)
+                Log.i("NotificationDispatcher", "Launched full-screen alarm directly while Darino was visible: reminderId=${reminder.id}")
+            } catch (e: Exception) {
+                Log.e("NotificationDispatcher", "Could not launch alarm activity directly; keeping notification fallback.", e)
+            }
         }
 
         // "POSTED" means accepted by Android's notification manager, not proof that
