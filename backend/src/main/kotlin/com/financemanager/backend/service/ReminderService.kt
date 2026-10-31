@@ -26,7 +26,7 @@ data class CreateReminderCommand(
     val dueAt: Instant,
     val timezone: String = "Asia/Tehran",
     val priority: Priority = Priority.NORMAL,
-    val notificationEnabled: Boolean = true,
+    val notificationEnabled: Boolean = false,
     val smsEnabled: Boolean = false,
     val phoneNumber: String? = null,
     val sourceType: String? = null,
