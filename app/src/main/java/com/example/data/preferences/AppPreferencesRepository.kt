@@ -71,6 +71,16 @@ class AppPreferencesRepository private constructor(context: Context) {
     private val _notificationVibrationEnabled = MutableStateFlow(prefs.getBoolean(KEY_NOTIFICATION_VIBRATION_ENABLED, true))
     val notificationVibrationEnabled: StateFlow<Boolean> = _notificationVibrationEnabled.asStateFlow()
 
+    // Quiet hours are disabled by default: users must explicitly opt in.
+    private val _quietHoursEnabled = MutableStateFlow(prefs.getBoolean(KEY_QUIET_HOURS_ENABLED, false))
+    val quietHoursEnabled: StateFlow<Boolean> = _quietHoursEnabled.asStateFlow()
+    private val _quietHoursStartMinute = MutableStateFlow(prefs.getInt(KEY_QUIET_HOURS_START_MINUTE, 23 * 60))
+    val quietHoursStartMinute: StateFlow<Int> = _quietHoursStartMinute.asStateFlow()
+    private val _quietHoursEndMinute = MutableStateFlow(prefs.getInt(KEY_QUIET_HOURS_END_MINUTE, 7 * 60))
+    val quietHoursEndMinute: StateFlow<Int> = _quietHoursEndMinute.asStateFlow()
+    private val _allowHighPriorityInQuietHours = MutableStateFlow(prefs.getBoolean(KEY_ALLOW_HIGH_PRIORITY_QUIET_HOURS, true))
+    val allowHighPriorityInQuietHours: StateFlow<Boolean> = _allowHighPriorityInQuietHours.asStateFlow()
+
     private val _navTransition = MutableStateFlow(loadNavTransition())
     val navTransition: StateFlow<NavigationTransitionAnimation> = _navTransition.asStateFlow()
 
@@ -198,6 +208,27 @@ class AppPreferencesRepository private constructor(context: Context) {
         _notificationVibrationEnabled.value = enabled
     }
 
+    fun setQuietHoursEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_QUIET_HOURS_ENABLED, enabled).apply()
+        _quietHoursEnabled.value = enabled
+    }
+
+    fun setQuietHours(startMinute: Int, endMinute: Int) {
+        val safeStart = startMinute.coerceIn(0, 1439)
+        val safeEnd = endMinute.coerceIn(0, 1439)
+        prefs.edit()
+            .putInt(KEY_QUIET_HOURS_START_MINUTE, safeStart)
+            .putInt(KEY_QUIET_HOURS_END_MINUTE, safeEnd)
+            .apply()
+        _quietHoursStartMinute.value = safeStart
+        _quietHoursEndMinute.value = safeEnd
+    }
+
+    fun setAllowHighPriorityInQuietHours(allowed: Boolean) {
+        prefs.edit().putBoolean(KEY_ALLOW_HIGH_PRIORITY_QUIET_HOURS, allowed).apply()
+        _allowHighPriorityInQuietHours.value = allowed
+    }
+
     fun setAlertDelivery(delivery: AlertDeliveryPreference) {
         prefs.edit()
             .putString(KEY_ALERT_DELIVERY, delivery.name)
@@ -297,6 +328,10 @@ class AppPreferencesRepository private constructor(context: Context) {
         private const val KEY_SMS_NOTIFICATIONS_ENABLED = "pref_sms_notifications_enabled"
         private const val KEY_NOTIFICATION_SOUND_ENABLED = "pref_notification_sound_enabled"
         private const val KEY_NOTIFICATION_VIBRATION_ENABLED = "pref_notification_vibration_enabled"
+        private const val KEY_QUIET_HOURS_ENABLED = "pref_quiet_hours_enabled"
+        private const val KEY_QUIET_HOURS_START_MINUTE = "pref_quiet_hours_start_minute"
+        private const val KEY_QUIET_HOURS_END_MINUTE = "pref_quiet_hours_end_minute"
+        private const val KEY_ALLOW_HIGH_PRIORITY_QUIET_HOURS = "pref_allow_high_priority_quiet_hours"
         private const val KEY_NAV_TRANSITION = "pref_nav_transition_animation"
         private const val KEY_IS_CLEAN_SLATE = "pref_is_clean_slate"
 
