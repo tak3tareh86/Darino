@@ -395,23 +395,40 @@ fun SubscriptionStatusCard(
                                 .padding(horizontal = 4.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(
-                                text = if (isExpired) {
-                                    "دوره آزمایشی تمام شده؛ برای ادامه اشتراک سالیانه تهیه کنید."
-                                } else {
-                                    "از تمام امکانات برنامه به مدت ۱۴ روز رایگان و بدون محدودیت استفاده کن. اگر از تجربه کار با برنامه رضایت داشتی پس از پایان دوره آزمایشی اشتراک سالیانه را تهیه کن"
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                textAlign = TextAlign.Justify,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 10.5.sp,
-                                    lineHeight = 15.sp,
-                                    color = offerMutedTextColor
-                                )
-                            )
-                            if (!isExpired) {
+                            if (isExpired) {
                                 Text(
-                                    text = "و با خیال راحت به استفاده از امکانات برنامه ادامه بده.",
+                                    text = "دوره آزمایشی تمام شده؛ برای ادامه اشتراک سالیانه تهیه کنید.",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Justify,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 10.5.sp,
+                                        lineHeight = 15.sp,
+                                        color = offerMutedTextColor
+                                    )
+                                )
+                            } else {
+                                Text(
+                                    text = "از تمام امکانات برنامه به مدت ۱۴ روز رایگان و بدون محدودیت استفاده کن. اگر از",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Justify,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 10.5.sp,
+                                        lineHeight = 15.sp,
+                                        color = offerMutedTextColor
+                                    )
+                                )
+                                Text(
+                                    text = "تجربه کار با برنامه رضایت داشتی پس از پایان دوره آزمایشی اشتراک سالیانه را تهیه",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Justify,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 10.5.sp,
+                                        lineHeight = 15.sp,
+                                        color = offerMutedTextColor
+                                    )
+                                )
+                                Text(
+                                    text = "کن و با خیال راحت به استفاده از امکانات برنامه ادامه بده.",
                                     modifier = Modifier.fillMaxWidth(),
                                     textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.bodySmall.copy(
