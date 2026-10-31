@@ -75,7 +75,7 @@ class AppPreferencesRepository private constructor(context: Context) {
     init {
         // Synchronize MoneyFormatter & AppNumberFormatter with active preferences
         MoneyFormatter.activeCurrency = _currency.value
-        MoneyFormatter.activeLanguage = _language.value
+        MoneyFormatter.activeLanguage = AppLanguage.PERSIAN
         AppNumberFormatter.setMode(_numberDisplayMode.value)
         MoneyFormatter.activeNumberMode = _numberDisplayMode.value
 
@@ -94,14 +94,7 @@ class AppPreferencesRepository private constructor(context: Context) {
         }
     }
 
-    private fun loadLanguage(): AppLanguage {
-        val name = prefs.getString(KEY_LANGUAGE, AppLanguage.PERSIAN.name) ?: AppLanguage.PERSIAN.name
-        return try {
-            AppLanguage.valueOf(name)
-        } catch (e: Exception) {
-            AppLanguage.PERSIAN
-        }
-    }
+    private fun loadLanguage(): AppLanguage = AppLanguage.PERSIAN
 
     private fun loadCurrency(): AppCurrency {
         val name = prefs.getString(KEY_CURRENCY, AppCurrency.TOMAN.name) ?: AppCurrency.TOMAN.name
