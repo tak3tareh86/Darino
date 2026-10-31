@@ -82,6 +82,16 @@ import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
 
+    override fun onStart() {
+        super.onStart()
+        isAppVisible = true
+    }
+
+    override fun onStop() {
+        isAppVisible = false
+        super.onStop()
+    }
+
     private var networkMonitor: NetworkStateMonitor? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -165,6 +175,12 @@ class MainActivity : FragmentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         networkMonitor?.unregister()
+    }
+
+    companion object {
+        @Volatile
+        var isAppVisible: Boolean = false
+            private set
     }
 }
 
