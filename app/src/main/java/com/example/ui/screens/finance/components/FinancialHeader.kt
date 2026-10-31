@@ -76,7 +76,7 @@ fun FinancialHeader(
             .clip(RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL))
             .background(headerGradient)
             .statusBarsPadding()
-            .padding(horizontal = 14.dp, vertical = 2.4.dp)
+            .padding(start = 14.dp, end = 14.dp, top = 0.dp, bottom = 1.dp)
     ) {
         Box(
             modifier = Modifier.fillMaxWidth(),
