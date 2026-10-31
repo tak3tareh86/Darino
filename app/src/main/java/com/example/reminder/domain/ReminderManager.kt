@@ -210,6 +210,10 @@ class ReminderManager(
         val reminder = repository.getReminderById(reminderId)
             ?: return@withContext Result.failure(IllegalStateException("یادآور با شناسه موردنظر یافت نشد."))
 
+        if (!reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled && !reminder.smsEnabled) {
+            return@withContext Result.failure(IllegalStateException("برای این یادآور هیچ روش اعلانی فعال نشده است."))
+        }
+
         val now = System.currentTimeMillis()
         val triggerMillis = when (option) {
             SnoozeOption.MINUTES_15 -> now + (15 * 60 * 1000L)
