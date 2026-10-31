@@ -297,7 +297,15 @@ class ReminderManager(
                 }
             }.distinct()
         } else {
-            emptyList()
+            val preferredDays = AppPreferencesRepository.getInstance(context).installmentReminderDays.value
+            val preferredOffset = when (preferredDays) {
+                1 -> PredefinedOffset.BEFORE_1_DAY
+                3 -> PredefinedOffset.BEFORE_3_DAYS
+                7 -> PredefinedOffset.BEFORE_7_DAYS
+                10 -> PredefinedOffset.BEFORE_7_DAYS // nearest supported preset; exact 10-day support is added below
+                else -> PredefinedOffset.BEFORE_7_DAYS
+            }
+            listOf(preferredOffset, PredefinedOffset.AT_TIME)
         }
 
         if (offsets.isEmpty()) {
