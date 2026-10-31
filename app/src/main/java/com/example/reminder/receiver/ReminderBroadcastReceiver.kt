@@ -117,9 +117,19 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             return
         }
 
+        val notificationPreferences = AppPreferencesRepository.getInstance(context)
+        val quietStart = notificationPreferences.quietHoursStartMinute.value.coerceIn(0, 1439)
+        val quietEnd = notificationPreferences.quietHoursEndMinute.value.coerceIn(0, 1439)
         val decision = ReminderPolicyEngine.evaluateDispatch(
             reminder,
-            QuietHoursConfig(enabled = false)
+            QuietHoursConfig(
+                enabled = notificationPreferences.quietHoursEnabled.value,
+                startHour = quietStart / 60,
+                startMinute = quietStart % 60,
+                endHour = quietEnd / 60,
+                endMinute = quietEnd % 60,
+                allowHighPriority = notificationPreferences.allowHighPriorityInQuietHours.value
+            )
         )
 
         when (decision) {
