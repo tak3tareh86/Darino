@@ -348,45 +348,89 @@ fun FinancialCalendarScreen(
                 )
             }
 
-            // Day Events Header: date on the right and event count on the left
+            // Day Events Header: three independent, single-line chips.
             item {
                 val displaySelected = CalendarDateUtils.toPersianDisplay(state.selectedDate)
+                val chipShape = RoundedCornerShape(12.dp)
+                val chipBorder = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = if (state.searchQuery.isNotBlank()) "نتایج جستجو" else "رویدادهای $displaySelected",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1
-                    )
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    Surface(
+                        modifier = Modifier
+                            .weight(1.25f)
+                            .testTag("day_events_title_chip"),
+                        shape = chipShape,
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, chipBorder)
                     ) {
-                        Text(
-                            text = "${IranianPhoneUtils.convertDigitsToPersian(dayEvents.size.toString())} ${if (state.searchQuery.isNotBlank()) "مورد یافت شد" else "مورد در این روز"}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
+                        Box(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (state.searchQuery.isNotBlank()) "نتایج جستجو" else "رویدادهای $displaySelected",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
 
-                        if (state.searchQuery.isBlank() && dayEvents.isNotEmpty()) {
-                            TextButton(
-                                onClick = { selectedDayForFullDetail = state.selectedDate },
-                                modifier = Modifier.testTag("open_day_details_button"),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                    Surface(
+                        modifier = Modifier
+                            .weight(0.9f)
+                            .testTag("day_events_count_chip"),
+                        shape = chipShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f))
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${IranianPhoneUtils.convertDigitsToPersian(dayEvents.size.toString())} ${if (state.searchQuery.isNotBlank()) "مورد یافت شد" else "مورد در این روز"}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+
+                    if (state.searchQuery.isBlank() && dayEvents.isNotEmpty()) {
+                        Surface(
+                            onClick = { selectedDayForFullDetail = state.selectedDate },
+                            modifier = Modifier
+                                .weight(1.05f)
+                                .testTag("open_day_details_button"),
+                            shape = chipShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 10.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text("مشاهده کامل روز", maxLines = 1)
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
+                                Text(
+                                    text = "مشاهده کامل روز",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center
                                 )
                             }
                         }
