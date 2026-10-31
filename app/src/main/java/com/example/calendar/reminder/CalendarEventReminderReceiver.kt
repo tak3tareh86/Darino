@@ -41,6 +41,7 @@ class CalendarEventReminderReceiver : BroadcastReceiver() {
                         ?: return@launch
                     if (userId == null) return@launch
                     val event = dao.getEventById(userId, eventId)?.toDomain() ?: return@launch
+                    if (event.status.name == "PAID") return@launch
                     val triggerAt = event.customReminderAt ?: return@launch
                     if (triggerAt > System.currentTimeMillis()) {
                         CalendarEventReminderScheduler(context).schedule(event)
