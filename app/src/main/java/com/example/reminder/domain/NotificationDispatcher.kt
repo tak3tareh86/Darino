@@ -125,10 +125,11 @@ class NotificationDispatcher(private val context: Context) {
             triggerTime = triggerTime
         )
 
-        val deliveryPref = try {
-            AppPreferencesRepository.getInstance(context).alertDelivery.value
-        } catch (e: Exception) {
-            AlertDeliveryPreference.NOTIFICATION_ONLY
+        val preferences = AppPreferencesRepository.getInstance(context)
+        val deliveryPref = preferences.alertDelivery.value
+        if (!preferences.notificationsEnabled.value) {
+            Log.i("NotificationDispatcher", "Global Android notifications are disabled; suppressing reminder ${reminder.id}.")
+            return -1
         }
         // Delivery is strictly opt-in at BOTH levels: the reminder must explicitly
         // enable a channel, and the global preference must permit that channel.
