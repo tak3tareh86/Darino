@@ -23,7 +23,8 @@ data class FinancialEventEntity(
     val reminderBefore: String = "1_DAY",
     val sourceId: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val status: String = "PENDING"
+    val status: String = "PENDING",
+    val customReminderAt: Long? = null
 ) {
     fun toDomain(): FinancialEvent {
         return FinancialEvent(
@@ -38,7 +39,9 @@ data class FinancialEventEntity(
             reminderBefore = ReminderBeforeOption.fromCode(reminderBefore),
             sourceId = sourceId,
             createdAt = createdAt,
-            status = FinancialEventStatus.fromString(status)
+            status = FinancialEventStatus.fromString(status),
+            customReminderAt = customReminderAt,
+            reminderLabel = if (customReminderAt != null) "در تاریخ دلخواه" else ReminderBeforeOption.fromCode(reminderBefore).takeUnless { it == ReminderBeforeOption.NONE }?.label
         )
     }
 
@@ -57,7 +60,8 @@ data class FinancialEventEntity(
                 reminderBefore = event.reminderBefore.code,
                 sourceId = event.sourceId,
                 createdAt = event.createdAt,
-                status = event.status.name
+                status = event.status.name,
+                customReminderAt = event.customReminderAt
             )
         }
     }
