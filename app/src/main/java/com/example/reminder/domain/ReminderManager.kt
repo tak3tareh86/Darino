@@ -75,6 +75,7 @@ class ReminderManager(
         val existingReminder = repository.getReminderById(reminder.id)
         val existingSchedules = repository.getSchedulesSync(reminder.id)
         scheduler.cancel(reminder.id, existingSchedules)
+        NotificationDispatcher(context).cancelReminderNotifications(reminder.id)
 
         val baseMillis = parsePersianDateTimeToMillis(reminder.date, reminder.time)
         val newSchedules = offsets.map { offset ->
@@ -118,6 +119,7 @@ class ReminderManager(
     suspend fun deleteReminder(reminderId: String) = withContext(Dispatchers.IO) {
         val schedules = repository.getSchedulesSync(reminderId)
         scheduler.cancel(reminderId, schedules)
+        NotificationDispatcher(context).cancelReminderNotifications(reminderId)
         repository.deleteReminderWithSchedules(reminderId)
         Log.i("ReminderManager", "Deleted reminder $reminderId and all its schedules.")
     }
