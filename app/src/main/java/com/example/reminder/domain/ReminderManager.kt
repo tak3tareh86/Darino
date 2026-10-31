@@ -188,7 +188,7 @@ class ReminderManager(
         // Persist the disabled channel and disabled schedules before cancelling system alarms.
         if (reminder != null) {
             repository.updateReminderWithSchedules(
-                reminder.copy(notificationEnabled = false, status = "DISABLED", updatedAt = System.currentTimeMillis()),
+                reminder.copy(status = "DISABLED", updatedAt = System.currentTimeMillis()),
                 schedules.map { it.copy(enabled = false) }
             )
         } else {
