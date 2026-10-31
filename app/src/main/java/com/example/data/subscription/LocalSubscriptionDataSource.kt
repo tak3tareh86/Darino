@@ -68,7 +68,7 @@ class LocalSubscriptionDataSource(context: Context) {
         val status = try { SubscriptionStatus.valueOf(statusName) } catch (e: Exception) { SubscriptionStatus.CHECKING }
         val productId = prefs.getString(KEY_PRODUCT_ID, MarketConfig.YEARLY_PRODUCT_ID) ?: MarketConfig.YEARLY_PRODUCT_ID
         val token = prefs.getString(KEY_PURCHASE_TOKEN, null)
-        val marketAccountState = prefs.getString(KEY_MARKET_ACCOUNT_STATE, "ACTIVE") ?: "ACTIVE"
+        val marketAccountState = prefs.getString(KEY_MARKET_ACCOUNT_STATE, "UNKNOWN") ?: "UNKNOWN"
         val lastSyncAt = prefs.getLong(KEY_LAST_SYNC_AT, System.currentTimeMillis())
 
         return SubscriptionInfo(
