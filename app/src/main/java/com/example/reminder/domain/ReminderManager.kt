@@ -131,6 +131,7 @@ class ReminderManager(
         repository.updateStatus(reminderId, "COMPLETED")
         val schedules = repository.getSchedulesSync(reminderId)
         scheduler.cancel(reminderId, schedules)
+        NotificationDispatcher(context).cancelReminderNotifications(reminderId)
         Log.i("ReminderManager", "Completed reminder $reminderId.")
     }
 
@@ -141,6 +142,7 @@ class ReminderManager(
         repository.updateStatus(reminderId, "CANCELLED")
         val schedules = repository.getSchedulesSync(reminderId)
         scheduler.cancel(reminderId, schedules)
+        NotificationDispatcher(context).cancelReminderNotifications(reminderId)
     }
 
     /**
@@ -197,6 +199,7 @@ class ReminderManager(
             repository.updateStatus(reminderId, "DISABLED")
         }
         scheduler.cancel(reminderId, schedules)
+        NotificationDispatcher(context).cancelReminderNotifications(reminderId)
     }
 
     /**
