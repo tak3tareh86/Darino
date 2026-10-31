@@ -364,8 +364,8 @@ fun CategoryItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(0.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
                         onClick = onEdit,
@@ -390,6 +390,7 @@ fun CategoryItemCard(
                             )
                         }
                     }
+                    Spacer(modifier = Modifier.weight(0.5f))
                     IconButton(
                         onClick = onDelete,
                         modifier = Modifier
