@@ -93,7 +93,7 @@ class CalendarManager(private val context: Context) {
                             date = normDate,
                             time = normTime,
                             repeatType = "NONE",
-                            reminderBefore = ReminderBeforeOption.ONE_DAY,
+                            reminderBefore = ReminderBeforeOption.NONE,
                             sourceId = rem.id.toString(),
                             status = status
                         )
@@ -141,7 +141,7 @@ class CalendarManager(private val context: Context) {
                             date = formattedDate,
                             time = "09:00",
                             repeatType = "MONTHLY",
-                            reminderBefore = ReminderBeforeOption.THREE_DAYS,
+                            reminderBefore = ReminderBeforeOption.NONE,
                             sourceId = inst.id.toString(),
                             status = status
                         )
@@ -166,7 +166,12 @@ class CalendarManager(private val context: Context) {
                             date = normDate,
                             time = "09:00",
                             repeatType = "NONE",
-                            reminderBefore = ReminderBeforeOption.THREE_DAYS,
+                            reminderBefore = ReminderBeforeOption.NONE,
+                            reminderLabel = if (svc.isReminderEnabled && !svc.nextReminderDate.isNullOrBlank()) {
+                                "در تاریخ تعیین‌شده"
+                            } else {
+                                null
+                            },
                             sourceId = svc.id,
                             status = if (svc.isReminderEnabled) {
                                 FinancialEventStatus.PENDING
@@ -194,7 +199,15 @@ class CalendarManager(private val context: Context) {
                             date = normDate,
                             time = "09:00",
                             repeatType = "YEARLY",
-                            reminderBefore = ReminderBeforeOption.SEVEN_DAYS,
+                            reminderBefore = ReminderBeforeOption.NONE,
+                            reminderLabel = if (ins.reminderEnabled && ins.reminderDays.isNotEmpty()) {
+                                ins.reminderDays.distinct().sortedDescending().joinToString("، ") { days ->
+                                    if (days == 0) "روز سررسید"
+                                    else "${IranianPhoneUtils.convertDigitsToPersian(days.toString())} روز قبل"
+                                }
+                            } else {
+                                null
+                            },
                             sourceId = ins.id,
                             status = FinancialEventStatus.PENDING
                         )
@@ -218,7 +231,15 @@ class CalendarManager(private val context: Context) {
                             date = normDate,
                             time = "09:00",
                             repeatType = "YEARLY",
-                            reminderBefore = ReminderBeforeOption.SEVEN_DAYS,
+                            reminderBefore = ReminderBeforeOption.NONE,
+                            reminderLabel = if (insp.reminderEnabled && insp.reminderDays.isNotEmpty()) {
+                                insp.reminderDays.distinct().sortedDescending().joinToString("، ") { days ->
+                                    if (days == 0) "روز سررسید"
+                                    else "${IranianPhoneUtils.convertDigitsToPersian(days.toString())} روز قبل"
+                                }
+                            } else {
+                                null
+                            },
                             sourceId = insp.id,
                             status = FinancialEventStatus.PENDING
                         )
@@ -242,7 +263,7 @@ class CalendarManager(private val context: Context) {
                             date = normDate,
                             time = "09:00",
                             repeatType = "NONE",
-                            reminderBefore = ReminderBeforeOption.ONE_DAY,
+                            reminderBefore = ReminderBeforeOption.NONE,
                             sourceId = exp.id,
                             status = FinancialEventStatus.PAID
                         )
