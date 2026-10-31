@@ -339,7 +339,10 @@ class CalendarManager(private val context: Context) {
             } else {
                 FinancialEventStatus.PAID
             }
-            repository.updateEvent(event.copy(status = newStatus))
+            val updatedEvent = event.copy(status = newStatus)
+            repository.updateEvent(updatedEvent)
+            val scheduler = com.example.calendar.reminder.CalendarEventReminderScheduler(context)
+            if (newStatus == FinancialEventStatus.PAID) scheduler.cancel(event.id) else scheduler.schedule(updatedEvent)
         }
     }
 }
