@@ -355,7 +355,10 @@ class LocalBackupRepository(
                     backup.legacyReminders.forEach { reminder ->
                         val remappedSourceId = when (reminder.sourceType) {
                             "INSTALLMENT" -> reminder.sourceId?.let { restoredInstallmentIds[it] ?: it }
-                            "VEHICLE_SERVICE", "VEHICLE" -> reminder.sourceId?.let {
+                            "VEHICLE" -> reminder.sourceId?.let {
+                                restoredVehicleIds[it.toString()]?.toIntOrNull() ?: it
+                            }
+                            "VEHICLE_SERVICE" -> reminder.sourceId?.let {
                                 restoredServiceIds[it.toString()]?.toIntOrNull() ?: it
                             }
                             else -> reminder.sourceId
@@ -424,8 +427,12 @@ class LocalBackupRepository(
                     backup.financialHealthProfiles.forEach { profile ->
                         db.financialHealthDao().saveProfile(profile.copy(userId = userId))
                     }
+                    // Loan calculations use a global primary key (not user-scoped).
+                    // Give restored rows fresh IDs so they cannot overwrite another local profile.
                     backup.loanCalculations.forEach { calculation ->
-                        db.loanCalculationDao().insertCalculation(calculation)
+                        db.loanCalculationDao().insertCalculation(
+                            calculation.copy(id = java.util.UUID.randomUUID().toString())
+                        )
                     }
                     backup.userPreference?.let { preference ->
                         db.userPreferenceDao().insertOrUpdate(preference.copy(userId = userId))
