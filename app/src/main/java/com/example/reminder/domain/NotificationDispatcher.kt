@@ -82,8 +82,8 @@ class NotificationDispatcher(private val context: Context) {
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "یادآوری تمدید بیمه، تعویض روغن و سرویس‌های خودرو"
-                    enableVibration(true)
-                    setSound(defaultSoundUri, audioAttributes)
+                    enableVibration(vibrationEnabled)
+                    setSound(if (soundEnabled) defaultSoundUri else null, if (soundEnabled) audioAttributes else null)
                 },
                 NotificationChannel(
                     configuredChannelId(CHANNEL_GENERAL),
@@ -109,8 +109,8 @@ class NotificationDispatcher(private val context: Context) {
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "هشدار صوتی و برجسته هنگام روشن و فعال بودن صفحه گوشی"
-                    enableVibration(true)
-                    setSound(defaultSoundUri, audioAttributes)
+                    enableVibration(vibrationEnabled)
+                    setSound(if (soundEnabled) defaultSoundUri else null, if (soundEnabled) audioAttributes else null)
                     lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 }
             )
