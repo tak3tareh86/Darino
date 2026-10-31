@@ -104,8 +104,7 @@ fun SubscriptionStatusCard(
                     ambientColor = if (isWarningActive) Color(0xFFE11D48).copy(alpha = 0.2f) else Color(0xFF047857).copy(alpha = 0.2f),
                     spotColor = if (isWarningActive) Color(0xFF881337).copy(alpha = 0.3f) else Color(0xFF064E3B).copy(alpha = 0.3f)
                 )
-                .clip(RoundedCornerShape(16.dp))
-                ,
+                .clip(RoundedCornerShape(16.dp)),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
@@ -275,7 +274,7 @@ fun SubscriptionStatusCard(
                             modifier = Modifier.height(34.dp)
                         ) {
                             Text(
-                                text = if (isWarningActive) "تمدید اشتراک" else "جزئیات",
+                                text = "تمدید اشتراک",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.5.sp
                             )
