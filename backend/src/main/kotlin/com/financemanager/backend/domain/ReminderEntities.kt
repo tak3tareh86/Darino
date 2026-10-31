@@ -38,7 +38,7 @@ data class Reminder(
     var status: ReminderStatus = ReminderStatus.ACTIVE,
 
     @Column(name = "notification_enabled", nullable = false)
-    var notificationEnabled: Boolean = true,
+    var notificationEnabled: Boolean = false,
 
     @Column(name = "sms_enabled", nullable = false)
     var smsEnabled: Boolean = false,
