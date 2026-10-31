@@ -81,6 +81,13 @@ class AppPreferencesRepository private constructor(context: Context) {
     private val _allowHighPriorityInQuietHours = MutableStateFlow(prefs.getBoolean(KEY_ALLOW_HIGH_PRIORITY_QUIET_HOURS, true))
     val allowHighPriorityInQuietHours: StateFlow<Boolean> = _allowHighPriorityInQuietHours.asStateFlow()
 
+    private val _defaultReminderTimeMinute = MutableStateFlow(prefs.getInt(KEY_DEFAULT_REMINDER_TIME_MINUTE, 9 * 60))
+    val defaultReminderTimeMinute: StateFlow<Int> = _defaultReminderTimeMinute.asStateFlow()
+    private val _installmentReminderDays = MutableStateFlow(prefs.getInt(KEY_INSTALLMENT_REMINDER_DAYS, 7))
+    val installmentReminderDays: StateFlow<Int> = _installmentReminderDays.asStateFlow()
+    private val _vehicleReminderKilometers = MutableStateFlow(prefs.getInt(KEY_VEHICLE_REMINDER_KILOMETERS, 500))
+    val vehicleReminderKilometers: StateFlow<Int> = _vehicleReminderKilometers.asStateFlow()
+
     private val _navTransition = MutableStateFlow(loadNavTransition())
     val navTransition: StateFlow<NavigationTransitionAnimation> = _navTransition.asStateFlow()
 
@@ -229,6 +236,24 @@ class AppPreferencesRepository private constructor(context: Context) {
         _allowHighPriorityInQuietHours.value = allowed
     }
 
+    fun setDefaultReminderTimeMinute(minutes: Int) {
+        val safe = minutes.coerceIn(0, 1439)
+        prefs.edit().putInt(KEY_DEFAULT_REMINDER_TIME_MINUTE, safe).apply()
+        _defaultReminderTimeMinute.value = safe
+    }
+
+    fun setInstallmentReminderDays(days: Int) {
+        require(days in setOf(1, 3, 7, 10))
+        prefs.edit().putInt(KEY_INSTALLMENT_REMINDER_DAYS, days).apply()
+        _installmentReminderDays.value = days
+    }
+
+    fun setVehicleReminderKilometers(kilometers: Int) {
+        require(kilometers in setOf(200, 500, 1000))
+        prefs.edit().putInt(KEY_VEHICLE_REMINDER_KILOMETERS, kilometers).apply()
+        _vehicleReminderKilometers.value = kilometers
+    }
+
     fun setAlertDelivery(delivery: AlertDeliveryPreference) {
         prefs.edit()
             .putString(KEY_ALERT_DELIVERY, delivery.name)
@@ -332,6 +357,9 @@ class AppPreferencesRepository private constructor(context: Context) {
         private const val KEY_QUIET_HOURS_START_MINUTE = "pref_quiet_hours_start_minute"
         private const val KEY_QUIET_HOURS_END_MINUTE = "pref_quiet_hours_end_minute"
         private const val KEY_ALLOW_HIGH_PRIORITY_QUIET_HOURS = "pref_allow_high_priority_quiet_hours"
+        private const val KEY_DEFAULT_REMINDER_TIME_MINUTE = "pref_default_reminder_time_minute"
+        private const val KEY_INSTALLMENT_REMINDER_DAYS = "pref_installment_reminder_days"
+        private const val KEY_VEHICLE_REMINDER_KILOMETERS = "pref_vehicle_reminder_kilometers"
         private const val KEY_NAV_TRANSITION = "pref_nav_transition_animation"
         private const val KEY_IS_CLEAN_SLATE = "pref_is_clean_slate"
 
