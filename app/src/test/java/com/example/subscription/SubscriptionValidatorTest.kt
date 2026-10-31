@@ -9,6 +9,36 @@ import org.junit.Test
 
 class SubscriptionValidatorTest {
 
+
+    @Test
+    fun testEvaluateStatus_marketConfirmedRenewedSubscriptionRemainsActiveAfterOriginalYear() {
+        val now = 2_000_000_000_000L
+        val originalEnd = now - 10 * 86_400_000L
+        val info = SubscriptionInfo(
+            subscriptionStartAt = now - 375 * 86_400_000L,
+            subscriptionEndAt = originalEnd,
+            subscriptionStatus = SubscriptionStatus.EXPIRED,
+            marketAccountState = "MARKET_ACTIVE",
+            lastSyncAt = now - 60_000L
+        )
+
+        assertEquals(SubscriptionStatus.ACTIVE, SubscriptionValidator.evaluateStatus(info, now))
+    }
+
+    @Test
+    fun testEvaluateStatus_staleMarketConfirmationDoesNotExtendExpiredSubscription() {
+        val now = 2_000_000_000_000L
+        val info = SubscriptionInfo(
+            subscriptionStartAt = now - 400 * 86_400_000L,
+            subscriptionEndAt = now - 35 * 86_400_000L,
+            subscriptionStatus = SubscriptionStatus.ACTIVE,
+            marketAccountState = "MARKET_ACTIVE",
+            lastSyncAt = now - 25 * 60 * 60 * 1000L
+        )
+
+        assertEquals(SubscriptionStatus.EXPIRED, SubscriptionValidator.evaluateStatus(info, now))
+    }
+
     @Test
     fun testCalculateTrialDaysRemaining_validFutureEnd() {
         val now = 1000000000000L
