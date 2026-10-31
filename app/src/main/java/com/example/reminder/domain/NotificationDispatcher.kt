@@ -27,6 +27,14 @@ class NotificationDispatcher(private val context: Context) {
 
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+    /**
+     * Cancels only notifications posted for the given reminder. Reminder-tagged
+     * notifications are isolated from calendar and other application notifications.
+     */
+    fun cancelReminderNotifications(reminderId: String) {
+        notificationManager.cancel(reminderId, 0)
+    }
+
     private fun configuredChannelId(baseId: String): String {
         val preferences = AppPreferencesRepository.getInstance(context)
         val sound = if (preferences.notificationSoundEnabled.value) 1 else 0
@@ -327,7 +335,7 @@ class NotificationDispatcher(private val context: Context) {
                 }
                 else -> {
                     try {
-                        notificationManager.notify(notifId, notification)
+                        notificationManager.notify(reminder.id, notifId, notification)
                         notificationPosted = true
                         if (useFullScreenAlarm && showStandardNotification && deliveryPref == AlertDeliveryPreference.BOTH) {
                             val standardChannelId = when (reminder.type.uppercase()) {
@@ -351,7 +359,7 @@ class NotificationDispatcher(private val context: Context) {
                                     .addAction(R.drawable.img_3d_installment, "انجام شد", completePendingIntent)
                                     .addAction(R.drawable.img_3d_calendar, "۱۵ دقیقه بعد", snoozePendingIntent)
                                     .build()
-                                notificationManager.notify(standardNotificationId, standardNotification)
+                                notificationManager.notify(reminder.id, standardNotificationId, standardNotification)
                             } else {
                                 Log.w("NotificationDispatcher", "The additional standard notification channel is disabled for reminderId=${reminder.id}.")
                             }
