@@ -808,10 +808,14 @@ class VehicleRepository {
                 return@withContext Result.failure(IllegalStateException("هیچ خودرویی برای حذف یافت نشد."))
             }
 
-            // Cancel all corresponding system alarms after successful database commit
+            // Cancel all corresponding system alarms and visible notifications after commit.
             val scheduler = com.example.reminder.domain.ReminderScheduler(context)
             allSchedulesToCancel.forEach { schedule ->
                 scheduler.cancelSchedule(schedule.id)
+            }
+            val notificationDispatcher = com.example.reminder.domain.NotificationDispatcher(context)
+            allSchedulesToCancel.groupBy { it.reminderId }.forEach { (reminderId, schedules) ->
+                notificationDispatcher.cancelReminderNotifications(reminderId, schedules)
             }
 
             Result.success(Unit)
@@ -892,7 +896,7 @@ class VehicleRepository {
                 service.vehicleId == vehicleId &&
                     service.status != "COMPLETED" &&
                     com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
-                        currentMileage = mileage,
+                        currentMileage = maxOf(mileage, vehicle.currentMileage),
                         targetMileage = service.dueMileage,
                         leadKilometers = leadKilometers
                     )
@@ -1099,7 +1103,7 @@ class VehicleRepository {
                     triggerType = "MILEAGE_THRESHOLD",
                     offsetValue = 0,
                     offsetUnit = "KILOMETER",
-                    triggerDateTime = thresholdMileage.toLong(),
+                    triggerDateTime = now,
                     repeatType = com.example.reminder.domain.RepeatType.NONE.name,
                     repeatInterval = 1,
                     enabled = true,
@@ -1174,7 +1178,7 @@ class VehicleRepository {
                     service.id != existingSvc.id &&
                     service.status != "COMPLETED" &&
                     com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
-                        currentMileage = mileage,
+                        currentMileage = maxOf(mileage, vehicle.currentMileage),
                         targetMileage = service.dueMileage,
                         leadKilometers = leadKilometers
                     )
@@ -1280,6 +1284,8 @@ class VehicleRepository {
                 try {
                     val scheduler = com.example.reminder.domain.ReminderScheduler(context)
                     scheduler.cancel(serviceId, schedulesToCancel)
+                    com.example.reminder.domain.NotificationDispatcher(context)
+                        .cancelReminderNotifications(serviceId, schedulesToCancel)
                 } catch (ce: Exception) {
                     android.util.Log.w("VehicleRepository", "Cancelling previous alarms failed for service $serviceId", ce)
                     cancelFailed = true
@@ -1340,8 +1346,7 @@ class VehicleRepository {
                     currentMileage = effectiveCurrentMileage,
                     targetMileage = nextReminderMileage,
                     leadKilometers = leadKilometers
-                ) &&
-                (existingSvc.dueMileage != nextReminderMileage || existingSvc.status == "COMPLETED")
+                )
             ) {
                 val newlyDueService = db.vehicleDao().getServiceByServerId(userId, serviceId)
                 if (newlyDueService != null) {
@@ -1477,6 +1482,8 @@ class VehicleRepository {
                     try {
                         val scheduler = com.example.reminder.domain.ReminderScheduler(context)
                         scheduler.cancel(serviceId, schedulesToCancel)
+                    com.example.reminder.domain.NotificationDispatcher(context)
+                        .cancelReminderNotifications(serviceId, schedulesToCancel)
                         val reminderManager = com.example.reminder.domain.ReminderManager(context)
                         reminderManager.disableReminder(serviceId)
                     } catch (e: Exception) {
@@ -1541,6 +1548,8 @@ class VehicleRepository {
                 try {
                     val scheduler = com.example.reminder.domain.ReminderScheduler(context)
                     scheduler.cancel(serviceId, schedulesToCancel)
+                    com.example.reminder.domain.NotificationDispatcher(context)
+                        .cancelReminderNotifications(serviceId, schedulesToCancel)
                     val reminderManager = com.example.reminder.domain.ReminderManager(context)
                     reminderManager.disableReminder(serviceId)
                 } catch (e: Exception) {
@@ -1586,6 +1595,8 @@ class VehicleRepository {
             // 2. Adjust system alarms outside of transaction after successful commit
             val scheduler = com.example.reminder.domain.ReminderScheduler(context)
             scheduler.cancel(serviceId, schedulesToCancel)
+                    com.example.reminder.domain.NotificationDispatcher(context)
+                        .cancelReminderNotifications(serviceId, schedulesToCancel)
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -1910,6 +1921,8 @@ class VehicleRepository {
                 try {
                     val scheduler = com.example.reminder.domain.ReminderScheduler(context)
                     scheduler.cancel(insuranceId, schedulesToCancel)
+                    com.example.reminder.domain.NotificationDispatcher(context)
+                        .cancelReminderNotifications(insuranceId, schedulesToCancel)
 
                     val reminderManager = com.example.reminder.domain.ReminderManager(context)
                     reminderManager.enableReminder(insuranceId)
@@ -1982,6 +1995,8 @@ class VehicleRepository {
             try {
                 val scheduler = com.example.reminder.domain.ReminderScheduler(context)
                 scheduler.cancel(insuranceId, schedulesToCancel)
+                    com.example.reminder.domain.NotificationDispatcher(context)
+                        .cancelReminderNotifications(insuranceId, schedulesToCancel)
 
                 val reminderManager = com.example.reminder.domain.ReminderManager(context)
                 reminderManager.enableReminder(insuranceId)
@@ -2027,6 +2042,8 @@ class VehicleRepository {
             // 2. Adjust system alarms outside of transaction after successful commit
             val scheduler = com.example.reminder.domain.ReminderScheduler(context)
             scheduler.cancel(insuranceId, schedulesToCancel)
+                    com.example.reminder.domain.NotificationDispatcher(context)
+                        .cancelReminderNotifications(insuranceId, schedulesToCancel)
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -2172,6 +2189,8 @@ class VehicleRepository {
             // 2. Adjust system alarms outside of transaction after successful commit
             val scheduler = com.example.reminder.domain.ReminderScheduler(context)
             scheduler.cancel(inspectionId, schedulesToCancel)
+            com.example.reminder.domain.NotificationDispatcher(context)
+                .cancelReminderNotifications(inspectionId, schedulesToCancel)
 
             Result.success(Unit)
         } catch (e: Exception) {

@@ -18,12 +18,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.data.preferences.AppPreferencesRepository
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.domain.PredefinedOffset
 import com.example.reminder.domain.Priority
@@ -63,11 +65,19 @@ fun AddReminderScreen(
         PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
     }
 
+    val context = LocalContext.current
+    val preferences = remember { AppPreferencesRepository.getInstance(context) }
+    val defaultReminderMinute by preferences.defaultReminderTimeMinute.collectAsState()
+    val defaultReminderTimeText = remember(defaultReminderMinute) {
+        val hour = (defaultReminderMinute / 60).toString().padStart(2, '0')
+        val minute = (defaultReminderMinute % 60).toString().padStart(2, '0')
+        IranianPhoneUtils.convertDigitsToPersian("$hour:$minute")
+    }
     var selectedType by remember { mutableStateOf(ReminderType.GENERAL) }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(currentPersianDate) }
-    var time by remember { mutableStateOf("۰۹:۰۰") }
+    var time by remember(defaultReminderTimeText) { mutableStateOf(defaultReminderTimeText) }
     var priority by remember { mutableStateOf(Priority.NORMAL) }
     var notificationEnabled by remember { mutableStateOf(false) }
     var fullScreenAlarmEnabled by remember { mutableStateOf(false) }

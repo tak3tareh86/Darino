@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.data.preferences.AppPreferencesRepository
 import com.example.reminder.domain.PredefinedOffset
 import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.PersianDateInputField
@@ -110,11 +112,19 @@ fun AddInstallmentSheet(
     var showReminderModal by remember { mutableStateOf(false) }
 
     // Selected offsets for reminder:
+    val context = LocalContext.current
+    val preferences = remember { AppPreferencesRepository.getInstance(context) }
+    val defaultReminderMinute by preferences.defaultReminderTimeMinute.collectAsState()
+    val defaultReminderTimeText = remember(defaultReminderMinute) {
+        val hour = (defaultReminderMinute / 60).toString().padStart(2, '0')
+        val minute = (defaultReminderMinute % 60).toString().padStart(2, '0')
+        IranianPhoneUtils.convertDigitsToPersian("$hour:$minute")
+    }
     var remindAtTime by remember { mutableStateOf(true) }
     var remind1DayBefore by remember { mutableStateOf(true) }
     var remind2DaysBefore by remember { mutableStateOf(false) }
     var remind1WeekBefore by remember { mutableStateOf(false) }
-    var reminderTime by remember { mutableStateOf("۰۹:۰۰") }
+    var reminderTime by remember(defaultReminderTimeText) { mutableStateOf(defaultReminderTimeText) }
     var showTimePicker by remember { mutableStateOf(false) }
 
     var customScheduleItems by remember { mutableStateOf<List<com.example.ui.screens.installments.model.PaymentHistoryItem>?>(null) }
