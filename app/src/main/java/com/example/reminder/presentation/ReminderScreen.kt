@@ -457,16 +457,14 @@ fun ReminderScreen(
                             items(activeReminders, key = { it.id }) { reminder ->
                                 ReminderCard(
                                     reminder = reminder,
-                                    onClick = {
-                                        selectedReminderForDetail = reminder
-                                        currentSubScreen = ReminderSubScreen.DETAIL
-                                    },
+                                    onClick = {},
                                     onToggleCompleted = {
                                         viewModel.completeReminder(reminder.id)
                                     },
                                     onSnoozeClick = {
                                         showSnoozeSheetForReminder = reminder
-                                    }
+                                    },
+                                    onDeleteClick = { viewModel.deleteReminder(reminder.id) }
                                 )
                             }
                         }
@@ -524,16 +522,14 @@ fun ReminderScreen(
                                     items(completedReminders, key = { it.id }) { reminder ->
                                         ReminderCard(
                                             reminder = reminder,
-                                            onClick = {
-                                                selectedReminderForDetail = reminder
-                                                currentSubScreen = ReminderSubScreen.DETAIL
-                                            },
+                                            onClick = {},
                                             onToggleCompleted = {
                                                 viewModel.toggleReminderEnabled(reminder.id, true)
                                             },
                                             onSnoozeClick = {
                                                 showSnoozeSheetForReminder = reminder
-                                            }
+                                            },
+                                    onDeleteClick = { viewModel.deleteReminder(reminder.id) }
                                         )
                                     }
                                 }
@@ -542,16 +538,14 @@ fun ReminderScreen(
                                 items(completedReminders, key = { it.id }) { reminder ->
                                     ReminderCard(
                                         reminder = reminder,
-                                        onClick = {
-                                            selectedReminderForDetail = reminder
-                                            currentSubScreen = ReminderSubScreen.DETAIL
-                                        },
+                                        onClick = {},
                                         onToggleCompleted = {
                                             viewModel.toggleReminderEnabled(reminder.id, true)
                                         },
                                         onSnoozeClick = {
                                             showSnoozeSheetForReminder = reminder
-                                        }
+                                        },
+                                    onDeleteClick = { viewModel.deleteReminder(reminder.id) }
                                     )
                                 }
                             }
