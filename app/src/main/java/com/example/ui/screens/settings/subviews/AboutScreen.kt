@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.BuildConfig
 import com.example.R
 import com.example.ui.screens.settings.components.SettingsHeader
 import com.example.ui.screens.settings.components.SettingsItem
@@ -118,7 +119,7 @@ fun AboutScreen(
                             .padding(horizontal = 10.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = "نسخه ۱.۰.۰ (ساخت رسمی)",
+                            text = "نسخه ${com.example.util.IranianPhoneUtils.convertDigitsToPersian(BuildConfig.VERSION_NAME)} (ساخت رسمی)",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 10.5.sp
