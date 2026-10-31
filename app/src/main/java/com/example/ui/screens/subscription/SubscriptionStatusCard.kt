@@ -136,7 +136,7 @@ fun SubscriptionStatusCard(
                         }
 
                         androidx.compose.foundation.Image(
-                            painter = androidx.compose.ui.res.painterResource(id = com.example.darino.R.mipmap.ic_launcher),
+                            painter = androidx.compose.ui.res.painterResource(id = com.example.R.mipmap.ic_launcher),
                             contentDescription = "لوگوی دارینو",
                             modifier = Modifier.size(34.dp).clip(RoundedCornerShape(9.dp))
                         )
@@ -245,7 +245,6 @@ fun SubscriptionStatusCard(
                 }
             }
         }
-else {
     } else {
         // Free / Inactive / Trial User Annual Subscription Offer Card
         val offerGradient = when {
