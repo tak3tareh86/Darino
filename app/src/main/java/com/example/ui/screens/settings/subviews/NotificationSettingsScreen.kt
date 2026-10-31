@@ -49,11 +49,21 @@ fun NotificationSettingsScreen(
     val soundEnabled by preferences.notificationSoundEnabled.collectAsState()
     val vibrationEnabled by preferences.notificationVibrationEnabled.collectAsState()
 
-    // Quiet Hours
-    var quietHoursEnabled by remember { mutableStateOf(true) }
-    var quietStart by remember { mutableStateOf("۲۳:۰۰") }
-    var quietEnd by remember { mutableStateOf("۰۷:۰۰") }
-    var allowHighPriorityInQuiet by remember { mutableStateOf(true) }
+    // Quiet Hours are persisted centrally and consumed by the alarm receiver.
+    val quietHoursEnabled by preferences.quietHoursEnabled.collectAsState()
+    val quietStartMinute by preferences.quietHoursStartMinute.collectAsState()
+    val quietEndMinute by preferences.quietHoursEndMinute.collectAsState()
+    val allowHighPriorityInQuiet by preferences.allowHighPriorityInQuietHours.collectAsState()
+    val quietRangeOptions = listOf(22 * 60 to 6 * 60, 23 * 60 to 7 * 60, 0 to 8 * 60)
+    fun formatQuietTime(minutes: Int): String {
+        val hour = (minutes.coerceIn(0, 1439) / 60).toString().padStart(2, '0')
+        val minute = (minutes.coerceIn(0, 1439) % 60).toString().padStart(2, '0')
+        return "$hour:$minute".map { ch ->
+            if (ch in '0'..'9') ('۰'.code + (ch.code - '0'.code)).toChar() else ch
+        }.joinToString("")
+    }
+    val quietStart = formatQuietTime(quietStartMinute)
+    val quietEnd = formatQuietTime(quietEndMinute)
 
     // Verified phone from session
     val sessionUser = remember { SessionManager.currentUser }
@@ -162,7 +172,7 @@ fun NotificationSettingsScreen(
                         iconRes = R.drawable.img_3d_bell_notification,
                         iconAccentColor = WarningAmberLight,
                         checked = quietHoursEnabled,
-                        onCheckedChange = { quietHoursEnabled = it }
+                        onCheckedChange = { preferences.setQuietHoursEnabled(it) }
                     )
 
                     if (quietHoursEnabled) {
@@ -173,9 +183,9 @@ fun NotificationSettingsScreen(
                             iconAccentColor = InfoIndigoLight,
                             value = "$quietStart - $quietEnd",
                             onClick = {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("بازه سکوت پیش‌فرض: ۲۳:۰۰ تا ۰۷:۰۰")
-                                }
+                                val currentIndex = quietRangeOptions.indexOf(quietStartMinute to quietEndMinute)
+                                val nextRange = quietRangeOptions[(currentIndex + 1).mod(quietRangeOptions.size)]
+                                preferences.setQuietHours(nextRange.first, nextRange.second)
                             }
                         )
 
@@ -185,7 +195,7 @@ fun NotificationSettingsScreen(
                             iconRes = R.drawable.img_3d_card,
                             iconAccentColor = EmeraldPrimaryLight,
                             checked = allowHighPriorityInQuiet,
-                            onCheckedChange = { allowHighPriorityInQuiet = it }
+                            onCheckedChange = { preferences.setAllowHighPriorityInQuietHours(it) }
                         )
                     }
                 }
