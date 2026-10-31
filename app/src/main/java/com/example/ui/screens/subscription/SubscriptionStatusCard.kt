@@ -90,7 +90,10 @@ fun SubscriptionStatusCard(
         val cardTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
         val cardMutedTextColor = if (isDark) Color(0xFFE2E8F0) else MaterialTheme.colorScheme.onSurfaceVariant
         val marketConfirmedActive = isActive && info.marketAccountState == "MARKET_ACTIVE"
-    val daysText = IranianPhoneUtils.convertDigitsToPersian(remainingDays.toString())
+        // Market confirms entitlement, but purchaseTime only gives an estimated end date:
+        // renewals can make that estimate older than the actual active subscription.
+        val hasEstimatedEndDate = info.subscriptionEndAt != null && info.subscriptionEndAt > 0L
+        val daysText = IranianPhoneUtils.convertDigitsToPersian(remainingDays.toString())
 
         Card(
             modifier = modifier
@@ -227,14 +230,22 @@ fun SubscriptionStatusCard(
 
                         Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                             Text(
-                                text = "تاریخ انقضا",
+                                text = when {
+                                    marketConfirmedActive && hasEstimatedEndDate -> "تاریخ تخمینی انقضا"
+                                    marketConfirmedActive -> "وضعیت اشتراک"
+                                    else -> "تاریخ انقضا"
+                                },
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontSize = 9.5.sp,
                                     color = if (isDark) Color(0xFFA7F3D0) else MaterialTheme.colorScheme.primary
                                 )
                             )
                             Text(
-                                text = if (marketConfirmedActive && !hasEstimatedEndDate) "تأییدشده توسط بازار" else endDateTime.ifBlank { "نامشخص" },
+                                text = when {
+                                    marketConfirmedActive && !hasEstimatedEndDate -> "فعال طبق تأیید بازار"
+                                    marketConfirmedActive -> endDateTime.takeUnless { it == "-" }.orEmpty().ifBlank { "تاریخ نامشخص" }
+                                    else -> endDateTime.takeUnless { it == "-" }.orEmpty().ifBlank { "نامشخص" }
+                                },
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.sp,
