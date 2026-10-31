@@ -1,6 +1,9 @@
 package com.example.ui.screens.settings.components
 
 import android.net.Uri
+import android.util.Log
+import java.io.File
+import java.util.UUID
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -46,6 +49,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -73,16 +77,41 @@ fun UserAccountCard(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val currentUser = SessionManager.currentUser
+    val context = LocalContext.current
+    // Keep each account's image in private app storage under a stable account-specific name.
+    val profileKey = currentUser?.id?.takeIf { it.isNotBlank() } ?: "local_profile"
+    val profilePhotoFile = remember(profileKey) {
+        val stableId = UUID.nameUUIDFromBytes(profileKey.toByteArray(Charsets.UTF_8)).toString()
+        File(File(context.filesDir, "profile_photos"), "$stableId.img")
+    }
 
     val initialName = currentUser?.fullName?.takeIf { it.isNotBlank() } ?: ""
     var userNameInput by remember { mutableStateOf(initialName) }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedImageUri by remember(profileKey) {
+        mutableStateOf(
+            profilePhotoFile.takeIf { it.isFile && it.length() > 0L }?.let(Uri::fromFile)
+        )
+    }
     // Android zero-permission Photo Picker
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            selectedImageUri = uri
+            try {
+                profilePhotoFile.parentFile?.mkdirs()
+                val temporaryFile = File(profilePhotoFile.parentFile, "${profilePhotoFile.name}.tmp")
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    temporaryFile.outputStream().use { output -> input.copyTo(output) }
+                } ?: throw IllegalStateException("Could not open selected profile image")
+
+                if (!temporaryFile.renameTo(profilePhotoFile)) {
+                    temporaryFile.copyTo(profilePhotoFile, overwrite = true)
+                    temporaryFile.delete()
+                }
+                selectedImageUri = Uri.fromFile(profilePhotoFile)
+            } catch (error: Exception) {
+                Log.e("UserAccountCard", "Could not save profile photo", error)
+            }
         }
     }
 
