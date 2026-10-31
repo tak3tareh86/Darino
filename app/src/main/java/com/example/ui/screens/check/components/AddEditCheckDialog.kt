@@ -4,6 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -52,7 +55,7 @@ fun AddEditCheckDialog(
             check?.amount?.let { MoneyFormatter.convertFromToman(it).toString() }.orEmpty()
         )
     }
-    var isBankMenuExpanded by remember { mutableStateOf(false) }
+    var showBankPickerDialog by remember { mutableStateOf(false) }
     var checkNumber by remember { mutableStateOf(check?.checkNumber ?: "") }
     var sayadId by remember { mutableStateOf(check?.sayadId ?: "") }
     var bankName by remember { mutableStateOf(check?.bankName ?: "") }
@@ -205,65 +208,432 @@ fun AddEditCheckDialog(
                             modifier = Modifier.fillMaxWidth(),
                             leadingIcon = { Icon(Icons.Rounded.AccountBalance, null) },
                             trailingIcon = {
-                                IconButton(onClick = { isBankMenuExpanded = !isBankMenuExpanded }) {
+                                IconButton(onClick = { showBankPickerDialog = true }) {
                                     Icon(
-                                        if (isBankMenuExpanded) Icons.Rounded.ArrowDropUp else Icons.Rounded.ArrowDropDown,
+                                        Icons.Rounded.ArrowDropDown,
                                         contentDescription = "انتخاب بانک"
                                     )
                                 }
                             },
                             singleLine = true
                         )
-                        DropdownMenu(
-                            expanded = isBankMenuExpanded,
-                            onDismissRequest = { isBankMenuExpanded = false },
-                            modifier = Modifier
-                                .width(320.dp)
-                                .heightIn(max = 320.dp)
-                                .background(MaterialTheme.colorScheme.surface)
-                                .verticalScroll(rememberScrollState())
+                    }
+                    OutlinedTextField(
+                        value = branch,
+                        onValueChange = { branch = it },
+                        label = { Text("شعبه (اختیاری)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = holderName,
+                        onValueChange = { holderName = it },
+                        label = { Text(if (type == CheckType.RECEIVED) "صادرکننده" else "صاحب حساب ما") },
+                        modifier = Modifier.weight(1f),
+                        leadingIcon = { Icon(Icons.Rounded.Person, null) },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = receiverName,
+                        onValueChange = { receiverName = it },
+                        label = { Text(if (type == CheckType.RECEIVED) "ذینفع (ما)" else "دریافت‌کننده") },
+                        modifier = Modifier.weight(1f),
+                        leadingIcon = { Icon(Icons.Rounded.PersonOutline, null) },
+                        singleLine = true
+                    )
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Issue Date
+                    OutlinedCard(
+                        onClick = { showIssueDatePicker = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("تاریخ صدور", style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                text = PersianCalendarHelper.fromEpochMillis(issueDate).toFormattedDate(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Due Date
+                    OutlinedCard(
+                        onClick = { showDueDatePicker = true },
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.outlinedCardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("تاریخ سررسید", style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                text = PersianCalendarHelper.fromEpochMillis(dueDate).toFormattedDate(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
+                // Reminder Section
+                HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Rounded.NotificationsActive, 
+                            null, 
+                            tint = if (reminderDateTime != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "یادآور چک",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Switch(
+                        checked = reminderDateTime != null,
+                        onCheckedChange = { 
+                            if (it) {
+                                // Default reminder: 1 day before due date at 09:00
+                                val calendar = Calendar.getInstance()
+                                calendar.timeInMillis = dueDate
+                                calendar.add(Calendar.DAY_OF_YEAR, -1)
+                                calendar.set(Calendar.HOUR_OF_DAY, 9)
+                                calendar.set(Calendar.MINUTE, 0)
+                                reminderDateTime = calendar.timeInMillis
+                            } else {
+                                reminderDateTime = null
+                            }
+                        }
+                    )
+                }
+
+                if (reminderDateTime != null) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedCard(
+                            onClick = { showReminderDatePicker = true },
+                            modifier = Modifier.weight(1.5f)
                         ) {
-                            IRANIAN_BANK_NAMES.chunked(4).forEach { bankRow ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("تاریخ یادآور", style = MaterialTheme.typography.labelSmall)
+                                Text(
+                                    text = PersianCalendarHelper.fromEpochMillis(reminderDateTime!!).toFormattedDate(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        OutlinedCard(
+                            onClick = { showReminderTimePicker = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("ساعت", style = MaterialTheme.typography.labelSmall)
+                                Text(
+                                    text = PersianCalendarHelper.fromEpochMillis(reminderDateTime!!).toFormattedTime(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("توضیحات (اختیاری)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4,
+                    leadingIcon = { Icon(Icons.Rounded.Notes, null) }
+                )
+
+                Button(
+                    onClick = {
+                        val enteredAmount = amount.toEnglishDigits().toLongOrNull() ?: 0L
+                        val amountInToman = MoneyFormatter.convertToToman(enteredAmount)
+                        if (amountInToman > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() &&
+                            !isDateInvalid && !isReminderInvalid && !isSayadIdInvalid) {
+                            onConfirm(
+                                Check(
+                                    id = check?.id ?: 0,
+                                    userId = check?.userId ?: "",
+                                    type = type,
+                                    amount = amountInToman,
+                                    checkNumber = checkNumber,
+                                    sayadId = normalizedSayadId.ifBlank { null },
+                                    bankName = bankName.trim(),
+                                    branch = branch.ifBlank { null },
+                                    holderName = holderName.trim(),
+                                    receiverName = receiverName.trim(),
+                                    issueDate = issueDate,
+                                    dueDate = dueDate,
+                                    status = status,
+                                    notes = notes.trim().ifBlank { null },
+                                    accountId = check?.accountId,
+                                    reminderDateTime = reminderDateTime,
+                                    createdAt = check?.createdAt ?: System.currentTimeMillis(),
+                                    updatedAt = System.currentTimeMillis()
+                                )
+                            )
+                        } else {
+                            showError = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("ذخیره", fontWeight = FontWeight.Bold)
+                }
+
+                if (check != null) {
+                    Text("وضعیت چک", style = MaterialTheme.typography.titleSmall)
+                    if (check.status == CheckStatus.CLEARED) {
+                        Text(
+                            "این چک تسویه شده است؛ برای جلوگیری از مغایرت حساب، وضعیت تسویه از این فرم تغییر نمی‌کند.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CheckStatus.entries.filter { it != CheckStatus.CLEARED }.forEach { s ->
+                                FilterChip(
+                                    selected = status == s,
+                                    onClick = { status = s },
+                                    label = { Text(s.title) }
+                                )
+                            }
+                        }
+                    }
+                }
+
+            }
+        }
+
+        if (showBankPickerDialog) {
+            AlertDialog(
+                onDismissRequest = { showBankPickerDialog = false },
+                title = {
+                    Text("انتخاب بانک", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(IRANIAN_BANK_NAMES) { bank ->
+                            Surface(
+                                onClick = {
+                                    bankName = bank
+                                    showBankPickerDialog = false
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (bankName == bank) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(6.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    bankRow.forEach { bank ->
-                                        Surface(
-                                            onClick = {
-                                                bankName = bank
-                                                isBankMenuExpanded = false
-                                            },
-                                            modifier = Modifier.weight(1f).padding(2.dp),
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = if (bankName == bank) MaterialTheme.colorScheme.primaryContainer
-                                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 2.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    text = bank,
-                                                    maxLines = 1,
-                                                    softWrap = false,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    textAlign = TextAlign.Center,
-                                                    fontSize = 10.sp,
-                                                    fontWeight = if (bankName == bank) FontWeight.Bold else FontWeight.Medium
-                                                )
-                                            }
-                                        }
-                                    }
-                                    repeat(4 - bankRow.size) {
-                                        Spacer(Modifier.weight(1f))
-                                    }
+                                    Text(
+                                        text = bank,
+                                        textAlign = TextAlign.Center,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = if (bankName == bank) FontWeight.Bold else FontWeight.Medium,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
                             }
                         }
                     }
-                    OutlinedTextField(
-                        value = branch,
+                },
+                confirmButton = {
+                    TextButton(onClick = { showBankPickerDialog = false }) { Text("بستن") }
+                }
+            )
+        }
+
+        if (showIssueDatePicker) {
+            val dateParts = PersianCalendarHelper.fromEpochMillis(issueDate)
+            SharedPersianDatePickerDialog(
+                initialYear = dateParts.year,
+                initialMonth = dateParts.month,
+                initialDay = dateParts.day,
+                onConfirm = { y, m, d ->
+                    issueDate = PersianCalendarHelper.jalaliToEpochMillis(y, m, d, 9, 0)
+                    showIssueDatePicker = false
+                },
+                onDismiss = { showIssueDatePicker = false }
+            )
+        }
+
+        if (showDueDatePicker) {
+            val dateParts = PersianCalendarHelper.fromEpochMillis(dueDate)
+            SharedPersianDatePickerDialog(
+                initialYear = dateParts.year,
+                initialMonth = dateParts.month,
+                initialDay = dateParts.day,
+                onConfirm = { y, m, d ->
+                    dueDate = PersianCalendarHelper.jalaliToEpochMillis(y, m, d, 9, 0)
+                    showDueDatePicker = false
+                },
+                onDismiss = { showDueDatePicker = false }
+            )
+        }
+
+        if (showReminderDatePicker) {
+            val dateParts = PersianCalendarHelper.fromEpochMillis(reminderDateTime ?: dueDate)
+            SharedPersianDatePickerDialog(
+                initialYear = dateParts.year,
+                initialMonth = dateParts.month,
+                initialDay = dateParts.day,
+                onConfirm = { y, m, d ->
+                    val currentTime = PersianCalendarHelper.fromEpochMillis(reminderDateTime ?: System.currentTimeMillis())
+                    reminderDateTime = PersianCalendarHelper.jalaliToEpochMillis(y, m, d, currentTime.hour, currentTime.minute)
+                    showReminderDatePicker = false
+                },
+                onDismiss = { showReminderDatePicker = false }
+            )
+        }
+
+        if (showReminderTimePicker) {
+            val current = PersianCalendarHelper.fromEpochMillis(reminderDateTime ?: System.currentTimeMillis())
+            SimpleTimePickerDialog(
+                initialHour = current.hour,
+                initialMinute = current.minute,
+                onDismiss = { showReminderTimePicker = false },
+                onConfirm = { h, m ->
+                    val currentDate = PersianCalendarHelper.fromEpochMillis(reminderDateTime ?: System.currentTimeMillis())
+                    reminderDateTime = PersianCalendarHelper.jalaliToEpochMillis(currentDate.year, currentDate.month, currentDate.day, h, m)
+                    showReminderTimePicker = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun SimpleTimePickerDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, Int) -> Unit
+) {
+    var hour by remember { mutableStateOf(initialHour) }
+    var minute by remember { mutableStateOf(initialMinute) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("انتخاب ساعت یادآور", style = MaterialTheme.typography.titleMedium) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    NumberPicker(
+                        value = hour,
+                        onValueChange = { hour = it },
+                        range = 0..23,
+                        label = "ساعت"
+                    )
+                    Text(":", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(horizontal = 8.dp))
+                    NumberPicker(
+                        value = minute,
+                        onValueChange = { minute = it },
+                        range = 0..59,
+                        label = "دقیقه"
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(hour, minute) }) {
+                Text("تأیید")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("انصراف")
+            }
+        }
+    )
+}
+
+@Composable
+fun NumberPicker(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    range: IntRange,
+    label: String
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        IconButton(onClick = { if (value < range.last) onValueChange(value + 1) else onValueChange(range.first) }) {
+            Icon(Icons.Rounded.KeyboardArrowUp, null)
+        }
+        Text(
+            text = value.toString().padStart(2, '0').let { com.example.util.IranianPhoneUtils.convertDigitsToPersian(it) },
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+        IconButton(onClick = { if (value > range.first) onValueChange(value - 1) else onValueChange(range.last) }) {
+            Icon(Icons.Rounded.KeyboardArrowDown, null)
+        }
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FlowRow(
+    modifier: Modifier = Modifier,
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    content: @Composable () -> Unit
+) {
+    androidx.compose.foundation.layout.FlowRow(
+        modifier = modifier,
+        horizontalArrangement = horizontalArrangement,
+        verticalArrangement = verticalArrangement
+    ) {
+        content()
+    }
+}
+
+
+private fun String.toEnglishDigits(): String = map { char ->
+    when (char) {
+        in '۰'..'۹' -> ('0'.code + (char.code - '۰'.code)).toChar()
+        in '٠'..'٩' -> ('0'.code + (char.code - '٠'.code)).toChar()
+        else -> char
+    }
+}.joinToString("")
+
                         onValueChange = { branch = it },
                         label = { Text("شعبه (اختیاری)") },
                         modifier = Modifier.weight(1f),
