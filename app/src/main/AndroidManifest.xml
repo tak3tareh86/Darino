@@ -50,6 +50,20 @@
         </provider>
 
         <receiver
+            android:name=".calendar.reminder.CalendarEventReminderReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.action.TRIGGER_CALENDAR_EVENT_REMINDER" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".reminder.receiver.ReminderBroadcastReceiver"
             android:enabled="true"
             android:exported="false">
