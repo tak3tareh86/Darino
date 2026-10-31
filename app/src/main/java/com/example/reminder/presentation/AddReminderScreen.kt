@@ -69,15 +69,17 @@ fun AddReminderScreen(
     var date by remember { mutableStateOf(currentPersianDate) }
     var time by remember { mutableStateOf("۰۹:۰۰") }
     var priority by remember { mutableStateOf(Priority.NORMAL) }
+    var notificationEnabled by remember { mutableStateOf(false) }
+    var fullScreenAlarmEnabled by remember { mutableStateOf(false) }
     var repeatType by remember { mutableStateOf(RepeatType.NONE) }
     var repeatInterval by remember { mutableIntStateOf(1) }
     var amountText by remember { mutableStateOf("") }
     var targetKmText by remember { mutableStateOf("") }
 
     // Multi-Offset selection
-    val selectedOffsets = remember {
-        mutableStateListOf(PredefinedOffset.AT_TIME, PredefinedOffset.BEFORE_1_DAY)
-    }
+    // No delivery channel or trigger time is selected by default. Saving a reminder
+    // without explicitly opting in must never create a system notification.
+    val selectedOffsets = remember { mutableStateListOf<PredefinedOffset>() }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -235,7 +237,47 @@ fun AddReminderScreen(
                 )
             }
 
-            // 5. Multi-Offset Alert Selector (زمان‌های ارسال هشدار)
+            // 5. Explicit delivery opt-in
+            Text(
+                text = "روش دریافت یادآوری",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(RadiusMD),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("اعلان معمولی گوشی", fontWeight = FontWeight.SemiBold)
+                            Text("نمایش در نوار اعلان اندروید", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = notificationEnabled, onCheckedChange = { notificationEnabled = it })
+                    }
+                    HorizontalDivider()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("آلارم تمام‌صفحه", fontWeight = FontWeight.SemiBold)
+                            Text("نمایش صفحه هشدار در زمان مقرر؛ وابسته به مجوز اندروید", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = fullScreenAlarmEnabled, onCheckedChange = { fullScreenAlarmEnabled = it })
+                    }
+                }
+            }
+
+            // 6. Multi-Offset Alert Selector (زمان‌های ارسال هشدار)
             Text(
                 text = "زمان‌های ارسال هشدار (چندانتخابی)",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
@@ -258,7 +300,7 @@ fun AddReminderScreen(
                                 selected = isChecked,
                                 onClick = {
                                     if (isChecked) {
-                                        if (selectedOffsets.size > 1) selectedOffsets.remove(offset)
+                                        selectedOffsets.remove(offset)
                                     } else {
                                         selectedOffsets.add(offset)
                                     }
@@ -394,7 +436,9 @@ fun AddReminderScreen(
                         date = date.trim(),
                         time = time.trim(),
                         amount = parsedAmount,
-                        targetKilometer = parsedKm
+                        targetKilometer = parsedKm,
+                        notificationEnabled = notificationEnabled,
+                        fullScreenAlarmEnabled = fullScreenAlarmEnabled
                     )
 
                     onSaveReminder(reminder, selectedOffsets.toList(), repeatType, repeatInterval)
@@ -409,7 +453,7 @@ fun AddReminderScreen(
             ) {
                 Icon(Icons.Rounded.Check, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("ثبت و زمان‌بندی یادآور", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text("ثبت یادآور", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
     }
