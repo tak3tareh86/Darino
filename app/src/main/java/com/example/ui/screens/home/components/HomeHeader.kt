@@ -84,7 +84,7 @@ fun HomeHeader(
             .clip(RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL))
             .background(headerGradient)
             .statusBarsPadding()
-            .padding(horizontal = 14.dp, vertical = 3.dp)
+            .padding(start = 14.dp, end = 14.dp, top = 0.dp, bottom = 2.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
