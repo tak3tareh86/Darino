@@ -54,7 +54,7 @@ fun AddFinancialEventSheet(
     var dateText by remember(initialDate) { mutableStateOf(CalendarDateUtils.toPersianDisplay(initialDate)) }
     var timeText by remember { mutableStateOf("۱۰:۰۰") }
     var description by remember { mutableStateOf("") }
-    var selectedReminderBefore by remember { mutableStateOf(ReminderBeforeOption.ONE_DAY) }
+    var selectedReminderBefore by remember { mutableStateOf(ReminderBeforeOption.NONE) }
     var dateError by remember { mutableStateOf<String?>(null) }
 
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
@@ -230,7 +230,9 @@ fun AddFinancialEventSheet(
             )
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 ReminderBeforeOption.entries.forEach { option ->
