@@ -186,10 +186,9 @@ class LocalBackupRepository(
                         .clearAllVehicles(userId)
 
                     db.smartReminderDao().clearAllSchedules(userId)
-                    if (backup.metadata.backupVersion >= 5) {
-                        // Delivery logs are linked by reminder ID; clear them before their parents.
-                        db.smartReminderDao().clearAllDeliveryLogsForBackup(userId)
-                    }
+                    // Delivery logs are child history for smart reminders. Clear them on
+                    // every replacement, including restores from older backup formats.
+                    db.smartReminderDao().clearAllDeliveryLogsForBackup(userId)
 
                     db.smartReminderDao()
                         .clearAllReminders(userId)
