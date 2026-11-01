@@ -22,7 +22,7 @@ object SmsPatternMatcher {
      * Editor-only whitespace token boundaries. No token is classified or inferred:
      * the user explicitly selects the exact token and assigns its semantic slot kind.
      */
-    fun tokenizeTemplateForManualSlotSelection(message: String): List<NumericCandidate> {
+    fun detectNumericCandidates(message: String): List<NumericCandidate> {
         if (message.isEmpty()) return emptyList()
         return Regex("""\S+""").findAll(message).map { match ->
             NumericCandidate(match.range.first, match.range.last + 1, match.value)
