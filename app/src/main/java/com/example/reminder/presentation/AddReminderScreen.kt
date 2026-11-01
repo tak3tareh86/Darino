@@ -157,7 +157,7 @@ fun AddReminderScreen(
             )
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf(
@@ -180,7 +180,7 @@ fun AddReminderScreen(
                             if (isSelected) type.accentColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         ),
                         modifier = Modifier
-                            .weight(1f)
+                            .width(110.dp)
                             .clickable { selectedType = type }
                             .testTag("type_selector_${type.key}")
                     ) {
