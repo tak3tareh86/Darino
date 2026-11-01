@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 class BankSmsRepository(private val context: Context) {
 
     private val prefs = context.getSharedPreferences("darino_bank_sms_prefs", Context.MODE_PRIVATE)
+    private val patternRepository = SmsPatternRepository(context.applicationContext)
 
     companion object {
         private const val KEY_PROCESSED_SMS_IDS = "processed_sms_ids"
@@ -84,6 +85,9 @@ class BankSmsRepository(private val context: Context) {
             return@withContext emptyList()
         }
 
+        val patterns = patternRepository.getPatterns()
+        if (patterns.isEmpty()) return@withContext emptyList()
+
         val processedIds = getProcessedSmsIds(uid)
         val dismissedIds = getDismissedSmsIds(uid)
         val ignoredIds = processedIds + dismissedIds
@@ -120,8 +124,15 @@ class BankSmsRepository(private val context: Context) {
                         continue
                     }
 
-                    // parse() is the single authoritative gate; do not classify each SMS twice.
-                    val parsed = BankSmsParser.parse(uniqueId, address, body, timestamp)
+                    // A saved user pattern is required before a bank SMS can enter the review queue.
+                    val matchingPattern = SmsPatternMatcher.findBestMatch(body, patterns) ?: continue
+                    val parsed = BankSmsParser.parseMatchedPattern(
+                        uniqueId,
+                        address,
+                        body,
+                        timestamp,
+                        matchingPattern
+                    )
                     if (parsed != null) {
                         results.add(parsed)
                     }
