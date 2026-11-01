@@ -692,7 +692,6 @@ fun PersianTimeInputField(
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center
             ),
-            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
