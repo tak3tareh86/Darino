@@ -72,7 +72,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             if (insertedId <= 0L) return@withContext CheckOperationResult.PERSISTENCE_ERROR
             if (insertedId > 0 && (check.status == CheckStatus.REGISTERED || check.status == CheckStatus.PENDING) && check.reminderDateTime != null) {
                 try {
-                    reminderManager?.syncCheckReminder(
+                    (reminderManager ?: throw IllegalStateException("مدیر یادآور مقداردهی نشده است.")).syncCheckReminder(
                         checkId = insertedId.toString(),
                         title = "${check.bankName} - ${check.checkNumber}",
                         amount = check.amount,
@@ -166,7 +166,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 if (check.status == CheckStatus.CLEARED || check.status == CheckStatus.CANCELED || check.status == CheckStatus.BOUNCED) {
                     reminderManager?.onCheckSettled(check.id.toString())
                 } else {
-                    reminderManager?.syncCheckReminder(
+                    (reminderManager ?: throw IllegalStateException("مدیر یادآور مقداردهی نشده است.")).syncCheckReminder(
                         checkId = check.id.toString(),
                         title = "${check.bankName} - ${check.checkNumber}",
                         amount = check.amount,
