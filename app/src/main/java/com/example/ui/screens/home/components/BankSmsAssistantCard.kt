@@ -1246,7 +1246,7 @@ fun EditSmsTransactionDialog(
                                 )
                             }
                             Text(
-                                text = "فقط اگر حساب مقصد متعلق به خودتان است «انتقال» را انتخاب کنید؛ برای پرداخت به دیگران، «هزینه» را بزنید.",
+                                text = "نوع انتقال از الگوی انتخاب‌شده در تنظیمات گرفته می‌شود؛ حساب مقصد باید متعلق به خودتان باشد.",
                                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
                             )
                         }
