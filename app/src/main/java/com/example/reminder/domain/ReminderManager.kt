@@ -217,6 +217,20 @@ class ReminderManager(
     }
 
     /**
+     * Restores a completed/disabled reminder without silently enabling alert channels.
+     * If the user had explicitly configured a delivery channel, its saved schedules are re-armed.
+     */
+    suspend fun restoreReminder(reminderId: String) = withContext(Dispatchers.IO) {
+        val reminder = repository.getReminderById(reminderId)
+            ?: throw NoSuchElementException("یادآور با شناسه $reminderId یافت نشد.")
+        if (reminder.notificationEnabled || reminder.fullScreenAlarmEnabled || reminder.smsEnabled) {
+            enableReminder(reminderId)
+        } else {
+            repository.updateStatus(reminderId, "ACTIVE")
+        }
+    }
+
+    /**
      * Disables a reminder and pauses its schedules without deleting them.
      */
     suspend fun disableReminder(reminderId: String) = withContext(Dispatchers.IO) {
