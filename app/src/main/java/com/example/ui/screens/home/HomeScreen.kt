@@ -334,6 +334,7 @@ fun HomeScreen(
                             onRequestPermission = {
                                 permissionLauncher.launch(Manifest.permission.READ_SMS)
                             },
+                            onManagePatterns = onSettingsClick,
                             onPermanentDeniedGoToSettings = onGoToSettings,
                             onRefreshScan = {
                                 viewModel.scanInboxSms()
