@@ -546,7 +546,18 @@ fun AddServiceSheet(
                         }
                         if (!remind1WeekBefore && !remind3DaysBefore && !remind1DayBefore && !remindAtDueDate) {
                             Text(
-                                text = "حداقل یک زمان یادآوری را انتخاب کنید.",
+                                text = if (calcKm > 0) {
+                                    "هیچ اعلان تاریخ‌محوری انتخاب نشده؛ در صورت فعال بودن یادآور، فقط آستانهٔ کیلومتر پیگیری می‌شود."
+                                } else {
+                                    "برای فعال‌کردن یادآور، حداقل یک زمان اعلان را انتخاب کنید."
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (!globalDeliveryConfigured) {
+                            Text(
+                                text = "روش اعلان عمومی برنامه غیرفعال است. انتخاب شما ذخیره می‌شود، اما اعلان تاریخ‌محور پس از فعال‌کردن روش اعلان و مجوزهای لازم قابل ارسال خواهد بود.",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.error
                             )
@@ -600,7 +611,7 @@ fun AddServiceSheet(
                             if (remind1DayBefore) add(com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY)
                             if (remindAtDueDate) add(com.example.reminder.domain.PredefinedOffset.AT_TIME)
                         }
-                        if (!isReminderEnabled || selectedOffsets.isEmpty() || !globalDeliveryConfigured) {
+                        if (!isReminderEnabled || (selectedOffsets.isEmpty() && calcKm <= 0)) {
                             showNoAlertConfirmation = true
                         } else {
                             val cost = IranianAmountUtils.parseAmountToLong(costText)
@@ -640,8 +651,8 @@ fun AddServiceSheet(
                     when {
                         !isReminderEnabled -> "برای این سرویس یادآوری فعال نشده است."
                         !remind1WeekBefore && !remind3DaysBefore && !remind1DayBefore && !remindAtDueDate ->
-                            "یادآور فعال شده، اما هیچ زمان هشداری انتخاب نشده است."
-                        else -> "زمان هشدار انتخاب شده، اما روش دریافت اعلان در تنظیمات عمومی فعال نیست."
+                            "یادآور فعال شده، اما نه زمان اعلان انتخاب شده و نه آستانهٔ کیلومتری معتبری وجود دارد."
+                        else -> "برای این سرویس یادآوری فعال نشده است."
                     } + " با تأیید، سرویس بدون اعلان ثبت می‌شود."
                 )
             },
