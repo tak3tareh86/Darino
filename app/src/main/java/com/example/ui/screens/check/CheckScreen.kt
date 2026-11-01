@@ -54,6 +54,9 @@ fun CheckScreen(
     
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedMainTab by rememberSaveable { mutableIntStateOf(0) }
+    var reportSearchQuery by rememberSaveable { mutableStateOf("") }
+    var reportSelectedYear by rememberSaveable { mutableIntStateOf(0) }
+    var reportSelectedMonth by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(selectedMainTab) {
         if (selectedMainTab < 3) {
             viewModel.onTypeSelected(
@@ -272,6 +275,12 @@ fun CheckScreen(
                     CheckReportSection(
                         checks = uiState.checks,
                         isLoading = uiState.isLoading,
+                        query = reportSearchQuery,
+                        selectedYear = reportSelectedYear,
+                        selectedMonth = reportSelectedMonth,
+                        onQueryChange = { reportSearchQuery = it },
+                        onYearChange = { reportSelectedYear = it; reportSelectedMonth = 0 },
+                        onMonthChange = { reportSelectedMonth = it },
                         onCheckClick = { selectedCheckForDetail = it }
                     )
                 }
