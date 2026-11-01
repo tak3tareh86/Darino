@@ -32,7 +32,7 @@ object SmsPatternMatcher {
 
     // Labels and their positions stay literal; only the following identifier value varies.
     private val cardOrAccountLabel = Regex(
-        """(?:شماره\s*کارت|کارت\s*(?:مبدأ|مبدا|مقصد)|از\s*کارت|به\s*کارت|شماره\s*حساب|حساب\s*(?:مبدأ|مبدا|مقصد)|از\s*حساب|به\s*حساب)\s*[:：#-]?\s*[0-9*#][0-9*# -]{1,32}[0-9*#]"""
+        """(?:شماره\s*کارت|کارت(?:\s*(?:شما|مبدأ|مبدا|مقصد))?|از\s*کارت|به\s*کارت|شماره\s*حساب|حساب(?:\s*(?:شما|مبدأ|مبدا|مقصد))?|از\s*حساب|به\s*حساب)\s*[:：#-]?\s*[0-9*#][0-9*# -]{1,32}[0-9*#]"""
     )
     private val trackingLabel = Regex(
         """(?:کد|شماره)\s*(?:پیگیری|رهگیری)|شناسه\s*(?:پیگیری|رهگیری)"""
@@ -126,7 +126,7 @@ object SmsPatternMatcher {
                 val tailStart = labelMatch.range.last + 1
                 val tail = sample.substring(tailStart)
                 val separator = Regex("""^\\s*[:：#-]?\\s*""").find(tail) ?: return@forEach
-                val value = identifierValue.find(tail, separator.range.last + 1) ?: return@forEach
+                val value = identifierValue.matchAt(tail, separator.range.last + 1) ?: return@forEach
                 add(
                     VariableSpan(
                         tailStart + value.range.first,
