@@ -8,6 +8,7 @@ import android.util.Log
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
 import com.example.data.preferences.AppPreferencesRepository
+import com.example.calendar.reminder.CalendarEventReminderScheduler
 import com.example.reminder.domain.DispatchDecision
 import com.example.reminder.domain.MockSmsDispatcher
 import com.example.reminder.domain.NotificationDispatcher
@@ -242,7 +243,16 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         SessionManager.init(context.applicationContext)
         try {
             val userId = SessionManager.userId
-            val dao = AppDatabase.getDatabase(context).smartReminderDao()
+            val database = AppDatabase.getDatabase(context)
+            if (reminderId.startsWith("calendar_")) {
+                val eventId = reminderId.removePrefix("calendar_")
+                if (userId != null) {
+                    database.financialEventDao().updateEventStatus(userId, eventId, "PAID")
+                }
+                CalendarEventReminderScheduler(context).cancel(eventId)
+                return
+            }
+            val dao = database.smartReminderDao()
             val now = System.currentTimeMillis()
             if (userId != null) {
                 dao.updateStatus(
@@ -286,6 +296,19 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         SessionManager.init(context.applicationContext)
         val userId = SessionManager.userId
         val db = AppDatabase.getDatabase(context)
+        if (reminderId.startsWith("calendar_")) {
+            val eventId = reminderId.removePrefix("calendar_")
+            val event = if (userId != null) {
+                db.financialEventDao().getEventById(userId, eventId)?.toDomain()
+            } else null
+            if (event != null && event.status.name != "PAID") {
+                CalendarEventReminderScheduler(context).scheduleSnooze(event, snoozeMinutes)
+            }
+            val calendarDispatcher = NotificationDispatcher(context)
+            if (notificationId != -1) calendarDispatcher.cancelNotification(notificationId)
+            if (secondaryNotificationId != -1) calendarDispatcher.cancelNotification(secondaryNotificationId)
+            return
+        }
         val dao = db.smartReminderDao()
         val reminder = if (userId != null) {
             dao.getReminderById(userId, reminderId)
