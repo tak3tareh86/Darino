@@ -34,7 +34,8 @@ import com.example.R
 import com.example.calendar.domain.CalendarDateUtils
 import com.example.calendar.domain.model.FinancialEvent
 import com.example.calendar.domain.model.FinancialEventType
-import com.example.calendar.presentation.components.AddFinancialEventSheet
+import com.example.reminder.presentation.AddReminderScreen
+import com.example.reminder.viewmodel.ReminderViewModel
 import com.example.calendar.presentation.components.CalendarView
 import com.example.calendar.presentation.components.EventCard
 import com.example.calendar.viewmodel.FinancialCalendarViewModel
@@ -52,6 +53,7 @@ import com.example.util.IranianPhoneUtils
 fun FinancialCalendarScreen(
     onBack: (() -> Unit)? = null,
     viewModel: FinancialCalendarViewModel = viewModel(),
+    reminderViewModel: ReminderViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -60,8 +62,6 @@ fun FinancialCalendarScreen(
     var showAddSheet by remember { mutableStateOf(false) }
     var showSearchBar by remember { mutableStateOf(false) }
     var selectedDayForFullDetail by remember { mutableStateOf<String?>(null) }
-    val addSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
     val selectedDateNormalized = remember(state.selectedDate) {
         CalendarDateUtils.normalizeDate(state.selectedDate)
     }
@@ -75,6 +75,19 @@ fun FinancialCalendarScreen(
                 CalendarDateUtils.normalizeDate(it.date) == selectedDateNormalized
             }
         }
+    }
+
+    // Calendar and Reminders now use the exact same form and canonical reminder storage.
+    if (showAddSheet) {
+        AddReminderScreen(
+            initialDate = state.selectedDate,
+            onBackClick = { showAddSheet = false },
+            onSaveReminder = { reminder, offsets, repeatType, repeatInterval ->
+                reminderViewModel.createReminder(reminder, offsets, repeatType, repeatInterval)
+                showAddSheet = false
+            }
+        )
+        return
     }
 
     // If viewing full DayDetailsScreen
@@ -500,18 +513,6 @@ fun FinancialCalendarScreen(
         }
     }
 
-    // Add Financial Event BottomSheet
-    if (showAddSheet) {
-        AddFinancialEventSheet(
-            sheetState = addSheetState,
-            initialDate = state.selectedDate,
-            onDismiss = { showAddSheet = false },
-            onConfirm = { newEvent ->
-                viewModel.addEvent(newEvent)
-                showAddSheet = false
-            }
-        )
-    }
 }
 
 @Composable
