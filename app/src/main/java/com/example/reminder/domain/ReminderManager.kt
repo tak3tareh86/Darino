@@ -7,6 +7,8 @@ import com.example.reminder.data.ReminderEntity
 import com.example.reminder.data.ReminderRepository
 import com.example.reminder.data.ReminderScheduleEntity
 import com.example.data.preferences.AppPreferencesRepository
+import com.example.data.database.AppDatabase
+import com.example.data.security.SessionManager
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.Dispatchers
@@ -149,10 +151,19 @@ class ReminderManager(
      * Deletes a reminder and cancels its scheduled alarms.
      */
     suspend fun deleteReminder(reminderId: String) = withContext(Dispatchers.IO) {
+        val reminder = repository.getReminderById(reminderId)
         val schedules = repository.getSchedulesSync(reminderId)
         scheduler.cancel(reminderId, schedules)
         NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
         repository.deleteReminderWithSchedules(reminderId)
+        if (reminder?.sourceType.equals("CALENDAR", ignoreCase = true)) {
+            reminder?.sourceId?.let { eventId ->
+                com.example.calendar.reminder.CalendarEventReminderScheduler(context).cancel(eventId)
+                SessionManager.userId?.let { userId ->
+                    AppDatabase.getDatabase(context).financialEventDao().deleteEventById(userId, eventId)
+                }
+            }
+        }
         Log.i("ReminderManager", "Deleted reminder $reminderId and all its schedules.")
     }
 
@@ -193,6 +204,20 @@ class ReminderManager(
             ?: throw NoSuchElementException("یادآور با شناسه $reminderId یافت نشد.")
         val storedSchedules = repository.getSchedulesSync(reminderId)
         if (storedSchedules.isEmpty()) {
+            if (reminder.sourceType.equals("CALENDAR", ignoreCase = true) &&
+                (reminder.notificationEnabled || reminder.fullScreenAlarmEnabled || reminder.smsEnabled)
+            ) {
+                repository.updateStatus(reminderId, "ACTIVE")
+                val eventId = reminder.sourceId
+                val userId = SessionManager.userId
+                if (eventId != null && userId != null) {
+                    val event = AppDatabase.getDatabase(context).financialEventDao().getEventById(userId, eventId)
+                    if (event != null) {
+                        com.example.calendar.reminder.CalendarEventReminderScheduler(context).schedule(event.toDomain())
+                    }
+                }
+                return@withContext
+            }
             repository.updateStatus(reminderId, "DISABLED")
             throw IllegalStateException("هیچ زمان‌بندی‌ای برای این یادآور ذخیره نشده است.")
         }
@@ -237,7 +262,9 @@ class ReminderManager(
         if (baseSchedules.size != storedSchedules.size) {
             repository.updateReminderWithSchedules(reminder, baseSchedules)
         }
-        if ((reminder.notificationEnabled || reminder.fullScreenAlarmEnabled || reminder.smsEnabled) && baseSchedules.isNotEmpty()) {
+        if ((reminder.notificationEnabled || reminder.fullScreenAlarmEnabled || reminder.smsEnabled) &&
+            (baseSchedules.isNotEmpty() || reminder.sourceType.equals("CALENDAR", ignoreCase = true))
+        ) {
             enableReminder(reminderId)
         } else {
             repository.updateStatus(reminderId, "ACTIVE")
@@ -261,6 +288,9 @@ class ReminderManager(
         }
         scheduler.cancel(reminderId, schedules)
         NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
+        if (reminder?.sourceType.equals("CALENDAR", ignoreCase = true)) {
+            reminder?.sourceId?.let { com.example.calendar.reminder.CalendarEventReminderScheduler(context).cancel(it) }
+        }
     }
 
     /**
