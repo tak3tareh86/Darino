@@ -46,6 +46,10 @@ fun VehicleInsuranceSheet(
     val context = LocalContext.current
     val preferences = remember { AppPreferencesRepository.getInstance(context) }
     val defaultReminderMinute by preferences.defaultReminderTimeMinute.collectAsState()
+    val globalDeliveryMode by preferences.alertDelivery.collectAsState()
+    val globalNotificationsEnabled by preferences.notificationsEnabled.collectAsState()
+    val globalDeliveryConfigured = globalNotificationsEnabled &&
+        globalDeliveryMode != com.example.ui.screens.settings.model.AlertDeliveryPreference.NONE
     val defaultReminderTimeText = remember(defaultReminderMinute) {
         val hour = (defaultReminderMinute / 60).toString().padStart(2, '0')
         val minute = (defaultReminderMinute % 60).toString().padStart(2, '0')
@@ -252,7 +256,7 @@ fun VehicleInsuranceSheet(
                 )
                 Button(
                     onClick = {
-                        if (insuranceReminderEnabled && insuranceReminderDays.isEmpty()) {
+                        if (!insuranceReminderEnabled || insuranceReminderDays.isEmpty() || !globalDeliveryConfigured) {
                             pendingNoReminderSave = {
                                 onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, IranianAmountUtils.parseAmountToLong(insuranceAmountText), policyNumber, false, insuranceReminderTime, emptyList(), editingInsurance?.id)
                             }
@@ -286,7 +290,7 @@ fun VehicleInsuranceSheet(
                 )
                 Button(
                     onClick = {
-                        if (inspectionReminderEnabled && inspectionReminderDays.isEmpty()) {
+                        if (!inspectionReminderEnabled || inspectionReminderDays.isEmpty() || !globalDeliveryConfigured) {
                             pendingNoReminderSave = {
                                 onSaveInspection(lastInspectionDate, inspectionExpiryDate, IranianAmountUtils.parseAmountToLong(inspectionCostText), inspectionStatus, centerName, false, inspectionReminderTime, emptyList(), editingInspection?.id)
                             }
@@ -312,7 +316,12 @@ fun VehicleInsuranceSheet(
                 pendingNoReminderSave = null
             },
             title = { Text("ثبت بدون اعلان؟") },
-            text = { Text("یادآور فعال شده، اما هیچ فاصله‌ای برای هشدار انتخاب نشده است. می‌توانید اطلاعات را بدون اعلان ثبت کنید یا به فرم برگردید و زمان هشدار را انتخاب کنید.") },
+            text = {
+                Text(
+                    "یادآور فعال نشده، زمان هشدار انتخاب نشده یا روش دریافت اعلان در تنظیمات عمومی غیرفعال است. " +
+                        "با تأیید، اطلاعات بدون اعلان ثبت می‌شوند؛ برای تنظیم هشدار، لغو را بزنید."
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     showNoReminderConfirmation = false
