@@ -4,6 +4,7 @@ import com.example.ui.screens.finance.model.TransactionType
 
 data class BankSmsSuggestion(
     val id: String,
+    val patternId: String = "",
     val bankName: String,
     val amount: Long,
     val formattedAmount: String,
