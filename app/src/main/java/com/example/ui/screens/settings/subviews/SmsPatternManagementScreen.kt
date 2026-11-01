@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.CompareArrows
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Delete
@@ -57,7 +58,7 @@ import com.example.data.sms.SmsPatternRepository
 import com.example.data.sms.SmsPatternType
 import com.example.ui.screens.settings.components.SettingsHeader
 
-private enum class PatternFilter { ALL, INCOME, EXPENSE }
+private enum class PatternFilter { ALL, INCOME, EXPENSE, TRANSFER }
 
 @Composable
 fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
@@ -74,6 +75,7 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
             PatternFilter.ALL -> true
             PatternFilter.INCOME -> pattern.type == SmsPatternType.INCOME
             PatternFilter.EXPENSE -> pattern.type == SmsPatternType.EXPENSE
+            PatternFilter.TRANSFER -> pattern.type == SmsPatternType.TRANSFER
         }
     }
 
@@ -120,7 +122,7 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "یک پیامک واقعی واریز یا برداشت را از صندوق پیامک کپی کنید و متن کامل آن را اینجا قرار دهید. برای هر قالب بانکی می‌توانید چند نمونه جداگانه ثبت کنید.",
+                                "یک پیامک واقعی واریز، برداشت یا انتقال وجه را از صندوق پیامک کپی کنید و متن کامل آن را اینجا قرار دهید. برای هر قالب بانکی می‌توانید چند نمونه جداگانه ثبت کنید.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 lineHeight = 19.sp
@@ -170,6 +172,12 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
                         onClick = { filter = PatternFilter.EXPENSE },
                         label = { Text("برداشت") },
                         leadingIcon = { Icon(Icons.Rounded.TrendingDown, null, modifier = Modifier.size(16.dp)) }
+                    )
+                    FilterChip(
+                        selected = filter == PatternFilter.TRANSFER,
+                        onClick = { filter = PatternFilter.TRANSFER },
+                        label = { Text("انتقال وجه") },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CompareArrows, null, modifier = Modifier.size(16.dp)) }
                     )
                 }
             }
@@ -280,8 +288,16 @@ private fun PatternCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val isIncome = pattern.type == SmsPatternType.INCOME
-    val accent = if (isIncome) Color(0xFF059669) else Color(0xFFE11D48)
+    val accent = when (pattern.type) {
+        SmsPatternType.INCOME -> Color(0xFF059669)
+        SmsPatternType.EXPENSE -> Color(0xFFE11D48)
+        SmsPatternType.TRANSFER -> Color(0xFF2563EB)
+    }
+    val typeIcon = when (pattern.type) {
+        SmsPatternType.INCOME -> Icons.Rounded.TrendingUp
+        SmsPatternType.EXPENSE -> Icons.Rounded.TrendingDown
+        SmsPatternType.TRANSFER -> Icons.AutoMirrored.Rounded.CompareArrows
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -294,7 +310,7 @@ private fun PatternCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        if (isIncome) Icons.Rounded.TrendingUp else Icons.Rounded.TrendingDown,
+                        typeIcon,
                         contentDescription = null,
                         tint = accent
                     )
@@ -360,6 +376,12 @@ private fun SmsPatternEditorDialog(
                         onClick = { type = SmsPatternType.EXPENSE },
                         label = { Text("برداشت") },
                         leadingIcon = { Icon(Icons.Rounded.TrendingDown, null, modifier = Modifier.size(16.dp)) }
+                    )
+                    FilterChip(
+                        selected = type == SmsPatternType.TRANSFER,
+                        onClick = { type = SmsPatternType.TRANSFER },
+                        label = { Text("انتقال وجه") },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CompareArrows, null, modifier = Modifier.size(16.dp)) }
                     )
                 }
                 Row(
