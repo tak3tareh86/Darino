@@ -129,4 +129,56 @@ class BankSmsParserTest {
         assertEquals("1402/02/09", parsed?.dateText)
         assertEquals(200L, parsed?.amount)
     }
+
+    @Test
+    fun fixedTextIsCaseAndWhitespaceSensitive() {
+        val sample = "PAYMENT 1,000 OK"
+        val pattern = SmsPattern(
+            id = "strict",
+            name = "Strict",
+            type = SmsPatternType.EXPENSE,
+            sampleMessage = sample,
+            slots = listOf(slot(sample, "1,000", SmsPatternSlotKind.AMOUNT_TOMAN))
+        )
+
+        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT 2,000 OK", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("payment 2,000 OK", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT  2,000 OK", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT 2,000 OK extra", listOf(pattern)))
+    }
+
+    @Test
+    fun opaqueConfiguredSlotAcceptsAlphanumericTrackingCodeWithoutGuessingItsMeaning() {
+        val sample = "کد ABC-123 مبلغ 100 تومان"
+        val pattern = SmsPattern(
+            id = "opaque",
+            name = "Opaque",
+            type = SmsPatternType.TRANSFER,
+            sampleMessage = sample,
+            slots = listOf(
+                slot(sample, "ABC-123", SmsPatternSlotKind.TRACKING),
+                slot(sample, "100", SmsPatternSlotKind.AMOUNT_TOMAN)
+            )
+        )
+
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "sms-opaque", "sender", "کد XYZ-987 مبلغ 250 تومان", 1_700_000_000_000L, pattern
+        )
+        assertEquals("XYZ-987", parsed?.trackingCode)
+        assertEquals(TransactionType.TRANSFER, parsed?.type)
+        assertEquals(250L, parsed?.amount)
+    }
+
+    @Test
+    fun ambiguousIdenticalUserTemplatesAreRejectedWithoutPriority() {
+        val sample = "برداشت 100 تومان"
+        val pattern = SmsPattern(
+            id = "duplicate",
+            name = "Duplicate",
+            type = SmsPatternType.EXPENSE,
+            sampleMessage = sample,
+            slots = listOf(slot(sample, "100", SmsPatternSlotKind.AMOUNT_TOMAN))
+        )
+        assertNull(SmsPatternMatcher.findUniqueMatch("برداشت 200 تومان", listOf(pattern, pattern.copy(id = "duplicate-2"))))
+    }
 }
