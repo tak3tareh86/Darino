@@ -387,16 +387,17 @@ fun FinancialCalendarScreen(
                     ) {
                         Box(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
-                            contentAlignment = Alignment.CenterEnd
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(
+                                modifier = Modifier.fillMaxWidth(),
                                 text = if (state.searchQuery.isNotBlank()) "نتایج جستجو" else displaySelected,
                                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 softWrap = false,
                                 overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.End
+                                textAlign = TextAlign.Center
                             )
                         }
                     }
@@ -425,8 +426,7 @@ fun FinancialCalendarScreen(
                         }
                     }
 
-                    if (state.searchQuery.isBlank() && dayEvents.isNotEmpty()) {
-                        Surface(
+                    Surface(
                             onClick = { selectedDayForFullDetail = state.selectedDate },
                             modifier = Modifier
                                 .weight(1f)
@@ -450,7 +450,6 @@ fun FinancialCalendarScreen(
                                 )
                             }
                         }
-                    }
                 }
             }
 
