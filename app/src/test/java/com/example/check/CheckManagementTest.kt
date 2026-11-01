@@ -57,6 +57,8 @@ class CheckManagementTest {
         
         runBlocking {
             repository.clearAllChecks()
+            database.smartReminderDao().clearAllReminders("user_1")
+            database.smartReminderDao().clearAllSchedules("user_1")
             database.accountDao().clearAllAccounts("user_1")
             database.accountDao().clearAllAccounts("user_2")
             database.transactionDao().clearAllTransactions("user_1")
