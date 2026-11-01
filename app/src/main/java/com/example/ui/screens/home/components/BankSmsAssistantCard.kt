@@ -960,7 +960,7 @@ private fun TransactionTypeChip(
 @Composable
 fun EditSmsTransactionDialog(
     suggestion: BankSmsSuggestion,
-    @Suppress("UNUSED_PARAMETER") userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
+    userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (
         amount: Long,
@@ -982,6 +982,22 @@ fun EditSmsTransactionDialog(
     val isAmountValid = parsedAmount > 0L
 
     var category by remember(suggestion.id) { mutableStateOf(suggestion.category) }
+    val activeAccounts = remember(userAccounts) {
+        userAccounts.filter { it.isActive && it.deletedAt == null }
+    }
+    var selectedAccountId by remember(suggestion.id, activeAccounts) {
+        val matchingBank = activeAccounts.firstOrNull { account ->
+            val bankName = account.bankName.orEmpty()
+            bankName.isNotBlank() && (
+                bankName.contains(suggestion.bankName, ignoreCase = true) ||
+                    suggestion.bankName.contains(bankName, ignoreCase = true)
+                )
+        }
+        mutableStateOf(matchingBank?.stringId ?: activeAccounts.singleOrNull()?.stringId)
+    }
+    var selectedDestinationAccountId by remember(suggestion.id, activeAccounts) {
+        mutableStateOf<String?>(null)
+    }
     var description by remember(suggestion.id) {
         mutableStateOf("ثبت از پیامک ${suggestion.bankName}")
     }
@@ -1130,6 +1146,63 @@ fun EditSmsTransactionDialog(
                         }
                     }
 
+                    // Link the SMS transaction to real accounts so account balances stay correct.
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = if (selectedType == TransactionType.TRANSFER) "حساب مبدأ" else "حساب مرتبط",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                        if (activeAccounts.isEmpty()) {
+                            Text(
+                                text = "حساب فعال پیدا نشد؛ ابتدا یک حساب فعال بسازید.",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626), fontSize = 10.sp)
+                            )
+                        } else {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                items(activeAccounts) { account ->
+                                    FilterChip(
+                                        selected = selectedAccountId == account.stringId,
+                                        onClick = {
+                                            selectedAccountId = account.stringId
+                                            if (selectedDestinationAccountId == account.stringId) {
+                                                selectedDestinationAccountId = null
+                                            }
+                                            dialogError = null
+                                        },
+                                        label = { Text(account.name, fontSize = 9.sp) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (selectedType == TransactionType.TRANSFER) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "حساب مقصد",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                items(activeAccounts.filter { it.stringId != selectedAccountId }) { account ->
+                                    FilterChip(
+                                        selected = selectedDestinationAccountId == account.stringId,
+                                        onClick = {
+                                            selectedDestinationAccountId = account.stringId
+                                            dialogError = null
+                                        },
+                                        label = { Text(account.name, fontSize = 9.sp) }
+                                    )
+                                }
+                            }
+                            if (activeAccounts.size < 2) {
+                                Text(
+                                    text = "برای انتقال، حداقل دو حساب فعال و متفاوت لازم است.",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626), fontSize = 10.sp)
+                                )
+                            }
+                        }
+                    }
+
                     // Category input
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
@@ -1211,14 +1284,31 @@ fun EditSmsTransactionDialog(
                                 isSubmitting = true
                                 dialogError = null
                                 val finalCat = category.trim().ifEmpty { suggestion.category }
+                                val sourceId = selectedAccountId
+                                if (sourceId.isNullOrBlank()) {
+                                    dialogError = "لطفاً حساب مرتبط را انتخاب کنید."
+                                    return@Button
+                                }
+                                val destinationId = if (sType == TransactionType.TRANSFER) {
+                                    selectedDestinationAccountId
+                                } else {
+                                    null
+                                }
+                                if (sType == TransactionType.TRANSFER &&
+                                    (destinationId.isNullOrBlank() || destinationId == sourceId)
+                                ) {
+                                    dialogError = "برای انتقال، حساب مقصد متفاوت را انتخاب کنید."
+                                    return@Button
+                                }
 
+                                isSubmitting = true
                                 onConfirm(
                                     parsedAmount,
                                     sType,
                                     finalCat,
-                                    "",
+                                    sourceId,
                                     description,
-                                    null
+                                    destinationId
                                 ) { result ->
                                     isSubmitting = false
                                     when (result) {
