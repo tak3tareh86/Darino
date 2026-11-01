@@ -47,6 +47,36 @@ fun SharedPersianDatePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (year: Int, month: Int, day: Int) -> Unit
 ) {
+    SharedPersianDatePickerDialogInternal(
+        initialYear, initialMonth, initialDay, title, null, onDismiss, onConfirm
+    )
+}
+
+@Composable
+fun SharedPersianDatePickerDialog(
+    initialYear: Int,
+    initialMonth: Int,
+    initialDay: Int,
+    title: String = "انتخاب تاریخ (شمسی)",
+    maxDateEpochMillis: Long,
+    onDismiss: () -> Unit,
+    onConfirm: (year: Int, month: Int, day: Int) -> Unit
+) {
+    SharedPersianDatePickerDialogInternal(
+        initialYear, initialMonth, initialDay, title, maxDateEpochMillis, onDismiss, onConfirm
+    )
+}
+
+@Composable
+private fun SharedPersianDatePickerDialogInternal(
+    initialYear: Int,
+    initialMonth: Int,
+    initialDay: Int,
+    title: String,
+    maxDateEpochMillis: Long?,
+    onDismiss: () -> Unit,
+    onConfirm: (year: Int, month: Int, day: Int) -> Unit
+) {
     var currentYear by remember(initialYear) { mutableStateOf(initialYear) }
     var currentMonth by remember(initialMonth) { mutableStateOf(initialMonth.coerceIn(1, 12)) }
     var currentDay by remember(initialDay) { mutableStateOf(initialDay.coerceIn(1, 31)) }
@@ -54,6 +84,21 @@ fun SharedPersianDatePickerDialog(
 
     val daysInMonth = remember(currentYear, currentMonth) {
         PersianCalendarHelper.getDaysInMonth(currentYear, currentMonth)
+    }
+
+    val maxSelectableDay = remember(maxDateEpochMillis) {
+        maxDateEpochMillis?.let { millis -> Calendar.getInstance().apply {
+            timeInMillis = millis
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis }
+    }
+
+    fun isDateAllowed(year: Int, month: Int, day: Int): Boolean {
+        val selectedDay = PersianCalendarHelper.jalaliToEpochMillis(year, month, day, 0, 0)
+        return maxSelectableDay == null || selectedDay <= maxSelectableDay
     }
 
     LaunchedEffect(daysInMonth) {
@@ -368,6 +413,7 @@ fun SharedPersianDatePickerDialog(
                                     } else {
                                         val dayNum = cellIndex - firstDayOffset + 1
                                         val isSelected = currentDay == dayNum
+                                        val isAllowed = isDateAllowed(currentYear, currentMonth, dayNum)
 
                                         Box(
                                             modifier = Modifier
@@ -377,9 +423,10 @@ fun SharedPersianDatePickerDialog(
                                         ) {
                                             Surface(
                                                 onClick = { currentDay = dayNum },
+                                                enabled = isAllowed,
                                                 shape = CircleShape,
                                                 color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                                contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                                contentColor = if (isSelected) Color.White else if (isAllowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
                                                 border = if (!isSelected) BorderStroke(
                                                     1.dp,
                                                     MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f)
@@ -421,6 +468,7 @@ fun SharedPersianDatePickerDialog(
                     }
 
                     Button(
+                        enabled = isDateAllowed(currentYear, currentMonth, currentDay),
                         onClick = {
                             onConfirm(currentYear, currentMonth, currentDay)
                             onDismiss()

@@ -27,6 +27,15 @@ class NotificationDispatcher(private val context: Context) {
 
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+    fun hasNotificationPermission(): Boolean {
+        return notificationManager.areNotificationsEnabled() &&
+            (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+    }
+
     /**
      * Cancels only notifications posted for the given reminder. Reminder-tagged
      * notifications are isolated from calendar and other application notifications.

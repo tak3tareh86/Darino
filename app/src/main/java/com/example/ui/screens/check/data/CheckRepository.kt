@@ -8,6 +8,7 @@ enum class CheckOperationResult {
     VALIDATION_ERROR,
     NOT_FOUND,
     PERSISTENCE_ERROR,
+    REMINDER_SETUP_ERROR,
     NO_AUTHENTICATED_USER
 }
 

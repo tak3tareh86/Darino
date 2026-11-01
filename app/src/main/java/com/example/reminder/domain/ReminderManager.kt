@@ -101,7 +101,11 @@ class ReminderManager(
 
         repository.insertReminderWithSchedules(reminder, schedules)
         val scheduledCount = try {
-            scheduler.schedule(reminder, schedules)
+            scheduler.schedule(reminder, schedules).also { count ->
+                if (reminder.sourceType.equals("CHECK", ignoreCase = true) && schedules.any { it.enabled } && count == 0) {
+                    throw IllegalStateException("هیچ آلارمی ثبت نشد؛ تنظیمات اعلان و مجوز آلارم دقیق را بررسی کنید.")
+                }
+            }
         } catch (e: Exception) {
             // The add form remains open on failure. Roll back this new draft so a retry
             // cannot create a duplicate reminder with no working alarm.
@@ -170,7 +174,11 @@ class ReminderManager(
 
         repository.updateReminderWithSchedules(reminder, newSchedules)
         val scheduledCount = try {
-            scheduler.schedule(reminder, newSchedules)
+            scheduler.schedule(reminder, newSchedules).also { count ->
+                if (reminder.sourceType.equals("CHECK", ignoreCase = true) && newSchedules.any { it.enabled } && count == 0) {
+                    throw IllegalStateException("هیچ آلارمی ثبت نشد؛ تنظیمات اعلان و مجوز آلارم دقیق را بررسی کنید.")
+                }
+            }
         } catch (e: Exception) {
             Log.e("ReminderManager", "Failed to schedule alarms during update for reminder ${reminder.id}. Rolling back to previous state.", e)
             if (existingReminder != null) {
@@ -797,14 +805,50 @@ class ReminderManager(
             smsEnabled = false
         )
 
-        // For custom check reminders, we only use EXACT time (AT_TIME offset)
-        // unless it's the default one (could keep BEFORE_1_DAY if we wanted, but requirement says "independent time")
+        // Check reminders use exactly one trigger at the user-selected local date and minute.
         val offsets = listOf(PredefinedOffset.AT_TIME)
 
+        // Editing check details must never silently reactivate a reminder the user disabled
+        // from the reminder center (or already completed/cancelled).
+        if (existing != null && !existing.status.equals("ACTIVE", ignoreCase = true)) {
+            val oldSchedules = repository.getSchedulesSync(existing.id)
+            scheduler.cancel(existing.id, oldSchedules)
+            NotificationDispatcher(context).cancelReminderNotifications(existing.id, oldSchedules)
+            val disabledSchedules = offsets.map { offset ->
+                ReminderScheduleEntity(
+                    id = UUID.randomUUID().toString(),
+                    reminderId = existing.id,
+                    triggerType = "EXACT",
+                    offsetValue = offset.value,
+                    offsetUnit = offset.unit.name,
+                    triggerDateTime = targetDateTime,
+                    repeatType = RepeatType.NONE.name,
+                    repeatInterval = 1,
+                    enabled = false,
+                    createdAt = System.currentTimeMillis()
+                )
+            }
+            repository.updateReminderWithSchedules(
+                reminder.copy(status = existing.status, updatedAt = System.currentTimeMillis()),
+                disabledSchedules
+            )
+            return@withContext
+        }
+
+        if (!NotificationDispatcher(context).hasNotificationPermission()) {
+            throw IllegalStateException("اعلان‌های اندروید برای دارینو فعال نیستند؛ تنظیمات اعلان دستگاه را بررسی کنید.")
+        }
+
         if (existing == null) {
-            createReminder(reminder, offsets)
+            val scheduledCount = createReminder(reminder, offsets)
+            if (scheduledCount <= 0) {
+                throw IllegalStateException("آلارم دقیق چک در سیستم ثبت نشد.")
+            }
         } else {
-            updateReminder(reminder, offsets)
+            val scheduledCount = updateReminder(reminder, offsets)
+            if (scheduledCount <= 0) {
+                throw IllegalStateException("آلارم دقیق چک در سیستم ثبت نشد.")
+            }
         }
     }
 

@@ -105,6 +105,7 @@ fun AddEditCheckDialog(
         }.timeInMillis
     }
     val isReminderInvalid = reminderCalendarDay != null && reminderCalendarDay > dueCalendarDay
+    val isReminderInPast = reminderEnabled && reminderDateTime != null && reminderDateTime!! <= System.currentTimeMillis()
     val amountValueForValidation = amount.toEnglishDigits().toLongOrNull()
     val amountUnitLabel = MoneyFormatter.getUnitLabel()
     val isAmountInvalid = amountValueForValidation == null ||
@@ -119,7 +120,7 @@ fun AddEditCheckDialog(
         val enteredAmount = amount.toEnglishDigits().toLongOrNull() ?: 0L
         val amountInToman = MoneyFormatter.convertToToman(enteredAmount)
         if (amountInToman > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() &&
-            !isDateInvalid && (reminderAt == null || !isReminderInvalid) && !isSayadIdInvalid) {
+            !isDateInvalid && (reminderAt == null || (!isReminderInvalid && reminderAt > System.currentTimeMillis())) && !isSayadIdInvalid) {
             onConfirm(
                 Check(
                     id = check?.id ?: 0,
@@ -182,7 +183,7 @@ fun AddEditCheckDialog(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (showError && (isDateInvalid || isReminderInvalid || isSayadIdInvalid || isAmountInvalid || isCheckNumberInvalid || isBankNameInvalid)) {
+                if (showError && (isDateInvalid || isReminderInvalid || isReminderInPast || isSayadIdInvalid || isAmountInvalid || isCheckNumberInvalid || isBankNameInvalid)) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                         modifier = Modifier.fillMaxWidth().imePadding()
@@ -199,7 +200,8 @@ fun AddEditCheckDialog(
                                     isCheckNumberInvalid -> "شماره چک را وارد کنید."
                                     isBankNameInvalid -> "نام بانک را وارد کنید."
                                     isDateInvalid -> "تاریخ سررسید نمی‌تواند قبل از تاریخ صدور باشد."
-                                    isReminderInvalid -> "زمان یادآور باید در روز سررسید یا قبل از آن باشد."
+                                    isReminderInvalid -> "تاریخ یادآور باید در روز سررسید یا قبل از آن باشد."
+                                    isReminderInPast -> "زمان یادآور باید در آینده باشد."
                                     else -> "شناسه صیادی واردشده باید ۱۶ رقم داشته باشد."
                                 },
                                 style = MaterialTheme.typography.bodySmall,
@@ -359,7 +361,7 @@ fun AddEditCheckDialog(
                         Icon(
                             Icons.Rounded.NotificationsActive, 
                             null, 
-                            tint = if (reminderDateTime != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = if (reminderEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(Modifier.width(12.dp))
                         Text(
@@ -426,7 +428,8 @@ fun AddEditCheckDialog(
                 }
                 if (showReminderSetupError) {
                     Text(
-                        "برای فعال‌کردن یادآور، تاریخ و ساعت آن را خودتان انتخاب کنید.",
+                        if (reminderEnabled && reminderDateTime == null) "برای فعال‌کردن یادآور، تاریخ و ساعت آن را خودتان انتخاب کنید."
+                        else "برای ثبت یادآور، ابتدا اعلان‌های برنامه و روش دریافت اعلان را در تنظیمات فعال کنید.",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -446,9 +449,14 @@ fun AddEditCheckDialog(
                     onClick = {
                         if (reminderEnabled && (!reminderTimeSelected || reminderDateTime == null)) {
                             showReminderSetupError = true
-                        } else if (!reminderEnabled || !globalDeliveryConfigured) {
+                        } else if (!reminderEnabled) {
                             showNoReminderConfirmation = true
+                        } else if (!globalDeliveryConfigured) {
+                            showReminderSetupError = true
+                        } else if (isReminderInvalid || isReminderInPast) {
+                            showError = true
                         } else {
+                            showReminderSetupError = false
                             submitCheck(reminderDateTime)
                         }
                     },
@@ -570,6 +578,8 @@ fun AddEditCheckDialog(
                 initialYear = dateParts.year,
                 initialMonth = dateParts.month,
                 initialDay = dateParts.day,
+                title = "تاریخ یادآور (حداکثر تا سررسید)",
+                maxDateEpochMillis = dueDate,
                 onConfirm = { y, m, d ->
                     reminderDateTime = PersianCalendarHelper.jalaliToEpochMillis(y, m, d, 0, 0)
                     reminderTimeSelected = false
@@ -599,24 +609,18 @@ fun AddEditCheckDialog(
         if (showNoReminderConfirmation) {
             AlertDialog(
                 onDismissRequest = { showNoReminderConfirmation = false },
-                title = { Text("ثبت چک بدون اعلان؟") },
+                title = { Text("ثبت چک بدون یادآوری؟") },
                 text = {
-                    Text(
-                        if (!reminderEnabled) {
-                            "برای این چک یادآوری فعال نشده است. اگر تأیید کنید، چک بدون اعلان ثبت می‌شود."
-                        } else {
-                            "زمان یادآوری انتخاب شده، اما روش دریافت اعلان در تنظیمات عمومی فعال نیست. با تأیید، چک بدون اعلان ثبت می‌شود."
-                        } + " برای تنظیم اعلان، لغو را بزنید و تنظیمات را کامل کنید."
-                    )
+                    Text("یادآور این چک غیرفعال است. اگر تأیید کنید، چک بدون هیچ یادآوری ثبت می‌شود.")
                 },
                 confirmButton = {
                     TextButton(onClick = {
                         showNoReminderConfirmation = false
                         submitCheck(null)
-                    }) { Text("تأیید و ثبت بدون اعلان") }
+                    }) { Text("تأیید") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showNoReminderConfirmation = false }) { Text("لغو و تنظیم یادآوری") }
+                    TextButton(onClick = { showNoReminderConfirmation = false }) { Text("لغو") }
                 }
             )
         }

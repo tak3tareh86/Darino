@@ -5,6 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.data.database.AppDatabase
 import com.example.data.database.CheckEntity
 import com.example.data.security.SessionManager
+import com.example.data.preferences.AppPreferencesRepository
+import com.example.ui.screens.settings.model.AlertDeliveryPreference
+import java.util.Calendar
 import com.example.ui.screens.check.data.CheckOperationResult
 import com.example.ui.screens.check.data.LocalCheckRepository
 import com.example.ui.screens.check.model.Check
@@ -13,9 +16,11 @@ import com.example.ui.screens.check.model.CheckType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,6 +38,8 @@ class CheckManagementTest {
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
+        org.robolectric.Shadows.shadowOf(context.applicationContext as android.app.Application)
+            .grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
         SessionManager.init(context)
         SessionManager.setAuthenticatedUser(
             com.example.data.api.NetworkUserDto(
@@ -46,13 +53,27 @@ class CheckManagementTest {
         repository = LocalCheckRepository.instance
         repository.init(context)
         database = AppDatabase.getDatabase(context)
+        AppPreferencesRepository.getInstance(context).apply {
+            setNotificationsEnabled(true)
+            setAlertDelivery(AlertDeliveryPreference.NOTIFICATION_ONLY)
+        }
         
         runBlocking {
             repository.clearAllChecks()
+            database.smartReminderDao().clearAllReminders("user_1")
+            database.smartReminderDao().clearAllSchedules("user_1")
             database.accountDao().clearAllAccounts("user_1")
             database.accountDao().clearAllAccounts("user_2")
             database.transactionDao().clearAllTransactions("user_1")
             database.transactionDao().clearAllTransactions("user_2")
+        }
+    }
+
+    @After
+    fun restoreNotificationPreferences() {
+        AppPreferencesRepository.getInstance(context).apply {
+            setNotificationsEnabled(false)
+            setAlertDelivery(AlertDeliveryPreference.NONE)
         }
     }
 
@@ -79,6 +100,11 @@ class CheckManagementTest {
         assertEquals(1, checks.size)
         assertEquals("123456", checks[0].checkNumber)
         assertEquals("بانک ملی", checks[0].bankName)
+        assertNull("New checks must not receive an implicit reminder", checks[0].reminderDateTime)
+        assertNull(
+            "A check saved with reminder disabled must not create a reminder entity",
+            com.example.reminder.data.LocalReminderRepository(context).getReminderBySourceId(checks[0].id.toString())
+        )
     }
 
     @Test
@@ -556,10 +582,31 @@ class CheckManagementTest {
     }
 
     @Test
+    fun `test check reminder timestamp in the past is rejected`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val check = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "REM-PAST-01",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = now - 86400000,
+            dueDate = now + 86400000,
+            status = CheckStatus.REGISTERED,
+            reminderDateTime = now - 60000
+        )
+
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.addCheck(check))
+        assertTrue(repository.getChecks().first().none { it.checkNumber == "REM-PAST-01" })
+    }
+    @Test
     fun `test add and edit check reminder date time and retrieve`() = runBlocking {
         SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
-        val initialReminder = System.currentTimeMillis() + 3600000
+        val initialReminder = Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, 1); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
         val check = Check(
             id = 0,
             userId = "user_1",
@@ -577,9 +624,14 @@ class CheckManagementTest {
         repository.addCheck(check)
         val saved = repository.getChecks().first()[0]
         assertEquals(initialReminder, saved.reminderDateTime)
+        val reminderRepository = com.example.reminder.data.LocalReminderRepository(context)
+        val createdReminder = reminderRepository.getReminderBySourceId(saved.id.toString())
+        assertNotNull("Explicitly selected check reminder must be persisted", createdReminder)
+        val initialSchedule = reminderRepository.getSchedulesSync(createdReminder!!.id).single()
+        assertEquals("Alarm must preserve the exact selected minute", initialReminder, initialSchedule.triggerDateTime)
 
         // Update with new reminder time
-        val newReminder = System.currentTimeMillis() + 7200000
+        val newReminder = Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, 2); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
         val updateResult = repository.updateCheck(saved.copy(reminderDateTime = newReminder))
         assertEquals(CheckOperationResult.SUCCESS, updateResult)
 
@@ -587,8 +639,46 @@ class CheckManagementTest {
         val retrieved = repository.getCheckById(saved.id)
         assertNotNull(retrieved)
         assertEquals(newReminder, retrieved?.reminderDateTime)
+        val updatedReminder = reminderRepository.getReminderBySourceId(saved.id.toString())
+        assertNotNull(updatedReminder)
+        val updatedSchedule = reminderRepository.getSchedulesSync(updatedReminder!!.id).single()
+        assertEquals("Edited reminder must be rescheduled to the new exact minute", newReminder, updatedSchedule.triggerDateTime)
     }
 
+    @Test
+    fun `test editing check does not reactivate a manually disabled reminder`() = runBlocking {
+        val reminderTime = Calendar.getInstance().apply {
+            add(Calendar.HOUR_OF_DAY, 1)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val check = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "REM-DISABLED-EDIT",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis() + 86400000,
+            status = CheckStatus.REGISTERED,
+            reminderDateTime = reminderTime
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(check))
+        val saved = repository.getChecks().first().single { it.checkNumber == "REM-DISABLED-EDIT" }
+        val reminderRepository = com.example.reminder.data.LocalReminderRepository(context)
+        val reminder = reminderRepository.getReminderBySourceId(saved.id.toString())!!
+
+        com.example.reminder.domain.ReminderManager(context).disableReminder(reminder.id)
+        assertEquals(CheckOperationResult.SUCCESS, repository.updateCheck(saved.copy(amount = 2000)))
+
+        val stillDisabled = reminderRepository.getReminderBySourceId(saved.id.toString())
+        assertNotNull(stillDisabled)
+        assertEquals("DISABLED", stillDisabled?.status)
+        assertFalse(reminderRepository.getSchedulesSync(reminder.id).any { it.enabled })
+    }
     @Test
     fun `test disable reminder deletes existing reminder and cancels alarm`() = runBlocking {
         SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))

@@ -51,7 +51,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
         if (check.dueDate < check.issueDate ||
             (check.sayadId != null && check.sayadId.isNotBlank() &&
                 (check.sayadId.length != 16 || !check.sayadId.all { it.isDigit() })) ||
-            (check.reminderDateTime != null && isAfterCalendarDay(check.reminderDateTime, check.dueDate)) ||
+            (check.reminderDateTime != null && (isAfterCalendarDay(check.reminderDateTime, check.dueDate) || check.reminderDateTime <= System.currentTimeMillis())) ||
             check.status == CheckStatus.CLEARED
         ) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
@@ -72,7 +72,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             if (insertedId <= 0L) return@withContext CheckOperationResult.PERSISTENCE_ERROR
             if (insertedId > 0 && (check.status == CheckStatus.REGISTERED || check.status == CheckStatus.PENDING) && check.reminderDateTime != null) {
                 try {
-                    reminderManager?.syncCheckReminder(
+                    (reminderManager ?: throw IllegalStateException("مدیر یادآور مقداردهی نشده است.")).syncCheckReminder(
                         checkId = insertedId.toString(),
                         title = "${check.bankName} - ${check.checkNumber}",
                         amount = check.amount,
@@ -82,6 +82,8 @@ class LocalCheckRepository private constructor() : CheckRepository {
                     )
                 } catch (e: Exception) {
                     e.printStackTrace()
+                    database.checkDao().deleteCheckById(userId, insertedId.toInt())
+                    return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
                 }
             }
             CheckOperationResult.SUCCESS
@@ -102,7 +104,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
         if (check.dueDate < check.issueDate ||
             (check.sayadId != null && check.sayadId.isNotBlank() &&
                 (check.sayadId.length != 16 || !check.sayadId.all { it.isDigit() })) ||
-            (check.reminderDateTime != null && isAfterCalendarDay(check.reminderDateTime, check.dueDate))
+            (check.reminderDateTime != null && (isAfterCalendarDay(check.reminderDateTime, check.dueDate) || check.reminderDateTime <= System.currentTimeMillis()))
         ) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
@@ -160,15 +162,11 @@ class LocalCheckRepository private constructor() : CheckRepository {
             
             if (rowsAffected == 0) return@withContext CheckOperationResult.NOT_FOUND
 
-            if (check.status == CheckStatus.CLEARED || check.status == CheckStatus.CANCELED || check.status == CheckStatus.BOUNCED) {
-                try {
+            try {
+                if (check.status == CheckStatus.CLEARED || check.status == CheckStatus.CANCELED || check.status == CheckStatus.BOUNCED) {
                     reminderManager?.onCheckSettled(check.id.toString())
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            } else {
-                try {
-                    reminderManager?.syncCheckReminder(
+                } else {
+                    (reminderManager ?: throw IllegalStateException("مدیر یادآور مقداردهی نشده است.")).syncCheckReminder(
                         checkId = check.id.toString(),
                         title = "${check.bankName} - ${check.checkNumber}",
                         amount = check.amount,
@@ -176,11 +174,12 @@ class LocalCheckRepository private constructor() : CheckRepository {
                         type = check.type.name,
                         reminderDateTime = check.reminderDateTime
                     )
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                database.checkDao().updateCheck(currentEntity)
+                return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
             }
-            
             CheckOperationResult.SUCCESS
         } catch (e: Exception) {
             e.printStackTrace()

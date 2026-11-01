@@ -542,6 +542,9 @@ interface CheckDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCheck(check: CheckEntity): Long
 
+    @Query("DELETE FROM checks WHERE userId = :userId AND id = :checkId")
+    suspend fun deleteCheckById(userId: String, checkId: Int): Int
+
     @Update
     suspend fun updateCheck(check: CheckEntity)
 
