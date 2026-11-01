@@ -125,7 +125,7 @@ object SmsPatternMatcher {
             trackingLabel.findAll(sample).forEach { labelMatch ->
                 val tailStart = labelMatch.range.last + 1
                 val tail = sample.substring(tailStart)
-                val separator = Regex("""^\\s*[:：#-]?\\s*""").find(tail) ?: return@forEach
+                val separator = Regex("""^\s*[:：#-]?\s*""").find(tail) ?: return@forEach
                 val value = identifierValue.matchAt(tail, separator.range.last + 1) ?: return@forEach
                 add(
                     VariableSpan(
