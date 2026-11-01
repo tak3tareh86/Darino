@@ -21,6 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
+import com.example.data.preferences.AppPreferencesRepository
+import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -60,8 +63,68 @@ fun AddFinancialEventSheet(
     var customReminderTime by remember { mutableStateOf("۰۹:۰۰") }
     var reminderDateError by remember { mutableStateOf<String?>(null) }
     var dateError by remember { mutableStateOf<String?>(null) }
+    var showNoReminderConfirmation by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val preferences = remember { AppPreferencesRepository.getInstance(context) }
+    val globalDeliveryMode by preferences.alertDelivery.collectAsState()
+    val globalNotificationsEnabled by preferences.notificationsEnabled.collectAsState()
 
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+
+    fun submitEvent(withReminder: Boolean) {
+        if (title.isBlank()) return
+        if (!CalendarDateUtils.isValidJalaliDate(dateText)) {
+            dateError = "لطفاً یک تاریخ شمسی معتبر وارد کنید."
+            return
+        }
+        dateError = null
+        val effectiveReminderBefore = if (withReminder) selectedReminderBefore else ReminderBeforeOption.NONE
+        val customReminderAt = if (effectiveReminderBefore == ReminderBeforeOption.CUSTOM) {
+            if (!CalendarDateUtils.isValidJalaliDate(customReminderDate)) {
+                reminderDateError = "تاریخ یادآوری معتبر نیست."
+                return
+            }
+            val timeParts = IranianPhoneUtils.convertDigitsToEnglish(customReminderTime.trim()).split(":")
+            val hour = timeParts.getOrNull(0)?.toIntOrNull()
+            val minute = timeParts.getOrNull(1)?.toIntOrNull()
+            if (timeParts.size != 2 || hour == null || minute == null || hour !in 0..23 || minute !in 0..59) {
+                reminderDateError = "ساعت را به شکل ۲۴ ساعته، مانند ۰۹:۳۰ وارد کنید."
+                return
+            }
+            val parts = CalendarDateUtils.parseJalali(customReminderDate) ?: run {
+                reminderDateError = "تاریخ یادآوری معتبر نیست."
+                return
+            }
+            val timestamp = PersianCalendarHelper.jalaliToEpochMillis(parts.first, parts.second, parts.third, hour, minute)
+            if (timestamp <= System.currentTimeMillis()) {
+                reminderDateError = "زمان یادآوری باید در آینده باشد."
+                return
+            }
+            timestamp
+        } else null
+        reminderDateError = null
+        val newEvent = FinancialEvent(
+            id = "user_ev_${System.currentTimeMillis()}",
+            title = title.trim(),
+            description = description.trim(),
+            type = selectedType,
+            amount = IranianAmountUtils.parseAmountToLong(amountText),
+            date = CalendarDateUtils.normalizeDate(dateText),
+            time = timeText.trim(),
+            reminderBefore = effectiveReminderBefore,
+            customReminderAt = customReminderAt,
+            reminderLabel = if (effectiveReminderBefore == ReminderBeforeOption.CUSTOM) {
+                "در تاریخ دلخواه"
+            } else {
+                effectiveReminderBefore.takeUnless { it == ReminderBeforeOption.NONE }?.label
+            },
+            status = FinancialEventStatus.PENDING
+        )
+        onConfirm(newEvent)
+    }
+
+    val globalDeliveryConfigured = globalNotificationsEnabled &&
+        globalDeliveryMode != AlertDeliveryPreference.NONE
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -334,53 +397,10 @@ fun AddFinancialEventSheet(
             // Confirm Submit Button
             Button(
                 onClick = {
-                    if (title.isNotBlank()) {
-                        if (!CalendarDateUtils.isValidJalaliDate(dateText)) {
-                            dateError = "لطفاً یک تاریخ شمسی معتبر وارد کنید."
-                            return@Button
-                        }
-                        dateError = null
-
-                        val customReminderAt = if (selectedReminderBefore == ReminderBeforeOption.CUSTOM) {
-                            if (!CalendarDateUtils.isValidJalaliDate(customReminderDate)) {
-                                reminderDateError = "تاریخ یادآوری معتبر نیست."
-                                return@Button
-                            }
-                            val timeParts = IranianPhoneUtils.convertDigitsToEnglish(customReminderTime.trim()).split(":")
-                            val hour = timeParts.getOrNull(0)?.toIntOrNull()
-                            val minute = timeParts.getOrNull(1)?.toIntOrNull()
-                            if (timeParts.size != 2 || hour == null || minute == null ||
-                                hour !in 0..23 || minute !in 0..59) {
-                                reminderDateError = "ساعت را به شکل ۲۴ ساعته، مانند ۰۹:۳۰ وارد کنید."
-                                return@Button
-                            }
-                            val parts = CalendarDateUtils.parseJalali(customReminderDate)!!
-                            val timestamp = PersianCalendarHelper.jalaliToEpochMillis(
-                                parts.first, parts.second, parts.third, hour, minute
-                            )
-                            if (timestamp <= System.currentTimeMillis()) {
-                                reminderDateError = "زمان یادآوری باید در آینده باشد."
-                                return@Button
-                            }
-                            timestamp
-                        } else null
-                        reminderDateError = null
-
-                        val amountLong = IranianAmountUtils.parseAmountToLong(amountText)
-                        val newEvent = FinancialEvent(
-                            id = "user_ev_${System.currentTimeMillis()}",
-                            title = title.trim(),
-                            description = description.trim(),
-                            type = selectedType,
-                            amount = amountLong,
-                            date = CalendarDateUtils.normalizeDate(dateText),
-                            time = timeText.trim(),
-                            reminderBefore = selectedReminderBefore,
-                            customReminderAt = customReminderAt,
-                            reminderLabel = if (selectedReminderBefore == ReminderBeforeOption.CUSTOM) "در تاریخ دلخواه" else selectedReminderBefore.takeUnless { it == ReminderBeforeOption.NONE }?.label,
-                            status = FinancialEventStatus.PENDING
-                        )
-                        onConfirm(newEvent)
+                    if (selectedReminderBefore == ReminderBeforeOption.NONE || !globalDeliveryConfigured) {
+                        showNoReminderConfirmation = true
+                    } else {
+                        submitEvent(withReminder = true)
                     }
                 },
                 enabled = title.isNotBlank(),
@@ -401,5 +421,31 @@ fun AddFinancialEventSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+
+    if (showNoReminderConfirmation) {
+        val noTimeSelected = selectedReminderBefore == ReminderBeforeOption.NONE
+        AlertDialog(
+            onDismissRequest = { showNoReminderConfirmation = false },
+            title = { Text("ثبت رویداد بدون اعلان؟") },
+            text = {
+                Text(
+                    if (noTimeSelected) {
+                        "برای این رویداد هیچ زمان یادآوری انتخاب نکرده‌اید. می‌توانید آن را بدون اعلان ثبت کنید."
+                    } else {
+                        "زمان یادآوری انتخاب شده، اما روش دریافت هشدار در تنظیمات عمومی یا اعلان‌های سراسری فعال نیست. با تأیید، رویداد بدون اعلان ثبت می‌شود."
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showNoReminderConfirmation = false
+                    submitEvent(withReminder = false)
+                }) { Text("تأیید و ثبت بدون اعلان") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNoReminderConfirmation = false }) { Text("لغو و بازگشت به فرم") }
+            }
+        )
     }
 }

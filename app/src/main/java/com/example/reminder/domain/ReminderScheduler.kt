@@ -7,6 +7,8 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import com.example.data.database.AppDatabase
+import com.example.data.preferences.AppPreferencesRepository
+import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.data.ReminderScheduleEntity
 import com.example.reminder.receiver.ReminderBroadcastReceiver
@@ -16,12 +18,22 @@ class ReminderScheduler(private val context: Context) {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
 
+    private fun hasConfiguredDelivery(reminder: ReminderEntity): Boolean {
+        val preferences = AppPreferencesRepository.getInstance(context)
+        val reminderOptedIn = reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
+        val androidDeliveryEnabled = reminderOptedIn &&
+            preferences.notificationsEnabled.value &&
+            preferences.alertDelivery.value != AlertDeliveryPreference.NONE
+        val smsDeliveryEnabled = reminder.smsEnabled && preferences.smsNotificationsEnabled.value
+        return androidDeliveryEnabled || smsDeliveryEnabled
+    }
+
     /**
      * Schedules all enabled triggers for a reminder.
      * Propagates errors to caller and cancels newly registered alarms from this batch if any trigger fails.
      */
     fun schedule(reminder: ReminderEntity, schedules: List<ReminderScheduleEntity>): Int {
-        if (!reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled && !reminder.smsEnabled) {
+        if (!hasConfiguredDelivery(reminder)) {
             Log.i("ReminderScheduler", "Skipping schedule for reminder ${reminder.id} because all delivery channels are disabled.")
             return 0
         }
@@ -66,7 +78,7 @@ class ReminderScheduler(private val context: Context) {
      * Throws an exception on failure so caller can detect failure and perform compensation if needed.
      */
     fun scheduleSingle(reminder: ReminderEntity, schedule: ReminderScheduleEntity) {
-        if (!reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled && !reminder.smsEnabled) {
+        if (!hasConfiguredDelivery(reminder)) {
             Log.i("ReminderScheduler", "Not arming schedule ${schedule.id}: reminder has no opted-in delivery channel.")
             return
         }

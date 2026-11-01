@@ -53,7 +53,7 @@ class ReminderManager(
      */
     suspend fun createReminder(
         reminder: ReminderEntity,
-        offsets: List<PredefinedOffset> = listOf(PredefinedOffset.AT_TIME),
+        offsets: List<PredefinedOffset> = emptyList(),
         repeatType: RepeatType = RepeatType.NONE,
         repeatInterval: Int = 1,
         calendarBasedOffsets: Boolean = false
@@ -99,7 +99,7 @@ class ReminderManager(
      */
     suspend fun updateReminder(
         reminder: ReminderEntity,
-        offsets: List<PredefinedOffset> = listOf(PredefinedOffset.AT_TIME),
+        offsets: List<PredefinedOffset> = emptyList(),
         repeatType: RepeatType = RepeatType.NONE,
         repeatInterval: Int = 1,
         calendarBasedOffsets: Boolean = false
@@ -333,22 +333,15 @@ class ReminderManager(
         val oldSchedules = existing?.let { repository.getSchedulesSync(it.id) }.orEmpty()
         // The stored schedules are also the durable copy of the user's selected offsets.
         // Keep disabled entries for past triggers so a later date edit can restore them.
-        val offsets = selectedOffsets ?: oldSchedules.mapNotNull { stored ->
-            PredefinedOffset.entries.find {
-                it.value == stored.offsetValue && it.unit.name.equals(stored.offsetUnit, ignoreCase = true)
-            }
-        }.distinct().ifEmpty {
-            if (existing == null) {
-                val preferredDays = AppPreferencesRepository.getInstance(context).installmentReminderDays.value
-                val preferredOffset = when (preferredDays) {
-                    1 -> PredefinedOffset.BEFORE_1_DAY
-                    3 -> PredefinedOffset.BEFORE_3_DAYS
-                    7 -> PredefinedOffset.BEFORE_7_DAYS
-                    10 -> PredefinedOffset.BEFORE_10_DAYS
-                    else -> PredefinedOffset.BEFORE_7_DAYS
+        val offsets = selectedOffsets ?: if (existing?.notificationEnabled == true) {
+            oldSchedules.mapNotNull { stored ->
+                PredefinedOffset.entries.find {
+                    it.value == stored.offsetValue && it.unit.name.equals(stored.offsetUnit, ignoreCase = true)
                 }
-                listOf(preferredOffset, PredefinedOffset.AT_TIME)
-            } else emptyList()
+            }.distinct()
+        } else {
+            // Never infer alert times from application defaults.
+            emptyList()
         }
 
         val reminder = existing?.copy(
@@ -356,6 +349,8 @@ class ReminderManager(
             amount = amount,
             date = dueDatePersian,
             time = effectiveDueTime,
+            notificationEnabled = offsets.isNotEmpty(),
+            fullScreenAlarmEnabled = false,
             updatedAt = System.currentTimeMillis()
         ) ?: ReminderEntity(
             id = "rem_inst_$installmentId",
@@ -369,7 +364,7 @@ class ReminderManager(
             date = dueDatePersian,
             time = effectiveDueTime,
             amount = amount,
-            notificationEnabled = true,
+            notificationEnabled = offsets.isNotEmpty(),
             fullScreenAlarmEnabled = false,
             smsEnabled = false
         )
@@ -534,7 +529,8 @@ class ReminderManager(
         dueDatePersian: String,
         dueKilometer: Long? = null,
         currentKilometer: Long? = null,
-        type: String = "MAINTENANCE"
+        type: String = "MAINTENANCE",
+        selectedOffsets: List<PredefinedOffset> = emptyList()
     ) = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(serviceId)
         val effectiveTime = existing?.time ?: defaultReminderTime()
@@ -544,6 +540,8 @@ class ReminderManager(
             time = effectiveTime,
             targetKilometer = dueKilometer,
             currentKilometer = currentKilometer,
+            notificationEnabled = selectedOffsets.isNotEmpty(),
+            fullScreenAlarmEnabled = false,
             status = "ACTIVE"
         ) ?: ReminderEntity(
             id = "rem_veh_$serviceId",
@@ -558,15 +556,12 @@ class ReminderManager(
             time = effectiveTime,
             targetKilometer = dueKilometer,
             currentKilometer = currentKilometer,
-            notificationEnabled = false,
+            notificationEnabled = selectedOffsets.isNotEmpty(),
+            fullScreenAlarmEnabled = false,
             smsEnabled = false
         )
 
-        val offsets = listOf(
-            PredefinedOffset.BEFORE_3_DAYS,
-            PredefinedOffset.BEFORE_1_DAY,
-            PredefinedOffset.AT_TIME
-        )
+        val offsets = selectedOffsets
 
         if (existing == null) {
             createReminder(reminder, offsets)
@@ -581,7 +576,8 @@ class ReminderManager(
     suspend fun syncInsuranceReminder(
         insuranceId: String,
         vehicleName: String,
-        expirationDatePersian: String
+        expirationDatePersian: String,
+        selectedOffsets: List<PredefinedOffset> = emptyList()
     ) = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(insuranceId)
         val effectiveTime = existing?.time ?: defaultReminderTime()
@@ -589,6 +585,8 @@ class ReminderManager(
             title = "تمدید بیمه خودرو: $vehicleName",
             date = expirationDatePersian,
             time = effectiveTime,
+            notificationEnabled = selectedOffsets.isNotEmpty(),
+            fullScreenAlarmEnabled = false,
             status = "ACTIVE"
         ) ?: ReminderEntity(
             id = "rem_ins_$insuranceId",
@@ -601,17 +599,12 @@ class ReminderManager(
             status = "ACTIVE",
             date = expirationDatePersian,
             time = effectiveTime,
-            notificationEnabled = false,
+            notificationEnabled = selectedOffsets.isNotEmpty(),
+            fullScreenAlarmEnabled = false,
             smsEnabled = false
         )
 
-        val offsets = listOf(
-            PredefinedOffset.BEFORE_30_DAYS,
-            PredefinedOffset.BEFORE_14_DAYS,
-            PredefinedOffset.BEFORE_7_DAYS,
-            PredefinedOffset.BEFORE_1_DAY,
-            PredefinedOffset.AT_TIME
-        )
+        val offsets = selectedOffsets
 
         if (existing == null) {
             createReminder(reminder, offsets)
@@ -650,6 +643,8 @@ class ReminderManager(
             amount = amount,
             date = persianDate,
             time = persianTime,
+            notificationEnabled = true,
+            fullScreenAlarmEnabled = false,
             status = "ACTIVE"
         ) ?: ReminderEntity(
             id = "rem_chk_$checkId",
@@ -663,7 +658,8 @@ class ReminderManager(
             date = persianDate,
             time = persianTime,
             amount = amount,
-            notificationEnabled = false,
+            notificationEnabled = true,
+            fullScreenAlarmEnabled = false,
             smsEnabled = false
         )
 

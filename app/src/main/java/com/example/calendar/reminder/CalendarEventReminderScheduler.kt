@@ -8,17 +8,43 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import com.example.calendar.domain.model.FinancialEvent
+import com.example.calendar.domain.model.FinancialEventStatus
+import com.example.calendar.domain.model.ReminderBeforeOption
+import com.example.reminder.domain.ReminderManager
+import java.util.Calendar
 
 class CalendarEventReminderScheduler(private val context: Context) {
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
+    fun triggerAtMillis(event: FinancialEvent): Long? {
+        if (event.status == FinancialEventStatus.PAID) return null
+        return when (event.reminderBefore) {
+            ReminderBeforeOption.NONE -> null
+            ReminderBeforeOption.CUSTOM -> event.customReminderAt
+            ReminderBeforeOption.ONE_DAY,
+            ReminderBeforeOption.THREE_DAYS,
+            ReminderBeforeOption.SEVEN_DAYS -> {
+                val dueAt = runCatching {
+                    ReminderManager.parsePersianDateTimeToMillis(event.date, event.time ?: "۰۹:۰۰")
+                }.getOrNull() ?: return null
+                val daysBefore = when (event.reminderBefore) {
+                    ReminderBeforeOption.ONE_DAY -> 1
+                    ReminderBeforeOption.THREE_DAYS -> 3
+                    ReminderBeforeOption.SEVEN_DAYS -> 7
+                    else -> return null
+                }
+                Calendar.getInstance().apply {
+                    timeInMillis = dueAt
+                    add(Calendar.DAY_OF_MONTH, -daysBefore)
+                }.timeInMillis
+            }
+        }
+    }
+
     fun schedule(event: FinancialEvent) {
         cancel(event.id)
-        // A timestamp alone is not consent: only the explicit CUSTOM choice may arm an alarm.
-        if (event.reminderBefore != com.example.calendar.domain.model.ReminderBeforeOption.CUSTOM) return
-        val triggerAt = event.customReminderAt ?: return
+        val triggerAt = triggerAtMillis(event) ?: return
         if (triggerAt <= System.currentTimeMillis()) return
-
         val pendingIntent = pendingIntent(event.id, event.title, event.description)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
@@ -33,11 +59,10 @@ class CalendarEventReminderScheduler(private val context: Context) {
     }
 
     fun cancel(eventId: String) {
-        val intent = baseIntent(eventId)
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             eventId.hashCode(),
-            intent,
+            baseIntent(eventId),
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         ) ?: return
         alarmManager.cancel(pendingIntent)

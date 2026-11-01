@@ -61,14 +61,14 @@ class AppPreferencesRepository private constructor(context: Context) {
     private val _alertDelivery = MutableStateFlow(loadAlertDelivery())
     val alertDelivery: StateFlow<AlertDeliveryPreference> = _alertDelivery.asStateFlow()
 
-    // Global master switches are opt-in. Per-reminder channel selection is also required.
+    // Global delivery is opt-in; each reminder only opts into its schedule, never its alarm type.
     private val _notificationsEnabled = MutableStateFlow(prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, false))
     val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
     private val _smsNotificationsEnabled = MutableStateFlow(prefs.getBoolean(KEY_SMS_NOTIFICATIONS_ENABLED, false))
     val smsNotificationsEnabled: StateFlow<Boolean> = _smsNotificationsEnabled.asStateFlow()
-    private val _notificationSoundEnabled = MutableStateFlow(prefs.getBoolean(KEY_NOTIFICATION_SOUND_ENABLED, true))
+    private val _notificationSoundEnabled = MutableStateFlow(prefs.getBoolean(KEY_NOTIFICATION_SOUND_ENABLED, false))
     val notificationSoundEnabled: StateFlow<Boolean> = _notificationSoundEnabled.asStateFlow()
-    private val _notificationVibrationEnabled = MutableStateFlow(prefs.getBoolean(KEY_NOTIFICATION_VIBRATION_ENABLED, true))
+    private val _notificationVibrationEnabled = MutableStateFlow(prefs.getBoolean(KEY_NOTIFICATION_VIBRATION_ENABLED, false))
     val notificationVibrationEnabled: StateFlow<Boolean> = _notificationVibrationEnabled.asStateFlow()
 
     // Quiet hours are disabled by default: users must explicitly opt in.
@@ -78,7 +78,7 @@ class AppPreferencesRepository private constructor(context: Context) {
     val quietHoursStartMinute: StateFlow<Int> = _quietHoursStartMinute.asStateFlow()
     private val _quietHoursEndMinute = MutableStateFlow(prefs.getInt(KEY_QUIET_HOURS_END_MINUTE, 7 * 60))
     val quietHoursEndMinute: StateFlow<Int> = _quietHoursEndMinute.asStateFlow()
-    private val _allowHighPriorityInQuietHours = MutableStateFlow(prefs.getBoolean(KEY_ALLOW_HIGH_PRIORITY_QUIET_HOURS, true))
+    private val _allowHighPriorityInQuietHours = MutableStateFlow(prefs.getBoolean(KEY_ALLOW_HIGH_PRIORITY_QUIET_HOURS, false))
     val allowHighPriorityInQuietHours: StateFlow<Boolean> = _allowHighPriorityInQuietHours.asStateFlow()
 
     private val _defaultReminderTimeMinute = MutableStateFlow(prefs.getInt(KEY_DEFAULT_REMINDER_TIME_MINUTE, 9 * 60))
@@ -147,7 +147,9 @@ class AppPreferencesRepository private constructor(context: Context) {
             val migrated = when (storedName) {
                 AlertDeliveryPreference.NOTIFICATION_ONLY.name -> AlertDeliveryPreference.NOTIFICATION_ONLY
                 AlertDeliveryPreference.FULL_SCREEN_ALARM.name -> AlertDeliveryPreference.FULL_SCREEN_ALARM
-                else -> AlertDeliveryPreference.NOTIFICATION_ONLY
+                AlertDeliveryPreference.BOTH.name -> AlertDeliveryPreference.NOTIFICATION_ONLY
+                null -> AlertDeliveryPreference.NONE
+                else -> AlertDeliveryPreference.NONE
             }
             prefs.edit()
                 .putString(KEY_ALERT_DELIVERY, migrated.name)
@@ -159,9 +161,9 @@ class AppPreferencesRepository private constructor(context: Context) {
                 try {
                     AlertDeliveryPreference.valueOf(it)
                 } catch (_: IllegalArgumentException) {
-                    AlertDeliveryPreference.NOTIFICATION_ONLY
+                    AlertDeliveryPreference.NONE
                 }
-            } ?: AlertDeliveryPreference.NOTIFICATION_ONLY
+            } ?: AlertDeliveryPreference.NONE
         }
         return selected
     }
@@ -198,6 +200,10 @@ class AppPreferencesRepository private constructor(context: Context) {
     fun setNotificationsEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, enabled).apply()
         _notificationsEnabled.value = enabled
+        scope.launch {
+            runCatching { com.example.reminder.domain.ReminderScheduler(context).rebuildAllSchedules() }
+                .onFailure { android.util.Log.e("AppPreferencesRepo", "Failed to refresh reminder alarms after global notification change", it) }
+        }
     }
 
     fun setSmsNotificationsEnabled(enabled: Boolean) {
@@ -268,6 +274,10 @@ class AppPreferencesRepository private constructor(context: Context) {
             .putBoolean(KEY_ALERT_DELIVERY_V2_MIGRATED, true)
             .apply()
         _alertDelivery.value = delivery
+        scope.launch {
+            runCatching { com.example.reminder.domain.ReminderScheduler(context).rebuildAllSchedules() }
+                .onFailure { android.util.Log.e("AppPreferencesRepo", "Failed to refresh reminder alarms after global delivery change", it) }
+        }
     }
 
     fun setNavTransition(transition: NavigationTransitionAnimation) {

@@ -196,10 +196,11 @@ class NotificationDispatcher(private val context: Context) {
         // Delivery is strictly opt-in at BOTH levels: the reminder must explicitly
         // enable a channel, and the global preference must permit that channel.
         // A global preference alone must never create an alert for an unconfigured reminder.
-        val useFullScreenAlarm = reminder.fullScreenAlarmEnabled &&
+        val reminderHasOptedIntoAlerts = reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
+        val useFullScreenAlarm = reminderHasOptedIntoAlerts &&
             (deliveryPref == AlertDeliveryPreference.FULL_SCREEN_ALARM ||
                 deliveryPref == AlertDeliveryPreference.BOTH)
-        val showStandardNotification = reminder.notificationEnabled &&
+        val showStandardNotification = reminderHasOptedIntoAlerts &&
             (deliveryPref == AlertDeliveryPreference.NOTIFICATION_ONLY ||
                 deliveryPref == AlertDeliveryPreference.BOTH)
         if (!useFullScreenAlarm && !showStandardNotification) {

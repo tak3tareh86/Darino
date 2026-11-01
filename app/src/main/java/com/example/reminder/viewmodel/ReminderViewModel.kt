@@ -150,7 +150,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
 
     fun createReminder(
         reminder: ReminderEntity,
-        offsets: List<PredefinedOffset> = listOf(PredefinedOffset.AT_TIME),
+        offsets: List<PredefinedOffset> = emptyList(),
         repeatType: RepeatType = RepeatType.NONE,
         repeatInterval: Int = 1
     ) {
@@ -165,7 +165,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
 
     fun updateReminder(
         reminder: ReminderEntity,
-        offsets: List<PredefinedOffset> = listOf(PredefinedOffset.AT_TIME),
+        offsets: List<PredefinedOffset> = emptyList(),
         repeatType: RepeatType = RepeatType.NONE,
         repeatInterval: Int = 1
     ) {
@@ -284,14 +284,11 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                 time = suggestion.defaultTime,
                 targetKilometer = suggestion.targetKilometer,
                 status = "ACTIVE",
-                notificationEnabled = true
+                notificationEnabled = false,
+                fullScreenAlarmEnabled = false
             )
-            val offsets = if (suggestion.type.name == "INSURANCE") {
-                listOf(PredefinedOffset.BEFORE_7_DAYS, PredefinedOffset.BEFORE_1_DAY, PredefinedOffset.AT_TIME)
-            } else {
-                listOf(PredefinedOffset.BEFORE_1_DAY, PredefinedOffset.AT_TIME)
-            }
-            createReminder(reminder, offsets)
+            // Suggestions never activate alert times without an explicit user choice.
+            createReminder(reminder, emptyList())
             _activeSuggestions.value = _activeSuggestions.value.filter { it.id != suggestion.id }
         }
     }

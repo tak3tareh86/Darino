@@ -1,21 +1,13 @@
 package com.example.calendar.reminder
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.util.Log
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import com.example.MainActivity
-import com.example.R
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
-import com.example.data.preferences.AppPreferencesRepository
-import com.example.calendar.domain.model.ReminderBeforeOption
+import com.example.reminder.data.ReminderEntity
+import com.example.reminder.domain.NotificationDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,7 +28,7 @@ class CalendarEventReminderReceiver : BroadcastReceiver() {
                 ) {
                     if (userId != null) {
                         val scheduler = CalendarEventReminderScheduler(context)
-                        dao.getEventsWithCustomReminders(userId).forEach { entity ->
+                        dao.getEventsWithReminders(userId).forEach { entity ->
                             scheduler.schedule(entity.toDomain())
                         }
                     }
@@ -46,13 +38,26 @@ class CalendarEventReminderReceiver : BroadcastReceiver() {
                     if (userId == null) return@launch
                     val event = dao.getEventById(userId, eventId)?.toDomain() ?: return@launch
                     if (event.status.name == "PAID") return@launch
-                    if (event.reminderBefore != ReminderBeforeOption.CUSTOM) return@launch
-                    val triggerAt = event.customReminderAt ?: return@launch
+                    val scheduler = CalendarEventReminderScheduler(context)
+                    val triggerAt = scheduler.triggerAtMillis(event) ?: return@launch
                     if (triggerAt > System.currentTimeMillis()) {
-                        CalendarEventReminderScheduler(context).schedule(event)
+                        scheduler.schedule(event)
                         return@launch
                     }
-                    showNotification(context, event.id, event.title, event.description)
+                    val reminder = ReminderEntity(
+                        id = "calendar_${event.id}",
+                        title = event.title,
+                        description = event.description,
+                        type = event.type.name,
+                        sourceType = "CALENDAR",
+                        priority = "NORMAL",
+                        status = "ACTIVE",
+                        date = event.date,
+                        time = event.time ?: "۰۹:۰۰",
+                        notificationEnabled = true,
+                        fullScreenAlarmEnabled = false
+                    )
+                    NotificationDispatcher(context).dispatchNotification(reminder)
                 }
             } catch (error: Exception) {
                 Log.e(TAG, "Failed to process calendar event reminder", error)
@@ -62,49 +67,7 @@ class CalendarEventReminderReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun showNotification(context: Context, eventId: String, title: String, description: String) {
-        if (!AppPreferencesRepository.getInstance(context).notificationsEnabled.value) {
-            Log.i(TAG, "Global Android notifications are disabled; suppressing calendar reminder $eventId.")
-            return
-        }
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
-            Log.i(TAG, "System notifications are disabled; suppressing calendar reminder $eventId.")
-            return
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "یادآوری رویدادهای مالی", NotificationManager.IMPORTANCE_HIGH)
-            )
-            if (manager.getNotificationChannel(CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE) {
-                Log.i(TAG, "Calendar reminder channel is disabled; suppressing $eventId.")
-                return
-            }
-        }
-        val openApp = PendingIntent.getActivity(
-            context,
-            eventId.hashCode(),
-            Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra("DEEP_LINK_TARGET", "FINANCIAL_CALENDAR")
-                putExtra("DEEP_LINK_ID", eventId)
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.img_3d_bell_notification)
-            .setContentTitle(title)
-            .setContentText(description.ifBlank { "زمان یادآوری رویداد مالی فرا رسیده است." })
-            .setStyle(NotificationCompat.BigTextStyle().bigText(description.ifBlank { "زمان یادآوری رویداد مالی فرا رسیده است." }))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .setContentIntent(openApp)
-            .build()
-        manager.notify(eventId.hashCode(), notification)
-    }
-
     companion object {
         private const val TAG = "CalendarEventReminder"
-        private const val CHANNEL_ID = "calendar_custom_event_reminders"
     }
 }

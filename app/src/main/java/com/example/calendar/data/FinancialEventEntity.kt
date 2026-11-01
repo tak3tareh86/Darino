@@ -21,7 +21,7 @@ data class FinancialEventEntity(
     val date: String, // "1405/06/15"
     val time: String? = null,
     val repeatType: String = "NONE",
-    val reminderBefore: String = "1_DAY",
+    val reminderBefore: String = "NONE",
     val sourceId: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val status: String = "PENDING",

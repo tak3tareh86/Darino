@@ -68,6 +68,9 @@ fun AddReminderScreen(
     val context = LocalContext.current
     val preferences = remember { AppPreferencesRepository.getInstance(context) }
     val defaultReminderMinute by preferences.defaultReminderTimeMinute.collectAsState()
+    val globalDeliveryMode by preferences.alertDelivery.collectAsState()
+    val globalNotificationsEnabled by preferences.notificationsEnabled.collectAsState()
+    var showNoAlertConfirmation by remember { mutableStateOf(false) }
     val defaultReminderTimeText = remember(defaultReminderMinute) {
         val hour = (defaultReminderMinute / 60).toString().padStart(2, '0')
         val minute = (defaultReminderMinute % 60).toString().padStart(2, '0')
@@ -79,8 +82,6 @@ fun AddReminderScreen(
     var date by remember { mutableStateOf(currentPersianDate) }
     var time by remember(defaultReminderTimeText) { mutableStateOf(defaultReminderTimeText) }
     var priority by remember { mutableStateOf(Priority.NORMAL) }
-    var notificationEnabled by remember { mutableStateOf(false) }
-    var fullScreenAlarmEnabled by remember { mutableStateOf(false) }
     var repeatType by remember { mutableStateOf(RepeatType.NONE) }
     var repeatInterval by remember { mutableIntStateOf(1) }
     var amountText by remember { mutableStateOf("") }
@@ -90,6 +91,30 @@ fun AddReminderScreen(
     // No delivery channel or trigger time is selected by default. Saving a reminder
     // without explicitly opting in must never create a system notification.
     val selectedOffsets = remember { mutableStateListOf<PredefinedOffset>() }
+
+    fun submitReminder(enableAlerts: Boolean) {
+        if (title.isBlank()) return
+        val offsetsToSave = if (enableAlerts) selectedOffsets.toList() else emptyList()
+        val reminder = ReminderEntity(
+            id = UUID.randomUUID().toString(),
+            title = title.trim(),
+            description = description.trim(),
+            type = selectedType.key,
+            sourceType = "MANUAL",
+            priority = priority.name,
+            status = "ACTIVE",
+            date = date.trim(),
+            time = time.trim(),
+            amount = IranianAmountUtils.parseAmountToLong(amountText),
+            targetKilometer = targetKmText.toLongOrNull(),
+            notificationEnabled = offsetsToSave.isNotEmpty(),
+            fullScreenAlarmEnabled = false
+        )
+        onSaveReminder(reminder, offsetsToSave, repeatType, repeatInterval)
+    }
+
+    val globalDeliveryConfigured = globalNotificationsEnabled &&
+        globalDeliveryMode != com.example.ui.screens.settings.model.AlertDeliveryPreference.NONE
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -214,7 +239,7 @@ fun AddReminderScreen(
                 PersianTimeInputField(
                     value = time,
                     onValueChange = { time = it },
-                    label = "ساعت هشدار",
+                    label = "ساعت سررسید",
                     modifier = Modifier
                         .weight(1f)
                         .testTag("input_reminder_time")
@@ -247,45 +272,12 @@ fun AddReminderScreen(
                 )
             }
 
-            // 5. Explicit delivery opt-in
+            // Alert presentation is configured once for the whole app in General Settings.
             Text(
-                text = "روش دریافت یادآوری",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                text = "نوع نمایش هشدار برای همه یادآورها از تنظیمات عمومی برنامه تعیین می‌شود.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(RadiusMD),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("اعلان معمولی گوشی", fontWeight = FontWeight.SemiBold)
-                            Text("نمایش در نوار اعلان اندروید", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(checked = notificationEnabled, onCheckedChange = { notificationEnabled = it })
-                    }
-                    HorizontalDivider()
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("آلارم تمام‌صفحه", fontWeight = FontWeight.SemiBold)
-                            Text("نمایش صفحه هشدار در زمان مقرر؛ وابسته به مجوز اندروید", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(checked = fullScreenAlarmEnabled, onCheckedChange = { fullScreenAlarmEnabled = it })
-                    }
-                }
-            }
 
             // 6. Multi-Offset Alert Selector (زمان‌های ارسال هشدار)
             Text(
@@ -431,27 +423,11 @@ fun AddReminderScreen(
             // Save Button
             Button(
                 onClick = {
-                    if (title.isBlank()) return@Button
-                    val parsedAmount = IranianAmountUtils.parseAmountToLong(amountText)
-                    val parsedKm = targetKmText.toLongOrNull()
-
-                    val reminder = ReminderEntity(
-                        id = UUID.randomUUID().toString(),
-                        title = title.trim(),
-                        description = description.trim(),
-                        type = selectedType.key,
-                        sourceType = "MANUAL",
-                        priority = priority.name,
-                        status = "ACTIVE",
-                        date = date.trim(),
-                        time = time.trim(),
-                        amount = parsedAmount,
-                        targetKilometer = parsedKm,
-                        notificationEnabled = notificationEnabled,
-                        fullScreenAlarmEnabled = fullScreenAlarmEnabled
-                    )
-
-                    onSaveReminder(reminder, selectedOffsets.toList(), repeatType, repeatInterval)
+                    if (selectedOffsets.isEmpty() || !globalDeliveryConfigured) {
+                        showNoAlertConfirmation = true
+                    } else {
+                        submitReminder(enableAlerts = true)
+                    }
                 },
                 enabled = title.isNotBlank(),
                 modifier = Modifier
@@ -466,5 +442,31 @@ fun AddReminderScreen(
                 Text("ثبت یادآور", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
+    }
+
+    if (showNoAlertConfirmation) {
+        val noOffsetsSelected = selectedOffsets.isEmpty()
+        AlertDialog(
+            onDismissRequest = { showNoAlertConfirmation = false },
+            title = { Text("ثبت یادآور بدون اعلان؟") },
+            text = {
+                Text(
+                    if (noOffsetsSelected) {
+                        "برای این یادآور هیچ زمان هشداری انتخاب نکرده‌اید. اگر تأیید کنید، یادآور بدون اعلان ثبت می‌شود."
+                    } else {
+                        "زمان هشدار انتخاب شده، اما روش دریافت هشدار در تنظیمات عمومی یا اعلان‌های سراسری فعال نیست. با تأیید، یادآور بدون اعلان ثبت می‌شود."
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showNoAlertConfirmation = false
+                    submitReminder(enableAlerts = false)
+                }) { Text("تأیید و ثبت بدون اعلان") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNoAlertConfirmation = false }) { Text("لغو و بازگشت به فرم") }
+            }
+        )
     }
 }
