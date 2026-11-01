@@ -16,6 +16,7 @@ import com.example.ui.screens.check.model.CheckType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -86,6 +87,11 @@ class CheckManagementTest {
         assertEquals(1, checks.size)
         assertEquals("123456", checks[0].checkNumber)
         assertEquals("بانک ملی", checks[0].bankName)
+        assertNull("New checks must not receive an implicit reminder", checks[0].reminderDateTime)
+        assertNull(
+            "A check saved with reminder disabled must not create a reminder entity",
+            com.example.reminder.data.LocalReminderRepository(context).getReminderBySourceId(checks[0].id.toString())
+        )
     }
 
     @Test
@@ -626,6 +632,40 @@ class CheckManagementTest {
         assertEquals("Edited reminder must be rescheduled to the new exact minute", newReminder, updatedSchedule.triggerDateTime)
     }
 
+    @Test
+    fun `test editing check does not reactivate a manually disabled reminder`() = runBlocking {
+        val reminderTime = Calendar.getInstance().apply {
+            add(Calendar.HOUR_OF_DAY, 1)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val check = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "REM-DISABLED-EDIT",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis() + 86400000,
+            status = CheckStatus.REGISTERED,
+            reminderDateTime = reminderTime
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(check))
+        val saved = repository.getChecks().first().single { it.checkNumber == "REM-DISABLED-EDIT" }
+        val reminderRepository = com.example.reminder.data.LocalReminderRepository(context)
+        val reminder = reminderRepository.getReminderBySourceId(saved.id.toString())!!
+
+        com.example.reminder.domain.ReminderManager(context).disableReminder(reminder.id)
+        assertEquals(CheckOperationResult.SUCCESS, repository.updateCheck(saved.copy(amount = 2000)))
+
+        val stillDisabled = reminderRepository.getReminderBySourceId(saved.id.toString())
+        assertNotNull(stillDisabled)
+        assertEquals("DISABLED", stillDisabled?.status)
+        assertFalse(reminderRepository.getSchedulesSync(reminder.id).any { it.enabled })
+    }
     @Test
     fun `test disable reminder deletes existing reminder and cancels alarm`() = runBlocking {
         SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
