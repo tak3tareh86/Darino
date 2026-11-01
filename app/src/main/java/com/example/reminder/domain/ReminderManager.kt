@@ -383,13 +383,32 @@ class ReminderManager(
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
-        // When every payment is marked paid, retain disabled schedule rows as the
-        // durable storage for the user's chosen offsets. If a payment is later
-        // reopened, refresh can rebuild its alarms using those same preferences.
-        val schedules = if (payments.isEmpty() && existing != null) {
-            oldSchedules
-                .filterNot { it.id.startsWith("snooze_") }
-                .map { it.copy(enabled = false, createdAt = now) }
+        // When there are no unpaid payments, keep disabled preference rows.
+        // These rows are never armed; they only preserve selected offsets so a
+        // payment reopened later can regain its original reminder configuration.
+        val schedules = if (payments.isEmpty()) {
+            val retainedSchedules = oldSchedules.filterNot { it.id.startsWith("snooze_") }
+            if (retainedSchedules.isNotEmpty()) {
+                retainedSchedules.map { it.copy(enabled = false, createdAt = now) }
+            } else {
+                offsets.map { offset ->
+                    val stableId = UUID.nameUUIDFromBytes(
+                        "installment:$installmentId:__preferences__:${offset.value}:${offset.unit.name}".toByteArray(Charsets.UTF_8)
+                    ).toString()
+                    ReminderScheduleEntity(
+                        id = stableId,
+                        reminderId = reminder.id,
+                        triggerType = if (offset == PredefinedOffset.AT_TIME) "EXACT" else "BEFORE_EVENT",
+                        offsetValue = offset.value,
+                        offsetUnit = offset.unit.name,
+                        triggerDateTime = now,
+                        repeatType = "NONE",
+                        repeatInterval = 1,
+                        enabled = false,
+                        createdAt = now
+                    )
+                }
+            }
         } else payments.flatMap { (paymentId, paymentDate) ->
             val dueMillis = runCatching { parsePersianDateTimeToMillis(paymentDate, effectiveDueTime) }.getOrNull()
                 ?: return@flatMap emptyList()
