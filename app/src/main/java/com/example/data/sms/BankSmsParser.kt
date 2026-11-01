@@ -520,8 +520,14 @@ object BankSmsParser {
             """(?:واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*(?:شد|گردید))"""
         ).find(lower)
 
-        val signedNegative = Regex("""-\s*[0-9][0-9,٫٬.]*""").containsMatchIn(lower)
-        val signedPositive = Regex("""\+\s*[0-9][0-9,٫٬.]*""").containsMatchIn(lower)
+        // Ignore signed balances: their sign describes the account balance, not
+        // the direction of the transaction. Only inspect signed values left after masking.
+        val textWithoutBalance = lower.replace(
+            Regex("""(?:مانده(?:ی|\s+حساب|\s+واقعی|\s+کل)?|موجودی(?:ی|\s+حساب|\s+فعلی|\s+کل)?|موجودي)[\s:：]*[+-]?\s*[0-9][0-9,٫٬.\u060C\u066B\u066C\s]*\s*(?:ریال|تومان|Rls|IRR)?"""),
+            " "
+        )
+        val signedNegative = Regex("""-\s*[0-9][0-9,٫٬.]*""").containsMatchIn(textWithoutBalance)
+        val signedPositive = Regex("""\+\s*[0-9][0-9,٫٬.]*""").containsMatchIn(textWithoutBalance)
         val signedDirection = when {
             signedNegative && !signedPositive -> TransactionType.EXPENSE
             signedPositive && !signedNegative -> TransactionType.INCOME
