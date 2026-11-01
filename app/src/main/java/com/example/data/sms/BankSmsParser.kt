@@ -31,6 +31,7 @@ object BankSmsParser {
         timestampMillis: Long,
         pattern: SmsPattern
     ): BankSmsSuggestion? {
+        return try {
         val fields = SmsPatternMatcher.extractMatchedFields(body, pattern) ?: return null
 
         val amountKind = when {
@@ -109,7 +110,7 @@ object BankSmsParser {
         val destinationAccount = account(SmsPatternSlotKind.DESTINATION_CARD, "کارت")
             ?: account(SmsPatternSlotKind.DESTINATION_ACCOUNT, "حساب")
 
-        return BankSmsSuggestion(
+        BankSmsSuggestion(
             id = smsId,
             bankName = pattern.name,
             amount = amountToman,
@@ -134,6 +135,9 @@ object BankSmsParser {
             trackingCode = fields.first(SmsPatternSlotKind.TRACKING)
                 ?.replace(Regex("""\s+"""), "")
         )
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun parsePositiveNumber(value: String?): Long? {
