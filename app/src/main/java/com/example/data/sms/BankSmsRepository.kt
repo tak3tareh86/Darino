@@ -216,7 +216,7 @@ class BankSmsRepository(private val context: Context) {
                     }
 
                     // A saved user pattern is required before a bank SMS can enter the review queue.
-                    val matchingPattern = SmsPatternMatcher.findBestMatch(body, patterns) ?: continue
+                    val matchingPattern = SmsPatternMatcher.findUniqueMatch(body, patterns) ?: continue
                     val parsed = BankSmsParser.parseMatchedPattern(
                         uniqueId,
                         address,
