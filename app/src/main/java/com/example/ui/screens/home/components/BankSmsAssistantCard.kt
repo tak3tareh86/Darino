@@ -268,7 +268,7 @@ private fun SmsOnboardingView(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "دیگر نیازی به ثبت دستی تراکنش‌ها نیست! الگوهای پیامک بانکی خود را تعریف کنید تا دارینو پیامک‌های واریز، برداشت و انتقال وجه را شناسایی کند",
+                text = "دیگر نیازی به ثبت دستی تراکنش‌های بانکی نیست! الگوهای پیامک بانکی خود را تعریف کنید تا دارینو پیامک‌های واریز، برداشت و انتقال وجه را شناسایی کرده و تراکنش‌ها را به‌صورت خودکار به شما",
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 10.5.sp,
                     lineHeight = 14.sp,
@@ -278,7 +278,7 @@ private fun SmsOnboardingView(
                 modifier = Modifier.fillMaxWidth()
             )
             Text(
-                text = "و اینجا نمایش دهد.",
+                text = "نمایش دهد.",
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 10.5.sp,
                     lineHeight = 14.sp,
