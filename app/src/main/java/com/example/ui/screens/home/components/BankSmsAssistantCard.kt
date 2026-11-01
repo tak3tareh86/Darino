@@ -202,6 +202,7 @@ fun BankSmsAssistantCard(
                         onEditClick = { suggestion ->
                             editingSuggestionId = suggestion.id
                         },
+                        onManagePatterns = onManagePatterns,
                         onDismiss = onDismiss,
                         onRefreshScan = onRefreshScan
                     )
@@ -514,6 +515,7 @@ private fun SmsGrantedContentView(
     onTypeChange: (id: String, type: TransactionType) -> Unit,
     onQuickAccept: (id: String) -> Unit,
     onEditClick: (BankSmsSuggestion) -> Unit,
+    onManagePatterns: () -> Unit,
     onDismiss: (id: String) -> Unit,
     onRefreshScan: () -> Unit
 ) {
@@ -665,7 +667,7 @@ private fun SmsGrantedContentView(
                         modifier = Modifier.size(28.dp)
                     )
                     Text(
-                        text = "هیچ پیامک مالی جدیدی یافت نشد",
+                        text = "پیامکی مطابق الگوهای شما پیدا نشد",
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.5.sp
@@ -673,12 +675,25 @@ private fun SmsGrantedContentView(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "تراکنش‌های پیامکی شما به‌روز هستند.",
+                        text = "اگر پیامک بانکی جدیدی دارید، الگوهای ذخیره‌شده را بررسی یا تکمیل کنید.",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 10.5.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        ),
+                        textAlign = TextAlign.Center
                     )
+                    TextButton(
+                        onClick = onManagePatterns,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Settings,
+                            contentDescription = null,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("مدیریت الگوهای پیامکی", fontSize = 10.5.sp)
+                    }
                 }
             }
         } else {
