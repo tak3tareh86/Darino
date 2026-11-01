@@ -104,7 +104,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
         if (check.dueDate < check.issueDate ||
             (check.sayadId != null && check.sayadId.isNotBlank() &&
                 (check.sayadId.length != 16 || !check.sayadId.all { it.isDigit() })) ||
-            (check.reminderDateTime != null && isAfterCalendarDay(check.reminderDateTime, check.dueDate))
+            (check.reminderDateTime != null && (isAfterCalendarDay(check.reminderDateTime, check.dueDate) || check.reminderDateTime <= System.currentTimeMillis()))
         ) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
