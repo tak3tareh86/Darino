@@ -72,7 +72,7 @@ fun ReminderScreen(
         ReminderSubScreen.ADD -> {
             AddReminderScreen(
                 onBackClick = { currentSubScreen = ReminderSubScreen.LIST },
-                onSaveReminder = { reminder, offsets, repeatType, repeatInterval, onComplete ->
+                onSaveReminderWithResult = { reminder, offsets, repeatType, repeatInterval, onComplete ->
                     viewModel.createReminder(reminder, offsets, repeatType, repeatInterval, onComplete)
                 }
             )
