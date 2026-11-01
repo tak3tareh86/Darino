@@ -443,10 +443,11 @@ private fun SettingsMainView(
                         SettingsSectionCard(title = "مدیریت مالی و تعهدات") {
                             SettingsItem(
                                 title = "درآمد ماهانه من",
-                                subtitle = "تنظیم و ویرایش درآمد ماهانه جهت تحلیل سلامت مالی",
+                                subtitle = "تنظیم درآمد ماهانه و ...",
                                 vectorIcon = Icons.Rounded.MonetizationOn,
                                 iconAccentColor = Color(0xFF10B981),
                                 onClick = onEditIncomeClick
+                                ,showChevron = false
                             )
 
                         }
@@ -456,18 +457,20 @@ private fun SettingsMainView(
                         SettingsSectionCard(title = "تنظیمات و امکانات") {
                             SettingsItem(
                                 title = "تنظیمات عمومی",
-                                subtitle = "زبان (${currentLanguage.title})، واحد پول (${currentCurrency.title})، ارقام (${if (currentNumberMode == com.example.ui.screens.settings.model.NumberDisplayMode.PERSIAN) "فارسی" else "انگلیسی"})، تم (${currentTheme.title})",
+                                subtitle = "واحد پول، نمایش ارقام و ...",
                                 vectorIcon = Icons.Rounded.Tune,
                                 iconAccentColor = Color(0xFF0EA5E9),
-                                onClick = { onNavigate(SettingsDestination.GENERAL) }
+                                onClick = { onNavigate(SettingsDestination.GENERAL) },
+                                showChevron = false
                             )
 
                             SettingsItem(
                                 title = "پشتیبانی و بک‌آپ‌گیری",
-                                subtitle = "تهیه نسخه پشتیبان از اطلاعات، بازیابی فایل، راهنما و ارتباط با پشتیبانی",
+                                subtitle = "پشتیبان‌گیری، بازیابی اطلاعات و ...",
                                 iconRes = R.drawable.img_3d_cloud_backup,
                                 iconAccentColor = EmeraldPrimaryLight,
-                                onClick = { onNavigate(SettingsDestination.SUPPORT_BACKUP) }
+                                onClick = { onNavigate(SettingsDestination.SUPPORT_BACKUP) },
+                                showChevron = false
                             )
 
                         }
@@ -478,10 +481,11 @@ private fun SettingsMainView(
                         SettingsSectionCard(title = "امنیت و دسترسی") {
                             SettingsItem(
                                 title = "قفل و احراز هویت",
-                                subtitle = "تنظیم رمز ورود عددی (PIN)، الگو، اثر انگشت، روش پیش‌فرض و حریم خصوصی مبالغ",
+                                subtitle = "رمز ورود، اثر انگشت و ...",
                                 iconRes = R.drawable.img_3d_shield_security,
                                 iconAccentColor = EmeraldPrimaryLight,
-                                onClick = { onNavigate(SettingsDestination.LOCK_AND_AUTH) }
+                                onClick = { onNavigate(SettingsDestination.LOCK_AND_AUTH) },
+                                showChevron = false
                             )
                         }
                     }
@@ -491,10 +495,11 @@ private fun SettingsMainView(
                         SettingsSectionCard(title = "درباره و اطلاعات برنامه") {
                             SettingsItem(
                                 title = "درباره برنامه",
-                                subtitle = "اطلاعات نسخه، مشخصات فنی و مجوزهای برنامه",
+                                subtitle = "نسخه برنامه، مشخصات فنی و ...",
                                 vectorIcon = Icons.Rounded.Description,
                                 iconAccentColor = Color(0xFF6366F1),
-                                onClick = { onNavigate(SettingsDestination.ABOUT) }
+                                onClick = { onNavigate(SettingsDestination.ABOUT) },
+                                showChevron = false
                             )
                         }
                     }
