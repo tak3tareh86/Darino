@@ -1144,7 +1144,7 @@ fun EditSmsTransactionDialog(
                         )
                     )
 
-                    // Editable Amount Input
+                    // Amount parsed from the configured template (read-only)
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
                             text = "مبلغ تراکنش (تومان):",
@@ -1181,7 +1181,7 @@ fun EditSmsTransactionDialog(
                             )
                         } else {
                             Text(
-                                text = "⚠️ لطفاً مبلغ معتبر (بزرگتر از صفر تومان) وارد کنید.",
+                                text = "⚠️ مبلغ استخراج‌شده از جایگاه مبلغ در الگوی شما معتبر نیست؛ این پیامک قابل ثبت نیست.",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 10.sp,
                                     color = Color(0xFFDC2626),
@@ -1371,7 +1371,7 @@ fun EditSmsTransactionDialog(
                                             dialogError = "حساب مقصد انتقال نامعتبر یا یکسان با مبدأ است؛ لطفاً حساب مقصد دیگری انتخاب کنید."
                                         }
                                         com.example.ui.screens.home.viewmodel.SmsAcceptResult.InvalidAmount -> {
-                                            dialogError = "مبلغ تراکنش نامعتبر است؛ لطفاً مبلغ صحیح را وارد کنید."
+                                            dialogError = "مبلغ استخراج‌شده از الگوی ثبت‌شده نامعتبر است؛ الگو و متن پیامک را بررسی کنید."
                                         }
                                         com.example.ui.screens.home.viewmodel.SmsAcceptResult.TypeNotSelected -> {
                                             dialogError = "لطفاً نوع تراکنش را مشخص کنید."
