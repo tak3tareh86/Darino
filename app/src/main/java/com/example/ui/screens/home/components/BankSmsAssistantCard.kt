@@ -711,6 +711,14 @@ private fun SmsGrantedContentView(
                         )
                     }
 
+                    if (!item.parseError.isNullOrBlank()) {
+                        Text(
+                            text = item.parseError.orEmpty(),
+                            fontSize = 9.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
                     // Interactive Transaction Type Selector: [هزینه | درآمد | انتقال]
                     Row(
                         modifier = Modifier.fillMaxWidth(),
