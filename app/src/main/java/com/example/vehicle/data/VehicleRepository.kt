@@ -129,7 +129,8 @@ class VehicleRepository {
                                 cost = s.cost,
                                 serviceMileage = s.mileage,
                                 dueMileage = s.nextReminderMileage,
-                                status = if (s.isReminderEnabled) "PENDING" else "COMPLETED",
+                                status = "PENDING",
+                                reminderEnabled = s.isReminderEnabled,
                                 notes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
                             )
                         )
@@ -254,7 +255,7 @@ class VehicleRepository {
                             description = cleanDescription,
                             nextReminderDate = realNextReminderDate,
                             nextReminderMileage = s.dueMileage,
-                            isReminderEnabled = s.status != "COMPLETED",
+                            isReminderEnabled = s.reminderEnabled,
                             reminderAlarmFailed = alarmError != null,
                             reminderAlarmErrorMessage = alarmError
                         )
@@ -743,7 +744,7 @@ class VehicleRepository {
                 .getInstance(context).vehicleReminderKilometers.value
             val crossedMileageReminders = db.vehicleDao().getAllServices(userId).first().filter { service ->
                 service.vehicleId == canonicalVehicleId &&
-                    service.status != "COMPLETED" &&
+                    service.status != "COMPLETED" && service.reminderEnabled &&
                     com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
                         currentMileage = newMileage,
                         targetMileage = service.dueMileage,
@@ -930,7 +931,8 @@ class VehicleRepository {
                         cost = cost,
                         serviceMileage = mileage,
                         dueMileage = nextReminderMileage,
-                        status = if (isReminderEnabled) "PENDING" else "COMPLETED",
+                        status = "PENDING",
+                        reminderEnabled = isReminderEnabled,
                         notes = encodedNotes
                     )
                 )
@@ -984,7 +986,7 @@ class VehicleRepository {
             var alarmErrorMsg: String? = null
 
             // Register system alarms AFTER successful database transaction commit
-            if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+            if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
                 try {
                     val reminderManager = com.example.reminder.domain.ReminderManager(context)
                     reminderManager.enableReminder(serviceId)
@@ -1060,6 +1062,7 @@ class VehicleRepository {
             .getInstance(context).vehicleReminderKilometers.value
         crossedServices.forEach { service ->
             val reminderId = service.serverId ?: service.id.toString()
+            if (!service.reminderEnabled) return@forEach
             val targetMileage = service.dueMileage ?: return@forEach
             val thresholdMileage = com.example.vehicle.domain.VehicleMileageReminderPolicy
                 .thresholdKilometer(targetMileage, leadKilometers)
@@ -1146,7 +1149,7 @@ class VehicleRepository {
             val crossedMileageReminders = db.vehicleDao().getAllServices(userId).first().filter { service ->
                 service.vehicleId == (vehicle.serverId ?: vehicle.id.toString()) &&
                     service.id != existingSvc.id &&
-                    service.status != "COMPLETED" &&
+                    service.status != "COMPLETED" && service.reminderEnabled &&
                     com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
                         currentMileage = maxOf(mileage, vehicle.currentMileage),
                         targetMileage = service.dueMileage,
@@ -1188,7 +1191,8 @@ class VehicleRepository {
                         cost = cost,
                         serviceMileage = mileage,
                         dueMileage = nextReminderMileage,
-                        status = if (isReminderEnabled) "PENDING" else "COMPLETED",
+                        status = existingSvc.status,
+                        reminderEnabled = isReminderEnabled,
                         notes = encodedNotes
                     )
                 )
@@ -1267,7 +1271,7 @@ class VehicleRepository {
             var alarmErrorMsg: String? = null
 
             // 2. Adjust system alarms outside of transaction after successful commit
-            if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+            if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && offsets.isNotEmpty()) {
                 try {
                     val reminderManager = com.example.reminder.domain.ReminderManager(context)
                     reminderManager.enableReminder(serviceId)
@@ -1348,6 +1352,9 @@ class VehicleRepository {
         val db = AppDatabase.getDatabase(context)
         val svc = db.vehicleDao().getServiceByServerId(userId, serviceId)
             ?: return@withContext Result.failure(NoSuchElementException("سرویس مورد نظر یافت نشد."))
+        if (!svc.reminderEnabled) {
+            return@withContext Result.failure(IllegalStateException("یادآور این سرویس توسط کاربر غیرفعال شده است."))
+        }
 
         try {
             val reminderManager = com.example.reminder.domain.ReminderManager(context)
