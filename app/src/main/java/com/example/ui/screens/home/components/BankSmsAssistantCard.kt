@@ -194,8 +194,10 @@ fun BankSmsAssistantCard(
                         errorMessage = errorMessage,
                         queue = queue,
                         onTypeChange = onTypeChange,
+                        // Every SMS suggestion must pass through the review dialog so
+                        // the user explicitly confirms the linked account(s) before saving.
                         onQuickAccept = { id ->
-                            onAccept(id, null, null, null, null, null, null) { }
+                            editingSuggestionId = id
                         },
                         onEditClick = { suggestion ->
                             editingSuggestionId = suggestion.id
@@ -969,7 +971,7 @@ private fun SmsGrantedContentView(
                             )
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = "ثبت تراکنش",
+                                text = "بررسی و ثبت",
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
