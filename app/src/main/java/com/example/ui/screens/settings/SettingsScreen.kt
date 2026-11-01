@@ -446,8 +446,8 @@ private fun SettingsMainView(
                                 subtitle = "تنظیم درآمد ماهانه و ...",
                                 vectorIcon = Icons.Rounded.MonetizationOn,
                                 iconAccentColor = Color(0xFF10B981),
-                                onClick = onEditIncomeClick
-                                ,showChevron = false
+                                onClick = onEditIncomeClick,
+                                showChevron = false
                             )
 
                         }
