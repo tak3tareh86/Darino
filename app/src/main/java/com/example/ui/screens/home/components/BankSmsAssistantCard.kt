@@ -1228,7 +1228,7 @@ fun EditSmsTransactionDialog(
                         }
                     }
 
-                    // SMS transactions are stored independently from local bank-account bookkeeping.
+                    // The selected account IDs are validated again by the ViewModel before persistence.
 
                     // Error Banner if validation / registration failed (Dialog stays open so user can correct)
                     if (dialogError != null) {
@@ -1281,7 +1281,6 @@ fun EditSmsTransactionDialog(
                             onClick = {
                                 val sType = selectedType ?: return@Button
                                 if (!isAmountValid) return@Button
-                                isSubmitting = true
                                 dialogError = null
                                 val finalCat = category.trim().ifEmpty { suggestion.category }
                                 val sourceId = selectedAccountId
