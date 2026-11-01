@@ -39,6 +39,18 @@ fun CheckScreen(
     bottomBar: @Composable () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(selectedMainTab) {
+        if (selectedMainTab < 3) {
+            viewModel.onTypeSelected(
+                when (selectedMainTab) {
+                    1 -> CheckType.RECEIVED
+                    2 -> CheckType.PAID
+                    else -> null
+                }
+            )
+        }
+    }
     
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedMainTab by rememberSaveable { mutableIntStateOf(0) }
@@ -175,15 +187,12 @@ fun CheckScreen(
                 ) {
                     Tab(selected = selectedMainTab == 0, onClick = {
                         selectedMainTab = 0
-                        viewModel.onTypeSelected(null)
                     }, text = { Text("همه") })
                     Tab(selected = selectedMainTab == 1, onClick = {
                         selectedMainTab = 1
-                        viewModel.onTypeSelected(CheckType.RECEIVED)
                     }, text = { Text("دریافتی") })
                     Tab(selected = selectedMainTab == 2, onClick = {
                         selectedMainTab = 2
-                        viewModel.onTypeSelected(CheckType.PAID)
                     }, text = { Text("پرداختی") })
                     Tab(selected = selectedMainTab == 3, onClick = {
                         selectedMainTab = 3
