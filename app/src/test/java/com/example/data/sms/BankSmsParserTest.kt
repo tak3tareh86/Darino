@@ -106,4 +106,34 @@ class BankSmsParserTest {
             BankSmsParser.detectTransactionType("۱۲۵,۰۰۰ ریال به حساب شما نشست")
         )
     }
+    @Test
+    fun knownSenderCanMentionAnotherBankAsTransferCounterparty() {
+        assertEquals(
+            true,
+            BankSmsParser.hasValidBankEvidence(
+                "20004000",
+                "انتقال وجه به کارت بانک سامان با موفقیت انجام شد، مبلغ: ۱۰۰,۰۰۰ ریال، مانده: ۵۰۰,۰۰۰ ریال"
+            )
+        )
+    }
+
+    @Test
+    fun explicitDifferentBankIssuerHeaderIsStillRejected() {
+        assertEquals(
+            false,
+            BankSmsParser.hasValidBankEvidence(
+                "20004000",
+                "بانک سامان؛ برداشت از حساب، مبلغ تراکنش: ۱۰۰,۰۰۰ ریال، مانده: ۵۰۰,۰۰۰ ریال"
+            )
+        )
+    }
+
+    @Test
+    fun completedGenericPaymentIsDetectedAsExpense() {
+        assertEquals(
+            TransactionType.EXPENSE,
+            BankSmsParser.detectTransactionType("پرداخت با موفقیت انجام شد؛ مبلغ تراکنش: ۱۲۵,۰۰۰ ریال")
+        )
+    }
+
 }
