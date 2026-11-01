@@ -181,4 +181,24 @@ class BankSmsParserTest {
         )
         assertNull(SmsPatternMatcher.findUniqueMatch("برداشت 200 تومان", listOf(pattern, pattern.copy(id = "duplicate-2"))))
     }
+
+    @Test
+    fun fullDateOrderMustBeChosenExplicitlyByTheUser() {
+        val sample = "تاریخ 05/08/10 مبلغ 100 تومان"
+        val pattern = SmsPattern(
+            id = "dmy",
+            name = "روز ماه سال",
+            type = SmsPatternType.EXPENSE,
+            sampleMessage = sample,
+            slots = listOf(
+                slot(sample, "05/08/10", SmsPatternSlotKind.DATE_DAY_MONTH_YEAR),
+                slot(sample, "100", SmsPatternSlotKind.AMOUNT_TOMAN)
+            )
+        )
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "sms-dmy", "sender", "تاریخ 06/08/10 مبلغ 200 تومان", 1_700_000_000_000L, pattern
+        )
+        assertEquals("1410/08/06", parsed?.dateText)
+        assertEquals(200L, parsed?.amount)
+    }
 }
