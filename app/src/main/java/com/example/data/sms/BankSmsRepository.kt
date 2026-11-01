@@ -33,7 +33,7 @@ class BankSmsRepository(private val context: Context) {
     companion object {
         private const val KEY_PROCESSED_SMS_IDS = "processed_sms_ids"
         private const val KEY_DISMISSED_SMS_IDS = "dismissed_sms_ids"
-        private const val KEY_PENDING_SMS_QUEUE = "pending_sms_queue"
+        private const val KEY_PENDING_SMS_QUEUE = "pending_sms_queue_v2"
         private const val KEY_PERMISSION_REQUESTED = "permission_requested_before"
         private const val MAX_PERSISTED_PENDING_SMS = 50
 
