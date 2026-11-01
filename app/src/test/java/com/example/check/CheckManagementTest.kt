@@ -38,6 +38,8 @@ class CheckManagementTest {
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
+        org.robolectric.Shadows.shadowOf(context.applicationContext as android.app.Application)
+            .grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
         SessionManager.init(context)
         SessionManager.setAuthenticatedUser(
             com.example.data.api.NetworkUserDto(
