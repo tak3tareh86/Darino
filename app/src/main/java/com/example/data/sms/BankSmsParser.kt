@@ -12,17 +12,7 @@ import com.example.util.PersianCalendarHelper
  */
 object BankSmsParser {
 
-    fun normalizeText(input: String): String {
-        return IranianPhoneUtils.convertDigitsToEnglish(input)
-            .replace('ي', 'ی')
-            .replace('ك', 'ک')
-            .replace('−', '-')
-            .replace('﹣', '-')
-            .replace('－', '-')
-            .replace('\u200C', ' ')
-            .replace(Regex("""\s+"""), " ")
-            .trim()
-    }
+    fun normalizeText(input: String): String = input
 
     fun parseMatchedPattern(
         smsId: String,
@@ -112,6 +102,7 @@ object BankSmsParser {
 
             BankSmsSuggestion(
                 id = smsId,
+                patternId = pattern.id,
                 bankName = pattern.name,
                 amount = amountToman,
                 formattedAmount = formattedAmount,
