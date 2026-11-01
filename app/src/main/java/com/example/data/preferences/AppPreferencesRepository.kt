@@ -275,6 +275,11 @@ class AppPreferencesRepository private constructor(context: Context) {
             .putBoolean(KEY_ALERT_DELIVERY_V2_MIGRATED, true)
             .apply()
         _alertDelivery.value = delivery
+        if (delivery != AlertDeliveryPreference.NONE) {
+            // Selecting a delivery method is explicit opt-in to system notifications.
+            prefs.edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, true).apply()
+            _notificationsEnabled.value = true
+        }
         scope.launch {
             runCatching { com.example.reminder.domain.ReminderScheduler(appContext).rebuildAllSchedules() }
                 .onFailure { android.util.Log.e("AppPreferencesRepo", "Failed to refresh reminder alarms after global delivery change", it) }
