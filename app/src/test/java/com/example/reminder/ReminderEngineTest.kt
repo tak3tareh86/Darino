@@ -77,6 +77,17 @@ class ReminderEngineTest {
     }
 
     @Test
+    fun monthlyRecurrencePreservesLeapYearEsfandDay() {
+        val esfandThirty = com.example.util.PersianCalendarHelper.jalaliToEpochMillis(1403, 11, 30, 9, 0)
+        val next = RecurrenceEngine.calculateNextOccurrence(esfandThirty, RepeatType.MONTHLY, 1)
+        val nextPersianDate = com.example.util.PersianCalendarHelper.fromEpochMillis(next)
+
+        assertEquals(1403, nextPersianDate.year)
+        assertEquals(12, nextPersianDate.month)
+        assertEquals(30, nextPersianDate.day)
+    }
+
+    @Test
     fun testRecurrenceEngineWeekly() {
         val baseTime = 1700000000000L
         val nextTime = RecurrenceEngine.calculateNextOccurrence(baseTime, RepeatType.WEEKLY, 2)
