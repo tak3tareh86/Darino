@@ -320,8 +320,7 @@ fun AddInstallmentSheet(
                         modifier = Modifier.padding(top = 6.dp, bottom = 8.dp)
                     )
 
-                    {
-                        // Two-column reminder choices reduce the dialog's vertical height.
+                    // Two-column reminder choices reduce the dialog's vertical height.
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -378,8 +377,7 @@ fun AddInstallmentSheet(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("ساعت یادآوری: $reminderTime", fontWeight = FontWeight.Bold)
                         }
-                    }
-
+                    
                     Spacer(modifier = Modifier.height(10.dp))
 
                     // Dialog Buttons
