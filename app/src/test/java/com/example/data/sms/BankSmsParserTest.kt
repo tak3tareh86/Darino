@@ -158,4 +158,23 @@ class BankSmsParserTest {
         )
     }
 
+    @Test
+    fun completedPaymentWithBalanceIsNotClassifiedAsBalanceOnlyNotice() {
+        assertEquals(
+            false,
+            BankSmsParser.isNonTransactionalSms(
+                "پرداخت با موفقیت انجام شد؛ مبلغ تراکنش: ۱۲۵,۰۰۰ ریال؛ مانده: ۵۰۰,۰۰۰ ریال"
+            )
+        )
+    }
+
+    @Test
+    fun signedBalanceDoesNotBecomeTransactionAmountWhenAmountLabelAppearsElsewhere() {
+        assertNull(
+            BankSmsParser.detectTransactionType(
+                "مانده حساب: +۱,۲۵۰,۰۰۰ ریال؛ مبلغ تراکنش"
+            )
+        )
+    }
+
 }
