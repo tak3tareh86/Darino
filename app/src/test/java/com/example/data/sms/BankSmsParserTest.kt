@@ -126,7 +126,7 @@ class BankSmsParserTest {
         val parsed = BankSmsParser.parseMatchedPattern(
             "sms4", "unknown", "تاریخ 09/02 مبلغ 200 تومان", 1_700_000_000_000L, pattern
         )
-        assertEquals("1400/02/09", parsed?.dateText)
+        assertEquals("1402/02/09", parsed?.dateText)
         assertEquals(200L, parsed?.amount)
     }
 }
