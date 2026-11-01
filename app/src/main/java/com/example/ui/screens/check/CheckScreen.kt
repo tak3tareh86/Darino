@@ -40,6 +40,11 @@ fun CheckScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    var showAddDialog by remember { mutableStateOf(false) }
+    var selectedMainTab by rememberSaveable { mutableIntStateOf(0) }
+    var reportSearchQuery by rememberSaveable { mutableStateOf("") }
+    var reportSelectedYear by rememberSaveable { mutableIntStateOf(0) }
+    var reportSelectedMonth by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(selectedMainTab) {
         if (selectedMainTab < 3) {
             viewModel.onTypeSelected(
@@ -52,11 +57,6 @@ fun CheckScreen(
         }
     }
     
-    var showAddDialog by remember { mutableStateOf(false) }
-    var selectedMainTab by rememberSaveable { mutableIntStateOf(0) }
-    var reportSearchQuery by rememberSaveable { mutableStateOf("") }
-    var reportSelectedYear by rememberSaveable { mutableIntStateOf(0) }
-    var reportSelectedMonth by rememberSaveable { mutableIntStateOf(0) }
     var showStatusFilters by remember { mutableStateOf(false) }
     var selectedCheckForEdit by remember { mutableStateOf<Check?>(null) }
     var selectedCheckForDetail by remember { mutableStateOf<Check?>(null) }
