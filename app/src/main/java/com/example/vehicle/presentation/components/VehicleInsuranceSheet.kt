@@ -87,6 +87,8 @@ fun VehicleInsuranceSheet(
     var inspectionReminderDays by remember(editingInspection) {
         mutableStateOf(editingInspection?.takeIf { it.reminderEnabled }?.reminderDays?.toSet()?.takeIf { it.isNotEmpty() } ?: emptySet())
     }
+    var showNoReminderConfirmation by remember { mutableStateOf(false) }
+    var pendingNoReminderSave by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     val companies = listOf("بیمه ایران", "بیمه آسیا", "بیمه دانا", "بیمه البرز", "بیمه پاسارگاد", "بیمه سامان")
     val insuranceType = if (selectedSection == 1) "بیمه بدنه" else "شخص ثالث"
@@ -249,7 +251,16 @@ fun VehicleInsuranceSheet(
                     tag = "insurance_reminder"
                 )
                 Button(
-                    onClick = { onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, IranianAmountUtils.parseAmountToLong(insuranceAmountText), policyNumber, insuranceReminderEnabled, insuranceReminderTime, insuranceReminderDays.sortedDescending(), editingInsurance?.id) },
+                    onClick = {
+                        if (insuranceReminderEnabled && insuranceReminderDays.isEmpty()) {
+                            pendingNoReminderSave = {
+                                onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, IranianAmountUtils.parseAmountToLong(insuranceAmountText), policyNumber, false, insuranceReminderTime, emptyList(), editingInsurance?.id)
+                            }
+                            showNoReminderConfirmation = true
+                        } else {
+                            onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, IranianAmountUtils.parseAmountToLong(insuranceAmountText), policyNumber, insuranceReminderEnabled, insuranceReminderTime, insuranceReminderDays.sortedDescending(), editingInsurance?.id)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_insurance_btn"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -274,7 +285,16 @@ fun VehicleInsuranceSheet(
                     tag = "inspection_reminder"
                 )
                 Button(
-                    onClick = { onSaveInspection(lastInspectionDate, inspectionExpiryDate, IranianAmountUtils.parseAmountToLong(inspectionCostText), inspectionStatus, centerName, inspectionReminderEnabled, inspectionReminderTime, inspectionReminderDays.sortedDescending(), editingInspection?.id) },
+                    onClick = {
+                        if (inspectionReminderEnabled && inspectionReminderDays.isEmpty()) {
+                            pendingNoReminderSave = {
+                                onSaveInspection(lastInspectionDate, inspectionExpiryDate, IranianAmountUtils.parseAmountToLong(inspectionCostText), inspectionStatus, centerName, false, inspectionReminderTime, emptyList(), editingInspection?.id)
+                            }
+                            showNoReminderConfirmation = true
+                        } else {
+                            onSaveInspection(lastInspectionDate, inspectionExpiryDate, IranianAmountUtils.parseAmountToLong(inspectionCostText), inspectionStatus, centerName, inspectionReminderEnabled, inspectionReminderTime, inspectionReminderDays.sortedDescending(), editingInspection?.id)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_inspection_btn"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -283,6 +303,30 @@ fun VehicleInsuranceSheet(
                 }
             }
         }
+    }
+
+    if (showNoReminderConfirmation) {
+        AlertDialog(
+            onDismissRequest = {
+                showNoReminderConfirmation = false
+                pendingNoReminderSave = null
+            },
+            title = { Text("ثبت بدون اعلان؟") },
+            text = { Text("یادآور فعال شده، اما هیچ فاصله‌ای برای هشدار انتخاب نشده است. می‌توانید اطلاعات را بدون اعلان ثبت کنید یا به فرم برگردید و زمان هشدار را انتخاب کنید.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showNoReminderConfirmation = false
+                    pendingNoReminderSave?.invoke()
+                    pendingNoReminderSave = null
+                }) { Text("تأیید و ثبت بدون اعلان") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showNoReminderConfirmation = false
+                    pendingNoReminderSave = null
+                }) { Text("لغو و تنظیم یادآوری") }
+            }
+        )
     }
 }
 
