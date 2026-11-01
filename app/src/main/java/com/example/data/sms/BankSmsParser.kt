@@ -686,8 +686,12 @@ object BankSmsParser {
         maskedText = maskedText.replace(
             Regex("""(?i)(?:پیگیری|کد\s*پیگیری|شماره\s*پیگیری|مرجع|شناسه\s*مرجع|شماره\s*مرجع|ارجاع|شماره\s*ارجاع|کد\s*ارجاع|شناسه\s*قبض|شناسه\s*پرداخت|ترمینال|پایانه|کد\s*رهگیری|کد\s*پذیرنده)[\s:]*([0-9]+)""")
         ) { " [MASKED_REFERENCE] " }
+        // Fee labels can include a descriptor before the value, e.g. "کارمزد انتقال وجه: ۲۰۰ ریال".
+        // Mask the complete fee field before selecting the transaction amount.
         maskedText = maskedText.replace(
-            Regex("""(?i)کارمزد[\s:]*[+-]?\s*([0-9,\.\u060C\u066B\u066C]+)\s*(?:ریال|تومان|Rls|IRR)?""")
+            Regex(
+                """(?i)(?:کارمزد(?:\s+(?:انتقال|کارت\s*به\s*کارت|پایا|ساتنا|خدمات|تراکنش|بانکی|خرید|پرداخت|وجه)){0,3}|هزینه(?:\s+(?:انتقال|خدمات|تراکنش|بانکی|پرداخت|خرید)){0,3}|مالیات(?:\s*بر\s*ارزش\s*افزوده)?)\s*[:：]?\s*[+-]?\s*([0-9,.\u060C\u066B\u066C]+)\s*(?:ریال|تومان|Rls|IRR)?"""
+            )
         ) { " [MASKED_FEE] " }
         maskedText = maskedText.replace(Regex("""\b140[0-9][/-](?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|[12][0-9]|3[01])\b""")) {
             " [MASKED_DATE] "
