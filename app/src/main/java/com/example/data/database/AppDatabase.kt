@@ -485,12 +485,15 @@ abstract class AppDatabase : RoomDatabase() {
                 // Preserve explicit legacy opt-ins even when alarm registration previously failed.
                 db.execSQL("""
                     UPDATE vehicle_services
-                    SET reminderEnabled = 1
+                    SET reminderEnabled = 1,
+                        status = CASE WHEN status = 'COMPLETED' THEN 'PENDING' ELSE status END
                     WHERE EXISTS (
                         SELECT 1 FROM smart_reminders
                         WHERE smart_reminders.userId = vehicle_services.userId
                           AND smart_reminders.sourceType = 'VEHICLE'
                           AND smart_reminders.sourceId = COALESCE(vehicle_services.serverId, CAST(vehicle_services.id AS TEXT))
+                          AND smart_reminders.status != 'COMPLETED'
+                          AND smart_reminders.status != 'CANCELLED'
                           AND (smart_reminders.notificationEnabled = 1 OR smart_reminders.fullScreenAlarmEnabled = 1)
                     )
                 """.trimIndent())
