@@ -32,109 +32,109 @@ object BankSmsParser {
         pattern: SmsPattern
     ): BankSmsSuggestion? {
         return try {
-        val fields = SmsPatternMatcher.extractMatchedFields(body, pattern) ?: return null
+            val fields = SmsPatternMatcher.extractMatchedFields(body, pattern) ?: return null
 
-        val amountKind = when {
-            fields.first(SmsPatternSlotKind.AMOUNT_RIAL) != null -> SmsPatternSlotKind.AMOUNT_RIAL
-            fields.first(SmsPatternSlotKind.AMOUNT_TOMAN) != null -> SmsPatternSlotKind.AMOUNT_TOMAN
-            else -> return null
-        }
-        val rawAmount = parsePositiveNumber(fields.first(amountKind)) ?: return null
-        val amountToman = when (amountKind) {
-            SmsPatternSlotKind.AMOUNT_RIAL -> {
-                if (rawAmount < 10L || rawAmount % 10L != 0L) return null
-                rawAmount / 10L
+            val amountKind = when {
+                fields.first(SmsPatternSlotKind.AMOUNT_RIAL) != null -> SmsPatternSlotKind.AMOUNT_RIAL
+                fields.first(SmsPatternSlotKind.AMOUNT_TOMAN) != null -> SmsPatternSlotKind.AMOUNT_TOMAN
+                else -> return null
             }
-            else -> rawAmount
-        }.takeIf { it in 1L..100_000_000_000L } ?: return null
+            val rawAmount = parsePositiveNumber(fields.first(amountKind)) ?: return null
+            val amountToman = when (amountKind) {
+                SmsPatternSlotKind.AMOUNT_RIAL -> {
+                    if (rawAmount < 10L || rawAmount % 10L != 0L) return null
+                    rawAmount / 10L
+                }
+                else -> rawAmount
+            }.takeIf { it in 1L..100_000_000_000L } ?: return null
 
-        val configuredType = when (pattern.type) {
-            SmsPatternType.INCOME -> TransactionType.INCOME
-            SmsPatternType.EXPENSE -> TransactionType.EXPENSE
-            SmsPatternType.TRANSFER -> TransactionType.TRANSFER
-        }
-
-        val balanceAmount = when {
-            fields.first(SmsPatternSlotKind.BALANCE_RIAL) != null -> {
-                val raw = parsePositiveNumber(fields.first(SmsPatternSlotKind.BALANCE_RIAL))
-                raw?.takeIf { it >= 10L && it % 10L == 0L }?.div(10L)
+            val configuredType = when (pattern.type) {
+                SmsPatternType.INCOME -> TransactionType.INCOME
+                SmsPatternType.EXPENSE -> TransactionType.EXPENSE
+                SmsPatternType.TRANSFER -> TransactionType.TRANSFER
             }
-            fields.first(SmsPatternSlotKind.BALANCE_TOMAN) != null ->
-                parsePositiveNumber(fields.first(SmsPatternSlotKind.BALANCE_TOMAN))
-            else -> null
-        }
 
-        val defaultDateTime = PersianCalendarHelper.fromEpochMillis(timestampMillis)
-        val dateParts = when {
-            fields.first(SmsPatternSlotKind.DATE) != null ->
-                parseJalaliDate(fields.first(SmsPatternSlotKind.DATE)!!, defaultDateTime.year, dayFirst = false)
-            fields.first(SmsPatternSlotKind.DATE_DAY_MONTH) != null ->
-                parseJalaliDate(fields.first(SmsPatternSlotKind.DATE_DAY_MONTH)!!, defaultDateTime.year, dayFirst = true)
-            fields.first(SmsPatternSlotKind.DATE_MONTH_DAY) != null ->
-                parseJalaliDate(fields.first(SmsPatternSlotKind.DATE_MONTH_DAY)!!, defaultDateTime.year, dayFirst = false)
-            else -> Triple(defaultDateTime.year, defaultDateTime.month, defaultDateTime.day)
-        } ?: return null
-        val timeValue = fields.first(SmsPatternSlotKind.TIME)
-        val timeParts = if (timeValue != null) {
-            parseClockTime(timeValue) ?: return null
-        } else {
-            defaultDateTime.hour to defaultDateTime.minute
-        }
+            val balanceAmount = when {
+                fields.first(SmsPatternSlotKind.BALANCE_RIAL) != null -> {
+                    val raw = parsePositiveNumber(fields.first(SmsPatternSlotKind.BALANCE_RIAL))
+                    raw?.takeIf { it >= 10L && it % 10L == 0L }?.div(10L)
+                }
+                fields.first(SmsPatternSlotKind.BALANCE_TOMAN) != null ->
+                    parsePositiveNumber(fields.first(SmsPatternSlotKind.BALANCE_TOMAN))
+                else -> null
+            }
 
-        val hasExplicitDateOrTime =
-            fields.first(SmsPatternSlotKind.DATE) != null ||
-                fields.first(SmsPatternSlotKind.DATE_DAY_MONTH) != null ||
-                fields.first(SmsPatternSlotKind.DATE_MONTH_DAY) != null ||
-                fields.first(SmsPatternSlotKind.TIME) != null
-        val finalTimestamp = if (hasExplicitDateOrTime) {
-            runCatching {
-                PersianCalendarHelper.jalaliToEpochMillis(
-                    dateParts.first, dateParts.second, dateParts.third,
-                    timeParts.first, timeParts.second
-                )
-            }.getOrNull() ?: return null
-        } else timestampMillis
+            val defaultDateTime = PersianCalendarHelper.fromEpochMillis(timestampMillis)
+            val dateParts = when {
+                fields.first(SmsPatternSlotKind.DATE) != null ->
+                    parseJalaliDate(fields.first(SmsPatternSlotKind.DATE)!!, defaultDateTime.year, dayFirst = false)
+                fields.first(SmsPatternSlotKind.DATE_DAY_MONTH) != null ->
+                    parseJalaliDate(fields.first(SmsPatternSlotKind.DATE_DAY_MONTH)!!, defaultDateTime.year, dayFirst = true)
+                fields.first(SmsPatternSlotKind.DATE_MONTH_DAY) != null ->
+                    parseJalaliDate(fields.first(SmsPatternSlotKind.DATE_MONTH_DAY)!!, defaultDateTime.year, dayFirst = false)
+                else -> Triple(defaultDateTime.year, defaultDateTime.month, defaultDateTime.day)
+            } ?: return null
+            val timeValue = fields.first(SmsPatternSlotKind.TIME)
+            val timeParts = if (timeValue != null) {
+                parseClockTime(timeValue) ?: return null
+            } else {
+                defaultDateTime.hour to defaultDateTime.minute
+            }
 
-        val formattedAmount = when (configuredType) {
-            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountToman, isExpense = true)
-            TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountToman, isExpense = false)
-            TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountToman)
-        }
+            val hasExplicitDateOrTime =
+                fields.first(SmsPatternSlotKind.DATE) != null ||
+                    fields.first(SmsPatternSlotKind.DATE_DAY_MONTH) != null ||
+                    fields.first(SmsPatternSlotKind.DATE_MONTH_DAY) != null ||
+                    fields.first(SmsPatternSlotKind.TIME) != null
+            val finalTimestamp = if (hasExplicitDateOrTime) {
+                runCatching {
+                    PersianCalendarHelper.jalaliToEpochMillis(
+                        dateParts.first, dateParts.second, dateParts.third,
+                        timeParts.first, timeParts.second
+                    )
+                }.getOrNull() ?: return null
+            } else timestampMillis
 
-        fun account(kind: SmsPatternSlotKind, label: String): String? =
-            fields.first(kind)?.replace(Regex("""\s+"""), "")?.takeIf { it.isNotBlank() }
-                ?.let { "$label $it" }
+            val formattedAmount = when (configuredType) {
+                TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountToman, isExpense = true)
+                TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountToman, isExpense = false)
+                TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountToman)
+            }
 
-        val sourceAccount = account(SmsPatternSlotKind.SOURCE_CARD, "کارت")
-            ?: account(SmsPatternSlotKind.SOURCE_ACCOUNT, "حساب")
-        val destinationAccount = account(SmsPatternSlotKind.DESTINATION_CARD, "کارت")
-            ?: account(SmsPatternSlotKind.DESTINATION_ACCOUNT, "حساب")
+            fun account(kind: SmsPatternSlotKind, label: String): String? =
+                fields.first(kind)?.replace(Regex("""\s+"""), "")?.takeIf { it.isNotBlank() }
+                    ?.let { "$label $it" }
 
-        BankSmsSuggestion(
-            id = smsId,
-            bankName = pattern.name,
-            amount = amountToman,
-            formattedAmount = formattedAmount,
-            isAmountValid = true,
-            type = configuredType,
-            isTypeUncertain = false,
-            smsText = body.trim(),
-            dateText = String.format("%04d/%02d/%02d", dateParts.first, dateParts.second, dateParts.third),
-            timeText = String.format("%02d:%02d", timeParts.first, timeParts.second),
-            category = when (configuredType) {
-                TransactionType.INCOME -> "واریز"
-                TransactionType.EXPENSE -> "برداشت"
-                TransactionType.TRANSFER -> "انتقال وجه"
-            },
-            sourceAccount = sourceAccount,
-            destinationAccount = destinationAccount,
-            rawSender = sender,
-            parseError = null,
-            timestampMillis = finalTimestamp,
-            balanceAmount = balanceAmount,
-            trackingCode = fields.first(SmsPatternSlotKind.TRACKING)
-                ?.replace(Regex("""\s+"""), "")
-        )
+            val sourceAccount = account(SmsPatternSlotKind.SOURCE_CARD, "کارت")
+                ?: account(SmsPatternSlotKind.SOURCE_ACCOUNT, "حساب")
+            val destinationAccount = account(SmsPatternSlotKind.DESTINATION_CARD, "کارت")
+                ?: account(SmsPatternSlotKind.DESTINATION_ACCOUNT, "حساب")
+
+            BankSmsSuggestion(
+                id = smsId,
+                bankName = pattern.name,
+                amount = amountToman,
+                formattedAmount = formattedAmount,
+                isAmountValid = true,
+                type = configuredType,
+                isTypeUncertain = false,
+                smsText = body.trim(),
+                dateText = String.format("%04d/%02d/%02d", dateParts.first, dateParts.second, dateParts.third),
+                timeText = String.format("%02d:%02d", timeParts.first, timeParts.second),
+                category = when (configuredType) {
+                    TransactionType.INCOME -> "واریز"
+                    TransactionType.EXPENSE -> "برداشت"
+                    TransactionType.TRANSFER -> "انتقال وجه"
+                },
+                sourceAccount = sourceAccount,
+                destinationAccount = destinationAccount,
+                rawSender = sender,
+                parseError = null,
+                timestampMillis = finalTimestamp,
+                balanceAmount = balanceAmount,
+                trackingCode = fields.first(SmsPatternSlotKind.TRACKING)
+                    ?.replace(Regex("""\s+"""), "")
+            )
         } catch (_: Exception) {
             null
         }
