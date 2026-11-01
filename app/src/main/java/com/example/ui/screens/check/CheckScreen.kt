@@ -57,18 +57,6 @@ fun CheckScreen(
     var reportSearchQuery by rememberSaveable { mutableStateOf("") }
     var reportSelectedYear by rememberSaveable { mutableIntStateOf(0) }
     var reportSelectedMonth by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(selectedMainTab) {
-        if (selectedMainTab < 3) {
-            viewModel.onTypeSelected(
-                when (selectedMainTab) {
-                    1 -> CheckType.RECEIVED
-                    2 -> CheckType.PAID
-                    else -> null
-                }
-            )
-        }
-    }
-
     var showStatusFilters by remember { mutableStateOf(false) }
     var selectedCheckForEdit by remember { mutableStateOf<Check?>(null) }
     var selectedCheckForDetail by remember { mutableStateOf<Check?>(null) }
