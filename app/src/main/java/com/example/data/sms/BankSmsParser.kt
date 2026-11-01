@@ -1123,39 +1123,46 @@ object BankSmsParser {
     }
 
     private fun extractAccounts(cleanBody: String, defaultBankName: String): Pair<String?, String?> {
-        val destPattern = Pattern.compile("""(?i)(?:به\s*کارت|به\s*حساب|مقصد|به\s*شماره\s*کارت)[\s:]*([0-9*#-]{4,19})""")
-        val destMatcher = destPattern.matcher(cleanBody)
-        var explicitDest: String? = null
-        if (destMatcher.find()) {
-            val num = destMatcher.group(1)?.trim()
-            if (!num.isNullOrBlank() && num.length >= 4) {
-                explicitDest = "کارت $num"
+        // Only infer an account when the SMS explicitly labels its direction.
+        // Never assume that the first card number is the source or that the bank name
+        // itself identifies one of the user's Darino accounts.
+        fun extractLabeledAccount(patterns: List<Regex>): String? {
+            for (pattern in patterns) {
+                val match = pattern.find(cleanBody) ?: continue
+                val value = match.groupValues.getOrNull(1)
+                    ?.replace(Regex("""\\s+"""), "")
+                    ?.trim()
+                    ?.takeIf { it.length >= 4 }
+                    ?: continue
+                val label = match.groupValues.getOrNull(2).orEmpty()
+                return "${if (label.contains("حساب")) "حساب" else "کارت"} $value"
             }
+            return null
         }
 
-        val cardPattern = Pattern.compile("""(?i)(?:کارت|card)[\s:]*([0-9*#-]{4,19})""")
-        val cardMatcher = cardPattern.matcher(cleanBody)
-        val foundCards = mutableListOf<String>()
+        val sourcePatterns = listOf(
+            Regex("""(?:از\\s*(کارت|حساب)|(?:کارت|حساب)\\s*(?:مبدأ|مبدا))\\s*[:：#-]?\\s*([0-9۰-۹٠-٩*#-][0-9۰-۹٠-٩*#\\-\\s]{3,23})""")
+        )
+        val destinationPatterns = listOf(
+            Regex("""(?:به\\s*(کارت|حساب)|(?:کارت|حساب)\\s*(?:مقصد))\\s*[:：#-]?\\s*([0-9۰-۹٠-٩*#-][0-9۰-۹٠-٩*#\\-\\s]{3,23})"""),
+            Regex("""به\\s*شماره\\s*(کارت|حساب)\\s*[:：#-]?\\s*([0-9۰-۹٠-٩*#-][0-9۰-۹٠-٩*#\\-\\s]{3,23})""")
+        )
 
-        while (cardMatcher.find()) {
-            val card = cardMatcher.group(1)?.trim()
-            if (!card.isNullOrBlank() && card.length >= 4) {
-                foundCards.add("کارت $card")
+        // Regex groups are (1=account label, 2=account value); keep the returned
+        // account value masked exactly as it appears in the SMS.
+        fun extract(patterns: List<Regex>): String? {
+            for (pattern in patterns) {
+                val match = pattern.find(cleanBody) ?: continue
+                val label = match.groupValues.getOrNull(1).orEmpty()
+                val value = match.groupValues.getOrNull(2)
+                    ?.replace(Regex("""\\s+"""), "")
+                    ?.trim()
+                    ?.takeIf { it.length >= 4 }
+                    ?: continue
+                return "${if (label.contains("حساب")) "حساب" else "کارت"} $value"
             }
+            return null
         }
 
-        val sourceAccount: String?
-        val destAccount: String?
-
-        if (explicitDest != null) {
-            destAccount = explicitDest
-            val remainingCards = foundCards.filter { it != explicitDest }
-            sourceAccount = if (remainingCards.isNotEmpty()) remainingCards.first() else defaultBankName
-        } else {
-            sourceAccount = if (foundCards.isNotEmpty()) foundCards.first() else defaultBankName
-            destAccount = if (foundCards.size > 1) foundCards[1] else null
-        }
-
-        return Pair(sourceAccount, destAccount)
-    }
-}
+        return extract(sourcePatterns) to extract(destinationPatterns)
+    }}
