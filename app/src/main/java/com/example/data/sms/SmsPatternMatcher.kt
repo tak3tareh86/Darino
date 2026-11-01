@@ -30,7 +30,7 @@ object SmsPatternMatcher {
         """(?<![0-9])(?:13|14)[0-9]{2}[/.-](?:0?[1-9]|1[0-2])[/.-](?:0?[1-9]|[12][0-9]|3[01])(?![0-9])"""
     )
     private val timeValue = Regex(
-        """(?:(?<=ساعت )|(?<=ساعت:))?[0-2]?[0-9]:[0-5][0-9]"""
+        """ساعت\\s*[:：]?\\s*[0-2]?[0-9]:[0-5][0-9]"""
     )
 
     fun extractMatchedAmount(message: String, pattern: SmsPattern): MatchedAmount? {
@@ -91,7 +91,15 @@ object SmsPatternMatcher {
                 add(VariableSpan(match.range.first, match.range.last + 1, "date"))
             }
             timeValue.findAll(sample).forEach { match ->
-                add(VariableSpan(match.range.first, match.range.last + 1, "time"))
+                val time = Regex("""[0-2]?[0-9]:[0-5][0-9]""").find(match.value)
+                    ?: return@forEach
+                add(
+                    VariableSpan(
+                        match.range.first + time.range.first,
+                        match.range.first + time.range.last + 1,
+                        "time"
+                    )
+                )
             }
         }.sortedBy { it.start }
 
