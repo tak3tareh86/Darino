@@ -14,8 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -27,11 +25,18 @@ import com.example.util.MoneyFormatter
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CheckReportSection(checks: List<Check>, isLoading: Boolean, onCheckClick: (Check) -> Unit) {
-    var query by rememberSaveable { mutableStateOf("") }
-    var selectedYear by rememberSaveable { mutableIntStateOf(0) }
-    var selectedMonth by rememberSaveable { mutableIntStateOf(0) }
-    val years = remember(checks) { CheckReportFilter.availableYears(checks) }
+fun CheckReportSection(
+    checks: List<Check>,
+    isLoading: Boolean,
+    query: String,
+    selectedYear: Int,
+    selectedMonth: Int,
+    onQueryChange: (String) -> Unit,
+    onYearChange: (Int) -> Unit,
+    onMonthChange: (Int) -> Unit,
+    onCheckClick: (Check) -> Unit
+) {
+    val years = CheckReportFilter.availableYears(checks)
     val yearFilter = selectedYear.takeIf { it != 0 }
     val monthFilter = selectedMonth.takeIf { it != 0 && yearFilter != null }
     val results = remember(checks, yearFilter, monthFilter, query) {
@@ -40,12 +45,12 @@ fun CheckReportSection(checks: List<Check>, isLoading: Boolean, onCheckClick: (C
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedTextField(
-            value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(),
+            value = query, onValueChange = onQueryChange, modifier = Modifier.fillMaxWidth(),
             singleLine = true, shape = RoundedCornerShape(16.dp),
             placeholder = { Text("جست‌وجو در شماره، بانک، اشخاص، شناسه صیادی...") },
             leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
             trailingIcon = if (query.isNotEmpty()) {
-                { IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Clear, contentDescription = "پاک کردن جست‌وجو") } }
+                { IconButton(onClick = { onQueryChange("") }) { Icon(Icons.Rounded.Clear, contentDescription = "پاک کردن جست‌وجو") } }
             } else null,
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
@@ -59,21 +64,21 @@ fun CheckReportSection(checks: List<Check>, isLoading: Boolean, onCheckClick: (C
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("سال شمسیِ سررسید", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    FilterChip(selected = selectedYear == 0, onClick = { selectedYear = 0; selectedMonth = 0 }, label = { Text("همه سال‌ها") })
+                    FilterChip(selected = selectedYear == 0, onClick = { onYearChange(0) }, label = { Text("همه سال‌ها") })
                     years.forEach { year ->
                         FilterChip(
                             selected = selectedYear == year,
-                            onClick = { selectedYear = year; selectedMonth = 0 },
+                            onClick = { onYearChange(year) },
                             label = { Text(IranianPhoneUtils.convertDigitsToPersian(year.toString())) }
                         )
                     }
                 }
                 Text("ماه شمسی", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    FilterChip(selected = selectedMonth == 0, onClick = { selectedMonth = 0 }, label = { Text("همه ماه‌ها") })
+                    FilterChip(selected = selectedMonth == 0, onClick = { onMonthChange(0) }, label = { Text("همه ماه‌ها") })
                     CheckReportFilter.monthNames.forEachIndexed { index, name ->
                         FilterChip(selected = selectedMonth == index + 1, enabled = yearFilter != null,
-                            onClick = { selectedMonth = index + 1 }, label = { Text(name) })
+                            onClick = { onMonthChange(index + 1) }, label = { Text(name) })
                     }
                 }
                 if (yearFilter == null) Text(
