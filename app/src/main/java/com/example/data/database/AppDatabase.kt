@@ -482,6 +482,14 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // Reminder opt-in is an independent user preference, not a service lifecycle state.
                 db.execSQL("ALTER TABLE vehicle_services ADD COLUMN reminderEnabled INTEGER NOT NULL DEFAULT 0")
+                // Migration 30_31 overloaded COMPLETED to mean "no reminder". Restore
+                // future-service records from their due fields; completed records clear both fields.
+                db.execSQL("""
+                    UPDATE vehicle_services
+                    SET status = 'PENDING'
+                    WHERE status = 'COMPLETED'
+                      AND (dueDate IS NOT NULL OR dueMileage IS NOT NULL)
+                """.trimIndent())
                 // Preserve only reminders that were still explicitly active before the migration.
                 db.execSQL("""
                     UPDATE vehicle_services
