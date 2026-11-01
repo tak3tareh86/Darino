@@ -85,7 +85,7 @@ class BankSmsRepository(private val context: Context) {
             return@withContext emptyList()
         }
 
-        val patterns = patternRepository.getPatterns()
+        val patterns = patternRepository.getPatterns(uid)
         if (patterns.isEmpty()) return@withContext emptyList()
 
         val processedIds = getProcessedSmsIds(uid)
