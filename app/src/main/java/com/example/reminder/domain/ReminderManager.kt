@@ -333,15 +333,25 @@ class ReminderManager(
         val oldSchedules = existing?.let { repository.getSchedulesSync(it.id) }.orEmpty()
         // The stored schedules are also the durable copy of the user's selected offsets.
         // Keep disabled entries for past triggers so a later date edit can restore them.
-        val offsets = selectedOffsets ?: if (existing?.notificationEnabled == true) {
-            oldSchedules.mapNotNull { stored ->
+        val offsets = selectedOffsets?.takeIf { it.isNotEmpty() } ?: when {
+            existing?.notificationEnabled == true -> oldSchedules.mapNotNull { stored ->
                 PredefinedOffset.entries.find {
                     it.value == stored.offsetValue && it.unit.name.equals(stored.offsetUnit, ignoreCase = true)
                 }
             }.distinct()
-        } else {
-            // Never infer alert times from application defaults.
-            emptyList()
+            existing == null -> {
+                // A non-zero value here exists only after the user explicitly chose it in Settings.
+                val preferredDays = AppPreferencesRepository.getInstance(context).installmentReminderDays.value
+                val preferredOffset = when (preferredDays) {
+                    1 -> PredefinedOffset.BEFORE_1_DAY
+                    3 -> PredefinedOffset.BEFORE_3_DAYS
+                    7 -> PredefinedOffset.BEFORE_7_DAYS
+                    10 -> PredefinedOffset.BEFORE_10_DAYS
+                    else -> null
+                }
+                listOfNotNull(preferredOffset)
+            }
+            else -> emptyList()
         }
 
         val reminder = existing?.copy(

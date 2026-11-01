@@ -84,9 +84,9 @@ class AppPreferencesRepository private constructor(context: Context) {
 
     private val _defaultReminderTimeMinute = MutableStateFlow(prefs.getInt(KEY_DEFAULT_REMINDER_TIME_MINUTE, 9 * 60))
     val defaultReminderTimeMinute: StateFlow<Int> = _defaultReminderTimeMinute.asStateFlow()
-    private val _installmentReminderDays = MutableStateFlow(prefs.getInt(KEY_INSTALLMENT_REMINDER_DAYS, 7))
+    private val _installmentReminderDays = MutableStateFlow(prefs.getInt(KEY_INSTALLMENT_REMINDER_DAYS, 0))
     val installmentReminderDays: StateFlow<Int> = _installmentReminderDays.asStateFlow()
-    private val _vehicleReminderKilometers = MutableStateFlow(prefs.getInt(KEY_VEHICLE_REMINDER_KILOMETERS, 500))
+    private val _vehicleReminderKilometers = MutableStateFlow(prefs.getInt(KEY_VEHICLE_REMINDER_KILOMETERS, 0))
     val vehicleReminderKilometers: StateFlow<Int> = _vehicleReminderKilometers.asStateFlow()
 
     private val _navTransition = MutableStateFlow(loadNavTransition())
@@ -258,13 +258,13 @@ class AppPreferencesRepository private constructor(context: Context) {
     }
 
     fun setInstallmentReminderDays(days: Int) {
-        require(days in setOf(1, 3, 7, 10))
+        require(days in setOf(0, 1, 3, 7, 10))
         prefs.edit().putInt(KEY_INSTALLMENT_REMINDER_DAYS, days).apply()
         _installmentReminderDays.value = days
     }
 
     fun setVehicleReminderKilometers(kilometers: Int) {
-        require(kilometers in setOf(200, 500, 1000))
+        require(kilometers in setOf(0, 200, 500, 1000))
         prefs.edit().putInt(KEY_VEHICLE_REMINDER_KILOMETERS, kilometers).apply()
         _vehicleReminderKilometers.value = kilometers
     }

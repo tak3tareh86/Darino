@@ -69,15 +69,17 @@ fun ReminderPreferencesScreen(
     val selectedReminderTime = displayTime(selectedReminderTimeMinute)
 
     val installmentDayOptions = listOf(
+        0 to "غیرفعال",
         1 to "۱ روز قبل",
         3 to "۳ روز قبل",
-        7 to "۷ روز قبل (پیش‌فرض)",
+        7 to "۷ روز قبل",
         10 to "۱۰ روز قبل"
     )
 
     val vehicleKmOptions = listOf(
+        0 to "بدون هشدار پیش از موعد",
         200 to "۲۰۰ کیلومتر قبل",
-        500 to "۵۰۰ کیلومتر قبل (پیش‌فرض)",
+        500 to "۵۰۰ کیلومتر قبل",
         1000 to "۱۰۰۰ کیلومتر قبل"
     )
 
@@ -172,7 +174,7 @@ fun ReminderPreferencesScreen(
             item {
                 SettingsSectionCard(
                     title = "موعد یادآوری اقساط و چک‌ها",
-                    badge = "$selectedInstallmentDays روز قبل"
+                    badge = if (selectedInstallmentDays == 0) "غیرفعال" else "$selectedInstallmentDays روز قبل"
                 ) {
                     Column(
                         modifier = Modifier.padding(12.dp),
@@ -201,7 +203,7 @@ fun ReminderPreferencesScreen(
             item {
                 SettingsSectionCard(
                     title = "موعد یادآوری سرویس خودرو (بر اساس کارکرد)",
-                    badge = "$selectedVehicleKm کیلومتر قبل"
+                    badge = if (selectedVehicleKm == 0) "بدون هشدار پیش از موعد" else "$selectedVehicleKm کیلومتر قبل"
                 ) {
                     Column(
                         modifier = Modifier.padding(12.dp),
