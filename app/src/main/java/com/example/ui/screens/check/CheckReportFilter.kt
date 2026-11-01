@@ -24,8 +24,9 @@ data class CheckReportSummary(
 object CheckReportFilter {
     val monthNames: List<String> = PersianCalendarHelper.PERSIAN_MONTH_NAMES
 
-    fun availableYears(checks: List<Check>): List<Int> =
+    fun availableYears(checks: List<Check>, type: CheckType? = null): List<Int> =
         checks.asSequence()
+            .filter { type == null || it.type == type }
             .map { PersianCalendarHelper.fromEpochMillis(it.dueDate).year }
             .distinct()
             .sortedDescending()
@@ -35,12 +36,19 @@ object CheckReportFilter {
      * A month is meaningful only within a selected Jalali year. Invalid or incomplete
      * date filters return no records rather than silently broadening the report.
      */
-    fun filter(checks: List<Check>, year: Int?, month: Int?, query: String): List<Check> {
+    fun filter(
+        checks: List<Check>,
+        year: Int?,
+        month: Int?,
+        query: String,
+        type: CheckType? = null
+    ): List<Check> {
         if (month != null && (year == null || month !in 1..12)) return emptyList()
         if (year != null && year <= 0) return emptyList()
 
         val normalizedQuery = normalize(query)
         return checks.asSequence()
+            .filter { check -> type == null || check.type == type }
             .filter { check ->
                 val due = PersianCalendarHelper.fromEpochMillis(check.dueDate)
                 (year == null || due.year == year) &&
