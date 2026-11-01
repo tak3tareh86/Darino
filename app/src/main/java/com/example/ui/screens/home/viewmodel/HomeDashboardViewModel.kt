@@ -239,67 +239,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     private val smsProcessingMutex = Mutex()
     private val obligationProcessingMutex = Mutex()
 
-    private fun findMatchingAccount(
-        accounts: List<com.example.data.database.AccountEntity>,
-        targetNameOrId: String?,
-        bankNameHint: String?
-    ): com.example.data.database.AccountEntity? {
-        if (accounts.isEmpty()) return null
-
-        // 1. If targetNameOrId is specified (from user selection or card/account number)
-        if (!targetNameOrId.isNullOrBlank()) {
-            val trimmed = targetNameOrId.trim()
-
-            // Exact match on account stringId
-            val idMatches = accounts.filter { it.stringId == trimmed }
-            if (idMatches.size == 1) return idMatches.first()
-
-            // Exact match on account name (case-insensitive)
-            val nameMatches = accounts.filter { it.name.equals(trimmed, ignoreCase = true) }
-            if (nameMatches.size == 1) return nameMatches.first()
-
-            // Safe masked account / card number matching without loose contains
-            val targetDigits = trimmed.filter { it.isDigit() }
-            if (targetDigits.length >= 4) {
-                val cardMatches = accounts.filter { acc ->
-                    val accDigits = acc.accountNumberMasked?.filter { it.isDigit() } ?: ""
-                    when {
-                        accDigits.length >= 16 && targetDigits.length >= 16 -> accDigits == targetDigits
-                        accDigits.length >= 4 -> accDigits.takeLast(4) == targetDigits.takeLast(4)
-                        else -> false
-                    }
-                }
-                // Allowed ONLY if the match is strictly unique!
-                if (cardMatches.size == 1) return cardMatches.first()
-            }
-
-            // Exact match on account bankName
-            val bankMatches = accounts.filter {
-                !it.bankName.isNullOrBlank() && it.bankName.equals(trimmed, ignoreCase = true)
-            }
-            if (bankMatches.size == 1) return bankMatches.first()
-        }
-
-        // 2. If bankNameHint is provided (from SMS bank detection), match normalized bankName ONLY if exact & UNIQUE
-        if (!bankNameHint.isNullOrBlank()) {
-            val cleanHint = bankNameHint.replace("بانک", "").trim()
-            if (cleanHint.isNotBlank()) {
-                val matchedByBank = accounts.filter { acc ->
-                    val accCleanBank = acc.bankName?.replace("بانک", "")?.trim() ?: ""
-                    accCleanBank.equals(cleanHint, ignoreCase = true)
-                }
-                // Allowed ONLY if the match is exact, valid, and UNIQUE!
-                if (matchedByBank.size == 1) {
-                    return matchedByBank.first()
-                }
-            }
-        }
-
-        // Under no circumstances auto-select first result, loose partial substring, or single remaining account!
-        // Return null so user is prompted to explicitly select the account.
-        return null
-    }
-
     fun scanInboxSms() {
         if (!smsRepository.hasSmsPermission()) {
             _smsPermissionState.value = SmsPermissionState.DENIED
@@ -340,48 +279,16 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    fun updateSmsTransactionType(id: String, newType: TransactionType) {
-        _pendingSmsQueue.update { list ->
-            list.map { item ->
-                if (item.id == id) {
-                    val formatted = when {
-                        !item.isAmountValid || item.amount <= 0L -> "مبلغ نامشخص"
-                        newType == TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(item.amount, isExpense = true)
-                        newType == TransactionType.INCOME -> MoneyFormatter.formatSignedToman(item.amount, isExpense = false)
-                        newType == TransactionType.TRANSFER -> MoneyFormatter.formatToman(item.amount)
-                        else -> MoneyFormatter.formatToman(item.amount)
-                    }
-                    val isCustomCategory = item.category != "سایر" &&
-                            item.category != "خرید روزمره" &&
-                            item.category != "درآمد و واریز" &&
-                            item.category != "انتقال بین‌بانکی"
-
-                    val finalCat = if (isCustomCategory) {
-                        item.category
-                    } else {
-                        when (newType) {
-                            TransactionType.INCOME -> "درآمد و واریز"
-                            TransactionType.TRANSFER -> "انتقال بین‌بانکی"
-                            TransactionType.EXPENSE -> "خرید روزمره"
-                        }
-                    }
-                    item.copy(
-                        type = newType,
-                        isTypeUncertain = false,
-                        category = finalCat,
-                        formattedAmount = formatted
-                    )
-                } else {
-                    item
-                }
-            }
-        }
-        persistPendingSmsQueue()
-    }
+    // Transaction type is immutable after parsing: it comes only from the matched user template.
+    fun updateSmsTransactionType(id: String, newType: TransactionType) = Unit
 
     /**
      * Preserves user's edited details in the pending SMS queue so that in case of error or
      * re-opening, the user does not lose their typed/selected input.
+     */
+    /**
+     * Only user-owned account links and category/description may be adjusted in review.
+     * Amount and transaction type remain those parsed from the configured template.
      */
     fun updateSmsCustomDetails(
         id: String,
@@ -393,31 +300,11 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     ) {
         _pendingSmsQueue.update { list ->
             list.map { item ->
-                if (item.id == id) {
-                    val finalAmount = amount ?: item.amount
-                    val finalType = type ?: item.type
-                    val isValid = amount?.let { it > 0L } ?: item.isAmountValid
-                    val formatted = if (isValid && finalAmount > 0L) {
-                        when (finalType) {
-                            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(finalAmount, isExpense = true)
-                            TransactionType.INCOME -> MoneyFormatter.formatSignedToman(finalAmount, isExpense = false)
-                            else -> MoneyFormatter.formatToman(finalAmount)
-                        }
-                    } else "مبلغ نامشخص"
-
-                    item.copy(
-                        amount = finalAmount,
-                        isAmountValid = isValid,
-                        type = finalType,
-                        isTypeUncertain = (finalType == null),
-                        category = category?.trim()?.ifEmpty { null } ?: item.category,
-                        sourceAccount = account?.trim()?.ifEmpty { null } ?: item.sourceAccount,
-                        destinationAccount = destAccount?.trim()?.ifEmpty { null } ?: item.destinationAccount,
-                        formattedAmount = formatted
-                    )
-                } else {
-                    item
-                }
+                if (item.id == id) item.copy(
+                    category = category?.trim()?.ifEmpty { null } ?: item.category,
+                    sourceAccount = account?.trim()?.ifEmpty { null } ?: item.sourceAccount,
+                    destinationAccount = destAccount?.trim()?.ifEmpty { null } ?: item.destinationAccount
+                ) else item
             }
         }
         persistPendingSmsQueue()
@@ -483,15 +370,23 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }
 
                 // 2. Amount validation: must be strictly positive and valid
-                val finalAmount = customAmount ?: item.amount
-                if (finalAmount <= 0L || (customAmount == null && !item.isAmountValid)) {
+                if (customAmount != null && customAmount != item.amount) {
+                    onResult(SmsAcceptResult.InvalidAmount)
+                    return@withLock
+                }
+                val finalAmount = item.amount
+                if (finalAmount <= 0L || !item.isAmountValid) {
                     onResult(SmsAcceptResult.InvalidAmount)
                     return@withLock
                 }
 
                 // 3. Type validation
-                val finalType = customType ?: item.type
-                if (finalType == null || (customType == null && item.isTypeUncertain)) {
+                if (customType != null && customType != item.type) {
+                    onResult(SmsAcceptResult.TypeNotSelected)
+                    return@withLock
+                }
+                val finalType = item.type
+                if (finalType == null || item.isTypeUncertain) {
                     onResult(SmsAcceptResult.TypeNotSelected)
                     return@withLock
                 }
