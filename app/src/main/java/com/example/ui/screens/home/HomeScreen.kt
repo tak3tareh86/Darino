@@ -2,7 +2,10 @@ package com.example.ui.screens.home
 
 import android.Manifest
 import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -27,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -41,7 +45,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.receiver.BankSmsReceivedReceiver
 import com.example.ui.screens.home.components.BankSmsAssistantCard
 import com.example.ui.screens.home.components.BottomNavItem
 import com.example.ui.screens.home.components.HomeHeader
@@ -100,12 +106,48 @@ fun HomeScreen(
     // Permission launcher for SMS runtime permission
     val activity = context as? Activity
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        val permanentlyDenied = if (!isGranted && activity != null) {
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val canReadSms = permissions[Manifest.permission.READ_SMS] == true ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val permanentlyDenied = !canReadSms && activity != null &&
             !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_SMS)
-        } else false
-        viewModel.markPermissionRequested(granted = isGranted, permanentlyDenied = permanentlyDenied)
+        viewModel.markPermissionRequested(granted = canReadSms, permanentlyDenied = permanentlyDenied)
+    }
+
+    // Listen only for the app-scoped signal emitted by the protected system SMS receiver.
+    // The existing repository remains the sole path that reads, matches and parses inbox SMS.
+    DisposableEffect(context, smsPermissionState) {
+        val hasReceivePermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECEIVE_SMS
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        if (smsPermissionState == com.example.ui.screens.home.viewmodel.SmsPermissionState.GRANTED && hasReceivePermission) {
+            val refreshReceiver = object : BroadcastReceiver() {
+                override fun onReceive(receiverContext: Context?, intent: Intent?) {
+                    if (intent?.action == BankSmsReceivedReceiver.ACTION_BANK_SMS_RECEIVED) {
+                        viewModel.scanInboxSms()
+                    }
+                }
+            }
+            val filter = IntentFilter(BankSmsReceivedReceiver.ACTION_BANK_SMS_RECEIVED)
+            ContextCompat.registerReceiver(
+                context,
+                refreshReceiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+            onDispose {
+                try {
+                    context.unregisterReceiver(refreshReceiver)
+                } catch (_: IllegalArgumentException) {
+                    // Already unregistered by the host lifecycle.
+                }
+            }
+        } else {
+            onDispose { }
+        }
     }
 
     // Open System Settings if permission is permanently denied
@@ -333,7 +375,12 @@ fun HomeScreen(
                                 }
                             },
                             onRequestPermission = {
-                                permissionLauncher.launch(Manifest.permission.READ_SMS)
+                                permissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.READ_SMS,
+                                        Manifest.permission.RECEIVE_SMS
+                                    )
+                                )
                             },
                             onManagePatterns = onManageSmsPatternsClick,
                             onPermanentDeniedGoToSettings = onGoToSettings,
