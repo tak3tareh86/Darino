@@ -385,7 +385,13 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 if (freshlyParsed == null ||
                     freshlyParsed.amount != item.amount ||
                     freshlyParsed.type != item.type ||
-                    freshlyParsed.patternId != item.patternId
+                    freshlyParsed.patternId != item.patternId ||
+                    freshlyParsed.timestampMillis != item.timestampMillis ||
+                    freshlyParsed.dateText != item.dateText ||
+                    freshlyParsed.timeText != item.timeText ||
+                    freshlyParsed.balanceAmount != item.balanceAmount ||
+                    freshlyParsed.trackingCode != item.trackingCode ||
+                    freshlyParsed.bankName != item.bankName
                 ) {
                     removePendingSmsSuggestion(id, userId)
                     scanInboxSms()
