@@ -45,8 +45,37 @@ fun SharedPersianDatePickerDialog(
     initialDay: Int,
     title: String = "انتخاب تاریخ (شمسی)",
     onDismiss: () -> Unit,
-    onConfirm: (year: Int, month: Int, day: Int) -> Unit,
-    maxDateEpochMillis: Long? = null
+    onConfirm: (year: Int, month: Int, day: Int) -> Unit
+) {
+    SharedPersianDatePickerDialogInternal(
+        initialYear, initialMonth, initialDay, title, null, onDismiss, onConfirm
+    )
+}
+
+@Composable
+fun SharedPersianDatePickerDialog(
+    initialYear: Int,
+    initialMonth: Int,
+    initialDay: Int,
+    title: String = "انتخاب تاریخ (شمسی)",
+    maxDateEpochMillis: Long,
+    onDismiss: () -> Unit,
+    onConfirm: (year: Int, month: Int, day: Int) -> Unit
+) {
+    SharedPersianDatePickerDialogInternal(
+        initialYear, initialMonth, initialDay, title, maxDateEpochMillis, onDismiss, onConfirm
+    )
+}
+
+@Composable
+private fun SharedPersianDatePickerDialogInternal(
+    initialYear: Int,
+    initialMonth: Int,
+    initialDay: Int,
+    title: String,
+    maxDateEpochMillis: Long?,
+    onDismiss: () -> Unit,
+    onConfirm: (year: Int, month: Int, day: Int) -> Unit
 ) {
     var currentYear by remember(initialYear) { mutableStateOf(initialYear) }
     var currentMonth by remember(initialMonth) { mutableStateOf(initialMonth.coerceIn(1, 12)) }
