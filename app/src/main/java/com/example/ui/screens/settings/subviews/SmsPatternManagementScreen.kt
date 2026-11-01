@@ -265,7 +265,7 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
                 if (existing == null) {
                     repository.create(name, type, message, slots)
                 } else {
-                    repository.save(existing.copy(name = name.trim(), type = type, sampleMessage = message.trim(), slots = slots))
+                    repository.save(existing.copy(name = name.trim(), type = type, sampleMessage = message, slots = slots))
                 }
                 patterns = repository.getPatterns()
                 showEditor = false
@@ -451,7 +451,7 @@ private fun SmsPatternEditorDialog(
                     supportingText = { Text("${message.length} نویسه") }
                 )
                 Text(
-                    "جایگاه‌های عددی پیامک را مشخص کنید. فقط جایگاه‌هایی که نوعشان را انتخاب می‌کنید متغیر خواهند بود؛ بقیه اعداد دقیقاً ثابت می‌مانند.",
+                    "بخش‌های متن نمونه را خودتان انتخاب و نوع هر بخش را تعیین کنید. هیچ بخشی خودکار معناگذاری نمی‌شود؛ قسمت‌های انتخاب‌نشده عیناً ثابت می‌مانند.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 18.sp
