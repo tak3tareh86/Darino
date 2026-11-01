@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import com.example.reminder.receiver.ReminderBroadcastReceiver
-import com.example.data.preferences.AppPreferencesRepository
+import com.example.reminder.domain.NotificationDispatcher
 
 class ReminderAlarmActivity : ComponentActivity() {
 
@@ -74,7 +74,8 @@ class ReminderAlarmActivity : ComponentActivity() {
                     title = title,
                     body = body,
                     onComplete = { completeReminder() },
-                    onSnooze = { snoozeReminder() },
+                    onSnoozeFive = { snoozeReminder(5) },
+                    onSnoozeFifteen = { snoozeReminder(15) },
                     onDismiss = { dismissAlarm() }
                 )
             }
@@ -83,7 +84,6 @@ class ReminderAlarmActivity : ComponentActivity() {
 
     private fun startAlarmSound() {
         stopAlarmSound()
-        if (!AppPreferencesRepository.getInstance(this).notificationSoundEnabled.value) return
         try {
             val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                 ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
@@ -143,7 +143,7 @@ class ReminderAlarmActivity : ComponentActivity() {
         finish()
     }
 
-    private fun snoozeReminder() {
+    private fun snoozeReminder(minutes: Int) {
         stopAlarmSound()
         if (reminderId.isNotBlank()) {
             sendBroadcast(Intent(this, ReminderBroadcastReceiver::class.java).apply {
@@ -151,7 +151,7 @@ class ReminderAlarmActivity : ComponentActivity() {
                 putExtra(ReminderBroadcastReceiver.EXTRA_REMINDER_ID, reminderId)
                 putExtra(ReminderBroadcastReceiver.EXTRA_NOTIFICATION_ID, notificationId)
                 putExtra(ReminderBroadcastReceiver.EXTRA_SECONDARY_NOTIFICATION_ID, secondaryNotificationId)
-                putExtra(ReminderBroadcastReceiver.EXTRA_SNOOZE_MINUTES, 15)
+                putExtra(ReminderBroadcastReceiver.EXTRA_SNOOZE_MINUTES, minutes)
             })
         }
         finish()
@@ -159,9 +159,9 @@ class ReminderAlarmActivity : ComponentActivity() {
 
     private fun dismissAlarm() {
         stopAlarmSound()
-        NotificationManagerCompat.from(this).apply {
-            if (notificationId != -1) cancel(notificationId)
-            if (secondaryNotificationId != -1) cancel(secondaryNotificationId)
+        NotificationDispatcher(this).apply {
+            cancelNotification(notificationId)
+            cancelNotification(secondaryNotificationId)
         }
         finish()
     }
@@ -180,7 +180,8 @@ private fun ReminderAlarmContent(
     title: String,
     body: String,
     onComplete: () -> Unit,
-    onSnooze: () -> Unit,
+    onSnoozeFive: () -> Unit,
+    onSnoozeFifteen: () -> Unit,
     onDismiss: () -> Unit
  ) {
     BackHandler(onBack = onDismiss)
@@ -248,13 +249,26 @@ private fun ReminderAlarmContent(
                 Text("انجام شد", fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(12.dp))
-            OutlinedButton(
-                onClick = onSnooze,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-                shape = RoundedCornerShape(16.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(Icons.Rounded.Snooze, contentDescription = null)
-                Text("۱۵ دقیقه بعد", fontWeight = FontWeight.Bold)
+                OutlinedButton(
+                    onClick = onSnoozeFive,
+                    modifier = Modifier.weight(1f).height(54.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Rounded.Snooze, contentDescription = null)
+                    Text("۵ دقیقه بعد", fontWeight = FontWeight.Bold)
+                }
+                OutlinedButton(
+                    onClick = onSnoozeFifteen,
+                    modifier = Modifier.weight(1f).height(54.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Rounded.Snooze, contentDescription = null)
+                    Text("۱۵ دقیقه بعد", fontWeight = FontWeight.Bold)
+                }
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
