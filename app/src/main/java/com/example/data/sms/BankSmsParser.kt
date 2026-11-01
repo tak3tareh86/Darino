@@ -520,21 +520,36 @@ object BankSmsParser {
             """(?:واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*(?:شد|گردید))"""
         ).find(lower)
 
+        val signedNegative = Regex("""-\s*[0-9][0-9,٫٬.]*""").containsMatchIn(lower)
+        val signedPositive = Regex("""\+\s*[0-9][0-9,٫٬.]*""").containsMatchIn(lower)
+        val signedDirection = when {
+            signedNegative && !signedPositive -> TransactionType.EXPENSE
+            signedPositive && !signedNegative -> TransactionType.INCOME
+            else -> null
+        }
+
         if (expenseMatch != null && incomeMatch != null) {
-            return if (expenseMatch.range.first <= incomeMatch.range.first) {
+            val explicitDirection = if (expenseMatch.range.first <= incomeMatch.range.first) {
                 TransactionType.EXPENSE
             } else {
                 TransactionType.INCOME
             }
+            if (signedDirection != null && signedDirection != explicitDirection) return null
+            return explicitDirection
         }
-        if (expenseMatch != null) return TransactionType.EXPENSE
-        if (incomeMatch != null) return TransactionType.INCOME
+        if (expenseMatch != null) {
+            if (signedDirection == TransactionType.INCOME) return null
+            return TransactionType.EXPENSE
+        }
+        if (incomeMatch != null) {
+            if (signedDirection == TransactionType.EXPENSE) return null
+            return TransactionType.INCOME
+        }
 
-        // A few banks encode a debit as a negative amount instead of using a word.
-        val hasNegativeAmount = Regex("""-\s*[0-9][0-9,٫٬.]*""").containsMatchIn(lower)
-        val hasTransactionContext = Regex("""(?:حساب|کارت|بانک|تراکنش|مبلغ|مانده|موجودی|سپرده)""")
+        // A signed amount is only a direction hint in a transaction-related message.
+        val hasTransactionContext = Regex("""(?:حساب|کارت|بانک|تراکنش|مبلغ|سپرده|واریز|برداشت)""")
             .containsMatchIn(lower)
-        if (hasNegativeAmount && hasTransactionContext) return TransactionType.EXPENSE
+        if (signedDirection != null && hasTransactionContext) return signedDirection
 
         // If no explicit debit/credit verb exists, retain transfer only when its wording
         // really describes a transfer; an explicit incoming transfer is an income.
