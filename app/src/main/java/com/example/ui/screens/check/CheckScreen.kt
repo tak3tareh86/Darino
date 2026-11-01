@@ -45,6 +45,27 @@ fun CheckScreen(
     var reportSearchQuery by rememberSaveable { mutableStateOf("") }
     var reportSelectedYear by rememberSaveable { mutableIntStateOf(0) }
     var reportSelectedMonth by rememberSaveable { mutableIntStateOf(0) }
+
+    val reportAvailableYears = remember(uiState.checks) {
+        CheckReportFilter.availableYears(uiState.checks)
+    }
+    val reportYearFilter = reportSelectedYear.takeIf { it != 0 }
+    val reportMonthFilter = reportSelectedMonth.takeIf { it != 0 && reportYearFilter != null }
+    val reportResults = remember(uiState.checks, reportYearFilter, reportMonthFilter, reportSearchQuery) {
+        CheckReportFilter.filter(uiState.checks, reportYearFilter, reportMonthFilter, reportSearchQuery)
+    }
+    val reportSummary = remember(reportResults) {
+        CheckReportFilter.summarize(reportResults)
+    }
+
+    LaunchedEffect(reportAvailableYears, uiState.isLoading, reportSelectedYear) {
+        if (!uiState.isLoading && reportAvailableYears.isNotEmpty() &&
+            reportSelectedYear != 0 && reportSelectedYear !in reportAvailableYears
+        ) {
+            reportSelectedYear = 0
+            reportSelectedMonth = 0
+        }
+    }
     LaunchedEffect(selectedMainTab) {
         if (selectedMainTab < 3) {
             viewModel.onTypeSelected(
@@ -259,19 +280,20 @@ fun CheckScreen(
             }
 
             if (selectedMainTab == 3) {
-                item {
-                    CheckReportSection(
-                        checks = uiState.checks,
-                        isLoading = uiState.isLoading,
-                        query = reportSearchQuery,
-                        selectedYear = reportSelectedYear,
-                        selectedMonth = reportSelectedMonth,
-                        onQueryChange = { reportSearchQuery = it },
-                        onYearChange = { reportSelectedYear = it; reportSelectedMonth = 0 },
-                        onMonthChange = { reportSelectedMonth = it },
-                        onCheckClick = { selectedCheckForDetail = it }
-                    )
-                }
+                checkReportSection(
+                    results = reportResults,
+                    availableYears = reportAvailableYears,
+                    summary = reportSummary,
+                    hasAnyChecks = uiState.checks.isNotEmpty(),
+                    isLoading = uiState.isLoading,
+                    selectedYear = reportSelectedYear,
+                    selectedMonth = reportSelectedMonth,
+                    query = reportSearchQuery,
+                    onQueryChange = { reportSearchQuery = it },
+                    onYearChange = { reportSelectedYear = it; reportSelectedMonth = 0 },
+                    onMonthChange = { reportSelectedMonth = it },
+                    onCheckClick = { selectedCheckForDetail = it }
+                )
             } else {
                 if (uiState.isLoading) {
                     item {
