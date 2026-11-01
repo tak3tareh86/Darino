@@ -193,6 +193,38 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun successfulRefundIsClassifiedAsIncomeAndNotDiscarded() {
+        val sms = "برگشت وجه خرید با موفقیت به حساب شما واریز شد؛ مبلغ: ۱۲۵,۰۰۰ ریال؛ مانده: ۵۰۰,۰۰۰ ریال"
+
+        assertEquals(false, BankSmsParser.isNonTransactionalSms(sms))
+        assertEquals(TransactionType.INCOME, BankSmsParser.detectTransactionType(sms))
+        assertEquals(12_500L, BankSmsParser.extractAmountToman(sms, TransactionType.INCOME))
+    }
+
+    @Test
+    fun successfulRefundIsQueuedAsAnIncomeSuggestion() {
+        val suggestion = BankSmsParser.parse(
+            "sms_refund_1",
+            "20008434",
+            "برگشت وجه خرید با موفقیت به حساب شما واریز شد؛ مبلغ: ۱۲۵,۰۰۰ ریال؛ مانده: ۵۰۰,۰۰۰ ریال",
+            1_700_000_000_000L
+        )
+
+        assertEquals(TransactionType.INCOME, suggestion?.type)
+        assertEquals(12_500L, suggestion?.amount)
+        assertEquals("برگشت وجه", suggestion?.category)
+        assertEquals(true, suggestion?.isAmountValid)
+    }
+
+    @Test
+    fun failedRefundOrReversalRemainsRejected() {
+        val sms = "برگشت وجه ناموفق؛ تراکنش ناموفق بود؛ مبلغ: ۱۲۵,۰۰۰ ریال"
+
+        assertEquals(true, BankSmsParser.isNonTransactionalSms(sms))
+        assertNull(BankSmsParser.detectTransactionType(sms))
+    }
+
+    @Test
     fun unrecognizedSenderWithoutExplicitBankHeaderIsNotQueued() {
         val suggestion = BankSmsParser.parse(
             "sms_review_2",
