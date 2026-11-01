@@ -586,6 +586,23 @@ fun AddEditCheckDialog(
                 }
             )
         }
+
+        if (showNoReminderConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showNoReminderConfirmation = false },
+                title = { Text("ثبت چک بدون اعلان؟") },
+                text = { Text("برای این چک یادآوری تنظیم نشده است. اگر تأیید کنید، چک بدون اعلان ثبت می‌شود؛ برای تنظیم یادآوری، لغو را بزنید و یادآور را فعال و زمان آن را انتخاب کنید.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showNoReminderConfirmation = false
+                        submitCheck(null)
+                    }) { Text("تأیید و ثبت بدون اعلان") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showNoReminderConfirmation = false }) { Text("لغو و تنظیم یادآوری") }
+                }
+            )
+        }
     }
 }
 
@@ -683,22 +700,5 @@ private fun String.toEnglishDigits(): String = map { char ->
         in '۰'..'۹' -> ('0'.code + (char.code - '۰'.code)).toChar()
         in '٠'..'٩' -> ('0'.code + (char.code - '٠'.code)).toChar()
         else -> char
-    }
-
-    if (showNoReminderConfirmation) {
-        AlertDialog(
-            onDismissRequest = { showNoReminderConfirmation = false },
-            title = { Text("ثبت چک بدون اعلان؟") },
-            text = { Text("برای این چک یادآوری تنظیم نشده است. اگر تأیید کنید، چک بدون اعلان ثبت می‌شود؛ برای تنظیم یادآوری، لغو را بزنید و یادآور را فعال و زمان آن را انتخاب کنید.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showNoReminderConfirmation = false
-                    submitCheck(null)
-                }) { Text("تأیید و ثبت بدون اعلان") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showNoReminderConfirmation = false }) { Text("لغو و تنظیم یادآوری") }
-            }
-        )
     }
 .joinToString("")
