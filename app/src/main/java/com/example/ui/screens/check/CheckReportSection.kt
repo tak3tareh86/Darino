@@ -152,6 +152,7 @@ fun LazyListScope.checkReportSection(
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(
                                 "${total.type.title} · ${total.status.title} (${IranianPhoneUtils.convertDigitsToPersian(total.count.toString())})",
+                                modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (total.type == CheckType.RECEIVED) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.error
