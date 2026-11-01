@@ -117,6 +117,45 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             return
         }
 
+        // AlarmManager may deliver late (or an old alarm may survive a process/device
+        // transition). Never turn a stale installment trigger into an overdue notification.
+        if (reminder.type.equals("INSTALLMENT", ignoreCase = true) &&
+            reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) &&
+            (schedule.triggerType.equals("BEFORE_EVENT", ignoreCase = true) ||
+                schedule.offsetValue == 0)
+        ) {
+            val dueTime = java.util.Calendar.getInstance().apply {
+                timeInMillis = schedule.triggerDateTime
+                when (schedule.offsetUnit.uppercase()) {
+                    "MINUTE" -> add(java.util.Calendar.MINUTE, schedule.offsetValue)
+                    "HOUR" -> add(java.util.Calendar.HOUR_OF_DAY, schedule.offsetValue)
+                    "DAY" -> add(java.util.Calendar.DAY_OF_MONTH, schedule.offsetValue)
+                    "WEEK" -> add(java.util.Calendar.DAY_OF_MONTH, 7 * schedule.offsetValue)
+                    "MONTH" -> add(java.util.Calendar.MONTH, schedule.offsetValue)
+                }
+            }
+            val dueDay = (dueTime.clone() as java.util.Calendar).apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            val today = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            val lateBeyondGrace = receiveTime - expectedTime > INSTALLMENT_TRIGGER_GRACE_MS
+            if (dueDay.before(today) || lateBeyondGrace) {
+                Log.i(
+                    TAG,
+                    "Suppressing stale installment trigger: reminder=${reminder.id}, schedule=${schedule.id}, dueAt=${dueTime.timeInMillis}, lateByMs=${receiveTime - expectedTime}"
+                )
+                return
+            }
+        }
+
         val notificationPreferences = AppPreferencesRepository.getInstance(context)
         val quietStart = notificationPreferences.quietHoursStartMinute.value.coerceIn(0, 1439)
         val quietEnd = notificationPreferences.quietHoursEndMinute.value.coerceIn(0, 1439)
@@ -291,6 +330,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "ReminderReceiver"
+        private const val INSTALLMENT_TRIGGER_GRACE_MS = 5 * 60 * 1000L
 
         const val ACTION_TRIGGER_REMINDER = "com.example.reminder.ACTION_TRIGGER_REMINDER"
         const val ACTION_COMPLETE_REMINDER = "com.example.reminder.ACTION_COMPLETE_REMINDER"

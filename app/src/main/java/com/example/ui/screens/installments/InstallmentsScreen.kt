@@ -674,7 +674,10 @@ fun InstallmentsScreen(
                                 amount = nextUnpaidPayment?.amount ?: parsedMonthly,
                                 dueDatePersian = newItem.nextPaymentDate,
                                 dueTimePersian = reminderTime,
-                                selectedOffsets = selectedOffsets
+                                selectedOffsets = selectedOffsets,
+                                paymentDueDates = paymentHistoryList
+                                    .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                                    .map { it.id to it.dueDate }
                             )
                             if (scheduledCount > 0) {
                                 snackbarHostState.showSnackbar("قسط و یادآور با موفقیت ثبت شدند ($scheduledCount یادآور فعال تنظیم شد).")
