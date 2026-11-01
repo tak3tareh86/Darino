@@ -38,6 +38,14 @@ object SmsPatternMatcher {
             candidates.add(NumericCandidate(it.range.first, it.range.last + 1, it.value))
         }
 
+        // Preserve complete masked/separated card and account values before plain digit runs.
+        val identifierRegex = Regex("""(?<![0-9])[0-9*#][0-9*# ._-]{2,32}[0-9*#](?![0-9])""")
+        identifierRegex.findAll(normalized).forEach { match ->
+            if (candidates.none { match.range.first < it.endExclusive && match.range.last + 1 > it.start }) {
+                candidates.add(NumericCandidate(match.range.first, match.range.last + 1, match.value))
+            }
+        }
+
         val numericRegex = Regex("""(?<![0-9])[+-]?[0-9][0-9,،٬٫. ]*(?![0-9])""")
         numericRegex.findAll(normalized).forEach { match ->
             if (candidates.none { match.range.first < it.endExclusive && match.range.last + 1 > it.start }) {
@@ -53,14 +61,6 @@ object SmsPatternMatcher {
                         )
                     )
                 }
-            }
-        }
-
-        // Card/account/tracking values may contain masking symbols or separators.
-        val identifierRegex = Regex("""(?<![0-9])[0-9*#][0-9*# ._-]{2,32}[0-9*#](?![0-9])""")
-        identifierRegex.findAll(normalized).forEach { match ->
-            if (candidates.none { match.range.first < it.endExclusive && match.range.last + 1 > it.start }) {
-                candidates.add(NumericCandidate(match.range.first, match.range.last + 1, match.value))
             }
         }
         return candidates.sortedBy { it.start }
