@@ -133,7 +133,9 @@ object SmsPatternMatcher {
                         SmsPatternSlotKind.AMOUNT_TOMAN,
                         SmsPatternSlotKind.BALANCE_RIAL,
                         SmsPatternSlotKind.BALANCE_TOMAN -> """[+-]?[0-9][0-9,،٬٫.]*"""
-                        SmsPatternSlotKind.DATE -> """(?:[0-9]{2,4}[/.-][0-9]{1,2}[/.-][0-9]{1,2}|[0-9]{1,2}[/.-][0-9]{1,2})"""
+                        SmsPatternSlotKind.DATE,
+                        SmsPatternSlotKind.DATE_DAY_MONTH,
+                        SmsPatternSlotKind.DATE_MONTH_DAY -> """(?:[0-9]{2,4}[/.-][0-9]{1,2}[/.-][0-9]{1,2}|[0-9]{1,2}[/.-][0-9]{1,2})"""
                         SmsPatternSlotKind.TIME -> """[0-2]?[0-9]:[0-5][0-9](?::[0-5][0-9])?"""
                         SmsPatternSlotKind.SOURCE_CARD,
                         SmsPatternSlotKind.DESTINATION_CARD,
