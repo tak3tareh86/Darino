@@ -159,7 +159,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             try {
                 val scheduledCount = manager.createReminder(reminder, offsets, repeatType, repeatInterval)
                 _userMessage.value = if (scheduledCount > 0) {
-                    "یادآور با موفقیت ثبت و زمان‌بندی شد."
+                    "یادآور ذخیره شد و آلارم سیستم‌عامل زمان‌بندی شد؛ نمایش اعلان به مجوز اعلان اندروید و فعال بودن کانال اعلان بستگی دارد."
                 } else {
                     "یادآور بدون اعلان ثبت شد."
                 }
