@@ -100,6 +100,10 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) {
         viewModel.loadDashboardData()
+        // Catch up on messages received while this screen was not active.
+        if (smsPermissionState == com.example.ui.screens.home.viewmodel.SmsPermissionState.GRANTED) {
+            viewModel.scanInboxSms()
+        }
     }
 
     LaunchedEffect(subState.userMessage) {
@@ -126,7 +130,7 @@ fun HomeScreen(
 
     // Listen only for the app-scoped signal emitted by the protected system SMS receiver.
     // The existing repository remains the sole path that reads, matches and parses inbox SMS.
-    DisposableEffect(context, smsPermissionState) {
+    DisposableEffect(context, smsPermissionState, hasReceiveSmsPermission) {
         if (smsPermissionState == com.example.ui.screens.home.viewmodel.SmsPermissionState.GRANTED && hasReceiveSmsPermission) {
             val refreshReceiver = object : BroadcastReceiver() {
                 override fun onReceive(receiverContext: Context?, intent: Intent?) {
