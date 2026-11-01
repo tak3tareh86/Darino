@@ -38,13 +38,13 @@ class SmsPatternRepository(context: Context) {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
-    private fun storageKey(): String {
-        val userId = SessionManager.userId?.takeIf { it.isNotBlank() } ?: "local"
-        return "patterns_$userId"
+    private fun storageKey(userId: String? = SessionManager.userId): String {
+        val scopedUserId = userId?.takeIf { it.isNotBlank() } ?: "local"
+        return "patterns_$scopedUserId"
     }
 
-    fun getPatterns(): List<SmsPattern> {
-        val raw = preferences.getString(storageKey(), null) ?: return emptyList()
+    fun getPatterns(userId: String? = SessionManager.userId): List<SmsPattern> {
+        val raw = preferences.getString(storageKey(userId), null) ?: return emptyList()
         return runCatching {
             val array = JSONArray(raw)
             buildList {
