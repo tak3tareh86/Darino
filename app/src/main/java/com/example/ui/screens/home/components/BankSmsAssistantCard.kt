@@ -1064,15 +1064,10 @@ fun EditSmsTransactionDialog(
     val activeAccounts = remember(userAccounts) {
         userAccounts.filter { it.isActive && it.deletedAt == null }
     }
+    // Never infer the account from a bank label or from there being only one account.
+    // The user explicitly chooses the account linked to this transaction.
     var selectedAccountId by remember(suggestion.id, activeAccounts) {
-        val matchingBank = activeAccounts.firstOrNull { account ->
-            val bankName = account.bankName.orEmpty()
-            bankName.isNotBlank() && (
-                bankName.contains(suggestion.bankName, ignoreCase = true) ||
-                    suggestion.bankName.contains(bankName, ignoreCase = true)
-                )
-        }
-        mutableStateOf(matchingBank?.stringId ?: activeAccounts.singleOrNull()?.stringId)
+        mutableStateOf<String?>(null)
     }
     var selectedDestinationAccountId by remember(suggestion.id, activeAccounts) {
         mutableStateOf<String?>(null)
