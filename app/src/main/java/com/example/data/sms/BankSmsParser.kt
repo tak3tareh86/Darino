@@ -386,9 +386,15 @@ object BankSmsParser {
         val hasNumericBalance = Regex(
             """(?:مانده|موجودی|موجودي)(?:ی\s*حساب|\s*حساب|\s*فعلی|\s*کل)?\s*[:：]?\s*[+-]?\s*[0-9][0-9,.\u060C\u066B\u066C\s]*"""
         ).containsMatchIn(lower)
-        val hasSignedTransactionAmount =
-            Regex("""[+-]\s*[0-9][0-9,.\u060C\u066B\u066C]*""").containsMatchIn(normalizedBody) &&
-                hasAmountLabel
+        // A signed balance is not a signed transaction amount. Require the label
+        // and signed number to be adjacent, after removing balance fields.
+        val bodyWithoutBalance = normalizedBody.replace(
+            Regex("""(?:مانده(?:ی|\s+حساب|\s+واقعی|\s+کل)?|موجودی(?:ی|\s+حساب|\s+فعلی|\s+کل)?|موجودي)[\s:：]*[+-]?\s*[0-9][0-9,٫٬.\u060C\u066B\u066C\s]*\s*(?:ریال|تومان|Rls|IRR)?"""),
+            " "
+        )
+        val hasSignedTransactionAmount = Regex(
+            """(?:مبلغ(?:\s*(?:تراکنش|برداشت|واریز|خرید|پرداخت))?|به\s*مبلغ)[\s:：]*[+-]\s*[0-9][0-9,٫٬.]*|[+-]\s*[0-9][0-9,٫٬.]*\s*(?:ریال|تومان|Rls|IRR)\s*(?:مبلغ\s*تراکنش)"""
+        ).containsMatchIn(bodyWithoutBalance)
 
         val hasCompletionMarker = Regex(
             """(?:تراکنش\s*(?:موفق|انجام\s*شد)|(?:خرید|پرداخت|انتقال|حواله|کارت\s*به\s*کارت)\s*(?:موفق|انجام\s*شد)|(?:برداشت|واریز|کسر)\s*(?:شد|گردید|موفق)|بستانکار\s*شد|بدهکار\s*شد|با\s*موفقیت\s*(?:انجام|ثبت)\s*شد|ثبت\s*نهایی\s*شد|به\s*حساب\s*نشست|از\s*کارت\s*پرید|منظور\s*(?:شد|گردید))"""
@@ -400,7 +406,7 @@ object BankSmsParser {
         // Do not treat a bare mention of "خرید", "پرداخت", or "انتقال" as a completed
         // transaction. Such words are common in promotional and informational messages.
         val hasCoreMoneyEvent = Regex(
-            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|از\s*کارت\s*پرید|به\s*حساب\s*نشست|منظور\s*(?:شد|گردید)|تراکنش\s*(?:موفق|انجام\s*شد)|عملیات\s*بانکی\s*موفق|واریز\s*(?:از\s*طریق\s*)?(?:پایا|ساتنا)|پایا\s*واریز|ساتنا\s*واریز)"""
+            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|از\s*کارت\s*پرید|به\s*حساب\s*نشست|منظور\s*(?:شد|گردید)|تراکنش\s*(?:موفق|انجام\s*شد)|عملیات\s*بانکی\s*موفق|پرداخت\s*(?:موفق|انجام\s*شد|شد)|واریز\s*(?:از\s*طریق\s*)?(?:پایا|ساتنا)|پایا\s*واریز|ساتنا\s*واریز)"""
         ).containsMatchIn(lower)
         val hasPurchaseOrTransferLanguage = Regex(
             """(?:خرید|پرداخت|انتقال|حواله|کارت\s*به\s*کارت|پایا|ساتنا)"""
@@ -480,14 +486,22 @@ object BankSmsParser {
 
     private fun hasConflictingBankIdentity(sender: String, body: String): Boolean {
         val senderBank = detectBankFromSender(sender) ?: return false
-        val bodyBank = detectBankFromBody(body) ?: return false
+        val normalizedBody = normalizeText(body).lowercase()
+
+        // A message may mention another bank as the transfer destination or intermediary.
+        // Only an explicit bank header at the beginning can contradict the sender identity.
+        val bodyIssuer = ALL_BANKS.firstOrNull { bank ->
+            val name = normalizeText(bank.displayName).lowercase()
+            Regex("""^\s*(?:(?:پیامک|اطلاعیه)\s*(?:از\s*)?)?${Regex.escape(name)}(?=$|[\s:؛،\-])""")
+                .containsMatchIn(normalizedBody)
+        }?.displayName ?: return false
 
         // Blue Bank is a Saman-owned brand and may legitimately share Saman wording.
-        if ((senderBank == "بلوبانک" && bodyBank == "بانک سامان") ||
-            (senderBank == "بانک سامان" && bodyBank == "بلوبانک")
+        if ((senderBank == "بلوبانک" && bodyIssuer == "بانک سامان") ||
+            (senderBank == "بانک سامان" && bodyIssuer == "بلوبانک")
         ) return false
 
-        return senderBank != bodyBank
+        return senderBank != bodyIssuer
     }
 
     /**
@@ -537,7 +551,7 @@ object BankSmsParser {
         // Some banks (including virtual banks) use verbs such as "پرید" and "نشست".
         // When a single SMS mentions both directions, use the first explicit money event.
         val expenseMatch = Regex(
-            """(?:برداشت|کسر\s*(?:از\s*)?حساب|کسر|بدهکار|خرید|پرداخت\s*(?:قبض|قبوض|صورتحساب)|پرید|کم\s*شد)"""
+            """(?:برداشت|کسر\s*(?:از\s*)?حساب|کسر|بدهکار|خرید|پرداخت\s*(?:قبض|قبوض|صورتحساب|موفق|انجام\s*شد|شد|از\s*(?:حساب|کارت))|پرید|کم\s*شد)"""
         ).find(lower)
         val incomeMatch = Regex(
             """(?:واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*(?:شد|گردید))"""
