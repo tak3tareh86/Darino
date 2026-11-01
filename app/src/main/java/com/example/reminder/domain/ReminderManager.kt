@@ -447,6 +447,29 @@ class ReminderManager(
     }
 
     /**
+     * Refreshes an already opted-in installment reminder after a payment/date edit.
+     * Never creates or enables a reminder as a side effect of editing payment history.
+     */
+    suspend fun refreshInstallmentReminder(
+        installmentId: String,
+        title: String,
+        amount: Long,
+        dueDatePersian: String,
+        paymentDueDates: List<Pair<String, String>>
+    ): Int = withContext(Dispatchers.IO) {
+        if (repository.getReminderBySourceId(installmentId) == null) {
+            return@withContext 0
+        }
+        syncInstallmentReminder(
+            installmentId = installmentId,
+            title = title,
+            amount = amount,
+            dueDatePersian = dueDatePersian,
+            paymentDueDates = paymentDueDates
+        )
+    }
+
+    /**
      * Triggered when an installment is paid. Automatically completes the active reminder.
      */
     suspend fun onInstallmentPaid(installmentId: String) = withContext(Dispatchers.IO) {
