@@ -78,7 +78,8 @@ object SmsPatternMatcher {
                 when (slot.kind) {
                     SmsPatternSlotKind.AMOUNT_RIAL, SmsPatternSlotKind.AMOUNT_TOMAN -> "amount"
                     SmsPatternSlotKind.BALANCE_RIAL, SmsPatternSlotKind.BALANCE_TOMAN -> "balance"
-                    SmsPatternSlotKind.DATE, SmsPatternSlotKind.DATE_DAY_MONTH, SmsPatternSlotKind.DATE_MONTH_DAY -> "date"
+                    SmsPatternSlotKind.DATE, SmsPatternSlotKind.DATE_DAY_MONTH, SmsPatternSlotKind.DATE_MONTH_DAY,
+                    SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR -> "date"
                     SmsPatternSlotKind.SOURCE_CARD, SmsPatternSlotKind.SOURCE_ACCOUNT -> "source"
                     SmsPatternSlotKind.DESTINATION_CARD, SmsPatternSlotKind.DESTINATION_ACCOUNT -> "destination"
                     else -> slot.kind.name
