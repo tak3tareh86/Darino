@@ -176,6 +176,22 @@ class BankSmsParserTest {
         assertEquals(5_000L, BankSmsParser.extractAmountToman(sms, TransactionType.EXPENSE))
     }
 
+
+    @Test
+    fun explicitlyLabeledTransactionAmountWinsOverEarlierUnlabeledNumber() {
+        val cases = listOf(
+            "برداشت از حساب؛ شماره پیگیری ۹۹۹۹؛ مبلغ تراکنش: ۱۲,۵۰۰ ریال" to 1_250L,
+            "واریز وجه؛ عدد ۷۷۷؛ مبلغ واریز: ۲۵,۰۰۰ ریال" to 2_500L,
+            "پرداخت با موفقیت؛ مبلغ پرداخت: ۵۰,۰۰۰ ریال" to 5_000L,
+            "خرید با موفقیت؛ مبلغ: ۸۰,۰۰۰ ریال" to 8_000L
+        )
+
+        cases.forEach { (sms, expectedToman) ->
+            val type = BankSmsParser.detectTransactionType(sms)
+            assertEquals(expectedToman, BankSmsParser.extractAmountToman(sms, type))
+        }
+    }
+
     @Test
     fun completedPaymentWithBalanceIsNotClassifiedAsBalanceOnlyNotice() {
         assertEquals(
