@@ -15,6 +15,7 @@ import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -91,6 +92,7 @@ fun CheckReportSection(
 
         val received = results.filter { it.type == CheckType.RECEIVED }
         val paid = results.filter { it.type == CheckType.PAID }
+        if (!isLoading) {
         Card(
             modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
@@ -111,6 +113,7 @@ fun CheckReportSection(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
         }
         Text(
             text = if (yearFilter == null) "همه سوابق بر اساس تاریخ سررسید" else
