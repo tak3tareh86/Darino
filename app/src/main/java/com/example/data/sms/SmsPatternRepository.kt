@@ -10,7 +10,8 @@ import java.util.UUID
 
 enum class SmsPatternType(val title: String) {
     INCOME("واریز"),
-    EXPENSE("برداشت")
+    EXPENSE("برداشت"),
+    TRANSFER("انتقال وجه")
 }
 
 data class SmsPattern(
