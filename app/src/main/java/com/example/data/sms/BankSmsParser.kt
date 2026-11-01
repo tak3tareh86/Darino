@@ -282,13 +282,17 @@ object BankSmsParser {
         val hasTransactionVerb = norm.contains("برداشت") ||
                 norm.contains("واریز") ||
                 norm.contains("خرید") ||
+                norm.contains("پرداخت") ||
+                norm.contains("حواله") ||
                 norm.contains("کسر") ||
                 norm.contains("انتقال") ||
                 norm.contains("بدهکار") ||
                 norm.contains("بستانکار") ||
                 norm.contains("منظور شد") ||
                 norm.contains("پرید") ||
-                norm.contains("نشست")
+                norm.contains("نشست") ||
+                norm.contains("کم شد") ||
+                norm.contains("اضافه شد")
 
         if (hasBalanceWord && !hasTransactionVerb) {
             return true
