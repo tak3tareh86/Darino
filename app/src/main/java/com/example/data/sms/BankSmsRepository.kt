@@ -6,20 +6,36 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.example.data.security.SessionManager
+import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.domain.BankSmsSuggestion
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class BankSmsRepository(private val context: Context) {
 
     private val prefs = context.getSharedPreferences("darino_bank_sms_prefs", Context.MODE_PRIVATE)
+    private val pendingQueuePreferences = EncryptedSharedPreferences.create(
+        context.applicationContext,
+        "darino_pending_bank_sms_secure",
+        MasterKey.Builder(context.applicationContext)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build(),
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
     private val patternRepository = SmsPatternRepository(context.applicationContext)
 
     companion object {
         private const val KEY_PROCESSED_SMS_IDS = "processed_sms_ids"
         private const val KEY_DISMISSED_SMS_IDS = "dismissed_sms_ids"
+        private const val KEY_PENDING_SMS_QUEUE = "pending_sms_queue"
         private const val KEY_PERMISSION_REQUESTED = "permission_requested_before"
+        private const val MAX_PERSISTED_PENDING_SMS = 50
 
         @Volatile
         private var INSTANCE: BankSmsRepository? = null
@@ -73,6 +89,77 @@ class BankSmsRepository(private val context: Context) {
         val current = (prefs.getStringSet(key, emptySet()) ?: emptySet()).toMutableSet()
         current.add(smsId)
         prefs.edit().putStringSet(key, current).apply()
+    }
+
+    /**
+     * Pending suggestions are encrypted at rest and isolated by authenticated user.
+     * The raw SMS body is sensitive and must never be written to ordinary preferences or logs.
+     */
+    fun getPendingSmsSuggestions(userId: String? = null): List<BankSmsSuggestion> {
+        val key = userKey(KEY_PENDING_SMS_QUEUE, userId) ?: return emptyList()
+        val raw = pendingQueuePreferences.getString(key, null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            buildList {
+                for (index in 0 until array.length()) {
+                    val item = array.optJSONObject(index) ?: continue
+                    val id = item.optString("id").takeIf { it.isNotBlank() } ?: continue
+                    val type = item.optString("type").takeIf { it.isNotBlank() }
+                        ?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() }
+                    add(
+                        BankSmsSuggestion(
+                            id = id,
+                            bankName = item.optString("bankName"),
+                            amount = item.optLong("amount"),
+                            formattedAmount = item.optString("formattedAmount"),
+                            isAmountValid = item.optBoolean("isAmountValid"),
+                            type = type,
+                            isTypeUncertain = item.optBoolean("isTypeUncertain"),
+                            smsText = item.optString("smsText"),
+                            dateText = item.optString("dateText"),
+                            timeText = item.optString("timeText"),
+                            category = item.optString("category", "سایر"),
+                            sourceAccount = item.optString("sourceAccount").takeIf { it.isNotBlank() && it != "null" },
+                            destinationAccount = item.optString("destinationAccount").takeIf { it.isNotBlank() && it != "null" },
+                            rawSender = item.optString("rawSender").takeIf { it.isNotBlank() && it != "null" },
+                            parseError = item.optString("parseError").takeIf { it.isNotBlank() && it != "null" },
+                            timestampMillis = item.optLong("timestampMillis", System.currentTimeMillis())
+                        )
+                    )
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    fun savePendingSmsSuggestions(userId: String? = null, suggestions: List<BankSmsSuggestion>) {
+        val key = userKey(KEY_PENDING_SMS_QUEUE, userId) ?: return
+        val array = JSONArray()
+        suggestions.takeLast(MAX_PERSISTED_PENDING_SMS).forEach { suggestion ->
+            array.put(
+                JSONObject()
+                    .put("id", suggestion.id)
+                    .put("bankName", suggestion.bankName)
+                    .put("amount", suggestion.amount)
+                    .put("formattedAmount", suggestion.formattedAmount)
+                    .put("isAmountValid", suggestion.isAmountValid)
+                    .put("type", suggestion.type?.name ?: JSONObject.NULL)
+                    .put("isTypeUncertain", suggestion.isTypeUncertain)
+                    .put("smsText", suggestion.smsText)
+                    .put("dateText", suggestion.dateText)
+                    .put("timeText", suggestion.timeText)
+                    .put("category", suggestion.category)
+                    .put("sourceAccount", suggestion.sourceAccount ?: JSONObject.NULL)
+                    .put("destinationAccount", suggestion.destinationAccount ?: JSONObject.NULL)
+                    .put("rawSender", suggestion.rawSender ?: JSONObject.NULL)
+                    .put("parseError", suggestion.parseError ?: JSONObject.NULL)
+                    .put("timestampMillis", suggestion.timestampMillis)
+            )
+        }
+        pendingQueuePreferences.edit().putString(key, array.toString()).apply()
+    }
+
+    fun removePendingSmsSuggestion(smsId: String, userId: String? = null) {
+        savePendingSmsSuggestions(userId, getPendingSmsSuggestions(userId).filterNot { it.id == smsId })
     }
 
     suspend fun readInboxBankSms(userId: String? = null): List<BankSmsSuggestion> = withContext(Dispatchers.IO) {
