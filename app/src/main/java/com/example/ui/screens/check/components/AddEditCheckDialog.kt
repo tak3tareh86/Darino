@@ -14,6 +14,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.example.data.preferences.AppPreferencesRepository
+import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,6 +52,12 @@ fun AddEditCheckDialog(
     onDismiss: () -> Unit,
     onConfirm: (Check) -> Unit
 ) {
+    val context = LocalContext.current
+    val preferences = remember { AppPreferencesRepository.getInstance(context) }
+    val globalDeliveryMode by preferences.alertDelivery.collectAsState()
+    val globalNotificationsEnabled by preferences.notificationsEnabled.collectAsState()
+    val globalDeliveryConfigured = globalNotificationsEnabled && globalDeliveryMode != AlertDeliveryPreference.NONE
+
     var type by remember { mutableStateOf(check?.type ?: CheckType.RECEIVED) }
     var amount by remember {
         mutableStateOf(
@@ -437,7 +446,7 @@ fun AddEditCheckDialog(
                     onClick = {
                         if (reminderEnabled && (!reminderTimeSelected || reminderDateTime == null)) {
                             showReminderSetupError = true
-                        } else if (!reminderEnabled) {
+                        } else if (!reminderEnabled || !globalDeliveryConfigured) {
                             showNoReminderConfirmation = true
                         } else {
                             submitCheck(reminderDateTime)
@@ -591,7 +600,15 @@ fun AddEditCheckDialog(
             AlertDialog(
                 onDismissRequest = { showNoReminderConfirmation = false },
                 title = { Text("ثبت چک بدون اعلان؟") },
-                text = { Text("برای این چک یادآوری تنظیم نشده است. اگر تأیید کنید، چک بدون اعلان ثبت می‌شود؛ برای تنظیم یادآوری، لغو را بزنید و یادآور را فعال و زمان آن را انتخاب کنید.") },
+                text = {
+                    Text(
+                        if (!reminderEnabled) {
+                            "برای این چک یادآوری فعال نشده است. اگر تأیید کنید، چک بدون اعلان ثبت می‌شود."
+                        } else {
+                            "زمان یادآوری انتخاب شده، اما روش دریافت اعلان در تنظیمات عمومی فعال نیست. با تأیید، چک بدون اعلان ثبت می‌شود."
+                        } + " برای تنظیم اعلان، لغو را بزنید و تنظیمات را کامل کنید."
+                    )
+                },
                 confirmButton = {
                     TextButton(onClick = {
                         showNoReminderConfirmation = false
