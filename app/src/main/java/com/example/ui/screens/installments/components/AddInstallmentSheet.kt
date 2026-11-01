@@ -108,7 +108,7 @@ fun AddInstallmentSheet(
     var notes by remember { mutableStateOf("") }
 
     // Reminder state
-    var reminderEnabled by remember { mutableStateOf(true) }
+    var reminderEnabled by remember { mutableStateOf(false) }
     var showReminderModal by remember { mutableStateOf(false) }
 
     // Selected offsets for reminder:
@@ -120,8 +120,8 @@ fun AddInstallmentSheet(
         val minute = (defaultReminderMinute % 60).toString().padStart(2, '0')
         IranianPhoneUtils.convertDigitsToPersian("$hour:$minute")
     }
-    var remindAtTime by remember { mutableStateOf(true) }
-    var remind1DayBefore by remember { mutableStateOf(true) }
+    var remindAtTime by remember { mutableStateOf(false) }
+    var remind1DayBefore by remember { mutableStateOf(false) }
     var remind2DaysBefore by remember { mutableStateOf(false) }
     var remind1WeekBefore by remember { mutableStateOf(false) }
     var reminderTime by remember(defaultReminderTimeText) { mutableStateOf(defaultReminderTimeText) }
@@ -197,6 +197,7 @@ fun AddInstallmentSheet(
                     notes = notes,
                     onNotesChange = { notes = it },
                     reminderEnabled = reminderEnabled,
+                    onReminderEnabledChange = { reminderEnabled = it },
                     reminderTime = reminderTime,
                     remindAtTime = remindAtTime,
                     remind1DayBefore = remind1DayBefore,
@@ -319,30 +320,7 @@ fun AddInstallmentSheet(
                         modifier = Modifier.padding(top = 6.dp, bottom = 8.dp)
                     )
 
-                    // Enable/Disable Switch
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "فعال‌سازی یادآور",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Switch(
-                            checked = reminderEnabled,
-                            onCheckedChange = { reminderEnabled = it }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (reminderEnabled) {
+                    {
                         // Two-column reminder choices reduce the dialog's vertical height.
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -658,6 +636,7 @@ private fun FormDetailsStep(
     notes: String,
     onNotesChange: (String) -> Unit,
     reminderEnabled: Boolean,
+    onReminderEnabledChange: (Boolean) -> Unit,
     reminderTime: String,
     remindAtTime: Boolean,
     remind1DayBefore: Boolean,
@@ -907,7 +886,7 @@ private fun FormDetailsStep(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(modifier = Modifier.weight(1.1f)) {
+                    Box(modifier = Modifier.weight(1.0f)) {
                         PersianDateInputField(
                             value = dueDate,
                             onValueChange = onDueDateChange,
@@ -925,7 +904,7 @@ private fun FormDetailsStep(
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                         modifier = Modifier
-                            .weight(0.9f)
+                            .weight(0.85f)
                             .height(56.dp)
                     ) {
                         Row(
@@ -966,6 +945,14 @@ private fun FormDetailsStep(
                             )
                         }
                     }
+
+                    Switch(
+                        checked = reminderEnabled,
+                        onCheckedChange = onReminderEnabledChange,
+                        modifier = Modifier
+                            .width(48.dp)
+                            .testTag("installment_reminder_enabled")
+                    )
                 }
             }
 
