@@ -34,7 +34,6 @@ import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Calculate
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Clear
-import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Search
@@ -349,11 +348,13 @@ fun TransactionsScreen(
                                                 RoundedCornerShape(RadiusSM)
                                             )
                                             .padding(10.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
                                         Row(
+                                            modifier = Modifier.fillMaxWidth(),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            horizontalArrangement = Arrangement.Center
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.TrendingUp,
@@ -376,7 +377,8 @@ fun TransactionsScreen(
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 13.sp
                                             ),
-                                            color = EmeraldPrimaryLight
+                                            color = EmeraldPrimaryLight,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                         )
                                     }
 
@@ -391,11 +393,13 @@ fun TransactionsScreen(
                                                 RoundedCornerShape(RadiusSM)
                                             )
                                             .padding(10.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
                                         Row(
+                                            modifier = Modifier.fillMaxWidth(),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            horizontalArrangement = Arrangement.Center
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.TrendingDown,
@@ -418,7 +422,8 @@ fun TransactionsScreen(
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 13.sp
                                             ),
-                                            color = ExpenseRoseLight
+                                            color = ExpenseRoseLight,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                         )
                                     }
                                 }
@@ -803,7 +808,6 @@ fun TransactionsScreen(
                             TransactionCard(
                                 transaction = tx,
                                 onClick = { onTransactionClick(tx) },
-                                onDuplicate = { onDuplicateTransaction(tx.id) },
                                 onDelete = { transactionToDelete = tx }
                             )
                         }
@@ -842,11 +846,9 @@ fun TransactionsScreen(
 fun TransactionCard(
     transaction: TransactionItemData,
     onClick: () -> Unit,
-    onDuplicate: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isExpense = transaction.type == TransactionType.EXPENSE
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
     val amountColor = when (transaction.type) {
@@ -860,20 +862,20 @@ fun TransactionCard(
         shape = RoundedCornerShape(RadiusMD),
         backgroundColor = MaterialTheme.colorScheme.surface,
         elevation = 2.dp,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
         testTag = "full_tx_card_${transaction.id}",
         onClick = onClick
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
         ) {
-            // Right Side (RTL Start): Category Icon + Title/Category/Date Column
+            // Right side in RTL: category icon and transaction details.
             Row(
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f)
+                verticalAlignment = Alignment.Top
             ) {
                 Box(
                     modifier = Modifier
@@ -896,7 +898,7 @@ fun TransactionCard(
 
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     Text(
                         text = transaction.title,
@@ -910,77 +912,64 @@ fun TransactionCard(
                     )
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = transaction.category.title,
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        Text(
-                            text = "•",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                        Text(
-                            text = if (transaction.timePersian.isNotBlank()) "${transaction.datePersian} ${transaction.timePersian}" else transaction.datePersian,
+                            text = transaction.datePersian,
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis
                         )
+                        if (transaction.timePersian.isNotBlank()) {
+                            Text(
+                                text = transaction.timePersian,
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
-                }
-            }
 
-            Spacer(modifier = Modifier.width(6.dp))
-
-            // Left Side (RTL End): Amount + Payment Method + Action Buttons
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
                     Text(
-                        text = transaction.amountFormatted,
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        ),
-                        color = amountColor,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = transaction.paymentMethod.title,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        text = transaction.category.title,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
 
-                IconButton(
-                    onClick = onDuplicate,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.ContentCopy,
-                        contentDescription = "تکرار",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.size(15.dp)
-                    )
-                }
-
+            // Left side in RTL: amount and payment method, with delete below.
+            Column(
+                modifier = Modifier.padding(start = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = transaction.amountFormatted,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    ),
+                    color = amountColor,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = transaction.paymentMethod.title,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
                 IconButton(
                     onClick = onDelete,
                     modifier = Modifier.size(28.dp)
