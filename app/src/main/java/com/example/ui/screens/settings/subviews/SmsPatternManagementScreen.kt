@@ -236,7 +236,7 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
                     ) {
                         Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                         Text(
-                            "الگوها به‌صورت محلی و رمزگذاری‌شده و جداگانه برای حساب کاربری شما ذخیره می‌شوند. پیامک‌های منطبق با این الگوها شناسایی شده و برای بررسی و تأیید در کارت ثبت خودکار تراکنش‌ها نمایش داده می‌شوند.",
+                            "الگوها به‌صورت محلی و رمزگذاری‌شده و جداگانه برای حساب کاربری شما ذخیره می‌شوند. پیامک‌های منطبق با این الگوها شناسایی شده و برای بررسی و تأیید در کارت ثبت خودکار تراکنش‌ها نمایش داده می‌شوند. مبلغ، مانده، شماره‌ها، تاریخ و ساعت می‌توانند تغییر کنند؛ عبارت‌های متنی باید با نمونه یکسان باشند.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
