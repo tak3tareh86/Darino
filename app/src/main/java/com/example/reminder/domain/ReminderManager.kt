@@ -383,7 +383,33 @@ class ReminderManager(
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
-        val schedules = payments.flatMap { (paymentId, paymentDate) ->
+        // When there are no unpaid payments, keep disabled preference rows.
+        // These rows are never armed; they only preserve selected offsets so a
+        // payment reopened later can regain its original reminder configuration.
+        val schedules = if (payments.isEmpty()) {
+            val retainedSchedules = oldSchedules.filterNot { it.id.startsWith("snooze_") }
+            if (retainedSchedules.isNotEmpty()) {
+                retainedSchedules.map { it.copy(enabled = false, createdAt = now) }
+            } else {
+                offsets.map { offset ->
+                    val stableId = UUID.nameUUIDFromBytes(
+                        "installment:$installmentId:__preferences__:${offset.value}:${offset.unit.name}".toByteArray(Charsets.UTF_8)
+                    ).toString()
+                    ReminderScheduleEntity(
+                        id = stableId,
+                        reminderId = reminder.id,
+                        triggerType = if (offset == PredefinedOffset.AT_TIME) "EXACT" else "BEFORE_EVENT",
+                        offsetValue = offset.value,
+                        offsetUnit = offset.unit.name,
+                        triggerDateTime = now,
+                        repeatType = "NONE",
+                        repeatInterval = 1,
+                        enabled = false,
+                        createdAt = now
+                    )
+                }
+            }
+        } else payments.flatMap { (paymentId, paymentDate) ->
             val dueMillis = runCatching { parsePersianDateTimeToMillis(paymentDate, effectiveDueTime) }.getOrNull()
                 ?: return@flatMap emptyList()
             val dueDay = Calendar.getInstance().apply {
@@ -457,8 +483,22 @@ class ReminderManager(
         dueDatePersian: String,
         paymentDueDates: List<Pair<String, String>>
     ): Int = withContext(Dispatchers.IO) {
-        if (repository.getReminderBySourceId(installmentId) == null) {
-            return@withContext 0
+        val existing = repository.getReminderBySourceId(installmentId)
+            ?: return@withContext 0
+
+        // A completed status can be stale when a previously paid payment is
+        // reopened. Restore only this linked reminder; never override DISABLED
+        // or CANCELLED user choices.
+        if (paymentDueDates.isNotEmpty() && existing.status.equals("COMPLETED", ignoreCase = true)) {
+            val storedSchedules = repository.getSchedulesSync(existing.id)
+            repository.updateReminderWithSchedules(
+                existing.copy(
+                    status = "ACTIVE",
+                    completedAt = null,
+                    updatedAt = System.currentTimeMillis()
+                ),
+                storedSchedules
+            )
         }
         syncInstallmentReminder(
             installmentId = installmentId,
@@ -470,14 +510,18 @@ class ReminderManager(
     }
 
     /**
-     * Triggered when an installment is paid. Automatically completes the active reminder.
+     * Legacy compatibility hook. A single payment must never complete the
+     * reminder for the whole loan; payment repositories refresh the remaining
+     * per-payment schedules after committing the payment instead.
      */
+    @Deprecated(
+        message = "Refresh the installment reminder with the current unpaid payment list instead."
+    )
     suspend fun onInstallmentPaid(installmentId: String) = withContext(Dispatchers.IO) {
-        val reminder = repository.getReminderBySourceId(installmentId)
-        if (reminder != null) {
-            completeReminder(reminder.id)
-            Log.i("ReminderManager", "Marked reminder for installment $installmentId as COMPLETED.")
-        }
+        Log.w(
+            "ReminderManager",
+            "Ignoring legacy whole-loan completion for $installmentId; per-payment schedules are refreshed by the installment repository."
+        )
     }
 
     /**

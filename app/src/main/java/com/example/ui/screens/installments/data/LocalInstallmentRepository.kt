@@ -311,6 +311,9 @@ class LocalInstallmentRepository private constructor() {
                 if (userId != null) {
                     reloadForUser(targetContext, userId)
                 }
+                // Generic installment edits can change the payment history or
+                // due dates too, so keep reminder schedules in sync here as well.
+                refreshReminderForInstallment(targetContext, updated)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
