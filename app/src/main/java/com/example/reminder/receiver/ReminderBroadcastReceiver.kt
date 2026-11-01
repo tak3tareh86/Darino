@@ -16,6 +16,9 @@ import com.example.reminder.domain.QuietHoursConfig
 import com.example.reminder.domain.RecurrenceEngine
 import com.example.reminder.domain.ReminderPolicyEngine
 import com.example.reminder.domain.ReminderScheduler
+import com.example.reminder.domain.ReminderManager
+import com.example.reminder.domain.SnoozeOption
+import com.example.reminder.data.ReminderEntity
 import com.example.reminder.domain.RepeatType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -248,6 +251,10 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                 val eventId = reminderId.removePrefix("calendar_")
                 if (userId != null) {
                     database.financialEventDao().updateEventStatus(userId, eventId, "PAID")
+                    val linkedReminder = database.smartReminderDao().getReminderById(userId, reminderId)
+                    if (linkedReminder != null) {
+                        ReminderManager(context).completeReminder(reminderId)
+                    }
                 }
                 CalendarEventReminderScheduler(context).cancel(eventId)
                 return
@@ -301,8 +308,33 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             val event = if (userId != null) {
                 db.financialEventDao().getEventById(userId, eventId)?.toDomain()
             } else null
-            if (event != null && event.status.name != "PAID") {
-                CalendarEventReminderScheduler(context).scheduleSnooze(event, snoozeMinutes)
+            if (event != null && event.status.name != "PAID" && userId != null) {
+                val manager = ReminderManager(context)
+                val reminderDao = db.smartReminderDao()
+                val storedReminder = reminderDao.getReminderById(userId, reminderId)
+                val reminder = storedReminder ?: ReminderEntity(
+                    id = reminderId,
+                    userId = userId,
+                    title = event.title,
+                    description = event.description,
+                    type = event.type.name,
+                    sourceType = "CALENDAR",
+                    sourceId = event.id,
+                    priority = "NORMAL",
+                    status = "ACTIVE",
+                    date = event.date,
+                    time = event.time ?: "۰۹:۰۰",
+                    notificationEnabled = true,
+                    fullScreenAlarmEnabled = false
+                ).also { manager.createReminder(it, emptyList()) }
+
+                if (reminder.status.equals("ACTIVE", ignoreCase = true)) {
+                    val target = System.currentTimeMillis() + snoozeMinutes.coerceAtLeast(1) * 60_000L
+                    val result = manager.snoozeReminder(reminder.id, SnoozeOption.CUSTOM, target)
+                    result.onFailure { error ->
+                        Log.e(TAG, "Unable to persist calendar reminder snooze for $eventId", error)
+                    }
+                }
             }
             val calendarDispatcher = NotificationDispatcher(context)
             if (notificationId != -1) calendarDispatcher.cancelNotification(notificationId)
