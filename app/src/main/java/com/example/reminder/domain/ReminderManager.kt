@@ -152,7 +152,6 @@ class ReminderManager(
         scheduler.cancel(reminder.id, existingSchedules)
         NotificationDispatcher(context).cancelReminderNotifications(reminder.id, existingSchedules)
 
-        val baseMillis = parsePersianDateTimeToMillis(reminder.date, reminder.time)
         val newSchedules = offsets.map { offset ->
             val triggerMillis = calculateOffsetTriggerMillis(baseMillis, offset, calendarBasedOffsets)
             ReminderScheduleEntity(
