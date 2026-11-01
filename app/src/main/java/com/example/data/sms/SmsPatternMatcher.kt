@@ -28,6 +28,12 @@ object SmsPatternMatcher {
         dateRegex.findAll(normalized).forEach {
             candidates.add(NumericCandidate(it.range.first, it.range.last + 1, it.value))
         }
+        val shortDateRegex = Regex("""(?<![0-9])[0-9]{1,2}[/.-][0-9]{1,2}(?![0-9])""")
+        shortDateRegex.findAll(normalized).forEach { match ->
+            if (candidates.none { match.range.first < it.endExclusive && match.range.last + 1 > it.start }) {
+                candidates.add(NumericCandidate(match.range.first, match.range.last + 1, match.value))
+            }
+        }
         timeRegex.findAll(normalized).forEach {
             candidates.add(NumericCandidate(it.range.first, it.range.last + 1, it.value))
         }
@@ -127,7 +133,7 @@ object SmsPatternMatcher {
                         SmsPatternSlotKind.AMOUNT_TOMAN,
                         SmsPatternSlotKind.BALANCE_RIAL,
                         SmsPatternSlotKind.BALANCE_TOMAN -> """[+-]?[0-9][0-9,،٬٫.]*"""
-                        SmsPatternSlotKind.DATE -> """[0-9]{2,4}[/.-][0-9]{1,2}[/.-][0-9]{1,2}"""
+                        SmsPatternSlotKind.DATE -> """(?:[0-9]{2,4}[/.-][0-9]{1,2}[/.-][0-9]{1,2}|[0-9]{1,2}[/.-][0-9]{1,2})"""
                         SmsPatternSlotKind.TIME -> """[0-2]?[0-9]:[0-5][0-9](?::[0-5][0-9])?"""
                         SmsPatternSlotKind.SOURCE_CARD,
                         SmsPatternSlotKind.DESTINATION_CARD,
