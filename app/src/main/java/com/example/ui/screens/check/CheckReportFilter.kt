@@ -15,7 +15,7 @@ object CheckReportFilter {
         return checks.asSequence()
             .filter { check ->
                 val due = PersianCalendarHelper.fromEpochMillis(check.dueDate)
-                (year == null || due.year == year) && (month == null || due.month == month)
+                (year == null || due.year == year) && (year == null || month == null || due.month == month)
             }
             .filter { check -> normalizedQuery.isBlank() || searchableFields(check).any { normalize(it).contains(normalizedQuery) } }
             .sortedWith(compareByDescending<Check> { it.dueDate }.thenByDescending { it.id })
