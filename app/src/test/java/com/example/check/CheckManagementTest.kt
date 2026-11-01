@@ -20,6 +20,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -63,6 +64,14 @@ class CheckManagementTest {
             database.accountDao().clearAllAccounts("user_2")
             database.transactionDao().clearAllTransactions("user_1")
             database.transactionDao().clearAllTransactions("user_2")
+        }
+    }
+
+    @After
+    fun restoreNotificationPreferences() {
+        AppPreferencesRepository.getInstance(context).apply {
+            setNotificationsEnabled(false)
+            setAlertDelivery(AlertDeliveryPreference.NONE)
         }
     }
 
