@@ -13,7 +13,7 @@ object SmsPatternMatcher {
         val specificity: Int
     )
 
-    private val variableNumber = Regex("""[*#]*[0-9][0-9*#.,٬،٫/-]*""")
+    private val variableNumber = Regex("""[*#]*[0-9][0-9*#.,٬،٫/\-\s]*""")
     private const val MAX_VARIABLE_TOKEN_LENGTH = 40
 
     fun findBestMatch(message: String, patterns: List<SmsPattern>): SmsPattern? {
@@ -49,7 +49,7 @@ object SmsPatternMatcher {
             var cursor = 0
             variableNumber.findAll(sample).forEach { match ->
                 append(Regex.escape(sample.substring(cursor, match.range.first)))
-                append("""[*#]*[0-9][0-9*#.,٬،٫/-]{0,$MAX_VARIABLE_TOKEN_LENGTH}""")
+                append("""[*#]*[0-9][0-9*#.,٬،٫/\-\s]{0,$MAX_VARIABLE_TOKEN_LENGTH}""")
                 cursor = match.range.last + 1
             }
             append(Regex.escape(sample.substring(cursor)))
