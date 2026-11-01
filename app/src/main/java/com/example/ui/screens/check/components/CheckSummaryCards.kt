@@ -77,7 +77,7 @@ fun CheckSummaryCards(
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
@@ -110,6 +110,7 @@ fun CheckSummaryCards(
                     }
                     
                     Surface(
+                        modifier = Modifier.widthIn(max = 112.dp),
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                     ) {
@@ -119,7 +120,8 @@ fun CheckSummaryCards(
                             color = MaterialTheme.colorScheme.primary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            softWrap = false
                         )
                     }
                 }
@@ -205,6 +207,7 @@ fun CheckSummaryCards(
                     }
 
                     Surface(
+                        modifier = Modifier.widthIn(max = 112.dp),
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
                     ) {
@@ -214,7 +217,8 @@ fun CheckSummaryCards(
                             color = MaterialTheme.colorScheme.tertiary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            softWrap = false
                         )
                     }
                 }
