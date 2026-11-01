@@ -944,7 +944,7 @@ object BankSmsParser {
             TransactionType.INCOME -> {
                 when {
                     text.contains("برگشت وجه") || text.contains("برگشت مبلغ") || text.contains("عودت وجه") -> "برگشت وجه"
-                    text.contains("حقوق") || text.contains("دستمزد")
+                    text.contains("حقوق") || text.contains("دستمزد") -> "حقوق و دستمزد"
                     text.contains("سود") || text.contains("سپرده") -> "سود سپرده"
                     text.contains("یارانه") -> "یارانه و کمک‌معیشتی"
                     else -> "درآمد و واریز"
