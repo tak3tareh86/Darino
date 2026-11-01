@@ -225,6 +225,22 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun confirmedReversedDebitIsClassifiedAsIncome() {
+        val sms = "مبلغ برداشت شده با موفقیت به حساب شما برگشت داده شد؛ مبلغ: ۱۲۵,۰۰۰ ریال؛ مانده: ۵۰۰,۰۰۰ ریال"
+
+        assertEquals(false, BankSmsParser.isNonTransactionalSms(sms))
+        assertEquals(TransactionType.INCOME, BankSmsParser.detectTransactionType(sms))
+        assertEquals(12_500L, BankSmsParser.extractAmountToman(sms, TransactionType.INCOME))
+    }
+
+    @Test
+    fun reversedDebitWithoutConfirmedCreditIsNotIncome() {
+        val sms = "درخواست برگشت برداشت ثبت شد؛ مبلغ: ۱۲۵,۰۰۰ ریال"
+
+        assertEquals(null, BankSmsParser.detectTransactionType(sms))
+    }
+
+    @Test
     fun unrecognizedSenderWithoutExplicitBankHeaderIsNotQueued() {
         val suggestion = BankSmsParser.parse(
             "sms_review_2",
