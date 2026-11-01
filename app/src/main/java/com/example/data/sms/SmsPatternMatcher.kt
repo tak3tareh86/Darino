@@ -101,7 +101,7 @@ object SmsPatternMatcher {
                 append(Regex.escape(sample.substring(cursor, slot.start)))
                 // Slot contents are opaque here. Meaning is assigned only by the
                 // explicitly selected slot kind after this exact-position capture.
-                append("([\\s\\S]+?)")
+                append("([^\\s]+)")
                 cursor = slot.endExclusive
             }
             append(Regex.escape(sample.substring(cursor)))
