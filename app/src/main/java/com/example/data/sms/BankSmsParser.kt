@@ -790,6 +790,50 @@ object BankSmsParser {
         return true
     }
 
+
+    /**
+     * Conservative fallback for the manual-review queue. It is intentionally stricter
+     * than ordinary text matching: the sender must be a known bank or the SMS must start
+     * with an explicit bank header, and a completed/structured money event must be present.
+     */
+    private fun hasManualReviewEvidence(sender: String, body: String): Boolean {
+        val lower = normalizeText(body).lowercase()
+        val hasKnownSender = isSenderRecognized(sender)
+        val hasExplicitBankHeader = ALL_BANKS.any { bank ->
+            val name = normalizeText(bank.displayName).lowercase()
+            Regex("""^\\s*(?:(?:پیامک|اطلاعیه)\\s*(?:از\\s*)?)?${Regex.escape(name)}(?=$|[\\s:؛،\\-])""")
+                .containsMatchIn(lower)
+        }
+        if (!hasKnownSender && !hasExplicitBankHeader) return false
+
+        val hasMoneyEvent = Regex(
+            """(?:برداشت|واریز|بدهکار|بستانکار|کسر|خرید|پرداخت|انتقال|حواله|کارت\\s*به\\s*کارت|پایا|ساتنا|پرید|نشست|کم\\s*شد|اضافه\\s*شد|منظور\\s*شد)"""
+        ).containsMatchIn(lower)
+        if (!hasMoneyEvent) return false
+
+        val hasAmountLabel = Regex(
+            """(?:مبلغ(?:\\s*(?:تراکنش|برداشت|واریز|خرید|پرداخت))?|به\\s*مبلغ)"""
+        ).containsMatchIn(lower)
+        val hasCurrencyNearNumber = Regex(
+            """[0-9][0-9, .\\u060C\\u066B\\u066C]{0,24}\\s*(?:ریال|تومان|Rls|IRR)|(?:ریال|تومان|Rls|IRR)\\s*[0-9]"""
+        ).containsMatchIn(lower)
+        val hasNumericBalance = Regex(
+            """(?:مانده|موجودی|موجودي)(?:ی\\s*حساب|\\s*حساب|\\s*فعلی|\\s*کل)?\\s*[:：]?\\s*[+-]?\\s*[0-9][0-9, .\\u060C\\u066B\\u066C\\s]*"""
+        ).containsMatchIn(lower)
+        val hasCardOrAccountReference = Regex(
+            """(?i)(?:کارت|card|حساب|شماره\\s*حساب|شماره\\s*کارت)\\s*(?:شما\\s*)?[:：#-]?\\s*(?:[0-9*#-][0-9*#\\-\\s]{3,19})"""
+        ).containsMatchIn(lower)
+        val hasCompletionMarker = Regex(
+            """(?:موفق|انجام\\s*شد|صورت\\s*گرفت|ثبت\\s*نهایی\\s*شد|به\\s*حساب\\s*نشست|از\\s*کارت\\s*پرید|منظور\\s*(?:شد|گردید))"""
+        ).containsMatchIn(lower)
+
+        val hasFinancialStructure = hasNumericBalance ||
+            hasCardOrAccountReference ||
+            (hasAmountLabel && hasCurrencyNearNumber)
+        return hasFinancialStructure &&
+            (hasCompletionMarker || (hasAmountLabel && hasCurrencyNearNumber))
+    }
+
     /**
      * Complete parse pipeline:
      * Validates and constructs suggestion ONLY when all criteria are met.
@@ -804,17 +848,21 @@ object BankSmsParser {
                 return null
             }
 
-            // Stage 2: Validate bank identity or authentic transaction structure
-            if (!hasValidBankEvidence(sender, cleanBody)) {
-                return null
+            // Stage 2: Try the strict path first; ambiguous/weak-but-structured bank
+            // messages may continue only into the explicit manual-review queue.
+            val detectedType = detectTransactionType(cleanBody)
+            val strictEvidence = detectedType != null &&
+                hasValidBankEvidence(sender, cleanBody)
+            val amountToman = if (detectedType != null) {
+                extractAmountToman(cleanBody, detectedType)
+            } else {
+                extractAmountToman(cleanBody, null)
             }
+            val strictAccepted = strictEvidence && amountToman != null && amountToman > 0L
+            val needsManualReview = !strictAccepted &&
+                hasManualReviewEvidence(sender, cleanBody)
 
-            // Stage 3: Strict detection of transaction type (must be clear withdrawal, deposit, or transfer)
-            val detectedType = detectTransactionType(cleanBody) ?: return null
-
-            // Stage 4: Strict extraction and validation of transaction amount
-            val amountToman = extractAmountToman(cleanBody, detectedType)
-            if (amountToman == null || amountToman <= 0L) {
+            if (!strictAccepted && !needsManualReview) {
                 return null
             }
 
@@ -822,11 +870,14 @@ object BankSmsParser {
             val bankName = detectBankName(sender, cleanBody)
 
             // Stage 6: Category, dates, and accounts
-            val category = suggestCategory(cleanBody, detectedType)
+            val category = detectedType?.let { suggestCategory(cleanBody, it) } ?: "سایر"
+            val validAmount = amountToman != null && amountToman > 0L
+            val safeAmount = amountToman?.takeIf { it > 0L } ?: 0L
             val formattedAmount = when (detectedType) {
-                TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountToman, isExpense = true)
-                TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountToman, isExpense = false)
-                TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountToman)
+                TransactionType.EXPENSE -> if (validAmount) MoneyFormatter.formatSignedToman(safeAmount, isExpense = true) else "مبلغ نامشخص"
+                TransactionType.INCOME -> if (validAmount) MoneyFormatter.formatSignedToman(safeAmount, isExpense = false) else "مبلغ نامشخص"
+                TransactionType.TRANSFER -> if (validAmount) MoneyFormatter.formatToman(safeAmount) else "مبلغ نامشخص"
+                null -> "مبلغ نیازمند بررسی"
             }
 
             val (dateText, timeText, finalTimestamp) = formatDateAndTime(timestampMillis, cleanBody)
@@ -835,11 +886,11 @@ object BankSmsParser {
             return BankSmsSuggestion(
                 id = smsId,
                 bankName = bankName,
-                amount = amountToman,
+                amount = safeAmount,
                 formattedAmount = formattedAmount,
-                isAmountValid = true,
+                isAmountValid = validAmount,
                 type = detectedType,
-                isTypeUncertain = false,
+                isTypeUncertain = needsManualReview || detectedType == null,
                 smsText = body.trim(),
                 dateText = dateText,
                 timeText = timeText,
@@ -847,7 +898,7 @@ object BankSmsParser {
                 sourceAccount = sourceAcc,
                 destinationAccount = destAcc,
                 rawSender = sender,
-                parseError = null,
+                parseError = if (needsManualReview) "این پیامک برای بررسی دستی نگه داشته شده است." else null,
                 timestampMillis = finalTimestamp
             )
         } catch (e: Exception) {
