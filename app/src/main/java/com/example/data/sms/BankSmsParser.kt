@@ -987,7 +987,11 @@ object BankSmsParser {
             val typeIsConsistent = when (configuredType) {
                 TransactionType.INCOME -> detectedType == TransactionType.INCOME
                 TransactionType.EXPENSE -> detectedType == TransactionType.EXPENSE
-                TransactionType.TRANSFER -> hasTransferContext
+                // A transfer sample must not turn an incoming credit (e.g. "واریز پایا")
+                // into an outgoing transfer. Explicit debit wording is accepted for
+                // banks that describe an outgoing transfer as a withdrawal.
+                TransactionType.TRANSFER -> hasTransferContext &&
+                    detectedType != TransactionType.INCOME
             }
             if (!typeIsConsistent) return null
 
