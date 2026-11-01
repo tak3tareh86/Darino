@@ -136,4 +136,26 @@ class BankSmsParserTest {
         )
     }
 
+    @Test
+    fun transactionAmountDoesNotInheritCurrencyFromBalance() {
+        assertEquals(
+            1_250L,
+            BankSmsParser.extractAmountToman(
+                "برداشت از حساب، مبلغ تراکنش: ۱۲,۵۰۰، مانده: ۵۰۰,۰۰۰ تومان",
+                TransactionType.EXPENSE
+            )
+        )
+    }
+
+    @Test
+    fun transactionAmountDoesNotInheritCurrencyFromFee() {
+        assertEquals(
+            1_250L,
+            BankSmsParser.extractAmountToman(
+                "برداشت از حساب، مبلغ تراکنش: ۱۲,۵۰۰، کارمزد: ۲۰۰ تومان",
+                TransactionType.EXPENSE
+            )
+        )
+    }
+
 }
