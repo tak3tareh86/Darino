@@ -414,7 +414,7 @@ class VehicleRepository {
         val schedules = if (!date.isNullOrBlank()) {
             val baseMillis = com.example.reminder.domain.ReminderManager.parsePersianDateTimeToMillis(persianDate, persianTime)
             offsets.map { offset ->
-                val triggerMillis = calculateReminderTriggerMillis(baseMillis, offset)
+                val triggerMillis = baseMillis - (offset.value.toLong() * offset.unit.millisMultiplier)
                 com.example.reminder.data.ReminderScheduleEntity(
                     id = "sched_${id}_${offset.name}",
                     reminderId = id,
