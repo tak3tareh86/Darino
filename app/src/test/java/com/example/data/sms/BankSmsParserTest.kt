@@ -29,6 +29,13 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun signedAccountBalanceAloneIsNotATransactionDirection() {
+        assertNull(
+            BankSmsParser.detectTransactionType("مانده حساب: +۱,۲۵۰,۰۰۰ ریال")
+        )
+    }
+
+    @Test
     fun conflictingExplicitDirectionAndSignIsRejected() {
         assertNull(
             BankSmsParser.detectTransactionType("برداشت از حساب، مبلغ تراکنش: +۱,۲۵۰,۰۰۰ ریال")
