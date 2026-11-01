@@ -359,7 +359,9 @@ private fun SmsPatternEditorDialog(
     var type by remember(pattern?.id) { mutableStateOf(pattern?.type ?: SmsPatternType.INCOME) }
     var message by remember(pattern?.id) { mutableStateOf(pattern?.sampleMessage.orEmpty()) }
     var selectedKinds by remember(pattern?.id) {
-        mutableStateOf(pattern?.slots?.associate { it.start to it.kind } ?: emptyMap())
+        mutableStateOf<Map<Int, SmsPatternSlotKind>>(
+            pattern?.slots?.associate { it.start to it.kind } ?: emptyMap()
+        )
     }
     var expandedSlotIndex by remember(pattern?.id) { mutableStateOf<Int?>(null) }
     val normalizedMessage = BankSmsParser.normalizeText(message)
