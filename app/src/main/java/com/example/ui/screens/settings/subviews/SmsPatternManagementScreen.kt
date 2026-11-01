@@ -245,7 +245,7 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
                     ) {
                         Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                         Text(
-                            "الگوها به‌صورت محلی و رمزگذاری‌شده و جداگانه برای حساب کاربری شما ذخیره می‌شوند. پیامک‌های منطبق با این الگوها شناسایی شده و برای بررسی و تأیید در کارت ثبت خودکار تراکنش‌ها نمایش داده می‌شوند. مبلغ، مانده، شماره‌ها، تاریخ و ساعت می‌توانند تغییر کنند؛ عبارت‌های متنی باید با نمونه یکسان باشند.",
+                            "الگوها به‌صورت محلی و رمزگذاری‌شده ذخیره می‌شوند. فقط پیامکی پذیرفته می‌شود که متن ثابت آن دقیقاً با الگو منطبق باشد و جایگاه‌های متغیرِ انتخاب‌شده توسط شما در همان ترتیب قرار داشته باشند. نوع تراکنش نیز فقط از انتخاب شما در الگو گرفته می‌شود.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
@@ -414,7 +414,12 @@ private fun SmsPatternEditorDialog(
                 ) {
                     Text("متن کامل پیامک نمونه", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     TextButton(
-                        onClick = { clipboardManager.getText()?.text?.takeIf { it.isNotBlank() }?.let { message = it } },
+                        onClick = {
+                            clipboardManager.getText()?.text?.takeIf { it.isNotBlank() }?.let {
+                                message = it
+                                selectedKinds = emptyMap()
+                            }
+                        },
                         enabled = !clipboardManager.getText()?.text.isNullOrBlank()
                     ) {
                         Icon(Icons.Rounded.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
