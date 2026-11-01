@@ -5,6 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.data.database.AppDatabase
 import com.example.data.database.CheckEntity
 import com.example.data.security.SessionManager
+import com.example.data.preferences.AppPreferencesRepository
+import com.example.ui.screens.settings.model.AlertDeliveryPreference
+import java.util.Calendar
 import com.example.ui.screens.check.data.CheckOperationResult
 import com.example.ui.screens.check.data.LocalCheckRepository
 import com.example.ui.screens.check.model.Check
@@ -46,6 +49,10 @@ class CheckManagementTest {
         repository = LocalCheckRepository.instance
         repository.init(context)
         database = AppDatabase.getDatabase(context)
+        AppPreferencesRepository.getInstance(context).apply {
+            setNotificationsEnabled(true)
+            setAlertDelivery(AlertDeliveryPreference.NOTIFICATION_ONLY)
+        }
         
         runBlocking {
             repository.clearAllChecks()
@@ -556,10 +563,31 @@ class CheckManagementTest {
     }
 
     @Test
+    fun `test check reminder timestamp in the past is rejected`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val check = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 1000,
+            checkNumber = "REM-PAST-01",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = now - 86400000,
+            dueDate = now + 86400000,
+            status = CheckStatus.REGISTERED,
+            reminderDateTime = now - 60000
+        )
+
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.addCheck(check))
+        assertTrue(repository.getChecks().first().none { it.checkNumber == "REM-PAST-01" })
+    }
+    @Test
     fun `test add and edit check reminder date time and retrieve`() = runBlocking {
         SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
-        val initialReminder = System.currentTimeMillis() + 3600000
+        val initialReminder = Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, 1); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
         val check = Check(
             id = 0,
             userId = "user_1",
@@ -577,9 +605,14 @@ class CheckManagementTest {
         repository.addCheck(check)
         val saved = repository.getChecks().first()[0]
         assertEquals(initialReminder, saved.reminderDateTime)
+        val reminderRepository = com.example.reminder.data.LocalReminderRepository(context)
+        val createdReminder = reminderRepository.getReminderBySourceId(saved.id.toString())
+        assertNotNull("Explicitly selected check reminder must be persisted", createdReminder)
+        val initialSchedule = reminderRepository.getSchedulesSync(createdReminder!!.id).single()
+        assertEquals("Alarm must preserve the exact selected minute", initialReminder, initialSchedule.triggerDateTime)
 
         // Update with new reminder time
-        val newReminder = System.currentTimeMillis() + 7200000
+        val newReminder = Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, 2); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
         val updateResult = repository.updateCheck(saved.copy(reminderDateTime = newReminder))
         assertEquals(CheckOperationResult.SUCCESS, updateResult)
 
@@ -587,6 +620,10 @@ class CheckManagementTest {
         val retrieved = repository.getCheckById(saved.id)
         assertNotNull(retrieved)
         assertEquals(newReminder, retrieved?.reminderDateTime)
+        val updatedReminder = reminderRepository.getReminderBySourceId(saved.id.toString())
+        assertNotNull(updatedReminder)
+        val updatedSchedule = reminderRepository.getSchedulesSync(updatedReminder!!.id).single()
+        assertEquals("Edited reminder must be rescheduled to the new exact minute", newReminder, updatedSchedule.triggerDateTime)
     }
 
     @Test
