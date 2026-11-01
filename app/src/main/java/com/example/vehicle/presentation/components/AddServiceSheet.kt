@@ -454,7 +454,7 @@ fun AddServiceSheet(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Box(modifier = Modifier.weight(1.2f)) {
+                            Box(modifier = Modifier.weight(1f)) {
                                 PersianDateInputField(
                                     value = nextServiceDateText,
                                     onValueChange = {
@@ -470,7 +470,7 @@ fun AddServiceSheet(
                                 )
                             }
 
-                            Box(modifier = Modifier.weight(0.9f)) {
+                            Box(modifier = Modifier.weight(1.1f)) {
                                 PersianTimeInputField(
                                     value = nextServiceTimeText,
                                     onValueChange = { nextServiceTimeText = it },

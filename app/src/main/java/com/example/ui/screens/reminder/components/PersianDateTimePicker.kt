@@ -670,13 +670,14 @@ fun PersianTimeInputField(
                 Icon(
                     imageVector = Icons.Rounded.AccessTime,
                     contentDescription = "انتخاب ساعت",
-                    tint = WarningAmberLight
+                    tint = WarningAmberLight,
+                    modifier = Modifier.size(18.dp)
                 )
             },
             trailingIcon = {
                 IconButton(
                     onClick = { if (enabled) showTimePickerDialog = true },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(30.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Schedule,
@@ -686,6 +687,12 @@ fun PersianTimeInputField(
                 }
             },
             shape = RoundedCornerShape(RadiusMD),
+            textStyle = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center
+            ),
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
