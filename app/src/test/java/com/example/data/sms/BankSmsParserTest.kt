@@ -159,6 +159,24 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun transactionAmountIsNotConfusedWithDescribedTransferFee() {
+        val sms = "کارمزد انتقال وجه: ۲۰۰ ریال؛ برداشت از حساب با موفقیت انجام شد؛ مبلغ تراکنش: ۱۲,۵۰۰ ریال؛ مانده: ۵۰۰,۰۰۰ ریال"
+        assertEquals(1_250L, BankSmsParser.extractAmountToman(sms, TransactionType.EXPENSE))
+    }
+
+    @Test
+    fun transactionAmountIsNotConfusedWithServiceFeeInToman() {
+        val sms = "برداشت از حساب با موفقیت انجام شد؛ هزینه خدمات: ۲,۰۰۰ تومان؛ مبلغ تراکنش: ۱۲,۵۰۰ ریال"
+        assertEquals(1_250L, BankSmsParser.extractAmountToman(sms, TransactionType.EXPENSE))
+    }
+
+    @Test
+    fun taxAndTransferFeeAreExcludedFromTransactionAmount() {
+        val sms = "پرداخت با موفقیت انجام شد؛ مالیات بر ارزش افزوده: ۹۰۰ ریال؛ کارمزد کارت به کارت: ۱,۰۰۰ ریال؛ مبلغ پرداخت: ۵۰,۰۰۰ ریال"
+        assertEquals(5_000L, BankSmsParser.extractAmountToman(sms, TransactionType.EXPENSE))
+    }
+
+    @Test
     fun completedPaymentWithBalanceIsNotClassifiedAsBalanceOnlyNotice() {
         assertEquals(
             false,
