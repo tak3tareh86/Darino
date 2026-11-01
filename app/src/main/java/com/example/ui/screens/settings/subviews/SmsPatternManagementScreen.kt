@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,7 +26,6 @@ import androidx.compose.material.icons.rounded.TrendingDown
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -331,6 +329,7 @@ private fun SmsPatternEditorDialog(
     onDismiss: () -> Unit,
     onSave: (String, SmsPatternType, String) -> Unit
 ) {
+    val clipboardManager = LocalClipboardManager.current
     var name by remember(pattern?.id) { mutableStateOf(pattern?.name.orEmpty()) }
     var type by remember(pattern?.id) { mutableStateOf(pattern?.type ?: SmsPatternType.INCOME) }
     var message by remember(pattern?.id) { mutableStateOf(pattern?.sampleMessage.orEmpty()) }
@@ -363,7 +362,21 @@ private fun SmsPatternEditorDialog(
                         leadingIcon = { Icon(Icons.Rounded.TrendingDown, null, modifier = Modifier.size(16.dp)) }
                     )
                 }
-                Text("متن کامل پیامک نمونه", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("متن کامل پیامک نمونه", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(
+                        onClick = { clipboardManager.getText()?.text?.takeIf { it.isNotBlank() }?.let { message = it } },
+                        enabled = !clipboardManager.getText()?.text.isNullOrBlank()
+                    ) {
+                        Icon(Icons.Rounded.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.size(4.dp))
+                        Text("جای‌گذاری")
+                    }
+                }
                 OutlinedTextField(
                     value = message,
                     onValueChange = { message = it },
