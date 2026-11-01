@@ -120,7 +120,7 @@ class SmsPatternRepository(context: Context) {
             id = UUID.randomUUID().toString(),
             name = name.trim(),
             type = type,
-            sampleMessage = sampleMessage.trim(),
+            sampleMessage = sampleMessage,
             slots = slots.sortedBy { it.start }
         ).also(::save)
     }
