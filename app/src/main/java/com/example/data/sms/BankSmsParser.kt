@@ -64,13 +64,22 @@ object BankSmsParser {
         }
 
         val defaultDateTime = PersianCalendarHelper.fromEpochMillis(timestampMillis)
-        val dateParts = fields.first(SmsPatternSlotKind.DATE)?.let(::parseJalaliDate)
-            ?: Triple(defaultDateTime.year, defaultDateTime.month, defaultDateTime.day)
+        val dateParts = when {
+            fields.first(SmsPatternSlotKind.DATE) != null ->
+                parseJalaliDate(fields.first(SmsPatternSlotKind.DATE)!!, defaultDateTime.year, dayFirst = false)
+            fields.first(SmsPatternSlotKind.DATE_DAY_MONTH) != null ->
+                parseJalaliDate(fields.first(SmsPatternSlotKind.DATE_DAY_MONTH)!!, defaultDateTime.year, dayFirst = true)
+            fields.first(SmsPatternSlotKind.DATE_MONTH_DAY) != null ->
+                parseJalaliDate(fields.first(SmsPatternSlotKind.DATE_MONTH_DAY)!!, defaultDateTime.year, dayFirst = false)
+            else -> Triple(defaultDateTime.year, defaultDateTime.month, defaultDateTime.day)
+        } ?: return null
         val timeParts = fields.first(SmsPatternSlotKind.TIME)?.let(::parseClockTime)
             ?: (defaultDateTime.hour to defaultDateTime.minute)
 
         val hasExplicitDateOrTime =
             fields.first(SmsPatternSlotKind.DATE) != null ||
+                fields.first(SmsPatternSlotKind.DATE_DAY_MONTH) != null ||
+                fields.first(SmsPatternSlotKind.DATE_MONTH_DAY) != null ||
                 fields.first(SmsPatternSlotKind.TIME) != null
         val finalTimestamp = if (hasExplicitDateOrTime) {
             runCatching {
@@ -137,14 +146,30 @@ object BankSmsParser {
         return digits.toLongOrNull()?.takeIf { it > 0L && it <= 1_000_000_000_000_000L }
     }
 
-    private fun parseJalaliDate(value: String): Triple<Int, Int, Int>? {
-        val match = Regex("""^([0-9]{2,4})[/.-]([0-9]{1,2})[/.-]([0-9]{1,2})$""")
-            .matchEntire(value.trim()) ?: return null
-        val yearText = match.groupValues[1]
-        val yearValue = yearText.toIntOrNull() ?: return null
-        val year = if (yearText.length == 2) 1400 + yearValue else yearValue
-        val month = match.groupValues[2].toIntOrNull() ?: return null
-        val day = match.groupValues[3].toIntOrNull() ?: return null
+    private fun parseJalaliDate(
+        value: String,
+        defaultYear: Int,
+        dayFirst: Boolean
+    ): Triple<Int, Int, Int>? {
+        val parts = value.trim().split(Regex("[/.-]"))
+        val year: Int
+        val month: Int
+        val day: Int
+        if (parts.size == 2) {
+            year = defaultYear
+            val first = parts[0].toIntOrNull() ?: return null
+            val second = parts[1].toIntOrNull() ?: return null
+            month = if (dayFirst) second else first
+            day = if (dayFirst) first else second
+        } else if (parts.size == 3) {
+            val yearText = parts[0]
+            val yearValue = yearText.toIntOrNull() ?: return null
+            year = if (yearText.length == 2) 1400 + yearValue else yearValue
+            month = parts[1].toIntOrNull() ?: return null
+            day = parts[2].toIntOrNull() ?: return null
+        } else {
+            return null
+        }
         if (year !in 1300..1499 || month !in 1..12 || day !in 1..31) return null
         return Triple(year, month, day)
     }
