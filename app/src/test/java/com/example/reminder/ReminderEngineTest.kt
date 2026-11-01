@@ -28,6 +28,16 @@ class ReminderEngineTest {
     }
 
     @Test
+    fun parsePersianDateTimeRejectsMalformedDateText() {
+        try {
+            ReminderManager.parsePersianDateTimeToMillis("تاریخ ۱۴۰۴/۰۱/۰۱", "۰۹:۳۰")
+            fail("Malformed date text must be rejected")
+        } catch (_: IllegalArgumentException) {
+            // Expected.
+        }
+    }
+
+    @Test
     fun parsePersianDateTimeRejectsInvalidTime() {
         try {
             ReminderManager.parsePersianDateTimeToMillis("۱۴۰۴/۰۱/۰۱", "۲۴:۰۰")
