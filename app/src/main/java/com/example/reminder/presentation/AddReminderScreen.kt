@@ -59,9 +59,15 @@ fun AddReminderScreen(
         reminder: ReminderEntity,
         offsets: List<PredefinedOffset>,
         repeatType: RepeatType,
+        repeatInterval: Int
+    ) -> Unit = { _, _, _, _ -> },
+    onSaveReminderWithResult: ((
+        reminder: ReminderEntity,
+        offsets: List<PredefinedOffset>,
+        repeatType: RepeatType,
         repeatInterval: Int,
         onComplete: (Result<Int>) -> Unit
-    ) -> Unit,
+    ) -> Unit)? = null,
     initialDate: String? = null,
     initialType: ReminderType = ReminderType.GENERAL,
     modifier: Modifier = Modifier
@@ -159,12 +165,18 @@ fun AddReminderScreen(
             fullScreenAlarmEnabled = false
         )
         isSaving = true
-        onSaveReminder(reminder, offsetsToSave, effectiveRepeatType, effectiveRepeatInterval) { result ->
+        val handleResult: (Result<Int>) -> Unit = { result ->
             isSaving = false
             result.onSuccess { onBackClick() }
             result.onFailure { error ->
                 saveErrorMessage = error.localizedMessage ?: "ثبت یادآور انجام نشد. اطلاعات فرم حفظ شده است؛ دوباره تلاش کنید."
             }
+        }
+        if (onSaveReminderWithResult != null) {
+            onSaveReminderWithResult(reminder, offsetsToSave, effectiveRepeatType, effectiveRepeatInterval, handleResult)
+        } else {
+            onSaveReminder(reminder, offsetsToSave, effectiveRepeatType, effectiveRepeatInterval)
+            handleResult(Result.success(0))
         }
     }
 
