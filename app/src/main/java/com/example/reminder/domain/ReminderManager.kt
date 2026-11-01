@@ -102,7 +102,7 @@ class ReminderManager(
         repository.insertReminderWithSchedules(reminder, schedules)
         val scheduledCount = try {
             scheduler.schedule(reminder, schedules).also { count ->
-                if (schedules.any { it.enabled } && count == 0) {
+                if (reminder.sourceType.equals("CHECK", ignoreCase = true) && schedules.any { it.enabled } && count == 0) {
                     throw IllegalStateException("هیچ آلارمی ثبت نشد؛ تنظیمات اعلان و مجوز آلارم دقیق را بررسی کنید.")
                 }
             }
@@ -175,7 +175,7 @@ class ReminderManager(
         repository.updateReminderWithSchedules(reminder, newSchedules)
         val scheduledCount = try {
             scheduler.schedule(reminder, newSchedules).also { count ->
-                if (newSchedules.any { it.enabled } && count == 0) {
+                if (reminder.sourceType.equals("CHECK", ignoreCase = true) && newSchedules.any { it.enabled } && count == 0) {
                     throw IllegalStateException("هیچ آلارمی ثبت نشد؛ تنظیمات اعلان و مجوز آلارم دقیق را بررسی کنید.")
                 }
             }
