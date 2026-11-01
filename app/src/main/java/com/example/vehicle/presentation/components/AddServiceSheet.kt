@@ -639,7 +639,8 @@ fun AddServiceSheet(
                 Text(
                     when {
                         !isReminderEnabled -> "برای این سرویس یادآوری فعال نشده است."
-                        selectedOffsets.isEmpty() -> "یادآور فعال شده، اما هیچ زمان هشداری انتخاب نشده است."
+                        !remind1WeekBefore && !remind3DaysBefore && !remind1DayBefore && !remindAtDueDate ->
+                            "یادآور فعال شده، اما هیچ زمان هشداری انتخاب نشده است."
                         else -> "زمان هشدار انتخاب شده، اما روش دریافت اعلان در تنظیمات عمومی فعال نیست."
                     } + " با تأیید، سرویس بدون اعلان ثبت می‌شود."
                 )
