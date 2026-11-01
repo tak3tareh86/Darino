@@ -386,6 +386,10 @@ object BankSmsParser {
         val hasNumericBalance = Regex(
             """(?:مانده|موجودی|موجودي)(?:ی\s*حساب|\s*حساب|\s*فعلی|\s*کل)?\s*[:：]?\s*[+-]?\s*[0-9][0-9,.\u060C\u066B\u066C\s]*"""
         ).containsMatchIn(lower)
+        val hasSignedTransactionAmount =
+            Regex("""[+-]\s*[0-9][0-9,.\u060C\u066B\u066C]*""").containsMatchIn(normalizedBody) &&
+                hasAmountLabel
+
         val hasCompletionMarker = Regex(
             """(?:تراکنش\s*(?:موفق|انجام\s*شد)|(?:خرید|پرداخت|انتقال|حواله|کارت\s*به\s*کارت)\s*(?:موفق|انجام\s*شد)|(?:برداشت|واریز|کسر)\s*(?:شد|گردید|موفق)|بستانکار\s*شد|بدهکار\s*شد|با\s*موفقیت\s*(?:انجام|ثبت)\s*شد|ثبت\s*نهایی\s*شد|به\s*حساب\s*نشست|از\s*کارت\s*پرید|منظور\s*(?:شد|گردید))"""
         ).containsMatchIn(lower)
@@ -406,6 +410,7 @@ object BankSmsParser {
         ).containsMatchIn(lower)
         val hasCompletedMoneyEvent = hasCoreMoneyEvent ||
             hasCompletedTransferLanguage ||
+            hasSignedTransactionAmount ||
             (hasPurchaseOrTransferLanguage &&
                 (hasCardOrAccountReference || hasNumericBalance || hasCompletionMarker))
 
@@ -416,7 +421,8 @@ object BankSmsParser {
         // paired with an amount label/currency is required even for known bank senders.
         val hasFinancialStructure = hasCardOrAccountReference ||
             hasNumericBalance ||
-            (hasCompletionMarker && (hasAmountLabel || hasCurrencyNearNumber))
+            (hasCompletionMarker && (hasAmountLabel || hasCurrencyNearNumber)) ||
+            (hasSignedTransactionAmount && hasCurrencyNearNumber)
         if (!hasFinancialStructure) return false
 
         // Confidence score: bank identity is one signal, never the only one.
