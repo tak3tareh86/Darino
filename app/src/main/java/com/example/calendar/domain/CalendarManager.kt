@@ -88,12 +88,18 @@ class CalendarManager(private val context: Context) {
                             id = eventId,
                             title = rem.title,
                             description = rem.description,
-                            type = FinancialEventType.REMINDER,
+                            type = when (rem.type.uppercase()) {
+                                "INSTALLMENT", "LOAN" -> FinancialEventType.INSTALLMENT
+                                "VEHICLE", "MAINTENANCE", "FUEL", "INSURANCE" -> FinancialEventType.VEHICLE
+                                "FINANCE", "EXPENSE" -> FinancialEventType.EXPENSE
+                                else -> FinancialEventType.REMINDER
+                            },
                             amount = rem.amount,
                             date = normDate,
                             time = normTime,
                             repeatType = "NONE",
                             reminderBefore = ReminderBeforeOption.NONE,
+                            reminderLabel = if (rem.notificationEnabled || rem.fullScreenAlarmEnabled || rem.smsEnabled) "هشدار تنظیم شده" else null,
                             sourceId = rem.id.toString(),
                             status = status
                         )
@@ -296,7 +302,9 @@ class CalendarManager(private val context: Context) {
     }
 
     suspend fun deleteEvent(id: String) {
-        if (!id.startsWith("auto_")) {
+        if (id.startsWith("auto_rem_")) {
+            com.example.reminder.domain.ReminderManager(context).deleteReminder(id.removePrefix("auto_rem_"))
+        } else if (!id.startsWith("auto_")) {
             com.example.calendar.reminder.CalendarEventReminderScheduler(context).cancel(id)
             repository.deleteEventById(id)
         }
@@ -308,14 +316,12 @@ class CalendarManager(private val context: Context) {
 
         if (event.id.startsWith("auto_rem_")) {
             val reminderId = event.id.removePrefix("auto_rem_")
-            val newReminderStatus = if (event.status == FinancialEventStatus.PAID) "ACTIVE" else "COMPLETED"
-            database.smartReminderDao().updateStatus(
-                userId = userId,
-                id = reminderId,
-                status = newReminderStatus,
-                completedAt = if (newReminderStatus == "COMPLETED") System.currentTimeMillis() else null,
-                cancelledAt = null
-            )
+            val manager = com.example.reminder.domain.ReminderManager(context)
+            if (event.status == FinancialEventStatus.PAID) {
+                manager.restoreReminder(reminderId)
+            } else {
+                manager.completeReminder(reminderId)
+            }
         } else if (event.id.startsWith("auto_inst_")) {
             val instIdStr = event.id.removePrefix("auto_inst_")
             val instId = instIdStr.toIntOrNull()
