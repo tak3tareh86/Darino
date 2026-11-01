@@ -364,7 +364,7 @@ private fun SmsPatternEditorDialog(
     var expandedSlotIndex by remember(pattern?.id) { mutableStateOf<Int?>(null) }
     val normalizedMessage = BankSmsParser.normalizeText(message)
     val numericCandidates = remember(normalizedMessage) {
-        SmsPatternMatcher.detectNumericCandidates(normalizedMessage)
+        SmsPatternMatcher.tokenizeTemplateForManualSlotSelection(normalizedMessage)
     }
     val configuredKinds = selectedKinds.values.filter { it != SmsPatternSlotKind.FIXED }
     val slotGroups = configuredKinds.map { kind ->
