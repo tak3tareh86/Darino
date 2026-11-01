@@ -3,9 +3,9 @@ package com.example.data.sms
 /**
  * Matches an incoming SMS against a sample explicitly entered by the user.
  *
- * The sample is a fixed template. Only the numeric value belonging to an amount
- * label, a calendar date, or a clock time may vary. Other numbers (card/account
- * suffixes, tracking codes, terminal IDs, etc.) remain literal text.
+ * The sample is a fixed template. Only values explicitly following amount, date,
+ * time, card/account, or tracking-code labels may vary. Their labels and positions,
+ * and every other character/number in the sample, remain fixed.
  */
 object SmsPatternMatcher {
 
@@ -29,6 +29,15 @@ object SmsPatternMatcher {
     private val dateValue = Regex(
         """(?<![0-9])(?:13|14)[0-9]{2}[/.-](?:0?[1-9]|1[0-2])[/.-](?:0?[1-9]|[12][0-9]|3[01])(?![0-9])"""
     )
+
+    // Labels and their positions stay literal; only the following identifier value varies.
+    private val cardOrAccountLabel = Regex(
+        """(?:شماره\\s*کارت|کارت\\s*(?:مبدأ|مبدا|مقصد)|از\\s*کارت|به\\s*کارت|شماره\\s*حساب|حساب\\s*(?:مبدأ|مبدا|مقصد)|از\\s*حساب|به\\s*حساب)\\s*[:：#-]?\\s*[0-9*#][0-9*# -]{1,32}[0-9*#]"""
+    )
+    private val trackingLabel = Regex(
+        """(?:کد|شماره)\\s*(?:پیگیری|رهگیری)|شناسه\\s*(?:پیگیری|رهگیری)"""
+    )
+    private val identifierValue = Regex("""[0-9*#][0-9*# -]{1,32}[0-9*#]""")
     private val timeValue = Regex(
         """ساعت\s*[:：]?\s*[0-2]?[0-9]:[0-5][0-9]"""
     )
@@ -101,6 +110,31 @@ object SmsPatternMatcher {
                     )
                 )
             }
+
+            cardOrAccountLabel.findAll(sample).forEach { match ->
+                val value = identifierValue.find(match.value) ?: return@forEach
+                add(
+                    VariableSpan(
+                        match.range.first + value.range.first,
+                        match.range.first + value.range.last + 1,
+                        "identifier"
+                    )
+                )
+            }
+
+            trackingLabel.findAll(sample).forEach { labelMatch ->
+                val tailStart = labelMatch.range.last + 1
+                val tail = sample.substring(tailStart)
+                val separator = Regex("""^\\s*[:：#-]?\\s*""").find(tail) ?: return@forEach
+                val value = identifierValue.find(tail, separator.range.last + 1) ?: return@forEach
+                add(
+                    VariableSpan(
+                        tailStart + value.range.first,
+                        tailStart + value.range.last + 1,
+                        "identifier"
+                    )
+                )
+            }
         }.sortedBy { it.start }
 
         val accepted = mutableListOf<VariableSpan>()
@@ -121,6 +155,7 @@ object SmsPatternMatcher {
                     when (span.kind) {
                         "date" -> """[0-9]{4}[/.-][0-9]{1,2}[/.-][0-9]{1,2}"""
                         "time" -> """[0-2]?[0-9]:[0-5][0-9]"""
+                        "identifier" -> """[0-9*#][0-9*# -]{1,32}[0-9*#]"""
                         else -> """([0-9][0-9,،٬٫.]*)"""
                     }
                 )
