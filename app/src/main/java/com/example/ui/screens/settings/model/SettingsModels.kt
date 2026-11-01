@@ -87,6 +87,7 @@ enum class SettingsDestination {
     VEHICLES,
     NOTIFICATIONS,
     SMS,
+    SMS_PATTERNS,
     REMINDERS,
     APPEARANCE,
     BACKUP,
@@ -270,6 +271,7 @@ object SettingsMockDataSource {
         SettingsSearchItem("s_night_mode", "حالت شب و روز", "تم روشن، تاریک و هماهنگ با سیستم", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "🌓"),
         SettingsSearchItem("s_transition", "انیمیشن جابجایی بین منوها", "اسلاید، محو شدن (fade)، بزرگ‌نمایی (scale)، زوم و حالت پویا و فنری", "تنظیمات عمومی", SettingsDestination.GENERAL, null, "⚡"),
         SettingsSearchItem("s_alerts", "روش دریافت هشدار", "فقط نوتیفیکیشن، آلارم تمام‌صفحه یا هر دو", "تنظیمات عمومی", SettingsDestination.GENERAL, R.drawable.img_3d_bell_notification),
+        SettingsSearchItem("s_sms_patterns", "مدیریت الگوهای پیامکی", "ثبت، ویرایش و حذف نمونه پیامک‌های واریز و برداشت بانک‌ها", "پیامک‌های بانکی", SettingsDestination.SMS_PATTERNS, null, "💬"),
         SettingsSearchItem("s_backup_sup", "پشتیبانی و بک‌آپ‌گیری", "تهیه نسخه پشتیبان، بازیابی فایل، راهنما و ارتباط با کارشناسان", "پشتیبانی و بک‌آپ", SettingsDestination.SUPPORT_BACKUP, R.drawable.img_3d_cloud_backup),
         SettingsSearchItem("s_sec", "امنیت و قفل ورود", "قفل با اثر انگشت، رمز عبور و حریم خصوصی", "امنیت", SettingsDestination.SECURITY, R.drawable.img_3d_shield_security),
         SettingsSearchItem("s_about", "درباره برنامه", "اطلاعات نسخه و مجوزها", "درباره", SettingsDestination.ABOUT, R.drawable.img_3d_settings_gear)
