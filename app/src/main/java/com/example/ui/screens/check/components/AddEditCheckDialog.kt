@@ -65,7 +65,11 @@ fun AddEditCheckDialog(
     var issueDate by remember { mutableStateOf(check?.issueDate ?: System.currentTimeMillis()) }
     var dueDate by remember { mutableStateOf(check?.dueDate ?: (System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000)) }
     var status by remember { mutableStateOf(check?.status ?: CheckStatus.REGISTERED) }
-    var reminderDateTime by remember { mutableStateOf(check?.reminderDateTime) }
+    var reminderDateTime by remember(check) { mutableStateOf(check?.reminderDateTime) }
+    var reminderEnabled by remember(check) { mutableStateOf(check?.reminderDateTime != null) }
+    var reminderTimeSelected by remember(check) { mutableStateOf(check?.reminderDateTime != null) }
+    var showNoReminderConfirmation by remember { mutableStateOf(false) }
+    var showReminderSetupError by remember { mutableStateOf(false) }
     var notes by remember { mutableStateOf(check?.notes.orEmpty()) }
 
     var showIssueDatePicker by remember { mutableStateOf(false) }
@@ -101,6 +105,38 @@ fun AddEditCheckDialog(
     val normalizedSayadId = sayadId.toEnglishDigits().filter { it.isDigit() }
     val isSayadIdInvalid = normalizedSayadId.isNotBlank() && normalizedSayadId.length != 16
     var showError by remember { mutableStateOf(false) }
+
+    fun submitCheck(reminderAt: Long?) {
+        val enteredAmount = amount.toEnglishDigits().toLongOrNull() ?: 0L
+        val amountInToman = MoneyFormatter.convertToToman(enteredAmount)
+        if (amountInToman > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() &&
+            !isDateInvalid && (reminderAt == null || !isReminderInvalid) && !isSayadIdInvalid) {
+            onConfirm(
+                Check(
+                    id = check?.id ?: 0,
+                    userId = check?.userId ?: "",
+                    type = type,
+                    amount = amountInToman,
+                    checkNumber = checkNumber,
+                    sayadId = normalizedSayadId.ifBlank { null },
+                    bankName = bankName.trim(),
+                    branch = branch.ifBlank { null },
+                    holderName = holderName.trim(),
+                    receiverName = receiverName.trim(),
+                    issueDate = issueDate,
+                    dueDate = dueDate,
+                    status = status,
+                    notes = notes.trim().ifBlank { null },
+                    accountId = check?.accountId,
+                    reminderDateTime = reminderAt,
+                    createdAt = check?.createdAt ?: System.currentTimeMillis(),
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        } else {
+            showError = true
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -324,24 +360,24 @@ fun AddEditCheckDialog(
                         )
                     }
                     Switch(
-                        checked = reminderDateTime != null,
-                        onCheckedChange = { 
+                        checked = reminderEnabled,
+                        onCheckedChange = {
+                            reminderEnabled = it
+                            showReminderSetupError = false
                             if (it) {
-                                // Default reminder: 1 day before due date at 09:00
-                                val calendar = Calendar.getInstance()
-                                calendar.timeInMillis = dueDate
-                                calendar.add(Calendar.DAY_OF_YEAR, -1)
-                                calendar.set(Calendar.HOUR_OF_DAY, 9)
-                                calendar.set(Calendar.MINUTE, 0)
-                                reminderDateTime = calendar.timeInMillis
+                                // Enabling the switch does not choose a default reminder date or time.
+                                reminderDateTime = null
+                                reminderTimeSelected = false
+                                showReminderDatePicker = true
                             } else {
                                 reminderDateTime = null
+                                reminderTimeSelected = false
                             }
                         }
                     )
                 }
 
-                if (reminderDateTime != null) {
+                if (reminderEnabled && reminderDateTime != null) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         OutlinedCard(
                             onClick = { showReminderDatePicker = true },
@@ -373,6 +409,20 @@ fun AddEditCheckDialog(
                     }
                 }
 
+                if (reminderEnabled && reminderDateTime == null) {
+                    OutlinedButton(
+                        onClick = { showReminderDatePicker = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("انتخاب تاریخ و ساعت هشدار") }
+                }
+                if (showReminderSetupError) {
+                    Text(
+                        "برای فعال‌کردن یادآور، تاریخ و ساعت آن را خودتان انتخاب کنید.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
@@ -385,34 +435,12 @@ fun AddEditCheckDialog(
 
                 Button(
                     onClick = {
-                        val enteredAmount = amount.toEnglishDigits().toLongOrNull() ?: 0L
-                        val amountInToman = MoneyFormatter.convertToToman(enteredAmount)
-                        if (amountInToman > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() &&
-                            !isDateInvalid && !isReminderInvalid && !isSayadIdInvalid) {
-                            onConfirm(
-                                Check(
-                                    id = check?.id ?: 0,
-                                    userId = check?.userId ?: "",
-                                    type = type,
-                                    amount = amountInToman,
-                                    checkNumber = checkNumber,
-                                    sayadId = normalizedSayadId.ifBlank { null },
-                                    bankName = bankName.trim(),
-                                    branch = branch.ifBlank { null },
-                                    holderName = holderName.trim(),
-                                    receiverName = receiverName.trim(),
-                                    issueDate = issueDate,
-                                    dueDate = dueDate,
-                                    status = status,
-                                    notes = notes.trim().ifBlank { null },
-                                    accountId = check?.accountId,
-                                    reminderDateTime = reminderDateTime,
-                                    createdAt = check?.createdAt ?: System.currentTimeMillis(),
-                                    updatedAt = System.currentTimeMillis()
-                                )
-                            )
+                        if (reminderEnabled && (!reminderTimeSelected || reminderDateTime == null)) {
+                            showReminderSetupError = true
+                        } else if (!reminderEnabled) {
+                            showNoReminderConfirmation = true
                         } else {
-                            showError = true
+                            submitCheck(reminderDateTime)
                         }
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp),
@@ -534,9 +562,10 @@ fun AddEditCheckDialog(
                 initialMonth = dateParts.month,
                 initialDay = dateParts.day,
                 onConfirm = { y, m, d ->
-                    val currentTime = PersianCalendarHelper.fromEpochMillis(reminderDateTime ?: System.currentTimeMillis())
-                    reminderDateTime = PersianCalendarHelper.jalaliToEpochMillis(y, m, d, currentTime.hour, currentTime.minute)
+                    reminderDateTime = PersianCalendarHelper.jalaliToEpochMillis(y, m, d, 0, 0)
+                    reminderTimeSelected = false
                     showReminderDatePicker = false
+                    showReminderTimePicker = true
                 },
                 onDismiss = { showReminderDatePicker = false }
             )
@@ -551,6 +580,8 @@ fun AddEditCheckDialog(
                 onConfirm = { h, m ->
                     val currentDate = PersianCalendarHelper.fromEpochMillis(reminderDateTime ?: System.currentTimeMillis())
                     reminderDateTime = PersianCalendarHelper.jalaliToEpochMillis(currentDate.year, currentDate.month, currentDate.day, h, m)
+                    reminderTimeSelected = true
+                    showReminderSetupError = false
                     showReminderTimePicker = false
                 }
             )
@@ -653,4 +684,21 @@ private fun String.toEnglishDigits(): String = map { char ->
         in '٠'..'٩' -> ('0'.code + (char.code - '٠'.code)).toChar()
         else -> char
     }
-}.joinToString("")
+
+    if (showNoReminderConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showNoReminderConfirmation = false },
+            title = { Text("ثبت چک بدون اعلان؟") },
+            text = { Text("برای این چک یادآوری تنظیم نشده است. اگر تأیید کنید، چک بدون اعلان ثبت می‌شود؛ برای تنظیم یادآوری، لغو را بزنید و یادآور را فعال و زمان آن را انتخاب کنید.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showNoReminderConfirmation = false
+                    submitCheck(null)
+                }) { Text("تأیید و ثبت بدون اعلان") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNoReminderConfirmation = false }) { Text("لغو و تنظیم یادآوری") }
+            }
+        )
+    }
+.joinToString("")
