@@ -46,6 +46,7 @@ import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.IranianAmountUtils
+import com.example.util.IranianDateUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.PersianCalendarHelper
 import java.util.UUID
@@ -58,7 +59,8 @@ fun AddReminderScreen(
         reminder: ReminderEntity,
         offsets: List<PredefinedOffset>,
         repeatType: RepeatType,
-        repeatInterval: Int
+        repeatInterval: Int,
+        onComplete: (Result<Int>) -> Unit
     ) -> Unit,
     initialDate: String? = null,
     initialType: ReminderType = ReminderType.GENERAL,
@@ -74,6 +76,10 @@ fun AddReminderScreen(
     val globalDeliveryMode by preferences.alertDelivery.collectAsState()
     val globalNotificationsEnabled by preferences.notificationsEnabled.collectAsState()
     var showNoAlertConfirmation by remember { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
+    var validationMessage by remember { mutableStateOf<String?>(null) }
+    var saveErrorMessage by remember { mutableStateOf<String?>(null) }
+    val reminderId = remember { UUID.randomUUID().toString() }
     val defaultReminderTimeText = remember(defaultReminderMinute) {
         val hour = (defaultReminderMinute / 60).toString().padStart(2, '0')
         val minute = (defaultReminderMinute % 60).toString().padStart(2, '0')
@@ -86,7 +92,7 @@ fun AddReminderScreen(
     var time by remember(defaultReminderTimeText) { mutableStateOf(defaultReminderTimeText) }
     var priority by remember { mutableStateOf(Priority.NORMAL) }
     var repeatType by remember { mutableStateOf(RepeatType.NONE) }
-    var repeatInterval by remember { mutableIntStateOf(1) }
+    var repeatInterval by remember { mutableStateOf("1") }
     var amountText by remember { mutableStateOf("") }
     var targetKmText by remember { mutableStateOf("") }
 
@@ -96,10 +102,49 @@ fun AddReminderScreen(
     val selectedOffsets = remember { mutableStateListOf<PredefinedOffset>() }
 
     fun submitReminder(enableAlerts: Boolean) {
-        if (title.isBlank()) return
+        if (isSaving || title.isBlank()) return
+        validationMessage = null
+        saveErrorMessage = null
+
+        if (!IranianDateUtils.isValidPersianDate(date)) {
+            validationMessage = "تاریخ واردشده معتبر نیست. تاریخ را به‌صورت سال/ماه/روز شمسی کامل وارد کنید."
+            return
+        }
+        val normalizedTime = IranianPhoneUtils.convertDigitsToEnglish(time).trim()
+        if (!Regex("^(?:[01]\d|2[0-3]):[0-5]\d$").matches(normalizedTime)) {
+            validationMessage = "ساعت معتبر نیست. ساعت را به‌صورت ۰۰:۰۰ تا ۲۳:۵۹ وارد کنید."
+            return
+        }
+        val interval = repeatInterval.toIntOrNull()
+        if (repeatType != RepeatType.NONE && (interval == null || interval !in 1..365)) {
+            validationMessage = "بازه تکرار باید عددی بین ۱ تا ۳۶۵ باشد."
+            return
+        }
+
         val offsetsToSave = if (enableAlerts) selectedOffsets.toList() else emptyList()
+        if (offsetsToSave.isNotEmpty()) {
+            val dateDigits = IranianDateUtils.cleanDateDigits(date)
+            val dueAt = PersianCalendarHelper.jalaliToEpochMillis(
+                dateDigits.substring(0, 4).toInt(),
+                dateDigits.substring(4, 6).toInt(),
+                dateDigits.substring(6, 8).toInt(),
+                normalizedTime.substringBefore(":").toInt(),
+                normalizedTime.substringAfter(":").toInt()
+            )
+            val now = System.currentTimeMillis()
+            val pastOffsets = offsetsToSave.filter { offset ->
+                dueAt - (offset.value.toLong() * offset.unit.millisMultiplier) <= now
+            }
+            if (pastOffsets.isNotEmpty()) {
+                validationMessage = "زمان هشدار \${pastOffsets.joinToString("، ") { it.title }} گذشته است. تاریخ سررسید یا زمان‌های هشدار را تغییر دهید."
+                return
+            }
+        }
+
+        val effectiveRepeatType = if (offsetsToSave.isEmpty()) RepeatType.NONE else repeatType
+        val effectiveRepeatInterval = if (effectiveRepeatType == RepeatType.NONE) 1 else interval ?: 1
         val reminder = ReminderEntity(
-            id = UUID.randomUUID().toString(),
+            id = reminderId,
             title = title.trim(),
             description = description.trim(),
             type = selectedType.key,
@@ -107,13 +152,20 @@ fun AddReminderScreen(
             priority = priority.name,
             status = "ACTIVE",
             date = date.trim(),
-            time = time.trim(),
+            time = normalizedTime,
             amount = IranianAmountUtils.parseAmountToLong(amountText),
             targetKilometer = targetKmText.toLongOrNull(),
             notificationEnabled = offsetsToSave.isNotEmpty(),
             fullScreenAlarmEnabled = false
         )
-        onSaveReminder(reminder, offsetsToSave, repeatType, repeatInterval)
+        isSaving = true
+        onSaveReminder(reminder, offsetsToSave, effectiveRepeatType, effectiveRepeatInterval) { result ->
+            isSaving = false
+            result.onSuccess { onBackClick() }
+            result.onFailure { error ->
+                saveErrorMessage = error.localizedMessage ?: "ثبت یادآور انجام نشد. اطلاعات فرم حفظ شده است؛ دوباره تلاش کنید."
+            }
+        }
     }
 
     val globalDeliveryConfigured = globalNotificationsEnabled &&
@@ -383,8 +435,8 @@ fun AddReminderScreen(
 
             if (repeatType != RepeatType.NONE) {
                 OutlinedTextField(
-                    value = repeatInterval.toString(),
-                    onValueChange = { repeatInterval = it.filter { ch -> ch.isDigit() }.toIntOrNull() ?: 1 },
+                    value = repeatInterval,
+                    onValueChange = { repeatInterval = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch.isDigit() }.take(3) },
                     label = { Text("بازه تکرار") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -433,16 +485,24 @@ fun AddReminderScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
+            validationMessage?.let { message ->
+                Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+            saveErrorMessage?.let { message ->
+                Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+
             // Save Button
             Button(
                 onClick = {
+                    if (isSaving) return@Button
                     if (selectedOffsets.isEmpty() || !globalDeliveryConfigured) {
                         showNoAlertConfirmation = true
                     } else {
                         submitReminder(enableAlerts = true)
                     }
                 },
-                enabled = title.isNotBlank(),
+                enabled = title.isNotBlank() && !isSaving,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
@@ -452,7 +512,7 @@ fun AddReminderScreen(
             ) {
                 Icon(Icons.Rounded.Check, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("ثبت یادآور", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(if (isSaving) "در حال ثبت..." else "ثبت یادآور", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
     }
@@ -465,9 +525,9 @@ fun AddReminderScreen(
             text = {
                 Text(
                     if (noOffsetsSelected) {
-                        "برای این یادآور هیچ زمان هشداری انتخاب نکرده‌اید. اگر تأیید کنید، یادآور بدون اعلان ثبت می‌شود."
+                        "برای این یادآور هیچ زمان هشداری انتخاب نکرده‌اید. با تأیید، یادآور بدون اعلان ثبت می‌شود و تکرار هشدار نیز فعال نخواهد بود."
                     } else {
-                        "زمان هشدار انتخاب شده، اما روش دریافت هشدار در تنظیمات عمومی یا اعلان‌های سراسری فعال نیست. با تأیید، یادآور بدون اعلان ثبت می‌شود."
+                        "زمان هشدار انتخاب شده، اما روش دریافت هشدار در تنظیمات عمومی فعال نیست. با تأیید، یادآور بدون اعلان ثبت می‌شود و تکرار هشدار اجرا نخواهد شد."
                     }
                 )
             },
