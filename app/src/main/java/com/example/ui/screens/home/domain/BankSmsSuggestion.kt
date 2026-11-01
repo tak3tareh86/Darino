@@ -4,7 +4,6 @@ import com.example.ui.screens.finance.model.TransactionType
 
 data class BankSmsSuggestion(
     val id: String,
-    val patternId: String = "",
     val bankName: String,
     val amount: Long,
     val formattedAmount: String,
@@ -21,7 +20,8 @@ data class BankSmsSuggestion(
     val parseError: String? = null,
     val timestampMillis: Long = System.currentTimeMillis(),
     val balanceAmount: Long? = null,
-    val trackingCode: String? = null
+    val trackingCode: String? = null,
+    val patternId: String = ""
 ) {
     val isExpense: Boolean
         get() = type == TransactionType.EXPENSE
