@@ -963,6 +963,11 @@ object BankSmsParser {
      * The configured pattern type is authoritative, while completion and amount
      * validation remain conservative to avoid adding failed or pending operations.
      */
+    /**
+     * Parses an SMS only after it matches a sample explicitly entered by the user.
+     * The user's selected pattern type is authoritative: generic bank heuristics
+     * must not override or veto the user's own classification.
+     */
     fun parseMatchedPattern(
         smsId: String,
         sender: String,
@@ -972,40 +977,28 @@ object BankSmsParser {
     ): BankSmsSuggestion? {
         return try {
             val cleanBody = normalizeText(body)
-            if (cleanBody.isBlank() || isNonTransactionalSms(cleanBody)) return null
+            if (cleanBody.isBlank()) return null
 
             val configuredType = when (pattern.type) {
                 SmsPatternType.INCOME -> TransactionType.INCOME
                 SmsPatternType.EXPENSE -> TransactionType.EXPENSE
                 SmsPatternType.TRANSFER -> TransactionType.TRANSFER
             }
+
+            // A matched user template is trusted for transaction identity and type.
+            // We still reject explicit failed / pending operations so they cannot be
+            // recorded as completed transactions.
             val isConfirmedRefund = isSuccessfulRefund(cleanBody)
             val hasFailedOrPendingStatus = Regex(
-                """(?:ناموفق|عدم\s*موفقیت|موجودی\s*ناکافی|تراکنش\s*لغو|لغو\s*تراکنش|برگشت\s*تراکنش|برگشت\s*وجه|درخواست\s*(?:برگشت|عودت|انتقال|پایا|ساتنا|پرداخت|شما)|در\s*حال\s*(?:انجام|بررسی|پردازش)|در\s*صف(?:\s*(?:انجام|ارسال))?|ثبت\s*شد\s*و\s*در\s*حال|دستور\s*(?:پایا|پرداخت|انتقال)\s*ثبت)"""
-            ).containsMatchIn(cleanBody) && !isConfirmedRefund
+                """(?:ناموفق|عدم\s*موفقیت|موجودی\s*ناکافی|تراکنش\s*لغو|لغو\s*تراکنش|درخواست\s*(?:برگشت|عودت|انتقال|پایا|ساتنا|پرداخت|شما)|در\s*حال\s*(?:انجام|بررسی|پردازش)|در\s*صف(?:\s*(?:انجام|ارسال))?|ثبت\s*شد\s*و\s*در\s*حال|دستور\s*(?:پایا|پرداخت|انتقال)\s*ثبت)"""
+            ).containsMatchIn(cleanBody) || (
+                Regex("""(?:برگشت\s*تراکنش|برگشت\s*وجه)""").containsMatchIn(cleanBody) &&
+                    !isConfirmedRefund
+                )
             if (hasFailedOrPendingStatus) return null
 
-            // The user's selected pattern type is authoritative. Existing direction
-            // detection is used only to reject a clear contradiction, not to reject a
-            // valid custom bank wording it does not recognize.
-            val detectedType = detectTransactionType(cleanBody)
-            val hasTransferContext = Regex(
-                """(?:انتقال|کارت\s*به\s*کارت|پایا|ساتنا|حواله)"""
-            ).containsMatchIn(cleanBody)
-
-            val typeIsConsistent = when (configuredType) {
-                TransactionType.INCOME ->
-                    detectedType == null || detectedType == TransactionType.INCOME
-                TransactionType.EXPENSE ->
-                    detectedType == null || detectedType == TransactionType.EXPENSE
-                // Incoming credits such as "واریز پایا" must never become outgoing transfers.
-                // Explicit debit wording is accepted for banks describing an outgoing
-                // transfer as a withdrawal.
-                TransactionType.TRANSFER ->
-                    hasTransferContext && detectedType != TransactionType.INCOME
-            }
-            if (!typeIsConsistent) return null
-
+            // Amount extraction is still conservative and excludes balances, fees,
+            // dates, and reference codes. The user's configured type guides the parser.
             val amountToman = extractAmountToman(cleanBody, configuredType)
                 ?.takeIf { it > 0L } ?: return null
 
