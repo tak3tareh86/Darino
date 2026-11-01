@@ -82,10 +82,10 @@ fun VehicleInsuranceSheet(
         mutableStateOf(editingInspection?.reminderTime ?: defaultReminderTimeText)
     }
     var insuranceReminderDays by remember(editingInsurance) {
-        mutableStateOf(editingInsurance?.reminderDays?.toSet()?.takeIf { editingInsurance.reminderEnabled && it.isNotEmpty() } ?: emptySet())
+        mutableStateOf(editingInsurance?.takeIf { it.reminderEnabled }?.reminderDays?.toSet()?.takeIf { it.isNotEmpty() } ?: emptySet())
     }
     var inspectionReminderDays by remember(editingInspection) {
-        mutableStateOf(editingInspection?.reminderDays?.toSet()?.takeIf { editingInspection.reminderEnabled && it.isNotEmpty() } ?: emptySet())
+        mutableStateOf(editingInspection?.takeIf { it.reminderEnabled }?.reminderDays?.toSet()?.takeIf { it.isNotEmpty() } ?: emptySet())
     }
 
     val companies = listOf("بیمه ایران", "بیمه آسیا", "بیمه دانا", "بیمه البرز", "بیمه پاسارگاد", "بیمه سامان")
