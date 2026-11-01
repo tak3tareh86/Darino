@@ -1200,6 +1200,10 @@ fun EditSmsTransactionDialog(
                                     style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626), fontSize = 10.sp)
                                 )
                             }
+                            Text(
+                                text = "فقط اگر حساب مقصد متعلق به خودتان است «انتقال» را انتخاب کنید؛ برای پرداخت به دیگران، «هزینه» را بزنید.",
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                            )
                         }
                     }
 
