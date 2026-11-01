@@ -45,14 +45,26 @@ fun CheckScreen(
     var reportSearchQuery by rememberSaveable { mutableStateOf("") }
     var reportSelectedYear by rememberSaveable { mutableIntStateOf(0) }
     var reportSelectedMonth by rememberSaveable { mutableIntStateOf(0) }
+    var reportSelectedTypeName by rememberSaveable { mutableStateOf("ALL") }
+    val reportSelectedType = when (reportSelectedTypeName) {
+        "RECEIVED" -> CheckType.RECEIVED
+        "PAID" -> CheckType.PAID
+        else -> null
+    }
 
-    val reportAvailableYears = remember(uiState.checks) {
-        CheckReportFilter.availableYears(uiState.checks)
+    val reportAvailableYears = remember(uiState.checks, reportSelectedType) {
+        CheckReportFilter.availableYears(uiState.checks, reportSelectedType)
     }
     val reportYearFilter = reportSelectedYear.takeIf { it != 0 }
     val reportMonthFilter = reportSelectedMonth.takeIf { it != 0 && reportYearFilter != null }
-    val reportResults = remember(uiState.checks, reportYearFilter, reportMonthFilter, reportSearchQuery) {
-        CheckReportFilter.filter(uiState.checks, reportYearFilter, reportMonthFilter, reportSearchQuery)
+    val reportResults = remember(uiState.checks, reportYearFilter, reportMonthFilter, reportSearchQuery, reportSelectedType) {
+        CheckReportFilter.filter(
+            uiState.checks,
+            reportYearFilter,
+            reportMonthFilter,
+            reportSearchQuery,
+            reportSelectedType
+        )
     }
     val reportSummary = remember(reportResults) {
         CheckReportFilter.summarize(reportResults)
@@ -288,10 +300,16 @@ fun CheckScreen(
                     isLoading = uiState.isLoading,
                     selectedYear = reportSelectedYear,
                     selectedMonth = reportSelectedMonth,
+                    selectedType = reportSelectedType,
                     query = reportSearchQuery,
                     onQueryChange = { reportSearchQuery = it },
                     onYearChange = { reportSelectedYear = it; reportSelectedMonth = 0 },
                     onMonthChange = { reportSelectedMonth = it },
+                    onTypeChange = { type ->
+                        reportSelectedTypeName = type?.name ?: "ALL"
+                        reportSelectedYear = 0
+                        reportSelectedMonth = 0
+                    },
                     onCheckClick = { selectedCheckForDetail = it }
                 )
             } else {
