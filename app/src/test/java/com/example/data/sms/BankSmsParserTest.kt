@@ -33,9 +33,9 @@ class BankSmsParserTest {
             )
         )
 
-        assertNotNull(SmsPatternMatcher.findBestMatch("برداشت: 1,250 ریال | مانده: 3,500 ریال", listOf(pattern)))
-        assertNull(SmsPatternMatcher.findBestMatch("واریز: 1,250 ریال | مانده: 3,500 ریال", listOf(pattern)))
-        assertNull(SmsPatternMatcher.findBestMatch("برداشت: 1,250 تومان | مانده: 3,500 ریال", listOf(pattern)))
+        assertNotNull(SmsPatternMatcher.findUniqueMatch("برداشت: 1,250 ریال | مانده: 3,500 ریال", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("واریز: 1,250 ریال | مانده: 3,500 ریال", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("برداشت: 1,250 تومان | مانده: 3,500 ریال", listOf(pattern)))
     }
 
     @Test
@@ -68,7 +68,7 @@ class BankSmsParserTest {
             sampleMessage = sample,
             slots = emptyList()
         )
-        assertNull(SmsPatternMatcher.findBestMatch("تراکنش 2,000 ریال", listOf(noAmountPattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("تراکنش 2,000 ریال", listOf(noAmountPattern)))
 
         val amountPattern = noAmountPattern.copy(
             slots = listOf(slot(sample, "1,000", SmsPatternSlotKind.AMOUNT_RIAL))
