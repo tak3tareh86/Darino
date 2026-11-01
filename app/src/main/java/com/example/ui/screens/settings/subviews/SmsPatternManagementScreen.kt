@@ -366,9 +366,20 @@ private fun SmsPatternEditorDialog(
     val numericCandidates = remember(normalizedMessage) {
         SmsPatternMatcher.detectNumericCandidates(normalizedMessage)
     }
-    val hasOneAmountSlot = selectedKinds.values.count {
-        it == SmsPatternSlotKind.AMOUNT_RIAL || it == SmsPatternSlotKind.AMOUNT_TOMAN
-    } == 1
+    val configuredKinds = selectedKinds.values.filter { it != SmsPatternSlotKind.FIXED }
+    val slotGroups = configuredKinds.map { kind ->
+        when (kind) {
+            SmsPatternSlotKind.AMOUNT_RIAL, SmsPatternSlotKind.AMOUNT_TOMAN -> "amount"
+            SmsPatternSlotKind.BALANCE_RIAL, SmsPatternSlotKind.BALANCE_TOMAN -> "balance"
+            SmsPatternSlotKind.DATE, SmsPatternSlotKind.DATE_DAY_MONTH, SmsPatternSlotKind.DATE_MONTH_DAY -> "date"
+            SmsPatternSlotKind.SOURCE_CARD, SmsPatternSlotKind.SOURCE_ACCOUNT -> "source"
+            SmsPatternSlotKind.DESTINATION_CARD, SmsPatternSlotKind.DESTINATION_ACCOUNT -> "destination"
+            else -> kind.name
+        }
+    }
+    val hasValidSlotSelection =
+        configuredKinds.count { it == SmsPatternSlotKind.AMOUNT_RIAL || it == SmsPatternSlotKind.AMOUNT_TOMAN } == 1 &&
+            slotGroups.distinct().size == slotGroups.size
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -498,7 +509,7 @@ private fun SmsPatternEditorDialog(
                     }
                     onSave(name, type, canonicalMessage, slots)
                 },
-                enabled = name.isNotBlank() && message.isNotBlank() && hasOneAmountSlot,
+                enabled = name.isNotBlank() && message.isNotBlank() && hasValidSlotSelection,
                 shape = RoundedCornerShape(10.dp)
             ) { Text("ذخیره الگو") }
         },
