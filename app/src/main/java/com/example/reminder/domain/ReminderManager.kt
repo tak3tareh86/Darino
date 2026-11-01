@@ -283,8 +283,17 @@ class ReminderManager(
         if (!reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled && !reminder.smsEnabled) {
             throw IllegalStateException("برای فعال‌سازی یادآور، حداقل یکی از روش‌های اعلان، آلارم تمام‌صفحه یا پیامک باید فعال باشد.")
         }
-        val enabledReminder = reminder.copy(status = "ACTIVE", updatedAt = System.currentTimeMillis())
-        val enabledSchedules = storedSchedules.map { it.copy(enabled = true) }
+        val now = System.currentTimeMillis()
+        val enabledReminder = reminder.copy(status = "ACTIVE", updatedAt = now)
+        // A 7-day offset may already be past while shorter selected offsets are still valid.
+        val enabledSchedules = storedSchedules.map { it.copy(enabled = it.triggerDateTime > now) }
+        if (enabledSchedules.none { it.enabled }) {
+            repository.updateReminderWithSchedules(
+                enabledReminder.copy(status = "DISABLED"),
+                enabledSchedules
+            )
+            throw IllegalStateException("تمام زمان‌های انتخاب‌شده گذشته‌اند؛ تاریخ سررسید یا ساعت اعلان را اصلاح کنید.")
+        }
         repository.updateReminderWithSchedules(enabledReminder, enabledSchedules)
         try {
             val scheduledCount = scheduler.schedule(enabledReminder, enabledSchedules)
