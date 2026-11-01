@@ -64,7 +64,17 @@ class CalendarEventReminderReceiver : BroadcastReceiver() {
                         notificationEnabled = true,
                         fullScreenAlarmEnabled = false
                     )
-                    NotificationDispatcher(context).dispatchNotification(reminder)
+                    val reminderDao = AppDatabase.getDatabase(context).smartReminderDao()
+                    val storedReminder = reminderDao.getReminderById(userId, reminder.id)
+                    if (storedReminder == null) {
+                        // Adopt legacy calendar entries into the canonical reminder store.
+                        // Empty schedules avoid creating a second alarm; this receiver remains
+                        // the only trigger for the legacy financial_events row.
+                        com.example.reminder.domain.ReminderManager(context).createReminder(reminder, emptyList())
+                    } else if (!storedReminder.status.equals("ACTIVE", ignoreCase = true)) {
+                        return@launch
+                    }
+                    NotificationDispatcher(context).dispatchNotification(storedReminder ?: reminder)
                 }
             } catch (error: Exception) {
                 Log.e(TAG, "Failed to process calendar event reminder", error)
