@@ -979,20 +979,31 @@ object BankSmsParser {
                 SmsPatternType.EXPENSE -> TransactionType.EXPENSE
                 SmsPatternType.TRANSFER -> TransactionType.TRANSFER
             }
-            val detectedType = detectTransactionType(cleanBody) ?: return null
+            val isConfirmedRefund = isSuccessfulRefund(cleanBody)
+            val hasFailedOrPendingStatus = Regex(
+                """(?:ناموفق|عدم\s*موفقیت|موجودی\s*ناکافی|تراکنش\s*لغو|لغو\s*تراکنش|برگشت\s*تراکنش|برگشت\s*وجه|درخواست\s*(?:برگشت|عودت|انتقال|پایا|ساتنا|پرداخت|شما)|در\s*حال\s*(?:انجام|بررسی|پردازش)|در\s*صف(?:\s*(?:انجام|ارسال))?|ثبت\s*شد\s*و\s*در\s*حال|دستور\s*(?:پایا|پرداخت|انتقال)\s*ثبت)"""
+            ).containsMatchIn(cleanBody) && !isConfirmedRefund
+            if (hasFailedOrPendingStatus) return null
 
+            // The user's selected pattern type is authoritative. Existing direction
+            // detection is used only to reject a clear contradiction, not to reject a
+            // valid custom bank wording it does not recognize.
+            val detectedType = detectTransactionType(cleanBody)
             val hasTransferContext = Regex(
                 """(?:انتقال|کارت\s*به\s*کارت|پایا|ساتنا|حواله)"""
             ).containsMatchIn(cleanBody)
 
             val typeIsConsistent = when (configuredType) {
-                TransactionType.INCOME -> detectedType == TransactionType.INCOME
-                TransactionType.EXPENSE -> detectedType == TransactionType.EXPENSE
-                // A transfer sample must not turn an incoming credit (e.g. "واریز پایا")
-                // into an outgoing transfer. Explicit debit wording is accepted for
-                // banks that describe an outgoing transfer as a withdrawal.
-                TransactionType.TRANSFER -> hasTransferContext &&
-                    detectedType != TransactionType.INCOME
+                TransactionType.INCOME ->
+                    detectedType == null || detectedType == TransactionType.INCOME
+                TransactionType.EXPENSE ->
+                    detectedType == null || detectedType == TransactionType.EXPENSE
+                // Incoming credits such as "واریز پایا" must never become outgoing transfers.
+                // Explicit debit wording is accepted for banks describing an outgoing
+                // transfer as a withdrawal.
+                TransactionType.TRANSFER ->
+                    hasTransferContext && detectedType != null &&
+                        detectedType != TransactionType.INCOME
             }
             if (!typeIsConsistent) return null
 
