@@ -65,6 +65,7 @@ fun HomeScreen(
     onNavigateToTab: (BottomNavItem) -> Unit = {},
     onNotificationClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
+    onManageSmsPatternsClick: () -> Unit = onSettingsClick,
     bottomBar: (@Composable () -> Unit)? = null,
     viewModel: HomeDashboardViewModel = viewModel(),
     subscriptionViewModel: SubscriptionViewModel = viewModel()
@@ -334,7 +335,7 @@ fun HomeScreen(
                             onRequestPermission = {
                                 permissionLauncher.launch(Manifest.permission.READ_SMS)
                             },
-                            onManagePatterns = onSettingsClick,
+                            onManagePatterns = onManageSmsPatternsClick,
                             onPermanentDeniedGoToSettings = onGoToSettings,
                             onRefreshScan = {
                                 viewModel.scanInboxSms()
