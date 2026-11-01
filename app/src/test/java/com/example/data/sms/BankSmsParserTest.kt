@@ -187,7 +187,7 @@ class BankSmsParserTest {
         )
 
         assertEquals(true, suggestion?.isTypeUncertain)
-        assertEquals(null, suggestion?.type)
+        assertNull(suggestion?.type)
         assertEquals(true, suggestion?.isAmountValid)
         assertEquals(12_500L, suggestion?.amount)
     }
