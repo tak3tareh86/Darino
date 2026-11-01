@@ -9,6 +9,8 @@ package com.example.data.sms
  */
 object SmsPatternMatcher {
 
+    data class MatchedAmount(val numericValue: String, val currency: String?)
+
     private data class Candidate(
         val pattern: SmsPattern,
         val specificity: Int
@@ -30,6 +32,22 @@ object SmsPatternMatcher {
     private val timeValue = Regex(
         """(?:(?<=ساعت )|(?<=ساعت:))?[0-2]?[0-9]:[0-5][0-9]"""
     )
+
+    fun extractMatchedAmount(message: String, pattern: SmsPattern): MatchedAmount? {
+        val sample = BankSmsParser.normalizeText(pattern.sampleMessage)
+        val normalizedMessage = BankSmsParser.normalizeText(message)
+        if (sample.isBlank() || normalizedMessage.isBlank()) return null
+
+        val spans = findVariableSpans(sample)
+        val amountSpan = spans.firstOrNull { it.kind == "amount" } ?: return null
+        val match = buildTemplateRegex(sample, spans).matchEntire(normalizedMessage) ?: return null
+        val amountGroup = spans.takeWhile { it != amountSpan }.count { it.kind == "amount" } + 1
+        val numericValue = match.groupValues.getOrNull(amountGroup)?.takeIf { it.isNotBlank() } ?: return null
+        val suffix = sample.substring(amountSpan.endExclusive)
+        val currency = Regex("""^\\s*(ریال|تومان|Rls|IRR)""", RegexOption.IGNORE_CASE)
+            .find(suffix)?.groupValues?.get(1)
+        return MatchedAmount(numericValue, currency)
+    }
 
     fun findBestMatch(message: String, patterns: List<SmsPattern>): SmsPattern? {
         val normalizedMessage = BankSmsParser.normalizeText(message)
@@ -95,7 +113,7 @@ object SmsPatternMatcher {
                     when (span.kind) {
                         "date" -> """[0-9]{4}[/.-][0-9]{1,2}[/.-][0-9]{1,2}"""
                         "time" -> """[0-2]?[0-9]:[0-5][0-9]"""
-                        else -> """[0-9][0-9,،٬٫.]*"""
+                        else -> """([0-9][0-9,،٬٫.]*)"""
                     }
                 )
                 cursor = span.endExclusive
