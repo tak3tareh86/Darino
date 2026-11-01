@@ -131,6 +131,52 @@ class CheckReportFilterTest {
     }
 
     @Test
+    fun directionFilterSeparatesReceivedAndPaidChecks() {
+        val checks = listOf(
+            sample(1, 1405, 1, 10, "received", type = CheckType.RECEIVED),
+            sample(2, 1405, 1, 11, "paid", type = CheckType.PAID),
+            sample(3, 1404, 2, 12, "older-paid", type = CheckType.PAID)
+        )
+
+        assertEquals(
+            listOf(1),
+            CheckReportFilter.filter(checks, null, null, "", CheckType.RECEIVED).map { it.id }
+        )
+        assertEquals(
+            listOf(2, 3),
+            CheckReportFilter.filter(checks, null, null, "", CheckType.PAID).map { it.id }
+        )
+        assertEquals(3, CheckReportFilter.filter(checks, null, null, "").size)
+    }
+
+    @Test
+    fun availableYearsDependOnSelectedCheckDirection() {
+        val checks = listOf(
+            sample(1, 1405, 1, 10, "received", type = CheckType.RECEIVED),
+            sample(2, 1403, 1, 11, "paid", type = CheckType.PAID),
+            sample(3, 1404, 1, 12, "paid-2", type = CheckType.PAID)
+        )
+
+        assertEquals(listOf(1405), CheckReportFilter.availableYears(checks, CheckType.RECEIVED))
+        assertEquals(listOf(1404, 1403), CheckReportFilter.availableYears(checks, CheckType.PAID))
+        assertEquals(listOf(1405, 1404, 1403), CheckReportFilter.availableYears(checks))
+    }
+
+    @Test
+    fun directionFilterCombinesWithYearMonthAndSearch() {
+        val checks = listOf(
+            sample(1, 1405, 1, 10, "12345", type = CheckType.RECEIVED),
+            sample(2, 1405, 1, 11, "12345", type = CheckType.PAID),
+            sample(3, 1405, 2, 12, "12345", type = CheckType.PAID)
+        )
+
+        assertEquals(
+            listOf(2),
+            CheckReportFilter.filter(checks, 1405, 1, "۱۲۳۴۵", CheckType.PAID).map { it.id }
+        )
+    }
+
+    @Test
     fun resultsAreSortedByDueDateDescending() {
         val checks = listOf(
             sample(1, 1405, 1, 1, "1"),
