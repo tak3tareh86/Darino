@@ -750,8 +750,8 @@ object BankSmsParser {
             """(?:مبلغ(?:\\s+(?:تراکنش|برداشت|واریز|خرید|پرداخت))?|به\\s*مبلغ)\\s*[:：]?\\s*([+-]?\\s*[0-9][0-9,\\.\\u060C\\u066B\\u066C]*)\\s*(?:ریال|تومان|Rls|IRR)?""",
             RegexOption.IGNORE_CASE
         ).find(maskedText)
-        val labeledAmountCandidate = labeledAmountMatch?.groups?.get(1)?.range?.first
-            ?.let { labeledStart -> candidates.firstOrNull { it.start == labeledStart } }
+        val labeledAmountCandidate = labeledAmountMatch?.range
+            ?.let { labelRange -> candidates.firstOrNull { it.start in labelRange } }
 
         val selected = labeledAmountCandidate ?: if (eventMatch != null) {
             val actionText = eventMatch.value
