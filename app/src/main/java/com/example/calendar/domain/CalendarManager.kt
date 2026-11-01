@@ -310,18 +310,7 @@ class CalendarManager(private val context: Context) {
 
     suspend fun deleteEvent(id: String) {
         if (id.startsWith("auto_rem_")) {
-            val reminderId = id.removePrefix("auto_rem_")
-            val userId = SessionManager.userId
-            val linkedReminder = userId?.let {
-                AppDatabase.getDatabase(context).smartReminderDao().getReminderById(it, reminderId)
-            }
-            if (linkedReminder?.sourceType.equals("CALENDAR", ignoreCase = true)) {
-                linkedReminder?.sourceId?.let { eventId ->
-                    com.example.calendar.reminder.CalendarEventReminderScheduler(context).cancel(eventId)
-                    repository.deleteEventById(eventId)
-                }
-            }
-            com.example.reminder.domain.ReminderManager(context).deleteReminder(reminderId)
+            com.example.reminder.domain.ReminderManager(context).deleteReminder(id.removePrefix("auto_rem_"))
         } else if (!id.startsWith("auto_")) {
             com.example.calendar.reminder.CalendarEventReminderScheduler(context).cancel(id)
             repository.deleteEventById(id)
@@ -335,26 +324,10 @@ class CalendarManager(private val context: Context) {
         if (event.id.startsWith("auto_rem_")) {
             val reminderId = event.id.removePrefix("auto_rem_")
             val manager = com.example.reminder.domain.ReminderManager(context)
-            val linkedReminder = database.smartReminderDao().getReminderById(userId, reminderId)
             if (event.status == FinancialEventStatus.PAID) {
                 manager.restoreReminder(reminderId)
-                if (linkedReminder?.sourceType.equals("CALENDAR", ignoreCase = true)) {
-                    linkedReminder?.sourceId?.let { eventId ->
-                        val entity = database.financialEventDao().getEventById(userId, eventId)
-                        if (entity != null) {
-                            database.financialEventDao().updateEventStatus(userId, eventId, "PENDING")
-                            com.example.calendar.reminder.CalendarEventReminderScheduler(context).schedule(entity.copy(status = "PENDING").toDomain())
-                        }
-                    }
-                }
             } else {
                 manager.completeReminder(reminderId)
-                if (linkedReminder?.sourceType.equals("CALENDAR", ignoreCase = true)) {
-                    linkedReminder?.sourceId?.let { eventId ->
-                        database.financialEventDao().updateEventStatus(userId, eventId, "PAID")
-                        com.example.calendar.reminder.CalendarEventReminderScheduler(context).cancel(eventId)
-                    }
-                }
             }
         } else if (event.id.startsWith("auto_inst_")) {
             val instIdStr = event.id.removePrefix("auto_inst_")
