@@ -43,6 +43,33 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun senderShortcodeIdentifiesBankWithoutNameInBody() {
+        assertEquals(
+            "بانک سامان",
+            BankSmsParser.detectBankName("20008434", "واریز وجه به حساب شما")
+        )
+    }
+
+    @Test
+    fun bankNameInBodyIdentifiesBankWithUnknownSender() {
+        assertEquals(
+            "بانک سامان",
+            BankSmsParser.detectBankName("unknown-sender", "بانک سامان؛ واریز وجه")
+        )
+    }
+
+    @Test
+    fun conflictingSenderAndBodyBankIdentityIsRejected() {
+        assertEquals(
+            false,
+            BankSmsParser.hasValidBankEvidence(
+                "20004000",
+                "بانک سامان برداشت از حساب، مبلغ تراکنش: ۱,۰۰۰ ریال، مانده: ۲,۰۰۰ ریال"
+            )
+        )
+    }
+
+    @Test
     fun colloquialBlueBankOutgoingPhraseIsExpense() {
         assertEquals(
             TransactionType.EXPENSE,
