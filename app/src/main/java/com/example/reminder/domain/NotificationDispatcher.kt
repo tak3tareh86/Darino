@@ -88,7 +88,9 @@ class NotificationDispatcher(private val context: Context) {
 
     private fun configuredChannelId(baseId: String): String {
         val preferences = AppPreferencesRepository.getInstance(context)
-        val sound = if (preferences.notificationSoundEnabled.value) 1 else 0
+        // Reminder delivery modes are explicitly audible. Keep a dedicated sound-enabled
+        // channel ID so Android does not reuse an older channel created without sound.
+        val sound = if (baseId == CHANNEL_FULL_SCREEN_ALARMS) 0 else 1
         val vibration = if (preferences.notificationVibrationEnabled.value) 1 else 0
         return "${baseId}_s${sound}_v${vibration}"
     }
@@ -114,7 +116,10 @@ class NotificationDispatcher(private val context: Context) {
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .build()
             val preferences = AppPreferencesRepository.getInstance(context)
-            val soundEnabled = preferences.notificationSoundEnabled.value
+            // Reminder alerts must make a sound regardless of the unrelated global
+            // notification-sound toggle. The full-screen channel stays silent because
+            // ReminderAlarmActivity owns its looping alarm ringtone.
+            val soundEnabled = true
             val vibrationEnabled = preferences.notificationVibrationEnabled.value
             val channels = listOf(
                 NotificationChannel(
@@ -124,7 +129,7 @@ class NotificationDispatcher(private val context: Context) {
                 ).apply {
                     description = "اعلان‌های مربوط به یادآوری‌های شخصی، کاری و عمومی"
                     enableVibration(vibrationEnabled)
-                    setSound(if (soundEnabled) defaultSoundUri else null, if (soundEnabled) audioAttributes else null)
+                    setSound(defaultSoundUri, audioAttributes)
                 },
                 NotificationChannel(
                     configuredChannelId(CHANNEL_INSTALLMENTS),
@@ -151,7 +156,7 @@ class NotificationDispatcher(private val context: Context) {
                 ).apply {
                     description = "گزارشات و اعلان‌های کلی برنامه"
                     enableVibration(vibrationEnabled)
-                    setSound(if (soundEnabled) defaultSoundUri else null, if (soundEnabled) audioAttributes else null)
+                    setSound(defaultSoundUri, audioAttributes)
                 },
                 NotificationChannel(
                     configuredChannelId(CHANNEL_FULL_SCREEN_ALARMS),
@@ -171,7 +176,7 @@ class NotificationDispatcher(private val context: Context) {
                 ).apply {
                     description = "هشدار صوتی و برجسته هنگام روشن و فعال بودن صفحه گوشی"
                     enableVibration(vibrationEnabled)
-                    setSound(if (soundEnabled) defaultSoundUri else null, if (soundEnabled) audioAttributes else null)
+                    setSound(defaultSoundUri, audioAttributes)
                     lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 }
             )
@@ -405,11 +410,11 @@ class NotificationDispatcher(private val context: Context) {
                                     .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
                                     .setPriority(NotificationCompat.PRIORITY_HIGH)
                                     .setCategory(NotificationCompat.CATEGORY_REMINDER)
-                                    .setSilent(true)
                                     .setAutoCancel(true)
                                     .setContentIntent(contentPendingIntent)
-                                    .addAction(R.drawable.img_3d_installment, "انجام شد", completePendingIntent)
+                                    .addAction(R.drawable.img_3d_calendar, "۵ دقیقه بعد", snoozeFivePendingIntent)
                                     .addAction(R.drawable.img_3d_calendar, "۱۵ دقیقه بعد", snoozePendingIntent)
+                                    .addAction(R.drawable.img_3d_installment, "انجام شد", completePendingIntent)
                                     .build()
                                 notificationManager.notify("reminder:${reminder.id}", standardNotificationId, standardNotification)
                             } else {
@@ -484,6 +489,16 @@ class NotificationDispatcher(private val context: Context) {
     }
 
     fun cancelNotification(notificationId: Int) {
+        if (notificationId == -1) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val matching = notificationManager.activeNotifications
+                .filter { it.id == notificationId && it.tag?.startsWith("reminder:") == true }
+            if (matching.isNotEmpty()) {
+                matching.forEach { notificationManager.cancel(it.tag, it.id) }
+                return
+            }
+        }
+        // Also clear legacy untagged notifications.
         notificationManager.cancel(notificationId)
     }
 
