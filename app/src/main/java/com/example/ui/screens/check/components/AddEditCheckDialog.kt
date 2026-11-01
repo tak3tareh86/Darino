@@ -610,22 +610,16 @@ fun AddEditCheckDialog(
                 onDismissRequest = { showNoReminderConfirmation = false },
                 title = { Text("ثبت چک بدون اعلان؟") },
                 text = {
-                    Text(
-                        if (!reminderEnabled) {
-                            "برای این چک یادآوری فعال نشده است. اگر تأیید کنید، چک بدون اعلان ثبت می‌شود."
-                        } else {
-                            "زمان یادآوری انتخاب شده، اما روش دریافت اعلان در تنظیمات عمومی فعال نیست. با تأیید، چک بدون اعلان ثبت می‌شود."
-                        } + " برای تنظیم اعلان، لغو را بزنید و تنظیمات را کامل کنید."
-                    )
+                    Text("یادآور این چک غیرفعال است. اگر تأیید کنید، چک بدون هیچ یادآوری ثبت می‌شود.")
                 },
                 confirmButton = {
                     TextButton(onClick = {
                         showNoReminderConfirmation = false
                         submitCheck(null)
-                    }) { Text("تأیید و ثبت بدون اعلان") }
+                    }) { Text("تأیید") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showNoReminderConfirmation = false }) { Text("لغو و تنظیم یادآوری") }
+                    TextButton(onClick = { showNoReminderConfirmation = false }) { Text("لغو") }
                 }
             )
         }
