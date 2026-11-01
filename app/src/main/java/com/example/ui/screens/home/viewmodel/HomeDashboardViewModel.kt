@@ -9,6 +9,9 @@ import com.example.data.database.TransactionEntity
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
 import com.example.data.sms.BankSmsRepository
+import com.example.data.sms.BankSmsParser
+import com.example.data.sms.SmsPatternMatcher
+import com.example.data.sms.SmsPatternRepository
 import com.example.ui.screens.finance.data.LocalFinanceRepository
 import com.example.ui.screens.finance.model.TransactionCategory
 import com.example.ui.screens.finance.model.TransactionItemData
@@ -58,6 +61,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     private val repository = HomeDashboardRepository(application)
     private val aggregator = HomeDashboardAggregator(repository)
     private val smsRepository = BankSmsRepository.getInstance(application)
+    private val smsPatternRepository = SmsPatternRepository(application)
 
     private val _uiState = MutableStateFlow(HomeDashboardState(isLoading = true))
     val uiState: StateFlow<HomeDashboardState> = _uiState.asStateFlow()
@@ -365,6 +369,26 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                 val item = _pendingSmsQueue.value.find { id == it.id }
                 if (item == null) {
+                    onResult(SmsAcceptResult.Failed)
+                    return@withLock
+                }
+
+                // Revalidate against the current settings at the moment of persistence.
+                val activePatterns = smsPatternRepository.getPatterns(userId)
+                val originPattern = activePatterns.singleOrNull { it.id == item.patternId }
+                val uniquePattern = SmsPatternMatcher.findUniqueMatch(item.smsText, activePatterns)
+                val freshlyParsed = if (originPattern != null && uniquePattern?.id == originPattern.id) {
+                    BankSmsParser.parseMatchedPattern(
+                        item.id, item.rawSender.orEmpty(), item.smsText, item.timestampMillis, originPattern
+                    )
+                } else null
+                if (freshlyParsed == null ||
+                    freshlyParsed.amount != item.amount ||
+                    freshlyParsed.type != item.type ||
+                    freshlyParsed.patternId != item.patternId
+                ) {
+                    removePendingSmsSuggestion(id, userId)
+                    scanInboxSms()
                     onResult(SmsAcceptResult.Failed)
                     return@withLock
                 }
