@@ -324,7 +324,7 @@ class ReminderManager(
         dueDatePersian: String,
         dueTimePersian: String? = null,
         selectedOffsets: List<PredefinedOffset>? = null,
-        paymentDueDates: List<Pair<String, String>> = emptyList()
+        paymentDueDates: List<Pair<String, String>>? = null
     ): Int = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(installmentId)
         val effectiveDueTime = dueTimePersian?.takeIf { it.isNotBlank() }
@@ -374,7 +374,7 @@ class ReminderManager(
             smsEnabled = false
         )
 
-        val payments = paymentDueDates.ifEmpty { listOf("legacy" to dueDatePersian) }
+        val payments = paymentDueDates ?: listOf("legacy" to dueDatePersian)
         val now = System.currentTimeMillis()
         val today = Calendar.getInstance().apply {
             timeInMillis = now
