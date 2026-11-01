@@ -30,7 +30,7 @@ object SmsPatternMatcher {
         """(?<![0-9])(?:13|14)[0-9]{2}[/.-](?:0?[1-9]|1[0-2])[/.-](?:0?[1-9]|[12][0-9]|3[01])(?![0-9])"""
     )
     private val timeValue = Regex(
-        """ساعت\\s*[:：]?\\s*[0-2]?[0-9]:[0-5][0-9]"""
+        """ساعت\s*[:：]?\s*[0-2]?[0-9]:[0-5][0-9]"""
     )
 
     fun extractMatchedAmount(message: String, pattern: SmsPattern): MatchedAmount? {
@@ -44,7 +44,7 @@ object SmsPatternMatcher {
         val amountGroup = spans.takeWhile { it != amountSpan }.count { it.kind == "amount" } + 1
         val numericValue = match.groupValues.getOrNull(amountGroup)?.takeIf { it.isNotBlank() } ?: return null
         val suffix = sample.substring(amountSpan.endExclusive)
-        val currency = Regex("""^\\s*(ریال|تومان|Rls|IRR)""", RegexOption.IGNORE_CASE)
+        val currency = Regex("""^\s*(ریال|تومان|Rls|IRR)""", RegexOption.IGNORE_CASE)
             .find(suffix)?.groupValues?.get(1)
         return MatchedAmount(numericValue, currency)
     }
