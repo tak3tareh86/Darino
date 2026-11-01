@@ -68,6 +68,7 @@ import com.example.ui.screens.settings.SettingsScreen
 import com.example.financial_health.presentation.FinancialHealthScreen
 import com.example.ui.screens.settings.model.AppThemeMode
 import com.example.ui.screens.settings.model.NavigationTransitionAnimation
+import com.example.ui.screens.settings.model.SettingsDestination
 import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import com.example.ui.screens.splash.SplashScreen
 import com.example.ui.screens.vehicle.VehicleServicesScreen
@@ -191,6 +192,7 @@ fun AppNavigationContainer(
     var isSplashFinished by remember { mutableStateOf(false) }
     var currentTab by remember { mutableStateOf(BottomNavItem.HOME) }
     var isSettingsOpen by remember { mutableStateOf(false) }
+    var settingsInitialDestination by remember { mutableStateOf(SettingsDestination.MAIN) }
     var isNotificationsOpen by remember { mutableStateOf(false) }
     var isFinancialHealthOpen by remember { mutableStateOf(false) }
     var showAuthSheet by remember { mutableStateOf(false) }
@@ -367,8 +369,9 @@ fun AppNavigationContainer(
                     if (isSettingsOpen) {
                         SettingsScreen(
                             currentTheme = currentThemeMode,
+                            initialDestination = settingsInitialDestination,
                             onThemeChanged = onThemeModeChanged,
-                            onBackClick = { isSettingsOpen = false },
+                            onBackClick = { isSettingsOpen = false; settingsInitialDestination = SettingsDestination.MAIN },
                             onOpenAuth = { showAuthSheet = true },
                             onLogout = {
                                 authViewModel.logout()
@@ -487,6 +490,11 @@ fun AppNavigationContainer(
                                             isNotificationsOpen = true
                                         },
                                         onSettingsClick = {
+                                            settingsInitialDestination = SettingsDestination.MAIN
+                                            isSettingsOpen = true
+                                        },
+                                        onManageSmsPatternsClick = {
+                                            settingsInitialDestination = SettingsDestination.SMS_PATTERNS
                                             isSettingsOpen = true
                                         },
                                         bottomBar = {},
