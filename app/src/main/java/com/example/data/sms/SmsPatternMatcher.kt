@@ -57,7 +57,7 @@ object SmsPatternMatcher {
         }
 
         // Card/account/tracking values may contain masking symbols or separators.
-        val identifierRegex = Regex("""(?<![0-9])[0-9*#][0-9*# .-]{2,32}[0-9*#](?![0-9])""")
+        val identifierRegex = Regex("""(?<![0-9])[0-9*#][0-9*# ._-]{2,32}[0-9*#](?![0-9])""")
         identifierRegex.findAll(normalized).forEach { match ->
             if (candidates.none { match.range.first < it.endExclusive && match.range.last + 1 > it.start }) {
                 candidates.add(NumericCandidate(match.range.first, match.range.last + 1, match.value))
