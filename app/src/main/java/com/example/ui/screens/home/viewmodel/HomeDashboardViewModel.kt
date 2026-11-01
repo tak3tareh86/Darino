@@ -462,6 +462,35 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     return@withLock
                 }
 
+                // Resolve account links against the authenticated user's active Room accounts.
+                // Never trust IDs supplied by the UI without checking ownership and active state.
+                val selectedSourceId = customAccount?.trim()?.takeIf { it.isNotEmpty() }
+                val selectedDestinationId = destAccount?.trim()?.takeIf { it.isNotEmpty() }
+                val accountDao = AppDatabase.getDatabase(getApplication()).accountDao()
+                val sourceAccount = selectedSourceId?.let {
+                    accountDao.getAccountByStringId(userId, it)?.takeIf { account -> account.isActive && account.deletedAt == null }
+                }
+                if (sourceAccount == null) {
+                    onResult(SmsAcceptResult.AccountRequired)
+                    return@withLock
+                }
+
+                val destinationAccount = if (finalType == TransactionType.TRANSFER) {
+                    if (selectedDestinationId.isNullOrBlank() || selectedDestinationId == selectedSourceId) {
+                        onResult(SmsAcceptResult.DestinationAccountRequired)
+                        return@withLock
+                    }
+                    val resolved = accountDao.getAccountByStringId(userId, selectedDestinationId)
+                        ?.takeIf { account -> account.isActive && account.deletedAt == null }
+                    if (resolved == null) {
+                        onResult(SmsAcceptResult.DestinationAccountRequired)
+                        return@withLock
+                    }
+                    resolved
+                } else {
+                    null
+                }
+
                 val txId = "tx_sms_$id"
                 val db = AppDatabase.getDatabase(getApplication())
 
@@ -494,7 +523,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     amount = finalAmount,
                     type = finalType.name,
                     category = finalCategory,
-                    accountName = item.bankName.ifBlank { "بدون حساب مشخص" },
+                    accountName = sourceAccount.name.ifBlank { item.bankName.ifBlank { "بدون حساب مشخص" } },
                     description = finalDesc,
                     timestamp = item.timestampMillis,
                     timeFormatted = item.timeText,
@@ -502,9 +531,9 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     paymentMethod = "OTHER",
                     sourceType = "BANK_SMS",
                     sourceId = id,
-                    accountId = null,
-                    transferSourceAccountId = null,
-                    transferDestinationAccountId = null
+                    accountId = if (finalType == TransactionType.TRANSFER) null else sourceAccount.stringId,
+                    transferSourceAccountId = if (finalType == TransactionType.TRANSFER) sourceAccount.stringId else null,
+                    transferDestinationAccountId = destinationAccount?.stringId
                 )
 
                 try {
