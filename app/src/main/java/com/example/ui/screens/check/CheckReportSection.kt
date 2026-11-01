@@ -126,7 +126,7 @@ fun LazyListScope.checkReportSection(
         }
     }
 
-    if (!isLoading) {
+    if (!isLoading && results.isNotEmpty()) {
         item(key = "check-report-summary") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
