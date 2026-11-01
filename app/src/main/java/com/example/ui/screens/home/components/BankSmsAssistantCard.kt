@@ -1074,7 +1074,7 @@ fun EditSmsTransactionDialog(
         onResult: (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit
     ) -> Unit
 ) {
-    var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
+    val selectedType = suggestion.type
     var amountText by remember(suggestion.id) {
         mutableStateOf(if (suggestion.isAmountValid && suggestion.amount > 0L) IranianAmountUtils.formatWithCommas(suggestion.amount.toString()) else "")
     }
@@ -1152,11 +1152,8 @@ fun EditSmsTransactionDialog(
                         )
                         OutlinedTextField(
                             value = amountText,
-                            onValueChange = { input ->
-                                val clean = IranianAmountUtils.cleanAmountDigits(input)
-                                amountText = if (clean.isEmpty()) "" else IranianAmountUtils.formatWithCommas(clean)
-                                dialogError = null
-                            },
+                            onValueChange = {},
+                            readOnly = true,
                             singleLine = true,
                             isError = !isAmountValid && amountText.isNotEmpty(),
                             placeholder = { Text("مثال: 50,000", fontSize = 11.5.sp) },
@@ -1190,55 +1187,6 @@ fun EditSmsTransactionDialog(
                                     color = Color(0xFFDC2626),
                                     fontWeight = FontWeight.Medium
                                 )
-                            )
-                        }
-                    }
-
-                    // Type Selector
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(
-                            text = "نوع تراکنش:",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            TransactionTypeChip(
-                                title = "هزینه",
-                                icon = Icons.Rounded.TrendingDown,
-                                isSelected = selectedType == TransactionType.EXPENSE,
-                                activeColor = ExpenseRoseLight,
-                                onClick = {
-                                    selectedType = TransactionType.EXPENSE
-                                    category = "خرید روزمره"
-                                    dialogError = null
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                            TransactionTypeChip(
-                                title = "درآمد",
-                                icon = Icons.Rounded.TrendingUp,
-                                isSelected = selectedType == TransactionType.INCOME,
-                                activeColor = EmeraldPrimaryLight,
-                                onClick = {
-                                    selectedType = TransactionType.INCOME
-                                    category = "درآمد و واریز"
-                                    dialogError = null
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                            TransactionTypeChip(
-                                title = "انتقال",
-                                icon = Icons.AutoMirrored.Rounded.CompareArrows,
-                                isSelected = selectedType == TransactionType.TRANSFER,
-                                activeColor = Color(0xFF3B82F6),
-                                onClick = {
-                                    selectedType = TransactionType.TRANSFER
-                                    category = "انتقال بین‌بانکی"
-                                    dialogError = null
-                                },
-                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
