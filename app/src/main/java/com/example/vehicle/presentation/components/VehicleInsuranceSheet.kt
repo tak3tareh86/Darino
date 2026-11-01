@@ -73,8 +73,8 @@ fun VehicleInsuranceSheet(
     var inspectionCostText by remember(editingInspection) { mutableStateOf(editingInspection?.cost?.takeIf { it > 0 }?.let { IranianPhoneUtils.convertDigitsToPersian(it.toString()) } ?: "") }
     var inspectionStatus by remember(editingInspection) { mutableStateOf(editingInspection?.status ?: "معتبر (گواهی معاینه فنی)") }
     var centerName by remember(editingInspection) { mutableStateOf(editingInspection?.centerName ?: "") }
-    var insuranceReminderEnabled by remember(editingInsurance) { mutableStateOf(editingInsurance?.reminderEnabled ?: true) }
-    var inspectionReminderEnabled by remember(editingInspection) { mutableStateOf(editingInspection?.reminderEnabled ?: true) }
+    var insuranceReminderEnabled by remember(editingInsurance) { mutableStateOf(editingInsurance?.reminderEnabled ?: false) }
+    var inspectionReminderEnabled by remember(editingInspection) { mutableStateOf(editingInspection?.reminderEnabled ?: false) }
     var insuranceReminderTime by remember(editingInsurance, defaultReminderTimeText) {
         mutableStateOf(editingInsurance?.reminderTime ?: defaultReminderTimeText)
     }
@@ -82,10 +82,10 @@ fun VehicleInsuranceSheet(
         mutableStateOf(editingInspection?.reminderTime ?: defaultReminderTimeText)
     }
     var insuranceReminderDays by remember(editingInsurance) {
-        mutableStateOf(editingInsurance?.reminderDays?.toSet()?.takeIf { it.isNotEmpty() } ?: setOf(30, 15, 7, 1, 0))
+        mutableStateOf(editingInsurance?.reminderDays?.toSet()?.takeIf { editingInsurance.reminderEnabled && it.isNotEmpty() } ?: emptySet())
     }
     var inspectionReminderDays by remember(editingInspection) {
-        mutableStateOf(editingInspection?.reminderDays?.toSet()?.takeIf { it.isNotEmpty() } ?: setOf(30, 15, 7, 1, 0))
+        mutableStateOf(editingInspection?.reminderDays?.toSet()?.takeIf { editingInspection.reminderEnabled && it.isNotEmpty() } ?: emptySet())
     }
 
     val companies = listOf("بیمه ایران", "بیمه آسیا", "بیمه دانا", "بیمه البرز", "بیمه پاسارگاد", "بیمه سامان")

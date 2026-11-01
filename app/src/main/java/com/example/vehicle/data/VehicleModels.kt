@@ -63,7 +63,7 @@ data class VehicleServiceEntity(
     val description: String = "",
     val nextReminderDate: String? = null, // e.g. "1405/12/10"
     val nextReminderMileage: Int? = null, // e.g. 50000
-    val isReminderEnabled: Boolean = true,
+    val isReminderEnabled: Boolean = false,
     val reminderAlarmFailed: Boolean = false,
     val reminderAlarmErrorMessage: String? = null
 )
@@ -109,7 +109,7 @@ data class VehicleInsuranceEntity(
     val endDate: String,
     val amount: Long,
     val policyNumber: String = "",
-    val reminderDays: List<Int> = listOf(30, 15, 7),
+    val reminderDays: List<Int> = emptyList(),
     val reminderEnabled: Boolean = false,
     val reminderTime: String = "۰۹:۰۰"
 )
@@ -127,7 +127,7 @@ data class VehicleInspectionEntity(
     val centerName: String = "مرکز معاینه فنی نیایش",
     val reminderEnabled: Boolean = false,
     val reminderTime: String = "۰۹:۰۰",
-    val reminderDays: List<Int> = listOf(30, 7, 1, 0)
+    val reminderDays: List<Int> = emptyList()
 )
 
 /**

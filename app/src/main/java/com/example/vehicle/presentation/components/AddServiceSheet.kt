@@ -90,7 +90,7 @@ fun AddServiceSheet(
     var customIntervalMonthsText by remember { mutableStateOf("") }
 
     // Next Reminder settings
-    var isReminderEnabled by remember { mutableStateOf(true) }
+    var isReminderEnabled by remember { mutableStateOf(false) }
     val currentKm = mileageText.toIntOrNull() ?: vehicle.currentMileage
     val interval = remember(vehicle.brand, vehicle.model, vehicle.year, selectedType) {
         VehicleMaintenanceCatalog.resolve(vehicle, selectedType)
@@ -140,10 +140,10 @@ fun AddServiceSheet(
     var showServiceTypeDialog by remember { mutableStateOf(false) }
 
     // Notification offset options (7 days, 3 days, 1 day before due date)
-    var remind1DayBefore by remember { mutableStateOf(true) }
-    var remind3DaysBefore by remember { mutableStateOf(true) }
-    var remind1WeekBefore by remember { mutableStateOf(true) }
-    var remindAtDueDate by remember { mutableStateOf(true) }
+    var remind1DayBefore by remember { mutableStateOf(false) }
+    var remind3DaysBefore by remember { mutableStateOf(false) }
+    var remind1WeekBefore by remember { mutableStateOf(false) }
+    var remindAtDueDate by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
