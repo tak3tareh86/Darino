@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -38,8 +39,24 @@ fun CheckScreen(
     bottomBar: @Composable () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
+
     var showAddDialog by remember { mutableStateOf(false) }
+    var selectedMainTab by rememberSaveable { mutableIntStateOf(0) }
+    var reportSearchQuery by rememberSaveable { mutableStateOf("") }
+    var reportSelectedYear by rememberSaveable { mutableIntStateOf(0) }
+    var reportSelectedMonth by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(selectedMainTab) {
+        if (selectedMainTab < 3) {
+            viewModel.onTypeSelected(
+                when (selectedMainTab) {
+                    1 -> CheckType.RECEIVED
+                    2 -> CheckType.PAID
+                    else -> null
+                }
+            )
+        }
+    }
+    
     var showStatusFilters by remember { mutableStateOf(false) }
     var selectedCheckForEdit by remember { mutableStateOf<Check?>(null) }
     var selectedCheckForDetail by remember { mutableStateOf<Check?>(null) }
@@ -87,11 +104,12 @@ fun CheckScreen(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 1. Two Summary Cards at the very top of page content
-            item {
-                CheckSummaryCards(checks = uiState.checks)
+            // Existing operational summary remains outside the historical report tab.
+            if (selectedMainTab != 3) {
+                item { CheckSummaryCards(checks = uiState.checks) }
             }
 
+            if (selectedMainTab != 3) {
             // 2. Compact search and status-filter controls with matching dimensions
             item {
                 Row(
@@ -154,44 +172,39 @@ fun CheckScreen(
                 }
             }
 
-            // 3. Main Tabs ("همه", "دریافتی", "پرداختی") right below search bar
-            item {
-                val selectedTabIndex = when(uiState.selectedType) {
-                    null -> 0
-                    CheckType.RECEIVED -> 1
-                    CheckType.PAID -> 2
-                }
+            }
 
+            // Operational tabs plus the independent historical report.
+            item {
                 PrimaryTabRow(
-                    selectedTabIndex = selectedTabIndex,
+                    selectedTabIndex = selectedMainTab,
                     modifier = Modifier.fillMaxWidth(),
                     divider = {},
                     indicator = {
                         TabRowDefaults.PrimaryIndicator(
-                            modifier = Modifier.tabIndicatorOffset(selectedTabIndex),
+                            modifier = Modifier.tabIndicatorOffset(selectedMainTab),
                             width = 64.dp,
                             shape = RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
                         )
                     }
                 ) {
-                    Tab(
-                        selected = uiState.selectedType == null,
-                        onClick = { viewModel.onTypeSelected(null) },
-                        text = { Text("همه") }
-                    )
-                    Tab(
-                        selected = uiState.selectedType == CheckType.RECEIVED,
-                        onClick = { viewModel.onTypeSelected(CheckType.RECEIVED) },
-                        text = { Text("دریافتی") }
-                    )
-                    Tab(
-                        selected = uiState.selectedType == CheckType.PAID,
-                        onClick = { viewModel.onTypeSelected(CheckType.PAID) },
-                        text = { Text("پرداختی") }
-                    )
+                    Tab(selected = selectedMainTab == 0, onClick = {
+                        selectedMainTab = 0
+                    }, text = { Text("همه") })
+                    Tab(selected = selectedMainTab == 1, onClick = {
+                        selectedMainTab = 1
+                    }, text = { Text("دریافتی") })
+                    Tab(selected = selectedMainTab == 2, onClick = {
+                        selectedMainTab = 2
+                    }, text = { Text("پرداختی") })
+                    Tab(selected = selectedMainTab == 3, onClick = {
+                        selectedMainTab = 3
+                        showStatusFilters = false
+                    }, text = { Text("گزارش") })
                 }
             }
 
+            if (selectedMainTab != 3) {
             // 4. Expandable, fixed two-column status-filter panel
             item {
                 AnimatedVisibility(visible = showStatusFilters) {
@@ -243,26 +256,36 @@ fun CheckScreen(
                 }
             }
 
-            // 5. List of checks or empty state
-            if (uiState.isLoading) {
+            }
+
+            if (selectedMainTab == 3) {
                 item {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-            } else if (uiState.filteredChecks.isEmpty()) {
-                item {
-                    EmptyChecksState()
+                    CheckReportSection(
+                        checks = uiState.checks,
+                        isLoading = uiState.isLoading,
+                        query = reportSearchQuery,
+                        selectedYear = reportSelectedYear,
+                        selectedMonth = reportSelectedMonth,
+                        onQueryChange = { reportSearchQuery = it },
+                        onYearChange = { reportSelectedYear = it; reportSelectedMonth = 0 },
+                        onMonthChange = { reportSelectedMonth = it },
+                        onCheckClick = { selectedCheckForDetail = it }
+                    )
                 }
             } else {
-                items(uiState.filteredChecks, key = { it.id }) { check ->
-                    CheckCard(
-                        check = check,
-                        onClick = { selectedCheckForDetail = check }
-                    )
+                if (uiState.isLoading) {
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
+                            contentAlignment = Alignment.Center
+                        ) { CircularProgressIndicator() }
+                    }
+                } else if (uiState.filteredChecks.isEmpty()) {
+                    item { EmptyChecksState() }
+                } else {
+                    items(uiState.filteredChecks, key = { it.id }) { check ->
+                        CheckCard(check = check, onClick = { selectedCheckForDetail = check })
+                    }
                 }
             }
 
