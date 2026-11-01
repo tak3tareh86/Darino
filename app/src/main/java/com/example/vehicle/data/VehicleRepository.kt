@@ -368,24 +368,6 @@ class VehicleRepository {
         else -> null
     }
 
-    /**
-     * Subtract calendar days while preserving the selected local wall-clock time,
-     * including across daylight-saving transitions.
-     */
-    private fun calculateReminderTriggerMillis(
-        baseMillis: Long,
-        offset: com.example.reminder.domain.PredefinedOffset
-    ): Long {
-        return if (offset.unit == com.example.reminder.domain.OffsetUnit.DAY) {
-            java.util.Calendar.getInstance().apply {
-                timeInMillis = baseMillis
-                add(java.util.Calendar.DAY_OF_YEAR, -offset.value)
-            }.timeInMillis
-        } else {
-            baseMillis - (offset.value.toLong() * offset.unit.millisMultiplier)
-        }
-    }
-
     private suspend fun syncReminderPersistenceInternal(
         db: com.example.data.database.AppDatabase,
         userId: String,
@@ -870,9 +852,11 @@ class VehicleRepository {
                     IllegalArgumentException("تاریخ یا ساعت یادآور سرویس معتبر نیست.", e)
                 )
             }
-            offsets.distinct().filter { offset ->
-                calculateReminderTriggerMillis(reminderBaseMillis, offset) > System.currentTimeMillis()
-            }.also { future ->
+            com.example.vehicle.domain.VehicleServiceReminderPolicy.futureOffsets(
+                reminderBaseMillis,
+                offsets,
+                System.currentTimeMillis()
+            ).also { future ->
                 if (future.isEmpty()) {
                     return@withContext Result.failure(
                         IllegalArgumentException("زمان همه گزینه‌های یادآوری انتخاب‌شده گذشته است. گزینه دیگری انتخاب کنید یا تاریخ و ساعت سرویس بعدی را تغییر دهید.")
@@ -1148,9 +1132,11 @@ class VehicleRepository {
                     IllegalArgumentException("تاریخ یا ساعت یادآور سرویس معتبر نیست.", e)
                 )
             }
-            offsets.distinct().filter { offset ->
-                calculateReminderTriggerMillis(reminderBaseMillis, offset) > System.currentTimeMillis()
-            }.also { future ->
+            com.example.vehicle.domain.VehicleServiceReminderPolicy.futureOffsets(
+                reminderBaseMillis,
+                offsets,
+                System.currentTimeMillis()
+            ).also { future ->
                 if (future.isEmpty()) {
                     return@withContext Result.failure(
                         IllegalArgumentException("زمان همه گزینه‌های یادآوری انتخاب‌شده گذشته است. گزینه دیگری انتخاب کنید یا تاریخ و ساعت سرویس بعدی را تغییر دهید.")
