@@ -29,6 +29,28 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun clearlyLabeledPositiveSignedAmountPassesBankEvidence() {
+        assertEquals(
+            true,
+            BankSmsParser.hasValidBankEvidence(
+                "20008434",
+                "مبلغ تراکنش: +۱۲۵,۰۰۰ ریال"
+            )
+        )
+    }
+
+    @Test
+    fun clearlyLabeledNegativeSignedAmountPassesBankEvidence() {
+        assertEquals(
+            true,
+            BankSmsParser.hasValidBankEvidence(
+                "20008434",
+                "مبلغ تراکنش: -۱۲۵,۰۰۰ ریال"
+            )
+        )
+    }
+
+    @Test
     fun signedAccountBalanceAloneIsNotATransactionDirection() {
         assertNull(
             BankSmsParser.detectTransactionType("مانده حساب: +۱,۲۵۰,۰۰۰ ریال")
