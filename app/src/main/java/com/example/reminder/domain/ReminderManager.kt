@@ -160,8 +160,16 @@ class ReminderManager(
      * Marks a reminder as completed.
      */
     suspend fun completeReminder(reminderId: String) = withContext(Dispatchers.IO) {
-        repository.updateStatus(reminderId, "COMPLETED")
+        val reminder = repository.getReminderById(reminderId)
         val schedules = repository.getSchedulesSync(reminderId)
+        if (reminder != null) {
+            repository.updateReminderWithSchedules(
+                reminder.copy(status = "COMPLETED", completedAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis()),
+                schedules.map { it.copy(enabled = false) }
+            )
+        } else {
+            repository.updateStatus(reminderId, "COMPLETED")
+        }
         scheduler.cancel(reminderId, schedules)
         NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
         Log.i("ReminderManager", "Completed reminder $reminderId.")
@@ -223,7 +231,13 @@ class ReminderManager(
     suspend fun restoreReminder(reminderId: String) = withContext(Dispatchers.IO) {
         val reminder = repository.getReminderById(reminderId)
             ?: throw NoSuchElementException("یادآور با شناسه $reminderId یافت نشد.")
-        if (reminder.notificationEnabled || reminder.fullScreenAlarmEnabled || reminder.smsEnabled) {
+        val storedSchedules = repository.getSchedulesSync(reminderId)
+        // Snooze rows are one-shot and must never be revived by restoring the base reminder.
+        val baseSchedules = storedSchedules.filterNot { it.id.startsWith("snooze_") }
+        if (baseSchedules.size != storedSchedules.size) {
+            repository.updateReminderWithSchedules(reminder, baseSchedules)
+        }
+        if ((reminder.notificationEnabled || reminder.fullScreenAlarmEnabled || reminder.smsEnabled) && baseSchedules.isNotEmpty()) {
             enableReminder(reminderId)
         } else {
             repository.updateStatus(reminderId, "ACTIVE")
