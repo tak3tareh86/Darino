@@ -1,10 +1,11 @@
 package com.example.data.sms
 
 /**
- * Matches an incoming bank SMS against the user's saved examples.
+ * Matches an incoming SMS against a sample explicitly entered by the user.
  *
- * Literal text is kept strict while numeric fields are treated as variable values.
- * If equally specific samples match, the result is considered ambiguous and rejected.
+ * The sample is a fixed template. Only the numeric value belonging to an amount
+ * label, a calendar date, or a clock time may vary. Other numbers (card/account
+ * suffixes, tracking codes, terminal IDs, etc.) remain literal text.
  */
 object SmsPatternMatcher {
 
@@ -13,8 +14,22 @@ object SmsPatternMatcher {
         val specificity: Int
     )
 
-    private val variableNumber = Regex("""[*#]*[0-9][0-9*#.,٬،٫/\-:\s]*""")
-    private const val MAX_VARIABLE_TOKEN_LENGTH = 40
+    private data class VariableSpan(
+        val start: Int,
+        val endExclusive: Int,
+        val kind: String
+    )
+
+    private val amountLabel = Regex(
+        """(?:مبلغ(?:\s+(?:اصلی|تراکنش|انتقال|برداشت|واریز|خرید|پرداخت))?|به\s*مبلغ)\s*[:：]?\s*[+-]?\s*[0-9][0-9,،٬٫.]*""",
+        RegexOption.IGNORE_CASE
+    )
+    private val dateValue = Regex(
+        """(?<![0-9])(?:13|14)[0-9]{2}[/.-](?:0?[1-9]|1[0-2])[/.-](?:0?[1-9]|[12][0-9]|3[01])(?![0-9])"""
+    )
+    private val timeValue = Regex(
+        """(?:(?<=ساعت )|(?<=ساعت:))?[0-2]?[0-9]:[0-5][0-9]"""
+    )
 
     fun findBestMatch(message: String, patterns: List<SmsPattern>): SmsPattern? {
         val normalizedMessage = BankSmsParser.normalizeText(message)
@@ -24,13 +39,11 @@ object SmsPatternMatcher {
             val sample = BankSmsParser.normalizeText(pattern.sampleMessage)
             if (sample.isBlank()) return@mapNotNull null
 
-            val literalLength = sample.length - variableNumber.findAll(sample).sumOf { it.value.length }
-            // A sample made almost entirely of numbers is not a safe identifying template.
-            if (literalLength < 4) return@mapNotNull null
-
-            val regex = buildTemplateRegex(sample)
+            val spans = findVariableSpans(sample)
+            val regex = buildTemplateRegex(sample, spans)
             if (regex.matches(normalizedMessage)) {
-                Candidate(pattern, literalLength)
+                val specificity = sample.length - spans.sumOf { it.endExclusive - it.start }
+                Candidate(pattern, specificity)
             } else {
                 null
             }
@@ -38,23 +51,57 @@ object SmsPatternMatcher {
 
         if (candidates.isEmpty()) return null
         val bestSpecificity = candidates.maxOf { it.specificity }
-        val bestCandidates = candidates.filter { it.specificity == bestSpecificity }
-
-        // Never guess which bank/type the user intended when equally specific samples collide.
-        return bestCandidates.singleOrNull()?.pattern
+        return candidates.filter { it.specificity == bestSpecificity }
+            .singleOrNull()?.pattern
     }
 
-    private fun buildTemplateRegex(sample: String): Regex {
+    private fun findVariableSpans(sample: String): List<VariableSpan> {
+        val possible = buildList {
+            amountLabel.findAll(sample).forEach { match ->
+                // Keep the amount label and separators fixed; vary only its numeric value.
+                val number = Regex("""[0-9][0-9,،٬٫.]*""")
+                    .find(match.value) ?: return@forEach
+                add(
+                    VariableSpan(
+                        match.range.first + number.range.first,
+                        match.range.first + number.range.last + 1,
+                        "amount"
+                    )
+                )
+            }
+            dateValue.findAll(sample).forEach { match ->
+                add(VariableSpan(match.range.first, match.range.last + 1, "date"))
+            }
+            timeValue.findAll(sample).forEach { match ->
+                add(VariableSpan(match.range.first, match.range.last + 1, "time"))
+            }
+        }.sortedBy { it.start }
+
+        val accepted = mutableListOf<VariableSpan>()
+        for (span in possible) {
+            if (accepted.none { span.start < it.endExclusive && span.endExclusive > it.start }) {
+                accepted.add(span)
+            }
+        }
+        return accepted
+    }
+
+    private fun buildTemplateRegex(sample: String, spans: List<VariableSpan>): Regex {
         val expression = buildString {
             var cursor = 0
-            variableNumber.findAll(sample).forEach { match ->
-                append(Regex.escape(sample.substring(cursor, match.range.first)))
-                append("""[*#]*[0-9][0-9*#.,٬،٫/\-:\s]{0,$MAX_VARIABLE_TOKEN_LENGTH}""")
-                cursor = match.range.last + 1
+            for (span in spans) {
+                append(Regex.escape(sample.substring(cursor, span.start)))
+                append(
+                    when (span.kind) {
+                        "date" -> """[0-9]{4}[/.-][0-9]{1,2}[/.-][0-9]{1,2}"""
+                        "time" -> """[0-2]?[0-9]:[0-5][0-9]"""
+                        else -> """[0-9][0-9,،٬٫.]*"""
+                    }
+                )
+                cursor = span.endExclusive
             }
             append(Regex.escape(sample.substring(cursor)))
         }
-
         return Regex("^$expression$", RegexOption.IGNORE_CASE)
     }
 }
