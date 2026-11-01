@@ -742,7 +742,18 @@ object BankSmsParser {
 
         // Most templates put the transaction verb before its amount. Virtual banks may place
         // it after the amount (e.g. "125,000 ریال از کارت پرید" / "... به حساب نشست").
-        val selected = if (eventMatch != null) {
+        // Explicit transaction-amount labels are stronger evidence than proximity to
+        // the first transaction verb. This prevents an unrelated number near the verb
+        // (for example a secondary amount in a bank template) from winning over the
+        // amount the bank explicitly labels as the transaction value.
+        val labeledAmountMatch = Regex(
+            """(?:مبلغ(?:\\s+(?:تراکنش|برداشت|واریز|خرید|پرداخت))?|به\\s*مبلغ)\\s*[:：]?\\s*([+-]?\\s*[0-9][0-9,\\.\\u060C\\u066B\\u066C]*)\\s*(?:ریال|تومان|Rls|IRR)?""",
+            RegexOption.IGNORE_CASE
+        ).find(maskedText)
+        val labeledAmountCandidate = labeledAmountMatch?.groups?.get(1)?.range?.first
+            ?.let { labeledStart -> candidates.firstOrNull { it.start == labeledStart } }
+
+        val selected = labeledAmountCandidate ?: if (eventMatch != null) {
             val actionText = eventMatch.value
             val textAfterAction = lowerMasked.substring((eventMatch.range.last + 1).coerceAtMost(lowerMasked.length))
             val isPostposedAction = actionText == "پرید" ||
