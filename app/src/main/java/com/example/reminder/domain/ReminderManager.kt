@@ -183,6 +183,14 @@ class ReminderManager(
         }
         scheduler.cancel(reminderId, schedules)
         NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
+        if (reminder?.sourceType.equals("CALENDAR", ignoreCase = true)) {
+            reminder?.sourceId?.let { eventId ->
+                SessionManager.userId?.let { userId ->
+                    AppDatabase.getDatabase(context).financialEventDao().updateEventStatus(userId, eventId, "PAID")
+                }
+                com.example.calendar.reminder.CalendarEventReminderScheduler(context).cancel(eventId)
+            }
+        }
         Log.i("ReminderManager", "Completed reminder $reminderId.")
     }
 
@@ -190,10 +198,19 @@ class ReminderManager(
      * Cancels a reminder.
      */
     suspend fun cancelReminder(reminderId: String) = withContext(Dispatchers.IO) {
+        val reminder = repository.getReminderById(reminderId)
         repository.updateStatus(reminderId, "CANCELLED")
         val schedules = repository.getSchedulesSync(reminderId)
         scheduler.cancel(reminderId, schedules)
         NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
+        if (reminder?.sourceType.equals("CALENDAR", ignoreCase = true)) {
+            reminder?.sourceId?.let { eventId ->
+                SessionManager.userId?.let { userId ->
+                    AppDatabase.getDatabase(context).financialEventDao().updateEventStatus(userId, eventId, "PAID")
+                }
+                com.example.calendar.reminder.CalendarEventReminderScheduler(context).cancel(eventId)
+            }
+        }
     }
 
     /**
