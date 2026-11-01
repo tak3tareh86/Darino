@@ -109,7 +109,7 @@ object BankSmsParser {
                 isAmountValid = true,
                 type = configuredType,
                 isTypeUncertain = false,
-                smsText = body.trim(),
+                smsText = body,
                 dateText = String.format("%04d/%02d/%02d", dateParts.first, dateParts.second, dateParts.third),
                 timeText = String.format("%02d:%02d", timeParts.first, timeParts.second),
                 category = when (configuredType) {
