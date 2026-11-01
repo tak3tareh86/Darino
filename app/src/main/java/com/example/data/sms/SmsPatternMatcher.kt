@@ -89,6 +89,10 @@ object SmsPatternMatcher {
             if (slot.start < previousEnd || slot.start < 0 ||
                 slot.endExclusive <= slot.start || slot.endExclusive > sample.length
             ) return emptyList()
+            // A slot must cover one whole whitespace-delimited token, never a guessed substring.
+            if (sample.substring(slot.start, slot.endExclusive).any { it.isWhitespace() }) return emptyList()
+            if (slot.start > 0 && !sample[slot.start - 1].isWhitespace()) return emptyList()
+            if (slot.endExclusive < sample.length && !sample[slot.endExclusive].isWhitespace()) return emptyList()
             previousEnd = slot.endExclusive
         }
         return sorted
