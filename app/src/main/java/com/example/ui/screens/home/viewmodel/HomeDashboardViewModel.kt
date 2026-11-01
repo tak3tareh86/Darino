@@ -476,11 +476,12 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }
 
                 val destinationAccount = if (finalType == TransactionType.TRANSFER) {
-                    if (selectedDestinationId.isNullOrBlank() || selectedDestinationId == selectedSourceId) {
+                    val destinationId = selectedDestinationId?.takeIf { it.isNotBlank() }
+                    if (destinationId == null || destinationId == selectedSourceId) {
                         onResult(SmsAcceptResult.DestinationAccountRequired)
                         return@withLock
                     }
-                    val resolved = accountDao.getAccountByStringId(userId, selectedDestinationId)
+                    val resolved = accountDao.getAccountByStringId(userId, destinationId)
                         ?.takeIf { account -> account.isActive && account.deletedAt == null }
                     if (resolved == null) {
                         onResult(SmsAcceptResult.DestinationAccountRequired)
