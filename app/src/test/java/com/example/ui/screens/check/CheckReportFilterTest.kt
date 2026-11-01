@@ -103,7 +103,7 @@ class CheckReportFilterTest {
     @Test
     fun reportIncludesRecordsFromBothSidesOfJalaliNewYear() {
         val checks = listOf(
-            sample(1, 1404, 12, 30, "old-year"),
+            sample(1, 1404, 12, 29, "old-year"),
             sample(2, 1405, 1, 1, "new-year")
         )
         assertEquals(listOf(2), CheckReportFilter.filter(checks, 1405, 1, "").map { it.id })
