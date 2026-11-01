@@ -356,6 +356,10 @@ object BankSmsParser {
      *   messages are filtered before this fallback can be used.
      */
     fun hasValidBankEvidence(sender: String, cleanBody: String): Boolean {
+        // If the sender shortcode and an explicit bank name in the body identify
+        // different institutions, do not silently attribute the transaction to either.
+        if (hasConflictingBankIdentity(sender, cleanBody)) return false
+
         val normalizedBody = normalizeText(cleanBody)
         val lower = normalizedBody.lowercase()
 
@@ -443,37 +447,50 @@ object BankSmsParser {
     /**
      * Resolves the bank display name from sender first, then body text.
      */
-    fun detectBankName(sender: String, cleanBody: String): String {
+    private fun detectBankFromSender(sender: String): String? {
         val cleanSender = normalizeSender(sender)
-        val lowerBody = cleanBody.lowercase()
+        if (cleanSender.isBlank()) return null
 
-        // 1. Check sender
-        if (cleanSender.isNotBlank()) {
-            for (bank in ALL_BANKS) {
-                if (bank.senderTokens.any { token ->
-                        val cleanToken = token.lowercase().replace(".", "")
-                        if (cleanToken.all { it.isDigit() }) {
-                            cleanSender == cleanToken || cleanSender.removePrefix("0") == cleanToken
-                        } else {
-                            cleanSender == cleanToken || cleanSender.replace(".", "") == cleanToken ||
-                                    (cleanToken.length >= 4 && (cleanSender == "bank$cleanToken" || cleanSender == "b$cleanToken"))
-                        }
-                    } || bank.bodyPatterns.any { cleanSender.contains(it.replace(" ", "")) } ||
-                    cleanSender.contains(bank.displayName.replace(" ", ""))) {
-                    return bank.displayName
-                }
-            }
-        }
-
-        // 2. Check body using guarded identity matching. Short/common words such as
-        // "دی" or "شهر" must not accidentally label an unrelated SMS as a bank message.
         for (bank in ALL_BANKS) {
-            if (bodyMatchesBankIdentity(bank, cleanBody)) {
-                return bank.displayName
-            }
-        }
+            val senderMatches = bank.senderTokens.any { token ->
+                val cleanToken = token.lowercase().replace(".", "")
+                if (cleanToken.all { it.isDigit() }) {
+                    cleanSender == cleanToken || cleanSender.removePrefix("0") == cleanToken
+                } else {
+                    cleanSender == cleanToken || cleanSender.replace(".", "") == cleanToken ||
+                        (cleanToken.length >= 4 &&
+                            (cleanSender == "bank$cleanToken" || cleanSender == "b$cleanToken"))
+                }
+            } || bank.bodyPatterns.any { cleanSender.contains(normalizeText(it).replace(" ", "")) } ||
+                cleanSender.contains(normalizeText(bank.displayName).replace(" ", ""))
 
-        return if (sender.isNotBlank()) "بانک ($sender)" else "پیامک بانکی"
+            if (senderMatches) return bank.displayName
+        }
+        return null
+    }
+
+    private fun detectBankFromBody(body: String): String? =
+        ALL_BANKS.firstOrNull { bank -> bodyMatchesBankIdentity(bank, body) }?.displayName
+
+    private fun hasConflictingBankIdentity(sender: String, body: String): Boolean {
+        val senderBank = detectBankFromSender(sender) ?: return false
+        val bodyBank = detectBankFromBody(body) ?: return false
+
+        // Blue Bank is a Saman-owned brand and may legitimately share Saman wording.
+        if ((senderBank == "بلوبانک" && bodyBank == "بانک سامان") ||
+            (senderBank == "بانک سامان" && bodyBank == "بلوبانک")
+        ) return false
+
+        return senderBank != bodyBank
+    }
+
+    /**
+     * Resolves the bank display name from sender first, then body text.
+     */
+    fun detectBankName(sender: String, cleanBody: String): String {
+        return detectBankFromSender(sender)
+            ?: detectBankFromBody(cleanBody)
+            ?: if (sender.isNotBlank()) "بانک ($sender)" else "پیامک بانکی"
     }
 
     /**
