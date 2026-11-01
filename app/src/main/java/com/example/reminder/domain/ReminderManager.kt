@@ -133,6 +133,20 @@ class ReminderManager(
         repeatInterval: Int = 1,
         calendarBasedOffsets: Boolean = false
     ): Int = withContext(Dispatchers.IO) {
+        if (repeatType != RepeatType.NONE && !RecurrenceEngine.validateRecurrence(repeatType, repeatInterval)) {
+            throw IllegalArgumentException("بازه تکرار باید عددی بین ۱ تا ۳۶۵ باشد.")
+        }
+        val baseMillis = parsePersianDateTimeToMillis(reminder.date, reminder.time)
+        if (reminder.sourceType.equals("MANUAL", ignoreCase = true) && offsets.isNotEmpty()) {
+            val now = System.currentTimeMillis()
+            val pastOffsets = offsets.filter { calculateOffsetTriggerMillis(baseMillis, it, calendarBasedOffsets) <= now }
+            if (pastOffsets.isNotEmpty()) {
+                throw IllegalArgumentException(
+                    "زمان هشدار ${pastOffsets.joinToString("، ") { it.title }} گذشته است؛ تاریخ سررسید یا زمان‌های هشدار را اصلاح کنید."
+                )
+            }
+        }
+
         val existingReminder = repository.getReminderById(reminder.id)
         val existingSchedules = repository.getSchedulesSync(reminder.id)
         scheduler.cancel(reminder.id, existingSchedules)
