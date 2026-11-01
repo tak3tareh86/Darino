@@ -45,7 +45,9 @@ jobs:
             -keysize 2048 \
             -validity 10000
 
-      # Build only the debug APK; no unit-test task is invoked.
+      - name: Run Android unit tests
+        run: ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
+
       - name: Build debug APK
         run: ./gradlew --no-daemon :app:assembleDebug --stacktrace
 
