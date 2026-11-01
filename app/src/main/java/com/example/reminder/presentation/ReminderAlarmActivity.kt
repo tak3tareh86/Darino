@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import com.example.reminder.receiver.ReminderBroadcastReceiver
+import com.example.data.preferences.AppPreferencesRepository
 
 class ReminderAlarmActivity : ComponentActivity() {
 
@@ -82,6 +83,7 @@ class ReminderAlarmActivity : ComponentActivity() {
 
     private fun startAlarmSound() {
         stopAlarmSound()
+        if (!AppPreferencesRepository.getInstance(this).notificationSoundEnabled.value) return
         try {
             val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                 ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
