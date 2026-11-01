@@ -60,8 +60,27 @@ class ReminderManager(
         repeatInterval: Int = 1,
         calendarBasedOffsets: Boolean = false
     ): Int = withContext(Dispatchers.IO) {
-        // Parse reminder date & time to base epoch millis
+        // Validate recurring schedule specifications at the domain boundary as well as in the UI.
+        if (repeatType != RepeatType.NONE && !RecurrenceEngine.validateRecurrence(repeatType, repeatInterval)) {
+            throw IllegalArgumentException("بازه تکرار باید عددی بین ۱ تا ۳۶۵ باشد.")
+        }
+        if (reminder.sourceType.equals("MANUAL", ignoreCase = true) &&
+            offsets.isEmpty() && repeatType != RepeatType.NONE
+        ) {
+            throw IllegalArgumentException("برای تکرار یادآوری، ابتدا باید حداقل یک زمان هشدار انتخاب شود.")
+        }
+
+        // Parse and validate reminder date & time before writing anything to Room.
         val baseMillis = parsePersianDateTimeToMillis(reminder.date, reminder.time)
+        if (reminder.sourceType.equals("MANUAL", ignoreCase = true) && offsets.isNotEmpty()) {
+            val now = System.currentTimeMillis()
+            val pastOffsets = offsets.filter { calculateOffsetTriggerMillis(baseMillis, it, calendarBasedOffsets) <= now }
+            if (pastOffsets.isNotEmpty()) {
+                throw IllegalArgumentException(
+                    "زمان هشدار ${pastOffsets.joinToString("، ") { it.title }} گذشته است؛ تاریخ سررسید یا زمان‌های هشدار را اصلاح کنید."
+                )
+            }
+        }
 
         // Generate schedule entities for each selected offset
         val schedules = offsets.map { offset ->
@@ -84,11 +103,19 @@ class ReminderManager(
         val scheduledCount = try {
             scheduler.schedule(reminder, schedules)
         } catch (e: Exception) {
-            // Keep the reminder and its schedules in Room. Removing them here made a
-            // missing exact-alarm permission silently destroy user data.
-            Log.e("ReminderManager", "Reminder ${reminder.id} was saved locally but alarm registration failed. Keeping it for recovery/retry.", e)
+            // The add form remains open on failure. Roll back this new draft so a retry
+            // cannot create a duplicate reminder with no working alarm.
+            Log.e("ReminderManager", "Alarm registration failed for new reminder ${reminder.id}; rolling back the saved draft.", e)
+            runCatching {
+                scheduler.cancel(reminder.id, schedules)
+                NotificationDispatcher(context).cancelReminderNotifications(reminder.id, schedules)
+                repository.deleteReminderWithSchedules(reminder.id)
+            }.onFailure { rollbackError ->
+                e.addSuppressed(rollbackError)
+                Log.e("ReminderManager", "Failed to roll back reminder draft ${reminder.id}", rollbackError)
+            }
             throw IllegalStateException(
-                "یادآور ذخیره شد، اما ثبت هشدار در سیستم ناموفق بود. مجوز آلارم دقیق را در تنظیمات فعال کنید و دوباره برنامه را باز کنید. جزئیات: ${e.message ?: "خطای نامشخص"}",
+                "ثبت هشدار ناموفق بود و فرم باز نگه داشته شد. مجوز آلارم دقیق و زمان‌های انتخابی را بررسی کنید. جزئیات: ${e.message ?: "خطای نامشخص"}",
                 e
             )
         }
@@ -771,26 +798,22 @@ class ReminderManager(
 
     companion object {
         fun parsePersianDateTimeToMillis(dateStr: String, timeStr: String): Long {
-            val cleanDate = dateStr.replace("۱", "1").replace("۲", "2").replace("۳", "3")
-                .replace("۴", "4").replace("۵", "5").replace("۶", "6").replace("۷", "7")
-                .replace("۸", "8").replace("۹", "9").replace("۰", "0")
-            val cleanTime = timeStr.replace("۱", "1").replace("۲", "2").replace("۳", "3")
-                .replace("۴", "4").replace("۵", "5").replace("۶", "6").replace("۷", "7")
-                .replace("۸", "8").replace("۹", "9").replace("۰", "0")
+            val normalizedDate = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(dateStr).trim()
+            if (!com.example.util.IranianDateUtils.isValidPersianDate(normalizedDate)) {
+                throw IllegalArgumentException("تاریخ شمسی معتبر نیست: $dateStr")
+            }
+            val dateDigits = com.example.util.IranianDateUtils.cleanDateDigits(normalizedDate)
+            val normalizedTime = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(timeStr).trim()
+            if (!Regex("^(?:[01]\\d|2[0-3]):[0-5]\\d$").matches(normalizedTime)) {
+                throw IllegalArgumentException("ساعت معتبر نیست: $timeStr")
+            }
 
-            val dateParts = cleanDate.split("/")
-            if (dateParts.size != 3) throw IllegalArgumentException("Invalid date format: $dateStr")
-            val timeParts = cleanTime.split(":")
-            if (timeParts.size != 2) throw IllegalArgumentException("Invalid time format: $timeStr")
-
-            val jy = dateParts[0].trim().toInt()
-            val jm = dateParts[1].trim().toInt()
-            val jd = dateParts[2].trim().toInt()
-
-            val hour = timeParts[0].trim().toInt()
-            val minute = timeParts[1].trim().toInt()
-
-            return PersianCalendarHelper.jalaliToEpochMillis(jy, jm, jd, hour, minute)
+            val year = dateDigits.substring(0, 4).toInt()
+            val month = dateDigits.substring(4, 6).toInt()
+            val day = dateDigits.substring(6, 8).toInt()
+            val hour = normalizedTime.substringBefore(":").toInt()
+            val minute = normalizedTime.substringAfter(":").toInt()
+            return PersianCalendarHelper.jalaliToEpochMillis(year, month, day, hour, minute)
         }
 
         fun getSmartSuggestions(): List<SmartSuggestion> {
