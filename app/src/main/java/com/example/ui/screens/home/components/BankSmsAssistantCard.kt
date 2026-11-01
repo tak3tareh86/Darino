@@ -107,6 +107,7 @@ fun BankSmsAssistantCard(
     onUpdateCustomDetails: (id: String, amount: Long?, type: TransactionType?, category: String?, account: String?, destAccount: String?) -> Unit = { _, _, _, _, _, _ -> },
     onDismiss: (id: String) -> Unit,
     onRequestPermission: () -> Unit,
+    liveSmsEnabled: Boolean = true,
     onManagePatterns: () -> Unit = {},
     onPermanentDeniedGoToSettings: () -> Unit,
     onRefreshScan: () -> Unit,
@@ -191,6 +192,8 @@ fun BankSmsAssistantCard(
                     SmsGrantedContentView(
                         isDark = isDark,
                         isScanning = isScanning,
+                        liveSmsEnabled = liveSmsEnabled,
+                        onRequestPermission = onRequestPermission,
                         errorMessage = errorMessage,
                         queue = queue,
                         onTypeChange = onTypeChange,
@@ -510,6 +513,8 @@ private fun SmsPermissionPermanentlyDeniedView(
 private fun SmsGrantedContentView(
     isDark: Boolean,
     isScanning: Boolean,
+    liveSmsEnabled: Boolean,
+    onRequestPermission: () -> Unit,
     errorMessage: String?,
     queue: List<BankSmsSuggestion>,
     onTypeChange: (id: String, type: TransactionType) -> Unit,
@@ -587,6 +592,38 @@ private fun SmsGrantedContentView(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
+                }
+            }
+        }
+
+        if (!liveSmsEnabled) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(9.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = "برای شناسایی پیامک بلافاصله پس از دریافت، مجوز دریافت پیامک را فعال کنید.",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    TextButton(
+                        onClick = onRequestPermission,
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                    ) { Text("فعال‌سازی", fontSize = 10.sp) }
                 }
             }
         }
