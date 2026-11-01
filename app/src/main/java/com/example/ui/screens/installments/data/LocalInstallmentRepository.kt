@@ -480,6 +480,7 @@ class LocalInstallmentRepository private constructor() {
                 saveToRoomInternal(targetContext, current, financialTransaction)
                 _installments.value = current
                 reloadForUser(targetContext, userId)
+                refreshReminderForInstallment(targetContext, updatedItem)
                 if (financialTransaction != null) {
                     com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
                 }
@@ -570,6 +571,7 @@ class LocalInstallmentRepository private constructor() {
                 }
                 // Refresh the repository state only after Room has committed the update.
                 reloadForUser(targetContext, userId)
+                refreshReminderForInstallment(targetContext, updatedInstallment)
                 true
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -594,6 +596,31 @@ class LocalInstallmentRepository private constructor() {
                     e.printStackTrace()
                 }
             }
+        }
+    }
+
+    private suspend fun refreshReminderForInstallment(context: Context, item: InstallmentItem) {
+        val unpaidPayments = item.paymentHistory.filter {
+            it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
+        }
+        val nextPayment = unpaidPayments.minByOrNull {
+            parseJalaliStringToMillis(it.dueDate) ?: Long.MAX_VALUE
+        }
+        val reminderAmount = nextPayment?.amount ?: item.totalAmount
+        runCatching {
+            com.example.reminder.domain.ReminderManager(context).refreshInstallmentReminder(
+                installmentId = item.id,
+                title = item.title,
+                amount = reminderAmount,
+                dueDatePersian = nextPayment?.dueDate ?: item.nextPaymentDate,
+                paymentDueDates = unpaidPayments.map { it.id to it.dueDate }
+            )
+        }.onFailure { error ->
+            android.util.Log.e(
+                "LocalInstallmentRepository",
+                "Installment state was saved, but reminder refresh failed for ${item.id}",
+                error
+            )
         }
     }
 
