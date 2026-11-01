@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,6 +32,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,8 +58,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.sms.BankSmsParser
 import com.example.data.sms.SmsPattern
+import com.example.data.sms.SmsPatternMatcher
 import com.example.data.sms.SmsPatternRepository
+import com.example.data.sms.SmsPatternSlot
+import com.example.data.sms.SmsPatternSlotKind
 import com.example.data.sms.SmsPatternType
 import com.example.ui.screens.settings.components.SettingsHeader
 
@@ -251,12 +260,12 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
         SmsPatternEditorDialog(
             pattern = editingPattern,
             onDismiss = { showEditor = false; editingPattern = null },
-            onSave = { name, type, message ->
+            onSave = { name, type, message, slots ->
                 val existing = editingPattern
                 if (existing == null) {
-                    repository.create(name, type, message)
+                    repository.create(name, type, message, slots)
                 } else {
-                    repository.save(existing.copy(name = name.trim(), type = type, sampleMessage = message.trim()))
+                    repository.save(existing.copy(name = name.trim(), type = type, sampleMessage = message.trim(), slots = slots))
                 }
                 patterns = repository.getPatterns()
                 showEditor = false
@@ -343,18 +352,32 @@ private fun PatternCard(
 private fun SmsPatternEditorDialog(
     pattern: SmsPattern?,
     onDismiss: () -> Unit,
-    onSave: (String, SmsPatternType, String) -> Unit
+    onSave: (String, SmsPatternType, String, List<SmsPatternSlot>) -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
     var name by remember(pattern?.id) { mutableStateOf(pattern?.name.orEmpty()) }
     var type by remember(pattern?.id) { mutableStateOf(pattern?.type ?: SmsPatternType.INCOME) }
     var message by remember(pattern?.id) { mutableStateOf(pattern?.sampleMessage.orEmpty()) }
+    var selectedKinds by remember(pattern?.id) {
+        mutableStateOf(pattern?.slots?.associate { it.start to it.kind } ?: emptyMap())
+    }
+    var expandedSlotIndex by remember(pattern?.id) { mutableStateOf<Int?>(null) }
+    val normalizedMessage = BankSmsParser.normalizeText(message)
+    val numericCandidates = remember(normalizedMessage) {
+        SmsPatternMatcher.detectNumericCandidates(normalizedMessage)
+    }
+    val hasOneAmountSlot = selectedKinds.values.count {
+        it == SmsPatternSlotKind.AMOUNT_RIAL || it == SmsPatternSlotKind.AMOUNT_TOMAN
+    } == 1
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (pattern == null) "افزودن الگوی پیامکی" else "ویرایش الگوی پیامکی", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+            Column(
+                modifier = Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(11.dp)
+            ) {
                 Text("نام الگو", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
                     value = name,
@@ -401,19 +424,76 @@ private fun SmsPatternEditorDialog(
                 }
                 OutlinedTextField(
                     value = message,
-                    onValueChange = { message = it },
+                    onValueChange = {
+                        message = it
+                        selectedKinds = emptyMap()
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 4,
                     maxLines = 7,
                     placeholder = { Text("متن پیامک را از صندوق پیامک کپی و اینجا جای‌گذاری کنید...") },
                     supportingText = { Text("${message.length} نویسه") }
                 )
+                Text(
+                    "جایگاه‌های عددی پیامک را مشخص کنید. فقط جایگاه‌هایی که نوعشان را انتخاب می‌کنید متغیر خواهند بود؛ بقیه اعداد دقیقاً ثابت می‌مانند.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 18.sp
+                )
+                numericCandidates.forEachIndexed { index, candidate ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "«${candidate.value}»",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Box {
+                            TextButton(onClick = { expandedSlotIndex = index }) {
+                                Text((selectedKinds[candidate.start] ?: SmsPatternSlotKind.FIXED).title)
+                            }
+                            DropdownMenu(
+                                expanded = expandedSlotIndex == index,
+                                onDismissRequest = { expandedSlotIndex = null }
+                            ) {
+                                SmsPatternSlotKind.values().forEach { kind ->
+                                    DropdownMenuItem(
+                                        text = { Text(kind.title) },
+                                        onClick = {
+                                            selectedKinds = selectedKinds + (candidate.start to kind)
+                                            expandedSlotIndex = null
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                if (numericCandidates.isEmpty()) {
+                    Text(
+                        "در متن نمونه جایگاه عددی پیدا نشد.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onSave(name, type, message) },
-                enabled = name.isNotBlank() && message.isNotBlank(),
+                onClick = {
+                    val canonicalMessage = normalizedMessage
+                    val slots = numericCandidates.mapNotNull { candidate ->
+                        val kind = selectedKinds[candidate.start] ?: SmsPatternSlotKind.FIXED
+                        if (kind == SmsPatternSlotKind.FIXED) null
+                        else SmsPatternSlot(candidate.start, candidate.endExclusive, kind)
+                    }
+                    onSave(name, type, canonicalMessage, slots)
+                },
+                enabled = name.isNotBlank() && message.isNotBlank() && hasOneAmountSlot,
                 shape = RoundedCornerShape(10.dp)
             ) { Text("ذخیره الگو") }
         },
