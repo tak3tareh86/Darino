@@ -82,9 +82,11 @@ fun FinancialCalendarScreen(
         AddReminderScreen(
             initialDate = state.selectedDate,
             onBackClick = { showAddSheet = false },
-            onSaveReminder = { reminder, offsets, repeatType, repeatInterval ->
-                reminderViewModel.createReminder(reminder, offsets, repeatType, repeatInterval)
-                showAddSheet = false
+            onSaveReminderWithResult = { reminder, offsets, repeatType, repeatInterval, onComplete ->
+                reminderViewModel.createReminder(reminder, offsets, repeatType, repeatInterval) { result ->
+                    onComplete(result)
+                    if (result.isSuccess) showAddSheet = false
+                }
             }
         )
         return
