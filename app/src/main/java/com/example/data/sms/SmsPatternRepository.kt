@@ -22,6 +22,8 @@ enum class SmsPatternSlotKind(val title: String) {
     DATE("تاریخ کامل"),
     DATE_DAY_MONTH("تاریخ (روز/ماه)"),
     DATE_MONTH_DAY("تاریخ (ماه/روز)"),
+    DATE_DAY_MONTH_YEAR("تاریخ کامل (روز/ماه/سال)"),
+    DATE_MONTH_DAY_YEAR("تاریخ کامل (ماه/روز/سال)"),
     TIME("ساعت"),
     SOURCE_CARD("کارت مبدأ"),
     DESTINATION_CARD("کارت مقصد"),
