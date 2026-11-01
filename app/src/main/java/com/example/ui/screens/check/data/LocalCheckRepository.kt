@@ -83,7 +83,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 } catch (e: Exception) {
                     e.printStackTrace()
                     database.checkDao().deleteCheckById(userId, insertedId.toInt())
-                    return@withContext CheckOperationResult.PERSISTENCE_ERROR
+                    return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
                 }
             }
             CheckOperationResult.SUCCESS
@@ -178,7 +178,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             } catch (e: Exception) {
                 e.printStackTrace()
                 database.checkDao().updateCheck(currentEntity)
-                return@withContext CheckOperationResult.PERSISTENCE_ERROR
+                return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
             }
             CheckOperationResult.SUCCESS
         } catch (e: Exception) {
