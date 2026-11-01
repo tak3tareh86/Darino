@@ -175,6 +175,10 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             )
         )
 
+        // AlarmManager has consumed this occurrence. Persist that fact so a reboot
+        // cannot re-arm an already-fired trigger.
+        dao.updateSchedule(schedule.copy(enabled = false))
+
         when (decision) {
             DispatchDecision.DeliverNow -> {
                 if (reminder.notificationEnabled || reminder.fullScreenAlarmEnabled) {
@@ -214,10 +218,18 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             }
 
             is DispatchDecision.PostponeTo -> {
-                // Postpone only this occurrence. Keep the recurrence anchor unchanged so
-                // quiet hours do not shift every future occurrence of a repeating reminder.
-                val postponed = schedule.copy(triggerDateTime = decision.postponeTimeMillis)
-                dao.updateSchedule(postponed)
+                // Keep the original occurrence as the recurrence anchor. A separate,
+                // non-recurring schedule represents the postponed delivery so its later
+                // dispatch cannot shift or duplicate the repeating series.
+                val postponed = schedule.copy(
+                    id = "quiet_${java.util.UUID.randomUUID()}",
+                    triggerDateTime = decision.postponeTimeMillis,
+                    repeatType = RepeatType.NONE.name,
+                    repeatInterval = 1,
+                    enabled = true,
+                    createdAt = System.currentTimeMillis()
+                )
+                dao.insertSchedule(postponed)
                 ReminderScheduler(context).scheduleSingle(reminder, postponed)
             }
 
