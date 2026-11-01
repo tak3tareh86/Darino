@@ -482,7 +482,7 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // Reminder opt-in is an independent user preference, not a service lifecycle state.
                 db.execSQL("ALTER TABLE vehicle_services ADD COLUMN reminderEnabled INTEGER NOT NULL DEFAULT 0")
-                // Preserve explicit legacy opt-ins even when alarm registration previously failed.
+                // Preserve only reminders that were still explicitly active before the migration.
                 db.execSQL("""
                     UPDATE vehicle_services
                     SET reminderEnabled = 1,
@@ -492,8 +492,7 @@ abstract class AppDatabase : RoomDatabase() {
                         WHERE smart_reminders.userId = vehicle_services.userId
                           AND smart_reminders.sourceType = 'VEHICLE'
                           AND smart_reminders.sourceId = COALESCE(vehicle_services.serverId, CAST(vehicle_services.id AS TEXT))
-                          AND smart_reminders.status != 'COMPLETED'
-                          AND smart_reminders.status != 'CANCELLED'
+                          AND smart_reminders.status = 'ACTIVE'
                           AND (smart_reminders.notificationEnabled = 1 OR smart_reminders.fullScreenAlarmEnabled = 1)
                     )
                 """.trimIndent())
