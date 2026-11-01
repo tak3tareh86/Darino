@@ -6,7 +6,7 @@ package com.example.data.sms
  */
 object SmsPatternMatcher {
 
-    data class NumericCandidate(
+    data class TemplateToken(
         val start: Int,
         val endExclusive: Int,
         val value: String
@@ -22,7 +22,7 @@ object SmsPatternMatcher {
      * Editor-only whitespace token boundaries. No token is classified or inferred:
      * the user explicitly selects the exact token and assigns its semantic slot kind.
      */
-    fun detectNumericCandidates(message: String): List<NumericCandidate> {
+    fun tokenizeTemplateForManualSlotSelection(message: String): List<NumericCandidate> {
         if (message.isEmpty()) return emptyList()
         return Regex("""\S+""").findAll(message).map { match ->
             NumericCandidate(match.range.first, match.range.last + 1, match.value)
