@@ -81,6 +81,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -106,6 +107,7 @@ fun BankSmsAssistantCard(
     onUpdateCustomDetails: (id: String, amount: Long?, type: TransactionType?, category: String?, account: String?, destAccount: String?) -> Unit = { _, _, _, _, _, _ -> },
     onDismiss: (id: String) -> Unit,
     onRequestPermission: () -> Unit,
+    onManagePatterns: () -> Unit = {},
     onPermanentDeniedGoToSettings: () -> Unit,
     onRefreshScan: () -> Unit,
     modifier: Modifier = Modifier
@@ -163,7 +165,8 @@ fun BankSmsAssistantCard(
                 SmsPermissionState.NOT_REQUESTED -> {
                     SmsOnboardingView(
                         isDark = isDark,
-                        onRequestPermission = onRequestPermission
+                        onRequestPermission = onRequestPermission,
+                        onManagePatterns = onManagePatterns
                     )
                 }
 
@@ -209,13 +212,15 @@ fun BankSmsAssistantCard(
 @Composable
 private fun SmsOnboardingView(
     isDark: Boolean,
-    onRequestPermission: () -> Unit
+    onRequestPermission: () -> Unit,
+    onManagePatterns: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .height(158.dp)
             .testTag("sms_onboarding_view"),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -255,47 +260,104 @@ private fun SmsOnboardingView(
             }
         }
 
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = if (isDark) Color(0xFF131D31) else Color(0xFFF1F5F9),
-            modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(horizontal = 4.dp),
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "با دسترسی به پیامک‌های بانکی، دارینو می‌تواند تراکنش‌های مالی شما را شناسایی کند.",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
+                text = "دیگر نیازی به ثبت دستی تراکنش‌ها نیست! الگوهای پیامک بانکی خود را تعریف کنید تا دارینو پیامک‌های واریز و برداشت را شناسایی کند",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 10.5.sp,
+                    lineHeight = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 ),
-                modifier = Modifier.padding(12.dp)
+                textAlign = TextAlign.Justify,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "و اینجا نمایش دهد.",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 10.5.sp,
+                    lineHeight = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
         }
 
-        Button(
-            onClick = onRequestPermission,
-            shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF0D9488),
-                contentColor = Color.White
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(42.dp)
-                .testTag("btn_request_sms_permission")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = Icons.Rounded.Security,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "فعال کردن دسترسی پیامک",
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.5.sp
-                )
-            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .border(
+                        width = 1.dp,
+                        color = Color(0xFF0D9488).copy(alpha = 0.65f),
+                        shape = RoundedCornerShape(9.dp)
+                    )
+                    .clickable(onClick = onManagePatterns)
+                    .padding(horizontal = 5.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Settings,
+                        contentDescription = null,
+                        tint = Color(0xFF0D9488),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "تنظیم الگوها",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(Color(0xFF0D9488))
+                    .clickable(onClick = onRequestPermission)
+                    .padding(horizontal = 5.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Security,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "دسترسی پیامک",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1
+                    )
+                }
+            }
         }
     }
 }
