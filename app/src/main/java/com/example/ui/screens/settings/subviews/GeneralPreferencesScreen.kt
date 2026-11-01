@@ -189,17 +189,24 @@ fun GeneralPreferencesScreen(
             if (needsFullScreenAccess) add("نمایش آلارم تمام‌صفحه")
         }.joinToString("، ")
 
+        val requestedModeLabel = when (pendingDeliveryMode) {
+            AlertDeliveryPreference.NOTIFICATION_ONLY -> "فقط نوتیفیکیشن"
+            AlertDeliveryPreference.FULL_SCREEN_ALARM -> "آلارم تمام‌صفحه"
+            AlertDeliveryPreference.BOTH -> "نوتیفیکیشن و آلارم تمام‌صفحه"
+            else -> "روش دریافت هشدار"
+        }
+
         AlertDialog(
             onDismissRequest = {
                 pendingDeliveryMode = null
                 showAccessDialog = false
             },
-            title = { Text("اجازه دسترسی برای آلارم تمام‌صفحه") },
+            title = { Text("مجوزهای لازم برای $requestedModeLabel") },
             text = {
                 Text(
-                    "برای فعال‌کردن این روش هشدار، لازم است دسترسی‌های زیر را در تنظیمات اندروید برای دارینو فعال کنید: " +
-                        "$missingAccesses. این دسترسی‌ها توسط برنامه به‌صورت خودکار فعال نمی‌شوند. " +
-                        "پس از بازگشت، وضعیت دسترسی‌ها بررسی خواهد شد."
+                    "برای فعال‌کردن $requestedModeLabel، دسترسی‌های زیر باید در تنظیمات اندروید برای دارینو فعال باشند: " +
+                        "$missingAccesses. برنامه این دسترسی‌ها را خودکار فعال نمی‌کند. " +
+                        "پس از بازگشت، وضعیت آن‌ها دوباره بررسی می‌شود و فقط پس از تکمیل همه موارد، روش انتخابی فعال خواهد شد."
                 )
             },
             confirmButton = {
