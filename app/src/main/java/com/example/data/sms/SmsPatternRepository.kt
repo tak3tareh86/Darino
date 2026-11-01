@@ -14,17 +14,36 @@ enum class SmsPatternType(val title: String) {
     TRANSFER("انتقال وجه")
 }
 
+enum class SmsPatternSlotKind(val title: String) {
+    AMOUNT_RIAL("مبلغ (ریال)"),
+    AMOUNT_TOMAN("مبلغ (تومان)"),
+    BALANCE_RIAL("موجودی (ریال)"),
+    BALANCE_TOMAN("موجودی (تومان)"),
+    DATE("تاریخ"),
+    TIME("ساعت"),
+    SOURCE_CARD("کارت مبدأ"),
+    DESTINATION_CARD("کارت مقصد"),
+    SOURCE_ACCOUNT("حساب مبدأ"),
+    DESTINATION_ACCOUNT("حساب مقصد"),
+    TRACKING("کد پیگیری"),
+    FIXED("عدد ثابت")
+}
+
+data class SmsPatternSlot(
+    val start: Int,
+    val endExclusive: Int,
+    val kind: SmsPatternSlotKind
+)
+
 data class SmsPattern(
     val id: String,
     val name: String,
     val type: SmsPatternType,
-    val sampleMessage: String
+    val sampleMessage: String,
+    val slots: List<SmsPatternSlot> = emptyList()
 )
 
-/**
- * Local, account-scoped storage for user-provided bank SMS examples.
- * This repository only manages examples; it does not read the inbox or parse transactions.
- */
+/** Encrypted, account-scoped storage for explicitly configured SMS templates. */
 class SmsPatternRepository(context: Context) {
     private val appContext = context.applicationContext
     private val masterKey = MasterKey.Builder(appContext)
@@ -50,21 +69,33 @@ class SmsPatternRepository(context: Context) {
             buildList {
                 for (index in 0 until array.length()) {
                     val item = array.optJSONObject(index) ?: continue
-                    val type = runCatching {
-                        SmsPatternType.valueOf(item.optString("type"))
-                    }.getOrNull() ?: continue
+                    val type = runCatching { SmsPatternType.valueOf(item.optString("type")) }.getOrNull() ?: continue
                     val name = item.optString("name").trim()
                     val message = item.optString("sampleMessage").trim()
-                    if (name.isNotEmpty() && message.isNotEmpty()) {
-                        add(
-                            SmsPattern(
-                                id = item.optString("id").ifBlank { UUID.randomUUID().toString() },
-                                name = name,
-                                type = type,
-                                sampleMessage = message
-                            )
-                        )
+                    if (name.isEmpty() || message.isEmpty()) continue
+                    val slotsJson = item.optJSONArray("slots") ?: JSONArray()
+                    val slots = buildList {
+                        for (slotIndex in 0 until slotsJson.length()) {
+                            val slot = slotsJson.optJSONObject(slotIndex) ?: continue
+                            val kind = runCatching {
+                                SmsPatternSlotKind.valueOf(slot.optString("kind"))
+                            }.getOrNull() ?: continue
+                            val start = slot.optInt("start", -1)
+                            val end = slot.optInt("endExclusive", -1)
+                            if (start >= 0 && end > start && end <= message.length) {
+                                add(SmsPatternSlot(start, end, kind))
+                            }
+                        }
                     }
+                    add(
+                        SmsPattern(
+                            id = item.optString("id").ifBlank { UUID.randomUUID().toString() },
+                            name = name,
+                            type = type,
+                            sampleMessage = message,
+                            slots = slots.sortedBy { it.start }
+                        )
+                    )
                 }
             }
         }.getOrDefault(emptyList())
@@ -77,12 +108,18 @@ class SmsPatternRepository(context: Context) {
         persist(patterns)
     }
 
-    fun create(name: String, type: SmsPatternType, sampleMessage: String): SmsPattern {
+    fun create(
+        name: String,
+        type: SmsPatternType,
+        sampleMessage: String,
+        slots: List<SmsPatternSlot>
+    ): SmsPattern {
         return SmsPattern(
             id = UUID.randomUUID().toString(),
             name = name.trim(),
             type = type,
-            sampleMessage = sampleMessage.trim()
+            sampleMessage = sampleMessage.trim(),
+            slots = slots.sortedBy { it.start }
         ).also(::save)
     }
 
@@ -93,12 +130,22 @@ class SmsPatternRepository(context: Context) {
     private fun persist(patterns: List<SmsPattern>) {
         val array = JSONArray()
         patterns.forEach { pattern ->
+            val slots = JSONArray()
+            pattern.slots.forEach { slot ->
+                slots.put(
+                    JSONObject()
+                        .put("start", slot.start)
+                        .put("endExclusive", slot.endExclusive)
+                        .put("kind", slot.kind.name)
+                )
+            }
             array.put(
                 JSONObject()
                     .put("id", pattern.id)
                     .put("name", pattern.name)
                     .put("type", pattern.type.name)
                     .put("sampleMessage", pattern.sampleMessage)
+                    .put("slots", slots)
             )
         }
         preferences.edit().putString(storageKey(), array.toString()).apply()
