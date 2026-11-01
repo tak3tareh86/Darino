@@ -204,4 +204,18 @@ class BankSmsParserTest {
         assertEquals(null, suggestion)
     }
 
+    @Test
+    fun bankTransactionWithMissingAmountIsQueuedForManualCorrection() {
+        val suggestion = BankSmsParser.parse(
+            "sms_review_3",
+            "20008434",
+            "برداشت از حساب با موفقیت انجام شد؛ مانده: ۵۰۰,۰۰۰ ریال",
+            1_700_000_000_000L
+        )
+
+        assertEquals(true, suggestion?.isTypeUncertain)
+        assertEquals(false, suggestion?.isAmountValid)
+        assertEquals(0L, suggestion?.amount)
+    }
+
 }
