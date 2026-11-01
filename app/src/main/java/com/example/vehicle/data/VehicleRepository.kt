@@ -129,7 +129,8 @@ class VehicleRepository {
                                 cost = s.cost,
                                 serviceMileage = s.mileage,
                                 dueMileage = s.nextReminderMileage,
-                                status = if (s.isReminderEnabled) "PENDING" else "COMPLETED",
+                                status = "PENDING",
+                                reminderEnabled = s.isReminderEnabled,
                                 notes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
                             )
                         )
@@ -254,7 +255,7 @@ class VehicleRepository {
                             description = cleanDescription,
                             nextReminderDate = realNextReminderDate,
                             nextReminderMileage = s.dueMileage,
-                            isReminderEnabled = s.status != "COMPLETED",
+                            isReminderEnabled = s.reminderEnabled,
                             reminderAlarmFailed = alarmError != null,
                             reminderAlarmErrorMessage = alarmError
                         )
@@ -365,24 +366,6 @@ class VehicleRepository {
         15 -> com.example.reminder.domain.PredefinedOffset.BEFORE_15_DAYS
         30 -> com.example.reminder.domain.PredefinedOffset.BEFORE_30_DAYS
         else -> null
-    }
-
-    /**
-     * Subtract calendar days while preserving the selected local wall-clock time,
-     * including across daylight-saving transitions.
-     */
-    private fun calculateReminderTriggerMillis(
-        baseMillis: Long,
-        offset: com.example.reminder.domain.PredefinedOffset
-    ): Long {
-        return if (offset.unit == com.example.reminder.domain.OffsetUnit.DAY) {
-            java.util.Calendar.getInstance().apply {
-                timeInMillis = baseMillis
-                add(java.util.Calendar.DAY_OF_YEAR, -offset.value)
-            }.timeInMillis
-        } else {
-            baseMillis - (offset.value.toLong() * offset.unit.millisMultiplier)
-        }
     }
 
     private suspend fun syncReminderPersistenceInternal(
@@ -743,7 +726,7 @@ class VehicleRepository {
                 .getInstance(context).vehicleReminderKilometers.value
             val crossedMileageReminders = db.vehicleDao().getAllServices(userId).first().filter { service ->
                 service.vehicleId == canonicalVehicleId &&
-                    service.status != "COMPLETED" &&
+                    service.status != "COMPLETED" && service.reminderEnabled &&
                     com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
                         currentMileage = newMileage,
                         targetMileage = service.dueMileage,
@@ -858,7 +841,7 @@ class VehicleRepository {
         } else null
 
         // Keep only the offsets explicitly selected by the user that still have a future trigger time.
-        val effectiveOffsets = if (isReminderEnabled && dueDateMs != null) {
+        val effectiveOffsets = if (isReminderEnabled && dueDateMs != null && offsets.isNotEmpty()) {
             val reminderBaseMillis = try {
                 com.example.reminder.domain.ReminderManager.parsePersianDateTimeToMillis(
                     com.example.util.IranianPhoneUtils.convertDigitsToPersian(nextReminderDate!!.trim()),
@@ -869,9 +852,11 @@ class VehicleRepository {
                     IllegalArgumentException("تاریخ یا ساعت یادآور سرویس معتبر نیست.", e)
                 )
             }
-            offsets.distinct().filter { offset ->
-                calculateReminderTriggerMillis(reminderBaseMillis, offset) > System.currentTimeMillis()
-            }.also { future ->
+            com.example.vehicle.domain.VehicleServiceReminderPolicy.futureOffsets(
+                reminderBaseMillis,
+                offsets,
+                System.currentTimeMillis()
+            ).also { future ->
                 if (future.isEmpty()) {
                     return@withContext Result.failure(
                         IllegalArgumentException("زمان همه گزینه‌های یادآوری انتخاب‌شده گذشته است. گزینه دیگری انتخاب کنید یا تاریخ و ساعت سرویس بعدی را تغییر دهید.")
@@ -930,7 +915,8 @@ class VehicleRepository {
                         cost = cost,
                         serviceMileage = mileage,
                         dueMileage = nextReminderMileage,
-                        status = if (isReminderEnabled) "PENDING" else "COMPLETED",
+                        status = "PENDING",
+                        reminderEnabled = isReminderEnabled,
                         notes = encodedNotes
                     )
                 )
@@ -984,7 +970,7 @@ class VehicleRepository {
             var alarmErrorMsg: String? = null
 
             // Register system alarms AFTER successful database transaction commit
-            if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+            if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
                 try {
                     val reminderManager = com.example.reminder.domain.ReminderManager(context)
                     reminderManager.enableReminder(serviceId)
@@ -1060,6 +1046,7 @@ class VehicleRepository {
             .getInstance(context).vehicleReminderKilometers.value
         crossedServices.forEach { service ->
             val reminderId = service.serverId ?: service.id.toString()
+            if (!service.reminderEnabled) return@forEach
             val targetMileage = service.dueMileage ?: return@forEach
             val thresholdMileage = com.example.vehicle.domain.VehicleMileageReminderPolicy
                 .thresholdKilometer(targetMileage, leadKilometers)
@@ -1133,6 +1120,33 @@ class VehicleRepository {
                 ?: return@withContext Result.failure(IllegalArgumentException("تاریخ یادآور سرویس نامعتبر است."))
         } else null
 
+        // Only schedule the offsets the user selected, and only when their local trigger time is still ahead.
+        val effectiveOffsets = if (isReminderEnabled && dueDateMs != null && offsets.isNotEmpty()) {
+            val reminderBaseMillis = try {
+                com.example.reminder.domain.ReminderManager.parsePersianDateTimeToMillis(
+                    com.example.util.IranianPhoneUtils.convertDigitsToPersian(nextReminderDate!!.trim()),
+                    com.example.util.IranianPhoneUtils.convertDigitsToPersian(effectiveReminderTime)
+                )
+            } catch (e: Exception) {
+                return@withContext Result.failure(
+                    IllegalArgumentException("تاریخ یا ساعت یادآور سرویس معتبر نیست.", e)
+                )
+            }
+            com.example.vehicle.domain.VehicleServiceReminderPolicy.futureOffsets(
+                reminderBaseMillis,
+                offsets,
+                System.currentTimeMillis()
+            ).also { future ->
+                if (future.isEmpty()) {
+                    return@withContext Result.failure(
+                        IllegalArgumentException("زمان همه گزینه‌های یادآوری انتخاب‌شده گذشته است. گزینه دیگری انتخاب کنید یا تاریخ و ساعت سرویس بعدی را تغییر دهید.")
+                    )
+                }
+            }
+        } else {
+            offsets.distinct()
+        }
+
         try {
             val db = AppDatabase.getDatabase(context)
             val existingSvc = db.vehicleDao().getServiceByServerId(userId, serviceId)
@@ -1146,7 +1160,7 @@ class VehicleRepository {
             val crossedMileageReminders = db.vehicleDao().getAllServices(userId).first().filter { service ->
                 service.vehicleId == (vehicle.serverId ?: vehicle.id.toString()) &&
                     service.id != existingSvc.id &&
-                    service.status != "COMPLETED" &&
+                    service.status != "COMPLETED" && service.reminderEnabled &&
                     com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
                         currentMileage = maxOf(mileage, vehicle.currentMileage),
                         targetMileage = service.dueMileage,
@@ -1188,7 +1202,8 @@ class VehicleRepository {
                         cost = cost,
                         serviceMileage = mileage,
                         dueMileage = nextReminderMileage,
-                        status = if (isReminderEnabled) "PENDING" else "COMPLETED",
+                        status = existingSvc.status,
+                        reminderEnabled = isReminderEnabled,
                         notes = encodedNotes
                     )
                 )
@@ -1240,7 +1255,7 @@ class VehicleRepository {
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
                         currentKilometer = mileage,
-                        offsets = offsets
+                        offsets = effectiveOffsets
                     )
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
@@ -1267,7 +1282,7 @@ class VehicleRepository {
             var alarmErrorMsg: String? = null
 
             // 2. Adjust system alarms outside of transaction after successful commit
-            if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+            if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
                 try {
                     val reminderManager = com.example.reminder.domain.ReminderManager(context)
                     reminderManager.enableReminder(serviceId)
@@ -1287,7 +1302,7 @@ class VehicleRepository {
             if (cancelFailed) {
                 if (alarmFailed) {
                     alarmErrorMsg = "لغو هشدارهای تاریخ قبلی و ثبت هشدار جدید هر دو با خطا مواجه شدند ($cancelErrorMsg)."
-                } else if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+                } else if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
                     alarmFailed = true
                     alarmErrorMsg = "هشدار جدید ثبت شد، اما لغو هشدارهای تاریخ قبلی ناموفق بود ($cancelErrorMsg)."
                 }
@@ -1348,6 +1363,9 @@ class VehicleRepository {
         val db = AppDatabase.getDatabase(context)
         val svc = db.vehicleDao().getServiceByServerId(userId, serviceId)
             ?: return@withContext Result.failure(NoSuchElementException("سرویس مورد نظر یافت نشد."))
+        if (!svc.reminderEnabled) {
+            return@withContext Result.failure(IllegalStateException("یادآور این سرویس توسط کاربر غیرفعال شده است."))
+        }
 
         try {
             val reminderManager = com.example.reminder.domain.ReminderManager(context)
