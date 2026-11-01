@@ -835,38 +835,6 @@ private fun SmsGrantedContentView(
                         )
                     }
 
-                    // Interactive Transaction Type Selector: [هزینه | درآمد | انتقال]
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TransactionTypeChip(
-                            title = "هزینه",
-                            icon = Icons.Rounded.TrendingDown,
-                            isSelected = item.type == TransactionType.EXPENSE,
-                            activeColor = ExpenseRoseLight,
-                            onClick = { onTypeChange(item.id, TransactionType.EXPENSE) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        TransactionTypeChip(
-                            title = "درآمد",
-                            icon = Icons.Rounded.TrendingUp,
-                            isSelected = item.type == TransactionType.INCOME,
-                            activeColor = EmeraldPrimaryLight,
-                            onClick = { onTypeChange(item.id, TransactionType.INCOME) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        TransactionTypeChip(
-                            title = "انتقال",
-                            icon = Icons.AutoMirrored.Rounded.CompareArrows,
-                            isSelected = item.type == TransactionType.TRANSFER,
-                            activeColor = Color(0xFF3B82F6),
-                            onClick = { onTypeChange(item.id, TransactionType.TRANSFER) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
                     // Transfer notes if present
                     if (item.type == TransactionType.TRANSFER && (!item.sourceAccount.isNullOrBlank() || !item.destinationAccount.isNullOrBlank())) {
                         Surface(
