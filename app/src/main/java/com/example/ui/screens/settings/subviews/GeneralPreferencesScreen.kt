@@ -92,7 +92,7 @@ fun GeneralPreferencesScreen(
     onThemeChanged: (AppThemeMode) -> Unit,
     currentNumberMode: NumberDisplayMode = NumberDisplayMode.PERSIAN,
     onNumberModeChanged: (NumberDisplayMode) -> Unit = {},
-    currentDeliveryMode: AlertDeliveryPreference = AlertDeliveryPreference.NOTIFICATION_ONLY,
+    currentDeliveryMode: AlertDeliveryPreference = AlertDeliveryPreference.NONE,
     onDeliveryModeChanged: (AlertDeliveryPreference) -> Unit = {},
     currentNavTransition: NavigationTransitionAnimation = NavigationTransitionAnimation.DYNAMIC,
     onNavTransitionChanged: (NavigationTransitionAnimation) -> Unit = {},
