@@ -73,8 +73,12 @@ object BankSmsParser {
                 parseJalaliDate(fields.first(SmsPatternSlotKind.DATE_MONTH_DAY)!!, defaultDateTime.year, dayFirst = false)
             else -> Triple(defaultDateTime.year, defaultDateTime.month, defaultDateTime.day)
         } ?: return null
-        val timeParts = fields.first(SmsPatternSlotKind.TIME)?.let(::parseClockTime)
-            ?: (defaultDateTime.hour to defaultDateTime.minute)
+        val timeValue = fields.first(SmsPatternSlotKind.TIME)
+        val timeParts = if (timeValue != null) {
+            parseClockTime(timeValue) ?: return null
+        } else {
+            defaultDateTime.hour to defaultDateTime.minute
+        }
 
         val hasExplicitDateOrTime =
             fields.first(SmsPatternSlotKind.DATE) != null ||
