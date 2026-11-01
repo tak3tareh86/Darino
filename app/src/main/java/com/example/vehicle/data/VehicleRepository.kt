@@ -859,7 +859,7 @@ class VehicleRepository {
         } else null
 
         // Keep only the offsets explicitly selected by the user that still have a future trigger time.
-        val effectiveOffsets = if (isReminderEnabled && dueDateMs != null) {
+        val effectiveOffsets = if (isReminderEnabled && dueDateMs != null && offsets.isNotEmpty()) {
             val reminderBaseMillis = try {
                 com.example.reminder.domain.ReminderManager.parsePersianDateTimeToMillis(
                     com.example.util.IranianPhoneUtils.convertDigitsToPersian(nextReminderDate!!.trim()),
@@ -1136,6 +1136,31 @@ class VehicleRepository {
                 ?: return@withContext Result.failure(IllegalArgumentException("تاریخ یادآور سرویس نامعتبر است."))
         } else null
 
+        // Only schedule the offsets the user selected, and only when their local trigger time is still ahead.
+        val effectiveOffsets = if (isReminderEnabled && dueDateMs != null && offsets.isNotEmpty()) {
+            val reminderBaseMillis = try {
+                com.example.reminder.domain.ReminderManager.parsePersianDateTimeToMillis(
+                    com.example.util.IranianPhoneUtils.convertDigitsToPersian(nextReminderDate!!.trim()),
+                    com.example.util.IranianPhoneUtils.convertDigitsToPersian(effectiveReminderTime)
+                )
+            } catch (e: Exception) {
+                return@withContext Result.failure(
+                    IllegalArgumentException("تاریخ یا ساعت یادآور سرویس معتبر نیست.", e)
+                )
+            }
+            offsets.distinct().filter { offset ->
+                calculateReminderTriggerMillis(reminderBaseMillis, offset) > System.currentTimeMillis()
+            }.also { future ->
+                if (future.isEmpty()) {
+                    return@withContext Result.failure(
+                        IllegalArgumentException("زمان همه گزینه‌های یادآوری انتخاب‌شده گذشته است. گزینه دیگری انتخاب کنید یا تاریخ و ساعت سرویس بعدی را تغییر دهید.")
+                    )
+                }
+            }
+        } else {
+            offsets.distinct()
+        }
+
         try {
             val db = AppDatabase.getDatabase(context)
             val existingSvc = db.vehicleDao().getServiceByServerId(userId, serviceId)
@@ -1244,7 +1269,7 @@ class VehicleRepository {
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
                         currentKilometer = mileage,
-                        offsets = offsets
+                        offsets = effectiveOffsets
                     )
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
@@ -1271,7 +1296,7 @@ class VehicleRepository {
             var alarmErrorMsg: String? = null
 
             // 2. Adjust system alarms outside of transaction after successful commit
-            if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && offsets.isNotEmpty()) {
+            if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
                 try {
                     val reminderManager = com.example.reminder.domain.ReminderManager(context)
                     reminderManager.enableReminder(serviceId)
@@ -1291,7 +1316,7 @@ class VehicleRepository {
             if (cancelFailed) {
                 if (alarmFailed) {
                     alarmErrorMsg = "لغو هشدارهای تاریخ قبلی و ثبت هشدار جدید هر دو با خطا مواجه شدند ($cancelErrorMsg)."
-                } else if (isReminderEnabled && !nextReminderDate.isNullOrBlank()) {
+                } else if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
                     alarmFailed = true
                     alarmErrorMsg = "هشدار جدید ثبت شد، اما لغو هشدارهای تاریخ قبلی ناموفق بود ($cancelErrorMsg)."
                 }
