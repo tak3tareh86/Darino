@@ -406,7 +406,7 @@ object BankSmsParser {
         // Do not treat a bare mention of "خرید", "پرداخت", or "انتقال" as a completed
         // transaction. Such words are common in promotional and informational messages.
         val hasCoreMoneyEvent = Regex(
-            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|از\s*کارت\s*پرید|به\s*حساب\s*نشست|منظور\s*(?:شد|گردید)|تراکنش\s*(?:موفق|انجام\s*شد)|عملیات\s*بانکی\s*موفق|پرداخت\s*(?:موفق|انجام\s*شد|شد)|واریز\s*(?:از\s*طریق\s*)?(?:پایا|ساتنا)|پایا\s*واریز|ساتنا\s*واریز)"""
+            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|از\s*کارت\s*پرید|به\s*حساب\s*نشست|منظور\s*(?:شد|گردید)|تراکنش\s*(?:موفق|انجام\s*شد)|عملیات\s*بانکی\s*موفق|پرداخت\s*(?:با\s*موفقیت|موفق|انجام\s*شد|شد)|واریز\s*(?:از\s*طریق\s*)?(?:پایا|ساتنا)|پایا\s*واریز|ساتنا\s*واریز)"""
         ).containsMatchIn(lower)
         val hasPurchaseOrTransferLanguage = Regex(
             """(?:خرید|پرداخت|انتقال|حواله|کارت\s*به\s*کارت|پایا|ساتنا)"""
@@ -551,7 +551,7 @@ object BankSmsParser {
         // Some banks (including virtual banks) use verbs such as "پرید" and "نشست".
         // When a single SMS mentions both directions, use the first explicit money event.
         val expenseMatch = Regex(
-            """(?:برداشت|کسر\s*(?:از\s*)?حساب|کسر|بدهکار|خرید|پرداخت\s*(?:قبض|قبوض|صورتحساب|موفق|انجام\s*شد|شد|از\s*(?:حساب|کارت))|پرید|کم\s*شد)"""
+            """(?:برداشت|کسر\s*(?:از\s*)?حساب|کسر|بدهکار|خرید|پرداخت\s*(?:قبض|قبوض|صورتحساب|با\s*موفقیت|موفق|انجام\s*شد|شد|از\s*(?:حساب|کارت))|پرید|کم\s*شد)"""
         ).find(lower)
         val incomeMatch = Regex(
             """(?:واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*(?:شد|گردید))"""
