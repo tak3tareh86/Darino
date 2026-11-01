@@ -669,11 +669,13 @@ object BankSmsParser {
         }
         val eventMatch = eventPattern.find(lowerMasked)
 
-        val hasGlobalRial = normalizedText.contains("ریال", ignoreCase = true) ||
-            normalizedText.contains("Rls", ignoreCase = true) ||
-            normalizedText.contains("IRR", ignoreCase = true)
-        val hasGlobalToman = normalizedText.contains("تومان", ignoreCase = true) ||
-            normalizedText.contains("Toman", ignoreCase = true)
+        // Only the remaining transaction context may provide a fallback currency.
+        // Balances, fees, identifiers, and card/account numbers were masked above.
+        val hasGlobalRial = maskedText.contains("ریال", ignoreCase = true) ||
+            maskedText.contains("Rls", ignoreCase = true) ||
+            maskedText.contains("IRR", ignoreCase = true)
+        val hasGlobalToman = maskedText.contains("تومان", ignoreCase = true) ||
+            maskedText.contains("Toman", ignoreCase = true)
         val globalCurrency = when {
             hasGlobalToman && !hasGlobalRial -> CurrencyType.TOMAN
             hasGlobalRial && !hasGlobalToman -> CurrencyType.RIAL
