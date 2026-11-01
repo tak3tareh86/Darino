@@ -91,6 +91,7 @@ fun AddServiceSheet(
 
     // Next Reminder settings
     var isReminderEnabled by remember { mutableStateOf(false) }
+    var showNoAlertConfirmation by remember { mutableStateOf(false) }
     val currentKm = mileageText.toIntOrNull() ?: vehicle.currentMileage
     val interval = remember(vehicle.brand, vehicle.model, vehicle.year, selectedType) {
         VehicleMaintenanceCatalog.resolve(vehicle, selectedType)
@@ -589,33 +590,27 @@ fun AddServiceSheet(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        val cost = IranianAmountUtils.parseAmountToLong(costText)
-                        val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                         val selectedOffsets = buildList {
                             if (remind1WeekBefore) add(com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS)
                             if (remind3DaysBefore) add(com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS)
                             if (remind1DayBefore) add(com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY)
                             if (remindAtDueDate) add(com.example.reminder.domain.PredefinedOffset.AT_TIME)
                         }
-                        onAddService(
-                            title,
-                            selectedType,
-                            date,
-                            mileage,
-                            cost,
-                            description,
-                            if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
-                            if (calcKm > 0) calcKm else null,
-                            isReminderEnabled,
-                            selectedOffsets,
-                            nextServiceTimeText
-                        )
+                        if (isReminderEnabled && selectedOffsets.isEmpty()) {
+                            showNoAlertConfirmation = true
+                        } else {
+                            val cost = IranianAmountUtils.parseAmountToLong(costText)
+                            val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
+                            onAddService(
+                                title, selectedType, date, mileage, cost, description,
+                                if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
+                                if (calcKm > 0) calcKm else null,
+                                isReminderEnabled, selectedOffsets, nextServiceTimeText
+                            )
+                        }
                     }
                 },
-                enabled = title.isNotBlank() && (
-                    !isReminderEnabled || remind1WeekBefore || remind3DaysBefore ||
-                        remind1DayBefore || remindAtDueDate
-                    ),
+                enabled = title.isNotBlank(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
@@ -630,5 +625,29 @@ fun AddServiceSheet(
                 )
             }
         }
+    }
+
+    if (showNoAlertConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showNoAlertConfirmation = false },
+            title = { Text("ثبت سرویس بدون اعلان؟") },
+            text = { Text("یادآور سرویس فعال شده، اما هیچ زمان هشداری انتخاب نشده است. با تأیید، سرویس بدون اعلان ثبت می‌شود.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showNoAlertConfirmation = false
+                    val cost = IranianAmountUtils.parseAmountToLong(costText)
+                    val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
+                    onAddService(
+                        title, selectedType, date, mileage, cost, description,
+                        if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
+                        if (calcKm > 0) calcKm else null,
+                        false, emptyList(), nextServiceTimeText
+                    )
+                }) { Text("تأیید و ثبت بدون اعلان") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNoAlertConfirmation = false }) { Text("لغو و تنظیم یادآوری") }
+            }
+        )
     }
 }
