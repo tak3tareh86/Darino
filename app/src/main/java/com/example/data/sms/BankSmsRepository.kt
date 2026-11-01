@@ -98,6 +98,7 @@ class BankSmsRepository(private val context: Context) {
     fun getPendingSmsSuggestions(userId: String? = null): List<BankSmsSuggestion> {
         val key = userKey(KEY_PENDING_SMS_QUEUE, userId) ?: return emptyList()
         val raw = pendingQueuePreferences.getString(key, null) ?: return emptyList()
+        val currentPatterns = patternRepository.getPatterns(userId)
         return runCatching {
             val array = JSONArray(raw)
             buildList {
@@ -132,12 +133,17 @@ class BankSmsRepository(private val context: Context) {
                 }
             }
         }.getOrDefault(emptyList()).mapNotNull { saved ->
-            val currentPatterns = patternRepository.getPatterns(userId)
             val origin = currentPatterns.singleOrNull { it.id == saved.patternId } ?: return@mapNotNull null
             val uniqueMatch = SmsPatternMatcher.findUniqueMatch(saved.smsText, currentPatterns)
                 ?: return@mapNotNull null
             if (uniqueMatch.id != origin.id) return@mapNotNull null
-            BankSmsParser.parseMatchedPattern(saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.timestampMillis, origin)
+            val parsed = BankSmsParser.parseMatchedPattern(saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.timestampMillis, origin)
+                ?: return@mapNotNull null
+            parsed.copy(
+                category = saved.category,
+                sourceAccount = saved.sourceAccount ?: parsed.sourceAccount,
+                destinationAccount = saved.destinationAccount ?: parsed.destinationAccount
+            )
         }
     }
 
