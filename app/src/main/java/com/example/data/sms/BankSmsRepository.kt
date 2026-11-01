@@ -123,7 +123,9 @@ class BankSmsRepository(private val context: Context) {
                             destinationAccount = item.optString("destinationAccount").takeIf { it.isNotBlank() && it != "null" },
                             rawSender = item.optString("rawSender").takeIf { it.isNotBlank() && it != "null" },
                             parseError = item.optString("parseError").takeIf { it.isNotBlank() && it != "null" },
-                            timestampMillis = item.optLong("timestampMillis", System.currentTimeMillis())
+                            timestampMillis = item.optLong("timestampMillis", System.currentTimeMillis()),
+                            balanceAmount = if (item.has("balanceAmount") && !item.isNull("balanceAmount")) item.optLong("balanceAmount") else null,
+                            trackingCode = item.optString("trackingCode").takeIf { it.isNotBlank() && it != "null" }
                         )
                     )
                 }
@@ -153,6 +155,8 @@ class BankSmsRepository(private val context: Context) {
                     .put("rawSender", suggestion.rawSender ?: JSONObject.NULL)
                     .put("parseError", suggestion.parseError ?: JSONObject.NULL)
                     .put("timestampMillis", suggestion.timestampMillis)
+                    .put("balanceAmount", suggestion.balanceAmount ?: JSONObject.NULL)
+                    .put("trackingCode", suggestion.trackingCode ?: JSONObject.NULL)
             )
         }
         pendingQueuePreferences.edit().putString(key, array.toString()).apply()
