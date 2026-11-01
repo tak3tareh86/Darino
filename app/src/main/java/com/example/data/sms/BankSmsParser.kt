@@ -631,7 +631,8 @@ object BankSmsParser {
         // If no explicit debit/credit verb exists, retain transfer only when its wording
         // really describes a transfer; an explicit incoming transfer is an income.
         val hasTransferWord = lower.contains("انتقال") ||
-            lower.contains("کارت به کارت") || lower.contains("پایا") || lower.contains("ساتنا")
+            lower.contains("کارت به کارت") || lower.contains("پایا") ||
+            lower.contains("ساتنا") || lower.contains("حواله")
         if (hasTransferWord) {
             if (lower.contains("انتقال به حساب شما") ||
                 lower.contains("واریز از طریق پایا") ||
@@ -702,7 +703,7 @@ object BankSmsParser {
         val eventPattern = when (expectedType) {
             TransactionType.EXPENSE -> Regex("""برداشت|کسر|بدهکار|خرید|پرداخت|پرید|کم\s*شد|-\s*[0-9]""")
             TransactionType.INCOME -> Regex("""(?:برداشت|خرید).{0,40}برگشت\s*داده\s*شد|برگشت\s*(?:وجه|مبلغ|تراکنش|برداشت|خرید)|عودت\s*(?:وجه|مبلغ)|واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*(?:شد|گردید)""")
-            TransactionType.TRANSFER -> Regex("""کارت\s*به\s*کارت|انتقال|پایا|ساتنا""")
+            TransactionType.TRANSFER -> Regex("""کارت\s*به\s*کارت|انتقال|پایا|ساتنا|حواله""")
             null -> Regex("""برداشت|واریز|خرید|کسر|بدهکار|بستانکار|انتقال|کارت\s*به\s*کارت|پایا|ساتنا|پرید|نشست""")
         }
         val eventMatch = eventPattern.find(lowerMasked)
