@@ -44,9 +44,9 @@ fun SharedPersianDatePickerDialog(
     initialMonth: Int,
     initialDay: Int,
     title: String = "انتخاب تاریخ (شمسی)",
-    maxDateEpochMillis: Long? = null,
     onDismiss: () -> Unit,
-    onConfirm: (year: Int, month: Int, day: Int) -> Unit
+    onConfirm: (year: Int, month: Int, day: Int) -> Unit,
+    maxDateEpochMillis: Long? = null
 ) {
     var currentYear by remember(initialYear) { mutableStateOf(initialYear) }
     var currentMonth by remember(initialMonth) { mutableStateOf(initialMonth.coerceIn(1, 12)) }
