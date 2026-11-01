@@ -363,7 +363,7 @@ private fun SmsPatternEditorDialog(
     }
     var expandedSlotIndex by remember(pattern?.id) { mutableStateOf<Int?>(null) }
     val normalizedMessage = BankSmsParser.normalizeText(message)
-    val numericCandidates = remember(normalizedMessage) {
+    val templateTokens = remember(normalizedMessage) {
         SmsPatternMatcher.tokenizeTemplateForManualSlotSelection(normalizedMessage)
     }
     val configuredKinds = selectedKinds.values.filter { it != SmsPatternSlotKind.FIXED }
@@ -456,7 +456,7 @@ private fun SmsPatternEditorDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 18.sp
                 )
-                numericCandidates.forEachIndexed { index, candidate ->
+                templateTokens.forEachIndexed { index, candidate ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -489,9 +489,9 @@ private fun SmsPatternEditorDialog(
                         }
                     }
                 }
-                if (numericCandidates.isEmpty()) {
+                if (templateTokens.isEmpty()) {
                     Text(
-                        "در متن نمونه جایگاه عددی پیدا نشد.",
+                        "در متن نمونه بخش قابل انتخابی وجود ندارد.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -502,7 +502,7 @@ private fun SmsPatternEditorDialog(
             Button(
                 onClick = {
                     val canonicalMessage = normalizedMessage
-                    val slots = numericCandidates.mapNotNull { candidate ->
+                    val slots = templateTokens.mapNotNull { candidate ->
                         val kind = selectedKinds[candidate.start] ?: SmsPatternSlotKind.FIXED
                         if (kind == SmsPatternSlotKind.FIXED) null
                         else SmsPatternSlot(candidate.start, candidate.endExclusive, kind)
