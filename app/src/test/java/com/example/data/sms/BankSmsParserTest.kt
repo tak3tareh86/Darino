@@ -237,6 +237,7 @@ class BankSmsParserTest {
     fun reversedDebitWithoutConfirmedCreditIsNotIncome() {
         val sms = "درخواست برگشت برداشت ثبت شد؛ مبلغ: ۱۲۵,۰۰۰ ریال"
 
+        assertEquals(true, BankSmsParser.isNonTransactionalSms(sms))
         assertEquals(null, BankSmsParser.detectTransactionType(sms))
     }
 
