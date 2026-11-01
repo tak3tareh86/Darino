@@ -112,7 +112,9 @@ fun AddReminderScreen(
         validationMessage = null
         saveErrorMessage = null
 
-        if (!IranianDateUtils.isValidPersianDate(date)) {
+        val normalizedDate = IranianPhoneUtils.convertDigitsToEnglish(date).trim()
+        val hasValidDateShape = Regex("^(?:\\d{4}/\\d{2}/\\d{2}|\\d{8})$").matches(normalizedDate)
+        if (!hasValidDateShape || !IranianDateUtils.isValidPersianDate(normalizedDate)) {
             validationMessage = "تاریخ واردشده معتبر نیست. تاریخ را به‌صورت سال/ماه/روز شمسی کامل وارد کنید."
             return
         }
@@ -129,7 +131,7 @@ fun AddReminderScreen(
 
         val offsetsToSave = if (enableAlerts) selectedOffsets.toList() else emptyList()
         if (offsetsToSave.isNotEmpty()) {
-            val dateDigits = IranianDateUtils.cleanDateDigits(date)
+            val dateDigits = IranianDateUtils.cleanDateDigits(normalizedDate)
             val dueAt = PersianCalendarHelper.jalaliToEpochMillis(
                 dateDigits.substring(0, 4).toInt(),
                 dateDigits.substring(4, 6).toInt(),
@@ -158,7 +160,7 @@ fun AddReminderScreen(
             priority = priority.name,
             status = "ACTIVE",
             date = date.trim(),
-            time = normalizedTime,
+            time = time.trim(),
             amount = IranianAmountUtils.parseAmountToLong(amountText),
             targetKilometer = targetKmText.toLongOrNull(),
             notificationEnabled = offsetsToSave.isNotEmpty(),
@@ -197,7 +199,7 @@ fun AddReminderScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick, modifier = Modifier.testTag("btn_add_reminder_back")) {
+                    IconButton(enabled = !isSaving, onClick = onBackClick, modifier = Modifier.testTag("btn_add_reminder_back")) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = "بازگشت"
