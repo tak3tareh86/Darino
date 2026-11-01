@@ -109,6 +109,7 @@ class BankSmsRepository(private val context: Context) {
                     add(
                         BankSmsSuggestion(
                             id = id,
+                            patternId = item.optString("patternId"),
                             bankName = item.optString("bankName"),
                             amount = item.optLong("amount"),
                             formattedAmount = item.optString("formattedAmount"),
@@ -130,7 +131,14 @@ class BankSmsRepository(private val context: Context) {
                     )
                 }
             }
-        }.getOrDefault(emptyList())
+        }.getOrDefault(emptyList()).mapNotNull { saved ->
+            val currentPatterns = patternRepository.getPatterns(userId)
+            val origin = currentPatterns.singleOrNull { it.id == saved.patternId } ?: return@mapNotNull null
+            val uniqueMatch = SmsPatternMatcher.findUniqueMatch(saved.smsText, currentPatterns)
+                ?: return@mapNotNull null
+            if (uniqueMatch.id != origin.id) return@mapNotNull null
+            BankSmsParser.parseMatchedPattern(saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.timestampMillis, origin)
+        }
     }
 
     fun savePendingSmsSuggestions(userId: String? = null, suggestions: List<BankSmsSuggestion>) {
@@ -140,6 +148,7 @@ class BankSmsRepository(private val context: Context) {
             array.put(
                 JSONObject()
                     .put("id", suggestion.id)
+                    .put("patternId", suggestion.patternId)
                     .put("bankName", suggestion.bankName)
                     .put("amount", suggestion.amount)
                     .put("formattedAmount", suggestion.formattedAmount)
