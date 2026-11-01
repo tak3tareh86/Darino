@@ -39,12 +39,58 @@ fun LazyListScope.checkReportSection(
     isLoading: Boolean,
     selectedYear: Int,
     selectedMonth: Int,
+    selectedType: CheckType?,
     query: String,
     onQueryChange: (String) -> Unit,
     onYearChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit,
+    onTypeChange: (CheckType?) -> Unit,
     onCheckClick: (Check) -> Unit
 ) {
+    item(key = "check-report-direction-filter") {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+            )
+        ) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("نوع چک برای گزارش", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedType == null,
+                        onClick = { onTypeChange(null) },
+                        label = { Text("همه چک‌ها") }
+                    )
+                    FilterChip(
+                        selected = selectedType == CheckType.RECEIVED,
+                        onClick = { onTypeChange(CheckType.RECEIVED) },
+                        label = { Text("چک‌های دریافتی") }
+                    )
+                    FilterChip(
+                        selected = selectedType == CheckType.PAID,
+                        onClick = { onTypeChange(CheckType.PAID) },
+                        label = { Text("چک‌های پرداختی") }
+                    )
+                }
+                Text(
+                    when (selectedType) {
+                        CheckType.RECEIVED -> "جست‌وجو، فیلتر تاریخ و جمع مبالغ فقط روی چک‌های دریافتی اعمال می‌شود."
+                        CheckType.PAID -> "جست‌وجو، فیلتر تاریخ و جمع مبالغ فقط روی چک‌های پرداختی اعمال می‌شود."
+                        null -> "گزارش همه چک‌ها؛ دریافتی و پرداختی در خلاصه به تفکیک وضعیت نمایش داده می‌شوند."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+
     item(key = "check-report-search") {
         OutlinedTextField(
             value = query,
