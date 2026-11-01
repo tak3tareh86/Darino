@@ -115,6 +115,9 @@ fun AddInstallmentSheet(
     val context = LocalContext.current
     val preferences = remember { AppPreferencesRepository.getInstance(context) }
     val defaultReminderMinute by preferences.defaultReminderTimeMinute.collectAsState()
+    val globalInstallmentReminderDays by preferences.installmentReminderDays.collectAsState()
+    var showNoAlertConfirmation by remember { mutableStateOf(false) }
+    var pendingNoAlertSubmit by remember { mutableStateOf<(() -> Unit)?>(null) }
     val defaultReminderTimeText = remember(defaultReminderMinute) {
         val hour = (defaultReminderMinute / 60).toString().padStart(2, '0')
         val minute = (defaultReminderMinute % 60).toString().padStart(2, '0')
@@ -128,6 +131,31 @@ fun AddInstallmentSheet(
     var showTimePicker by remember { mutableStateOf(false) }
 
     var customScheduleItems by remember { mutableStateOf<List<com.example.ui.screens.installments.model.PaymentHistoryItem>?>(null) }
+
+    fun submitInstallment(
+        reminderActive: Boolean,
+        offsets: List<PredefinedOffset>,
+        daysSummary: String,
+        scheduleItems: List<com.example.ui.screens.installments.model.PaymentHistoryItem>?
+    ) {
+        onAddConfirm(
+            selectedCategory,
+            title.ifBlank { selectedCategory.title },
+            totalAmount,
+            installmentAmount,
+            installmentsCount,
+            paidInstallmentsCount,
+            dueDate,
+            providerOrPerson,
+            notes,
+            reminderActive,
+            daysSummary,
+            reminderTime,
+            offsets,
+            scheduleItems
+        )
+        onDismiss()
+    }
     var showCustomScheduleDialog by remember { mutableStateOf(false) }
 
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
@@ -240,27 +268,54 @@ fun AddInstallmentSheet(
 
                         val daysSummary = offsets.joinToString("، ") { it.title }
 
-                        onAddConfirm(
-                            selectedCategory,
-                            title.ifBlank { selectedCategory.title },
-                            totalAmount,
-                            installmentAmount,
-                            installmentsCount,
-                            paidInstallmentsCount,
-                            dueDate,
-                            providerOrPerson,
-                            notes,
-                            reminderEnabled,
-                            daysSummary,
-                            reminderTime,
-                            offsets,
-                            customScheduleItems
-                        )
-                        onDismiss()
+                        if (reminderEnabled && offsets.isEmpty() && globalInstallmentReminderDays == 0) {
+                            pendingNoAlertSubmit = {
+                                submitInstallment(
+                                    reminderActive = false,
+                                    offsets = emptyList(),
+                                    daysSummary = "",
+                                    scheduleItems = currentCustomScheduleItems
+                                )
+                            }
+                            showNoAlertConfirmation = true
+                        } else {
+                            submitInstallment(
+                                reminderActive = reminderEnabled,
+                                offsets = offsets,
+                                daysSummary = daysSummary,
+                                scheduleItems = currentCustomScheduleItems
+                            )
+                        }
                     }
                 )
             }
         }
+    }
+
+    if (showNoAlertConfirmation) {
+        AlertDialog(
+            onDismissRequest = {
+                showNoAlertConfirmation = false
+                pendingNoAlertSubmit = null
+            },
+            title = { Text("ثبت اقساط بدون اعلان؟") },
+            text = {
+                Text("هیچ زمان هشداری برای اقساط انتخاب نشده و در تنظیمات عمومی هم فاصله یادآوری اقساط فعال نیست. اگر تأیید کنید، اقساط بدون اعلان ثبت می‌شوند.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showNoAlertConfirmation = false
+                    pendingNoAlertSubmit?.invoke()
+                    pendingNoAlertSubmit = null
+                }) { Text("تأیید و ثبت بدون اعلان") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showNoAlertConfirmation = false
+                    pendingNoAlertSubmit = null
+                }) { Text("لغو و تنظیم یادآوری") }
+            }
+        )
     }
 
     // CENTERED MINI POP-UP DIALOG FOR REMINDER SETTINGS
