@@ -748,7 +748,7 @@ object BankSmsParser {
         // (for example a secondary amount in a bank template) from winning over the
         // amount the bank explicitly labels as the transaction value.
         val labeledAmountMatch = Regex(
-            """(?:مبلغ(?:\\s+(?:تراکنش|برداشت|واریز|خرید|پرداخت))?|به\\s*مبلغ)\\s*[:：]?\\s*([+-]?\\s*[0-9][0-9,\\.\\u060C\\u066B\\u066C]*)\\s*(?:ریال|تومان|Rls|IRR)?""",
+            """(?:مبلغ(?:\s+(?:اصلی|تراکنش|انتقال|برداشت|واریز|خرید|پرداخت))?|به\s*مبلغ)\s*[:：]?\s*([+-]?\s*[0-9][0-9,.،٫٬]*)\s*(?:ریال|تومان|Rls|IRR)?""",
             RegexOption.IGNORE_CASE
         ).find(maskedText)
         val labeledAmountCandidate = labeledAmountMatch?.range
