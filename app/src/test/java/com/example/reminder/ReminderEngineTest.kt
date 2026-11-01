@@ -12,6 +12,40 @@ import java.util.TimeZone
 class ReminderEngineTest {
 
     @Test
+    fun parsePersianDateTimeAcceptsValidPersianDigits() {
+        val parsed = ReminderManager.parsePersianDateTimeToMillis("۱۴۰۴/۰۱/۰۱", "۰۹:۳۰")
+        assertTrue("A valid Persian date and time must produce a positive timestamp", parsed > 0L)
+    }
+
+    @Test
+    fun parsePersianDateTimeRejectsInvalidPersianDate() {
+        try {
+            ReminderManager.parsePersianDateTimeToMillis("۱۴۰۴/۱۳/۰۱", "۰۹:۳۰")
+            fail("Invalid month must be rejected")
+        } catch (_: IllegalArgumentException) {
+            // Expected.
+        }
+    }
+
+    @Test
+    fun parsePersianDateTimeRejectsInvalidTime() {
+        try {
+            ReminderManager.parsePersianDateTimeToMillis("۱۴۰۴/۰۱/۰۱", "۲۴:۰۰")
+            fail("Hour 24 must be rejected")
+        } catch (_: IllegalArgumentException) {
+            // Expected.
+        }
+    }
+
+    @Test
+    fun recurrenceIntervalMustBeBetweenOneAnd365() {
+        assertTrue(RecurrenceEngine.validateRecurrence(RepeatType.DAILY, 1))
+        assertTrue(RecurrenceEngine.validateRecurrence(RepeatType.YEARLY, 365))
+        assertFalse(RecurrenceEngine.validateRecurrence(RepeatType.DAILY, 0))
+        assertFalse(RecurrenceEngine.validateRecurrence(RepeatType.WEEKLY, 366))
+    }
+
+    @Test
     fun testNotificationIdGeneratorIsDeterministic() {
         val reminderId = "rem_test_123"
         val scheduleId = "sch_test_456"
