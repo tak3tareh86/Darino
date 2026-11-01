@@ -704,7 +704,7 @@ private fun SmsGrantedContentView(
 
                     if (item.isTypeUncertain) {
                         Text(
-                            text = "⚠️ لطفاً نوع تراکنش را مشخص کنید:",
+                            text = "⚠️ لطفاً نوع تراکنش را بررسی و تأیید کنید:",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFFD97706)
