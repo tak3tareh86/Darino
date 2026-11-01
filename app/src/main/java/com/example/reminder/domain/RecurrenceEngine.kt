@@ -3,7 +3,6 @@ package com.example.reminder.domain
 import com.example.reminder.data.ReminderScheduleEntity
 import com.example.util.PersianCalendarHelper
 import java.util.Calendar
-import java.util.TimeZone
 import java.util.UUID
 
 object RecurrenceEngine {
@@ -20,8 +19,8 @@ object RecurrenceEngine {
             return currentTriggerMillis
         }
 
-        val tz = TimeZone.getTimeZone("Asia/Tehran")
-        val cal = Calendar.getInstance(tz).apply {
+        // Match the timezone used by PersianCalendarHelper for date/time conversion.
+        val cal = Calendar.getInstance().apply {
             timeInMillis = currentTriggerMillis
         }
 
@@ -44,11 +43,7 @@ object RecurrenceEngine {
                     nextMonth -= 12
                     nextYear += 1
                 }
-                val maxDaysInNextMonth = when {
-                    nextMonth in 1..6 -> 31
-                    nextMonth in 7..11 -> 30
-                    else -> 29
-                }
+                val maxDaysInNextMonth = PersianCalendarHelper.getDaysInMonth(nextYear, nextMonth)
                 val nextDay = pDate.day.coerceAtMost(maxDaysInNextMonth)
                 return PersianCalendarHelper.jalaliToEpochMillis(
                     year = nextYear,
@@ -61,7 +56,7 @@ object RecurrenceEngine {
             RepeatType.YEARLY -> {
                 val pDate = PersianCalendarHelper.fromEpochMillis(currentTriggerMillis)
                 val nextYear = pDate.year + interval
-                val maxDays = if (pDate.month in 1..6) 31 else if (pDate.month in 7..11) 30 else 29
+                val maxDays = PersianCalendarHelper.getDaysInMonth(nextYear, pDate.month)
                 val nextDay = pDate.day.coerceAtMost(maxDays)
                 return PersianCalendarHelper.jalaliToEpochMillis(
                     year = nextYear,
