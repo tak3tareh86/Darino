@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ui.screens.check.components.CheckCard
 import com.example.ui.screens.check.model.Check
+import com.example.ui.screens.check.model.CheckType
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 
@@ -152,7 +153,7 @@ fun LazyListScope.checkReportSection(
                             Text(
                                 "${total.type.title} · ${total.status.title} (${IranianPhoneUtils.convertDigitsToPersian(total.count.toString())})",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (total.type.name == "RECEIVED") MaterialTheme.colorScheme.primary
+                                color = if (total.type == CheckType.RECEIVED) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.error
                             )
                             Text(MoneyFormatter.format(total.amount), style = MaterialTheme.typography.bodySmall)
