@@ -981,7 +981,7 @@ object BankSmsParser {
             val detectedType = detectTransactionType(cleanBody) ?: return null
 
             val hasTransferContext = Regex(
-                """(?:انتقال|کارت\\s*به\\s*کارت|پایا|ساتنا|حواله)"""
+                """(?:انتقال|کارت\s*به\s*کارت|پایا|ساتنا|حواله)"""
             ).containsMatchIn(cleanBody)
 
             val typeIsConsistent = when (configuredType) {
