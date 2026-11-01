@@ -268,7 +268,7 @@ private fun SmsOnboardingView(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "دیگر نیازی به ثبت دستی تراکنش‌ها نیست! الگوهای پیامک بانکی خود را تعریف کنید تا دارینو پیامک‌های واریز و برداشت را شناسایی کند",
+                text = "دیگر نیازی به ثبت دستی تراکنش‌ها نیست! الگوهای پیامک بانکی خود را تعریف کنید تا دارینو پیامک‌های واریز، برداشت و انتقال وجه را شناسایی کند",
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 10.5.sp,
                     lineHeight = 14.sp,
@@ -402,7 +402,7 @@ private fun SmsPermissionDeniedView(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "برای تشخیص واریز و برداشت‌ها، برنامه نیازمند مجوز خواندن پیامک است.",
+                    text = "برای تشخیص واریز، برداشت و انتقال وجه، برنامه نیازمند مجوز خواندن پیامک است.",
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
