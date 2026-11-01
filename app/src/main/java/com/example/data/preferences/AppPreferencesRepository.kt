@@ -34,7 +34,8 @@ import kotlinx.coroutines.withContext
  */
 class AppPreferencesRepository private constructor(context: Context) {
 
-    private val prefs: SharedPreferences = context.applicationContext.getSharedPreferences(
+    private val appContext: Context = context.applicationContext
+    private val prefs: SharedPreferences = appContext.getSharedPreferences(
         PREFS_NAME,
         Context.MODE_PRIVATE
     )
@@ -201,7 +202,7 @@ class AppPreferencesRepository private constructor(context: Context) {
         prefs.edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, enabled).apply()
         _notificationsEnabled.value = enabled
         scope.launch {
-            runCatching { com.example.reminder.domain.ReminderScheduler(context).rebuildAllSchedules() }
+            runCatching { com.example.reminder.domain.ReminderScheduler(appContext).rebuildAllSchedules() }
                 .onFailure { android.util.Log.e("AppPreferencesRepo", "Failed to refresh reminder alarms after global notification change", it) }
         }
     }
@@ -275,7 +276,7 @@ class AppPreferencesRepository private constructor(context: Context) {
             .apply()
         _alertDelivery.value = delivery
         scope.launch {
-            runCatching { com.example.reminder.domain.ReminderScheduler(context).rebuildAllSchedules() }
+            runCatching { com.example.reminder.domain.ReminderScheduler(appContext).rebuildAllSchedules() }
                 .onFailure { android.util.Log.e("AppPreferencesRepo", "Failed to refresh reminder alarms after global delivery change", it) }
         }
     }
