@@ -839,8 +839,9 @@ object BankSmsParser {
 
     /**
      * Complete parse pipeline:
-     * Validates and constructs suggestion ONLY when all criteria are met.
-     * Returns null if non-transactional, ambiguous, or invalid.
+     * Strictly accepted transactions are suggested normally; bank-authenticated but
+     * ambiguous/partially parsed financial messages are retained for explicit manual review.
+     * Non-transactional or weakly attributed messages are discarded.
      */
     fun parse(smsId: String, sender: String, body: String, timestampMillis: Long): BankSmsSuggestion? {
         try {
