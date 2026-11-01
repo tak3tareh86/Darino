@@ -801,30 +801,33 @@ object BankSmsParser {
         val hasKnownSender = isSenderRecognized(sender)
         val hasExplicitBankHeader = ALL_BANKS.any { bank ->
             val name = normalizeText(bank.displayName).lowercase()
-            Regex("""^\\s*(?:(?:پیامک|اطلاعیه)\\s*(?:از\\s*)?)?${Regex.escape(name)}(?=$|[\\s:؛،\\-])""")
-                .containsMatchIn(lower)
+            Regex(
+                """^\s*(?:(?:پیامک|اطلاعیه)\s*(?:از\s*)?)?""" +
+                    Regex.escape(name) +
+                    """(?=$|[\s:؛،\-])"""
+            ).containsMatchIn(lower)
         }
         if (!hasKnownSender && !hasExplicitBankHeader) return false
 
         val hasMoneyEvent = Regex(
-            """(?:برداشت|واریز|بدهکار|بستانکار|کسر|خرید|پرداخت|انتقال|حواله|کارت\\s*به\\s*کارت|پایا|ساتنا|پرید|نشست|کم\\s*شد|اضافه\\s*شد|منظور\\s*شد)"""
+            """(?:برداشت|واریز|بدهکار|بستانکار|کسر|خرید|پرداخت|انتقال|حواله|کارت\s*به\s*کارت|پایا|ساتنا|پرید|نشست|کم\s*شد|اضافه\s*شد|منظور\s*شد)"""
         ).containsMatchIn(lower)
         if (!hasMoneyEvent) return false
 
         val hasAmountLabel = Regex(
-            """(?:مبلغ(?:\\s*(?:تراکنش|برداشت|واریز|خرید|پرداخت))?|به\\s*مبلغ)"""
+            """(?:مبلغ(?:\s*(?:تراکنش|برداشت|واریز|خرید|پرداخت))?|به\s*مبلغ)"""
         ).containsMatchIn(lower)
         val hasCurrencyNearNumber = Regex(
-            """[0-9][0-9, .\\u060C\\u066B\\u066C]{0,24}\\s*(?:ریال|تومان|Rls|IRR)|(?:ریال|تومان|Rls|IRR)\\s*[0-9]"""
+            """[0-9][0-9, .\u060C\u066B\u066C]{0,24}\s*(?:ریال|تومان|Rls|IRR)|(?:ریال|تومان|Rls|IRR)\s*[0-9]"""
         ).containsMatchIn(lower)
         val hasNumericBalance = Regex(
-            """(?:مانده|موجودی|موجودي)(?:ی\\s*حساب|\\s*حساب|\\s*فعلی|\\s*کل)?\\s*[:：]?\\s*[+-]?\\s*[0-9][0-9, .\\u060C\\u066B\\u066C\\s]*"""
+            """(?:مانده|موجودی|موجودي)(?:ی\s*حساب|\s*حساب|\s*فعلی|\s*کل)?\s*[:：]?\s*[+-]?\s*[0-9][0-9, .\u060C\u066B\u066C\s]*"""
         ).containsMatchIn(lower)
         val hasCardOrAccountReference = Regex(
-            """(?i)(?:کارت|card|حساب|شماره\\s*حساب|شماره\\s*کارت)\\s*(?:شما\\s*)?[:：#-]?\\s*(?:[0-9*#-][0-9*#\\-\\s]{3,19})"""
+            """(?i)(?:کارت|card|حساب|شماره\s*حساب|شماره\s*کارت)\s*(?:شما\s*)?[:：#-]?\s*(?:[0-9*#-][0-9*#\-\s]{3,19})"""
         ).containsMatchIn(lower)
         val hasCompletionMarker = Regex(
-            """(?:موفق|انجام\\s*شد|صورت\\s*گرفت|ثبت\\s*نهایی\\s*شد|به\\s*حساب\\s*نشست|از\\s*کارت\\s*پرید|منظور\\s*(?:شد|گردید))"""
+            """(?:موفق|انجام\s*شد|صورت\s*گرفت|ثبت\s*نهایی\s*شد|به\s*حساب\s*نشست|از\s*کارت\s*پرید|منظور\s*(?:شد|گردید))"""
         ).containsMatchIn(lower)
 
         val hasFinancialStructure = hasNumericBalance ||
