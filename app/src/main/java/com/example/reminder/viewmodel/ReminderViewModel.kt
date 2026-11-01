@@ -152,13 +152,22 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         reminder: ReminderEntity,
         offsets: List<PredefinedOffset> = emptyList(),
         repeatType: RepeatType = RepeatType.NONE,
-        repeatInterval: Int = 1
+        repeatInterval: Int = 1,
+        onComplete: ((Result<Int>) -> Unit)? = null
     ) {
         viewModelScope.launch {
             try {
-                manager.createReminder(reminder, offsets, repeatType, repeatInterval)
+                val scheduledCount = manager.createReminder(reminder, offsets, repeatType, repeatInterval)
+                _userMessage.value = if (scheduledCount > 0) {
+                    "یادآور با موفقیت ثبت و زمان‌بندی شد."
+                } else {
+                    "یادآور بدون اعلان ثبت شد."
+                }
+                onComplete?.invoke(Result.success(scheduledCount))
             } catch (e: Exception) {
-                _errorMessage.value = "خطا در ثبت یادآور: ${e.localizedMessage}"
+                val message = e.localizedMessage ?: "خطای نامشخص"
+                _errorMessage.value = "خطا در ثبت یادآور: $message"
+                onComplete?.invoke(Result.failure(e))
             }
         }
     }
