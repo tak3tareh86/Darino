@@ -63,7 +63,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -133,17 +134,23 @@ fun GeneralPreferencesScreen(
         mutableStateOf(checkNotificationPermission())
     }
     var pendingDeliveryMode by remember { mutableStateOf<AlertDeliveryPreference?>(null) }
+    var showAccessDialog by remember { mutableStateOf(false) }
+
+    fun hasAllRequiredAccess(mode: AlertDeliveryPreference): Boolean {
+        val needsFullScreen = mode != AlertDeliveryPreference.NOTIFICATION_ONLY
+        return canPostNotifications && canScheduleExactAlarms &&
+            (!needsFullScreen || canUseFullScreenIntent)
+    }
 
     fun requestDeliveryMode(mode: AlertDeliveryPreference) {
-        val needsFullScreen = mode != AlertDeliveryPreference.NOTIFICATION_ONLY
-        val ready = canPostNotifications && canScheduleExactAlarms &&
-            (!needsFullScreen || canUseFullScreenIntent)
-        if (ready) {
+        if (hasAllRequiredAccess(mode)) {
             pendingDeliveryMode = null
+            showAccessDialog = false
             onDeliveryModeChanged(mode)
         } else {
-            // Keep the existing preference until the user grants every required access manually.
+            // Do not change the saved preference until the user explicitly grants every required access.
             pendingDeliveryMode = mode
+            showAccessDialog = true
         }
     }
 
@@ -155,18 +162,101 @@ fun GeneralPreferencesScreen(
                 canPostNotifications = checkNotificationPermission()
 
                 pendingDeliveryMode?.let { requestedMode ->
-                    val needsFullScreen = requestedMode != AlertDeliveryPreference.NOTIFICATION_ONLY
-                    if (canPostNotifications && canScheduleExactAlarms &&
-                        (!needsFullScreen || canUseFullScreenIntent)
-                    ) {
+                    if (hasAllRequiredAccess(requestedMode)) {
                         onDeliveryModeChanged(requestedMode)
                         pendingDeliveryMode = null
+                        showAccessDialog = false
+                    } else {
+                        // If another access is still missing, ask again before opening its settings.
+                        showAccessDialog = true
                     }
                 }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val needsFullScreenAccess = pendingDeliveryMode != null &&
+        pendingDeliveryMode != AlertDeliveryPreference.NOTIFICATION_ONLY && !canUseFullScreenIntent
+    val needsExactAlarmAccess = pendingDeliveryMode != null && !canScheduleExactAlarms
+    val needsNotificationPermission = pendingDeliveryMode != null && !canPostNotifications
+
+    if (showAccessDialog && pendingDeliveryMode != null) {
+        val missingAccesses = buildList {
+            if (needsNotificationPermission) add("اعلان‌های برنامه")
+            if (needsExactAlarmAccess) add("آلارم دقیق")
+            if (needsFullScreenAccess) add("نمایش آلارم تمام‌صفحه")
+        }.joinToString("، ")
+
+        AlertDialog(
+            onDismissRequest = {
+                pendingDeliveryMode = null
+                showAccessDialog = false
+            },
+            title = { Text("اجازه دسترسی برای آلارم تمام‌صفحه") },
+            text = {
+                Text(
+                    "برای فعال‌کردن این روش هشدار، لازم است دسترسی‌های زیر را در تنظیمات اندروید برای دارینو فعال کنید: " +
+                        "$missingAccesses. این دسترسی‌ها توسط برنامه به‌صورت خودکار فعال نمی‌شوند. " +
+                        "پس از بازگشت، وضعیت دسترسی‌ها بررسی خواهد شد."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val settingsIntent = when {
+                            needsNotificationPermission -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            }
+                            needsExactAlarmAccess && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+                                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                            needsFullScreenAccess && Build.VERSION.SDK_INT >= 34 ->
+                                Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                            else -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                        }
+                        try {
+                            context.startActivity(settingsIntent)
+                            showAccessDialog = false
+                        } catch (_: Exception) {
+                            try {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                        data = Uri.parse("package:${context.packageName}")
+                                    }
+                                )
+                                showAccessDialog = false
+                            } catch (_: Exception) {
+                                Toast.makeText(
+                                    context,
+                                    "بازکردن تنظیمات دسترسی در این دستگاه ممکن نیست.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                showAccessDialog = true
+                            }
+                        }
+                    }
+                ) {
+                    Text("رفتن به تنظیمات")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        pendingDeliveryMode = null
+                        showAccessDialog = false
+                    }
+                ) {
+                    Text("انصراف")
+                }
+            }
+        )
     }
 
     CompositionLocalProvider(
@@ -364,73 +454,7 @@ fun GeneralPreferencesScreen(
                             isSelected = currentDeliveryMode == AlertDeliveryPreference.BOTH,
                             onClick = { requestDeliveryMode(AlertDeliveryPreference.BOTH) }
                         )
-                        val needsFullScreenAccess = pendingDeliveryMode != null &&
-                            pendingDeliveryMode != AlertDeliveryPreference.NOTIFICATION_ONLY &&
-                            !canUseFullScreenIntent
-                        val needsExactAlarmAccess = pendingDeliveryMode != null && !canScheduleExactAlarms
-                        val needsNotificationPermission = pendingDeliveryMode != null && !canPostNotifications
-                        if (pendingDeliveryMode != null) {
-                            Text(
-                                text = when {
-                                    needsNotificationPermission && needsExactAlarmAccess && needsFullScreenAccess ->
-                                        if (isEn) "To use this alert method, allow notifications, exact alarms, and full-screen alarms in Android settings. Darino will not enable these accesses automatically."
-                                        else "برای استفاده از این روش هشدار، باید اعلان‌ها، آلارم دقیق و نمایش تمام‌صفحه را در تنظیمات گوشی خودتان فعال کنید. دارینو هیچ‌کدام را خودکار فعال نمی‌کند."
-                                    needsNotificationPermission && needsExactAlarmAccess ->
-                                        if (isEn) "Allow app notifications and exact alarms in Android settings. Darino will not enable them automatically."
-                                        else "لطفاً اعلان‌های برنامه و دسترسی آلارم دقیق را دستی از تنظیمات گوشی فعال کنید. دارینو این دسترسی‌ها را خودکار فعال نمی‌کند."
-                                    needsNotificationPermission && needsFullScreenAccess ->
-                                        if (isEn) "Allow app notifications and full-screen alarm access in Android settings. Darino will not enable them automatically."
-                                        else "لطفاً اعلان‌های برنامه و دسترسی آلارم تمام‌صفحه را دستی از تنظیمات گوشی فعال کنید. دارینو آن‌ها را خودکار فعال نمی‌کند."
-                                    needsNotificationPermission ->
-                                        if (isEn) "App notifications are disabled. Enable them manually in Android settings."
-                                        else "اعلان‌های برنامه غیرفعال است. لطفاً آن را دستی از تنظیمات گوشی فعال کنید."
-                                    needsExactAlarmAccess ->
-                                        if (isEn) "Exact alarm access is required for scheduled reminders. Enable it manually in Android settings."
-                                        else "برای اجرای دقیق یادآورها، دسترسی آلارم دقیق لازم است. لطفاً آن را دستی از تنظیمات گوشی فعال کنید."
-                                    else ->
-                                        if (isEn) "Full-screen alarm access is required for this method. Enable it manually in Android settings."
-                                        else "برای این روش، دسترسی آلارم تمام‌صفحه لازم است. لطفاً آن را دستی از تنظیمات گوشی فعال کنید."
-                                },
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Button(
-                                onClick = {
-                                    try {
-                                        val settingsIntent = when {
-                                            needsNotificationPermission -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                            }
-                                            needsExactAlarmAccess -> Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                                                data = Uri.parse("package:${context.packageName}")
-                                            }
-                                            needsFullScreenAccess -> Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
-                                                data = Uri.parse("package:${context.packageName}")
-                                            }
-                                            else -> null
-                                        }
-                                        if (settingsIntent != null) {
-                                            context.startActivity(settingsIntent)
-                                        }
-                                    } catch (_: Exception) {
-                                        Toast.makeText(
-                                            context,
-                                            if (isEn) "Required Android settings are unavailable on this device." else "صفحه تنظیمات دسترسی موردنیاز در این دستگاه در دسترس نیست.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    when {
-                                        needsNotificationPermission -> if (isEn) "Open notification settings" else "رفتن به تنظیمات اعلان‌ها"
-                                        needsExactAlarmAccess -> if (isEn) "Open exact alarm settings" else "رفتن به تنظیمات آلارم دقیق"
-                                        else -> if (isEn) "Open full-screen alarm settings" else "رفتن به تنظیمات آلارم تمام‌صفحه"
-                                    }
-                                )
-                            }
-                        }
+
                     }
                 }
 
