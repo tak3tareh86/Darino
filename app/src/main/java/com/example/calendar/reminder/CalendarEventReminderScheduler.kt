@@ -58,11 +58,55 @@ class CalendarEventReminderScheduler(private val context: Context) {
         }
     }
 
+    fun scheduleSnooze(event: FinancialEvent, snoozeMinutes: Int) {
+        cancelSnooze(event.id)
+        val triggerAt = System.currentTimeMillis() + snoozeMinutes.coerceIn(1, 24 * 60) * 60_000L
+        val intent = Intent(context, CalendarEventReminderReceiver::class.java).apply {
+            action = ACTION_SNOOZE_TRIGGER
+            data = Uri.parse("darino://calendar-reminder-snooze/${event.id}")
+            putExtra(EXTRA_EVENT_ID, event.id)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            event.id.hashCode() + SNOOZE_REQUEST_CODE_OFFSET,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+            }
+        } catch (error: SecurityException) {
+            Log.e(TAG, "Unable to schedule calendar reminder snooze for ${event.id}", error)
+            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        }
+    }
+
     fun cancel(eventId: String) {
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             eventId.hashCode(),
             baseIntent(eventId),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        pendingIntent?.let {
+            alarmManager.cancel(it)
+            it.cancel()
+        }
+        cancelSnooze(eventId)
+    }
+
+    private fun cancelSnooze(eventId: String) {
+        val intent = Intent(context, CalendarEventReminderReceiver::class.java).apply {
+            action = ACTION_SNOOZE_TRIGGER
+            data = Uri.parse("darino://calendar-reminder-snooze/$eventId")
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            eventId.hashCode() + SNOOZE_REQUEST_CODE_OFFSET,
+            intent,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         ) ?: return
         alarmManager.cancel(pendingIntent)
@@ -90,7 +134,9 @@ class CalendarEventReminderScheduler(private val context: Context) {
 
     companion object {
         const val ACTION_TRIGGER = "com.example.action.TRIGGER_CALENDAR_EVENT_REMINDER"
+        const val ACTION_SNOOZE_TRIGGER = "com.example.action.SNOOZE_CALENDAR_EVENT_REMINDER"
         const val EXTRA_EVENT_ID = "calendar_event_id"
+        private const val SNOOZE_REQUEST_CODE_OFFSET = 5_000
         const val EXTRA_TITLE = "calendar_event_title"
         const val EXTRA_DESCRIPTION = "calendar_event_description"
         private const val TAG = "CalendarEventReminder"
