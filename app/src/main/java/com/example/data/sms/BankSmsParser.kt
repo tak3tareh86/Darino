@@ -931,7 +931,7 @@ object BankSmsParser {
             }
 
             val (dateText, timeText, finalTimestamp) = formatDateAndTime(timestampMillis, cleanBody)
-            val (sourceAcc, destAcc) = extractAccounts(cleanBody, bankName)
+            val (sourceAcc, destAcc) = extractAccounts(cleanBody)
 
             return BankSmsSuggestion(
                 id = smsId,
@@ -1015,7 +1015,7 @@ object BankSmsParser {
                 TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountToman)
             }
             val (dateText, timeText, finalTimestamp) = formatDateAndTime(timestampMillis, cleanBody)
-            val (sourceAccount, destinationAccount) = extractAccounts(cleanBody, pattern.name)
+            val (sourceAccount, destinationAccount) = extractAccounts(cleanBody)
 
             BankSmsSuggestion(
                 id = smsId,
@@ -1122,47 +1122,34 @@ object BankSmsParser {
         return Triple(finalDateText, finalTimeText, finalTimestamp)
     }
 
-    private fun extractAccounts(cleanBody: String, defaultBankName: String): Pair<String?, String?> {
+    private fun extractAccounts(cleanBody: String): Pair<String?, String?> {
         // Only infer an account when the SMS explicitly labels its direction.
-        // Never assume that the first card number is the source or that the bank name
-        // itself identifies one of the user's Darino accounts.
-        fun extractLabeledAccount(patterns: List<Regex>): String? {
+        // Never infer source/destination from the order of card numbers or bank name.
+        fun extract(patterns: List<Regex>): String? {
             for (pattern in patterns) {
                 val match = pattern.find(cleanBody) ?: continue
-                val value = match.groupValues.getOrNull(1)
-                    ?.replace(Regex("""\\s+"""), "")
+                val label = match.groupValues.getOrNull(1).orEmpty()
+                val value = match.groupValues.getOrNull(2)
+                    ?.replace(Regex("""\s+"""), "")
                     ?.trim()
                     ?.takeIf { it.length >= 4 }
                     ?: continue
-                val label = match.groupValues.getOrNull(2).orEmpty()
                 return "${if (label.contains("حساب")) "حساب" else "کارت"} $value"
             }
             return null
         }
 
         val sourcePatterns = listOf(
-            Regex("""(?:از\\s*(کارت|حساب)|(?:کارت|حساب)\\s*(?:مبدأ|مبدا))\\s*[:：#-]?\\s*([0-9۰-۹٠-٩*#-][0-9۰-۹٠-٩*#\\-\\s]{3,23})""")
+            Regex("""از\s*(کارت|حساب)\s*[:：#-]?\s*([0-9۰-۹٠-٩*#-][0-9۰-۹٠-٩*#\-\s]{3,23})"""),
+            Regex("""(کارت|حساب)\s*(?:مبدأ|مبدا)\s*[:：#-]?\s*([0-9۰-۹٠-٩*#-][0-9۰-۹٠-٩*#\-\s]{3,23})""")
         )
         val destinationPatterns = listOf(
-            Regex("""(?:به\\s*(کارت|حساب)|(?:کارت|حساب)\\s*(?:مقصد))\\s*[:：#-]?\\s*([0-9۰-۹٠-٩*#-][0-9۰-۹٠-٩*#\\-\\s]{3,23})"""),
-            Regex("""به\\s*شماره\\s*(کارت|حساب)\\s*[:：#-]?\\s*([0-9۰-۹٠-٩*#-][0-9۰-۹٠-٩*#\\-\\s]{3,23})""")
+            Regex("""به\s*(کارت|حساب)\s*[:：#-]?\s*([0-9۰-۹٠-٩*#-][0-9۰-۹٠-٩*#\-\s]{3,23})"""),
+            Regex("""(کارت|حساب)\s*مقصد\s*[:：#-]?\s*([0-9۰-۹٠-٩*#-][0-9۰-۹٠-٩*#\-\s]{3,23})"""),
+            Regex("""به\s*شماره\s*(کارت|حساب)\s*[:：#-]?\s*([0-9۰-۹٠-٩*#-][0-9۰-۹٠-٩*#\-\s]{3,23})""")
         )
 
-        // Regex groups are (1=account label, 2=account value); keep the returned
-        // account value masked exactly as it appears in the SMS.
-        fun extract(patterns: List<Regex>): String? {
-            for (pattern in patterns) {
-                val match = pattern.find(cleanBody) ?: continue
-                val label = match.groupValues.getOrNull(1).orEmpty()
-                val value = match.groupValues.getOrNull(2)
-                    ?.replace(Regex("""\\s+"""), "")
-                    ?.trim()
-                    ?.takeIf { it.length >= 4 }
-                    ?: continue
-                return "${if (label.contains("حساب")) "حساب" else "کارت"} $value"
-            }
-            return null
-        }
-
         return extract(sourcePatterns) to extract(destinationPatterns)
-    }}
+    }
+}
+}
