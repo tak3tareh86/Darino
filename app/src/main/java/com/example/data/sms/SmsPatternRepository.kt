@@ -1,6 +1,8 @@
 package com.example.data.sms
 
 import android.content.Context
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.example.data.security.SessionManager
 import org.json.JSONArray
 import org.json.JSONObject
@@ -23,8 +25,17 @@ data class SmsPattern(
  * This repository only manages examples; it does not read the inbox or parse transactions.
  */
 class SmsPatternRepository(context: Context) {
-    private val preferences = context.applicationContext
-        .getSharedPreferences("darino_sms_patterns", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val masterKey = MasterKey.Builder(appContext)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
+    private val preferences = EncryptedSharedPreferences.create(
+        appContext,
+        "darino_sms_patterns_secure",
+        masterKey,
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
 
     private fun storageKey(): String {
         val userId = SessionManager.userId?.takeIf { it.isNotBlank() } ?: "local"
