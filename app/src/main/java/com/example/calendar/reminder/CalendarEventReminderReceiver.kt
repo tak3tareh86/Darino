@@ -32,24 +32,31 @@ class CalendarEventReminderReceiver : BroadcastReceiver() {
                             scheduler.schedule(entity.toDomain())
                         }
                     }
-                } else if (intent.action == CalendarEventReminderScheduler.ACTION_TRIGGER) {
+                } else if (
+                    intent.action == CalendarEventReminderScheduler.ACTION_TRIGGER ||
+                    intent.action == CalendarEventReminderScheduler.ACTION_SNOOZE_TRIGGER
+                ) {
                     val eventId = intent.getStringExtra(CalendarEventReminderScheduler.EXTRA_EVENT_ID)
                         ?: return@launch
                     if (userId == null) return@launch
                     val event = dao.getEventById(userId, eventId)?.toDomain() ?: return@launch
                     if (event.status.name == "PAID") return@launch
                     val scheduler = CalendarEventReminderScheduler(context)
-                    val triggerAt = scheduler.triggerAtMillis(event) ?: return@launch
-                    if (triggerAt > System.currentTimeMillis()) {
-                        scheduler.schedule(event)
-                        return@launch
+                    if (intent.action == CalendarEventReminderScheduler.ACTION_TRIGGER) {
+                        val triggerAt = scheduler.triggerAtMillis(event) ?: return@launch
+                        if (triggerAt > System.currentTimeMillis()) {
+                            scheduler.schedule(event)
+                            return@launch
+                        }
                     }
                     val reminder = ReminderEntity(
                         id = "calendar_${event.id}",
+                        userId = userId,
                         title = event.title,
                         description = event.description,
                         type = event.type.name,
                         sourceType = "CALENDAR",
+                        sourceId = event.id,
                         priority = "NORMAL",
                         status = "ACTIVE",
                         date = event.date,
