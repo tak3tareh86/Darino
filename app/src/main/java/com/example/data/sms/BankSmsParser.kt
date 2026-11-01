@@ -183,6 +183,26 @@ object BankSmsParser {
     }
 
     /**
+     * A refund is a credit only when the SMS confirms that money reached the customer's
+     * account/card. A request or an unconfirmed reversal is not completed income.
+     */
+    private fun isSuccessfulRefund(text: String): Boolean {
+        val lower = normalizeText(text).lowercase()
+        val hasRefundLanguage = Regex(
+            """(?:برگشت\s*(?:وجه|مبلغ|تراکنش)|عودت\s*(?:وجه|مبلغ))"""
+        ).containsMatchIn(lower)
+        if (!hasRefundLanguage) return false
+
+        val hasCreditConfirmation = Regex(
+            """(?:به\s*(?:حساب|کارت)\s*(?:شما\s*)?(?:واریز|برگشت|منظور)\s*(?:شد|گردید)?|(?:برگشت|واریز)\s*(?:شد|گردید).{0,40}(?:حساب|کارت)|(?:برگشت\s*داده\s*شد|عودت\s*شد))"""
+        ).containsMatchIn(lower)
+        val hasFailureOrPendingState = Regex(
+            """(?:ناموفق|عدم\s*موفقیت|لغو\s*(?:شد|گردید|تراکنش)|در\s*حال\s*(?:بررسی|پردازش|انجام)|در\s*صف)"""
+        ).containsMatchIn(lower)
+        return hasCreditConfirmation && !hasFailureOrPendingState
+    }
+
+    /**
      * Strictly detects and flags non-transactional messages.
      * Takes absolute priority over transaction acceptance rules.
      *
@@ -252,13 +272,16 @@ object BankSmsParser {
         }
 
         // 4. Failed, Cancelled, or Reversed Transactions
+        // A confirmed refund is a real incoming ledger event, not a failed transaction.
+        val confirmedRefund = isSuccessfulRefund(norm)
         val failedPatterns = listOf(
             """(?:تراکنش\s*ناموفق|عملیات\s*ناموفق|ناموفق\s*بود|عدم\s*موفقیت)""",
             """(?:تراکنش\s*لغو|لغو\s*(?:تراکنش|عملیات|گردید|شد))""",
             """(?:برگشت\s*(?:تراکنش|وجه|خورد|داده\s*شد))""",
             """(?:موجودی\s*ناکافی|کسری\s*موجودی|خطا\s*در\s*(?:تراکنش|پرداخت|عملیات)|تراکنش\s*انجام\s*نشد|تراکنش\s*با\s*خطا)"""
         )
-        for (pat in failedPatterns) {
+        for ((index, pat) in failedPatterns.withIndex()) {
+            if (index == 2 && confirmedRefund) continue
             if (Pattern.compile(pat, Pattern.CASE_INSENSITIVE).matcher(norm).find()) {
                 return true
             }
@@ -401,7 +424,7 @@ object BankSmsParser {
         ).containsMatchIn(bodyWithoutBalance)
 
         val hasCompletionMarker = Regex(
-            """(?:تراکنش\s*(?:موفق|انجام\s*شد)|(?:خرید|پرداخت|انتقال|حواله|کارت\s*به\s*کارت)\s*(?:موفق|انجام\s*شد)|(?:برداشت|واریز|کسر)\s*(?:شد|گردید|موفق)|بستانکار\s*شد|بدهکار\s*شد|با\s*موفقیت\s*(?:انجام|ثبت)\s*شد|ثبت\s*نهایی\s*شد|به\s*حساب\s*نشست|از\s*کارت\s*پرید|منظور\s*(?:شد|گردید))"""
+            """(?:برگشت\s*(?:وجه|مبلغ|تراکنش).{0,40}(?:به\s*(?:حساب|کارت)|واریز|برگشت\s*داده\s*شد)|عودت\s*(?:وجه|مبلغ).{0,40}(?:به\s*(?:حساب|کارت)|واریز|عودت\s*شد)|تراکنش\s*(?:موفق|انجام\s*شد)|(?:خرید|پرداخت|انتقال|حواله|کارت\s*به\s*کارت)\s*(?:موفق|انجام\s*شد)|(?:برداشت|واریز|کسر)\s*(?:شد|گردید|موفق)|بستانکار\s*شد|بدهکار\s*شد|با\s*موفقیت\s*(?:انجام|ثبت)\s*شد|ثبت\s*نهایی\s*شد|به\s*حساب\s*نشست|از\s*کارت\s*پرید|منظور\s*(?:شد|گردید))"""
         ).containsMatchIn(lower)
         val senderDigits = normalizeSender(sender)
         val looksLikeNumericShortCode =
@@ -410,7 +433,7 @@ object BankSmsParser {
         // Do not treat a bare mention of "خرید", "پرداخت", or "انتقال" as a completed
         // transaction. Such words are common in promotional and informational messages.
         val hasCoreMoneyEvent = Regex(
-            """(?:برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|از\s*کارت\s*پرید|به\s*حساب\s*نشست|منظور\s*(?:شد|گردید)|تراکنش\s*(?:موفق|انجام\s*شد)|عملیات\s*بانکی\s*موفق|پرداخت\s*(?:با\s*موفقیت|موفق|انجام\s*شد|شد)|واریز\s*(?:از\s*طریق\s*)?(?:پایا|ساتنا)|پایا\s*واریز|ساتنا\s*واریز)"""
+            """(?:برگشت\s*(?:وجه|مبلغ|تراکنش)|عودت\s*(?:وجه|مبلغ)|برداشت|واریز|بستانکار|بدهکار|کسر\s*(?:از\s*)?حساب|از\s*کارت\s*پرید|به\s*حساب\s*نشست|منظور\s*(?:شد|گردید)|تراکنش\s*(?:موفق|انجام\s*شد)|عملیات\s*بانکی\s*موفق|پرداخت\s*(?:با\s*موفقیت|موفق|انجام\s*شد|شد)|واریز\s*(?:از\s*طریق\s*)?(?:پایا|ساتنا)|پایا\s*واریز|ساتنا\s*واریز)"""
         ).containsMatchIn(lower)
         val hasPurchaseOrTransferLanguage = Regex(
             """(?:خرید|پرداخت|انتقال|حواله|کارت\s*به\s*کارت|پایا|ساتنا)"""
@@ -524,6 +547,10 @@ object BankSmsParser {
      */
     fun detectTransactionType(text: String): TransactionType? {
         val lower = normalizeText(text).lowercase()
+
+        // Confirmed refunds credit the account; do not classify the original purchase
+        // wording in the same SMS as a new expense.
+        if (isSuccessfulRefund(lower)) return TransactionType.INCOME
 
         // Reject failed, reversed, cancelled, and not-yet-completed operations first.
         if (lower.contains("ناموفق") ||
@@ -667,7 +694,7 @@ object BankSmsParser {
         val lowerMasked = maskedText.lowercase()
         val eventPattern = when (expectedType) {
             TransactionType.EXPENSE -> Regex("""برداشت|کسر|بدهکار|خرید|پرداخت|پرید|کم\s*شد|-\s*[0-9]""")
-            TransactionType.INCOME -> Regex("""واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*(?:شد|گردید)""")
+            TransactionType.INCOME -> Regex("""برگشت\s*(?:وجه|مبلغ|تراکنش)|عودت\s*(?:وجه|مبلغ)|واریز|بستانکار|نشست|اضافه\s*شد|وارد\s*(?:حساب|شد)|منظور\s*(?:شد|گردید)""")
             TransactionType.TRANSFER -> Regex("""کارت\s*به\s*کارت|انتقال|پایا|ساتنا""")
             null -> Regex("""برداشت|واریز|خرید|کسر|بدهکار|بستانکار|انتقال|کارت\s*به\s*کارت|پایا|ساتنا|پرید|نشست""")
         }
@@ -916,7 +943,8 @@ object BankSmsParser {
         return when (type) {
             TransactionType.INCOME -> {
                 when {
-                    text.contains("حقوق") || text.contains("دستمزد") -> "حقوق و دستمزد"
+                    text.contains("برگشت وجه") || text.contains("برگشت مبلغ") || text.contains("عودت وجه") -> "برگشت وجه"
+                    text.contains("حقوق") || text.contains("دستمزد")
                     text.contains("سود") || text.contains("سپرده") -> "سود سپرده"
                     text.contains("یارانه") -> "یارانه و کمک‌معیشتی"
                     else -> "درآمد و واریز"
