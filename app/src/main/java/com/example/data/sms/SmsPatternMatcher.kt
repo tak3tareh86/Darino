@@ -18,52 +18,15 @@ object SmsPatternMatcher {
         fun first(kind: SmsPatternSlotKind): String? = values[kind]?.firstOrNull()
     }
 
+    /**
+     * Editor-only whitespace token boundaries. No token is classified or inferred:
+     * the user explicitly selects the exact token and assigns its semantic slot kind.
+     */
     fun detectNumericCandidates(message: String): List<NumericCandidate> {
-        val normalized = BankSmsParser.normalizeText(message)
-        if (normalized.isBlank()) return emptyList()
-
-        val candidates = mutableListOf<NumericCandidate>()
-        val dateRegex = Regex("""(?<![0-9])[0-9]{2,4}[/.-][0-9]{1,2}[/.-][0-9]{1,2}(?![0-9])""")
-        val timeRegex = Regex("""(?<![0-9])[0-2]?[0-9]:[0-5][0-9](?::[0-5][0-9])?(?![0-9])""")
-        dateRegex.findAll(normalized).forEach {
-            candidates.add(NumericCandidate(it.range.first, it.range.last + 1, it.value))
-        }
-        val shortDateRegex = Regex("""(?<![0-9])[0-9]{1,2}[/.-][0-9]{1,2}(?![0-9])""")
-        shortDateRegex.findAll(normalized).forEach { match ->
-            if (candidates.none { match.range.first < it.endExclusive && match.range.last + 1 > it.start }) {
-                candidates.add(NumericCandidate(match.range.first, match.range.last + 1, match.value))
-            }
-        }
-        timeRegex.findAll(normalized).forEach {
-            candidates.add(NumericCandidate(it.range.first, it.range.last + 1, it.value))
-        }
-
-        // Preserve complete masked/separated card and account values before plain digit runs.
-        val identifierRegex = Regex("""(?<![0-9])[0-9*#][0-9*# ._-]{2,32}[0-9*#](?![0-9])""")
-        identifierRegex.findAll(normalized).forEach { match ->
-            if (candidates.none { match.range.first < it.endExclusive && match.range.last + 1 > it.start }) {
-                candidates.add(NumericCandidate(match.range.first, match.range.last + 1, match.value))
-            }
-        }
-
-        val numericRegex = Regex("""(?<![0-9])[+-]?[0-9][0-9,،٬٫. ]*(?![0-9])""")
-        numericRegex.findAll(normalized).forEach { match ->
-            if (candidates.none { match.range.first < it.endExclusive && match.range.last + 1 > it.start }) {
-                val value = match.value.trim()
-                val leading = match.value.indexOfFirst { !it.isWhitespace() }.coerceAtLeast(0)
-                val trailing = match.value.indexOfLast { !it.isWhitespace() } + 1
-                if (trailing > leading) {
-                    candidates.add(
-                        NumericCandidate(
-                            match.range.first + leading,
-                            match.range.first + trailing,
-                            value
-                        )
-                    )
-                }
-            }
-        }
-        return candidates.sortedBy { it.start }
+        if (message.isEmpty()) return emptyList()
+        return Regex("""\S+""").findAll(message).map { match ->
+            NumericCandidate(match.range.first, match.range.last + 1, match.value)
+        }.toList()
     }
 
     fun findUniqueMatch(message: String, patterns: List<SmsPattern>): SmsPattern? {
@@ -136,30 +99,13 @@ object SmsPatternMatcher {
             var cursor = 0
             slots.forEach { slot ->
                 append(Regex.escape(sample.substring(cursor, slot.start)))
-                append("(")
-                append(
-                    when (slot.kind) {
-                        SmsPatternSlotKind.AMOUNT_RIAL,
-                        SmsPatternSlotKind.AMOUNT_TOMAN,
-                        SmsPatternSlotKind.BALANCE_RIAL,
-                        SmsPatternSlotKind.BALANCE_TOMAN -> """[+-]?[0-9][0-9,،٬٫. ]*"""
-                        SmsPatternSlotKind.DATE -> """[0-9]{2,4}[/.-][0-9]{1,2}[/.-][0-9]{1,2}"""
-                        SmsPatternSlotKind.DATE_DAY_MONTH,
-                        SmsPatternSlotKind.DATE_MONTH_DAY -> """[0-9]{1,2}[/.-][0-9]{1,2}"""
-                        SmsPatternSlotKind.TIME -> """[0-2]?[0-9]:[0-5][0-9](?::[0-5][0-9])?"""
-                        SmsPatternSlotKind.SOURCE_CARD,
-                        SmsPatternSlotKind.DESTINATION_CARD,
-                        SmsPatternSlotKind.SOURCE_ACCOUNT,
-                        SmsPatternSlotKind.DESTINATION_ACCOUNT,
-                        SmsPatternSlotKind.TRACKING -> """[0-9*#][0-9*# ._-]{1,32}[0-9*#]"""
-                        SmsPatternSlotKind.FIXED -> Regex.escape(sample.substring(slot.start, slot.endExclusive))
-                    }
-                )
-                append(")")
+                // Slot contents are opaque here. Meaning is assigned only by the
+                // explicitly selected slot kind after this exact-position capture.
+                append("([\\s\\S]+?)")
                 cursor = slot.endExclusive
             }
             append(Regex.escape(sample.substring(cursor)))
         }
-        return Regex("^$expression$", RegexOption.IGNORE_CASE)
+        return Regex("^$expression$")
     }
 }
