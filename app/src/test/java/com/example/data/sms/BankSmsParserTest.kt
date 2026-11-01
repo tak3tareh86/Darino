@@ -177,4 +177,31 @@ class BankSmsParserTest {
         )
     }
 
+    @Test
+    fun contradictorySignedDirectionIsQueuedForManualReview() {
+        val suggestion = BankSmsParser.parse(
+            "sms_review_1",
+            "20008434",
+            "برداشت از حساب، مبلغ تراکنش: +۱۲۵,۰۰۰ ریال",
+            1_700_000_000_000L
+        )
+
+        assertEquals(true, suggestion?.isTypeUncertain)
+        assertEquals(null, suggestion?.type)
+        assertEquals(true, suggestion?.isAmountValid)
+        assertEquals(12_500L, suggestion?.amount)
+    }
+
+    @Test
+    fun unrecognizedSenderWithoutExplicitBankHeaderIsNotQueued() {
+        val suggestion = BankSmsParser.parse(
+            "sms_review_2",
+            "unknown-sender",
+            "برداشت از حساب، مبلغ تراکنش: ۱۲۵,۰۰۰ ریال",
+            1_700_000_000_000L
+        )
+
+        assertEquals(null, suggestion)
+    }
+
 }
