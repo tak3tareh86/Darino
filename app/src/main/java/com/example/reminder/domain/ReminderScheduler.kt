@@ -201,41 +201,60 @@ class ReminderScheduler(private val context: Context) {
      * Rebuilds and re-arms all active schedules from the Room database.
      * Called after device boot, app update, timezone change, or process recovery.
      */
-    suspend fun rebuildAllSchedules() {
-        try {
-            val db = AppDatabase.getDatabase(context)
-            if (com.example.data.security.SessionManager.userId == null) {
-                com.example.data.security.SessionManager.init(context)
-            }
-            val userId = com.example.data.security.SessionManager.userId
-            var count = 0
-            val activeReminders = if (userId != null) {
-                db.smartReminderDao().getActiveRemindersList(userId)
-            } else {
-                Log.w("ReminderScheduler", "SessionManager.userId is null during rebuild; querying all active reminders globally.")
-                db.smartReminderDao().getAllActiveRemindersGlobal()
-            }
+    suspend fun rebuildAllSchedules(): Int {
+        val db = AppDatabase.getDatabase(context)
+        if (com.example.data.security.SessionManager.userId == null) {
+            com.example.data.security.SessionManager.init(context)
+        }
+        val userId = com.example.data.security.SessionManager.userId
+        val activeReminders = if (userId != null) {
+            db.smartReminderDao().getActiveRemindersList(userId)
+        } else {
+            Log.w("ReminderScheduler", "SessionManager.userId is null during rebuild; querying all active reminders globally.")
+            db.smartReminderDao().getAllActiveRemindersGlobal()
+        }
 
-            activeReminders.forEach { reminder ->
-                val schedules = if (userId != null) {
-                    db.smartReminderDao().getSchedulesForReminderSync(userId, reminder.id)
-                } else {
-                    db.smartReminderDao().getSchedulesForReminderGlobal(reminder.id)
-                }
-                schedules.forEach { schedule ->
-                    if (schedule.enabled && schedule.triggerDateTime > System.currentTimeMillis()) {
-                        try {
-                            scheduleSingle(reminder, schedule)
-                            count++
-                        } catch (e: Exception) {
-                            Log.e("ReminderScheduler", "Failed to re-arm schedule ${schedule.id} during rebuild: ${e.message}", e)
-                        }
+        // Remove stale PendingIntents first. This also makes switching to NONE or disabling
+        // the global push channel actually stop previously armed Android alarms.
+        val reminderSchedules = activeReminders.map { reminder ->
+            val schedules = if (userId != null) {
+                db.smartReminderDao().getSchedulesForReminderSync(userId, reminder.id)
+            } else {
+                db.smartReminderDao().getSchedulesForReminderGlobal(reminder.id)
+            }
+            reminder to schedules
+        }
+        reminderSchedules.flatMap { it.second }.forEach { schedule ->
+            cancelSchedule(schedule.id)
+        }
+
+        var scheduledCount = 0
+        val failures = mutableListOf<String>()
+        val now = System.currentTimeMillis()
+        reminderSchedules.forEach { (reminder, schedules) ->
+            if (!hasConfiguredDelivery(reminder)) {
+                Log.i("ReminderScheduler", "No enabled delivery channel for reminder ${reminder.id}; existing alarms were cancelled.")
+                return@forEach
+            }
+            schedules.forEach { schedule ->
+                if (schedule.enabled && schedule.triggerDateTime > now) {
+                    try {
+                        scheduleSingle(reminder, schedule)
+                        scheduledCount++
+                    } catch (e: Exception) {
+                        failures += "${schedule.id}: ${e.localizedMessage ?: e.javaClass.simpleName}"
+                        Log.e("ReminderScheduler", "Failed to re-arm schedule ${schedule.id} during rebuild.", e)
                     }
                 }
             }
-            Log.i("ReminderScheduler", "Rebuilt $count persistent active schedules after boot / reset successfully.")
-        } catch (e: Exception) {
-            Log.e("ReminderScheduler", "Error rebuilding schedules from database", e)
         }
+
+        Log.i("ReminderScheduler", "Rebuilt $scheduledCount active schedules; failures=${failures.size}.")
+        if (failures.isNotEmpty()) {
+            throw IllegalStateException(
+                "$scheduledCount هشدار ثبت شد و ${failures.size} هشدار به دلیل خطای سیستم ثبت نشد: ${failures.take(3).joinToString("؛ ")}"
+            )
+        }
+        return scheduledCount
     }
 }
