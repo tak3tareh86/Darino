@@ -227,6 +227,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
+    private val smsScanMutex = Mutex()
     private val smsProcessingMutex = Mutex()
     private val obligationProcessingMutex = Mutex()
 
@@ -304,19 +305,21 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         }
 
         viewModelScope.launch {
-            _isScanningSms.value = true
-            _smsErrorMessage.value = null
-            try {
-                val realSmsList = smsRepository.readInboxBankSms(userId)
-                val currentPending = _pendingSmsQueue.value
-                val existingIds = currentPending.map { it.id }.toSet()
-                val newItems = realSmsList.filterNot { existingIds.contains(it.id) }
+            smsScanMutex.withLock {
+                _isScanningSms.value = true
+                _smsErrorMessage.value = null
+                try {
+                    val realSmsList = smsRepository.readInboxBankSms(userId)
+                    val currentPending = _pendingSmsQueue.value
+                    val existingIds = currentPending.map { it.id }.toSet()
+                    val newItems = realSmsList.filterNot { existingIds.contains(it.id) }
 
-                _pendingSmsQueue.value = currentPending + newItems
-            } catch (e: Exception) {
-                _smsErrorMessage.value = "خطا در خواندن پیامک‌ها: ${e.localizedMessage}"
-            } finally {
-                _isScanningSms.value = false
+                    _pendingSmsQueue.value = currentPending + newItems
+                } catch (e: Exception) {
+                    _smsErrorMessage.value = "خطا در خواندن پیامک‌ها: ${e.localizedMessage}"
+                } finally {
+                    _isScanningSms.value = false
+                }
             }
         }
     }
