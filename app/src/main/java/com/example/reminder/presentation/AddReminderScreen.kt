@@ -111,7 +111,7 @@ fun AddReminderScreen(
             return
         }
         val normalizedTime = IranianPhoneUtils.convertDigitsToEnglish(time).trim()
-        if (!Regex("^(?:[01]\d|2[0-3]):[0-5]\d$").matches(normalizedTime)) {
+        if (!Regex("^(?:[01]\\d|2[0-3]):[0-5]\\d$").matches(normalizedTime)) {
             validationMessage = "ساعت معتبر نیست. ساعت را به‌صورت ۰۰:۰۰ تا ۲۳:۵۹ وارد کنید."
             return
         }
