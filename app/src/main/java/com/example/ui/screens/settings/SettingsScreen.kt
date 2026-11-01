@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.MonetizationOn
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Scaffold
@@ -72,6 +73,7 @@ import com.example.ui.screens.settings.subviews.NotificationSettingsScreen
 import com.example.ui.screens.settings.subviews.ReminderPreferencesScreen
 import com.example.ui.screens.settings.subviews.SecurityPrivacyScreen
 import com.example.ui.screens.settings.subviews.SmsSettingsScreen
+import com.example.ui.screens.settings.subviews.SmsPatternManagementScreen
 import com.example.ui.screens.settings.subviews.SupportBackupScreen
 import com.example.ui.screens.settings.subviews.SupportScreen
 import com.example.ui.screens.settings.subviews.VehicleManagementScreen
@@ -93,6 +95,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 @Composable
 fun SettingsScreen(
     currentTheme: AppThemeMode,
+    initialDestination: SettingsDestination = SettingsDestination.MAIN,
     onThemeChanged: (AppThemeMode) -> Unit,
     onBackClick: (() -> Unit)? = null,
     onOpenAuth: () -> Unit = {},
@@ -100,7 +103,7 @@ fun SettingsScreen(
     bottomBar: @Composable () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var currentDestination by remember { mutableStateOf(SettingsDestination.MAIN) }
+    var currentDestination by remember(initialDestination) { mutableStateOf(initialDestination) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val prefsRepo = remember(context) { com.example.data.preferences.AppPreferencesRepository.getInstance(context) }
@@ -251,6 +254,11 @@ fun SettingsScreen(
             }
             SettingsDestination.SMS -> {
                 SmsSettingsScreen(
+                    onBackClick = { currentDestination = SettingsDestination.MAIN }
+                )
+            }
+            SettingsDestination.SMS_PATTERNS -> {
+                SmsPatternManagementScreen(
                     onBackClick = { currentDestination = SettingsDestination.MAIN }
                 )
             }
@@ -461,6 +469,15 @@ private fun SettingsMainView(
                                 vectorIcon = Icons.Rounded.Tune,
                                 iconAccentColor = Color(0xFF0EA5E9),
                                 onClick = { onNavigate(SettingsDestination.GENERAL) },
+                                showChevron = false
+                            )
+
+                            SettingsItem(
+                                title = "مدیریت الگوهای پیامکی",
+                                subtitle = "ثبت نمونه پیامک‌های واریز و برداشت بانک‌ها",
+                                vectorIcon = Icons.Rounded.Sms,
+                                iconAccentColor = Color(0xFF0D9488),
+                                onClick = { onNavigate(SettingsDestination.SMS_PATTERNS) },
                                 showChevron = false
                             )
 
