@@ -211,28 +211,33 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                     )
                 }
 
-                val repeatType = RepeatType.fromKey(schedule.repeatType)
-                if (repeatType != RepeatType.NONE) {
-                    val nextTrigger = RecurrenceEngine.calculateNextOccurrence(
-                        schedule.triggerDateTime,
-                        repeatType,
-                        schedule.repeatInterval
-                    )
-                    if (nextTrigger > System.currentTimeMillis()) {
-                        val nextSchedule = RecurrenceEngine.generateNextSchedule(schedule, nextTrigger)
-                        dao.insertSchedule(nextSchedule)
-                        ReminderScheduler(context).scheduleSingle(reminder, nextSchedule)
-                    }
-                }
             }
 
             is DispatchDecision.PostponeTo -> {
+                // Postpone only this occurrence. Keep the recurrence anchor unchanged so
+                // quiet hours do not shift every future occurrence of a repeating reminder.
                 val postponed = schedule.copy(triggerDateTime = decision.postponeTimeMillis)
                 dao.updateSchedule(postponed)
                 ReminderScheduler(context).scheduleSingle(reminder, postponed)
             }
 
             DispatchDecision.SuppressQuietHours -> Unit
+        }
+
+        // Recurrence is independent of the current delivery decision. A reminder that
+        // is postponed or suppressed by quiet hours must still keep its future series.
+        val repeatType = RepeatType.fromKey(schedule.repeatType)
+        if (repeatType != RepeatType.NONE) {
+            val nextTrigger = RecurrenceEngine.calculateNextOccurrence(
+                schedule.triggerDateTime,
+                repeatType,
+                schedule.repeatInterval
+            )
+            if (nextTrigger > System.currentTimeMillis()) {
+                val nextSchedule = RecurrenceEngine.generateNextSchedule(schedule, nextTrigger)
+                dao.insertSchedule(nextSchedule)
+                ReminderScheduler(context).scheduleSingle(reminder, nextSchedule)
+            }
         }
     }
 
