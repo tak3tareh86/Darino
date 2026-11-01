@@ -456,6 +456,7 @@ fun AddEditCheckDialog(
                         } else if (isReminderInvalid || isReminderInPast) {
                             showError = true
                         } else {
+                            showReminderSetupError = false
                             submitCheck(reminderDateTime)
                         }
                     },
@@ -608,7 +609,7 @@ fun AddEditCheckDialog(
         if (showNoReminderConfirmation) {
             AlertDialog(
                 onDismissRequest = { showNoReminderConfirmation = false },
-                title = { Text("ثبت چک بدون اعلان؟") },
+                title = { Text("ثبت چک بدون یادآوری؟") },
                 text = {
                     Text("یادآور این چک غیرفعال است. اگر تأیید کنید، چک بدون هیچ یادآوری ثبت می‌شود.")
                 },
