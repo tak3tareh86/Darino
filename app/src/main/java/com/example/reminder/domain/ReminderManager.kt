@@ -336,11 +336,14 @@ class ReminderManager(
             return@withContext 0
         }
 
+        // Installment reminder activation is an explicit opt-in from the installment form.
+        // Enable the notification channel only after that opt-in, otherwise AlarmManager skips it.
         val reminder = existing?.copy(
             title = "سررسید قسط: $title",
             amount = amount,
             date = dueDatePersian,
             time = effectiveDueTime,
+            notificationEnabled = true,
             status = "ACTIVE"
         ) ?: ReminderEntity(
             id = "rem_inst_$installmentId",
@@ -354,7 +357,8 @@ class ReminderManager(
             date = dueDatePersian,
             time = effectiveDueTime,
             amount = amount,
-            notificationEnabled = false,
+            notificationEnabled = true,
+            fullScreenAlarmEnabled = false,
             smsEnabled = false
         )
 
