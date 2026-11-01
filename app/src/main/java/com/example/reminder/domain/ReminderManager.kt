@@ -11,6 +11,7 @@ import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.Calendar
 import java.util.UUID
 
 class ReminderManager(
@@ -23,20 +24,46 @@ class ReminderManager(
         AppPreferencesRepository.getInstance(context).defaultReminderTime()
 
     /**
+     * Calculates installment offsets as calendar units in the device timezone.
+     * This preserves the selected wall-clock time across daylight-saving changes.
+     * Other reminder types keep their existing elapsed-millis behavior.
+     */
+    private fun calculateOffsetTriggerMillis(
+        baseMillis: Long,
+        offset: PredefinedOffset,
+        calendarBasedOffsets: Boolean
+    ): Long {
+        if (!calendarBasedOffsets) {
+            return baseMillis - (offset.value * offset.unit.millisMultiplier)
+        }
+
+        val calendar = Calendar.getInstance().apply { timeInMillis = baseMillis }
+        when (offset.unit) {
+            OffsetUnit.MINUTE -> calendar.add(Calendar.MINUTE, -offset.value)
+            OffsetUnit.HOUR -> calendar.add(Calendar.HOUR_OF_DAY, -offset.value)
+            OffsetUnit.DAY -> calendar.add(Calendar.DAY_OF_MONTH, -offset.value)
+            OffsetUnit.WEEK -> calendar.add(Calendar.DAY_OF_MONTH, -7 * offset.value)
+            OffsetUnit.MONTH -> calendar.add(Calendar.MONTH, -offset.value)
+        }
+        return calendar.timeInMillis
+    }
+
+    /**
      * Creates a new reminder along with its multi-schedule triggers, and registers alarms.
      */
     suspend fun createReminder(
         reminder: ReminderEntity,
         offsets: List<PredefinedOffset> = listOf(PredefinedOffset.AT_TIME),
         repeatType: RepeatType = RepeatType.NONE,
-        repeatInterval: Int = 1
+        repeatInterval: Int = 1,
+        calendarBasedOffsets: Boolean = false
     ): Int = withContext(Dispatchers.IO) {
         // Parse reminder date & time to base epoch millis
         val baseMillis = parsePersianDateTimeToMillis(reminder.date, reminder.time)
 
         // Generate schedule entities for each selected offset
         val schedules = offsets.map { offset ->
-            val triggerMillis = baseMillis - (offset.value * offset.unit.millisMultiplier)
+            val triggerMillis = calculateOffsetTriggerMillis(baseMillis, offset, calendarBasedOffsets)
             ReminderScheduleEntity(
                 id = UUID.randomUUID().toString(),
                 reminderId = reminder.id,
@@ -74,7 +101,8 @@ class ReminderManager(
         reminder: ReminderEntity,
         offsets: List<PredefinedOffset> = listOf(PredefinedOffset.AT_TIME),
         repeatType: RepeatType = RepeatType.NONE,
-        repeatInterval: Int = 1
+        repeatInterval: Int = 1,
+        calendarBasedOffsets: Boolean = false
     ): Int = withContext(Dispatchers.IO) {
         val existingReminder = repository.getReminderById(reminder.id)
         val existingSchedules = repository.getSchedulesSync(reminder.id)
@@ -83,7 +111,7 @@ class ReminderManager(
 
         val baseMillis = parsePersianDateTimeToMillis(reminder.date, reminder.time)
         val newSchedules = offsets.map { offset ->
-            val triggerMillis = baseMillis - (offset.value * offset.unit.millisMultiplier)
+            val triggerMillis = calculateOffsetTriggerMillis(baseMillis, offset, calendarBasedOffsets)
             ReminderScheduleEntity(
                 id = UUID.randomUUID().toString(),
                 reminderId = reminder.id,
@@ -363,9 +391,9 @@ class ReminderManager(
         )
 
         val scheduledCount = if (existing == null) {
-            createReminder(reminder, offsets)
+            createReminder(reminder, offsets, calendarBasedOffsets = true)
         } else {
-            updateReminder(reminder, offsets)
+            updateReminder(reminder, offsets, calendarBasedOffsets = true)
         }
 
         return@withContext scheduledCount
