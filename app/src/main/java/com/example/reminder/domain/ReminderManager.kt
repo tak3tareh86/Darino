@@ -323,56 +323,40 @@ class ReminderManager(
         amount: Long,
         dueDatePersian: String,
         dueTimePersian: String? = null,
-        selectedOffsets: List<PredefinedOffset>? = null
+        selectedOffsets: List<PredefinedOffset>? = null,
+        paymentDueDates: List<Pair<String, String>> = emptyList()
     ): Int = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(installmentId)
         val effectiveDueTime = dueTimePersian?.takeIf { it.isNotBlank() }
             ?: existing?.time
             ?: defaultReminderTime()
-        val offsets = selectedOffsets ?: if (existing != null) {
-            repository.getSchedulesSync(existing.id).mapNotNull { stored ->
-                PredefinedOffset.entries.find {
-                    it.value == stored.offsetValue && it.unit.name.equals(stored.offsetUnit, ignoreCase = true)
+        val oldSchedules = existing?.let { repository.getSchedulesSync(it.id) }.orEmpty()
+        // The stored schedules are also the durable copy of the user's selected offsets.
+        // Keep disabled entries for past triggers so a later date edit can restore them.
+        val offsets = selectedOffsets ?: oldSchedules.mapNotNull { stored ->
+            PredefinedOffset.entries.find {
+                it.value == stored.offsetValue && it.unit.name.equals(stored.offsetUnit, ignoreCase = true)
+            }
+        }.distinct().ifEmpty {
+            if (existing == null) {
+                val preferredDays = AppPreferencesRepository.getInstance(context).installmentReminderDays.value
+                val preferredOffset = when (preferredDays) {
+                    1 -> PredefinedOffset.BEFORE_1_DAY
+                    3 -> PredefinedOffset.BEFORE_3_DAYS
+                    7 -> PredefinedOffset.BEFORE_7_DAYS
+                    10 -> PredefinedOffset.BEFORE_10_DAYS
+                    else -> PredefinedOffset.BEFORE_7_DAYS
                 }
-            }.distinct()
-        } else {
-            val preferredDays = AppPreferencesRepository.getInstance(context).installmentReminderDays.value
-            val preferredOffset = when (preferredDays) {
-                1 -> PredefinedOffset.BEFORE_1_DAY
-                3 -> PredefinedOffset.BEFORE_3_DAYS
-                7 -> PredefinedOffset.BEFORE_7_DAYS
-                10 -> PredefinedOffset.BEFORE_10_DAYS
-                else -> PredefinedOffset.BEFORE_7_DAYS
-            }
-            listOf(preferredOffset, PredefinedOffset.AT_TIME)
+                listOf(preferredOffset, PredefinedOffset.AT_TIME)
+            } else emptyList()
         }
 
-        if (offsets.isEmpty()) {
-            if (existing != null) {
-                val oldSchedules = repository.getSchedulesSync(existing.id)
-                scheduler.cancel(existing.id, oldSchedules)
-                NotificationDispatcher(context).cancelReminderNotifications(existing.id, oldSchedules)
-                val disabled = existing.copy(
-                    notificationEnabled = false,
-                    fullScreenAlarmEnabled = false,
-                    smsEnabled = false,
-                    updatedAt = System.currentTimeMillis()
-                )
-                repository.updateReminderWithSchedules(disabled, emptyList())
-            }
-            Log.i("ReminderManager", "syncInstallmentReminder: no selected alert times for $installmentId; no alarms scheduled.")
-            return@withContext 0
-        }
-
-        // Installment reminder activation is an explicit opt-in from the installment form.
-        // Enable the notification channel only after that opt-in, otherwise AlarmManager skips it.
         val reminder = existing?.copy(
             title = "سررسید قسط: $title",
             amount = amount,
             date = dueDatePersian,
             time = effectiveDueTime,
-            notificationEnabled = true,
-            status = "ACTIVE"
+            updatedAt = System.currentTimeMillis()
         ) ?: ReminderEntity(
             id = "rem_inst_$installmentId",
             title = "سررسید قسط: $title",
@@ -390,13 +374,76 @@ class ReminderManager(
             smsEnabled = false
         )
 
-        val scheduledCount = if (existing == null) {
-            createReminder(reminder, offsets, calendarBasedOffsets = true)
-        } else {
-            updateReminder(reminder, offsets, calendarBasedOffsets = true)
+        val payments = paymentDueDates.ifEmpty { listOf("legacy" to dueDatePersian) }
+        val now = System.currentTimeMillis()
+        val today = Calendar.getInstance().apply {
+            timeInMillis = now
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val schedules = payments.flatMap { (paymentId, paymentDate) ->
+            val dueMillis = runCatching { parsePersianDateTimeToMillis(paymentDate, effectiveDueTime) }.getOrNull()
+                ?: return@flatMap emptyList()
+            val dueDay = Calendar.getInstance().apply {
+                timeInMillis = dueMillis
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            offsets.map { offset ->
+                val triggerMillis = calculateOffsetTriggerMillis(dueMillis, offset, calendarBasedOffsets = true)
+                val isDueDateStillCurrent = !dueDay.before(today)
+                val shouldArm = isDueDateStillCurrent && triggerMillis > now
+                val stableId = UUID.nameUUIDFromBytes(
+                    "installment:$installmentId:$paymentId:${offset.value}:${offset.unit.name}".toByteArray(Charsets.UTF_8)
+                ).toString()
+                ReminderScheduleEntity(
+                    id = stableId,
+                    reminderId = reminder.id,
+                    triggerType = if (offset == PredefinedOffset.AT_TIME) "EXACT" else "BEFORE_EVENT",
+                    offsetValue = offset.value,
+                    offsetUnit = offset.unit.name,
+                    triggerDateTime = triggerMillis,
+                    repeatType = "NONE",
+                    repeatInterval = 1,
+                    enabled = shouldArm,
+                    createdAt = now
+                )
+            }
         }
 
-        return@withContext scheduledCount
+        // Cancel old PendingIntents before replacing Room rows. Each payment/offset pair
+        // has its own stable ID, so paying or editing one payment cannot collide with others.
+        if (existing != null) {
+            scheduler.cancel(existing.id, oldSchedules)
+            NotificationDispatcher(context).cancelReminderNotifications(existing.id, oldSchedules)
+            repository.updateReminderWithSchedules(reminder, schedules)
+        } else {
+            repository.insertReminderWithSchedules(reminder, schedules)
+        }
+
+        if (!reminder.status.equals("ACTIVE", ignoreCase = true) ||
+            !reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled && !reminder.smsEnabled
+        ) {
+            return@withContext 0
+        }
+
+        val futureSchedules = schedules.filter { it.enabled && it.triggerDateTime > now }
+        if (futureSchedules.isEmpty()) {
+            Log.i("ReminderManager", "No future installment alarms for $installmentId; reminder preferences retained.")
+            return@withContext 0
+        }
+        try {
+            val count = scheduler.schedule(reminder, futureSchedules)
+            Log.i("ReminderManager", "Synced ${futureSchedules.size} installment schedules for $installmentId; armed=$count.")
+            count
+        } catch (e: Exception) {
+            Log.e("ReminderManager", "Installment schedules saved but some alarms could not be armed for $installmentId.", e)
+            throw e
+        }
     }
 
     /**
