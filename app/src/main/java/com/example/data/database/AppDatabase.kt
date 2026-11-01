@@ -31,7 +31,7 @@ import androidx.room.RoomDatabase
         UserPreferenceEntity::class,
         CheckEntity::class
     ],
-    version = 31,
+    version = 32,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -478,6 +478,25 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_31_32 = object : androidx.room.migration.Migration(31, 32) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Reminder opt-in is an independent user preference, not a service lifecycle state.
+                db.execSQL("ALTER TABLE vehicle_services ADD COLUMN reminderEnabled INTEGER NOT NULL DEFAULT 0")
+                // Preserve explicit legacy opt-ins even when alarm registration previously failed.
+                db.execSQL("""
+                    UPDATE vehicle_services
+                    SET reminderEnabled = 1
+                    WHERE EXISTS (
+                        SELECT 1 FROM smart_reminders
+                        WHERE smart_reminders.userId = vehicle_services.userId
+                          AND smart_reminders.sourceType = 'VEHICLE'
+                          AND smart_reminders.sourceId = COALESCE(vehicle_services.serverId, CAST(vehicle_services.id AS TEXT))
+                          AND (smart_reminders.notificationEnabled = 1 OR smart_reminders.fullScreenAlarmEnabled = 1)
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -491,7 +510,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
                          MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
                          MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30,
-                         MIGRATION_30_31
+                         MIGRATION_30_31, MIGRATION_31_32
                      )
                     .build()
                 INSTANCE = instance
