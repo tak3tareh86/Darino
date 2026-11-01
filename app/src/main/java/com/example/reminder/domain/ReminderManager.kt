@@ -835,6 +835,10 @@ class ReminderManager(
             return@withContext
         }
 
+        if (!NotificationDispatcher(context).hasNotificationPermission()) {
+            throw IllegalStateException("اعلان‌های اندروید برای دارینو فعال نیستند؛ تنظیمات اعلان دستگاه را بررسی کنید.")
+        }
+
         if (existing == null) {
             val scheduledCount = createReminder(reminder, offsets)
             if (scheduledCount <= 0) {
