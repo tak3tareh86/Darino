@@ -805,14 +805,46 @@ class ReminderManager(
             smsEnabled = false
         )
 
-        // For custom check reminders, we only use EXACT time (AT_TIME offset)
-        // unless it's the default one (could keep BEFORE_1_DAY if we wanted, but requirement says "independent time")
+        // Check reminders use exactly one trigger at the user-selected local date and minute.
         val offsets = listOf(PredefinedOffset.AT_TIME)
 
+        // Editing check details must never silently reactivate a reminder the user disabled
+        // from the reminder center (or already completed/cancelled).
+        if (existing != null && !existing.status.equals("ACTIVE", ignoreCase = true)) {
+            val oldSchedules = repository.getSchedulesSync(existing.id)
+            scheduler.cancel(existing.id, oldSchedules)
+            NotificationDispatcher(context).cancelReminderNotifications(existing.id, oldSchedules)
+            val disabledSchedules = offsets.map { offset ->
+                ReminderScheduleEntity(
+                    id = UUID.randomUUID().toString(),
+                    reminderId = existing.id,
+                    triggerType = "EXACT",
+                    offsetValue = offset.value,
+                    offsetUnit = offset.unit.name,
+                    triggerDateTime = targetDateTime,
+                    repeatType = RepeatType.NONE.name,
+                    repeatInterval = 1,
+                    enabled = false,
+                    createdAt = System.currentTimeMillis()
+                )
+            }
+            repository.updateReminderWithSchedules(
+                reminder.copy(status = existing.status, updatedAt = System.currentTimeMillis()),
+                disabledSchedules
+            )
+            return@withContext
+        }
+
         if (existing == null) {
-            createReminder(reminder, offsets)
+            val scheduledCount = createReminder(reminder, offsets)
+            if (scheduledCount <= 0) {
+                throw IllegalStateException("آلارم دقیق چک در سیستم ثبت نشد.")
+            }
         } else {
-            updateReminder(reminder, offsets)
+            val scheduledCount = updateReminder(reminder, offsets)
+            if (scheduledCount <= 0) {
+                throw IllegalStateException("آلارم دقیق چک در سیستم ثبت نشد.")
+            }
         }
     }
 
