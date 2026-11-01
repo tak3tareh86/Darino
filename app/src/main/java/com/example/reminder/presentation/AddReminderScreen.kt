@@ -55,19 +55,13 @@ import java.util.UUID
 @Composable
 fun AddReminderScreen(
     onBackClick: () -> Unit,
-    onSaveReminder: (
-        reminder: ReminderEntity,
-        offsets: List<PredefinedOffset>,
-        repeatType: RepeatType,
-        repeatInterval: Int
-    ) -> Unit = { _, _, _, _ -> },
-    onSaveReminderWithResult: ((
+    onSaveReminderWithResult: (
         reminder: ReminderEntity,
         offsets: List<PredefinedOffset>,
         repeatType: RepeatType,
         repeatInterval: Int,
         onComplete: (Result<Int>) -> Unit
-    ) -> Unit)? = null,
+    ) -> Unit,
     initialDate: String? = null,
     initialType: ReminderType = ReminderType.GENERAL,
     modifier: Modifier = Modifier
@@ -174,12 +168,13 @@ fun AddReminderScreen(
                 saveErrorMessage = error.localizedMessage ?: "ثبت یادآور انجام نشد. اطلاعات فرم حفظ شده است؛ دوباره تلاش کنید."
             }
         }
-        if (onSaveReminderWithResult != null) {
-            onSaveReminderWithResult(reminder, offsetsToSave, effectiveRepeatType, effectiveRepeatInterval, handleResult)
-        } else {
-            onSaveReminder(reminder, offsetsToSave, effectiveRepeatType, effectiveRepeatInterval)
-            handleResult(Result.success(0))
-        }
+        onSaveReminderWithResult(
+            reminder,
+            offsetsToSave,
+            effectiveRepeatType,
+            effectiveRepeatInterval,
+            handleResult
+        )
     }
 
     val globalDeliveryConfigured = globalNotificationsEnabled &&
