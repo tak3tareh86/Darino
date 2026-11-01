@@ -943,6 +943,24 @@ private fun SmsGrantedContentView(
                         }
                     }
 
+                    val extractedDetails = listOfNotNull(
+                        item.sourceAccount?.takeIf { it.isNotBlank() }?.let { "مبدأ: $it" },
+                        item.destinationAccount?.takeIf { it.isNotBlank() }?.let { "مقصد: $it" },
+                        item.balanceAmount?.let { "موجودی: $it تومان" },
+                        item.trackingCode?.takeIf { it.isNotBlank() }?.let { "پیگیری: $it" }
+                    ).joinToString(" | ")
+                    if (extractedDetails.isNotBlank()) {
+                        Text(
+                            text = extractedDetails,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 9.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
                     // Action Buttons Row: [نادیده گرفتن | ویرایش | ثبت تراکنش]
                     Row(
                         modifier = Modifier.fillMaxWidth(),
