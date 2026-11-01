@@ -701,4 +701,4 @@ private fun String.toEnglishDigits(): String = map { char ->
         in '٠'..'٩' -> ('0'.code + (char.code - '٠'.code)).toChar()
         else -> char
     }
-.joinToString("")
+}.joinToString("")
