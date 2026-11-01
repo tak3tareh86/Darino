@@ -101,7 +101,11 @@ class ReminderManager(
 
         repository.insertReminderWithSchedules(reminder, schedules)
         val scheduledCount = try {
-            scheduler.schedule(reminder, schedules)
+            scheduler.schedule(reminder, schedules).also { count ->
+                if (schedules.any { it.enabled } && count == 0) {
+                    throw IllegalStateException("هیچ آلارمی ثبت نشد؛ تنظیمات اعلان و مجوز آلارم دقیق را بررسی کنید.")
+                }
+            }
         } catch (e: Exception) {
             // The add form remains open on failure. Roll back this new draft so a retry
             // cannot create a duplicate reminder with no working alarm.
@@ -170,7 +174,11 @@ class ReminderManager(
 
         repository.updateReminderWithSchedules(reminder, newSchedules)
         val scheduledCount = try {
-            scheduler.schedule(reminder, newSchedules)
+            scheduler.schedule(reminder, newSchedules).also { count ->
+                if (newSchedules.any { it.enabled } && count == 0) {
+                    throw IllegalStateException("هیچ آلارمی ثبت نشد؛ تنظیمات اعلان و مجوز آلارم دقیق را بررسی کنید.")
+                }
+            }
         } catch (e: Exception) {
             Log.e("ReminderManager", "Failed to schedule alarms during update for reminder ${reminder.id}. Rolling back to previous state.", e)
             if (existingReminder != null) {
