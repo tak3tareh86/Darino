@@ -116,6 +116,11 @@ fun AddInstallmentSheet(
     val preferences = remember { AppPreferencesRepository.getInstance(context) }
     val defaultReminderMinute by preferences.defaultReminderTimeMinute.collectAsState()
     val globalInstallmentReminderDays by preferences.installmentReminderDays.collectAsState()
+    val globalDeliveryMode by preferences.alertDelivery.collectAsState()
+    val globalNotificationsEnabled by preferences.notificationsEnabled.collectAsState()
+    val globalDeliveryConfigured = globalNotificationsEnabled &&
+        globalDeliveryMode != com.example.ui.screens.settings.model.AlertDeliveryPreference.NONE
+    var noAlertWarningMessage by remember { mutableStateOf("") }
     var showNoAlertConfirmation by remember { mutableStateOf(false) }
     var pendingNoAlertSubmit by remember { mutableStateOf<(() -> Unit)?>(null) }
     val defaultReminderTimeText = remember(defaultReminderMinute) {
@@ -268,7 +273,17 @@ fun AddInstallmentSheet(
 
                         val daysSummary = offsets.joinToString("، ") { it.title }
 
-                        if (reminderEnabled && offsets.isEmpty() && globalInstallmentReminderDays == 0) {
+                        val noTimingConfigured = offsets.isEmpty() && globalInstallmentReminderDays == 0
+                        val noDeliveryConfigured = !globalDeliveryConfigured
+                        if (reminderEnabled && (noTimingConfigured || noDeliveryConfigured)) {
+                            noAlertWarningMessage = when {
+                                noTimingConfigured && noDeliveryConfigured ->
+                                    "هیچ زمان هشداری انتخاب نشده و روش دریافت هشدار هم در تنظیمات عمومی فعال نیست. اگر تأیید کنید، اقساط بدون اعلان ثبت می‌شوند."
+                                noTimingConfigured ->
+                                    "هیچ زمان هشداری برای اقساط انتخاب نشده است. اگر تأیید کنید، اقساط بدون اعلان ثبت می‌شوند."
+                                else ->
+                                    "زمان هشدار انتخاب شده، اما روش دریافت هشدار یا اعلان‌های سراسری فعال نیست. اگر تأیید کنید، اقساط بدون اعلان ثبت می‌شوند."
+                            }
                             pendingNoAlertSubmit = {
                                 submitInstallment(
                                     reminderActive = false,
@@ -300,7 +315,7 @@ fun AddInstallmentSheet(
             },
             title = { Text("ثبت اقساط بدون اعلان؟") },
             text = {
-                Text("هیچ زمان هشداری برای اقساط انتخاب نشده و در تنظیمات عمومی هم فاصله یادآوری اقساط فعال نیست. اگر تأیید کنید، اقساط بدون اعلان ثبت می‌شوند.")
+                Text(noAlertWarningMessage)
             },
             confirmButton = {
                 TextButton(onClick = {
