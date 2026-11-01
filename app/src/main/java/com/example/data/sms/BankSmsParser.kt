@@ -1002,8 +1002,7 @@ object BankSmsParser {
                 // Explicit debit wording is accepted for banks describing an outgoing
                 // transfer as a withdrawal.
                 TransactionType.TRANSFER ->
-                    hasTransferContext && detectedType != null &&
-                        detectedType != TransactionType.INCOME
+                    hasTransferContext && detectedType != TransactionType.INCOME
             }
             if (!typeIsConsistent) return null
 
