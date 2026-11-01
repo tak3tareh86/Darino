@@ -88,6 +88,12 @@ fun HomeScreen(
     val userAccounts by viewModel.userAccounts.collectAsState()
 
     val context = LocalContext.current
+    var hasReceiveSmsPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -110,6 +116,9 @@ fun HomeScreen(
     ) { permissions ->
         val canReadSms = permissions[Manifest.permission.READ_SMS] == true ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        hasReceiveSmsPermission =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
         val permanentlyDenied = !canReadSms && activity != null &&
             !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_SMS)
         viewModel.markPermissionRequested(granted = canReadSms, permanentlyDenied = permanentlyDenied)
@@ -118,12 +127,7 @@ fun HomeScreen(
     // Listen only for the app-scoped signal emitted by the protected system SMS receiver.
     // The existing repository remains the sole path that reads, matches and parses inbox SMS.
     DisposableEffect(context, smsPermissionState) {
-        val hasReceivePermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.RECEIVE_SMS
-        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-
-        if (smsPermissionState == com.example.ui.screens.home.viewmodel.SmsPermissionState.GRANTED && hasReceivePermission) {
+        if (smsPermissionState == com.example.ui.screens.home.viewmodel.SmsPermissionState.GRANTED && hasReceiveSmsPermission) {
             val refreshReceiver = object : BroadcastReceiver() {
                 override fun onReceive(receiverContext: Context?, intent: Intent?) {
                     if (intent?.action == BankSmsReceivedReceiver.ACTION_BANK_SMS_RECEIVED) {
@@ -382,6 +386,7 @@ fun HomeScreen(
                                     )
                                 )
                             },
+                            liveSmsEnabled = hasReceiveSmsPermission,
                             onManagePatterns = onManageSmsPatternsClick,
                             onPermanentDeniedGoToSettings = onGoToSettings,
                             onRefreshScan = {
