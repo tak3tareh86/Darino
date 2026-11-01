@@ -234,6 +234,22 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun confirmedReversedDebitIsQueuedAsRefundIncome() {
+        val sms = "مبلغ برداشت شده با موفقیت به حساب شما برگشت داده شد؛ مبلغ: ۱۲۵,۰۰۰ ریال؛ مانده: ۵۰۰,۰۰۰ ریال"
+        val suggestion = BankSmsParser.parse(
+            "sms_reversal_1",
+            "20008434",
+            sms,
+            1_700_000_000_000L
+        )
+
+        assertEquals(TransactionType.INCOME, suggestion?.type)
+        assertEquals(12_500L, suggestion?.amount)
+        assertEquals("برگشت وجه", suggestion?.category)
+        assertEquals(true, suggestion?.isAmountValid)
+    }
+
+    @Test
     fun reversedDebitWithoutConfirmedCreditIsNotIncome() {
         val sms = "درخواست برگشت برداشت ثبت شد؛ مبلغ: ۱۲۵,۰۰۰ ریال"
 
