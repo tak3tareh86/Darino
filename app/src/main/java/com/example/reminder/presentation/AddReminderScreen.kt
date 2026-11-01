@@ -116,7 +116,7 @@ fun AddReminderScreen(
             return
         }
         val interval = repeatInterval.toIntOrNull()
-        if (repeatType != RepeatType.NONE && (interval == null || interval !in 1..365)) {
+        if (enableAlerts && selectedOffsets.isNotEmpty() && repeatType != RepeatType.NONE && (interval == null || interval !in 1..365)) {
             validationMessage = "بازه تکرار باید عددی بین ۱ تا ۳۶۵ باشد."
             return
         }
@@ -136,7 +136,7 @@ fun AddReminderScreen(
                 dueAt - (offset.value.toLong() * offset.unit.millisMultiplier) <= now
             }
             if (pastOffsets.isNotEmpty()) {
-                validationMessage = "زمان هشدار \${pastOffsets.joinToString("، ") { it.title }} گذشته است. تاریخ سررسید یا زمان‌های هشدار را تغییر دهید."
+                validationMessage = "زمان هشدار ${pastOffsets.joinToString("، ") { it.title }} گذشته است. تاریخ سررسید یا زمان‌های هشدار را تغییر دهید."
                 return
             }
         }
