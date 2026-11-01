@@ -812,7 +812,8 @@ class ReminderManager(
     companion object {
         fun parsePersianDateTimeToMillis(dateStr: String, timeStr: String): Long {
             val normalizedDate = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(dateStr).trim()
-            if (!com.example.util.IranianDateUtils.isValidPersianDate(normalizedDate)) {
+            val hasValidDateShape = Regex("^(?:\\d{4}/\\d{2}/\\d{2}|\\d{8})$").matches(normalizedDate)
+            if (!hasValidDateShape || !com.example.util.IranianDateUtils.isValidPersianDate(normalizedDate)) {
                 throw IllegalArgumentException("تاریخ شمسی معتبر نیست: $dateStr")
             }
             val dateDigits = com.example.util.IranianDateUtils.cleanDateDigits(normalizedDate)
