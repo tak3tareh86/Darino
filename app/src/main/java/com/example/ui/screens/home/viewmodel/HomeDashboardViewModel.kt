@@ -320,9 +320,10 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     val realSmsList = smsRepository.readInboxBankSms(userId)
                     val processedIds = smsRepository.getProcessedSmsIds(userId)
                     val dismissedIds = smsRepository.getDismissedSmsIds(userId)
-                    val currentPending = (
-                        smsRepository.getPendingSmsSuggestions(userId) + _pendingSmsQueue.value
-                    ).distinctBy { it.id }
+                    // The persisted queue is already scoped to this user. Do not merge
+                    // in-memory state here: it may belong to a previous account during a
+                    // fast sign-out/sign-in transition.
+                    val currentPending = smsRepository.getPendingSmsSuggestions(userId)
                         .filterNot { it.id in processedIds || it.id in dismissedIds }
                     val existingIds = currentPending.map { it.id }.toSet()
                     val newItems = realSmsList.filterNot { it.id in existingIds }
