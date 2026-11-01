@@ -383,7 +383,14 @@ class ReminderManager(
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
-        val schedules = payments.flatMap { (paymentId, paymentDate) ->
+        // When every payment is marked paid, retain disabled schedule rows as the
+        // durable storage for the user's chosen offsets. If a payment is later
+        // reopened, refresh can rebuild its alarms using those same preferences.
+        val schedules = if (payments.isEmpty() && existing != null) {
+            oldSchedules
+                .filterNot { it.id.startsWith("snooze_") }
+                .map { it.copy(enabled = false, createdAt = now) }
+        } else payments.flatMap { (paymentId, paymentDate) ->
             val dueMillis = runCatching { parsePersianDateTimeToMillis(paymentDate, effectiveDueTime) }.getOrNull()
                 ?: return@flatMap emptyList()
             val dueDay = Calendar.getInstance().apply {
@@ -457,8 +464,22 @@ class ReminderManager(
         dueDatePersian: String,
         paymentDueDates: List<Pair<String, String>>
     ): Int = withContext(Dispatchers.IO) {
-        if (repository.getReminderBySourceId(installmentId) == null) {
-            return@withContext 0
+        val existing = repository.getReminderBySourceId(installmentId)
+            ?: return@withContext 0
+
+        // A completed status can be stale when a previously paid payment is
+        // reopened. Restore only this linked reminder; never override DISABLED
+        // or CANCELLED user choices.
+        if (paymentDueDates.isNotEmpty() && existing.status.equals("COMPLETED", ignoreCase = true)) {
+            val storedSchedules = repository.getSchedulesSync(existing.id)
+            repository.updateReminderWithSchedules(
+                existing.copy(
+                    status = "ACTIVE",
+                    completedAt = null,
+                    updatedAt = System.currentTimeMillis()
+                ),
+                storedSchedules
+            )
         }
         syncInstallmentReminder(
             installmentId = installmentId,
@@ -470,14 +491,18 @@ class ReminderManager(
     }
 
     /**
-     * Triggered when an installment is paid. Automatically completes the active reminder.
+     * Legacy compatibility hook. A single payment must never complete the
+     * reminder for the whole loan; payment repositories refresh the remaining
+     * per-payment schedules after committing the payment instead.
      */
+    @Deprecated(
+        message = "Refresh the installment reminder with the current unpaid payment list instead."
+    )
     suspend fun onInstallmentPaid(installmentId: String) = withContext(Dispatchers.IO) {
-        val reminder = repository.getReminderBySourceId(installmentId)
-        if (reminder != null) {
-            completeReminder(reminder.id)
-            Log.i("ReminderManager", "Marked reminder for installment $installmentId as COMPLETED.")
-        }
+        Log.w(
+            "ReminderManager",
+            "Ignoring legacy whole-loan completion for $installmentId; per-payment schedules are refreshed by the installment repository."
+        )
     }
 
     /**
