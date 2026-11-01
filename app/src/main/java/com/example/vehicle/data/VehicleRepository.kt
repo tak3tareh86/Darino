@@ -1069,7 +1069,7 @@ class VehicleRepository {
                     return@forEach
                 }
                 val now = System.currentTimeMillis()
-                val updatedReminder = storedReminder.copy(currentMileage = currentMileage.toLong())
+                val updatedReminder = storedReminder.copy(currentKilometer = currentMileage.toLong())
                 // Preserve existing date-based alarm schedules while updating mileage metadata.
                 dao.updateReminder(updatedReminder)
                 val thresholdSchedule = com.example.reminder.data.ReminderScheduleEntity(
@@ -1092,7 +1092,7 @@ class VehicleRepository {
                 dispatcher.dispatchNotification(
                     updatedReminder.copy(
                         title = "موعد سرویس خودرو نزدیک است",
-                        description = "${baseReminder.description}؛ کیلومتر فعلی: $currentMileage، شروع بازه یادآوری: $thresholdMileage، کیلومتر سرویس: $targetMileage"
+                        description = "${storedReminder.description}؛ کیلومتر فعلی: $currentMileage، شروع بازه یادآوری: $thresholdMileage، کیلومتر سرویس: $targetMileage"
                     ),
                     thresholdSchedule
                 )
