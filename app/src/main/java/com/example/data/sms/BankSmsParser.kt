@@ -957,6 +957,76 @@ object BankSmsParser {
         }
     }
 
+    /**
+     * Parses a message only after it has matched a user-defined sample.
+     * The configured pattern type is authoritative, while completion and amount
+     * validation remain conservative to avoid adding failed or pending operations.
+     */
+    fun parseMatchedPattern(
+        smsId: String,
+        sender: String,
+        body: String,
+        timestampMillis: Long,
+        pattern: SmsPattern
+    ): BankSmsSuggestion? {
+        return try {
+            val cleanBody = normalizeText(body)
+            if (cleanBody.isBlank() || isNonTransactionalSms(cleanBody)) return null
+
+            val configuredType = when (pattern.type) {
+                SmsPatternType.INCOME -> TransactionType.INCOME
+                SmsPatternType.EXPENSE -> TransactionType.EXPENSE
+                SmsPatternType.TRANSFER -> TransactionType.TRANSFER
+            }
+            val detectedType = detectTransactionType(cleanBody) ?: return null
+
+            val hasTransferContext = Regex(
+                """(?:انتقال|کارت\\s*به\\s*کارت|پایا|ساتنا|حواله)"""
+            ).containsMatchIn(cleanBody)
+
+            val typeIsConsistent = when (configuredType) {
+                TransactionType.INCOME -> detectedType == TransactionType.INCOME
+                TransactionType.EXPENSE -> detectedType == TransactionType.EXPENSE
+                TransactionType.TRANSFER -> hasTransferContext
+            }
+            if (!typeIsConsistent) return null
+
+            val amountToman = extractAmountToman(cleanBody, configuredType)
+                ?.takeIf { it > 0L } ?: return null
+
+            val formattedAmount = when (configuredType) {
+                TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountToman, isExpense = true)
+                TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountToman, isExpense = false)
+                TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountToman)
+            }
+            val (dateText, timeText, finalTimestamp) = formatDateAndTime(timestampMillis, cleanBody)
+            val (sourceAccount, destinationAccount) = extractAccounts(cleanBody, pattern.name)
+
+            BankSmsSuggestion(
+                id = smsId,
+                bankName = pattern.name,
+                amount = amountToman,
+                formattedAmount = formattedAmount,
+                isAmountValid = true,
+                type = configuredType,
+                isTypeUncertain = false,
+                smsText = body.trim(),
+                dateText = dateText,
+                timeText = timeText,
+                category = suggestCategory(cleanBody, configuredType),
+                sourceAccount = sourceAccount,
+                destinationAccount = destinationAccount,
+                rawSender = sender,
+                parseError = null,
+                timestampMillis = finalTimestamp
+            )
+        } catch (e: Exception) {
+            // Do not log SMS content or financial details.
+            Log.w("BankSmsParser", "Failed to parse a matched SMS pattern: $smsId")
+            null
+        }
+    }
+
     private fun suggestCategory(text: String, type: TransactionType): String {
         return when (type) {
             TransactionType.INCOME -> {
