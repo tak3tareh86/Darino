@@ -137,6 +137,14 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     is SessionState.PhoneVerificationRequired -> state.user.id
                     else -> null
                 }
+                // Restore only the authenticated user's encrypted review queue.
+                _pendingSmsQueue.value = if (userId.isNullOrBlank()) {
+                    emptyList()
+                } else {
+                    smsRepository.getPendingSmsSuggestions(userId)
+                        .filterNot { it.id in smsRepository.getProcessedSmsIds(userId) || it.id in smsRepository.getDismissedSmsIds(userId) }
+                }
+
                 if (userId != null) {
                     launch {
                         try {
@@ -310,11 +318,18 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 _smsErrorMessage.value = null
                 try {
                     val realSmsList = smsRepository.readInboxBankSms(userId)
-                    val currentPending = _pendingSmsQueue.value
+                    val processedIds = smsRepository.getProcessedSmsIds(userId)
+                    val dismissedIds = smsRepository.getDismissedSmsIds(userId)
+                    val currentPending = (
+                        smsRepository.getPendingSmsSuggestions(userId) + _pendingSmsQueue.value
+                    ).distinctBy { it.id }
+                        .filterNot { it.id in processedIds || it.id in dismissedIds }
                     val existingIds = currentPending.map { it.id }.toSet()
-                    val newItems = realSmsList.filterNot { existingIds.contains(it.id) }
+                    val newItems = realSmsList.filterNot { it.id in existingIds }
 
-                    _pendingSmsQueue.value = currentPending + newItems
+                    val mergedQueue = (currentPending + newItems).takeLast(50)
+                    _pendingSmsQueue.value = mergedQueue
+                    smsRepository.savePendingSmsSuggestions(userId, mergedQueue)
                 } catch (e: Exception) {
                     _smsErrorMessage.value = "خطا در خواندن پیامک‌ها: ${e.localizedMessage}"
                 } finally {
@@ -360,6 +375,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }
             }
         }
+        persistPendingSmsQueue()
     }
 
     /**
@@ -403,6 +419,20 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }
             }
         }
+        persistPendingSmsQueue()
+    }
+
+    private fun persistPendingSmsQueue(userId: String? = SessionManager.userId) {
+        if (!userId.isNullOrBlank()) {
+            smsRepository.savePendingSmsSuggestions(userId, _pendingSmsQueue.value)
+        }
+    }
+
+    private fun removePendingSmsSuggestion(id: String, userId: String? = SessionManager.userId) {
+        _pendingSmsQueue.update { list -> list.filterNot { it.id == id } }
+        if (!userId.isNullOrBlank()) {
+            smsRepository.savePendingSmsSuggestions(userId, _pendingSmsQueue.value)
+        }
     }
 
     fun loadDashboardData() {
@@ -440,7 +470,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
             smsProcessingMutex.withLock {
                 // 1. Check if SMS has already been processed or dismissed for this user
                 if (smsRepository.getProcessedSmsIds(userId).contains(id) || smsRepository.getDismissedSmsIds(userId).contains(id)) {
-                    _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+                    removePendingSmsSuggestion(id, userId)
                     onResult(SmsAcceptResult.AlreadyExists)
                     return@withLock
                 }
@@ -503,7 +533,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 if (existing != null) {
                     // Do NOT revive soft-deleted transactions. Mark SMS processed and ignore duplicate.
                     smsRepository.markSmsProcessed(id, userId)
-                    _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+                    removePendingSmsSuggestion(id, userId)
                     loadDashboardData()
                     onResult(SmsAcceptResult.AlreadyExists)
                     return@withLock
@@ -547,7 +577,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     smsRepository.markSmsProcessed(id, userId)
 
                     // Remove from local queue
-                    _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+                    removePendingSmsSuggestion(id, userId)
 
                     // Synchronize LocalFinanceRepository caches
                     LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
@@ -561,7 +591,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     val recheckExisting = db.transactionDao().getTransactionIncludingDeleted(userId, txId)
                     if (recheckExisting != null) {
                         smsRepository.markSmsProcessed(id, userId)
-                        _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+                        removePendingSmsSuggestion(id, userId)
                         loadDashboardData()
                         onResult(SmsAcceptResult.AlreadyExists)
                     } else {
@@ -578,7 +608,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         if (!userId.isNullOrBlank()) {
             smsRepository.markSmsDismissed(id, userId)
         }
-        _pendingSmsQueue.update { list -> list.filter { it.id != id } }
+        removePendingSmsSuggestion(id, userId)
     }
 
     /**
