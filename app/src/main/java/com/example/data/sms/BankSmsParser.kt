@@ -968,6 +968,11 @@ object BankSmsParser {
      * The user's selected pattern type is authoritative: generic bank heuristics
      * must not override or veto the user's own classification.
      */
+    /**
+     * Parses only a message that exactly matches a user-defined template.
+     * Transaction type and amount come from the saved pattern and its amount slot;
+     * no generic transaction-direction or amount guessing is used here.
+     */
     fun parseMatchedPattern(
         smsId: String,
         sender: String,
@@ -985,22 +990,27 @@ object BankSmsParser {
                 SmsPatternType.TRANSFER -> TransactionType.TRANSFER
             }
 
-            // A matched user template is trusted for transaction identity and type.
-            // We still reject explicit failed / pending operations so they cannot be
-            // recorded as completed transactions.
-            val isConfirmedRefund = isSuccessfulRefund(cleanBody)
-            val hasFailedOrPendingStatus = Regex(
-                """(?:ناموفق|عدم\s*موفقیت|موجودی\s*ناکافی|تراکنش\s*لغو|لغو\s*تراکنش|درخواست\s*(?:برگشت|عودت|انتقال|پایا|ساتنا|پرداخت|شما)|در\s*حال\s*(?:انجام|بررسی|پردازش)|در\s*صف(?:\s*(?:انجام|ارسال))?|ثبت\s*شد\s*و\s*در\s*حال|دستور\s*(?:پایا|پرداخت|انتقال)\s*ثبت)"""
-            ).containsMatchIn(cleanBody) || (
-                Regex("""(?:برگشت\s*تراکنش|برگشت\s*وجه)""").containsMatchIn(cleanBody) &&
-                    !isConfirmedRefund
-                )
-            if (hasFailedOrPendingStatus) return null
+            val matchedAmount = SmsPatternMatcher.extractMatchedAmount(cleanBody, pattern)
+                ?: return null
+            val rawAmount = matchedAmount.numericValue
+                .replace(",", "")
+                .replace("،", "")
+                .replace("٬", "")
+                .replace("٫", "")
+                .replace(".", "")
+                .toLongOrNull()
+                ?.takeIf { it > 0L }
+                ?: return null
 
-            // Amount extraction is still conservative and excludes balances, fees,
-            // dates, and reference codes. The user's configured type guides the parser.
-            val amountToman = extractAmountToman(cleanBody, configuredType)
-                ?.takeIf { it > 0L } ?: return null
+            // Currency must be explicitly present in the user's sample template.
+            val amountToman = when (matchedAmount.currency?.lowercase()) {
+                "تومان" -> rawAmount
+                "ریال", "rls", "irr" -> {
+                    if (rawAmount < 10L || rawAmount % 10L != 0L) return null
+                    rawAmount / 10L
+                }
+                else -> return null
+            }.takeIf { it <= 100_000_000_000L } ?: return null
 
             val formattedAmount = when (configuredType) {
                 TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountToman, isExpense = true)
@@ -1021,7 +1031,11 @@ object BankSmsParser {
                 smsText = body.trim(),
                 dateText = dateText,
                 timeText = timeText,
-                category = suggestCategory(cleanBody, configuredType),
+                category = when (configuredType) {
+                    TransactionType.INCOME -> "واریز"
+                    TransactionType.EXPENSE -> "برداشت"
+                    TransactionType.TRANSFER -> "انتقال وجه"
+                },
                 sourceAccount = sourceAccount,
                 destinationAccount = destinationAccount,
                 rawSender = sender,
@@ -1029,8 +1043,8 @@ object BankSmsParser {
                 timestampMillis = finalTimestamp
             )
         } catch (e: Exception) {
-            // Do not log SMS content or financial details.
-            Log.w("BankSmsParser", "Failed to parse a matched SMS pattern: $smsId")
+            // Never log the body of a financial SMS.
+            Log.w("BankSmsParser", "Failed to parse matched SMS template: $smsId")
             null
         }
     }
