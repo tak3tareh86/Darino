@@ -59,6 +59,8 @@ fun AddReminderScreen(
         repeatType: RepeatType,
         repeatInterval: Int
     ) -> Unit,
+    initialDate: String? = null,
+    initialType: ReminderType = ReminderType.GENERAL,
     modifier: Modifier = Modifier
 ) {
     val currentPersianDate = remember {
@@ -76,10 +78,10 @@ fun AddReminderScreen(
         val minute = (defaultReminderMinute % 60).toString().padStart(2, '0')
         IranianPhoneUtils.convertDigitsToPersian("$hour:$minute")
     }
-    var selectedType by remember { mutableStateOf(ReminderType.GENERAL) }
+    var selectedType by remember(initialType) { mutableStateOf(initialType) }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf(currentPersianDate) }
+    var date by remember(initialDate, currentPersianDate) { mutableStateOf(initialDate ?: currentPersianDate) }
     var time by remember(defaultReminderTimeText) { mutableStateOf(defaultReminderTimeText) }
     var priority by remember { mutableStateOf(Priority.NORMAL) }
     var repeatType by remember { mutableStateOf(RepeatType.NONE) }
@@ -158,7 +160,17 @@ fun AddReminderScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf(ReminderType.GENERAL, ReminderType.INSTALLMENT, ReminderType.VEHICLE, ReminderType.INSURANCE).forEach { type ->
+                listOf(
+                    ReminderType.GENERAL,
+                    ReminderType.PERSONAL,
+                    ReminderType.FINANCE,
+                    ReminderType.INSTALLMENT,
+                    ReminderType.VEHICLE,
+                    ReminderType.MAINTENANCE,
+                    ReminderType.INSURANCE,
+                    ReminderType.FUEL,
+                    ReminderType.CUSTOM
+                ).forEach { type ->
                     val isSelected = selectedType == type
                     Surface(
                         shape = RoundedCornerShape(RadiusMD),
