@@ -66,7 +66,7 @@ object SmsPatternMatcher {
         return candidates.sortedBy { it.start }
     }
 
-    fun findBestMatch(message: String, patterns: List<SmsPattern>): SmsPattern? {
+    fun findUniqueMatch(message: String, patterns: List<SmsPattern>): SmsPattern? {
         val normalizedMessage = BankSmsParser.normalizeText(message)
         if (normalizedMessage.isBlank()) return null
 
