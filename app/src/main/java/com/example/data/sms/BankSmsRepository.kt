@@ -99,6 +99,8 @@ class BankSmsRepository(private val context: Context) {
         val key = userKey(KEY_PENDING_SMS_QUEUE, userId) ?: return emptyList()
         val raw = pendingQueuePreferences.getString(key, null) ?: return emptyList()
         val currentPatterns = patternRepository.getPatterns(userId)
+        val recognitionStartMillis = patternRepository.getRecognitionStartMillis(userId)
+            ?: return emptyList()
         return runCatching {
             val array = JSONArray(raw)
             buildList {
@@ -133,6 +135,8 @@ class BankSmsRepository(private val context: Context) {
                 }
             }
         }.getOrDefault(emptyList()).mapNotNull { saved ->
+            // Do not restore pending suggestions created from SMS outside the active window.
+            if (saved.timestampMillis < recognitionStartMillis) return@mapNotNull null
             val origin = currentPatterns.singleOrNull { it.id == saved.patternId } ?: return@mapNotNull null
             val uniqueMatch = SmsPatternMatcher.findUniqueMatch(saved.smsText, currentPatterns)
                 ?: return@mapNotNull null
@@ -196,6 +200,13 @@ class BankSmsRepository(private val context: Context) {
 
         val patterns = patternRepository.getPatterns(uid)
         if (patterns.isEmpty()) return@withContext emptyList()
+        val recognitionStartMillis = patternRepository.getRecognitionStartMillis(uid)
+            ?: return@withContext emptyList()
+        // The per-user boundary is mandatory; caller filters may only narrow the scan.
+        val effectiveReceivedAfterMillis = maxOf(
+            recognitionStartMillis,
+            receivedAfterMillis ?: recognitionStartMillis
+        )
 
         val processedIds = getProcessedSmsIds(uid)
         val dismissedIds = getDismissedSmsIds(uid)
@@ -210,8 +221,8 @@ class BankSmsRepository(private val context: Context) {
             val cursor = context.contentResolver.query(
                 uri,
                 projection,
-                receivedAfterMillis?.let { "date >= ?" },
-                receivedAfterMillis?.let { arrayOf(it.toString()) },
+                "date >= ?",
+                arrayOf(effectiveReceivedAfterMillis.toString()),
                 "date DESC"
             )
 
@@ -225,8 +236,10 @@ class BankSmsRepository(private val context: Context) {
                     val id = if (idIdx != -1) c.getString(idIdx) else null
                     val address = if (addressIdx != -1) c.getString(addressIdx) else ""
                     val body = if (bodyIdx != -1) c.getString(bodyIdx) else ""
-                    val rawTimestamp = if (dateIdx != -1) c.getLong(dateIdx) else 0L
-                    val timestamp = if (rawTimestamp > 0L) rawTimestamp else System.currentTimeMillis()
+                    val timestamp = c.getLong(dateIdx)
+                    // If the provider cannot supply a trustworthy timestamp, fail closed:
+                    // an undated row must never be treated as a newly received SMS.
+                    if (timestamp < effectiveReceivedAfterMillis) continue
 
                     val uniqueId = if (!id.isNullOrBlank()) "sms_$id" else "sms_${address.hashCode()}_$timestamp"
                     if (ignoredIds.contains(uniqueId)) {

@@ -8,6 +8,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
+private const val SMS_RECOGNITION_LOOKBACK_MILLIS = 24L * 60L * 60L * 1000L
+
 enum class SmsPatternType(val title: String) {
     INCOME("واریز"),
     EXPENSE("برداشت"),
@@ -62,6 +64,28 @@ class SmsPatternRepository(context: Context) {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
+    private fun recognitionStartKey(userId: String? = SessionManager.userId): String {
+        val scopedUserId = userId?.takeIf { it.isNotBlank() } ?: "local"
+        return "recognition_start_$scopedUserId"
+    }
+
+    /**
+     * Returns the fixed per-user lower bound for SMS recognition. Existing installations
+     * that already have templates but no timestamp are safely migrated to a 24-hour window
+     * from the first access after this update; the timestamp is then permanent until the
+     * user removes every template.
+     */
+    @Synchronized
+    fun getRecognitionStartMillis(userId: String? = SessionManager.userId): Long? {
+        val patterns = getPatterns(userId)
+        if (patterns.isEmpty()) return null
+        val key = recognitionStartKey(userId)
+        preferences.getLong(key, 0L).takeIf { it > 0L }?.let { return it }
+        val start = System.currentTimeMillis() - SMS_RECOGNITION_LOOKBACK_MILLIS
+        preferences.edit().putLong(key, start).commit()
+        return start
+    }
+
     private fun storageKey(userId: String? = SessionManager.userId): String {
         val scopedUserId = userId?.takeIf { it.isNotBlank() } ?: "local"
         return "patterns_$scopedUserId"
@@ -106,18 +130,29 @@ class SmsPatternRepository(context: Context) {
         }.getOrDefault(emptyList())
     }
 
-    fun save(pattern: SmsPattern) {
-        val patterns = getPatterns().toMutableList()
+    @Synchronized
+    fun save(pattern: SmsPattern, userId: String? = SessionManager.userId) {
+        val patterns = getPatterns(userId).toMutableList()
         val index = patterns.indexOfFirst { it.id == pattern.id }
+        if (index < 0 && patterns.isEmpty()) {
+            // Start one day before the first template is registered, even if READ_SMS
+            // permission is granted later. The permission date must not shift this window.
+            preferences.edit()
+                .putLong(recognitionStartKey(userId), System.currentTimeMillis() - SMS_RECOGNITION_LOOKBACK_MILLIS)
+                .commit()
+        } else if (patterns.isNotEmpty()) {
+            getRecognitionStartMillis(userId)
+        }
         if (index >= 0) patterns[index] = pattern else patterns.add(0, pattern)
-        persist(patterns)
+        persist(patterns, userId)
     }
 
     fun create(
         name: String,
         type: SmsPatternType,
         sampleMessage: String,
-        slots: List<SmsPatternSlot>
+        slots: List<SmsPatternSlot>,
+        userId: String? = SessionManager.userId
     ): SmsPattern {
         return SmsPattern(
             id = UUID.randomUUID().toString(),
@@ -125,14 +160,19 @@ class SmsPatternRepository(context: Context) {
             type = type,
             sampleMessage = sampleMessage,
             slots = slots.sortedBy { it.start }
-        ).also(::save)
+        ).also { save(it, userId) }
     }
 
-    fun delete(id: String) {
-        persist(getPatterns().filterNot { it.id == id })
+    @Synchronized
+    fun delete(id: String, userId: String? = SessionManager.userId) {
+        val remaining = getPatterns(userId).filterNot { it.id == id }
+        persist(remaining, userId)
+        if (remaining.isEmpty()) {
+            preferences.edit().remove(recognitionStartKey(userId)).commit()
+        }
     }
 
-    private fun persist(patterns: List<SmsPattern>) {
+    private fun persist(patterns: List<SmsPattern>, userId: String? = SessionManager.userId) {
         val array = JSONArray()
         patterns.forEach { pattern ->
             val slots = JSONArray()
@@ -153,6 +193,6 @@ class SmsPatternRepository(context: Context) {
                     .put("slots", slots)
             )
         }
-        preferences.edit().putString(storageKey(), array.toString()).apply()
+        preferences.edit().putString(storageKey(userId), array.toString()).apply()
     }
 }
