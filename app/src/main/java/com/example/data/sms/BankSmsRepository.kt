@@ -213,6 +213,10 @@ class BankSmsRepository(private val context: Context) {
         val ignoredIds = processedIds + dismissedIds
 
         val results = mutableListOf<BankSmsSuggestion>()
+        var scannedCount = 0
+        var unmatchedCount = 0
+        var ambiguousCount = 0
+        var parseFailureCount = 0
 
         try {
             val uri = Uri.parse("content://sms/inbox")
@@ -246,24 +250,40 @@ class BankSmsRepository(private val context: Context) {
                         continue
                     }
 
+                    scannedCount++
                     // A saved user pattern is required before a bank SMS can enter the review queue.
-                    val matchingPattern = SmsPatternMatcher.findUniqueMatch(body, patterns) ?: continue
+                    // Ambiguous matches are rejected; no priority or fuzzy fallback is applied.
+                    val matchingPatterns = SmsPatternMatcher.findMatchingPatterns(body, patterns)
+                    if (matchingPatterns.isEmpty()) {
+                        unmatchedCount++
+                        continue
+                    }
+                    if (matchingPatterns.size != 1) {
+                        ambiguousCount++
+                        continue
+                    }
                     val parsed = BankSmsParser.parseMatchedPattern(
                         uniqueId,
                         address,
                         body,
                         timestamp,
-                        matchingPattern
+                        matchingPatterns.single()
                     )
                     if (parsed != null) {
                         results.add(parsed)
+                    } else {
+                        parseFailureCount++
                     }
                 }
             }
+            Log.d(
+                "BankSmsRepository",
+                "SMS scan summary: scanned=$scannedCount unmatched=$unmatchedCount ambiguous=$ambiguousCount parseFailed=$parseFailureCount accepted=${results.size}"
+            )
         } catch (e: SecurityException) {
             Log.w("BankSmsRepository", "Permission revoked while querying SMS inbox")
         } catch (e: Exception) {
-            Log.e("BankSmsRepository", "Error reading SMS inbox")
+            Log.e("BankSmsRepository", "Error reading SMS inbox", e)
         }
 
         return@withContext results
