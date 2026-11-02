@@ -182,7 +182,7 @@ object SmsPatternMatcher {
             var cursor = 0
             slots.forEach { slot ->
                 append(Regex.escape(sample.substring(cursor, slot.start)))
-                append("([^\\\\s]+?)")
+                append("([^\\s]+?)")
                 cursor = slot.endExclusive
             }
             append(Regex.escape(sample.substring(cursor)))
