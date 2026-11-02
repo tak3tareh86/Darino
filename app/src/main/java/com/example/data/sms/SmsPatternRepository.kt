@@ -76,7 +76,7 @@ class SmsPatternRepository(context: Context) {
                     val item = array.optJSONObject(index) ?: continue
                     val type = runCatching { SmsPatternType.valueOf(item.optString("type")) }.getOrNull() ?: continue
                     val name = item.optString("name").trim()
-                    val message = item.optString("sampleMessage").trim()
+                    val message = item.optString("sampleMessage")
                     if (name.isEmpty() || message.isEmpty()) continue
                     val slotsJson = item.optJSONArray("slots") ?: JSONArray()
                     val slots = buildList {
