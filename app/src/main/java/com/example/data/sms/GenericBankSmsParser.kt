@@ -199,7 +199,7 @@ object GenericBankSmsParser {
 
     private fun classifyType(message: String): TransactionType? {
         val isTransfer = Regex(
-            """کارت\\s*به\\s*کارت|انتقال|پایا|ساتنا|حواله|transfer""",
+            """کارت\s*به\s*کارت|انتقال|پایا|ساتنا|حواله|transfer""",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(message)
         val isExpense = Regex(
