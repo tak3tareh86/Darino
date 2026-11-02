@@ -6,6 +6,10 @@ import androidx.room.withTransaction
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
 import com.example.data.preferences.AppPreferencesRepository
+import com.example.data.sms.SmsPatternRepository
+import com.example.data.sms.BankSmsRepository
+import com.example.ui.screens.home.domain.BankSmsSuggestion
+import com.example.ui.screens.finance.model.TransactionType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -79,6 +83,35 @@ class LocalBackupRepository(
             val smsLogs = db.smsLogDao().getAllSmsLogsForBackup(userId)
             val vehicleStore = db.vehicleDao().getVehicleStore(userId)
             val reminderDeliveryLogs = db.smartReminderDao().getAllDeliveryLogsForBackup(userId)
+            // SMS templates are portable backup data. They are encrypted again on restore
+            // using the destination device's own Android Keystore key.
+            val smsPatternRepository = SmsPatternRepository(context)
+            val smsPatterns = smsPatternRepository.getPatterns(userId)
+            val smsRecognitionStartMillis = smsPatternRepository.getRecognitionStartMillis(userId)
+            val pendingBankSmsSuggestions =
+                BankSmsRepository.getInstance(context).exportPendingSmsSuggestions(userId).map { item ->
+                    PendingBankSmsBackup(
+                        id = item.id,
+                        bankName = item.bankName,
+                        amount = item.amount,
+                        formattedAmount = item.formattedAmount,
+                        isAmountValid = item.isAmountValid,
+                        type = item.type?.name,
+                        isTypeUncertain = item.isTypeUncertain,
+                        smsText = item.smsText,
+                        dateText = item.dateText,
+                        timeText = item.timeText,
+                        category = item.category,
+                        sourceAccount = item.sourceAccount,
+                        destinationAccount = item.destinationAccount,
+                        rawSender = item.rawSender,
+                        parseError = item.parseError,
+                        timestampMillis = item.timestampMillis,
+                        balanceAmount = item.balanceAmount,
+                        trackingCode = item.trackingCode,
+                        patternId = item.patternId
+                    )
+                }
             val appPreferences = AppPreferencesRepository.getInstance(context)
             val appSettings = AppSettingsBackup(
                 themeMode = appPreferences.themeMode.value.name,
@@ -103,11 +136,13 @@ class LocalBackupRepository(
                         financialHealthProfiles.size +
                         loanCalculations.size + notificationLogs.size + smsLogs.size + reminderDeliveryLogs.size +
                         legacyReminders.size + legacyReminderSchedules.size +
-                        (if (vehicleStore != null) 1 else 0) + (if (userPreference != null) 1 else 0) + 1
+                        (if (vehicleStore != null) 1 else 0) + (if (userPreference != null) 1 else 0) + 1 +
+                        smsPatterns.size + pendingBankSmsSuggestions.size +
+                        (if (smsRecognitionStartMillis != null) 1 else 0)
 
             BackupValidator.withChecksum(DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 6,
+                    backupVersion = 7,
                     appVersion = "1.0",
                     createdAt = System.currentTimeMillis(),
                     recordCount = totalRecords,
@@ -137,7 +172,10 @@ class LocalBackupRepository(
                 vehicleStore = vehicleStore,
                 reminderDeliveryLogs = reminderDeliveryLogs,
                 legacyReminders = legacyReminders,
-                legacyReminderSchedules = legacyReminderSchedules
+                legacyReminderSchedules = legacyReminderSchedules,
+                smsPatterns = smsPatterns,
+                smsRecognitionStartMillis = smsRecognitionStartMillis,
+                pendingBankSmsSuggestions = pendingBankSmsSuggestions
             ))
             }
         }
@@ -452,6 +490,66 @@ class LocalBackupRepository(
                             .getOrNull()?.let { appPreferences.setNavTransition(it) }
                     }
                 }
+            }
+
+            // SMS preferences are outside Room. Apply them only after the database
+            // transaction commits, and persist them in the destination device's encrypted
+            // preferences rather than copying the source device's Keystore-bound ciphertext.
+            if (backup.metadata.backupVersion >= 7) {
+                val smsPatternRepository = SmsPatternRepository(context)
+                val bankSmsRepository = BankSmsRepository.getInstance(context)
+                val patternsToRestore: List<com.example.data.sms.SmsPattern>
+                val recognitionStartToRestore: Long?
+                if (mode == RestoreMode.REPLACE) {
+                    patternsToRestore = backup.smsPatterns
+                    recognitionStartToRestore = backup.smsRecognitionStartMillis
+                } else {
+                    val existingPatterns = smsPatternRepository.getPatterns(userId)
+                    // A matching ID represents the same logical template; prefer the
+                    // backed-up revision so its pending queue remains compatible with it.
+                    patternsToRestore = (existingPatterns.associateBy { it.id } +
+                        backup.smsPatterns.associateBy { it.id }).values.toList()
+                    val existingStart = smsPatternRepository.getRecognitionStartMillis(userId)
+                    val incomingStart = backup.smsRecognitionStartMillis
+                    recognitionStartToRestore = when {
+                        patternsToRestore.isEmpty() -> null
+                        existingStart == null -> incomingStart
+                        incomingStart == null -> existingStart
+                        else -> minOf(existingStart, incomingStart)
+                    }
+                }
+                smsPatternRepository.restoreAll(
+                    patterns = patternsToRestore,
+                    recognitionStartMillis = recognitionStartToRestore,
+                    userId = userId
+                )
+                bankSmsRepository.restorePendingSmsSuggestions(
+                    userId = userId,
+                    suggestions = backup.pendingBankSmsSuggestions.map { item ->
+                        BankSmsSuggestion(
+                            id = item.id,
+                            bankName = item.bankName,
+                            amount = item.amount,
+                            formattedAmount = item.formattedAmount,
+                            isAmountValid = item.isAmountValid,
+                            type = item.type?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() },
+                            isTypeUncertain = item.isTypeUncertain,
+                            smsText = item.smsText,
+                            dateText = item.dateText,
+                            timeText = item.timeText,
+                            category = item.category,
+                            sourceAccount = item.sourceAccount,
+                            destinationAccount = item.destinationAccount,
+                            rawSender = item.rawSender,
+                            parseError = item.parseError,
+                            timestampMillis = item.timestampMillis,
+                            balanceAmount = item.balanceAmount,
+                            trackingCode = item.trackingCode,
+                            patternId = item.patternId
+                        )
+                    },
+                    replaceExisting = mode == RestoreMode.REPLACE
+                )
             }
 
             // AlarmManager is outside the Room transaction: cancel old registrations only

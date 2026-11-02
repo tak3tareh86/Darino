@@ -20,6 +20,7 @@ import com.example.data.database.NotificationLogEntity
 import com.example.data.database.SmsLogEntity
 import com.example.data.database.VehicleStoreEntity
 import com.example.reminder.data.ReminderDeliveryLogEntity
+import com.example.data.sms.SmsPattern
 
 data class DarinoBackup(
     val metadata: BackupMetadata,
@@ -45,7 +46,12 @@ data class DarinoBackup(
     val vehicleStore: VehicleStoreEntity? = null,
     val reminderDeliveryLogs: List<ReminderDeliveryLogEntity> = emptyList(),
     val legacyReminders: List<com.example.data.database.ReminderEntity> = emptyList(),
-    val legacyReminderSchedules: List<com.example.data.database.ReminderScheduleEntity> = emptyList()
+    val legacyReminderSchedules: List<com.example.data.database.ReminderScheduleEntity> = emptyList(),
+    // SMS templates are exported as portable data, then re-encrypted on the destination device.
+    val smsPatterns: List<SmsPattern> = emptyList(),
+    val smsRecognitionStartMillis: Long? = null,
+    // Contains raw SMS content for suggestions that were still awaiting user review.
+    val pendingBankSmsSuggestions: List<PendingBankSmsBackup> = emptyList()
 )
 
 /** User-visible general preferences stored outside Room. */
@@ -55,4 +61,27 @@ data class AppSettingsBackup(
     val currency: String,
     val alertDelivery: String,
     val navigationTransition: String
+)
+
+/** Portable representation of a pending SMS review item; independent of UI-layer models. */
+data class PendingBankSmsBackup(
+    val id: String,
+    val bankName: String,
+    val amount: Long,
+    val formattedAmount: String,
+    val isAmountValid: Boolean,
+    val type: String?,
+    val isTypeUncertain: Boolean,
+    val smsText: String,
+    val dateText: String,
+    val timeText: String,
+    val category: String,
+    val sourceAccount: String?,
+    val destinationAccount: String?,
+    val rawSender: String?,
+    val parseError: String?,
+    val timestampMillis: Long,
+    val balanceAmount: Long?,
+    val trackingCode: String?,
+    val patternId: String
 )

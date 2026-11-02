@@ -309,7 +309,7 @@ fun SupportBackupScreen(
         SettingsConfirmationDialog(
             isOpen = true,
             title = "پشتیبان‌گیری موفق",
-            message = "نسخه پشتیبان شامل حساب‌ها، چک‌ها، تراکنش‌ها، اقساط، خودروها، یادآورها و رویدادهای مالی ذخیره و دوباره بررسی شد. فایل JSON رمزگذاری نشده است؛ آن را در محل امن نگه دارید.\n$backupSummaryInfo",
+            message = "نسخه پشتیبان شامل اطلاعات مالی و مدیریتی، الگوهای پیامکی، تنظیمات تطبیق، زمان شروع شناسایی و پیامک‌های در انتظار بررسی ذخیره و دوباره بررسی شد. فایل JSON رمزگذاری نشده و ممکن است متن پیامک‌های در انتظار بررسی را داشته باشد؛ آن را فقط در محل امن نگه دارید.\n$backupSummaryInfo",
             confirmButtonText = "متوجه شدم",
             isDanger = false,
             onConfirm = { showBackupSuccessDialog = false },
@@ -321,7 +321,7 @@ fun SupportBackupScreen(
         SettingsConfirmationDialog(
             isOpen = true,
             title = "تأیید بازیابی پشتیبان",
-            message = "اطلاعات ذخیره‌شده مربوط به حساب فعلی با محتوای فایل پشتیبان جایگزین می‌شود. داده‌های عمومی دستگاه که به حساب کاربری وابسته نیستند، حذف نخواهند شد. پیش از ادامه، از اطلاعات فعلی نسخه پشتیبان بگیرید.",
+            message = "اطلاعات ذخیره‌شده مربوط به حساب فعلی با محتوای فایل پشتیبان جایگزین می‌شود. ${if ((pendingRestoreBackup?.metadata?.backupVersion ?: 0) >= 7) "الگوهای پیامکی، تنظیمات تطبیق، زمان شروع شناسایی و صف بررسی پیامک‌ها نیز بازیابی می‌شوند." else "این فایل قدیمی‌تر از نسخه ۷ است و اطلاعات الگوهای پیامکی را در خود ندارد؛ الگوهای فعلی دست‌نخورده باقی می‌مانند."} داده‌های عمومی دستگاه که به حساب کاربری وابسته نیستند، حذف نخواهند شد. پیش از ادامه، از اطلاعات فعلی نسخه پشتیبان بگیرید.",
             confirmButtonText = "بازیابی و جایگزینی",
             isDanger = true,
             onConfirm = {
@@ -465,7 +465,7 @@ fun SupportBackupScreen(
                                                 }
                                                 pendingBackupPayload = payload
                                                 pendingBackupChecksum = backup.metadata.checksum
-                                                pendingBackupSummary = "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
+                                                pendingBackupSummary = "تعداد کل رکوردها: ${backup.metadata.recordCount} | الگوهای پیامکی: ${backup.smsPatterns.size} | پیامک‌های در انتظار بررسی: ${backup.pendingBankSmsSuggestions.size} | نسخه: ${backup.metadata.backupVersion}"
                                                 backupFileLauncher.launch(buildBackupFilename())
                                             } catch (e: Exception) {
                                                 isBackingUp = false
