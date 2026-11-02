@@ -98,7 +98,7 @@ object SmsPatternMatcher {
             // the following transaction amount (or vice versa).
             val nearestLabel = semanticLabelRegex.findAll(contextBefore).lastOrNull()?.value
             // Long identifiers following an explicit source phrase are account numbers,
-            // not transaction amounts (e.g. "برداشت از:700100...").
+            // not transaction amounts when the source-account label is explicit.
             val compactNumber = number.value.filter { it in '0'..'9' || it in '۰'..'۹' || it in '٠'..'٩' }
             val explicitAccountSource = Regex("""(?:برداشت|واریز|انتقال)\s+از\s*[:：]?\s*$""").containsMatchIn(contextBefore) ||
                 Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(contextBefore)
