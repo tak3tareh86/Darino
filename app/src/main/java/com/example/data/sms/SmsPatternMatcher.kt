@@ -69,9 +69,13 @@ object SmsPatternMatcher {
 
         val candidates = mutableListOf<NumericCandidate>()
         var previousNumericEnd = 0
+        // Labels are evaluated only within the current field segment (after the
+        // previous numeric value). This keeps each user's account/card, amount,
+        // balance and tracking fields independent even when all values share a line.
         val semanticLabelRegex = Regex(
-            """قابل\s*برداشت|موجودی|مانده|اعتبار|مبلغ|مبـلغ|وجه|میزان|واریز|برداشت|خرید|پرداخت|انتقال|تراکنش|پیگیری|رهگیری|شناسه"""
+            """شماره\s*کارت|شماره\s*حساب|کارت|حساب|شبا|قابل\s*برداشت|موجودی|مانده|اعتبار|مبلغ|مبـلغ|وجه|میزان|واریز|برداشت|خرید|پرداخت|انتقال|تراکنش|پیگیری|رهگیری|شناسه"""
         )
+        val accountSemanticLabelRegex = Regex("""شماره\s*کارت|شماره\s*حساب|کارت|حساب|شبا""")
         numberRegex.findAll(normalized).forEach { number ->
             val start = number.range.first
             val end = number.range.last + 1
@@ -98,9 +102,15 @@ object SmsPatternMatcher {
             val currentFieldHasTransactionLabel =
                 transactionLabel.containsMatchIn(prefix) || amountLabel.containsMatchIn(prefix) ||
                     (nearestLabel != null && (transactionLabel.matches(nearestLabel) || amountLabel.matches(nearestLabel)))
-            if (accountLabel.containsMatchIn(prefix) ||
-                (accountLabel.containsMatchIn(clean(previousToken)) && !currentFieldHasTransactionLabel)
-            ) return@forEach
+            val currentFieldHasAccountLabel =
+                accountLabel.containsMatchIn(prefix) ||
+                    (nearestLabel != null && accountSemanticLabelRegex.matches(nearestLabel)) ||
+                    accountLabel.containsMatchIn(clean(previousToken))
+
+            // A nearby transaction/amount label wins over an account label from
+            // an earlier part of the template. Otherwise the account/card value
+            // remains fixed and is never learned as a changing numeric field.
+            if (currentFieldHasAccountLabel && !currentFieldHasTransactionLabel) return@forEach
 
             val isBalance = (nearestLabel != null && balanceLabel.matches(nearestLabel)) ||
                 balanceLabel.containsMatchIn(contextAfter)
