@@ -68,9 +68,16 @@ object SmsPatternMatcher {
         )
 
         val candidates = mutableListOf<NumericCandidate>()
+        var previousNumericEnd = 0
+        val semanticLabelRegex = Regex(
+            """قابل\s*برداشت|موجودی|مانده|اعتبار|مبلغ|مبـلغ|وجه|میزان|واریز|برداشت|خرید|پرداخت|انتقال|تراکنش|پیگیری|رهگیری|شناسه"""
+        )
         numberRegex.findAll(normalized).forEach { number ->
             val start = number.range.first
             val end = number.range.last + 1
+            val contextStart = maxOf(previousNumericEnd, start - 80)
+            val contextBefore = normalized.substring(contextStart, start)
+            previousNumericEnd = end
             if (slots.any { start < it.endExclusive && end > it.start }) return@forEach
 
             val tokenIndex = tokens.indexOfFirst { start >= it.start && start < it.endExclusive }
@@ -94,13 +101,15 @@ object SmsPatternMatcher {
                 (accountLabel.containsMatchIn(clean(previousToken)) && !currentFieldHasTransactionLabel)
             ) return@forEach
 
-            val contextBefore = "$previousText $prefix"
             val contextAfter = "$suffix $nextToken"
-            val isBalance = balanceLabel.containsMatchIn(contextBefore) ||
-                balanceLabel.containsMatchIn(contextAfter)
-            val isAmount = amountLabel.containsMatchIn(contextBefore)
-            val isTransactionAmount = transactionLabel.containsMatchIn(contextBefore)
-            val isTracking = trackingLabel.containsMatchIn(contextBefore)
+            // Use the nearest semantic label since the preceding numeric field.
+            // Looking across several whitespace tokens can leak "balance" into
+            // the following transaction amount (or vice versa).
+            val nearestLabel = semanticLabelRegex.findAll(contextBefore).lastOrNull()?.value
+            val isBalance = nearestLabel != null && balanceLabel.matches(nearestLabel)
+            val isAmount = nearestLabel != null && amountLabel.matches(nearestLabel)
+            val isTransactionAmount = nearestLabel != null && transactionLabel.matches(nearestLabel)
+            val isTracking = nearestLabel != null && trackingLabel.matches(nearestLabel)
 
             val hasRial = rialLabel.containsMatchIn(contextAfter) ||
                 rialLabel.containsMatchIn(contextBefore)
