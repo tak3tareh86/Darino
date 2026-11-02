@@ -1,8 +1,8 @@
 package com.example.data.sms
 
 /**
- * Learns changing numeric fields from one bank SMS sample.
- * Account/card identifiers remain literal; transaction direction is supplied by the user.
+ * Learns changing numeric fields from one user-provided bank SMS sample.
+ * Account/card identifiers remain fixed unless the user explicitly adds them to a strict allow-list.
  */
 object SmsPatternMatcher {
 
@@ -178,7 +178,7 @@ object SmsPatternMatcher {
         return slots.distinctBy { it.start to it.endExclusive }.sortedBy { it.start }
     }
 
-    /** Detect a single long identifier explicitly introduced as an account/card or source/destination. */
+    /** Detect one account/card identifier explicitly introduced by its surrounding label. */
     fun inferAccountIdentifierRange(message: String): IntRange? {
         val candidates = Regex("""[0-9۰-۹٠-٩]{6,26}""").findAll(message).filter { match ->
             val before = message.substring(maxOf(0, match.range.first - 36), match.range.first)
