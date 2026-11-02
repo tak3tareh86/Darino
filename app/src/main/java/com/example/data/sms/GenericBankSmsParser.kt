@@ -48,7 +48,7 @@ object GenericBankSmsParser {
         RegexOption.IGNORE_CASE
     )
     private val amountLabel = Regex(
-        """(?:مبلغ|مبـلغ|برداشت|واریز|واريز|دریافت|دريافت|خرید|خريد|پرداخت|انتقال\s*وجه|وجه\s*انتقالی|deposit|withdraw(?:al)?|debit|credit|purchase|transfer)\s*[:：]?\s*([0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬٫.]*)""",
+        """(?:مبلغ|مبـلغ|برداشت|واریز|واريز|دریافت|دريافت|خرید|خريد|پرداخت|انتقال|کارت\s*به\s*کارت|انتقال\s*وجه|وجه\s*انتقالی|deposit|withdraw(?:al)?|debit|credit|purchase|transfer)\s*[:：]?\s*([0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬٫.]*)""",
         RegexOption.IGNORE_CASE
     )
     private val balanceLabel = Regex(
