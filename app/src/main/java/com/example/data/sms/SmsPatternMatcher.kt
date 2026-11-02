@@ -217,11 +217,18 @@ object SmsPatternMatcher {
      * Variable fields may change their digits, but every separator inside the
      * field (comma, decimal mark, slash, colon, etc.) remains literal.
      */
-    private fun StringBuilder.appendVariableNumberPattern(value: String) {
+    private fun StringBuilder.appendVariableNumberPattern(value: String, kind: SmsPatternSlotKind) {
+        val fixedDigitWidth = kind == SmsPatternSlotKind.DATE ||
+            kind == SmsPatternSlotKind.DATE_DAY_MONTH ||
+            kind == SmsPatternSlotKind.DATE_MONTH_DAY ||
+            kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR ||
+            kind == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR ||
+            kind == SmsPatternSlotKind.TIME
         var cursor = 0
         Regex("""[0-9۰-۹٠-٩]+""").findAll(value).forEach { digits ->
             append(Regex.escape(value.substring(cursor, digits.range.first)))
-            append("[0-9۰-۹٠-٩]+")
+            if (fixedDigitWidth) append("[0-9۰-۹٠-٩]{" + digits.value.length + "}")
+            else append("[0-9۰-۹٠-٩]+")
             cursor = digits.range.last + 1
         }
         append(Regex.escape(value.substring(cursor)))
@@ -233,7 +240,7 @@ object SmsPatternMatcher {
             slots.forEach { slot ->
                 append(Regex.escape(sample.substring(cursor, slot.start)))
                 append('(')
-                appendVariableNumberPattern(sample.substring(slot.start, slot.endExclusive))
+                appendVariableNumberPattern(sample.substring(slot.start, slot.endExclusive), slot.kind)
                 append(')')
                 cursor = slot.endExclusive
             }
