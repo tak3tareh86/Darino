@@ -481,7 +481,10 @@ class LocalBackupRepository(
                     recognitionStartToRestore = backup.smsRecognitionStartMillis
                 } else {
                     val existingPatterns = smsPatternRepository.getPatterns(userId)
-                    patternsToRestore = (existingPatterns + backup.smsPatterns).distinctBy { it.id }
+                    // A matching ID represents the same logical template; prefer the
+                    // backed-up revision so its pending queue remains compatible with it.
+                    patternsToRestore = (existingPatterns.associateBy { it.id } +
+                        backup.smsPatterns.associateBy { it.id }).values.toList()
                     val existingStart = smsPatternRepository.getRecognitionStartMillis(userId)
                     val incomingStart = backup.smsRecognitionStartMillis
                     recognitionStartToRestore = when {
