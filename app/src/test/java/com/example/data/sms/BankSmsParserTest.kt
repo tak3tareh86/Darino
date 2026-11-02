@@ -292,23 +292,23 @@ class BankSmsParserTest {
 
     @Test
     fun multipleAccountNumbersAreExplicitlyWhitelistedForOneTemplate() {
-        val sample = "برداشت از:7001006372493 مبلغ:50,000 تومان"
+        val sample = "برداشت از:9876543210987 مبلغ:50,000 تومان"
         val inferred = SmsPatternMatcher.inferVariableSlots(sample)
         val slots = SmsPatternMatcher.configureAllowedAccountNumbers(
-            sample, inferred, listOf("7001006372493", "7001006372494", "7001006372495")
+            sample, inferred, listOf("9876543210987", "9876543210988", "9876543210989")
         )
         val pattern = SmsPattern("multi-account", "بانک", SmsPatternType.EXPENSE, sample, slots)
         assertNotNull(SmsPatternMatcher.findUniqueMatch(
-            "برداشت از:7001006372494 مبلغ:1,000,000 تومان", listOf(pattern)
+            "برداشت از:9876543210988 مبلغ:1,000,000 تومان", listOf(pattern)
         ))
         assertNull(SmsPatternMatcher.findUniqueMatch(
-            "برداشت از:7001006372496 مبلغ:1,000,000 تومان", listOf(pattern)
+            "برداشت از:9876543210990 مبلغ:1,000,000 تومان", listOf(pattern)
         ))
         val parsed = BankSmsParser.parseMatchedPattern(
-            "sms-account", "bank", "برداشت از:7001006372494 مبلغ:1,000,000 تومان",
+            "sms-account", "bank", "برداشت از:9876543210988 مبلغ:1,000,000 تومان",
             1_700_000_000_000L, pattern
         )
-        assertEquals("حساب 7001006372494", parsed?.sourceAccount)
+        assertEquals("حساب 9876543210988", parsed?.sourceAccount)
     }
 
     @Test
