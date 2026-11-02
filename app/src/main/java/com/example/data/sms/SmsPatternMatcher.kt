@@ -84,8 +84,14 @@ object SmsPatternMatcher {
             val nextToken = tokens.getOrNull(tokenIndex + 1)?.value.orEmpty()
 
             // Never vary a number explicitly attached to or following an account/card label.
+            // A standalone "حساب" line must not hide the amount on the next
+            // line when that number is explicitly introduced by a transaction label
+            // such as "برداشت400,000" or "واریز500,000".
+            val currentFieldHasTransactionLabel =
+                transactionLabel.containsMatchIn(prefix) ||
+                    amountLabel.containsMatchIn(prefix)
             if (accountLabel.containsMatchIn(prefix) ||
-                accountLabel.containsMatchIn(clean(previousToken))
+                (accountLabel.containsMatchIn(clean(previousToken)) && !currentFieldHasTransactionLabel)
             ) return@forEach
 
             val contextBefore = "$previousText $prefix"
