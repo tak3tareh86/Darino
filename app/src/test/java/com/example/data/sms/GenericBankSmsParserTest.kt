@@ -15,13 +15,14 @@ class GenericBankSmsParserTest {
 مانده7,963,304
 05/08/11-06:53"""
 
-        val parsed = GenericBankSmsParser.parse("sms-1", "30001234", body, 1_700_000_000_000L)
+        val parsed = GenericBankSmsParser.parse("sms-1", "30001234", body, com.example.util.PersianCalendarHelper.jalaliToEpochMillis(1405, 8, 11, 12, 0))
 
         assertNotNull(parsed)
         assertEquals("بانک ناشناس", parsed?.bankName)
         assertEquals(TransactionType.EXPENSE, parsed?.type)
         assertEquals(50_000L, parsed?.amount)
         assertEquals(7_963_304L, parsed?.balanceAmount)
+        assertEquals("1405/08/11", parsed?.dateText)
         assertEquals("06:53", parsed?.timeText)
         assertEquals("حساب/کارت 4785914725", parsed?.sourceAccount)
         assertEquals("", parsed?.patternId)
