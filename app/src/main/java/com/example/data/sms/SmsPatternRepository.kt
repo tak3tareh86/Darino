@@ -172,6 +172,65 @@ class SmsPatternRepository(context: Context) {
         }
     }
 
+    /**
+     * Replaces the complete account-scoped template snapshot and its recognition boundary.
+     * The values in the backup are portable; this method writes them into this device's
+     * own EncryptedSharedPreferences/Android Keystore namespace.
+     */
+    @Synchronized
+    fun restoreAll(
+        patterns: List<SmsPattern>,
+        recognitionStartMillis: Long?,
+        userId: String
+    ) {
+        require(userId.isNotBlank()) { "A user ID is required to restore SMS patterns." }
+        require(patterns.map { it.id }.distinct().size == patterns.size) {
+            "Duplicate SMS pattern IDs in backup."
+        }
+        patterns.forEach { pattern ->
+            require(pattern.id.isNotBlank() && pattern.name.isNotBlank() && pattern.sampleMessage.isNotEmpty())
+            var previousEnd = 0
+            pattern.slots.sortedBy { it.start }.forEach { slot ->
+                require(slot.start >= previousEnd && slot.start >= 0 &&
+                    slot.endExclusive > slot.start && slot.endExclusive <= pattern.sampleMessage.length) {
+                    "Invalid SMS pattern slot in backup."
+                }
+                previousEnd = slot.endExclusive
+            }
+        }
+        require(patterns.isEmpty() || (recognitionStartMillis != null && recognitionStartMillis > 0L)) {
+            "SMS recognition start time is missing from backup."
+        }
+
+        val array = JSONArray()
+        patterns.forEach { pattern ->
+            val slots = JSONArray()
+            pattern.slots.forEach { slot ->
+                slots.put(
+                    JSONObject()
+                        .put("start", slot.start)
+                        .put("endExclusive", slot.endExclusive)
+                        .put("kind", slot.kind.name)
+                )
+            }
+            array.put(
+                JSONObject()
+                    .put("id", pattern.id)
+                    .put("name", pattern.name)
+                    .put("type", pattern.type.name)
+                    .put("sampleMessage", pattern.sampleMessage)
+                    .put("slots", slots)
+            )
+        }
+        val editor = preferences.edit().putString(storageKey(userId), array.toString())
+        if (patterns.isEmpty()) {
+            editor.remove(recognitionStartKey(userId))
+        } else {
+            editor.putLong(recognitionStartKey(userId), recognitionStartMillis!!)
+        }
+        check(editor.commit()) { "Could not persist restored SMS patterns securely." }
+    }
+
     private fun persist(patterns: List<SmsPattern>, userId: String? = SessionManager.userId) {
         val array = JSONArray()
         patterns.forEach { pattern ->
