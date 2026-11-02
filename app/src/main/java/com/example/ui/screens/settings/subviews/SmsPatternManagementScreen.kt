@@ -44,6 +44,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -245,7 +246,7 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
                     ) {
                         Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                         Text(
-                            "الگوها به‌صورت محلی و رمزگذاری‌شده ذخیره می‌شوند. فقط پیامکی پذیرفته می‌شود که متن ثابت آن دقیقاً با الگو منطبق باشد و جایگاه‌های متغیرِ انتخاب‌شده توسط شما در همان ترتیب قرار داشته باشند. نوع تراکنش نیز فقط از انتخاب شما در الگو گرفته می‌شود.",
+                            "الگوها به‌صورت محلی و رمزگذاری‌شده ذخیره می‌شوند. فقط پیامکی پذیرفته می‌شود که متن ثابت آن دقیقاً با الگو منطبق باشد و جایگاه‌های متغیرِ تشخیص‌داده‌شده و تأییدشده توسط شما در همان ترتیب قرار داشته باشند. نوع تراکنش نیز فقط از انتخاب شما در الگو گرفته می‌شود.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
@@ -358,7 +359,37 @@ private fun SmsPatternEditorDialog(
     var name by remember(pattern?.id) { mutableStateOf(pattern?.name.orEmpty()) }
     var type by remember(pattern?.id) { mutableStateOf(pattern?.type ?: SmsPatternType.INCOME) }
     var message by remember(pattern?.id) { mutableStateOf(pattern?.sampleMessage.orEmpty()) }
+    var allowedAccountNumbers by remember(pattern?.id) {
+        mutableStateOf(
+            pattern?.slots
+                ?.firstOrNull { it.kind == SmsPatternSlotKind.SOURCE_ACCOUNT || it.kind == SmsPatternSlotKind.SOURCE_CARD }
+                ?.allowedValues?.joinToString("\n").orEmpty()
+        )
+    }
     val normalizedMessage = message
+    val inferredSlots = remember(normalizedMessage) { SmsPatternMatcher.inferVariableSlots(normalizedMessage) }
+    var compactDateOrder by remember(pattern?.id) {
+        mutableStateOf(
+            pattern?.slots?.firstOrNull {
+                it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY ||
+                    it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR ||
+                    it.kind == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR
+            }?.kind ?: inferredSlots.firstOrNull {
+                it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY || it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+            }?.kind ?: SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
+        )
+    }
+    val hasAmbiguousShortDate = inferredSlots.any {
+        it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY || it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+    }
+    val hasYearFirstShortDate = inferredSlots.any { it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY }
+    val accountRange = remember(normalizedMessage) { SmsPatternMatcher.inferAccountIdentifierRange(normalizedMessage) }
+    val sampleAccountNumber = accountRange?.let { normalizedMessage.substring(it.first, it.last + 1) }
+    LaunchedEffect(normalizedMessage, sampleAccountNumber) {
+        if (allowedAccountNumbers.isBlank() && sampleAccountNumber != null) {
+            allowedAccountNumbers = sampleAccountNumber
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -409,8 +440,75 @@ private fun SmsPatternEditorDialog(
                     placeholder = { Text("متن پیامک را از صندوق پیامک کپی و اینجا جای‌گذاری کنید...") },
                     supportingText = { Text("${message.length} نویسه") }
                 )
+                if (normalizedMessage.isNotBlank()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("بخش‌های متغیر تشخیص‌داده‌شده", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                        if (inferredSlots.isEmpty()) {
+                            Text("بخش متغیری تشخیص داده نشد؛ نمونه را بررسی کنید.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        } else {
+                            inferredSlots.forEach { slot ->
+                                Text(
+                                    "• ${(if (slot.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY || slot.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR) compactDateOrder else slot.kind).title}: ${normalizedMessage.substring(slot.start, slot.endExclusive)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (sampleAccountNumber != null) {
+                                Text(
+                                    "• شماره حساب/کارت (فقط فهرست مجاز): $sampleAccountNumber",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+                if (hasAmbiguousShortDate) {
+                    Text(
+                        "ترتیب تاریخ سه‌بخشی را مشخص کنید؛ تشخیص خودکار به‌تنهایی نمی‌تواند ترتیب اجزا را با اطمینان تعیین کند.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (hasYearFirstShortDate) {
+                        FilterChip(
+                            selected = compactDateOrder == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY,
+                            onClick = { compactDateOrder = SmsPatternSlotKind.DATE_YEAR_MONTH_DAY },
+                            label = { Text("سال / ماه / روز") }
+                        )
+                        }
+                        FilterChip(
+                            selected = compactDateOrder == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR,
+                            onClick = { compactDateOrder = SmsPatternSlotKind.DATE_DAY_MONTH_YEAR },
+                            label = { Text("روز / ماه / سال") }
+                        )
+                        FilterChip(
+                            selected = compactDateOrder == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR,
+                            onClick = { compactDateOrder = SmsPatternSlotKind.DATE_MONTH_DAY_YEAR },
+                            label = { Text("ماه / روز / سال") }
+                        )
+                    }
+                }
+                if (accountRange != null && sampleAccountNumber != null) {
+                    Text(
+                        "شماره حساب/کارت نمونه شناسایی شد. شماره حساب نمونه به‌صورت خودکار مجاز است؛ برای حساب‌های دیگر همین بانک، هر شماره را در یک خط وارد کنید. فقط شماره‌های این فهرست پذیرفته می‌شوند.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 18.sp
+                    )
+                    OutlinedTextField(
+                        value = allowedAccountNumbers,
+                        onValueChange = { allowedAccountNumbers = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4,
+                        label = { Text("شماره حساب‌ها / کارت‌های مجاز") },
+                        placeholder = { Text("شماره اول\nشماره دوم\nشماره سوم") },
+                        supportingText = { Text("هر خط یک شماره؛ شماره نمونه نیز به‌طور خودکار افزوده می‌شود.") }
+                    )
+                }
                 Text(
-                    "مبلغ، مانده، تاریخ، ساعت و کد پیگیری می‌توانند تغییر کنند؛ اما شماره حساب و کارت ثابت می‌مانند. فاصله‌ها و تمام علائم نگارشی باید دقیقاً مطابق نمونه باشند؛ مثلاً : و - و . و / و , قابل جایگزینی نیستند. قالب تاریخ و ساعت نیز باید همان قالب ثبت‌شده باشد.",
+                    "مبلغ و موجودی با هر تعداد رقم تغییر می‌کنند. روز، ماه، سال و ساعت فقط در قالب تشخیص‌داده‌شده تغییر می‌کنند. متن ثابت، شماره‌های خارج از فهرست مجاز، فاصله‌ها و علائم نگارشی خارج از بخش عددی دقیقاً مطابق نمونه باقی می‌مانند؛ جداکننده هزارگان مبلغ و موجودی فقط با همان نوع جداکننده و متناسب با تعداد رقم‌ها تکرار می‌شود.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 18.sp
@@ -420,7 +518,19 @@ private fun SmsPatternEditorDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val slots = SmsPatternMatcher.inferVariableSlots(normalizedMessage)
+                    val enteredAccounts = allowedAccountNumbers.split(Regex("[\n,;]+")).map { it.trim() }.filter { it.isNotBlank() }
+                    val dateAdjustedSlots = inferredSlots.map { slot ->
+                        if (slot.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY ||
+                            slot.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+                        ) {
+                            slot.copy(kind = compactDateOrder)
+                        } else slot
+                    }
+                    val slots = SmsPatternMatcher.configureAllowedAccountNumbers(
+                        normalizedMessage,
+                        dateAdjustedSlots,
+                        enteredAccounts
+                    )
                     onSave(name, type, normalizedMessage, slots)
                 },
                 enabled = name.isNotBlank() && message.isNotBlank(),

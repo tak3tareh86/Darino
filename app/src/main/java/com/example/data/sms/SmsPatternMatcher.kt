@@ -1,8 +1,8 @@
 package com.example.data.sms
 
 /**
- * Learns changing numeric fields from one bank SMS sample.
- * Account/card identifiers remain literal; transaction direction is supplied by the user.
+ * Learns changing numeric fields from one user-provided bank SMS sample.
+ * Account/card identifiers remain fixed unless the user explicitly adds them to a strict allow-list.
  */
 object SmsPatternMatcher {
 
@@ -41,7 +41,8 @@ object SmsPatternMatcher {
             val kind = when {
                 parts.size == 2 -> SmsPatternSlotKind.DATE_DAY_MONTH
                 parts[0].length == 4 -> SmsPatternSlotKind.DATE
-                else -> SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+                parts.last().length == 4 -> SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+                else -> SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
             }
             slots += SmsPatternSlot(date.range.first, date.range.last + 1, kind)
         }
@@ -56,7 +57,7 @@ object SmsPatternMatcher {
         val currencyLabel = Regex("""ریال|ريال|تومان|تومن""")
         val rialLabel = Regex("""ریال|ريال""")
         val balanceLabel = Regex("""موجودی|مانده|اعتبار|قابل\s*برداشت""")
-        val accountLabel = Regex("""حساب|کارت|شماره|شبا""")
+        val accountLabel = Regex("""(?:شماره\s*)?(?:حساب|کارت|شبا)""")
         val trackingLabel = Regex("""پیگیری|رهگیری|شناسه""")
         val numberRegex = Regex("""[\d۰-۹٠-٩][\d۰-۹٠-٩,،٬٫.]*""")
 
@@ -96,6 +97,13 @@ object SmsPatternMatcher {
             // Looking across several whitespace tokens can leak "balance" into
             // the following transaction amount (or vice versa).
             val nearestLabel = semanticLabelRegex.findAll(contextBefore).lastOrNull()?.value
+            // Long identifiers following an explicit source phrase are account numbers,
+            // not transaction amounts when the source-account label is explicit.
+            val compactNumber = number.value.filter { it in '0'..'9' || it in '۰'..'۹' || it in '٠'..'٩' }
+            val explicitAccountSource = Regex("""(?:برداشت|واریز|انتقال)\s+از\s*[:：]?\s*$""").containsMatchIn(contextBefore) ||
+                Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(contextBefore)
+            if (compactNumber.length >= 8 && explicitAccountSource) return@forEach
+
             // Never vary a number explicitly attached to an account/card label.
             // A transaction label in the current field context takes precedence over
             // an account label on the previous line/token.
@@ -170,18 +178,60 @@ object SmsPatternMatcher {
         return slots.distinctBy { it.start to it.endExclusive }.sortedBy { it.start }
     }
 
-    fun findUniqueMatch(message: String, patterns: List<SmsPattern>): SmsPattern? {
-        val normalizedMessage = message
-        if (normalizedMessage.isBlank()) return null
-        val matches = patterns.filter { pattern ->
+    /** Detect one account/card identifier explicitly introduced by its surrounding label. */
+    fun inferAccountIdentifierRange(message: String): IntRange? {
+        val candidates = Regex("""[0-9۰-۹٠-٩]{6,26}""").findAll(message).filter { match ->
+            val before = message.substring(maxOf(0, match.range.first - 36), match.range.first)
+            val explicitAccountLabel =
+                Regex("""(?:شماره\s*)?(?:حساب|کارت|شبا)\s*[:：]?\s*$""").containsMatchIn(before)
+            val explicitSourceLabel =
+                Regex("""(?:برداشت|واریز|انتقال)\s+از\s*[:：]?\s*$""").containsMatchIn(before) ||
+                    Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(before)
+            (explicitAccountLabel || (explicitSourceLabel && match.value.length >= 8))
+        }.toList()
+        return candidates.singleOrNull()?.range
+    }
+
+    private fun normalizeDigits(value: String): String = buildString {
+        value.forEach { char ->
+            append(when (char) {
+                in '0'..'9' -> char
+                in '۰'..'۹' -> ('0'.code + (char.code - '۰'.code)).toChar()
+                in '٠'..'٩' -> ('0'.code + (char.code - '٠'.code)).toChar()
+                else -> char
+            })
+        }
+    }
+
+    /** Convert the sample identifier into an explicit allow-list slot. */
+    fun configureAllowedAccountNumbers(
+        message: String,
+        inferredSlots: List<SmsPatternSlot>,
+        enteredValues: List<String>
+    ): List<SmsPatternSlot> {
+        val range = inferAccountIdentifierRange(message) ?: return inferredSlots
+        val sampleValue = message.substring(range.first, range.last + 1)
+        fun digits(value: String) = normalizeDigits(value).filter { it in '0'..'9' }
+        val allowed = (enteredValues + sampleValue).map(::digits).filter { it.isNotBlank() }.distinct()
+        if (allowed.none { it == digits(sampleValue) }) return inferredSlots
+        val context = message.substring(maxOf(0, range.first - 36), range.first)
+        val kind = if (context.contains("کارت")) SmsPatternSlotKind.SOURCE_CARD else SmsPatternSlotKind.SOURCE_ACCOUNT
+        return (inferredSlots.filterNot { range.first < it.endExclusive && range.last + 1 > it.start } +
+            SmsPatternSlot(range.first, range.last + 1, kind, allowed)).sortedBy { it.start }
+    }
+    fun findMatchingPatterns(message: String, patterns: List<SmsPattern>): List<SmsPattern> {
+        if (message.isBlank()) return emptyList()
+        return patterns.filter { pattern ->
             val sample = pattern.sampleMessage
             val slots = validSlots(sample, pattern.slots)
             sample.isNotBlank() && slots.isNotEmpty() &&
                 slots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } == 1 &&
-                buildTemplateRegex(sample, slots).matches(normalizedMessage)
+                buildTemplateRegex(sample, slots).matches(message)
         }
-        return matches.singleOrNull()
     }
+
+    fun findUniqueMatch(message: String, patterns: List<SmsPattern>): SmsPattern? =
+        findMatchingPatterns(message, patterns).singleOrNull()
 
     fun extractMatchedFields(message: String, pattern: SmsPattern): MatchedFields? {
         val sample = pattern.sampleMessage
@@ -203,6 +253,10 @@ object SmsPatternMatcher {
     private fun validSlots(sample: String, configured: List<SmsPatternSlot>): List<SmsPatternSlot> {
         val sorted = configured.filter { it.kind != SmsPatternSlotKind.FIXED }.sortedBy { it.start }
         if (sorted.isEmpty()) return emptyList()
+        val accountKinds = setOf(
+            SmsPatternSlotKind.SOURCE_ACCOUNT, SmsPatternSlotKind.DESTINATION_ACCOUNT,
+            SmsPatternSlotKind.SOURCE_CARD, SmsPatternSlotKind.DESTINATION_CARD
+        )
         var previousEnd = 0
         for (slot in sorted) {
             if (slot.start < previousEnd || slot.start < 0 ||
@@ -210,20 +264,69 @@ object SmsPatternMatcher {
             ) return emptyList()
             previousEnd = slot.endExclusive
         }
+        if (sorted.any { slot ->
+                slot.kind in accountKinds &&
+                    (slot.allowedValues.isEmpty() ||
+                        slot.allowedValues.none { normalizeDigits(it) == normalizeDigits(sample.substring(slot.start, slot.endExclusive)) })
+            }) return emptyList()
         return sorted
     }
 
     /**
-     * Variable fields may change their digits, but every separator inside the
-     * field (comma, decimal mark, slash, colon, etc.) remains literal.
+     * Date/time separators and all non-numeric template text remain literal.
+     * Amount/balance grouping marks may repeat with the digit count, but only
+     * using the same grouping character and valid three-digit groups.
      */
-    private fun StringBuilder.appendVariableNumberPattern(value: String, kind: SmsPatternSlotKind) {
+    private fun StringBuilder.appendVariableNumberPattern(value: String, slot: SmsPatternSlot) {
+        val kind = slot.kind
+        val accountKinds = setOf(
+            SmsPatternSlotKind.SOURCE_ACCOUNT, SmsPatternSlotKind.DESTINATION_ACCOUNT,
+            SmsPatternSlotKind.SOURCE_CARD, SmsPatternSlotKind.DESTINATION_CARD
+        )
+        if (kind in accountKinds) {
+            append("(?:")
+            append(slot.allowedValues.distinct().joinToString("|") { allowed ->
+                normalizeDigits(allowed).map { digit ->
+                    when (digit) {
+                        in '0'..'9' -> "[" + digit + (('۰'.code + digit.code - '0'.code).toChar()) + (('٠'.code + digit.code - '0'.code).toChar()) + "]"
+                        else -> Regex.escape(digit.toString())
+                    }
+                }.joinToString("")
+            })
+            append(")")
+            return
+        }
         val fixedDigitWidth = kind == SmsPatternSlotKind.DATE ||
             kind == SmsPatternSlotKind.DATE_DAY_MONTH ||
             kind == SmsPatternSlotKind.DATE_MONTH_DAY ||
             kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR ||
             kind == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR ||
+            kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY ||
             kind == SmsPatternSlotKind.TIME
+
+        // Amount/balance grouping marks are numeric formatting, so their count
+        // must grow or shrink with the amount (50,000 -> 1,000,000 -> 10,000).
+        // The exact grouping character used by the sample remains constrained.
+        val amountKinds = setOf(
+            SmsPatternSlotKind.AMOUNT_RIAL, SmsPatternSlotKind.AMOUNT_TOMAN,
+            SmsPatternSlotKind.BALANCE_RIAL, SmsPatternSlotKind.BALANCE_TOMAN
+        )
+        if (kind in amountKinds) {
+            val numericRun = Regex("""[0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬]*""").find(value)
+            val separators = numericRun?.value?.filter { it == ',' || it == '،' || it == '٬' }?.distinct().orEmpty()
+            if (numericRun != null && separators.size == 1) {
+                val separator = Regex.escape(separators.single().toString())
+                val digit = "[0-9۰-۹٠-٩]"
+                append(Regex.escape(value.substring(0, numericRun.range.first)))
+                append("(?:")
+                append(digit).append("+|")
+                append(digit).append("{1,3}(?:").append(separator).append(digit).append("{3})+")
+                append(")")
+                append(Regex.escape(value.substring(numericRun.range.last + 1)))
+                return
+            }
+        }
+
         var cursor = 0
         Regex("""[0-9۰-۹٠-٩]+""").findAll(value).forEach { digits ->
             append(Regex.escape(value.substring(cursor, digits.range.first)))
@@ -240,7 +343,7 @@ object SmsPatternMatcher {
             slots.forEach { slot ->
                 append(Regex.escape(sample.substring(cursor, slot.start)))
                 append('(')
-                appendVariableNumberPattern(sample.substring(slot.start, slot.endExclusive), slot.kind)
+                appendVariableNumberPattern(sample.substring(slot.start, slot.endExclusive), slot)
                 append(')')
                 cursor = slot.endExclusive
             }

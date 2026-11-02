@@ -89,7 +89,7 @@ class BankSmsParserTest {
             type = SmsPatternType.EXPENSE,
             sampleMessage = sample,
             slots = listOf(
-                slot(sample, "123456", SmsPatternSlotKind.SOURCE_ACCOUNT),
+                SmsPatternSlot(sample.indexOf("123456"), sample.indexOf("123456") + "123456".length, SmsPatternSlotKind.SOURCE_ACCOUNT, listOf("123456", "998877")),
                 slot(sample, "1,000", SmsPatternSlotKind.AMOUNT_TOMAN),
                 slot(sample, "1405/08/09", SmsPatternSlotKind.DATE),
                 slot(sample, "18:09", SmsPatternSlotKind.TIME)
@@ -131,7 +131,7 @@ class BankSmsParserTest {
     }
 
     @Test
-    fun fixedTextIsCaseSensitiveButWhitespaceFlexible() {
+    fun fixedTextAndWhitespaceMustMatchExactly() {
         val sample = "PAYMENT 1,000 OK"
         val pattern = SmsPattern(
             id = "strict",
@@ -143,8 +143,8 @@ class BankSmsParserTest {
 
         assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT 2,000 OK", listOf(pattern)))
         assertNull(SmsPatternMatcher.findUniqueMatch("payment 2,000 OK", listOf(pattern)))
-        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT  2,000 OK", listOf(pattern)))
-        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT\n2,000 OK", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT  2,000 OK", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT\n2,000 OK", listOf(pattern)))
         assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT 2,000 OK extra", listOf(pattern)))
     }
 
@@ -197,7 +197,8 @@ class BankSmsParserTest {
             )
         )
         val parsed = BankSmsParser.parseMatchedPattern(
-            "sms-dmy", "sender", "تاریخ 06/08/10 مبلغ 200 تومان", 1_700_000_000_000L, pattern
+            "sms-dmy", "sender", "تاریخ 06/08/10 مبلغ 200 تومان",
+            com.example.util.PersianCalendarHelper.jalaliToEpochMillis(1410, 8, 10, 12, 0), pattern
         )
         assertEquals("1410/08/06", parsed?.dateText)
         assertEquals(200L, parsed?.amount)
@@ -253,7 +254,7 @@ class BankSmsParserTest {
             .let { sample.substring(it.start, it.endExclusive) })
         assertEquals("8,013,304", slots.single { it.kind == SmsPatternSlotKind.BALANCE_TOMAN }
             .let { sample.substring(it.start, it.endExclusive) })
-        assertEquals("05/08/11", slots.single { it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR }
+        assertEquals("05/08/11", slots.single { it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY }
             .let { sample.substring(it.start, it.endExclusive) })
         assertEquals("06:53", slots.single { it.kind == SmsPatternSlotKind.TIME }
             .let { sample.substring(it.start, it.endExclusive) })
@@ -268,4 +269,75 @@ class BankSmsParserTest {
         assertEquals(1, slots.count { it.kind == SmsPatternSlotKind.AMOUNT_TOMAN })
     }
 
+
+    @Test
+    fun amountDigitCountAndThousandsGroupingCanGrowOrShrink() {
+        val sample = "برداشت مبلغ 50,000 تومان"
+        val pattern = SmsPattern(
+            id = "variable-amount",
+            name = "مبلغ متغیر",
+            type = SmsPatternType.EXPENSE,
+            sampleMessage = sample,
+            slots = listOf(slot(sample, "50,000", SmsPatternSlotKind.AMOUNT_TOMAN))
+        )
+        listOf("برداشت مبلغ 10,000 تومان", "برداشت مبلغ 500000 تومان",
+            "برداشت مبلغ 1,000,000 تومان", "برداشت مبلغ 1000000 تومان")
+            .forEach { assertNotNull(SmsPatternMatcher.findUniqueMatch(it, listOf(pattern))) }
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "sms-variable-amount", "bank", "برداشت مبلغ 1,000,000 تومان", 1_700_000_000_000L, pattern
+        )
+        assertEquals(1_000_000L, parsed?.amount)
+        assertNull(SmsPatternMatcher.findUniqueMatch("برداشت مبلغ 1.000.000 تومان", listOf(pattern)))
+    }
+
+    @Test
+    fun multipleAccountNumbersAreExplicitlyWhitelistedForOneTemplate() {
+        val sample = "برداشت از:9876543210987 مبلغ:50,000 تومان"
+        val inferred = SmsPatternMatcher.inferVariableSlots(sample)
+        val slots = SmsPatternMatcher.configureAllowedAccountNumbers(
+            sample, inferred, listOf("9876543210987", "9876543210988", "9876543210989")
+        )
+        val pattern = SmsPattern("multi-account", "بانک", SmsPatternType.EXPENSE, sample, slots)
+        assertNotNull(SmsPatternMatcher.findUniqueMatch(
+            "برداشت از:9876543210988 مبلغ:1,000,000 تومان", listOf(pattern)
+        ))
+        assertNull(SmsPatternMatcher.findUniqueMatch(
+            "برداشت از:9876543210990 مبلغ:1,000,000 تومان", listOf(pattern)
+        ))
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "sms-account", "bank", "برداشت از:9876543210988 مبلغ:1,000,000 تومان",
+            1_700_000_000_000L, pattern
+        )
+        assertEquals("حساب 9876543210988", parsed?.sourceAccount)
+    }
+
+    @Test
+    fun twoDigitYearFirstJalaliDateUsesReceiveYearCenturyAndKeepsDateOrder() {
+        val sample = "تاریخ 05/08/11 مبلغ 100 تومان"
+        val pattern = SmsPattern(
+            id = "short-year-first",
+            name = "سال دورقمی",
+            type = SmsPatternType.INCOME,
+            sampleMessage = sample,
+            slots = listOf(
+                slot(sample, "05/08/11", SmsPatternSlotKind.DATE_YEAR_MONTH_DAY),
+                slot(sample, "100", SmsPatternSlotKind.AMOUNT_TOMAN)
+            )
+        )
+        val receivedIn1405 = com.example.util.PersianCalendarHelper.jalaliToEpochMillis(1405, 8, 11, 12, 0)
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "sms-short-year", "sender", "تاریخ 05/09/12 مبلغ 200 تومان", receivedIn1405, pattern
+        )
+        assertEquals("1405/09/12", parsed?.dateText)
+        assertEquals(200L, parsed?.amount)
+    }
+
+    @Test
+    fun automaticInferenceRecognizesDayMonthWithTrailingFourDigitYear() {
+        val sample = "تاریخ 11/08/1405 مبلغ 100 تومان"
+        val dateSlot = SmsPatternMatcher.inferVariableSlots(sample).single {
+            it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+        }
+        assertEquals("11/08/1405", sample.substring(dateSlot.start, dateSlot.endExclusive))
+    }
 }

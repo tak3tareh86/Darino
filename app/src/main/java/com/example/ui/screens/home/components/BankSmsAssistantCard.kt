@@ -1087,10 +1087,19 @@ fun EditSmsTransactionDialog(
     val activeAccounts = remember(userAccounts) {
         userAccounts.filter { it.isActive && it.deletedAt == null }
     }
-    // Never infer the account from a bank label or from there being only one account.
-    // The user explicitly chooses the account linked to this transaction.
-    var selectedAccountId by remember(suggestion.id, activeAccounts) {
-        mutableStateOf<String?>(null)
+    // Auto-link only when a stored account number is a full exact match.
+    // Masked/partial values never trigger a guess; the user chooses manually instead.
+    val recognizedBankAccountDigits = suggestion.sourceAccount
+        ?.let(IranianPhoneUtils::convertDigitsToEnglish)
+        ?.filter { it in '0'..'9' }
+    val exactStoredAccount = activeAccounts.singleOrNull { account ->
+        val storedDigits = account.accountNumberMasked
+            ?.let(IranianPhoneUtils::convertDigitsToEnglish)
+            ?.filter { it in '0'..'9' }
+        !recognizedBankAccountDigits.isNullOrBlank() && storedDigits == recognizedBankAccountDigits
+    }
+    var selectedAccountId by remember(suggestion.id, activeAccounts, recognizedBankAccountDigits) {
+        mutableStateOf<String?>(exactStoredAccount?.stringId)
     }
     var selectedDestinationAccountId by remember(suggestion.id, activeAccounts) {
         mutableStateOf<String?>(null)
@@ -1188,6 +1197,32 @@ fun EditSmsTransactionDialog(
                                     fontWeight = FontWeight.Medium
                                 )
                             )
+                        }
+                    }
+
+                    // Display the exact bank account number recognized by the saved allow-list.
+                    // The user still explicitly links it to a Darino account; no account is guessed.
+                    if (!suggestion.sourceAccount.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    "شماره حساب بانکی شناسایی‌شده",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    suggestion.sourceAccount.orEmpty(),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    "اگر شماره کامل در حساب دارینو ذخیره شده باشد، حساب متناظر خودکار انتخاب می‌شود؛ در غیر این صورت آن را دستی انتخاب کنید.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
 
