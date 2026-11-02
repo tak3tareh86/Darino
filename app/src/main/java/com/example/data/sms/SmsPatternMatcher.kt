@@ -69,9 +69,13 @@ object SmsPatternMatcher {
 
         val candidates = mutableListOf<NumericCandidate>()
         var previousNumericEnd = 0
+        // Labels are evaluated only within the current field segment (after the
+        // previous numeric value). This keeps each user's account/card, amount,
+        // balance and tracking fields independent even when all values share a line.
         val semanticLabelRegex = Regex(
-            """قابل\s*برداشت|موجودی|مانده|اعتبار|مبلغ|مبـلغ|وجه|میزان|واریز|برداشت|خرید|پرداخت|انتقال|تراکنش|پیگیری|رهگیری|شناسه"""
+            """شماره\s*کارت|شماره\s*حساب|کارت|حساب|شبا|قابل\s*برداشت|موجودی|مانده|اعتبار|مبلغ|مبـلغ|وجه|میزان|واریز|برداشت|خرید|پرداخت|انتقال|تراکنش|پیگیری|رهگیری|شناسه"""
         )
+        val accountSemanticLabelRegex = Regex("""شماره\s*کارت|شماره\s*حساب|کارت|حساب|شبا""")
         numberRegex.findAll(normalized).forEach { number ->
             val start = number.range.first
             val end = number.range.last + 1
@@ -98,9 +102,15 @@ object SmsPatternMatcher {
             val currentFieldHasTransactionLabel =
                 transactionLabel.containsMatchIn(prefix) || amountLabel.containsMatchIn(prefix) ||
                     (nearestLabel != null && (transactionLabel.matches(nearestLabel) || amountLabel.matches(nearestLabel)))
-            if (accountLabel.containsMatchIn(prefix) ||
-                (accountLabel.containsMatchIn(clean(previousToken)) && !currentFieldHasTransactionLabel)
-            ) return@forEach
+            val currentFieldHasAccountLabel =
+                accountLabel.containsMatchIn(prefix) ||
+                    (nearestLabel != null && accountSemanticLabelRegex.matches(nearestLabel)) ||
+                    accountLabel.containsMatchIn(clean(previousToken))
+
+            // A nearby transaction/amount label wins over an account label from
+            // an earlier part of the template. Otherwise the account/card value
+            // remains fixed and is never learned as a changing numeric field.
+            if (currentFieldHasAccountLabel && !currentFieldHasTransactionLabel) return@forEach
 
             val isBalance = (nearestLabel != null && balanceLabel.matches(nearestLabel)) ||
                 balanceLabel.containsMatchIn(contextAfter)
@@ -133,15 +143,29 @@ object SmsPatternMatcher {
 
         // Only one numeric field is the transaction amount. Balance and all other
         // numbers are still variable, but are never confused with the transaction amount.
-        val amount = candidates
+        val explicitlyLabeledAmount = candidates
             .filter { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN }
             .maxByOrNull { it.score }
+        // Some banks send a bare amount with no currency or semantic prefix.
+        // If it is the only remaining numeric field after date/time and account
+        // identifiers have been excluded, it is the only safe generic fallback.
+        // Multiple unlabeled numbers remain ambiguous and are never guessed.
+        val amount = explicitlyLabeledAmount
+            ?: candidates.singleOrNull { it.kind == SmsPatternSlotKind.NUMBER }
         candidates.forEach { candidate ->
-            if (candidate == amount || candidate.kind != SmsPatternSlotKind.AMOUNT_RIAL &&
-                candidate.kind != SmsPatternSlotKind.AMOUNT_TOMAN
-            ) {
-                slots += SmsPatternSlot(candidate.start, candidate.end, candidate.kind)
+            val isAmountCandidate =
+                candidate.kind == SmsPatternSlotKind.AMOUNT_RIAL ||
+                    candidate.kind == SmsPatternSlotKind.AMOUNT_TOMAN
+            val storedKind = when {
+                candidate == amount && !isAmountCandidate -> SmsPatternSlotKind.AMOUNT_TOMAN
+                candidate == amount -> candidate.kind
+                isAmountCandidate -> SmsPatternSlotKind.NUMBER
+                else -> candidate.kind
             }
+            // Preserve every numeric value as a variable. Only the strongest
+            // amount candidate is assigned the transaction-amount role; other
+            // amount-looking values stay variable but cannot overwrite the amount.
+            slots += SmsPatternSlot(candidate.start, candidate.end, storedKind)
         }
         return slots.distinctBy { it.start to it.endExclusive }.sortedBy { it.start }
     }
