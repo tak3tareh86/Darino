@@ -7,6 +7,7 @@ import com.example.data.sms.BankSmsParser
 import com.example.data.sms.BankSmsRepository
 import com.example.data.sms.SmsPattern
 import com.example.data.sms.SmsPatternRepository
+import com.example.data.sms.SmsPatternMatcher
 import com.example.data.sms.SmsPatternSlot
 import com.example.data.sms.SmsPatternSlotKind
 import com.example.data.sms.SmsPatternType
@@ -367,8 +368,9 @@ class HomeDashboardTest {
 
         val viewModel = HomeDashboardViewModel(ApplicationProvider.getApplicationContext())
         val smsTimestamp = 1710000000000L
+        val smsId = "test_sms_card_${System.currentTimeMillis()}"
         val suggestion = BankSmsParser.parseMatchedPattern(
-            smsId = "test_sms_card_1",
+            smsId = smsId,
             sender = "بانک سامان",
             body = "خرید از پایانه فروشگاه: مبلغ: 150,000 تومان. مانده: 2,000,000 تومان",
             timestampMillis = smsTimestamp,
