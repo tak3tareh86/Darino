@@ -199,7 +199,6 @@ class BankSmsRepository(private val context: Context) {
         }
 
         val patterns = patternRepository.getPatterns(uid)
-        if (patterns.isEmpty()) return@withContext emptyList()
         val recognitionStartMillis = patternRepository.getRecognitionStartMillis(uid)
             ?: return@withContext emptyList()
         // The per-user boundary is mandatory; caller filters may only narrow the scan.
