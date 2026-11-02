@@ -115,12 +115,21 @@ class SmsPatternRepository(context: Context) {
                             val start = slot.optInt("start", -1)
                             val end = slot.optInt("endExclusive", -1)
                             val allowedJson = slot.optJSONArray("allowedValues") ?: JSONArray()
-                            val allowedValues = buildList {
+                            val storedAllowedValues = buildList {
                                 for (valueIndex in 0 until allowedJson.length()) {
                                     allowedJson.optString(valueIndex).trim().takeIf { it.isNotEmpty() }?.let(::add)
                                 }
                             }.distinct()
                             if (start >= 0 && end > start && end <= message.length) {
+                                val accountKinds = setOf(
+                                    SmsPatternSlotKind.SOURCE_ACCOUNT, SmsPatternSlotKind.DESTINATION_ACCOUNT,
+                                    SmsPatternSlotKind.SOURCE_CARD, SmsPatternSlotKind.DESTINATION_CARD
+                                )
+                                // Migrate older account slots to a safe fixed allow-list containing
+                                // only their original sample value.
+                                val allowedValues = if (kind in accountKinds && storedAllowedValues.isEmpty()) {
+                                    listOf(message.substring(start, end))
+                                } else storedAllowedValues
                                 add(SmsPatternSlot(start, end, kind, allowedValues))
                             }
                         }
