@@ -183,15 +183,26 @@ object SmsPatternMatcher {
         return sorted
     }
 
+    /**
+     * Match fixed words and punctuation literally, but treat runs of whitespace as
+     * layout rather than content. SMS providers often change line wrapping or spacing.
+     */
+    private fun StringBuilder.appendFlexibleLiteral(literal: String) {
+        Regex("""\\s+|\\S+""").findAll(literal).forEach { part ->
+            if (part.value.all(Char::isWhitespace)) append("\\\\s+")
+            else append(Regex.escape(part.value))
+        }
+    }
+
     private fun buildTemplateRegex(sample: String, slots: List<SmsPatternSlot>): Regex {
         val expression = buildString {
             var cursor = 0
             slots.forEach { slot ->
-                append(Regex.escape(sample.substring(cursor, slot.start)))
+                appendFlexibleLiteral(sample.substring(cursor, slot.start))
                 append("([^\\s]+?)")
                 cursor = slot.endExclusive
             }
-            append(Regex.escape(sample.substring(cursor)))
+            appendFlexibleLiteral(sample.substring(cursor))
         }
         return Regex("^$expression$")
     }
