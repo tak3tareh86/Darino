@@ -41,6 +41,7 @@ object SmsPatternMatcher {
             val kind = when {
                 parts.size == 2 -> SmsPatternSlotKind.DATE_DAY_MONTH
                 parts[0].length == 4 -> SmsPatternSlotKind.DATE
+                parts.last().length == 4 -> SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
                 else -> SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
             }
             slots += SmsPatternSlot(date.range.first, date.range.last + 1, kind)
