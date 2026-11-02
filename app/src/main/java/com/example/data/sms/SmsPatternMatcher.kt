@@ -147,11 +147,18 @@ object SmsPatternMatcher {
             .filter { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN }
             .maxByOrNull { it.score }
         candidates.forEach { candidate ->
-            if (candidate == amount || candidate.kind != SmsPatternSlotKind.AMOUNT_RIAL &&
-                candidate.kind != SmsPatternSlotKind.AMOUNT_TOMAN
-            ) {
-                slots += SmsPatternSlot(candidate.start, candidate.end, candidate.kind)
+            val isAmountCandidate =
+                candidate.kind == SmsPatternSlotKind.AMOUNT_RIAL ||
+                    candidate.kind == SmsPatternSlotKind.AMOUNT_TOMAN
+            val storedKind = when {
+                candidate == amount -> candidate.kind
+                isAmountCandidate -> SmsPatternSlotKind.NUMBER
+                else -> candidate.kind
             }
+            // Preserve every numeric value as a variable. Only the strongest
+            // amount candidate is assigned the transaction-amount role; other
+            // amount-looking values stay variable but cannot overwrite the amount.
+            slots += SmsPatternSlot(candidate.start, candidate.end, storedKind)
         }
         return slots.distinctBy { it.start to it.endExclusive }.sortedBy { it.start }
     }
