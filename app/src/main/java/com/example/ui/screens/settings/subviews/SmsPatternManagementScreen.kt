@@ -510,7 +510,9 @@ private fun SmsPatternEditorDialog(
                 onClick = {
                     val enteredAccounts = allowedAccountNumbers.split(Regex("[\n,;]+")).map { it.trim() }.filter { it.isNotBlank() }
                     val dateAdjustedSlots = inferredSlots.map { slot ->
-                        if (slot.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY) {
+                        if (slot.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY ||
+                            slot.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+                        ) {
                             slot.copy(kind = compactDateOrder)
                         } else slot
                     }
