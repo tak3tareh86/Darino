@@ -387,13 +387,19 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                 // Revalidate against the current settings at the moment of persistence.
                 val activePatterns = smsPatternRepository.getPatterns(userId)
-                val originPattern = activePatterns.singleOrNull { it.id == item.patternId }
-                val uniquePattern = SmsPatternMatcher.findUniqueMatch(item.smsText, activePatterns)
-                val freshlyParsed = if (originPattern != null && uniquePattern?.id == originPattern.id) {
-                    BankSmsParser.parseMatchedPattern(
-                        item.id, item.rawSender.orEmpty(), item.smsText, item.timestampMillis, originPattern
+                val freshlyParsed = if (item.patternId.isBlank()) {
+                    GenericBankSmsParser.parse(
+                        item.id, item.rawSender.orEmpty(), item.smsText, item.timestampMillis
                     )
-                } else null
+                } else {
+                    val originPattern = activePatterns.singleOrNull { it.id == item.patternId }
+                    val uniquePattern = SmsPatternMatcher.findUniqueMatch(item.smsText, activePatterns)
+                    if (originPattern != null && uniquePattern?.id == originPattern.id) {
+                        BankSmsParser.parseMatchedPattern(
+                            item.id, item.rawSender.orEmpty(), item.smsText, item.timestampMillis, originPattern
+                        )
+                    } else null
+                }
                 if (freshlyParsed == null ||
                     freshlyParsed.amount != item.amount ||
                     freshlyParsed.type != item.type ||
