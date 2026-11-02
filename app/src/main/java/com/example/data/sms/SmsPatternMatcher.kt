@@ -84,9 +84,6 @@ object SmsPatternMatcher {
             val token = tokens.getOrNull(tokenIndex)
             val prefix = if (token != null) normalized.substring(token.start, start) else ""
             val suffix = if (token != null) normalized.substring(end, token.endExclusive) else ""
-            val previousText = if (tokenIndex > 0) {
-                tokens.subList(maxOf(0, tokenIndex - 3), tokenIndex).joinToString(" ") { clean(it.value) }
-            } else ""
             val previousToken = tokens.getOrNull(tokenIndex - 1)?.value.orEmpty()
             val nextToken = tokens.getOrNull(tokenIndex + 1)?.value.orEmpty()
 
