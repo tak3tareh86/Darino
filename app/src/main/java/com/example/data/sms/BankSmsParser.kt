@@ -192,8 +192,8 @@ object BankSmsParser {
     }
 
     /**
-     * Resolve YY using the century of the SMS receive date. This makes 05 map to
-     * 1405 during Persian year 1405, and to 1406 only after the new Persian year.
+     * Resolve YY against the Persian year of SMS receipt: suffix 05 maps to
+     * 1405 during year 1405; suffix 06 maps to 1406 after the new year begins.
      */
     private fun resolveTwoDigitJalaliYear(twoDigitYear: Int, referenceYear: Int): Int? {
         if (twoDigitYear !in 0..99) return null
