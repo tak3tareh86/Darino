@@ -170,6 +170,44 @@ object SmsPatternMatcher {
         return slots.distinctBy { it.start to it.endExclusive }.sortedBy { it.start }
     }
 
+    /** Detect a single long identifier explicitly introduced as an account/card or source/destination. */
+    fun inferAccountIdentifierRange(message: String): IntRange? {
+        val candidates = Regex("""[0-9۰-۹٠-٩]{8,26}""").findAll(message).filter { match ->
+            val before = message.substring(maxOf(0, match.range.first - 36), match.range.first)
+            Regex("""(?:شماره\\s*)?(?:حساب|کارت|شبا)\\s*[:：]?\\s*$""").containsMatchIn(before) ||
+                Regex("""(?:برداشت|واریز|انتقال)\\s+از\\s*[:：]?\\s*$""").containsMatchIn(before) ||
+                Regex("""(?:واریز|انتقال)\\s+به\\s*[:：]?\\s*$""").containsMatchIn(before)
+        }.toList()
+        return candidates.singleOrNull()?.range
+    }
+
+    private fun normalizeDigits(value: String): String = buildString {
+        value.forEach { char ->
+            append(when (char) {
+                in '0'..'9' -> char
+                in '۰'..'۹' -> ('0'.code + (char.code - '۰'.code)).toChar()
+                in '٠'..'٩' -> ('0'.code + (char.code - '٠'.code)).toChar()
+                else -> char
+            })
+        }
+    }
+
+    /** Convert the sample identifier into an explicit allow-list slot. */
+    fun configureAllowedAccountNumbers(
+        message: String,
+        inferredSlots: List<SmsPatternSlot>,
+        enteredValues: List<String>
+    ): List<SmsPatternSlot> {
+        val range = inferAccountIdentifierRange(message) ?: return inferredSlots
+        val sampleValue = message.substring(range.first, range.last + 1)
+        fun digits(value: String) = normalizeDigits(value).filter { it in '0'..'9' }
+        val allowed = (enteredValues + sampleValue).map(::digits).filter { it.isNotBlank() }.distinct()
+        if (allowed.none { it == digits(sampleValue) }) return inferredSlots
+        val context = message.substring(maxOf(0, range.first - 36), range.first)
+        val kind = if (context.contains("کارت")) SmsPatternSlotKind.SOURCE_CARD else SmsPatternSlotKind.SOURCE_ACCOUNT
+        return (inferredSlots.filterNot { range.first < it.endExclusive && range.last + 1 > it.start } +
+            SmsPatternSlot(range.first, range.last + 1, kind, allowed)).sortedBy { it.start }
+    }
     fun findUniqueMatch(message: String, patterns: List<SmsPattern>): SmsPattern? {
         val normalizedMessage = message
         if (normalizedMessage.isBlank()) return null
