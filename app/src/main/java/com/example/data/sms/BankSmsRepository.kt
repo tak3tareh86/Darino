@@ -255,28 +255,24 @@ class BankSmsRepository(private val context: Context) {
                     }
 
                     scannedCount++
-                    // A saved user pattern is required before a bank SMS can enter the review queue.
-                    // Ambiguous matches are rejected; no priority or fuzzy fallback is applied.
+                    // Prefer one exact user template; otherwise use conservative generic recognition.
+                    // Ambiguous configured templates are rejected rather than arbitrarily prioritized.
                     val matchingPatterns = SmsPatternMatcher.findMatchingPatterns(body, patterns)
-                    if (matchingPatterns.isEmpty()) {
-                        unmatchedCount++
-                        continue
-                    }
-                    if (matchingPatterns.size != 1) {
+                    if (matchingPatterns.size > 1) {
                         ambiguousCount++
                         continue
                     }
-                    val parsed = BankSmsParser.parseMatchedPattern(
-                        uniqueId,
-                        address,
-                        body,
-                        timestamp,
-                        matchingPatterns.single()
-                    )
+                    val parsed = if (matchingPatterns.size == 1) {
+                        BankSmsParser.parseMatchedPattern(
+                            uniqueId, address, body, timestamp, matchingPatterns.single()
+                        ) ?: GenericBankSmsParser.parse(uniqueId, address, body, timestamp)
+                    } else {
+                        GenericBankSmsParser.parse(uniqueId, address, body, timestamp)
+                    }
                     if (parsed != null) {
                         results.add(parsed)
                     } else {
-                        parseFailureCount++
+                        unmatchedCount++
                     }
                 }
             }
