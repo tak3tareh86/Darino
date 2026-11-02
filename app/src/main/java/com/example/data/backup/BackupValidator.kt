@@ -37,6 +37,7 @@ object BackupValidator {
             3 -> legacyV3Checksum(unsignedBackup)
             4 -> legacyV4Checksum(unsignedBackup)
             5 -> legacyV5Checksum(unsignedBackup)
+            6 -> legacyV6Checksum(unsignedBackup)
             else -> calculateChecksum(moshi.adapter(DarinoBackup::class.java).toJson(unsignedBackup))
         }
         return unsignedBackup.copy(metadata = unsignedBackup.metadata.copy(checksum = checksum))
@@ -44,7 +45,7 @@ object BackupValidator {
 
     fun validate(backup: DarinoBackup, rawJson: String? = null): ValidationResult {
         val version = backup.metadata.backupVersion
-        if (version !in 1..6) {
+        if (version !in 1..7) {
             return ValidationResult.Invalid("نسخه فایل پشتیبان پشتیبانی نمی‌شود.")
         }
         if (backup.metadata.createdAt <= 0L || backup.metadata.recordCount < 0) {
@@ -77,7 +78,9 @@ object BackupValidator {
                     (if (backup.appSettings != null) 1 else 0) else 0) +
                 (if (version >= 4) backup.notificationLogs.size + backup.smsLogs.size else 0) +
                 (if (version >= 5) backup.reminderDeliveryLogs.size + (if (backup.vehicleStore != null) 1 else 0) else 0) +
-                (if (version >= 6) backup.legacyReminders.size + backup.legacyReminderSchedules.size else 0)
+                (if (version >= 6) backup.legacyReminders.size + backup.legacyReminderSchedules.size else 0) +
+                (if (version >= 7) backup.smsPatterns.size + backup.pendingBankSmsSuggestions.size +
+                    (if (backup.smsRecognitionStartMillis != null) 1 else 0) else 0)
         }
         if (backup.metadata.recordCount != expectedCount) {
             return ValidationResult.Invalid("تعداد رکوردهای فایل با اطلاعات ثبت‌شده در سربرگ آن مطابقت ندارد.")
@@ -89,10 +92,49 @@ object BackupValidator {
             3 -> legacyV3Checksum(backup)
             4 -> legacyV4Checksum(backup)
             5 -> legacyV5Checksum(backup)
+            6 -> legacyV6Checksum(backup)
             else -> withChecksum(backup).metadata.checksum
         }
         if (!backup.metadata.checksum.equals(expectedChecksum, ignoreCase = true)) {
             return ValidationResult.Invalid("صحت فایل پشتیبان تأیید نشد؛ فایل ممکن است ناقص یا تغییر داده شده باشد.")
+        }
+
+        if (version >= 7) {
+            val patternIds = backup.smsPatterns.map { it.id }.toSet()
+            if (patternIds.size != backup.smsPatterns.size ||
+                backup.smsPatterns.any { it.id.isBlank() || it.name.isBlank() || it.sampleMessage.isEmpty() }
+            ) {
+                return ValidationResult.Invalid("الگوهای پیامکی فایل پشتیبان دارای شناسه یا متن نامعتبر هستند.")
+            }
+            backup.smsPatterns.forEach { pattern ->
+                var previousEnd = 0
+                for (slot in pattern.slots.sortedBy { it.start }) {
+                    if (slot.start < previousEnd || slot.start < 0 ||
+                        slot.endExclusive <= slot.start || slot.endExclusive > pattern.sampleMessage.length
+                    ) {
+                        return ValidationResult.Invalid("جایگاه متغیر در یکی از الگوهای پیامکی نامعتبر است.")
+                    }
+                    previousEnd = slot.endExclusive
+                }
+            }
+            val recognitionStart = backup.smsRecognitionStartMillis
+            if (backup.smsPatterns.isNotEmpty() &&
+                (recognitionStart == null || recognitionStart <= 0L || recognitionStart > backup.metadata.createdAt)
+            ) {
+                return ValidationResult.Invalid("زمان شروع شناسایی پیامک‌ها در فایل پشتیبان نامعتبر است.")
+            }
+            if (backup.smsPatterns.isEmpty() && recognitionStart != null) {
+                return ValidationResult.Invalid("زمان شروع شناسایی بدون وجود الگوی پیامکی ثبت شده است.")
+            }
+            val pendingIds = backup.pendingBankSmsSuggestions.map { it.id }.toSet()
+            if (pendingIds.size != backup.pendingBankSmsSuggestions.size ||
+                backup.pendingBankSmsSuggestions.any {
+                    it.id.isBlank() || it.smsText.isBlank() || it.patternId !in patternIds ||
+                        recognitionStart == null || it.timestampMillis < recognitionStart
+                }
+            ) {
+                return ValidationResult.Invalid("صف پیامک‌های در انتظار بررسی با الگوها یا بازه شناسایی سازگار نیست.")
+            }
         }
 
         // Basic relationship checks prevent malformed files from reaching database writes.
@@ -129,6 +171,36 @@ object BackupValidator {
         }
 
         return ValidationResult.Valid
+    }
+
+    private fun legacyV6Checksum(backup: DarinoBackup): String {
+        val legacy = LegacyDarinoBackupV6(
+            metadata = backup.metadata.copy(checksum = ""),
+            accounts = backup.accounts,
+            checks = backup.checks,
+            transactions = backup.transactions,
+            installments = backup.installments,
+            installmentPayments = backup.installmentPayments,
+            vehicles = backup.vehicles,
+            vehicleServices = backup.vehicleServices,
+            vehicleExpenses = backup.vehicleExpenses,
+            vehicleInsurances = backup.vehicleInsurances,
+            vehicleInspections = backup.vehicleInspections,
+            reminders = backup.reminders,
+            reminderSchedules = backup.reminderSchedules,
+            financialEvents = backup.financialEvents,
+            financialHealthProfiles = backup.financialHealthProfiles,
+            loanCalculations = backup.loanCalculations,
+            userPreference = backup.userPreference,
+            appSettings = backup.appSettings,
+            notificationLogs = backup.notificationLogs,
+            smsLogs = backup.smsLogs,
+            vehicleStore = backup.vehicleStore,
+            reminderDeliveryLogs = backup.reminderDeliveryLogs,
+            legacyReminders = backup.legacyReminders,
+            legacyReminderSchedules = backup.legacyReminderSchedules
+        )
+        return calculateChecksum(moshi.adapter(LegacyDarinoBackupV6::class.java).toJson(legacy))
     }
 
     private fun legacyV5Checksum(backup: DarinoBackup): String {
@@ -247,6 +319,33 @@ object BackupValidator {
         return calculateChecksum(moshi.adapter(LegacyDarinoBackupV1::class.java).toJson(legacy))
     }
 }
+
+private data class LegacyDarinoBackupV6(
+    val metadata: BackupMetadata,
+    val accounts: List<AccountEntity> = emptyList(),
+    val checks: List<CheckEntity> = emptyList(),
+    val transactions: List<TransactionEntity> = emptyList(),
+    val installments: List<InstallmentEntity> = emptyList(),
+    val installmentPayments: List<InstallmentPaymentEntity> = emptyList(),
+    val vehicles: List<VehicleEntity> = emptyList(),
+    val vehicleServices: List<VehicleServiceEntity> = emptyList(),
+    val vehicleExpenses: List<VehicleExpenseRoomEntity> = emptyList(),
+    val vehicleInsurances: List<VehicleInsuranceRoomEntity> = emptyList(),
+    val vehicleInspections: List<VehicleInspectionRoomEntity> = emptyList(),
+    val reminders: List<ReminderEntity> = emptyList(),
+    val reminderSchedules: List<ReminderScheduleEntity> = emptyList(),
+    val financialEvents: List<FinancialEventEntity> = emptyList(),
+    val financialHealthProfiles: List<com.example.financial_health.data.FinancialHealthEntity> = emptyList(),
+    val loanCalculations: List<com.example.loan.data.LoanCalculationEntity> = emptyList(),
+    val userPreference: com.example.data.database.UserPreferenceEntity? = null,
+    val appSettings: AppSettingsBackup? = null,
+    val notificationLogs: List<com.example.data.database.NotificationLogEntity> = emptyList(),
+    val smsLogs: List<com.example.data.database.SmsLogEntity> = emptyList(),
+    val vehicleStore: com.example.data.database.VehicleStoreEntity? = null,
+    val reminderDeliveryLogs: List<com.example.reminder.data.ReminderDeliveryLogEntity> = emptyList(),
+    val legacyReminders: List<com.example.data.database.ReminderEntity> = emptyList(),
+    val legacyReminderSchedules: List<com.example.data.database.ReminderScheduleEntity> = emptyList()
+)
 
 private data class LegacyDarinoBackupV5(
     val metadata: BackupMetadata,
