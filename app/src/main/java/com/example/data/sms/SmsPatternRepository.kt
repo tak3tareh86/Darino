@@ -117,7 +117,7 @@ class SmsPatternRepository(context: Context) {
                             val allowedJson = slot.optJSONArray("allowedValues") ?: JSONArray()
                             val storedAllowedValues = buildList {
                                 for (valueIndex in 0 until allowedJson.length()) {
-                                    allowedJson.optString(valueIndex).trim().takeIf { it.isNotEmpty() }?.let(::add)
+                                    allowedJson.optString(valueIndex).trim().takeIf { it.isNotEmpty() }?.let { add(it) }
                                 }
                             }.distinct()
                             if (start >= 0 && end > start && end <= message.length) {
