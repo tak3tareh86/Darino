@@ -87,6 +87,23 @@ class GenericBankSmsParserTest {
     }
 
     @Test
+    fun extractsUnlistedBankAndCreditInstitutionNamesFromMessageBody() {
+        val bank = GenericBankSmsParser.parse(
+            "sms-9", "30001234",
+            "بانک نمونه واریز 15,000 تومان",
+            1_700_000_000_000L
+        )
+        val institution = GenericBankSmsParser.parse(
+            "sms-10", "30001234",
+            "مؤسسه اعتباری نمونه برداشت 2,000 تومان",
+            1_700_000_000_000L
+        )
+
+        assertEquals("بانک نمونه", bank?.bankName)
+        assertEquals("مؤسسه اعتباری نمونه", institution?.bankName)
+    }
+
+    @Test
     fun normalizesPersianDigitsAndArabicLetterVariantsInGenericParser() {
         val parsed = GenericBankSmsParser.parse(
             "sms-8", "MELLAT",
