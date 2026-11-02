@@ -219,18 +219,19 @@ object SmsPatternMatcher {
         return (inferredSlots.filterNot { range.first < it.endExclusive && range.last + 1 > it.start } +
             SmsPatternSlot(range.first, range.last + 1, kind, allowed)).sortedBy { it.start }
     }
-    fun findUniqueMatch(message: String, patterns: List<SmsPattern>): SmsPattern? {
-        val normalizedMessage = message
-        if (normalizedMessage.isBlank()) return null
-        val matches = patterns.filter { pattern ->
+    fun findMatchingPatterns(message: String, patterns: List<SmsPattern>): List<SmsPattern> {
+        if (message.isBlank()) return emptyList()
+        return patterns.filter { pattern ->
             val sample = pattern.sampleMessage
             val slots = validSlots(sample, pattern.slots)
             sample.isNotBlank() && slots.isNotEmpty() &&
                 slots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } == 1 &&
-                buildTemplateRegex(sample, slots).matches(normalizedMessage)
+                buildTemplateRegex(sample, slots).matches(message)
         }
-        return matches.singleOrNull()
     }
+
+    fun findUniqueMatch(message: String, patterns: List<SmsPattern>): SmsPattern? =
+        findMatchingPatterns(message, patterns).singleOrNull()
 
     fun extractMatchedFields(message: String, pattern: SmsPattern): MatchedFields? {
         val sample = pattern.sampleMessage
