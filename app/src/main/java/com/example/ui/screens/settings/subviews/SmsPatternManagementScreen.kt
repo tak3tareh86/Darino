@@ -410,7 +410,7 @@ private fun SmsPatternEditorDialog(
                     supportingText = { Text("${message.length} نویسه") }
                 )
                 Text(
-                    "برنامه مبلغ، تاریخ و ساعت را از نمونه تشخیص می‌دهد و آن‌ها را هنگام تطبیق پیامک‌های بعدی متغیر در نظر می‌گیرد. سایر متن، از جمله شماره کارت و حساب، ثابت می‌ماند و نیازی به انتخاب دستی بخش‌ها نیست.",
+                    "همه اعداد پیامک به‌جز شماره حساب و کارت به‌صورت خودکار متغیر شناخته می‌شوند؛ از جمله مبلغ، مانده، تاریخ، ساعت و کد پیگیری. نوع تراکنش را شما با انتخاب واریز، برداشت یا انتقال تعیین می‌کنید.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 18.sp
@@ -423,10 +423,7 @@ private fun SmsPatternEditorDialog(
                     val slots = SmsPatternMatcher.inferVariableSlots(normalizedMessage)
                     onSave(name, type, normalizedMessage, slots)
                 },
-                enabled = name.isNotBlank() && message.isNotBlank() &&
-                    SmsPatternMatcher.inferVariableSlots(normalizedMessage).count {
-                        it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN
-                    } == 1,
+                enabled = name.isNotBlank() && message.isNotBlank(),
                 shape = RoundedCornerShape(10.dp)
             ) { Text("ذخیره الگو") }
         },
