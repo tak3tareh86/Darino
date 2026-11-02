@@ -1,50 +1,89 @@
 package com.example.data.sms
 
 /**
- * Structural matcher for templates explicitly configured by the user.
- * Only saved slot ranges may vary. All text outside those ranges is literal.
+ * Learns variable amount/date/time fields from one user-provided SMS sample.
+ * All other text remains literal, including account and card identifiers.
  */
 object SmsPatternMatcher {
 
-    data class TemplateToken(
-        val start: Int,
-        val endExclusive: Int,
-        val value: String
-    )
+    data class TemplateToken(val start: Int, val endExclusive: Int, val value: String)
 
-    data class MatchedFields(
-        val values: Map<SmsPatternSlotKind, List<String>>
-    ) {
+    data class MatchedFields(val values: Map<SmsPatternSlotKind, List<String>>) {
         fun first(kind: SmsPatternSlotKind): String? = values[kind]?.firstOrNull()
     }
 
-    /**
-     * Editor-only whitespace token boundaries. No token is classified or inferred:
-     * the user explicitly selects the exact token and assigns its semantic slot kind.
-     */
     fun tokenizeTemplateForManualSlotSelection(message: String): List<TemplateToken> {
         if (message.isEmpty()) return emptyList()
-        return Regex("""\S+""").findAll(message).map { match ->
-            TemplateToken(match.range.first, match.range.last + 1, match.value)
+        return Regex("""\S+""").findAll(message).map {
+            TemplateToken(it.range.first, it.range.last + 1, it.value)
         }.toList()
+    }
+
+    /**
+     * Automatically marks only amount, date and time as variable.
+     * Card/account numbers and every other token are deliberately kept fixed.
+     */
+    fun inferVariableSlots(message: String): List<SmsPatternSlot> {
+        val tokens = tokenizeTemplateForManualSlotSelection(message)
+        if (tokens.isEmpty()) return emptyList()
+        val slots = mutableListOf<SmsPatternSlot>()
+        val dateRegex = Regex("""^\d{1,4}[/.-]\d{1,2}(?:[/.-]\d{2,4})?[،,;:]?$""")
+        val timeRegex = Regex("""^\d{1,2}:\d{2}(?::\d{2})?$""")
+        val numericRegex = Regex("""^[+−-]?[\d۰-۹٠-٩][\d۰-۹٠-٩,،٬٫.]*$""")
+        val dateToken = tokens.firstOrNull { dateRegex.matches(it.value.trimEnd(',', '،', ';')) }
+        if (dateToken != null) {
+            val parts = dateToken.value.trimEnd(',', '،', ';').split(Regex("[/.-]"))
+            val kind = when {
+                parts.size == 2 -> SmsPatternSlotKind.DATE_DAY_MONTH
+                parts.size == 3 && parts[2].length == 4 -> SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+                parts.size == 3 && parts[0].length == 4 -> SmsPatternSlotKind.DATE
+                parts.size == 3 -> SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+                else -> SmsPatternSlotKind.DATE
+            }
+            slots += SmsPatternSlot(dateToken.start, dateToken.endExclusive, kind)
+        }
+        val timeToken = tokens.firstOrNull { timeRegex.matches(it.value.trimEnd(',', '،', ';')) }
+        if (timeToken != null) {
+            slots += SmsPatternSlot(timeToken.start, timeToken.endExclusive, SmsPatternSlotKind.TIME)
+        }
+
+        val candidates = tokens.mapIndexedNotNull { index, token ->
+            val clean = token.value.trim(',', '،', ';', ':', '(', ')', '[', ']')
+            if (!numericRegex.matches(clean) || token == dateToken || token == timeToken) return@mapIndexedNotNull null
+            val digits = clean.count { it.isDigit() || it in '۰'..'۹' || it in '٠'..'٩' }
+            // Long card/account identifiers are fixed template data, not amounts.
+            if (digits !in 4..13) return@mapIndexedNotNull null
+            val context = tokens.subList(maxOf(0, index - 3), index).joinToString(" ") { it.value } +
+                " " + tokens.getOrNull(index + 1)?.value.orEmpty()
+            val hasAmountLabel = Regex("""(مبلغ|وجه|واریز|برداشت|خرید|پرداخت|انتقال)""").containsMatchIn(context)
+            val currency = tokens.getOrNull(index + 1)?.value.orEmpty()
+            val kind = if (currency.contains("ریال")) SmsPatternSlotKind.AMOUNT_RIAL
+                else SmsPatternSlotKind.AMOUNT_TOMAN
+            Triple(token, digits, if (hasAmountLabel) 1000 + digits else digits)
+                .let { Triple(it.first, it.second, Pair(it.third, kind)) }
+        }
+        val amount = candidates.maxByOrNull { it.third.first }?.first
+        if (amount != null) {
+            val candidate = candidates.first { it.first == amount }
+            slots += SmsPatternSlot(
+                amount.start,
+                amount.endExclusive,
+                candidate.third.second
+            )
+        }
+        return slots.sortedBy { it.start }
     }
 
     fun findUniqueMatch(message: String, patterns: List<SmsPattern>): SmsPattern? {
         val normalizedMessage = BankSmsParser.normalizeText(message)
         if (normalizedMessage.isBlank()) return null
-
         val matches = patterns.filter { pattern ->
             val sample = BankSmsParser.normalizeText(pattern.sampleMessage)
             val slots = validSlots(sample, pattern.slots)
-            if (sample.isBlank() || slots.isEmpty() ||
-                slots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } != 1
-            ) {
-                false
-            } else {
+            sample.isNotBlank() && slots.isNotEmpty() &&
+                slots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } == 1 &&
                 buildTemplateRegex(sample, slots).matches(normalizedMessage)
-            }
         }
-        // Ambiguous templates are not resolved by scoring or priority.
         return matches.singleOrNull()
     }
 
@@ -53,10 +92,9 @@ object SmsPatternMatcher {
         val normalizedMessage = BankSmsParser.normalizeText(message)
         if (sample.isBlank() || normalizedMessage.isBlank()) return null
         val slots = validSlots(sample, pattern.slots)
-        if (slots.isEmpty() ||
-            slots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } != 1
-        ) return null
-
+        if (slots.isEmpty() || slots.count {
+                it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN
+            } != 1) return null
         val match = buildTemplateRegex(sample, slots).matchEntire(normalizedMessage) ?: return null
         val values = mutableMapOf<SmsPatternSlotKind, MutableList<String>>()
         slots.forEachIndexed { index, slot ->
@@ -66,31 +104,14 @@ object SmsPatternMatcher {
         return MatchedFields(values)
     }
 
-    private fun validSlots(
-        sample: String,
-        configured: List<SmsPatternSlot>
-    ): List<SmsPatternSlot> {
-        val sorted = configured
-            .filter { it.kind != SmsPatternSlotKind.FIXED }
-            .sortedBy { it.start }
+    private fun validSlots(sample: String, configured: List<SmsPatternSlot>): List<SmsPatternSlot> {
+        val sorted = configured.filter { it.kind != SmsPatternSlotKind.FIXED }.sortedBy { it.start }
         if (sorted.isEmpty()) return emptyList()
-        if (sorted.groupBy { slot ->
-                when (slot.kind) {
-                    SmsPatternSlotKind.AMOUNT_RIAL, SmsPatternSlotKind.AMOUNT_TOMAN -> "amount"
-                    SmsPatternSlotKind.BALANCE_RIAL, SmsPatternSlotKind.BALANCE_TOMAN -> "balance"
-                    SmsPatternSlotKind.DATE, SmsPatternSlotKind.DATE_DAY_MONTH, SmsPatternSlotKind.DATE_MONTH_DAY,
-                    SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR -> "date"
-                    SmsPatternSlotKind.SOURCE_CARD, SmsPatternSlotKind.SOURCE_ACCOUNT -> "source"
-                    SmsPatternSlotKind.DESTINATION_CARD, SmsPatternSlotKind.DESTINATION_ACCOUNT -> "destination"
-                    else -> slot.kind.name
-                }
-            }.values.any { it.size > 1 }) return emptyList()
         var previousEnd = 0
         for (slot in sorted) {
             if (slot.start < previousEnd || slot.start < 0 ||
                 slot.endExclusive <= slot.start || slot.endExclusive > sample.length
             ) return emptyList()
-            // A slot must cover one whole whitespace-delimited token, never a guessed substring.
             if (sample.substring(slot.start, slot.endExclusive).any { it.isWhitespace() }) return emptyList()
             if (slot.start > 0 && !sample[slot.start - 1].isWhitespace()) return emptyList()
             if (slot.endExclusive < sample.length && !sample[slot.endExclusive].isWhitespace()) return emptyList()
@@ -104,8 +125,6 @@ object SmsPatternMatcher {
             var cursor = 0
             slots.forEach { slot ->
                 append(Regex.escape(sample.substring(cursor, slot.start)))
-                // Slot contents are opaque here. Meaning is assigned only by the
-                // explicitly selected slot kind after this exact-position capture.
                 append("([^\\s]+)")
                 cursor = slot.endExclusive
             }
