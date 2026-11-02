@@ -56,6 +56,7 @@ object GenericBankSmsParser {
         RegexOption.IGNORE_CASE
     )
     private val timeRegex = Regex("""(?<![0-9۰-۹٠-٩])([0-2]?[0-9]:[0-5][0-9])(?::[0-5][0-9])?(?![0-9۰-۹٠-٩])""")
+    private val dateRegex = Regex("""(?<![0-9۰-۹٠-٩])([0-9۰-۹٠-٩]{1,4})[/.-]([0-9۰-۹٠-٩]{1,2})[/.-]([0-9۰-۹٠-٩]{1,4})(?![0-9۰-۹٠-٩])""")
 
     fun parse(smsId: String, sender: String, body: String, timestampMillis: Long): BankSmsSuggestion? {
         val normalized = normalize(body)
@@ -97,13 +98,27 @@ object GenericBankSmsParser {
         }
 
         val bankName = identifyBank(normalized, sender)
-        val dateTime = PersianCalendarHelper.fromEpochMillis(timestampMillis)
+        val receivedDateTime = PersianCalendarHelper.fromEpochMillis(timestampMillis)
+        val dateParts = dateRegex.find(normalized)?.let { match ->
+            parseJalaliDate(
+                match.groupValues[1], match.groupValues[2], match.groupValues[3],
+                receivedDateTime.year
+            )
+        } ?: Triple(receivedDateTime.year, receivedDateTime.month, receivedDateTime.day)
         val time = timeRegex.findAll(normalized).mapNotNull {
             val parts = IranianPhoneUtils.convertDigitsToEnglish(it.groupValues[1]).split(":")
             val hour = parts.getOrNull(0)?.toIntOrNull() ?: return@mapNotNull null
             val minute = parts.getOrNull(1)?.toIntOrNull() ?: return@mapNotNull null
             if (hour in 0..23 && minute in 0..59) hour to minute else null
-        }.firstOrNull() ?: (dateTime.hour to dateTime.minute)
+        }.firstOrNull() ?: (receivedDateTime.hour to receivedDateTime.minute)
+        val hasExplicitDateOrTime = dateRegex.containsMatchIn(normalized) || timeRegex.containsMatchIn(normalized)
+        val finalTimestamp = if (hasExplicitDateOrTime) {
+            runCatching {
+                PersianCalendarHelper.jalaliToEpochMillis(
+                    dateParts.first, dateParts.second, dateParts.third, time.first, time.second
+                )
+            }.getOrNull() ?: timestampMillis
+        } else timestampMillis
 
         val formatted = when (type) {
             TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountToman, isExpense = true)
@@ -124,7 +139,7 @@ object GenericBankSmsParser {
             type = type,
             isTypeUncertain = false,
             smsText = body,
-            dateText = String.format("%04d/%02d/%02d", dateTime.year, dateTime.month, dateTime.day),
+            dateText = String.format("%04d/%02d/%02d", dateParts.first, dateParts.second, dateParts.third),
             timeText = String.format("%02d:%02d", time.first, time.second),
             category = when (type) {
                 TransactionType.INCOME -> "واریز"
@@ -133,10 +148,52 @@ object GenericBankSmsParser {
             },
             sourceAccount = accountNumber?.let { "حساب/کارت $it" },
             rawSender = sender,
-            timestampMillis = timestampMillis,
+            timestampMillis = finalTimestamp,
             balanceAmount = balance,
             trackingCode = tracking
         )
+    }
+
+    /**
+     * Iranian bank dates commonly use YY/MM/DD, DD/MM/YY, or DD/MM/YYYY.
+     * Two-digit leading years are resolved against the receipt's Jalali year.
+     */
+    private fun parseJalaliDate(
+        firstText: String,
+        secondText: String,
+        thirdText: String,
+        referenceYear: Int
+    ): Triple<Int, Int, Int>? {
+        val first = IranianPhoneUtils.convertDigitsToEnglish(firstText).toIntOrNull() ?: return null
+        val second = IranianPhoneUtils.convertDigitsToEnglish(secondText).toIntOrNull() ?: return null
+        val third = IranianPhoneUtils.convertDigitsToEnglish(thirdText).toIntOrNull() ?: return null
+        val year: Int
+        val month: Int
+        val day: Int
+        when {
+            firstText.length == 4 -> {
+                year = first
+                month = second
+                day = third
+            }
+            thirdText.length == 4 -> {
+                year = third
+                month = second
+                day = first
+            }
+            else -> {
+                val century = (referenceYear / 100) * 100
+                var resolved = century + first
+                if (resolved > referenceYear) resolved -= 100
+                year = resolved
+                month = second
+                day = third
+            }
+        }
+        if (year !in 1300..1599 || month !in 1..12 ||
+            day !in 1..PersianCalendarHelper.getDaysInMonth(year, month)
+        ) return null
+        return Triple(year, month, day)
     }
 
     private fun classifyType(message: String): TransactionType? = when {
