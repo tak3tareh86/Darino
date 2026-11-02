@@ -216,7 +216,42 @@ object GenericBankSmsParser {
                     Regex("""(?<![a-z])${Regex.escape(candidate)}(?![a-z])""").containsMatchIn(haystack)
                 } else candidate in haystack
             }
-        }?.key ?: "بانک ناشناس"
+        }?.key ?: extractBankNameFromText(haystack) ?: "بانک ناشناس"
+    }
+
+    /**
+     * Handles institutions not yet present in the alias map when the message explicitly
+     * names them (for example, "بانک نمونه" or "مؤسسه اعتباری نمونه").
+     */
+    private fun extractBankNameFromText(text: String): String? {
+        val stopWords = setOf(
+            "واریز", "واريز", "برداشت", "خرید", "خريد", "پرداخت", "انتقال",
+            "مبلغ", "تراکنش", "حساب", "کارت", "شماره", "پیامک", "موفق"
+        )
+        val institution = Regex(
+            """(موسسه\\s+اعتباری|مؤسسه\\s+اعتباری)\\s+([آ-یA-Za-z]+(?:\\s+[آ-یA-Za-z]+){0,2})"""
+        ).find(text)
+        if (institution != null) {
+            val name = institution.groupValues[2].split(Regex("""\\s+"""))
+                .takeWhile { it !in stopWords }
+                .joinToString(" ")
+            if (name.isNotBlank()) return "مؤسسه اعتباری $name"
+        }
+        val bank = Regex("""بانک\\s+([آ-یA-Za-z]+(?:\\s+[آ-یA-Za-z]+){0,2})""").find(text)
+        if (bank != null) {
+            val name = bank.groupValues[1].split(Regex("""\\s+"""))
+                .takeWhile { it !in stopWords }
+                .joinToString(" ")
+            if (name.isNotBlank()) return "بانک $name"
+        }
+        val englishBank = Regex("""bank\\s+([a-z]+(?:\\s+[a-z]+){0,2})""", RegexOption.IGNORE_CASE).find(text)
+        if (englishBank != null) {
+            val name = englishBank.groupValues[1].split(Regex("""\\s+"""))
+                .takeWhile { it.lowercase() !in setOf("deposit", "withdrawal", "transfer", "payment", "transaction", "account") }
+                .joinToString(" ")
+            if (name.isNotBlank()) return "بانک $name"
+        }
+        return null
     }
 
     private fun normalize(value: String): String =
