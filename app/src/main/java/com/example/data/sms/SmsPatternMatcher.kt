@@ -68,39 +68,45 @@ object SmsPatternMatcher {
         )
 
         val candidates = mutableListOf<NumericCandidate>()
+        var previousNumericEnd = 0
+        val semanticLabelRegex = Regex(
+            """قابل\s*برداشت|موجودی|مانده|اعتبار|مبلغ|مبـلغ|وجه|میزان|واریز|برداشت|خرید|پرداخت|انتقال|تراکنش|پیگیری|رهگیری|شناسه"""
+        )
         numberRegex.findAll(normalized).forEach { number ->
             val start = number.range.first
             val end = number.range.last + 1
+            val contextStart = maxOf(previousNumericEnd, start - 80)
+            val contextBefore = normalized.substring(contextStart, start)
+            previousNumericEnd = end
             if (slots.any { start < it.endExclusive && end > it.start }) return@forEach
 
             val tokenIndex = tokens.indexOfFirst { start >= it.start && start < it.endExclusive }
             val token = tokens.getOrNull(tokenIndex)
             val prefix = if (token != null) normalized.substring(token.start, start) else ""
             val suffix = if (token != null) normalized.substring(end, token.endExclusive) else ""
-            val previousText = if (tokenIndex > 0) {
-                tokens.subList(maxOf(0, tokenIndex - 3), tokenIndex).joinToString(" ") { clean(it.value) }
-            } else ""
             val previousToken = tokens.getOrNull(tokenIndex - 1)?.value.orEmpty()
             val nextToken = tokens.getOrNull(tokenIndex + 1)?.value.orEmpty()
 
-            // Never vary a number explicitly attached to or following an account/card label.
-            // A standalone "حساب" line must not hide the amount on the next
-            // line when that number is explicitly introduced by a transaction label
-            // such as "برداشت400,000" or "واریز500,000".
+            val contextAfter = "$suffix $nextToken"
+            // Use the nearest semantic label since the preceding numeric field.
+            // Looking across several whitespace tokens can leak "balance" into
+            // the following transaction amount (or vice versa).
+            val nearestLabel = semanticLabelRegex.findAll(contextBefore).lastOrNull()?.value
+            // Never vary a number explicitly attached to an account/card label.
+            // A transaction label in the current field context takes precedence over
+            // an account label on the previous line/token.
             val currentFieldHasTransactionLabel =
-                transactionLabel.containsMatchIn(prefix) ||
-                    amountLabel.containsMatchIn(prefix)
+                transactionLabel.containsMatchIn(prefix) || amountLabel.containsMatchIn(prefix) ||
+                    (nearestLabel != null && (transactionLabel.matches(nearestLabel) || amountLabel.matches(nearestLabel)))
             if (accountLabel.containsMatchIn(prefix) ||
                 (accountLabel.containsMatchIn(clean(previousToken)) && !currentFieldHasTransactionLabel)
             ) return@forEach
 
-            val contextBefore = "$previousText $prefix"
-            val contextAfter = "$suffix $nextToken"
-            val isBalance = balanceLabel.containsMatchIn(contextBefore) ||
+            val isBalance = (nearestLabel != null && balanceLabel.matches(nearestLabel)) ||
                 balanceLabel.containsMatchIn(contextAfter)
-            val isAmount = amountLabel.containsMatchIn(contextBefore)
-            val isTransactionAmount = transactionLabel.containsMatchIn(contextBefore)
-            val isTracking = trackingLabel.containsMatchIn(contextBefore)
+            val isAmount = nearestLabel != null && amountLabel.matches(nearestLabel)
+            val isTransactionAmount = nearestLabel != null && transactionLabel.matches(nearestLabel)
+            val isTracking = nearestLabel != null && trackingLabel.matches(nearestLabel)
 
             val hasRial = rialLabel.containsMatchIn(contextAfter) ||
                 rialLabel.containsMatchIn(contextBefore)
@@ -183,15 +189,26 @@ object SmsPatternMatcher {
         return sorted
     }
 
+    /**
+     * Match fixed words and punctuation literally, but treat runs of whitespace as
+     * layout rather than content. SMS providers often change line wrapping or spacing.
+     */
+    private fun StringBuilder.appendFlexibleLiteral(literal: String) {
+        Regex("""\s+|\S+""").findAll(literal).forEach { part ->
+            if (part.value.all(Char::isWhitespace)) append("\\s+")
+            else append(Regex.escape(part.value))
+        }
+    }
+
     private fun buildTemplateRegex(sample: String, slots: List<SmsPatternSlot>): Regex {
         val expression = buildString {
             var cursor = 0
             slots.forEach { slot ->
-                append(Regex.escape(sample.substring(cursor, slot.start)))
+                appendFlexibleLiteral(sample.substring(cursor, slot.start))
                 append("([^\\s]+?)")
                 cursor = slot.endExclusive
             }
-            append(Regex.escape(sample.substring(cursor)))
+            appendFlexibleLiteral(sample.substring(cursor))
         }
         return Regex("^$expression$")
     }

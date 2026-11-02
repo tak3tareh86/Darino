@@ -131,7 +131,7 @@ class BankSmsParserTest {
     }
 
     @Test
-    fun fixedTextIsCaseAndWhitespaceSensitive() {
+    fun fixedTextIsCaseSensitiveButWhitespaceFlexible() {
         val sample = "PAYMENT 1,000 OK"
         val pattern = SmsPattern(
             id = "strict",
@@ -143,7 +143,8 @@ class BankSmsParserTest {
 
         assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT 2,000 OK", listOf(pattern)))
         assertNull(SmsPatternMatcher.findUniqueMatch("payment 2,000 OK", listOf(pattern)))
-        assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT  2,000 OK", listOf(pattern)))
+        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT  2,000 OK", listOf(pattern)))
+        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT\n2,000 OK", listOf(pattern)))
         assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT 2,000 OK extra", listOf(pattern)))
     }
 
@@ -241,6 +242,21 @@ class BankSmsParserTest {
             pattern
         )
         assertEquals(750L, parsed?.amount)
+    }
+
+    @Test
+    fun automaticInferenceSeparatesBalanceAndTransactionAmountWhenBothAppearInSequence() {
+        val sample = "حساب***** برداشت400,000 مانده8,013,304 05/08/11-06:53"
+        val slots = SmsPatternMatcher.inferVariableSlots(sample)
+
+        assertEquals("400,000", slots.single { it.kind == SmsPatternSlotKind.AMOUNT_TOMAN }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals("8,013,304", slots.single { it.kind == SmsPatternSlotKind.BALANCE_TOMAN }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals("05/08/11", slots.single { it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals("06:53", slots.single { it.kind == SmsPatternSlotKind.TIME }
+            .let { sample.substring(it.start, it.endExclusive) })
     }
 
     @Test
