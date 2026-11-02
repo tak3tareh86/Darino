@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - fix/period-grouping-separator
     paths:
       - 'app/**'
       - 'gradle/**'
