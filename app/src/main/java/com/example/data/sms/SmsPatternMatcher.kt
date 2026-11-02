@@ -174,9 +174,9 @@ object SmsPatternMatcher {
     fun inferAccountIdentifierRange(message: String): IntRange? {
         val candidates = Regex("""[0-9۰-۹٠-٩]{8,26}""").findAll(message).filter { match ->
             val before = message.substring(maxOf(0, match.range.first - 36), match.range.first)
-            Regex("""(?:شماره\\s*)?(?:حساب|کارت|شبا)\\s*[:：]?\\s*$""").containsMatchIn(before) ||
-                Regex("""(?:برداشت|واریز|انتقال)\\s+از\\s*[:：]?\\s*$""").containsMatchIn(before) ||
-                Regex("""(?:واریز|انتقال)\\s+به\\s*[:：]?\\s*$""").containsMatchIn(before)
+            Regex("""(?:شماره\s*)?(?:حساب|کارت|شبا)\s*[:：]?\s*$""").containsMatchIn(before) ||
+                Regex("""(?:برداشت|واریز|انتقال)\s+از\s*[:：]?\s*$""").containsMatchIn(before) ||
+                Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(before)
         }.toList()
         return candidates.singleOrNull()?.range
     }
@@ -288,6 +288,7 @@ object SmsPatternMatcher {
             kind == SmsPatternSlotKind.DATE_MONTH_DAY ||
             kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR ||
             kind == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR ||
+            kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY ||
             kind == SmsPatternSlotKind.TIME
         var cursor = 0
         Regex("""[0-9۰-۹٠-٩]+""").findAll(value).forEach { digits ->
