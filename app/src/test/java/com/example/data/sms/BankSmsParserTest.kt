@@ -201,4 +201,55 @@ class BankSmsParserTest {
         assertEquals("1410/08/06", parsed?.dateText)
         assertEquals(200L, parsed?.amount)
     }
+    @Test
+    fun automaticInferenceKeepsLongAccountNumberFixedAndSelectsLabeledAmount() {
+        val sample = "واریز به حساب 123456789012 مبلغ 500000 ریال تاریخ 1405/08/09 ساعت 18:20"
+        val slots = SmsPatternMatcher.inferVariableSlots(sample)
+
+        assertEquals("500000", slots.single { it.kind == SmsPatternSlotKind.AMOUNT_RIAL }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals("1405/08/09", slots.single { it.kind == SmsPatternSlotKind.DATE }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals("18:20", slots.single { it.kind == SmsPatternSlotKind.TIME }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals(3, slots.size)
+
+        val pattern = SmsPattern("auto", "نمونه", SmsPatternType.INCOME, sample, slots)
+        assertNotNull(SmsPatternMatcher.findUniqueMatch(
+            "واریز به حساب 123456789012 مبلغ 750000 ریال تاریخ 1405/08/10 ساعت 19:25",
+            listOf(pattern)
+        ))
+        assertNull(SmsPatternMatcher.findUniqueMatch(
+            "واریز به حساب 999999999999 مبلغ 750000 ریال تاریخ 1405/08/10 ساعت 19:25",
+            listOf(pattern)
+        ))
+    }
+
+    @Test
+    fun automaticInferenceSupportsShortAmountWithAttachedTomanSuffix() {
+        val sample = "برداشت از کارت 6037991234567890 مبلغ ۵۰۰تومان"
+        val slots = SmsPatternMatcher.inferVariableSlots(sample)
+        val amountSlot = slots.single { it.kind == SmsPatternSlotKind.AMOUNT_TOMAN }
+        assertEquals("۵۰۰تومان", sample.substring(amountSlot.start, amountSlot.endExclusive))
+
+        val pattern = SmsPattern("short", "نمونه", SmsPatternType.EXPENSE, sample, slots)
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "sms-short",
+            "bank",
+            "برداشت از کارت 6037991234567890 مبلغ ۷۵۰تومان",
+            1_700_000_000_000L,
+            pattern
+        )
+        assertEquals(750L, parsed?.amount)
+    }
+
+    @Test
+    fun automaticInferenceDoesNotMistakeBalanceForTransactionAmount() {
+        val sample = "واریز مبلغ 2500 تومان موجودی 9876543210"
+        val slots = SmsPatternMatcher.inferVariableSlots(sample)
+        assertEquals("2500", slots.single { it.kind == SmsPatternSlotKind.AMOUNT_TOMAN }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals(1, slots.count { it.kind == SmsPatternSlotKind.AMOUNT_TOMAN })
+    }
+
 }
