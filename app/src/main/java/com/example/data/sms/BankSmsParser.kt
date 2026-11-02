@@ -75,6 +75,10 @@ object BankSmsParser {
                     val p = IranianPhoneUtils.convertDigitsToEnglish(fields.first(SmsPatternSlotKind.DATE_MONTH_DAY_YEAR)!!).trim().trimEnd(',', '،', ';', ':', '.', ')', ']').split(Regex("[/.-]"))
                     if (p.size != 3) null else parseJalaliDate("${p[2]}/${p[0]}/${p[1]}", defaultDateTime.year, dayFirst = false)
                 }
+                fields.first(SmsPatternSlotKind.DATE_YEAR_MONTH_DAY) != null -> {
+                    val p = IranianPhoneUtils.convertDigitsToEnglish(fields.first(SmsPatternSlotKind.DATE_YEAR_MONTH_DAY)!!).trim().trimEnd(',', '،', ';', ':', '.', ')', ']').split(Regex("[/.-]"))
+                    if (p.size != 3) null else parseJalaliDate("${p[0]}/${p[1]}/${p[2]}", defaultDateTime.year, dayFirst = false)
+                }
                 else -> Triple(defaultDateTime.year, defaultDateTime.month, defaultDateTime.day)
             } ?: return null
             val timeValue = fields.first(SmsPatternSlotKind.TIME)
@@ -90,6 +94,7 @@ object BankSmsParser {
                     fields.first(SmsPatternSlotKind.DATE_MONTH_DAY) != null ||
                     fields.first(SmsPatternSlotKind.DATE_DAY_MONTH_YEAR) != null ||
                     fields.first(SmsPatternSlotKind.DATE_MONTH_DAY_YEAR) != null ||
+                    fields.first(SmsPatternSlotKind.DATE_YEAR_MONTH_DAY) != null ||
                     fields.first(SmsPatternSlotKind.TIME) != null
             val finalTimestamp = if (hasExplicitDateOrTime) {
                 runCatching {
@@ -176,14 +181,26 @@ object BankSmsParser {
         } else if (parts.size == 3) {
             val yearText = parts[0]
             val yearValue = yearText.toIntOrNull() ?: return null
-            year = if (yearText.length == 2) 1400 + yearValue else yearValue
+            year = if (yearText.length == 2) resolveTwoDigitJalaliYear(yearValue, defaultYear) else yearValue
             month = parts[1].toIntOrNull() ?: return null
             day = parts[2].toIntOrNull() ?: return null
         } else {
             return null
         }
-        if (year !in 1300..1499 || month !in 1..12 || day !in 1..31) return null
+        if (year !in 1300..1599 || month !in 1..12 || day !in 1..PersianCalendarHelper.getDaysInMonth(year, month)) return null
         return Triple(year, month, day)
+    }
+
+    /**
+     * Resolve YY using the century of the SMS receive date. This makes 05 map to
+     * 1405 during Persian year 1405, and to 1406 only after the new Persian year.
+     */
+    private fun resolveTwoDigitJalaliYear(twoDigitYear: Int, referenceYear: Int): Int {
+        val century = (referenceYear / 100) * 100
+        var candidate = century + twoDigitYear
+        if (candidate > referenceYear + 1) candidate -= 100
+        if (candidate < referenceYear - 50) candidate += 100
+        return candidate
     }
 
     private fun parseClockTime(value: String): Pair<Int, Int>? {
