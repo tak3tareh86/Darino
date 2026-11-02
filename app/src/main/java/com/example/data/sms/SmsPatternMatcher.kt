@@ -180,11 +180,14 @@ object SmsPatternMatcher {
 
     /** Detect a single long identifier explicitly introduced as an account/card or source/destination. */
     fun inferAccountIdentifierRange(message: String): IntRange? {
-        val candidates = Regex("""[0-9۰-۹٠-٩]{8,26}""").findAll(message).filter { match ->
+        val candidates = Regex("""[0-9۰-۹٠-٩]{6,26}""").findAll(message).filter { match ->
             val before = message.substring(maxOf(0, match.range.first - 36), match.range.first)
-            Regex("""(?:شماره\s*)?(?:حساب|کارت|شبا)\s*[:：]?\s*$""").containsMatchIn(before) ||
+            val explicitAccountLabel =
+                Regex("""(?:شماره\s*)?(?:حساب|کارت|شبا)\s*[:：]?\s*$""").containsMatchIn(before)
+            val explicitSourceLabel =
                 Regex("""(?:برداشت|واریز|انتقال)\s+از\s*[:：]?\s*$""").containsMatchIn(before) ||
-                Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(before)
+                    Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(before)
+            (explicitAccountLabel || (explicitSourceLabel && match.value.length >= 8))
         }.toList()
         return candidates.singleOrNull()?.range
     }
@@ -269,8 +272,9 @@ object SmsPatternMatcher {
     }
 
     /**
-     * Variable fields may change their digits, but every separator inside the
-     * field (comma, decimal mark, slash, colon, etc.) remains literal.
+     * Date/time separators and all non-numeric template text remain literal.
+     * Amount/balance grouping marks may repeat with the digit count, but only
+     * using the same grouping character and valid three-digit groups.
      */
     private fun StringBuilder.appendVariableNumberPattern(value: String, slot: SmsPatternSlot) {
         val kind = slot.kind
