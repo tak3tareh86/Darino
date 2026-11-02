@@ -20,6 +20,8 @@ import com.example.data.database.NotificationLogEntity
 import com.example.data.database.SmsLogEntity
 import com.example.data.database.VehicleStoreEntity
 import com.example.reminder.data.ReminderDeliveryLogEntity
+import com.example.data.sms.SmsPattern
+import com.example.ui.screens.home.domain.BankSmsSuggestion
 
 data class DarinoBackup(
     val metadata: BackupMetadata,
@@ -45,7 +47,12 @@ data class DarinoBackup(
     val vehicleStore: VehicleStoreEntity? = null,
     val reminderDeliveryLogs: List<ReminderDeliveryLogEntity> = emptyList(),
     val legacyReminders: List<com.example.data.database.ReminderEntity> = emptyList(),
-    val legacyReminderSchedules: List<com.example.data.database.ReminderScheduleEntity> = emptyList()
+    val legacyReminderSchedules: List<com.example.data.database.ReminderScheduleEntity> = emptyList(),
+    // SMS templates are exported as portable data, then re-encrypted on the destination device.
+    val smsPatterns: List<SmsPattern> = emptyList(),
+    val smsRecognitionStartMillis: Long? = null,
+    // Contains raw SMS content for suggestions that were still awaiting user review.
+    val pendingBankSmsSuggestions: List<BankSmsSuggestion> = emptyList()
 )
 
 /** User-visible general preferences stored outside Room. */
