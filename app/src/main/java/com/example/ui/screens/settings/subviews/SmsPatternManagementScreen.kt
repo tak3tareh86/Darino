@@ -371,11 +371,17 @@ private fun SmsPatternEditorDialog(
     var compactDateOrder by remember(pattern?.id) {
         mutableStateOf(
             pattern?.slots?.firstOrNull {
+                it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY ||
+                    it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR ||
+                    it.kind == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR
+            }?.kind ?: inferredSlots.firstOrNull {
                 it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY || it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
             }?.kind ?: SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
         )
     }
-    val hasAmbiguousShortDate = inferredSlots.any { it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY }
+    val hasAmbiguousShortDate = inferredSlots.any {
+        it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY || it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+    }
     val accountRange = remember(normalizedMessage) { SmsPatternMatcher.inferAccountIdentifierRange(normalizedMessage) }
     val sampleAccountNumber = accountRange?.let { normalizedMessage.substring(it.first, it.last + 1) }
     LaunchedEffect(normalizedMessage, sampleAccountNumber) {
