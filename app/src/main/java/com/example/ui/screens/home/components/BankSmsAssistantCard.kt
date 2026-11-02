@@ -1191,6 +1191,32 @@ fun EditSmsTransactionDialog(
                         }
                     }
 
+                    // Display the exact bank account number recognized by the saved allow-list.
+                    // The user still explicitly links it to a Darino account; no account is guessed.
+                    if (!suggestion.sourceAccount.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    "شماره حساب بانکی شناسایی‌شده",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    suggestion.sourceAccount.orEmpty(),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    "حساب متناظر در دارینو را انتخاب کنید.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
                     // Link the SMS transaction to real accounts so account balances stay correct.
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
