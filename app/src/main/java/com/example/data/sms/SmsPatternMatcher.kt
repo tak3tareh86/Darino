@@ -347,7 +347,7 @@ object SmsPatternMatcher {
             append(when (char) {
                 'ي', 'ى' -> 'ی'
                 'ك' -> 'ک'
-                '\\u00A0', '\\u2007', '\\u202F', '\\u200C', '\\u200D' -> ' '
+                '\u00A0', '\u2007', '\u202F', '\u200C', '\u200D' -> ' '
                 in '۰'..'۹' -> ('0'.code + char.code - '۰'.code).toChar()
                 in '٠'..'٩' -> ('0'.code + char.code - '٠'.code).toChar()
                 else -> char
@@ -357,9 +357,9 @@ object SmsPatternMatcher {
 
     private fun appendFixedTextPattern(target: StringBuilder, value: String) {
         var cursor = 0
-        Regex("""\\s+""").findAll(value).forEach { whitespace ->
+        Regex("""\s+""").findAll(value).forEach { whitespace ->
             target.append(Regex.escape(value.substring(cursor, whitespace.range.first)))
-            target.append("""\\s+""")
+            target.append("""\s+""")
             cursor = whitespace.range.last + 1
         }
         target.append(Regex.escape(value.substring(cursor)))
