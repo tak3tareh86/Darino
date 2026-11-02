@@ -197,14 +197,26 @@ object GenericBankSmsParser {
         return Triple(year, month, day)
     }
 
-    private fun classifyType(message: String): TransactionType? = when {
-        Regex("""کارت\s*به\s*کارت|انتقال|پایا|ساتنا|حواله|transfer""", RegexOption.IGNORE_CASE).containsMatchIn(message) ->
-            TransactionType.TRANSFER
-        Regex("""برداشت|خرید|پرداخت|withdraw|debit|purchase""", RegexOption.IGNORE_CASE).containsMatchIn(message) ->
-            TransactionType.EXPENSE
-        Regex("""واریز|واريز|دریافت|دريافت|deposit|credited|credit""", RegexOption.IGNORE_CASE).containsMatchIn(message) ->
-            TransactionType.INCOME
-        else -> null
+    private fun classifyType(message: String): TransactionType? {
+        val isTransfer = Regex(
+            """کارت\\s*به\\s*کارت|انتقال|پایا|ساتنا|حواله|transfer""",
+            RegexOption.IGNORE_CASE
+        ).containsMatchIn(message)
+        val isExpense = Regex(
+            """برداشت|خرید|پرداخت|withdraw|debit|purchase""",
+            RegexOption.IGNORE_CASE
+        ).containsMatchIn(message)
+        val isIncome = Regex(
+            """واریز|واريز|دریافت|دريافت|deposit|credited|credit""",
+            RegexOption.IGNORE_CASE
+        ).containsMatchIn(message)
+        return when {
+            isTransfer -> TransactionType.TRANSFER
+            isExpense && isIncome -> null
+            isExpense -> TransactionType.EXPENSE
+            isIncome -> TransactionType.INCOME
+            else -> null
+        }
     }
 
     private fun identifyBank(message: String, sender: String): String {
