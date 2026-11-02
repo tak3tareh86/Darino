@@ -181,7 +181,7 @@ object BankSmsParser {
         } else if (parts.size == 3) {
             val yearText = parts[0]
             val yearValue = yearText.toIntOrNull() ?: return null
-            year = if (yearText.length == 2) resolveTwoDigitJalaliYear(yearValue, defaultYear) else yearValue
+            year = if (yearText.length == 2) (resolveTwoDigitJalaliYear(yearValue, defaultYear) ?: return null) else yearValue
             month = parts[1].toIntOrNull() ?: return null
             day = parts[2].toIntOrNull() ?: return null
         } else {
@@ -195,12 +195,14 @@ object BankSmsParser {
      * Resolve YY using the century of the SMS receive date. This makes 05 map to
      * 1405 during Persian year 1405, and to 1406 only after the new Persian year.
      */
-    private fun resolveTwoDigitJalaliYear(twoDigitYear: Int, referenceYear: Int): Int {
+    private fun resolveTwoDigitJalaliYear(twoDigitYear: Int, referenceYear: Int): Int? {
+        if (twoDigitYear !in 0..99) return null
         val century = (referenceYear / 100) * 100
         var candidate = century + twoDigitYear
-        if (candidate > referenceYear + 1) candidate -= 100
-        if (candidate < referenceYear - 50) candidate += 100
-        return candidate
+        // A bank SMS may arrive shortly after Nowruz with a transaction date in
+        // the previous Jalali year, but it must never resolve to a future year.
+        if (candidate > referenceYear) candidate -= 100
+        return candidate.takeIf { it in (referenceYear - 1)..referenceYear }
     }
 
     private fun parseClockTime(value: String): Pair<Int, Int>? {
