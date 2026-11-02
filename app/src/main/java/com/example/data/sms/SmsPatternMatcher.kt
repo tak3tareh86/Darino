@@ -188,8 +188,8 @@ object SmsPatternMatcher {
      * layout rather than content. SMS providers often change line wrapping or spacing.
      */
     private fun StringBuilder.appendFlexibleLiteral(literal: String) {
-        Regex("""\\s+|\\S+""").findAll(literal).forEach { part ->
-            if (part.value.all(Char::isWhitespace)) append("\\\\s+")
+        Regex("""\s+|\S+""").findAll(literal).forEach { part ->
+            if (part.value.all(Char::isWhitespace)) append("\\s+")
             else append(Regex.escape(part.value))
         }
     }
