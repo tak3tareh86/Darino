@@ -143,14 +143,21 @@ object SmsPatternMatcher {
 
         // Only one numeric field is the transaction amount. Balance and all other
         // numbers are still variable, but are never confused with the transaction amount.
-        val amount = candidates
+        val explicitlyLabeledAmount = candidates
             .filter { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN }
             .maxByOrNull { it.score }
+        // Some banks send a bare amount with no currency or semantic prefix.
+        // If it is the only remaining numeric field after date/time and account
+        // identifiers have been excluded, it is the only safe generic fallback.
+        // Multiple unlabeled numbers remain ambiguous and are never guessed.
+        val amount = explicitlyLabeledAmount
+            ?: candidates.singleOrNull { it.kind == SmsPatternSlotKind.NUMBER }
         candidates.forEach { candidate ->
             val isAmountCandidate =
                 candidate.kind == SmsPatternSlotKind.AMOUNT_RIAL ||
                     candidate.kind == SmsPatternSlotKind.AMOUNT_TOMAN
             val storedKind = when {
+                candidate == amount && !isAmountCandidate -> SmsPatternSlotKind.AMOUNT_TOMAN
                 candidate == amount -> candidate.kind
                 isAmountCandidate -> SmsPatternSlotKind.NUMBER
                 else -> candidate.kind
