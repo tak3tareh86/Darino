@@ -59,6 +59,14 @@ class GenericBankSmsParserTest {
 
         assertEquals(TransactionType.TRANSFER, parsed?.type)
         assertEquals(25_000L, parsed?.amount)
+
+        val cardToCard = GenericBankSmsParser.parse(
+            "sms-11", "30001234",
+            "کارت به کارت 35,000 تومان",
+            1_700_000_000_000L
+        )
+        assertEquals(TransactionType.TRANSFER, cardToCard?.type)
+        assertEquals(35_000L, cardToCard?.amount)
     }
 
     @Test
@@ -81,6 +89,13 @@ class GenericBankSmsParserTest {
             GenericBankSmsParser.parse(
                 "sms-7", "30001234",
                 "برداشت 50,000 تومان ناموفق بود",
+                1_700_000_000_000L
+            )
+        )
+        assertNull(
+            GenericBankSmsParser.parse(
+                "sms-12", "30001234",
+                "برداشت مبلغ 1,000 بابت واریز قبلی",
                 1_700_000_000_000L
             )
         )
