@@ -138,8 +138,22 @@ class BankSmsRepository(private val context: Context) {
             // Do not restore pending suggestions created from SMS outside the active window.
             if (saved.timestampMillis < recognitionStartMillis) return@mapNotNull null
             if (saved.patternId.isBlank()) {
-                return@mapNotNull GenericBankSmsParser.parse(
-                    saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.timestampMillis
+                val newlyConfiguredMatches = SmsPatternMatcher.findMatchingPatterns(saved.smsText, currentPatterns)
+                if (newlyConfiguredMatches.size > 1) return@mapNotNull null
+                val reparsed = if (newlyConfiguredMatches.size == 1) {
+                    BankSmsParser.parseMatchedPattern(
+                        saved.id, saved.rawSender.orEmpty(), saved.smsText,
+                        saved.timestampMillis, newlyConfiguredMatches.single()
+                    )
+                } else {
+                    GenericBankSmsParser.parse(
+                        saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.timestampMillis
+                    )
+                } ?: return@mapNotNull null
+                return@mapNotNull reparsed.copy(
+                    category = saved.category,
+                    sourceAccount = saved.sourceAccount ?: reparsed.sourceAccount,
+                    destinationAccount = saved.destinationAccount ?: reparsed.destinationAccount
                 )
             }
             val origin = currentPatterns.singleOrNull { it.id == saved.patternId } ?: return@mapNotNull null
