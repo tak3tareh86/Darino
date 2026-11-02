@@ -61,9 +61,10 @@ object GenericBankSmsParser {
         val normalized = normalize(body)
         if (normalized.isBlank() || !transactionSignal.containsMatchIn(normalized)) return null
 
+        // OTPs and failed/cancelled notices are not completed financial transactions.
         if (Regex("""رمز\s*(?:پویا|یکبار|یک\s*بار)|رمز\s*عبور|کد\s*تأیید|کد\s*تاييد|otp|one[- ]time password""", RegexOption.IGNORE_CASE)
-                .containsMatchIn(normalized) &&
-            !Regex("""مبلغ|برداشت|واریز|خرید|پرداخت|انتقال|deposit|withdraw|debit|credit|purchase|transfer""", RegexOption.IGNORE_CASE)
+                .containsMatchIn(normalized) ||
+            Regex("""ناموفق|لغو\s*شد|انجام\s*نشد|تراکنش\s*رد\s*شد|failed|declined|cancelled""", RegexOption.IGNORE_CASE)
                 .containsMatchIn(normalized)
         ) return null
 
