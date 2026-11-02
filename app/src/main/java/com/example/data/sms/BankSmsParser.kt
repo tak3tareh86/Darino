@@ -17,7 +17,6 @@ object BankSmsParser {
             .replace('ي', 'ی')
             .replace('ك', 'ک')
             .replace('\u00A0', ' ')
-            .replace(Regex("""[\t ]+"""), " ")
             .trim()
 
     fun parseMatchedPattern(
@@ -69,11 +68,11 @@ object BankSmsParser {
                 fields.first(SmsPatternSlotKind.DATE_MONTH_DAY) != null ->
                     parseJalaliDate(fields.first(SmsPatternSlotKind.DATE_MONTH_DAY)!!, defaultDateTime.year, dayFirst = false)
                 fields.first(SmsPatternSlotKind.DATE_DAY_MONTH_YEAR) != null -> {
-                    val p = IranianPhoneUtils.convertDigitsToEnglish(fields.first(SmsPatternSlotKind.DATE_DAY_MONTH_YEAR)!!).trim().trimEnd(',', '،', ';', ':').split(Regex("[/.-]"))
+                    val p = IranianPhoneUtils.convertDigitsToEnglish(fields.first(SmsPatternSlotKind.DATE_DAY_MONTH_YEAR)!!).trim().trimEnd(',', '،', ';', ':', '.', ')', ']').split(Regex("[/.-]"))
                     if (p.size != 3) null else parseJalaliDate("${p[2]}/${p[1]}/${p[0]}", defaultDateTime.year, dayFirst = false)
                 }
                 fields.first(SmsPatternSlotKind.DATE_MONTH_DAY_YEAR) != null -> {
-                    val p = IranianPhoneUtils.convertDigitsToEnglish(fields.first(SmsPatternSlotKind.DATE_MONTH_DAY_YEAR)!!).trim().trimEnd(',', '،', ';', ':').split(Regex("[/.-]"))
+                    val p = IranianPhoneUtils.convertDigitsToEnglish(fields.first(SmsPatternSlotKind.DATE_MONTH_DAY_YEAR)!!).trim().trimEnd(',', '،', ';', ':', '.', ')', ']').split(Regex("[/.-]"))
                     if (p.size != 3) null else parseJalaliDate("${p[2]}/${p[0]}/${p[1]}", defaultDateTime.year, dayFirst = false)
                 }
                 else -> Triple(defaultDateTime.year, defaultDateTime.month, defaultDateTime.day)
@@ -148,15 +147,12 @@ object BankSmsParser {
     }
 
     private fun parsePositiveNumber(value: String?): Long? {
-        val digits = value?.let(IranianPhoneUtils::convertDigitsToEnglish)?.trim()
-            ?.removePrefix("+")
-            ?.removePrefix("-")
-            ?.replace(",", "")
-            ?.replace("،", "")
-            ?.replace("٬", "")
-            ?.replace("٫", "")
-            ?.replace(".", "")
-            ?.replace(" ", "")
+        // Keep only decimal digits: this also accepts values such as ۱۰۰۰تومان,
+        // (1,000), and amounts followed by a currency suffix without changing the
+        // fixed surrounding template text.
+        val digits = value?.let(IranianPhoneUtils::convertDigitsToEnglish)
+            ?.filter { it in '0'..'9' }
+            ?.takeIf { it.isNotEmpty() }
             ?: return null
         return digits.toLongOrNull()?.takeIf { it > 0L && it <= 1_000_000_000_000_000L }
     }
@@ -167,7 +163,7 @@ object BankSmsParser {
         dayFirst: Boolean
     ): Triple<Int, Int, Int>? {
         val parts = IranianPhoneUtils.convertDigitsToEnglish(value).trim()
-            .trimEnd(',', '،', ';', ':').split(Regex("[/.-]"))
+            .trimEnd(',', '،', ';', ':', '.', ')', ']').split(Regex("[/.-]"))
         val year: Int
         val month: Int
         val day: Int
@@ -192,7 +188,7 @@ object BankSmsParser {
 
     private fun parseClockTime(value: String): Pair<Int, Int>? {
         val match = Regex("""^([0-2]?[0-9]):([0-5][0-9])(?::[0-5][0-9])?$""")
-            .matchEntire(IranianPhoneUtils.convertDigitsToEnglish(value).trim().trimEnd(',', '،', ';')) ?: return null
+            .matchEntire(IranianPhoneUtils.convertDigitsToEnglish(value).trim().trimEnd(',', '،', ';', '.', ')', ']')) ?: return null
         val hour = match.groupValues[1].toIntOrNull() ?: return null
         val minute = match.groupValues[2].toIntOrNull() ?: return null
         if (hour !in 0..23) return null

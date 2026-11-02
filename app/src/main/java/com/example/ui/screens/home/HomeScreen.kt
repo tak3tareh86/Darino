@@ -135,7 +135,7 @@ fun HomeScreen(
             val refreshReceiver = object : BroadcastReceiver() {
                 override fun onReceive(receiverContext: Context?, intent: Intent?) {
                     if (intent?.action == BankSmsReceivedReceiver.ACTION_BANK_SMS_RECEIVED) {
-                        viewModel.scanInboxSms()
+                        viewModel.refreshPendingSmsQueue()
                     }
                 }
             }

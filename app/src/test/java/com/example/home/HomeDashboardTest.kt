@@ -5,6 +5,12 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.data.database.AppDatabase
 import com.example.data.sms.BankSmsParser
 import com.example.data.sms.BankSmsRepository
+import com.example.data.sms.SmsPattern
+import com.example.data.sms.SmsPatternRepository
+import com.example.data.sms.SmsPatternMatcher
+import com.example.data.sms.SmsPatternSlot
+import com.example.data.sms.SmsPatternSlotKind
+import com.example.data.sms.SmsPatternType
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.data.HomeDashboardRepository
 import com.example.ui.screens.home.domain.HomeDashboardAggregator
@@ -225,64 +231,78 @@ class HomeDashboardTest {
     }
 
     @Test
-    fun `test BankSmsParser type detection and unknown fallback`() {
-        // Income detection
-        val incomeType = BankSmsParser.detectTransactionType("واریز حقوق به حساب شما")
-        assertEquals(TransactionType.INCOME, incomeType)
+    fun `configured SMS template controls transaction type and rejects changed fixed text`() {
+        val sample = "واریز حقوق به حساب شما مبلغ 50,000 تومان"
+        val amountStart = sample.indexOf("50,000")
+        val pattern = SmsPattern(
+            id = "home-income",
+            name = "بانک آزمایشی",
+            type = SmsPatternType.INCOME,
+            sampleMessage = sample,
+            slots = listOf(SmsPatternSlot(amountStart, amountStart + "50,000".length, SmsPatternSlotKind.AMOUNT_TOMAN))
+        )
 
-        // Expense detection
-        val expenseType = BankSmsParser.detectTransactionType("برداشت و خرید از پایانه فروش")
-        assertEquals(TransactionType.EXPENSE, expenseType)
-
-        // Transfer detection
-        val transferType = BankSmsParser.detectTransactionType("انتقال کارت به کارت موفق به کارت 6037")
-        assertEquals(TransactionType.TRANSFER, transferType)
-
-        // Unknown SMS text should NOT auto-resolve as Expense
-        val unknownType = BankSmsParser.detectTransactionType("رمز پویای شما جهت ورود ۱۲۳۴۵ است")
-        assertNull(unknownType)
-
-        // Parse with uncertain type sets isTypeUncertain = true
-        val parsed = BankSmsParser.parse(
-            smsId = "sms_test_uncertain",
-            sender = "بانک ملت",
-            body = "مبلغ: 50,000 تومان در حساب شما منظور شد.",
-            timestampMillis = System.currentTimeMillis()
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "sms-home-income", "bank", "واریز حقوق به حساب شما مبلغ 75,000 تومان",
+            1_700_000_000_000L, pattern
         )
         assertNotNull(parsed)
-        assertEquals(TransactionType.INCOME, parsed!!.type)
+        assertEquals(TransactionType.INCOME, parsed?.type)
+        assertEquals(75_000L, parsed?.amount)
+
+        assertNull(
+            BankSmsParser.parseMatchedPattern(
+                "sms-changed-fixed", "bank", "واریز حقوق به حساب دیگری مبلغ 75,000 تومان",
+                1_700_000_000_000L, pattern
+            )
+        )
     }
 
-    @Test
-    fun `test BankSmsParser extracts amounts in Rial and converts to Toman`() {
-        // 500,000 Rial = 50,000 Toman
-        val parsedMellat = BankSmsParser.parse(
-            smsId = "sms_m1",
-            sender = "بانک ملت",
-            body = "برداشت: 500,000 ریال از حساب *1234. مانده: 10,000,000 ریال",
-            timestampMillis = 1700000000000L
+        @Test
+    fun `configured Rial and transfer templates parse only their amount slots`() {
+        val rialSample = "برداشت: 500,000 ریال از حساب *1234"
+        val rialStart = rialSample.indexOf("500,000")
+        val rialPattern = SmsPattern(
+            id = "home-rial",
+            name = "بانک ملت",
+            type = SmsPatternType.EXPENSE,
+            sampleMessage = rialSample,
+            slots = listOf(SmsPatternSlot(rialStart, rialStart + 7, SmsPatternSlotKind.AMOUNT_RIAL))
         )
-        assertNotNull(parsedMellat)
-        assertEquals(50_000L, parsedMellat!!.amount)
-        assertEquals(TransactionType.EXPENSE, parsedMellat.type)
-        assertFalse(parsedMellat.isTypeUncertain)
-        assertEquals("بانک ملت", parsedMellat.bankName)
-        assertEquals(1700000000000L, parsedMellat.timestampMillis)
+        val parsedRial = BankSmsParser.parseMatchedPattern(
+            "sms-rial", "بانک ملت", "برداشت: 600,000 ریال از حساب *1234",
+            1_700_000_000_000L, rialPattern
+        )
+        assertNotNull(parsedRial)
+        assertEquals(60_000L, parsedRial?.amount)
+        assertEquals(TransactionType.EXPENSE, parsedRial?.type)
 
-        // BluBank Transfer
-        val parsedBlu = BankSmsParser.parse(
-            smsId = "sms_b1",
-            sender = "بلوبانک",
-            body = "انتقال 2,500,000 ریال به کارت 6037991122334455",
-            timestampMillis = 1700000000000L
+        val transferSample = "انتقال مبلغ 2,500,000 تومان به کارت 6037991122334455"
+        val transferStart = transferSample.indexOf("2,500,000")
+        val transferPattern = SmsPattern(
+            id = "home-transfer",
+            name = "بانک آزمایشی",
+            type = SmsPatternType.TRANSFER,
+            sampleMessage = transferSample,
+            slots = listOf(SmsPatternSlot(transferStart, transferStart + 9, SmsPatternSlotKind.AMOUNT_TOMAN))
         )
-        assertNotNull(parsedBlu)
-        assertEquals(250_000L, parsedBlu!!.amount)
-        assertEquals(TransactionType.TRANSFER, parsedBlu.type)
-        assertTrue(parsedBlu.destinationAccount?.contains("6037991122334455") == true)
+        val parsedTransfer = BankSmsParser.parseMatchedPattern(
+            "sms-transfer", "bank", "انتقال مبلغ 3,000,000 تومان به کارت 6037991122334455",
+            1_700_000_000_000L, transferPattern
+        )
+        assertNotNull(parsedTransfer)
+        assertEquals(3_000_000L, parsedTransfer?.amount)
+        assertEquals(TransactionType.TRANSFER, parsedTransfer?.type)
+        // The card number is a fixed matcher token, not a variable account slot.
+        assertNull(
+            SmsPatternMatcher.findUniqueMatch(
+                "انتقال مبلغ 3,000,000 تومان به کارت 6037999988776655",
+                listOf(transferPattern)
+            )
+        )
     }
 
-    @Test
+        @Test
     fun `test BankSmsRepository persistence, user isolation and idempotency`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val smsRepo = BankSmsRepository.getInstance(context)
@@ -302,7 +322,7 @@ class HomeDashboardTest {
     }
 
     @Test
-    fun `test HomeDashboardViewModel accepts SMS and registers real transaction into Room`() = kotlinx.coroutines.runBlocking {
+    fun `test HomeDashboardViewModel accepts a configured SMS suggestion into Room`() = kotlinx.coroutines.runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val testUserId = "test_user_sms_flow"
         com.example.data.security.SessionManager.setAuthenticatedUser(
@@ -333,21 +353,31 @@ class HomeDashboardTest {
         )
         db.accountDao().insertAccount(testAccount)
 
-        val viewModel = HomeDashboardViewModel(
-            ApplicationProvider.getApplicationContext()
+        val sample = "خرید از پایانه فروشگاه: مبلغ: 150,000 تومان. مانده: 2,000,000 تومان"
+        val amountStart = sample.indexOf("150,000")
+        val pattern = SmsPattern(
+            id = "test-pattern-sms-flow",
+            name = "بانک سامان",
+            type = SmsPatternType.EXPENSE,
+            sampleMessage = sample,
+            slots = listOf(
+                SmsPatternSlot(amountStart, amountStart + "150,000".length, SmsPatternSlotKind.AMOUNT_TOMAN)
+            )
         )
+        SmsPatternRepository(context).save(pattern)
 
-        // Parse a sample SMS
+        val viewModel = HomeDashboardViewModel(ApplicationProvider.getApplicationContext())
         val smsTimestamp = 1710000000000L
-        val suggestion = BankSmsParser.parse(
-            smsId = "test_sms_card_1",
+        val smsId = "test_sms_card_${System.currentTimeMillis()}"
+        val suggestion = BankSmsParser.parseMatchedPattern(
+            smsId = smsId,
             sender = "بانک سامان",
             body = "خرید از پایانه فروشگاه: مبلغ: 150,000 تومان. مانده: 2,000,000 تومان",
-            timestampMillis = smsTimestamp
+            timestampMillis = smsTimestamp,
+            pattern = pattern
         )
         assertNotNull(suggestion)
 
-        // Inject into viewModel queue
         val queueField = HomeDashboardViewModel::class.java.getDeclaredField("_pendingSmsQueue")
         queueField.isAccessible = true
         @Suppress("UNCHECKED_CAST")
@@ -357,43 +387,31 @@ class HomeDashboardTest {
         var resultHolder: SmsAcceptResult? = null
         viewModel.acceptSmsSuggestion(
             id = suggestion.id,
-            customType = null,
-            customCategory = null,
-            customAccount = null,
-            customDescription = null,
-            destAccount = null
-        ) { res ->
-            resultHolder = res
-        }
+            customAccount = "acc_saman"
+        ) { resultHolder = it }
 
-        // Wait for coroutine completion
         var count = 0
-        while (resultHolder == null && count < 20) {
+        while (resultHolder == null && count < 30) {
             org.robolectric.shadows.ShadowLooper.idleMainLooper()
             kotlinx.coroutines.delay(50L)
             count++
         }
-
         assertEquals(SmsAcceptResult.Success, resultHolder)
 
-        // Verify transaction inserted into Room with accurate timestamp and values
         val txList = db.transactionDao().getAllTransactionsList(testUserId)
         assertEquals(1, txList.size)
         val savedTx = txList[0]
         assertEquals("tx_sms_${suggestion.id}", savedTx.stringId)
         assertEquals(150_000L, savedTx.amount)
         assertEquals("EXPENSE", savedTx.type)
-        assertEquals(smsTimestamp, savedTx.timestamp) // Real SMS timestamp preserved!
+        assertEquals(smsTimestamp, savedTx.timestamp)
         assertEquals("BANK_SMS", savedTx.sourceType)
-        assertNotNull(savedTx.accountId)
+        assertEquals("acc_saman", savedTx.accountId)
 
-        // Try accepting again -> must return AlreadyExists (Idempotency)
         var secondResult: SmsAcceptResult? = null
-        viewModel.acceptSmsSuggestion(id = suggestion.id) { res ->
-            secondResult = res
-        }
+        viewModel.acceptSmsSuggestion(id = suggestion.id) { secondResult = it }
         var count2 = 0
-        while (secondResult == null && count2 < 20) {
+        while (secondResult == null && count2 < 30) {
             org.robolectric.shadows.ShadowLooper.idleMainLooper()
             kotlinx.coroutines.delay(50L)
             count2++
@@ -401,7 +419,7 @@ class HomeDashboardTest {
         assertEquals(SmsAcceptResult.AlreadyExists, secondResult)
     }
 
-    @Test
+        @Test
     fun `test HomeDashboardViewModel rapid refresh concurrency and latest state win`() = kotlinx.coroutines.runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         com.example.data.security.SessionManager.setAuthenticatedUser(

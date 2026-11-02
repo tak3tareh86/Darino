@@ -327,6 +327,18 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
+    fun refreshPendingSmsQueue() {
+        val userId = SessionManager.userId
+        if (userId.isNullOrBlank()) {
+            _pendingSmsQueue.value = emptyList()
+            return
+        }
+        val processed = smsRepository.getProcessedSmsIds(userId)
+        val dismissed = smsRepository.getDismissedSmsIds(userId)
+        _pendingSmsQueue.value = smsRepository.getPendingSmsSuggestions(userId)
+            .filterNot { it.id in processed || it.id in dismissed }
+    }
+
     fun loadDashboardData() {
         refreshTrigger.tryEmit(Unit)
     }
@@ -711,4 +723,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
             }
         }
     }
+
+
 }

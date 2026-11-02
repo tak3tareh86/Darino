@@ -181,7 +181,10 @@ class BankSmsRepository(private val context: Context) {
         savePendingSmsSuggestions(userId, getPendingSmsSuggestions(userId).filterNot { it.id == smsId })
     }
 
-    suspend fun readInboxBankSms(userId: String? = null): List<BankSmsSuggestion> = withContext(Dispatchers.IO) {
+    suspend fun readInboxBankSms(
+        userId: String? = null,
+        receivedAfterMillis: Long? = null
+    ): List<BankSmsSuggestion> = withContext(Dispatchers.IO) {
         val uid = userId ?: SessionManager.userId
         if (uid.isNullOrBlank()) {
             return@withContext emptyList()
@@ -207,8 +210,8 @@ class BankSmsRepository(private val context: Context) {
             val cursor = context.contentResolver.query(
                 uri,
                 projection,
-                null,
-                null,
+                receivedAfterMillis?.let { "date >= ?" },
+                receivedAfterMillis?.let { arrayOf(it.toString()) },
                 "date DESC"
             )
 
