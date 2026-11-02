@@ -220,13 +220,14 @@ object SmsPatternMatcher {
             SmsPatternSlot(range.first, range.last + 1, kind, allowed)).sortedBy { it.start }
     }
     fun findMatchingPatterns(message: String, patterns: List<SmsPattern>): List<SmsPattern> {
-        if (message.isBlank()) return emptyList()
+        val normalizedMessage = normalizeForMatching(message)
+        if (normalizedMessage.isBlank()) return emptyList()
         return patterns.filter { pattern ->
             val sample = pattern.sampleMessage
             val slots = validSlots(sample, pattern.slots)
             sample.isNotBlank() && slots.isNotEmpty() &&
                 slots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } == 1 &&
-                buildTemplateRegex(sample, slots).matches(message)
+                buildTemplateRegex(sample, slots).matches(normalizedMessage)
         }
     }
 
@@ -235,7 +236,7 @@ object SmsPatternMatcher {
 
     fun extractMatchedFields(message: String, pattern: SmsPattern): MatchedFields? {
         val sample = pattern.sampleMessage
-        val normalizedMessage = message
+        val normalizedMessage = normalizeForMatching(message)
         if (sample.isBlank() || normalizedMessage.isBlank()) return null
         val slots = validSlots(sample, pattern.slots)
         if (slots.isEmpty() || slots.count {
@@ -337,17 +338,45 @@ object SmsPatternMatcher {
         append(Regex.escape(value.substring(cursor)))
     }
 
+    /**
+     * Character-for-character normalization preserves offsets stored in templates.
+     * Whitespace runs match flexibly, including LF/CRLF and non-breaking spaces.
+     */
+    private fun normalizeForMatching(value: String): String = buildString(value.length) {
+        value.forEach { char ->
+            append(when (char) {
+                'ي', 'ى' -> 'ی'
+                'ك' -> 'ک'
+                '\\u00A0', '\\u2007', '\\u202F', '\\u200C', '\\u200D' -> ' '
+                in '۰'..'۹' -> ('0'.code + char.code - '۰'.code).toChar()
+                in '٠'..'٩' -> ('0'.code + char.code - '٠'.code).toChar()
+                else -> char
+            })
+        }
+    }
+
+    private fun appendFixedTextPattern(target: StringBuilder, value: String) {
+        var cursor = 0
+        Regex("""\\s+""").findAll(value).forEach { whitespace ->
+            target.append(Regex.escape(value.substring(cursor, whitespace.range.first)))
+            target.append("""\\s+""")
+            cursor = whitespace.range.last + 1
+        }
+        target.append(Regex.escape(value.substring(cursor)))
+    }
+
     private fun buildTemplateRegex(sample: String, slots: List<SmsPatternSlot>): Regex {
+        val normalizedSample = normalizeForMatching(sample)
         val expression = buildString {
             var cursor = 0
             slots.forEach { slot ->
-                append(Regex.escape(sample.substring(cursor, slot.start)))
+                appendFixedTextPattern(this, normalizedSample.substring(cursor, slot.start))
                 append('(')
-                appendVariableNumberPattern(sample.substring(slot.start, slot.endExclusive), slot)
+                appendVariableNumberPattern(normalizedSample.substring(slot.start, slot.endExclusive), slot)
                 append(')')
                 cursor = slot.endExclusive
             }
-            append(Regex.escape(sample.substring(cursor)))
+            appendFixedTextPattern(this, normalizedSample.substring(cursor))
         }
         return Regex("^$expression$")
     }
