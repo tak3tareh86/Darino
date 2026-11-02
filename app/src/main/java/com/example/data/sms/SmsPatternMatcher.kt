@@ -241,6 +241,15 @@ object SmsPatternMatcher {
     private fun validSlots(sample: String, configured: List<SmsPatternSlot>): List<SmsPatternSlot> {
         val sorted = configured.filter { it.kind != SmsPatternSlotKind.FIXED }.sortedBy { it.start }
         if (sorted.isEmpty()) return emptyList()
+        val accountKinds = setOf(
+            SmsPatternSlotKind.SOURCE_ACCOUNT, SmsPatternSlotKind.DESTINATION_ACCOUNT,
+            SmsPatternSlotKind.SOURCE_CARD, SmsPatternSlotKind.DESTINATION_CARD
+        )
+        if (sorted.any { slot ->
+                slot.kind in accountKinds &&
+                    (slot.allowedValues.isEmpty() ||
+                        slot.allowedValues.none { normalizeDigits(it) == normalizeDigits(sample.substring(slot.start, slot.endExclusive)) })
+            }) return emptyList()
         var previousEnd = 0
         for (slot in sorted) {
             if (slot.start < previousEnd || slot.start < 0 ||
@@ -255,7 +264,25 @@ object SmsPatternMatcher {
      * Variable fields may change their digits, but every separator inside the
      * field (comma, decimal mark, slash, colon, etc.) remains literal.
      */
-    private fun StringBuilder.appendVariableNumberPattern(value: String, kind: SmsPatternSlotKind) {
+    private fun StringBuilder.appendVariableNumberPattern(value: String, slot: SmsPatternSlot) {
+        val kind = slot.kind
+        val accountKinds = setOf(
+            SmsPatternSlotKind.SOURCE_ACCOUNT, SmsPatternSlotKind.DESTINATION_ACCOUNT,
+            SmsPatternSlotKind.SOURCE_CARD, SmsPatternSlotKind.DESTINATION_CARD
+        )
+        if (kind in accountKinds) {
+            append("(?:")
+            append(slot.allowedValues.distinct().joinToString("|") { allowed ->
+                normalizeDigits(allowed).map { digit ->
+                    when (digit) {
+                        in '0'..'9' -> "[" + digit + (('۰'.code + digit.code - '0'.code).toChar()) + (('٠'.code + digit.code - '0'.code).toChar()) + "]"
+                        else -> Regex.escape(digit.toString())
+                    }
+                }.joinToString("")
+            })
+            append(")")
+            return
+        }
         val fixedDigitWidth = kind == SmsPatternSlotKind.DATE ||
             kind == SmsPatternSlotKind.DATE_DAY_MONTH ||
             kind == SmsPatternSlotKind.DATE_MONTH_DAY ||
@@ -278,7 +305,7 @@ object SmsPatternMatcher {
             slots.forEach { slot ->
                 append(Regex.escape(sample.substring(cursor, slot.start)))
                 append('(')
-                appendVariableNumberPattern(sample.substring(slot.start, slot.endExclusive), slot.kind)
+                appendVariableNumberPattern(sample.substring(slot.start, slot.endExclusive), slot)
                 append(')')
                 cursor = slot.endExclusive
             }
