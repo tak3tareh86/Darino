@@ -164,7 +164,7 @@ object BankSmsParser {
         dayFirst: Boolean
     ): Triple<Int, Int, Int>? {
         val parts = IranianPhoneUtils.convertDigitsToEnglish(value).trim()
-            .trimEnd(',', '،', ';', ':').split(Regex("[/.-]"))
+            .trimEnd(',', '،', ';', ':', '.', ')', ']').split(Regex("[/.-]"))
         val year: Int
         val month: Int
         val day: Int
