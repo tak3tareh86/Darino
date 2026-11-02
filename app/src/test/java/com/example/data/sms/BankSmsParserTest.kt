@@ -131,7 +131,7 @@ class BankSmsParserTest {
     }
 
     @Test
-    fun fixedTextIsCaseAndWhitespaceSensitive() {
+    fun fixedTextIsCaseSensitiveButWhitespaceFlexible() {
         val sample = "PAYMENT 1,000 OK"
         val pattern = SmsPattern(
             id = "strict",
@@ -143,7 +143,8 @@ class BankSmsParserTest {
 
         assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT 2,000 OK", listOf(pattern)))
         assertNull(SmsPatternMatcher.findUniqueMatch("payment 2,000 OK", listOf(pattern)))
-        assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT  2,000 OK", listOf(pattern)))
+        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT  2,000 OK", listOf(pattern)))
+        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT\n2,000 OK", listOf(pattern)))
         assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT 2,000 OK extra", listOf(pattern)))
     }
 
