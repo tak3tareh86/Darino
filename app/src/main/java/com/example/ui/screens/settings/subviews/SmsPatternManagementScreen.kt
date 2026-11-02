@@ -441,7 +441,7 @@ private fun SmsPatternEditorDialog(
                         } else {
                             inferredSlots.forEach { slot ->
                                 Text(
-                                    "• ${slot.kind.title}: ${normalizedMessage.substring(slot.start, slot.endExclusive)}",
+                                    "• ${(if (slot.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY) compactDateOrder else slot.kind).title}: ${normalizedMessage.substring(slot.start, slot.endExclusive)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
