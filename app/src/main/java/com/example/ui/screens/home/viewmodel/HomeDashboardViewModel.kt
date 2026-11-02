@@ -10,6 +10,7 @@ import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
 import com.example.data.sms.BankSmsRepository
 import com.example.data.sms.BankSmsParser
+import com.example.data.sms.GenericBankSmsParser
 import com.example.data.sms.SmsPatternMatcher
 import com.example.data.sms.SmsPatternRepository
 import com.example.ui.screens.finance.data.LocalFinanceRepository
@@ -283,7 +284,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    // Transaction type is immutable after parsing: it comes only from the matched user template.
+    // Transaction type is immutable after parsing; configured templates and the generic parser both determine it.
     fun updateSmsTransactionType(id: String, newType: TransactionType) = Unit
 
     /**
