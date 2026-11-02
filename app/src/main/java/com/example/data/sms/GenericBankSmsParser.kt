@@ -68,24 +68,30 @@ object GenericBankSmsParser {
                 .containsMatchIn(normalized)
         ) return null
 
-        val amountValues = amountLabel.findAll(normalized)
-            .mapNotNull { parseDigits(it.groupValues[1]) }.distinct().toList()
-        val amount = amountValues.singleOrNull() ?: return null
+        val amountMatch = amountLabel.findAll(normalized).singleOrNull() ?: return null
+        val amount = parseDigits(amountMatch.groupValues[1]) ?: return null
         if (amount !in 1L..100_000_000_000_000L) return null
 
         val type = classifyType(normalized) ?: return null
-        val amountIsRial = Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).containsMatchIn(normalized)
+        val amountUnitContext = normalized.substring(
+            amountMatch.range.last + 1,
+            minOf(normalized.length, amountMatch.range.last + 18)
+        )
+        val amountIsRial = Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE)
+            .containsMatchIn(amountUnitContext)
         val amountToman = if (amountIsRial) {
             if (amount < 10L || amount % 10L != 0L) return null
             amount / 10L
         } else amount
         if (amountToman !in 1L..100_000_000_000L) return null
 
-        val balanceRaw = balanceLabel.findAll(normalized).mapNotNull {
-            parseDigits(it.groupValues[1])
-        }.distinct().singleOrNull()
+        val balanceMatch = balanceLabel.findAll(normalized).singleOrNull()
+        val balanceRaw = balanceMatch?.let { parseDigits(it.groupValues[1]) }
+        val balanceUnitContext = balanceMatch?.let {
+            normalized.substring(it.range.last + 1, minOf(normalized.length, it.range.last + 18))
+        }.orEmpty()
         val balanceIsRial = balanceRaw != null &&
-            Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).containsMatchIn(normalized)
+            Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).containsMatchIn(balanceUnitContext)
         val balance = balanceRaw?.let {
             if (balanceIsRial) it.takeIf { value -> value >= 10L && value % 10L == 0L }?.div(10L) else it
         }
