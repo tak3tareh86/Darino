@@ -72,7 +72,11 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     private val bankSmsRefreshReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == com.example.data.receiver.BankSmsReceivedReceiver.ACTION_BANK_SMS_RECEIVED) {
-                scanInboxSms()
+                val userId = SessionManager.userId ?: return
+                val processed = smsRepository.getProcessedSmsIds(userId)
+                val dismissed = smsRepository.getDismissedSmsIds(userId)
+                _pendingSmsQueue.value = smsRepository.getPendingSmsSuggestions(userId)
+                    .filterNot { it.id in processed || it.id in dismissed }
             }
         }
     }
