@@ -1,8 +1,8 @@
 package com.example.data.sms
 
 /**
- * Learns variable amount/date/time fields from one user-provided SMS sample.
- * Every other token (including account/card numbers) remains literal.
+ * Learns changing numeric fields from one bank SMS sample.
+ * Account/card identifiers remain literal; transaction direction is supplied by the user.
  */
 object SmsPatternMatcher {
 
@@ -20,102 +20,118 @@ object SmsPatternMatcher {
     }
 
     /**
-     * Infers only the three fields that naturally change between bank notifications.
-     * Explicit amount labels/currency outrank transaction verbs. Account/card-number
-     * positions and balance positions are never considered amount candidates.
+     * Every numeric value is learned as variable except numbers identified as
+     * account/card identifiers. Amount and balance retain separate semantic kinds.
      */
     fun inferVariableSlots(message: String): List<SmsPatternSlot> {
         val normalized = BankSmsParser.normalizeText(message)
-        val tokens = tokenizeTemplateForManualSlotSelection(normalized)
-        if (tokens.isEmpty()) return emptyList()
+        if (normalized.isBlank()) return emptyList()
 
         val slots = mutableListOf<SmsPatternSlot>()
-        fun clean(token: String) = token.trimEnd(',', '،', ';', ':', '.', ')', ']', '}', '؛')
-            .trimStart('(', '[', '{')
+        val tokens = tokenizeTemplateForManualSlotSelection(normalized)
+        fun clean(value: String) = value.trim(' ', ',', '،', ';', ':', '.', ')', ']', '}', '؛', '(', '[', '{')
 
-        val dateRegex = Regex("""^\d{1,4}[/.-]\d{1,2}(?:[/.-]\d{1,4})?$""")
-        val timeRegex = Regex("""^([01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$""")
-        val dateToken = tokens.firstOrNull { dateRegex.matches(clean(it.value)) }
-        if (dateToken != null) {
-            val parts = clean(dateToken.value).split(Regex("[/.-]"))
+        val dateRegex = Regex("""\d{1,4}[/.-]\d{1,2}(?:[/.-]\d{1,4})?""")
+        val timeRegex = Regex("""(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?""")
+        val dateRanges = dateRegex.findAll(normalized).toList()
+        val timeRanges = timeRegex.findAll(normalized).toList()
+
+        dateRanges.forEach { date ->
+            val parts = date.value.split(Regex("[/.-]"))
             val kind = when {
                 parts.size == 2 -> SmsPatternSlotKind.DATE_DAY_MONTH
                 parts[0].length == 4 -> SmsPatternSlotKind.DATE
-                parts[2].length == 4 -> SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
                 else -> SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
             }
-            slots += SmsPatternSlot(dateToken.start, dateToken.endExclusive, kind)
+            slots += SmsPatternSlot(date.range.first, date.range.last + 1, kind)
         }
-
-        val timeToken = tokens.firstOrNull { timeRegex.matches(clean(it.value)) }
-        if (timeToken != null) {
-            slots += SmsPatternSlot(timeToken.start, timeToken.endExclusive, SmsPatternSlotKind.TIME)
+        timeRanges.forEach { time ->
+            if (slots.none { time.range.first < it.endExclusive && time.range.last + 1 > it.start }) {
+                slots += SmsPatternSlot(time.range.first, time.range.last + 1, SmsPatternSlotKind.TIME)
+            }
         }
 
         val amountLabel = Regex("""مبلغ|مبـلغ|وجه|میزان""")
         val transactionLabel = Regex("""واریز|برداشت|خرید|پرداخت|انتقال|تراکنش""")
         val currencyLabel = Regex("""ریال|ريال|تومان|تومن""")
+        val rialLabel = Regex("""ریال|ريال""")
         val balanceLabel = Regex("""موجودی|مانده|اعتبار|قابل\s*برداشت""")
-        val accountLabel = Regex("""حساب|کارت|شماره|شبا|پیگیری""")
-        val numericPart = Regex("""[+−-]?[\d۰-۹٠-٩][\d۰-۹٠-٩,،٬٫.]*""")
+        val accountLabel = Regex("""حساب|کارت|شماره|شبا""")
+        val trackingLabel = Regex("""پیگیری|رهگیری|شناسه""")
+        val numberRegex = Regex("""[+−-]?[\d۰-۹٠-٩][\d۰-۹٠-٩,،٬٫.]*""")
 
-        data class Candidate(val slot: SmsPatternSlot, val score: Int)
-        val candidates = tokens.mapIndexedNotNull { index, token ->
-            if (token == dateToken || token == timeToken) return@mapIndexedNotNull null
-            val number = numericPart.findAll(token.value).lastOrNull() ?: return@mapIndexedNotNull null
-            val prefix = token.value.substring(0, number.range.first)
-            val suffix = token.value.substring(number.range.last + 1)
-            val previous = tokens.subList(maxOf(0, index - 3), index).map { clean(it.value) }
-            val next = tokens.getOrNull(index + 1)?.let { clean(it.value) }.orEmpty()
-            val previousText = previous.joinToString(" ")
-            val localBefore = prefix
-            val localAfter = suffix
+        data class NumericCandidate(
+            val start: Int,
+            val end: Int,
+            val kind: SmsPatternSlotKind,
+            val score: Int
+        )
 
-            if (balanceLabel.containsMatchIn(previousText) ||
-                balanceLabel.containsMatchIn(localBefore) ||
-                balanceLabel.containsMatchIn(localAfter) ||
-                balanceLabel.containsMatchIn(next)
-            ) return@mapIndexedNotNull null
+        val candidates = mutableListOf<NumericCandidate>()
+        numberRegex.findAll(normalized).forEach { number ->
+            val start = number.range.first
+            val end = number.range.last + 1
+            if (slots.any { start < it.endExclusive && end > it.start }) return@forEach
 
-            // Keep account/card/reference numbers fixed, including numbers attached to labels.
-            if (accountLabel.containsMatchIn(previous.lastOrNull().orEmpty()) ||
-                accountLabel.containsMatchIn(localBefore)
-            ) return@mapIndexedNotNull null
+            val tokenIndex = tokens.indexOfFirst { start >= it.start && start < it.endExclusive }
+            val token = tokens.getOrNull(tokenIndex)
+            val prefix = if (token != null) normalized.substring(token.start, start) else ""
+            val suffix = if (token != null) normalized.substring(end, token.endExclusive) else ""
+            val previousText = if (tokenIndex > 0) {
+                tokens.subList(maxOf(0, tokenIndex - 3), tokenIndex).joinToString(" ") { clean(it.value) }
+            } else ""
+            val previousToken = tokens.getOrNull(tokenIndex - 1)?.value.orEmpty()
+            val nextToken = tokens.getOrNull(tokenIndex + 1)?.value.orEmpty()
 
-            val explicitAmount = amountLabel.containsMatchIn(localBefore) ||
-                previous.any { amountLabel.containsMatchIn(it) }
-            val transaction = transactionLabel.containsMatchIn(previousText) ||
-                transactionLabel.containsMatchIn(localBefore)
-            val hasCurrency = currencyLabel.containsMatchIn(localAfter) ||
-                currencyLabel.containsMatchIn(next) ||
-                currencyLabel.containsMatchIn(token.value) ||
-                previous.lastOrNull()?.let { currencyLabel.containsMatchIn(it) } == true
+            // Never vary a number explicitly attached to or following an account/card label.
+            if (accountLabel.containsMatchIn(prefix) ||
+                accountLabel.containsMatchIn(clean(previousToken))
+            ) return@forEach
 
-            if (!explicitAmount && !transaction && !hasCurrency) return@mapIndexedNotNull null
+            val contextBefore = "$previousText $prefix"
+            val contextAfter = "$suffix $nextToken"
+            val isBalance = balanceLabel.containsMatchIn(contextBefore) ||
+                balanceLabel.containsMatchIn(contextAfter)
+            val isAmount = amountLabel.containsMatchIn(contextBefore)
+            val isTransactionAmount = transactionLabel.containsMatchIn(contextBefore)
+            val isTracking = trackingLabel.containsMatchIn(contextBefore)
 
-            val score = when {
-                explicitAmount -> 120 + if (hasCurrency) 20 else 0
-                hasCurrency -> 90
-                transaction -> 60
-                else -> 0
+            val hasRial = rialLabel.containsMatchIn(contextAfter) ||
+                rialLabel.containsMatchIn(contextBefore)
+            val hasCurrency = currencyLabel.containsMatchIn(contextAfter) ||
+                currencyLabel.containsMatchIn(contextBefore)
+
+            val kind = when {
+                isBalance -> if (hasRial) SmsPatternSlotKind.BALANCE_RIAL else SmsPatternSlotKind.BALANCE_TOMAN
+                isAmount || isTransactionAmount || hasCurrency ->
+                    if (hasRial) SmsPatternSlotKind.AMOUNT_RIAL else SmsPatternSlotKind.AMOUNT_TOMAN
+                isTracking -> SmsPatternSlotKind.TRACKING
+                else -> SmsPatternSlotKind.NUMBER
             }
-            val hasRialUnit = Regex("""ریال|ريال""").containsMatchIn(localAfter) ||
-                Regex("""ریال|ريال""").containsMatchIn(next) ||
-                Regex("""ریال|ريال""").containsMatchIn(token.value) ||
-                previous.lastOrNull()?.let { Regex("""ریال|ريال""").containsMatchIn(it) } == true
-            val kind = if (hasRialUnit) SmsPatternSlotKind.AMOUNT_RIAL
-                else SmsPatternSlotKind.AMOUNT_TOMAN
-            val slot = SmsPatternSlot(
-                token.start + number.range.first,
-                token.start + number.range.last + 1,
-                kind
-            )
-            Candidate(slot, score)
+            val score = when {
+                isAmount -> 120 + if (hasCurrency) 20 else 0
+                isTransactionAmount -> 100 + if (hasCurrency) 20 else 0
+                hasCurrency -> 90
+                isBalance -> 80
+                isTracking -> 70
+                else -> 10
+            }
+            candidates += NumericCandidate(start, end, kind, score)
         }
 
-        val best = candidates.maxByOrNull { it.score }
-        if (best != null && best.score > 0) slots += best.slot
-        return slots.sortedBy { it.start }
+        // Only one numeric field is the transaction amount. Balance and all other
+        // numbers are still variable, but are never confused with the transaction amount.
+        val amount = candidates
+            .filter { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN }
+            .maxByOrNull { it.score }
+        candidates.forEach { candidate ->
+            if (candidate == amount || candidate.kind != SmsPatternSlotKind.AMOUNT_RIAL &&
+                candidate.kind != SmsPatternSlotKind.AMOUNT_TOMAN
+            ) {
+                slots += SmsPatternSlot(candidate.start, candidate.end, candidate.kind)
+            }
+        }
+        return slots.distinctBy { it.start to it.endExclusive }.sortedBy { it.start }
     }
 
     fun findUniqueMatch(message: String, patterns: List<SmsPattern>): SmsPattern? {
@@ -156,7 +172,6 @@ object SmsPatternMatcher {
             if (slot.start < previousEnd || slot.start < 0 ||
                 slot.endExclusive <= slot.start || slot.endExclusive > sample.length
             ) return emptyList()
-            if (sample.substring(slot.start, slot.endExclusive).any { it.isWhitespace() }) return emptyList()
             previousEnd = slot.endExclusive
         }
         return sorted
@@ -167,7 +182,7 @@ object SmsPatternMatcher {
             var cursor = 0
             slots.forEach { slot ->
                 append(Regex.escape(sample.substring(cursor, slot.start)))
-                append("([^\\s]+)")
+                append("([^\\\\s]+?)")
                 cursor = slot.endExclusive
             }
             append(Regex.escape(sample.substring(cursor)))
