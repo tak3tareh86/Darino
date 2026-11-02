@@ -148,15 +148,12 @@ object BankSmsParser {
     }
 
     private fun parsePositiveNumber(value: String?): Long? {
-        val digits = value?.let(IranianPhoneUtils::convertDigitsToEnglish)?.trim()
-            ?.removePrefix("+")
-            ?.removePrefix("-")
-            ?.replace(",", "")
-            ?.replace("،", "")
-            ?.replace("٬", "")
-            ?.replace("٫", "")
-            ?.replace(".", "")
-            ?.replace(" ", "")
+        // Keep only decimal digits: this also accepts values such as ۱۰۰۰تومان,
+        // (1,000), and amounts followed by a currency suffix without changing the
+        // fixed surrounding template text.
+        val digits = value?.let(IranianPhoneUtils::convertDigitsToEnglish)
+            ?.filter { it in '0'..'9' }
+            ?.takeIf { it.isNotEmpty() }
             ?: return null
         return digits.toLongOrNull()?.takeIf { it > 0L && it <= 1_000_000_000_000_000L }
     }
