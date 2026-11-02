@@ -127,10 +127,12 @@ object BackupValidator {
                 return ValidationResult.Invalid("زمان شروع شناسایی بدون وجود الگوی پیامکی ثبت شده است.")
             }
             val pendingIds = backup.pendingBankSmsSuggestions.map { it.id }.toSet()
-            if (pendingIds.size != backup.pendingBankSmsSuggestions.size ||
+            if (backup.pendingBankSmsSuggestions.size > 50 ||
+                pendingIds.size != backup.pendingBankSmsSuggestions.size ||
                 backup.pendingBankSmsSuggestions.any {
                     it.id.isBlank() || it.smsText.isBlank() || it.patternId !in patternIds ||
-                        recognitionStart == null || it.timestampMillis < recognitionStart
+                        recognitionStart == null || it.timestampMillis < recognitionStart ||
+                        it.timestampMillis > backup.metadata.createdAt
                 }
             ) {
                 return ValidationResult.Invalid("صف پیامک‌های در انتظار بررسی با الگوها یا بازه شناسایی سازگار نیست.")
