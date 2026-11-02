@@ -57,7 +57,7 @@ object SmsPatternMatcher {
         val currencyLabel = Regex("""ریال|ريال|تومان|تومن""")
         val rialLabel = Regex("""ریال|ريال""")
         val balanceLabel = Regex("""موجودی|مانده|اعتبار|قابل\s*برداشت""")
-        val accountLabel = Regex("""حساب|کارت|شماره|شبا""")
+        val accountLabel = Regex("""(?:شماره\s*)?(?:حساب|کارت|شبا)""")
         val trackingLabel = Regex("""پیگیری|رهگیری|شناسه""")
         val numberRegex = Regex("""[\d۰-۹٠-٩][\d۰-۹٠-٩,،٬٫.]*""")
 
