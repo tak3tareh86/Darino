@@ -67,6 +67,14 @@ class GenericBankSmsParserTest {
         )
         assertEquals(TransactionType.TRANSFER, cardToCard?.type)
         assertEquals(35_000L, cardToCard?.amount)
+
+        val linkedTransfer = GenericBankSmsParser.parse(
+            "sms-13", "30001234",
+            "کارت به کارت از کارت 6037991111111111 به کارت 6037992222222222 مبلغ 25,000 تومان",
+            1_700_000_000_000L
+        )
+        assertEquals("حساب/کارت 6037991111111111", linkedTransfer?.sourceAccount)
+        assertEquals("حساب/کارت 6037992222222222", linkedTransfer?.destinationAccount)
     }
 
     @Test
