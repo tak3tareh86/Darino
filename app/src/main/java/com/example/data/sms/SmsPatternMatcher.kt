@@ -89,10 +89,11 @@ object SmsPatternMatcher {
                 transactionDistance >= 0 -> 50 - (previous.lastIndex - transactionDistance) * 10
                 else -> 0
             }
-            val kind = if (currencyLabel.containsMatchIn(nextText) ||
-                currencyLabel.containsMatchIn(token.value) ||
+            val hasRialUnit = Regex("""ریال""").containsMatchIn(nextText) ||
+                Regex("""ریال""").containsMatchIn(token.value) ||
                 previous.lastOrNull()?.contains("ریال") == true
-            ) SmsPatternSlotKind.AMOUNT_RIAL else SmsPatternSlotKind.AMOUNT_TOMAN
+            val kind = if (hasRialUnit) SmsPatternSlotKind.AMOUNT_RIAL
+                else SmsPatternSlotKind.AMOUNT_TOMAN
             Candidate(token, score, kind)
         }
 
