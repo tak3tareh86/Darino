@@ -54,53 +54,67 @@ object SmsPatternMatcher {
 
         val amountLabel = Regex("""مبلغ|مبـلغ|وجه|میزان""")
         val transactionLabel = Regex("""واریز|برداشت|خرید|پرداخت|انتقال|تراکنش""")
-        val currencyLabel = Regex("""ریال|تومان|تومن""")
-        val balanceLabel = Regex("""موجودی|مانده|اعتبار|قابل برداشت""")
+        val currencyLabel = Regex("""ریال|ريال|تومان|تومن""")
+        val balanceLabel = Regex("""موجودی|مانده|اعتبار|قابل\s*برداشت""")
         val accountLabel = Regex("""حساب|کارت|شماره|شبا|پیگیری""")
-        val numberToken = Regex("""^[+−-]?[\d۰-۹٠-٩][\d۰-۹٠-٩,،٬٫.]*([\p{L}]+)?[,،;:)]?$""")
+        val numericPart = Regex("""[+−-]?[\d۰-۹٠-٩][\d۰-۹٠-٩,،٬٫.]*""")
 
-        data class Candidate(val token: TemplateToken, val score: Int, val kind: SmsPatternSlotKind)
+        data class Candidate(val slot: SmsPatternSlot, val score: Int)
         val candidates = tokens.mapIndexedNotNull { index, token ->
-            val value = clean(token.value)
-            if (token == dateToken || token == timeToken || !numberToken.matches(value)) return@mapIndexedNotNull null
-            val digits = value.count { it.isDigit() || it in '۰'..'۹' || it in '٠'..'٩' }
-            if (digits == 0) return@mapIndexedNotNull null
-
+            if (token == dateToken || token == timeToken) return@mapIndexedNotNull null
+            val number = numericPart.findAll(token.value).lastOrNull() ?: return@mapIndexedNotNull null
+            val prefix = token.value.substring(0, number.range.first)
+            val suffix = token.value.substring(number.range.last + 1)
             val previous = tokens.subList(maxOf(0, index - 3), index).map { clean(it.value) }
             val next = tokens.getOrNull(index + 1)?.let { clean(it.value) }.orEmpty()
             val previousText = previous.joinToString(" ")
-            val nextText = next
-            if (balanceLabel.containsMatchIn(previousText) || balanceLabel.containsMatchIn(nextText)) return@mapIndexedNotNull null
-            // A number immediately introduced as an account/card/IBAN/reference is fixed.
-            if (previous.lastOrNull()?.let { accountLabel.containsMatchIn(it) } == true) return@mapIndexedNotNull null
-            if (previous.takeLast(2).joinToString(" ").let { Regex("""(شماره\s+(?:حساب|کارت)|حساب\s+شماره|کارت\s+شماره)""").containsMatchIn(it) }) return@mapIndexedNotNull null
+            val localBefore = prefix
+            val localAfter = suffix
 
-            val explicitAmountDistance = previous.indexOfLast { amountLabel.containsMatchIn(it) }
-            val transactionDistance = previous.indexOfLast { transactionLabel.containsMatchIn(it) }
-            val hasCurrency = currencyLabel.containsMatchIn(nextText) ||
+            if (balanceLabel.containsMatchIn(previousText) ||
+                balanceLabel.containsMatchIn(localBefore) ||
+                balanceLabel.containsMatchIn(localAfter) ||
+                balanceLabel.containsMatchIn(next)
+            ) return@mapIndexedNotNull null
+
+            // Keep account/card/reference numbers fixed, including numbers attached to labels.
+            if (accountLabel.containsMatchIn(previous.lastOrNull().orEmpty()) ||
+                accountLabel.containsMatchIn(localBefore)
+            ) return@mapIndexedNotNull null
+
+            val explicitAmount = amountLabel.containsMatchIn(localBefore) ||
+                previous.any { amountLabel.containsMatchIn(it) }
+            val transaction = transactionLabel.containsMatchIn(previousText) ||
+                transactionLabel.containsMatchIn(localBefore)
+            val hasCurrency = currencyLabel.containsMatchIn(localAfter) ||
+                currencyLabel.containsMatchIn(next) ||
                 currencyLabel.containsMatchIn(token.value) ||
                 previous.lastOrNull()?.let { currencyLabel.containsMatchIn(it) } == true
-            if (explicitAmountDistance < 0 && transactionDistance < 0 && !hasCurrency) return@mapIndexedNotNull null
 
-            // The nearest explicit "amount" label wins; digit length never increases priority.
+            if (!explicitAmount && !transaction && !hasCurrency) return@mapIndexedNotNull null
+
             val score = when {
-                explicitAmountDistance >= 0 -> 100 - (previous.lastIndex - explicitAmountDistance) * 10 + if (hasCurrency) 20 else 0
-                hasCurrency -> 80
-                transactionDistance >= 0 -> 50 - (previous.lastIndex - transactionDistance) * 10
+                explicitAmount -> 120 + if (hasCurrency) 20 else 0
+                hasCurrency -> 90
+                transaction -> 60
                 else -> 0
             }
-            val hasRialUnit = Regex("""ریال""").containsMatchIn(nextText) ||
-                Regex("""ریال""").containsMatchIn(token.value) ||
-                previous.lastOrNull()?.contains("ریال") == true
+            val hasRialUnit = Regex("""ریال|ريال""").containsMatchIn(localAfter) ||
+                Regex("""ریال|ريال""").containsMatchIn(next) ||
+                Regex("""ریال|ريال""").containsMatchIn(token.value) ||
+                previous.lastOrNull()?.let { Regex("""ریال|ريال""").containsMatchIn(it) } == true
             val kind = if (hasRialUnit) SmsPatternSlotKind.AMOUNT_RIAL
                 else SmsPatternSlotKind.AMOUNT_TOMAN
-            Candidate(token, score, kind)
+            val slot = SmsPatternSlot(
+                token.start + number.range.first,
+                token.start + number.range.last + 1,
+                kind
+            )
+            Candidate(slot, score)
         }
 
         val best = candidates.maxByOrNull { it.score }
-        if (best != null && best.score > 0) {
-            slots += SmsPatternSlot(best.token.start, best.token.endExclusive, best.kind)
-        }
+        if (best != null && best.score > 0) slots += best.slot
         return slots.sortedBy { it.start }
     }
 
@@ -143,8 +157,6 @@ object SmsPatternMatcher {
                 slot.endExclusive <= slot.start || slot.endExclusive > sample.length
             ) return emptyList()
             if (sample.substring(slot.start, slot.endExclusive).any { it.isWhitespace() }) return emptyList()
-            if (slot.start > 0 && !sample[slot.start - 1].isWhitespace()) return emptyList()
-            if (slot.endExclusive < sample.length && !sample[slot.endExclusive].isWhitespace()) return emptyList()
             previousEnd = slot.endExclusive
         }
         return sorted
