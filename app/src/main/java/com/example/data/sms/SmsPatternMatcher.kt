@@ -24,15 +24,15 @@ object SmsPatternMatcher {
      * account/card identifiers. Amount and balance retain separate semantic kinds.
      */
     fun inferVariableSlots(message: String): List<SmsPatternSlot> {
-        val normalized = BankSmsParser.normalizeText(message)
+        val normalized = message
         if (normalized.isBlank()) return emptyList()
 
         val slots = mutableListOf<SmsPatternSlot>()
         val tokens = tokenizeTemplateForManualSlotSelection(normalized)
         fun clean(value: String) = value.trim(' ', ',', '،', ';', ':', '.', ')', ']', '}', '؛', '(', '[', '{')
 
-        val dateRegex = Regex("""\d{1,4}[/.-]\d{1,2}(?:[/.-]\d{1,4})?""")
-        val timeRegex = Regex("""(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?""")
+        val dateRegex = Regex("""[0-9۰-۹٠-٩]{1,4}[/.-][0-9۰-۹٠-٩]{1,2}(?:[/.-][0-9۰-۹٠-٩]{1,4})?""")
+        val timeRegex = Regex("""(?:[01]?[0-9۰-۹٠-٩]|2[0-3]):[0-5]?[0-9۰-۹٠-٩](?::[0-5]?[0-9۰-۹٠-٩])?""")
         val dateRanges = dateRegex.findAll(normalized).toList()
         val timeRanges = timeRegex.findAll(normalized).toList()
 
@@ -58,7 +58,7 @@ object SmsPatternMatcher {
         val balanceLabel = Regex("""موجودی|مانده|اعتبار|قابل\s*برداشت""")
         val accountLabel = Regex("""حساب|کارت|شماره|شبا""")
         val trackingLabel = Regex("""پیگیری|رهگیری|شناسه""")
-        val numberRegex = Regex("""[+−-]?[\d۰-۹٠-٩][\d۰-۹٠-٩,،٬٫.]*""")
+        val numberRegex = Regex("""[\d۰-۹٠-٩][\d۰-۹٠-٩,،٬٫.]*""")
 
         data class NumericCandidate(
             val start: Int,
@@ -171,10 +171,10 @@ object SmsPatternMatcher {
     }
 
     fun findUniqueMatch(message: String, patterns: List<SmsPattern>): SmsPattern? {
-        val normalizedMessage = BankSmsParser.normalizeText(message)
+        val normalizedMessage = message
         if (normalizedMessage.isBlank()) return null
         val matches = patterns.filter { pattern ->
-            val sample = BankSmsParser.normalizeText(pattern.sampleMessage)
+            val sample = pattern.sampleMessage
             val slots = validSlots(sample, pattern.slots)
             sample.isNotBlank() && slots.isNotEmpty() &&
                 slots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } == 1 &&
@@ -184,8 +184,8 @@ object SmsPatternMatcher {
     }
 
     fun extractMatchedFields(message: String, pattern: SmsPattern): MatchedFields? {
-        val sample = BankSmsParser.normalizeText(pattern.sampleMessage)
-        val normalizedMessage = BankSmsParser.normalizeText(message)
+        val sample = pattern.sampleMessage
+        val normalizedMessage = message
         if (sample.isBlank() || normalizedMessage.isBlank()) return null
         val slots = validSlots(sample, pattern.slots)
         if (slots.isEmpty() || slots.count {
@@ -214,25 +214,30 @@ object SmsPatternMatcher {
     }
 
     /**
-     * Match fixed words and punctuation literally, but treat runs of whitespace as
-     * layout rather than content. SMS providers often change line wrapping or spacing.
+     * Variable fields may change their digits, but every separator inside the
+     * field (comma, decimal mark, slash, colon, etc.) remains literal.
      */
-    private fun StringBuilder.appendFlexibleLiteral(literal: String) {
-        Regex("""\s+|\S+""").findAll(literal).forEach { part ->
-            if (part.value.all(Char::isWhitespace)) append("\\s+")
-            else append(Regex.escape(part.value))
+    private fun StringBuilder.appendVariableNumberPattern(value: String) {
+        var cursor = 0
+        Regex("""[0-9۰-۹٠-٩]+""").findAll(value).forEach { digits ->
+            append(Regex.escape(value.substring(cursor, digits.range.first)))
+            append("[0-9۰-۹٠-٩]+")
+            cursor = digits.range.last + 1
         }
+        append(Regex.escape(value.substring(cursor)))
     }
 
     private fun buildTemplateRegex(sample: String, slots: List<SmsPatternSlot>): Regex {
         val expression = buildString {
             var cursor = 0
             slots.forEach { slot ->
-                appendFlexibleLiteral(sample.substring(cursor, slot.start))
-                append("([^\\s]+?)")
+                append(Regex.escape(sample.substring(cursor, slot.start)))
+                append('(')
+                appendVariableNumberPattern(sample.substring(slot.start, slot.endExclusive))
+                append(')')
                 cursor = slot.endExclusive
             }
-            appendFlexibleLiteral(sample.substring(cursor))
+            append(Regex.escape(sample.substring(cursor)))
         }
         return Regex("^$expression$")
     }
