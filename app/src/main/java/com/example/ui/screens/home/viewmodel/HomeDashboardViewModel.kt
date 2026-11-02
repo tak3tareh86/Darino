@@ -1,10 +1,6 @@
 package com.example.ui.screens.home.viewmodel
 
 import android.app.Application
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -67,21 +63,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     private val smsRepository = BankSmsRepository.getInstance(application)
     private val smsPatternRepository = SmsPatternRepository(application)
 
-    // The manifest receiver forwards SMS_RECEIVED as an app-scoped event. Consume it
-    // here so a newly arrived bank SMS is scanned while the dashboard is alive.
-    private val bankSmsRefreshReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == com.example.data.receiver.BankSmsReceivedReceiver.ACTION_BANK_SMS_RECEIVED) {
-                val userId = SessionManager.userId ?: return
-                val processed = smsRepository.getProcessedSmsIds(userId)
-                val dismissed = smsRepository.getDismissedSmsIds(userId)
-                _pendingSmsQueue.value = smsRepository.getPendingSmsSuggestions(userId)
-                    .filterNot { it.id in processed || it.id in dismissed }
-            }
-        }
-    }
-    private var bankSmsReceiverRegistered = false
-
     private val _uiState = MutableStateFlow(HomeDashboardState(isLoading = true))
     val uiState: StateFlow<HomeDashboardState> = _uiState.asStateFlow()
 
@@ -123,16 +104,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     private var lastCommittedVersion = 0L
 
     init {
-        if (!bankSmsReceiverRegistered) {
-            androidx.core.content.ContextCompat.registerReceiver(
-                application,
-                bankSmsRefreshReceiver,
-                IntentFilter(com.example.data.receiver.BankSmsReceivedReceiver.ACTION_BANK_SMS_RECEIVED),
-                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
-            )
-            bankSmsReceiverRegistered = true
-        }
-
         // Robust refresh pipeline: debounced, mutex-serialized (at most one aggregate execution at a time), latest wins (version checked)
         viewModelScope.launch {
             refreshTrigger
@@ -354,6 +325,18 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         if (!userId.isNullOrBlank()) {
             smsRepository.savePendingSmsSuggestions(userId, _pendingSmsQueue.value)
         }
+    }
+
+    fun refreshPendingSmsQueue() {
+        val userId = SessionManager.userId
+        if (userId.isNullOrBlank()) {
+            _pendingSmsQueue.value = emptyList()
+            return
+        }
+        val processed = smsRepository.getProcessedSmsIds(userId)
+        val dismissed = smsRepository.getDismissedSmsIds(userId)
+        _pendingSmsQueue.value = smsRepository.getPendingSmsSuggestions(userId)
+            .filterNot { it.id in processed || it.id in dismissed }
     }
 
     fun loadDashboardData() {
@@ -741,11 +724,5 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    override fun onCleared() {
-        if (bankSmsReceiverRegistered) {
-            runCatching { getApplication<Application>().unregisterReceiver(bankSmsRefreshReceiver) }
-            bankSmsReceiverRegistered = false
-        }
-        super.onCleared()
-    }
+
 }
