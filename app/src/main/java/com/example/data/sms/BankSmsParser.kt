@@ -166,7 +166,8 @@ object BankSmsParser {
         defaultYear: Int,
         dayFirst: Boolean
     ): Triple<Int, Int, Int>? {
-        val parts = IranianPhoneUtils.convertDigitsToEnglish(value).trim().split(Regex("[/.-]"))
+        val parts = IranianPhoneUtils.convertDigitsToEnglish(value).trim()
+            .trimEnd(',', '،', ';', ':').split(Regex("[/.-]"))
         val year: Int
         val month: Int
         val day: Int
@@ -191,7 +192,7 @@ object BankSmsParser {
 
     private fun parseClockTime(value: String): Pair<Int, Int>? {
         val match = Regex("""^([0-2]?[0-9]):([0-5][0-9])(?::[0-5][0-9])?$""")
-            .matchEntire(IranianPhoneUtils.convertDigitsToEnglish(value).trim()) ?: return null
+            .matchEntire(IranianPhoneUtils.convertDigitsToEnglish(value).trim().trimEnd(',', '،', ';')) ?: return null
         val hour = match.groupValues[1].toIntOrNull() ?: return null
         val minute = match.groupValues[2].toIntOrNull() ?: return null
         if (hour !in 0..23) return null
