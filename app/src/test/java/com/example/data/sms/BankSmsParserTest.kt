@@ -245,6 +245,21 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun automaticInferenceSeparatesBalanceAndTransactionAmountWhenBothAppearInSequence() {
+        val sample = "حساب***** برداشت400,000 مانده8,013,304 05/08/11-06:53"
+        val slots = SmsPatternMatcher.inferVariableSlots(sample)
+
+        assertEquals("400,000", slots.single { it.kind == SmsPatternSlotKind.AMOUNT_TOMAN }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals("8,013,304", slots.single { it.kind == SmsPatternSlotKind.BALANCE_TOMAN }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals("05/08/11", slots.single { it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals("06:53", slots.single { it.kind == SmsPatternSlotKind.TIME }
+            .let { sample.substring(it.start, it.endExclusive) })
+    }
+
+    @Test
     fun automaticInferenceDoesNotMistakeBalanceForTransactionAmount() {
         val sample = "واریز مبلغ 2500 تومان موجودی 9876543210"
         val slots = SmsPatternMatcher.inferVariableSlots(sample)
