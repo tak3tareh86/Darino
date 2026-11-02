@@ -87,23 +87,23 @@ object SmsPatternMatcher {
             val previousToken = tokens.getOrNull(tokenIndex - 1)?.value.orEmpty()
             val nextToken = tokens.getOrNull(tokenIndex + 1)?.value.orEmpty()
 
-            // Never vary a number explicitly attached to or following an account/card label.
-            // A standalone "حساب" line must not hide the amount on the next
-            // line when that number is explicitly introduced by a transaction label
-            // such as "برداشت400,000" or "واریز500,000".
-            val currentFieldHasTransactionLabel =
-                transactionLabel.containsMatchIn(prefix) ||
-                    amountLabel.containsMatchIn(prefix)
-            if (accountLabel.containsMatchIn(prefix) ||
-                (accountLabel.containsMatchIn(clean(previousToken)) && !currentFieldHasTransactionLabel)
-            ) return@forEach
-
             val contextAfter = "$suffix $nextToken"
             // Use the nearest semantic label since the preceding numeric field.
             // Looking across several whitespace tokens can leak "balance" into
             // the following transaction amount (or vice versa).
             val nearestLabel = semanticLabelRegex.findAll(contextBefore).lastOrNull()?.value
-            val isBalance = nearestLabel != null && balanceLabel.matches(nearestLabel)
+            // Never vary a number explicitly attached to an account/card label.
+            // A transaction label in the current field context takes precedence over
+            // an account label on the previous line/token.
+            val currentFieldHasTransactionLabel =
+                transactionLabel.containsMatchIn(prefix) || amountLabel.containsMatchIn(prefix) ||
+                    (nearestLabel != null && (transactionLabel.matches(nearestLabel) || amountLabel.matches(nearestLabel)))
+            if (accountLabel.containsMatchIn(prefix) ||
+                (accountLabel.containsMatchIn(clean(previousToken)) && !currentFieldHasTransactionLabel)
+            ) return@forEach
+
+            val isBalance = (nearestLabel != null && balanceLabel.matches(nearestLabel)) ||
+                balanceLabel.containsMatchIn(contextAfter)
             val isAmount = nearestLabel != null && amountLabel.matches(nearestLabel)
             val isTransactionAmount = nearestLabel != null && transactionLabel.matches(nearestLabel)
             val isTracking = nearestLabel != null && trackingLabel.matches(nearestLabel)
