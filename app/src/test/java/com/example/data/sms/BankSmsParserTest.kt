@@ -197,7 +197,8 @@ class BankSmsParserTest {
             )
         )
         val parsed = BankSmsParser.parseMatchedPattern(
-            "sms-dmy", "sender", "تاریخ 06/08/10 مبلغ 200 تومان", 1_700_000_000_000L, pattern
+            "sms-dmy", "sender", "تاریخ 06/08/10 مبلغ 200 تومان",
+            com.example.util.PersianCalendarHelper.jalaliToEpochMillis(1410, 8, 10, 12, 0), pattern
         )
         assertEquals("1410/08/06", parsed?.dateText)
         assertEquals(200L, parsed?.amount)
