@@ -14,7 +14,7 @@ object SmsPatternMatcher {
 
     fun tokenizeTemplateForManualSlotSelection(message: String): List<TemplateToken> {
         if (message.isEmpty()) return emptyList()
-        return Regex("""\\S+""").findAll(message).map {
+        return Regex("""\S+""").findAll(message).map {
             TemplateToken(it.range.first, it.range.last + 1, it.value)
         }.toList()
     }
@@ -33,8 +33,8 @@ object SmsPatternMatcher {
         fun clean(token: String) = token.trimEnd(',', '،', ';', ':', '.', ')', ']', '}', '؛')
             .trimStart('(', '[', '{')
 
-        val dateRegex = Regex("""^\\d{1,4}[/.-]\\d{1,2}(?:[/.-]\\d{1,4})?$""")
-        val timeRegex = Regex("""^([01]?\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d)?$""")
+        val dateRegex = Regex("""^\d{1,4}[/.-]\d{1,2}(?:[/.-]\d{1,4})?$""")
+        val timeRegex = Regex("""^([01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$""")
         val dateToken = tokens.firstOrNull { dateRegex.matches(clean(it.value)) }
         if (dateToken != null) {
             val parts = clean(dateToken.value).split(Regex("[/.-]"))
@@ -57,7 +57,7 @@ object SmsPatternMatcher {
         val currencyLabel = Regex("""ریال|تومان|تومن""")
         val balanceLabel = Regex("""موجودی|مانده|اعتبار|قابل برداشت""")
         val accountLabel = Regex("""حساب|کارت|شماره|شبا|پیگیری""")
-        val numberToken = Regex("""^[+−-]?[\\d۰-۹٠-٩][\\d۰-۹٠-٩,،٬٫.]*([\\p{L}]+)?[,،;:)]?$""")
+        val numberToken = Regex("""^[+−-]?[\d۰-۹٠-٩][\d۰-۹٠-٩,،٬٫.]*([\p{L}]+)?[,،;:)]?$""")
 
         data class Candidate(val token: TemplateToken, val score: Int, val kind: SmsPatternSlotKind)
         val candidates = tokens.mapIndexedNotNull { index, token ->
@@ -73,7 +73,7 @@ object SmsPatternMatcher {
             if (balanceLabel.containsMatchIn(previousText) || balanceLabel.containsMatchIn(nextText)) return@mapIndexedNotNull null
             // A number immediately introduced as an account/card/IBAN/reference is fixed.
             if (previous.lastOrNull()?.let { accountLabel.containsMatchIn(it) } == true) return@mapIndexedNotNull null
-            if (previous.takeLast(2).joinToString(" ").let { Regex("""(شماره\\s+(?:حساب|کارت)|حساب\\s+شماره|کارت\\s+شماره)""").containsMatchIn(it) }) return@mapIndexedNotNull null
+            if (previous.takeLast(2).joinToString(" ").let { Regex("""(شماره\s+(?:حساب|کارت)|حساب\s+شماره|کارت\s+شماره)""").containsMatchIn(it) }) return@mapIndexedNotNull null
 
             val explicitAmountDistance = previous.indexOfLast { amountLabel.containsMatchIn(it) }
             val transactionDistance = previous.indexOfLast { transactionLabel.containsMatchIn(it) }
