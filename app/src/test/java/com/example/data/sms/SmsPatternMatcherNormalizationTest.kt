@@ -33,7 +33,7 @@ class SmsPatternMatcherNormalizationTest {
             type = SmsPatternType.INCOME,
             sampleMessage = sample,
             slots = listOf(
-                SmsPatternSlot(8, 11, SmsPatternSlotKind.AMOUNT_TOMAN)
+                SmsPatternSlot(7, 10, SmsPatternSlotKind.AMOUNT_TOMAN)
             )
         )
 
