@@ -358,31 +358,7 @@ private fun SmsPatternEditorDialog(
     var name by remember(pattern?.id) { mutableStateOf(pattern?.name.orEmpty()) }
     var type by remember(pattern?.id) { mutableStateOf(pattern?.type ?: SmsPatternType.INCOME) }
     var message by remember(pattern?.id) { mutableStateOf(pattern?.sampleMessage.orEmpty()) }
-    var selectedKinds by remember(pattern?.id) {
-        mutableStateOf<Map<Int, SmsPatternSlotKind>>(
-            pattern?.slots?.associate { it.start to it.kind } ?: emptyMap()
-        )
-    }
-    var expandedSlotIndex by remember(pattern?.id) { mutableStateOf<Int?>(null) }
     val normalizedMessage = BankSmsParser.normalizeText(message)
-    val templateTokens = remember(normalizedMessage) {
-        SmsPatternMatcher.tokenizeTemplateForManualSlotSelection(normalizedMessage)
-    }
-    val configuredKinds = selectedKinds.values.filter { it != SmsPatternSlotKind.FIXED }
-    val slotGroups = configuredKinds.map { kind ->
-        when (kind) {
-            SmsPatternSlotKind.AMOUNT_RIAL, SmsPatternSlotKind.AMOUNT_TOMAN -> "amount"
-            SmsPatternSlotKind.BALANCE_RIAL, SmsPatternSlotKind.BALANCE_TOMAN -> "balance"
-            SmsPatternSlotKind.DATE, SmsPatternSlotKind.DATE_DAY_MONTH, SmsPatternSlotKind.DATE_MONTH_DAY,
-            SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR -> "date"
-            SmsPatternSlotKind.SOURCE_CARD, SmsPatternSlotKind.SOURCE_ACCOUNT -> "source"
-            SmsPatternSlotKind.DESTINATION_CARD, SmsPatternSlotKind.DESTINATION_ACCOUNT -> "destination"
-            else -> kind.name
-        }
-    }
-    val hasValidSlotSelection =
-        configuredKinds.count { it == SmsPatternSlotKind.AMOUNT_RIAL || it == SmsPatternSlotKind.AMOUNT_TOMAN } == 1 &&
-            slotGroups.distinct().size == slotGroups.size
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -402,24 +378,12 @@ private fun SmsPatternEditorDialog(
                 )
                 Text("نوع پیامک", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = type == SmsPatternType.INCOME,
-                        onClick = { type = SmsPatternType.INCOME },
-                        label = { Text("واریز") },
-                        leadingIcon = { Icon(Icons.Rounded.TrendingUp, null, modifier = Modifier.size(16.dp)) }
-                    )
-                    FilterChip(
-                        selected = type == SmsPatternType.EXPENSE,
-                        onClick = { type = SmsPatternType.EXPENSE },
-                        label = { Text("برداشت") },
-                        leadingIcon = { Icon(Icons.Rounded.TrendingDown, null, modifier = Modifier.size(16.dp)) }
-                    )
-                    FilterChip(
-                        selected = type == SmsPatternType.TRANSFER,
-                        onClick = { type = SmsPatternType.TRANSFER },
-                        label = { Text("انتقال وجه") },
-                        leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CompareArrows, null, modifier = Modifier.size(16.dp)) }
-                    )
+                    FilterChip(selected = type == SmsPatternType.INCOME, onClick = { type = SmsPatternType.INCOME },
+                        label = { Text("واریز") }, leadingIcon = { Icon(Icons.Rounded.TrendingUp, null, modifier = Modifier.size(16.dp)) })
+                    FilterChip(selected = type == SmsPatternType.EXPENSE, onClick = { type = SmsPatternType.EXPENSE },
+                        label = { Text("برداشت") }, leadingIcon = { Icon(Icons.Rounded.TrendingDown, null, modifier = Modifier.size(16.dp)) })
+                    FilterChip(selected = type == SmsPatternType.TRANSFER, onClick = { type = SmsPatternType.TRANSFER },
+                        label = { Text("انتقال وجه") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CompareArrows, null, modifier = Modifier.size(16.dp)) })
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -428,12 +392,7 @@ private fun SmsPatternEditorDialog(
                 ) {
                     Text("متن کامل پیامک نمونه", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     TextButton(
-                        onClick = {
-                            clipboardManager.getText()?.text?.takeIf { it.isNotBlank() }?.let {
-                                message = it
-                                selectedKinds = emptyMap()
-                            }
-                        },
+                        onClick = { clipboardManager.getText()?.text?.takeIf { it.isNotBlank() }?.let { message = it } },
                         enabled = !clipboardManager.getText()?.text.isNullOrBlank()
                     ) {
                         Icon(Icons.Rounded.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -443,10 +402,7 @@ private fun SmsPatternEditorDialog(
                 }
                 OutlinedTextField(
                     value = message,
-                    onValueChange = {
-                        message = it
-                        selectedKinds = emptyMap()
-                    },
+                    onValueChange = { message = it },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 4,
                     maxLines = 7,
@@ -454,65 +410,23 @@ private fun SmsPatternEditorDialog(
                     supportingText = { Text("${message.length} نویسه") }
                 )
                 Text(
-                    "بخش‌های متن نمونه را خودتان انتخاب و نوع هر بخش را تعیین کنید. هیچ بخشی خودکار معناگذاری نمی‌شود؛ قسمت‌های انتخاب‌نشده عیناً ثابت می‌مانند.",
+                    "برنامه مبلغ، تاریخ و ساعت را از نمونه تشخیص می‌دهد و آن‌ها را هنگام تطبیق پیامک‌های بعدی متغیر در نظر می‌گیرد. سایر متن، از جمله شماره کارت و حساب، ثابت می‌ماند و نیازی به انتخاب دستی بخش‌ها نیست.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 18.sp
                 )
-                templateTokens.forEachIndexed { index, candidate ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            "«${candidate.value}»",
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Box {
-                            TextButton(onClick = { expandedSlotIndex = index }) {
-                                Text((selectedKinds[candidate.start] ?: SmsPatternSlotKind.FIXED).title)
-                            }
-                            DropdownMenu(
-                                expanded = expandedSlotIndex == index,
-                                onDismissRequest = { expandedSlotIndex = null }
-                            ) {
-                                SmsPatternSlotKind.values().forEach { kind ->
-                                    DropdownMenuItem(
-                                        text = { Text(kind.title) },
-                                        onClick = {
-                                            selectedKinds = selectedKinds + (candidate.start to kind)
-                                            expandedSlotIndex = null
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                if (templateTokens.isEmpty()) {
-                    Text(
-                        "در متن نمونه بخش قابل انتخابی وجود ندارد.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val canonicalMessage = normalizedMessage
-                    val slots = templateTokens.mapNotNull { candidate ->
-                        val kind = selectedKinds[candidate.start] ?: SmsPatternSlotKind.FIXED
-                        if (kind == SmsPatternSlotKind.FIXED) null
-                        else SmsPatternSlot(candidate.start, candidate.endExclusive, kind)
-                    }
-                    onSave(name, type, canonicalMessage, slots)
+                    val slots = SmsPatternMatcher.inferVariableSlots(normalizedMessage)
+                    onSave(name, type, normalizedMessage, slots)
                 },
-                enabled = name.isNotBlank() && message.isNotBlank() && hasValidSlotSelection,
+                enabled = name.isNotBlank() && message.isNotBlank() &&
+                    SmsPatternMatcher.inferVariableSlots(normalizedMessage).count {
+                        it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN
+                    } == 1,
                 shape = RoundedCornerShape(10.dp)
             ) { Text("ذخیره الگو") }
         },
