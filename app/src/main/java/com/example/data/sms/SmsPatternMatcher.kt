@@ -245,11 +245,6 @@ object SmsPatternMatcher {
             SmsPatternSlotKind.SOURCE_ACCOUNT, SmsPatternSlotKind.DESTINATION_ACCOUNT,
             SmsPatternSlotKind.SOURCE_CARD, SmsPatternSlotKind.DESTINATION_CARD
         )
-        if (sorted.any { slot ->
-                slot.kind in accountKinds &&
-                    (slot.allowedValues.isEmpty() ||
-                        slot.allowedValues.none { normalizeDigits(it) == normalizeDigits(sample.substring(slot.start, slot.endExclusive)) })
-            }) return emptyList()
         var previousEnd = 0
         for (slot in sorted) {
             if (slot.start < previousEnd || slot.start < 0 ||
@@ -257,6 +252,11 @@ object SmsPatternMatcher {
             ) return emptyList()
             previousEnd = slot.endExclusive
         }
+        if (sorted.any { slot ->
+                slot.kind in accountKinds &&
+                    (slot.allowedValues.isEmpty() ||
+                        slot.allowedValues.none { normalizeDigits(it) == normalizeDigits(sample.substring(slot.start, slot.endExclusive)) })
+            }) return emptyList()
         return sorted
     }
 
