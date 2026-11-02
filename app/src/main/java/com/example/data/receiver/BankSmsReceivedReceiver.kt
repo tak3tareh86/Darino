@@ -25,7 +25,12 @@ class BankSmsReceivedReceiver : BroadcastReceiver() {
                 SessionManager.init(appContext)
                 val userId = SessionManager.userId ?: return@launch
                 val repository = BankSmsRepository.getInstance(appContext)
-                val newSuggestions = repository.readInboxBankSms(userId)
+                // The system delivers this broadcast immediately after receipt; a small
+                // look-back accounts for provider insertion/broadcast scheduling latency.
+                val newSuggestions = repository.readInboxBankSms(
+                    userId,
+                    receivedAfterMillis = System.currentTimeMillis() - 10 * 60 * 1000L
+                )
                 val processed = repository.getProcessedSmsIds(userId)
                 val dismissed = repository.getDismissedSmsIds(userId)
                 val current = repository.getPendingSmsSuggestions(userId)
