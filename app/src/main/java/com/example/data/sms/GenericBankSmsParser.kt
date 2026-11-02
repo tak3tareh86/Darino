@@ -185,6 +185,7 @@ object GenericBankSmsParser {
                 val century = (referenceYear / 100) * 100
                 var resolved = century + first
                 if (resolved > referenceYear) resolved -= 100
+                if (resolved !in (referenceYear - 1)..referenceYear) return null
                 year = resolved
                 month = second
                 day = third
