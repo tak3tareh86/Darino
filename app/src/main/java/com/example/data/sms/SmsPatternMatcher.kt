@@ -96,6 +96,13 @@ object SmsPatternMatcher {
             // Looking across several whitespace tokens can leak "balance" into
             // the following transaction amount (or vice versa).
             val nearestLabel = semanticLabelRegex.findAll(contextBefore).lastOrNull()?.value
+            // Long identifiers following an explicit source phrase are account numbers,
+            // not transaction amounts (e.g. "برداشت از:700100...").
+            val compactNumber = number.value.filter { it in '0'..'9' || it in '۰'..'۹' || it in '٠'..'٩' }
+            val explicitAccountSource = Regex("""(?:برداشت|واریز|انتقال)\\s+از\\s*[:：]?\\s*$""").containsMatchIn(contextBefore) ||
+                Regex("""(?:واریز|انتقال)\\s+به\\s*[:：]?\\s*$""").containsMatchIn(contextBefore)
+            if (compactNumber.length >= 8 && explicitAccountSource) return@forEach
+
             // Never vary a number explicitly attached to an account/card label.
             // A transaction label in the current field context takes precedence over
             // an account label on the previous line/token.
@@ -290,6 +297,30 @@ object SmsPatternMatcher {
             kind == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR ||
             kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY ||
             kind == SmsPatternSlotKind.TIME
+
+        // Amount/balance grouping marks are numeric formatting, so their count
+        // must grow or shrink with the amount (50,000 -> 1,000,000 -> 10,000).
+        // The exact grouping character used by the sample remains constrained.
+        val amountKinds = setOf(
+            SmsPatternSlotKind.AMOUNT_RIAL, SmsPatternSlotKind.AMOUNT_TOMAN,
+            SmsPatternSlotKind.BALANCE_RIAL, SmsPatternSlotKind.BALANCE_TOMAN
+        )
+        if (kind in amountKinds) {
+            val numericRun = Regex("""[0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬]*""").find(value)
+            val separators = numericRun?.value?.filter { it == ',' || it == '،' || it == '٬' }?.distinct().orEmpty()
+            if (numericRun != null && separators.size == 1) {
+                val separator = Regex.escape(separators.single().toString())
+                val digit = "[0-9۰-۹٠-٩]"
+                append(Regex.escape(value.substring(0, numericRun.range.first)))
+                append("(?:")
+                append(digit).append("+|")
+                append(digit).append("{1,3}(?:").append(separator).append(digit).append("{3})+")
+                append(")")
+                append(Regex.escape(value.substring(numericRun.range.last + 1)))
+                return
+            }
+        }
+
         var cursor = 0
         Regex("""[0-9۰-۹٠-٩]+""").findAll(value).forEach { digits ->
             append(Regex.escape(value.substring(cursor, digits.range.first)))
