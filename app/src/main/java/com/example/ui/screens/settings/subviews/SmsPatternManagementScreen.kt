@@ -368,6 +368,14 @@ private fun SmsPatternEditorDialog(
     }
     val normalizedMessage = message
     val inferredSlots = remember(normalizedMessage) { SmsPatternMatcher.inferVariableSlots(normalizedMessage) }
+    var compactDateOrder by remember(pattern?.id) {
+        mutableStateOf(
+            pattern?.slots?.firstOrNull {
+                it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY || it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+            }?.kind ?: SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
+        )
+    }
+    val hasAmbiguousShortDate = inferredSlots.any { it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY }
     val accountRange = remember(normalizedMessage) { SmsPatternMatcher.inferAccountIdentifierRange(normalizedMessage) }
     val sampleAccountNumber = accountRange?.let { normalizedMessage.substring(it.first, it.last + 1) }
     LaunchedEffect(normalizedMessage, sampleAccountNumber) {
@@ -441,6 +449,25 @@ private fun SmsPatternEditorDialog(
                         }
                     }
                 }
+                if (hasAmbiguousShortDate) {
+                    Text(
+                        "ترتیب تاریخ دورقمی را مشخص کنید؛ تشخیص خودکار به‌تنهایی نمی‌تواند این دو قالب را از هم تفکیک کند.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = compactDateOrder == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY,
+                            onClick = { compactDateOrder = SmsPatternSlotKind.DATE_YEAR_MONTH_DAY },
+                            label = { Text("سال / ماه / روز") }
+                        )
+                        FilterChip(
+                            selected = compactDateOrder == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR,
+                            onClick = { compactDateOrder = SmsPatternSlotKind.DATE_DAY_MONTH_YEAR },
+                            label = { Text("روز / ماه / سال") }
+                        )
+                    }
+                }
                 if (accountRange != null && sampleAccountNumber != null) {
                     Text(
                         "شماره حساب/کارت نمونه شناسایی شد. شماره حساب نمونه به‌صورت خودکار مجاز است؛ برای حساب‌های دیگر همین بانک، هر شماره را در یک خط وارد کنید. فقط شماره‌های این فهرست پذیرفته می‌شوند.",
@@ -471,9 +498,14 @@ private fun SmsPatternEditorDialog(
             Button(
                 onClick = {
                     val enteredAccounts = allowedAccountNumbers.split(Regex("[\n,;]+")).map { it.trim() }.filter { it.isNotBlank() }
+                    val dateAdjustedSlots = inferredSlots.map { slot ->
+                        if (slot.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY) {
+                            slot.copy(kind = compactDateOrder)
+                        } else slot
+                    }
                     val slots = SmsPatternMatcher.configureAllowedAccountNumbers(
                         normalizedMessage,
-                        inferredSlots,
+                        dateAdjustedSlots,
                         enteredAccounts
                     )
                     onSave(name, type, normalizedMessage, slots)
