@@ -55,10 +55,11 @@ object SmsPatternMatcher {
             if (digits !in 4..13) return@mapIndexedNotNull null
             val context = tokens.subList(maxOf(0, index - 3), index).joinToString(" ") { it.value } +
                 " " + tokens.getOrNull(index + 1)?.value.orEmpty()
-            val hasAmountLabel = Regex("""(مبلغ|وجه|واریز|برداشت|خرید|پرداخت|انتقال)""").containsMatchIn(context)
+            val hasAmountLabel = Regex("""(مبلغ|وجه|واریز|برداشت|خرید|پرداخت|انتقال|ریال|تومان)""").containsMatchIn(context)
             val currency = tokens.getOrNull(index + 1)?.value.orEmpty()
             val kind = if (currency.contains("ریال")) SmsPatternSlotKind.AMOUNT_RIAL
                 else SmsPatternSlotKind.AMOUNT_TOMAN
+            if (!hasAmountLabel) return@mapIndexedNotNull null
             Triple(token, digits, if (hasAmountLabel) 1000 + digits else digits)
                 .let { Triple(it.first, it.second, Pair(it.third, kind)) }
         }
