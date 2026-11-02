@@ -30,7 +30,7 @@ object SmsPatternMatcher {
         val dateRegex = Regex("""^\d{1,4}[/.-]\d{1,2}(?:[/.-]\d{2,4})?[،,;:]?$""")
         val timeRegex = Regex("""^\d{1,2}:\d{2}(?::\d{2})?$""")
         val numericRegex = Regex("""^[+−-]?[\d۰-۹٠-٩][\d۰-۹٠-٩,،٬٫.]*$""")
-        val dateToken = tokens.firstOrNull { dateRegex.matches(it.value.trimEnd(',', '،', ';')) }
+        val dateToken = tokens.firstOrNull { dateRegex.matches(it.value.trimEnd(',', '،', ';', ':')) }
         if (dateToken != null) {
             val parts = dateToken.value.trimEnd(',', '،', ';').split(Regex("[/.-]"))
             val kind = when {
@@ -57,7 +57,7 @@ object SmsPatternMatcher {
                 " " + tokens.getOrNull(index + 1)?.value.orEmpty()
             val hasAmountLabel = Regex("""(مبلغ|وجه|واریز|برداشت|خرید|پرداخت|انتقال|ریال|تومان)""").containsMatchIn(context)
             val currency = tokens.getOrNull(index + 1)?.value.orEmpty()
-            val kind = if (currency.contains("ریال")) SmsPatternSlotKind.AMOUNT_RIAL
+            val kind = if (currency.contains("ریال") || context.contains("ریال")) SmsPatternSlotKind.AMOUNT_RIAL
                 else SmsPatternSlotKind.AMOUNT_TOMAN
             if (!hasAmountLabel) return@mapIndexedNotNull null
             Triple(token, digits, if (hasAmountLabel) 1000 + digits else digits)
