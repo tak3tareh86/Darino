@@ -314,7 +314,7 @@ object SmsPatternMatcher {
         )
         if (kind in amountKinds) {
             val numericRun = Regex("""[0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬]*""").find(value)
-            val separators = numericRun?.value?.filter { it == ',' || it == '،' || it == '٬' }?.distinct().orEmpty()
+            val separators = numericRun?.value?.filter { it == ',' || it == '،' || it == '٬' }?.toList()?.distinct().orEmpty()
             if (numericRun != null && separators.size == 1) {
                 val separator = Regex.escape(separators.single().toString())
                 val digit = "[0-9۰-۹٠-٩]"
