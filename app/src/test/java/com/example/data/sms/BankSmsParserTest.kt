@@ -373,7 +373,8 @@ class BankSmsParserTest {
     @Test
     fun compactBankSmsWithAttachedLabelsAndHyphenatedDateTimeIsRecognized() {
         val sample = "حساب4785914725\\nبرداشت50,000\\nمانده7,963,304\\n05/08/11-06:53"
-        val slots = SmsPatternMatcher.inferVariableSlots(sample)
+        val inferred = SmsPatternMatcher.inferVariableSlots(sample)
+        val slots = SmsPatternMatcher.configureAllowedAccountNumbers(sample, inferred, listOf("4785914725"))
 
         assertEquals("50,000", slots.single { it.kind == SmsPatternSlotKind.AMOUNT_TOMAN }
             .let { sample.substring(it.start, it.endExclusive) })
@@ -395,6 +396,7 @@ class BankSmsParserTest {
         )
         assertEquals(125_000L, parsed?.amount)
         assertEquals(8_963_304L, parsed?.balanceAmount)
+        assertEquals("حساب 4785914725", parsed?.sourceAccount)
     }
 
 }
