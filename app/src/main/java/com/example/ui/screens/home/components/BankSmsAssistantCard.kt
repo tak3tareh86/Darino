@@ -1218,7 +1218,7 @@ fun EditSmsTransactionDialog(
                                     style = MaterialTheme.typography.bodySmall
                                 )
                                 Text(
-                                    "حساب متناظر در دارینو را انتخاب کنید.",
+                                    "اگر شماره کامل در حساب دارینو ذخیره شده باشد، حساب متناظر خودکار انتخاب می‌شود؛ در غیر این صورت آن را دستی انتخاب کنید.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
