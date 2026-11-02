@@ -11,8 +11,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * Processes an arriving SMS against the user's saved templates, even when the
- * application process was not already running. Raw SMS content is never logged.
+ * Processes arriving messages through configured templates and generic bank recognition,
+ * even when the application process was not already running. Raw SMS content is never logged.
  */
 class BankSmsReceivedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {

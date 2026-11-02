@@ -73,15 +73,11 @@ class SmsPatternRepository(context: Context) {
     }
 
     /**
-     * Returns the fixed per-user lower bound for SMS recognition. Existing installations
-     * that already have templates but no timestamp are safely migrated to a 24-hour window
-     * from the first access after this update; the timestamp is then permanent until the
-     * user removes every template.
+     * A stable 24-hour lower bound is created even before a template exists,
+     * allowing generic recognition to scan the inbox without user-defined patterns.
      */
     @Synchronized
     fun getRecognitionStartMillis(userId: String? = SessionManager.userId): Long? {
-        val patterns = getPatterns(userId)
-        if (patterns.isEmpty()) return null
         val key = recognitionStartKey(userId)
         preferences.getLong(key, 0L).takeIf { it > 0L }?.let { return it }
         val start = System.currentTimeMillis() - SMS_RECOGNITION_LOOKBACK_MILLIS
