@@ -291,6 +291,35 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun periodThousandsGroupingCanGrowOrShrinkWithoutChangingSeparator() {
+        val sample = "برداشت مبلغ 50.000 تومان"
+        val pattern = SmsPattern(
+            id = "period-grouping",
+            name = "مبلغ با نقطه",
+            type = SmsPatternType.EXPENSE,
+            sampleMessage = sample,
+            slots = listOf(slot(sample, "50.000", SmsPatternSlotKind.AMOUNT_TOMAN))
+        )
+
+        listOf(
+            "برداشت مبلغ 5.000 تومان",
+            "برداشت مبلغ 500.000 تومان",
+            "برداشت مبلغ 1.000.000 تومان",
+            "برداشت مبلغ 500000 تومان"
+        ).forEach { assertNotNull(SmsPatternMatcher.findUniqueMatch(it, listOf(pattern))) }
+
+        assertNull(SmsPatternMatcher.findUniqueMatch("برداشت مبلغ 500,000 تومان", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("برداشت مبلغ 500،000 تومان", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("برداشت مبلغ 50.00.000 تومان", listOf(pattern)))
+
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "sms-period-grouping", "bank", "برداشت مبلغ 1.000.000 تومان",
+            1_700_000_000_000L, pattern
+        )
+        assertEquals(1_000_000L, parsed?.amount)
+    }
+
+    @Test
     fun multipleAccountNumbersAreExplicitlyWhitelistedForOneTemplate() {
         val sample = "برداشت از:9876543210987 مبلغ:50,000 تومان"
         val inferred = SmsPatternMatcher.inferVariableSlots(sample)
