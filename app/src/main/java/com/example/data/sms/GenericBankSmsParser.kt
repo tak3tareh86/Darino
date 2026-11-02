@@ -125,8 +125,16 @@ object GenericBankSmsParser {
             TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountToman, isExpense = false)
             TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountToman)
         }
-        val accountNumber = Regex("""(?:حساب|کارت)\s*[:：]?\s*([0-9۰-۹٠-٩*]{4,26})""")
-            .find(normalized)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+        val destinationAccountNumber = Regex(
+            """(?:به|مقصد)\s*(?:حساب|کارت)\s*[:：]?\s*([0-9۰-۹٠-٩*]{4,26})"""
+        ).find(normalized)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+        val sourceAccountNumber = Regex(
+            """(?:از|مبدأ|مبدا)\s*(?:حساب|کارت)\s*[:：]?\s*([0-9۰-۹٠-٩*]{4,26})"""
+        ).find(normalized)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+            ?: if (destinationAccountNumber == null) {
+                Regex("""(?:حساب|کارت)\s*[:：]?\s*([0-9۰-۹٠-٩*]{4,26})""")
+                    .find(normalized)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+            } else null
         val tracking = Regex("""(?:پیگیری|رهگیری|شناسه)\s*[:：]?\s*([A-Za-z0-9۰-۹٠-٩-]{4,32})""", RegexOption.IGNORE_CASE)
             .find(normalized)?.groupValues?.get(1)
 
@@ -146,7 +154,8 @@ object GenericBankSmsParser {
                 TransactionType.EXPENSE -> "برداشت"
                 TransactionType.TRANSFER -> "انتقال وجه"
             },
-            sourceAccount = accountNumber?.let { "حساب/کارت $it" },
+            sourceAccount = sourceAccountNumber?.let { "حساب/کارت $it" },
+            destinationAccount = destinationAccountNumber?.let { "حساب/کارت $it" },
             rawSender = sender,
             timestampMillis = finalTimestamp,
             balanceAmount = balance,
