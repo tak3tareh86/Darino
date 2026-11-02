@@ -472,6 +472,11 @@ private fun SmsPatternEditorDialog(
                             onClick = { compactDateOrder = SmsPatternSlotKind.DATE_DAY_MONTH_YEAR },
                             label = { Text("روز / ماه / سال") }
                         )
+                        FilterChip(
+                            selected = compactDateOrder == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR,
+                            onClick = { compactDateOrder = SmsPatternSlotKind.DATE_MONTH_DAY_YEAR },
+                            label = { Text("ماه / روز / سال") }
+                        )
                     }
                 }
                 if (accountRange != null && sampleAccountNumber != null) {
