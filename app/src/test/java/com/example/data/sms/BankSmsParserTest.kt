@@ -283,6 +283,10 @@ class BankSmsParserTest {
         listOf("برداشت مبلغ 10,000 تومان", "برداشت مبلغ 500000 تومان",
             "برداشت مبلغ 1,000,000 تومان", "برداشت مبلغ 1000000 تومان")
             .forEach { assertNotNull(SmsPatternMatcher.findUniqueMatch(it, listOf(pattern))) }
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "sms-variable-amount", "bank", "برداشت مبلغ 1,000,000 تومان", 1_700_000_000_000L, pattern
+        )
+        assertEquals(1_000_000L, parsed?.amount)
         assertNull(SmsPatternMatcher.findUniqueMatch("برداشت مبلغ 1.000.000 تومان", listOf(pattern)))
     }
 
@@ -300,6 +304,11 @@ class BankSmsParserTest {
         assertNull(SmsPatternMatcher.findUniqueMatch(
             "برداشت از:7001006372496 مبلغ:1,000,000 تومان", listOf(pattern)
         ))
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "sms-account", "bank", "برداشت از:7001006372494 مبلغ:1,000,000 تومان",
+            1_700_000_000_000L, pattern
+        )
+        assertEquals("حساب 7001006372494", parsed?.sourceAccount)
     }
 
     @Test
@@ -321,5 +330,14 @@ class BankSmsParserTest {
         )
         assertEquals("1405/09/12", parsed?.dateText)
         assertEquals(200L, parsed?.amount)
+    }
+
+    @Test
+    fun automaticInferenceRecognizesDayMonthWithTrailingFourDigitYear() {
+        val sample = "تاریخ 11/08/1405 مبلغ 100 تومان"
+        val dateSlot = SmsPatternMatcher.inferVariableSlots(sample).single {
+            it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+        }
+        assertEquals("11/08/1405", sample.substring(dateSlot.start, dateSlot.endExclusive))
     }
 }
