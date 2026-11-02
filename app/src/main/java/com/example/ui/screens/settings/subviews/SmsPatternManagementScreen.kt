@@ -363,7 +363,7 @@ private fun SmsPatternEditorDialog(
         mutableStateOf(
             pattern?.slots
                 ?.firstOrNull { it.kind == SmsPatternSlotKind.SOURCE_ACCOUNT || it.kind == SmsPatternSlotKind.SOURCE_CARD }
-                ?.allowedValues?.joinToString("\\n").orEmpty()
+                ?.allowedValues?.joinToString("\n").orEmpty()
         )
     }
     val normalizedMessage = message
@@ -455,7 +455,7 @@ private fun SmsPatternEditorDialog(
                         minLines = 2,
                         maxLines = 4,
                         label = { Text("شماره حساب‌ها / کارت‌های مجاز") },
-                        placeholder = { Text("شماره اول\\nشماره دوم\\nشماره سوم") },
+                        placeholder = { Text("شماره اول\nشماره دوم\nشماره سوم") },
                         supportingText = { Text("هر خط یک شماره؛ شماره نمونه نیز به‌طور خودکار افزوده می‌شود.") }
                     )
                 }
@@ -470,7 +470,7 @@ private fun SmsPatternEditorDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val enteredAccounts = allowedAccountNumbers.split(Regex("[\\n,;]+")).map { it.trim() }.filter { it.isNotBlank() }
+                    val enteredAccounts = allowedAccountNumbers.split(Regex("[\n,;]+")).map { it.trim() }.filter { it.isNotBlank() }
                     val slots = SmsPatternMatcher.configureAllowedAccountNumbers(
                         normalizedMessage,
                         inferredSlots,
