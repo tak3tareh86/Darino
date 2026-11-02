@@ -69,11 +69,11 @@ object BankSmsParser {
                 fields.first(SmsPatternSlotKind.DATE_MONTH_DAY) != null ->
                     parseJalaliDate(fields.first(SmsPatternSlotKind.DATE_MONTH_DAY)!!, defaultDateTime.year, dayFirst = false)
                 fields.first(SmsPatternSlotKind.DATE_DAY_MONTH_YEAR) != null -> {
-                    val p = IranianPhoneUtils.convertDigitsToEnglish(fields.first(SmsPatternSlotKind.DATE_DAY_MONTH_YEAR)!!).split(Regex("[/.-]"))
+                    val p = IranianPhoneUtils.convertDigitsToEnglish(fields.first(SmsPatternSlotKind.DATE_DAY_MONTH_YEAR)!!).trim().trimEnd(',', '،', ';', ':').split(Regex("[/.-]"))
                     if (p.size != 3) null else parseJalaliDate("${p[2]}/${p[1]}/${p[0]}", defaultDateTime.year, dayFirst = false)
                 }
                 fields.first(SmsPatternSlotKind.DATE_MONTH_DAY_YEAR) != null -> {
-                    val p = IranianPhoneUtils.convertDigitsToEnglish(fields.first(SmsPatternSlotKind.DATE_MONTH_DAY_YEAR)!!).split(Regex("[/.-]"))
+                    val p = IranianPhoneUtils.convertDigitsToEnglish(fields.first(SmsPatternSlotKind.DATE_MONTH_DAY_YEAR)!!).trim().trimEnd(',', '،', ';', ':').split(Regex("[/.-]"))
                     if (p.size != 3) null else parseJalaliDate("${p[2]}/${p[0]}/${p[1]}", defaultDateTime.year, dayFirst = false)
                 }
                 else -> Triple(defaultDateTime.year, defaultDateTime.month, defaultDateTime.day)
