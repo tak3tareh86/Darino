@@ -358,7 +358,7 @@ private fun SmsPatternEditorDialog(
     var name by remember(pattern?.id) { mutableStateOf(pattern?.name.orEmpty()) }
     var type by remember(pattern?.id) { mutableStateOf(pattern?.type ?: SmsPatternType.INCOME) }
     var message by remember(pattern?.id) { mutableStateOf(pattern?.sampleMessage.orEmpty()) }
-    val normalizedMessage = BankSmsParser.normalizeText(message)
+    val normalizedMessage = message
 
     AlertDialog(
         onDismissRequest = onDismiss,
