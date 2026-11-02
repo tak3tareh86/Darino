@@ -8,6 +8,8 @@ import com.example.data.security.SessionManager
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.sms.SmsPatternRepository
 import com.example.data.sms.BankSmsRepository
+import com.example.ui.screens.home.domain.BankSmsSuggestion
+import com.example.ui.screens.finance.model.TransactionType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -87,7 +89,29 @@ class LocalBackupRepository(
             val smsPatterns = smsPatternRepository.getPatterns(userId)
             val smsRecognitionStartMillis = smsPatternRepository.getRecognitionStartMillis(userId)
             val pendingBankSmsSuggestions =
-                BankSmsRepository.getInstance(context).exportPendingSmsSuggestions(userId)
+                BankSmsRepository.getInstance(context).exportPendingSmsSuggestions(userId).map { item ->
+                    PendingBankSmsBackup(
+                        id = item.id,
+                        bankName = item.bankName,
+                        amount = item.amount,
+                        formattedAmount = item.formattedAmount,
+                        isAmountValid = item.isAmountValid,
+                        type = item.type?.name,
+                        isTypeUncertain = item.isTypeUncertain,
+                        smsText = item.smsText,
+                        dateText = item.dateText,
+                        timeText = item.timeText,
+                        category = item.category,
+                        sourceAccount = item.sourceAccount,
+                        destinationAccount = item.destinationAccount,
+                        rawSender = item.rawSender,
+                        parseError = item.parseError,
+                        timestampMillis = item.timestampMillis,
+                        balanceAmount = item.balanceAmount,
+                        trackingCode = item.trackingCode,
+                        patternId = item.patternId
+                    )
+                }
             val appPreferences = AppPreferencesRepository.getInstance(context)
             val appSettings = AppSettingsBackup(
                 themeMode = appPreferences.themeMode.value.name,
@@ -501,7 +525,29 @@ class LocalBackupRepository(
                 )
                 bankSmsRepository.restorePendingSmsSuggestions(
                     userId = userId,
-                    suggestions = backup.pendingBankSmsSuggestions,
+                    suggestions = backup.pendingBankSmsSuggestions.map { item ->
+                        BankSmsSuggestion(
+                            id = item.id,
+                            bankName = item.bankName,
+                            amount = item.amount,
+                            formattedAmount = item.formattedAmount,
+                            isAmountValid = item.isAmountValid,
+                            type = item.type?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() },
+                            isTypeUncertain = item.isTypeUncertain,
+                            smsText = item.smsText,
+                            dateText = item.dateText,
+                            timeText = item.timeText,
+                            category = item.category,
+                            sourceAccount = item.sourceAccount,
+                            destinationAccount = item.destinationAccount,
+                            rawSender = item.rawSender,
+                            parseError = item.parseError,
+                            timestampMillis = item.timestampMillis,
+                            balanceAmount = item.balanceAmount,
+                            trackingCode = item.trackingCode,
+                            patternId = item.patternId
+                        )
+                    },
                     replaceExisting = mode == RestoreMode.REPLACE
                 )
             }
