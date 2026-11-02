@@ -369,4 +369,33 @@ class BankSmsParserTest {
         }
         assertEquals("11/08/1405", sample.substring(dateSlot.start, dateSlot.endExclusive))
     }
+
+    @Test
+    fun compactBankSmsWithAttachedLabelsAndHyphenatedDateTimeIsRecognized() {
+        val sample = "حساب4785914725\\nبرداشت50,000\\nمانده7,963,304\\n05/08/11-06:53"
+        val slots = SmsPatternMatcher.inferVariableSlots(sample)
+
+        assertEquals("50,000", slots.single { it.kind == SmsPatternSlotKind.AMOUNT_TOMAN }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals("7,963,304", slots.single { it.kind == SmsPatternSlotKind.BALANCE_TOMAN }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals("05/08/11", slots.single { it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY }
+            .let { sample.substring(it.start, it.endExclusive) })
+        assertEquals("06:53", slots.single { it.kind == SmsPatternSlotKind.TIME }
+            .let { sample.substring(it.start, it.endExclusive) })
+
+        val pattern = SmsPattern("compact-bank", "بانک", SmsPatternType.EXPENSE, sample, slots)
+        val changedMessage = "حساب4785914725\\nبرداشت125,000\\nمانده8,963,304\\n05/08/12-07:54"
+        assertNotNull(SmsPatternMatcher.findUniqueMatch(changedMessage, listOf(pattern)))
+
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "sms-compact", "bank", changedMessage,
+            com.example.util.PersianCalendarHelper.jalaliToEpochMillis(1405, 8, 12, 8, 0),
+            pattern
+        )
+        assertEquals(125_000L, parsed?.amount)
+        assertEquals(8_963_304L, parsed?.balanceAmount)
+        assertEquals("حساب 4785914725", parsed?.sourceAccount)
+    }
+
 }
