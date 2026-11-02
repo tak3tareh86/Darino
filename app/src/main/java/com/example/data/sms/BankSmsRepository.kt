@@ -181,6 +181,29 @@ class BankSmsRepository(private val context: Context) {
         pendingQueuePreferences.edit().putString(key, array.toString()).apply()
     }
 
+    /** Returns only validated, currently actionable queue entries for portable backup. */
+    fun exportPendingSmsSuggestions(userId: String): List<BankSmsSuggestion> =
+        getPendingSmsSuggestions(userId)
+
+    /**
+     * Restores review items after their templates and recognition boundary are restored.
+     * Raw SMS data remains encrypted at rest on the destination device.
+     */
+    fun restorePendingSmsSuggestions(
+        userId: String,
+        suggestions: List<BankSmsSuggestion>,
+        replaceExisting: Boolean
+    ) {
+        val combined = if (replaceExisting) {
+            suggestions
+        } else {
+            (getPendingSmsSuggestions(userId) + suggestions)
+                .distinctBy { it.id }
+                .takeLast(MAX_PERSISTED_PENDING_SMS)
+        }
+        savePendingSmsSuggestions(userId, combined)
+    }
+
     fun removePendingSmsSuggestion(smsId: String, userId: String? = null) {
         savePendingSmsSuggestions(userId, getPendingSmsSuggestions(userId).filterNot { it.id == smsId })
     }
