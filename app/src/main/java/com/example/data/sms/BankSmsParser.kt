@@ -12,7 +12,13 @@ import com.example.util.PersianCalendarHelper
  */
 object BankSmsParser {
 
-    fun normalizeText(input: String): String = input
+    fun normalizeText(input: String): String =
+        IranianPhoneUtils.convertDigitsToEnglish(input)
+            .replace('ي', 'ی')
+            .replace('ك', 'ک')
+            .replace('\u00A0', ' ')
+            .replace(Regex("""[\\t ]+"""), " ")
+            .trim()
 
     fun parseMatchedPattern(
         smsId: String,
