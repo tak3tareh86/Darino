@@ -26,6 +26,7 @@ enum class SmsPatternSlotKind(val title: String) {
     DATE_MONTH_DAY("تاریخ (ماه/روز)"),
     DATE_DAY_MONTH_YEAR("تاریخ کامل (روز/ماه/سال)"),
     DATE_MONTH_DAY_YEAR("تاریخ کامل (ماه/روز/سال)"),
+    DATE_YEAR_MONTH_DAY("تاریخ کامل (سال دورقمی/ماه/روز)"),
     TIME("ساعت"),
     SOURCE_CARD("کارت مبدأ"),
     DESTINATION_CARD("کارت مقصد"),
@@ -39,7 +40,9 @@ enum class SmsPatternSlotKind(val title: String) {
 data class SmsPatternSlot(
     val start: Int,
     val endExclusive: Int,
-    val kind: SmsPatternSlotKind
+    val kind: SmsPatternSlotKind,
+    /** Exact account/card identifiers permitted in this slot; empty for ordinary numeric slots. */
+    val allowedValues: List<String> = emptyList()
 )
 
 data class SmsPattern(
@@ -111,8 +114,14 @@ class SmsPatternRepository(context: Context) {
                             }.getOrNull() ?: continue
                             val start = slot.optInt("start", -1)
                             val end = slot.optInt("endExclusive", -1)
+                            val allowedJson = slot.optJSONArray("allowedValues") ?: JSONArray()
+                            val allowedValues = buildList {
+                                for (valueIndex in 0 until allowedJson.length()) {
+                                    allowedJson.optString(valueIndex).trim().takeIf { it.isNotEmpty() }?.let(::add)
+                                }
+                            }.distinct()
                             if (start >= 0 && end > start && end <= message.length) {
-                                add(SmsPatternSlot(start, end, kind))
+                                add(SmsPatternSlot(start, end, kind, allowedValues))
                             }
                         }
                     }
@@ -182,6 +191,7 @@ class SmsPatternRepository(context: Context) {
                         .put("start", slot.start)
                         .put("endExclusive", slot.endExclusive)
                         .put("kind", slot.kind.name)
+                        .put("allowedValues", JSONArray(slot.allowedValues))
                 )
             }
             array.put(
