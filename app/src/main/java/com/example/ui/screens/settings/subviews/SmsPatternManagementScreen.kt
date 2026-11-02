@@ -44,6 +44,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -358,7 +359,22 @@ private fun SmsPatternEditorDialog(
     var name by remember(pattern?.id) { mutableStateOf(pattern?.name.orEmpty()) }
     var type by remember(pattern?.id) { mutableStateOf(pattern?.type ?: SmsPatternType.INCOME) }
     var message by remember(pattern?.id) { mutableStateOf(pattern?.sampleMessage.orEmpty()) }
+    var allowedAccountNumbers by remember(pattern?.id) {
+        mutableStateOf(
+            pattern?.slots
+                ?.firstOrNull { it.kind == SmsPatternSlotKind.SOURCE_ACCOUNT || it.kind == SmsPatternSlotKind.SOURCE_CARD }
+                ?.allowedValues?.joinToString("\\n").orEmpty()
+        )
+    }
     val normalizedMessage = message
+    val inferredSlots = remember(normalizedMessage) { SmsPatternMatcher.inferVariableSlots(normalizedMessage) }
+    val accountRange = remember(normalizedMessage) { SmsPatternMatcher.inferAccountIdentifierRange(normalizedMessage) }
+    val sampleAccountNumber = accountRange?.let { normalizedMessage.substring(it.first, it.last + 1) }
+    LaunchedEffect(normalizedMessage, sampleAccountNumber) {
+        if (allowedAccountNumbers.isBlank() && sampleAccountNumber != null) {
+            allowedAccountNumbers = sampleAccountNumber
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -409,8 +425,42 @@ private fun SmsPatternEditorDialog(
                     placeholder = { Text("متن پیامک را از صندوق پیامک کپی و اینجا جای‌گذاری کنید...") },
                     supportingText = { Text("${message.length} نویسه") }
                 )
+                if (normalizedMessage.isNotBlank()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("بخش‌های متغیر تشخیص‌داده‌شده", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                        if (inferredSlots.isEmpty()) {
+                            Text("بخش متغیری تشخیص داده نشد؛ نمونه را بررسی کنید.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        } else {
+                            inferredSlots.forEach { slot ->
+                                Text(
+                                    "• ${slot.kind.title}: ${normalizedMessage.substring(slot.start, slot.endExclusive)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+                if (accountRange != null && sampleAccountNumber != null) {
+                    Text(
+                        "شماره حساب/کارت نمونه شناسایی شد. شماره حساب نمونه به‌صورت خودکار مجاز است؛ برای حساب‌های دیگر همین بانک، هر شماره را در یک خط وارد کنید. فقط شماره‌های این فهرست پذیرفته می‌شوند.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 18.sp
+                    )
+                    OutlinedTextField(
+                        value = allowedAccountNumbers,
+                        onValueChange = { allowedAccountNumbers = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4,
+                        label = { Text("شماره حساب‌ها / کارت‌های مجاز") },
+                        placeholder = { Text("شماره اول\\nشماره دوم\\nشماره سوم") },
+                        supportingText = { Text("هر خط یک شماره؛ شماره نمونه نیز به‌طور خودکار افزوده می‌شود.") }
+                    )
+                }
                 Text(
-                    "مبلغ، مانده، تاریخ، ساعت و کد پیگیری می‌توانند تغییر کنند؛ اما شماره حساب و کارت ثابت می‌مانند. فاصله‌ها و تمام علائم نگارشی باید دقیقاً مطابق نمونه باشند؛ مثلاً : و - و . و / و , قابل جایگزینی نیستند. قالب تاریخ و ساعت نیز باید همان قالب ثبت‌شده باشد.",
+                    "مبلغ و موجودی با هر تعداد رقم تغییر می‌کنند. روز، ماه، سال و ساعت فقط در قالب تشخیص‌داده‌شده تغییر می‌کنند. متن ثابت، شماره‌های خارج از فهرست مجاز، فاصله‌ها و تمام علائم نگارشی دقیقاً مطابق نمونه باقی می‌مانند.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 18.sp
@@ -420,7 +470,12 @@ private fun SmsPatternEditorDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val slots = SmsPatternMatcher.inferVariableSlots(normalizedMessage)
+                    val enteredAccounts = allowedAccountNumbers.split(Regex("[\\n,;]+")).map { it.trim() }.filter { it.isNotBlank() }
+                    val slots = SmsPatternMatcher.configureAllowedAccountNumbers(
+                        normalizedMessage,
+                        inferredSlots,
+                        enteredAccounts
+                    )
                     onSave(name, type, normalizedMessage, slots)
                 },
                 enabled = name.isNotBlank() && message.isNotBlank(),
