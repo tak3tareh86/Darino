@@ -453,6 +453,13 @@ private fun SmsPatternEditorDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            if (sampleAccountNumber != null) {
+                                Text(
+                                    "• شماره حساب/کارت (فقط فهرست مجاز): $sampleAccountNumber",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
