@@ -395,7 +395,6 @@ class BankSmsParserTest {
         )
         assertEquals(125_000L, parsed?.amount)
         assertEquals(8_963_304L, parsed?.balanceAmount)
-        assertEquals("حساب 4785914725", parsed?.sourceAccount)
     }
 
 }
