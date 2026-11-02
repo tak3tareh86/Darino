@@ -382,6 +382,7 @@ private fun SmsPatternEditorDialog(
     val hasAmbiguousShortDate = inferredSlots.any {
         it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY || it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
     }
+    val hasYearFirstShortDate = inferredSlots.any { it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY }
     val accountRange = remember(normalizedMessage) { SmsPatternMatcher.inferAccountIdentifierRange(normalizedMessage) }
     val sampleAccountNumber = accountRange?.let { normalizedMessage.substring(it.first, it.last + 1) }
     LaunchedEffect(normalizedMessage, sampleAccountNumber) {
@@ -457,16 +458,18 @@ private fun SmsPatternEditorDialog(
                 }
                 if (hasAmbiguousShortDate) {
                     Text(
-                        "ترتیب تاریخ دورقمی را مشخص کنید؛ تشخیص خودکار به‌تنهایی نمی‌تواند این دو قالب را از هم تفکیک کند.",
+                        "ترتیب تاریخ سه‌بخشی را مشخص کنید؛ تشخیص خودکار به‌تنهایی نمی‌تواند ترتیب اجزا را با اطمینان تعیین کند.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (hasYearFirstShortDate) {
                         FilterChip(
                             selected = compactDateOrder == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY,
                             onClick = { compactDateOrder = SmsPatternSlotKind.DATE_YEAR_MONTH_DAY },
                             label = { Text("سال / ماه / روز") }
                         )
+                        }
                         FilterChip(
                             selected = compactDateOrder == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR,
                             onClick = { compactDateOrder = SmsPatternSlotKind.DATE_DAY_MONTH_YEAR },
