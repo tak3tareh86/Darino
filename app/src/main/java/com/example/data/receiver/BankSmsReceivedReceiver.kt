@@ -43,6 +43,8 @@ class BankSmsReceivedReceiver : BroadcastReceiver() {
 
                 // Notify an active dashboard to reload the persisted queue.
                 appContext.sendBroadcast(Intent(ACTION_BANK_SMS_RECEIVED).setPackage(appContext.packageName))
+            } catch (_: Exception) {
+                // Never crash the receiver process or expose SMS contents in logs.
             } finally {
                 pendingResult.finish()
             }
