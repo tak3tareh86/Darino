@@ -30,6 +30,7 @@ enum class SmsPatternSlotKind(val title: String) {
     SOURCE_ACCOUNT("حساب مبدأ"),
     DESTINATION_ACCOUNT("حساب مقصد"),
     TRACKING("کد پیگیری"),
+    NUMBER("عدد متغیر"),
     FIXED("ثابت (بدون تغییر)")
 }
 
