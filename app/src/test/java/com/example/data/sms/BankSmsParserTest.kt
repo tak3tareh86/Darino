@@ -253,7 +253,7 @@ class BankSmsParserTest {
             .let { sample.substring(it.start, it.endExclusive) })
         assertEquals("8,013,304", slots.single { it.kind == SmsPatternSlotKind.BALANCE_TOMAN }
             .let { sample.substring(it.start, it.endExclusive) })
-        assertEquals("05/08/11", slots.single { it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR }
+        assertEquals("05/08/11", slots.single { it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY }
             .let { sample.substring(it.start, it.endExclusive) })
         assertEquals("06:53", slots.single { it.kind == SmsPatternSlotKind.TIME }
             .let { sample.substring(it.start, it.endExclusive) })
