@@ -246,7 +246,7 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
                     ) {
                         Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                         Text(
-                            "الگوها به‌صورت محلی و رمزگذاری‌شده ذخیره می‌شوند. فقط پیامکی پذیرفته می‌شود که متن ثابت آن دقیقاً با الگو منطبق باشد و جایگاه‌های متغیرِ انتخاب‌شده توسط شما در همان ترتیب قرار داشته باشند. نوع تراکنش نیز فقط از انتخاب شما در الگو گرفته می‌شود.",
+                            "الگوها به‌صورت محلی و رمزگذاری‌شده ذخیره می‌شوند. فقط پیامکی پذیرفته می‌شود که متن ثابت آن دقیقاً با الگو منطبق باشد و جایگاه‌های متغیرِ تشخیص‌داده‌شده و تأییدشده توسط شما در همان ترتیب قرار داشته باشند. نوع تراکنش نیز فقط از انتخاب شما در الگو گرفته می‌شود.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
