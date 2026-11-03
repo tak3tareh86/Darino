@@ -212,7 +212,7 @@ object SmsPatternMatcher {
         inferredSlots: List<SmsPatternSlot>,
         enteredValues: List<String>,
         transactionType: SmsPatternType? = null,
-        transferAccountSide: SmsPatternAccountSide = SmsPatternAccountSide.SOURCE
+        transferAccountSide: SmsPatternAccountSide? = null
     ): List<SmsPatternSlot> {
         val normalizedMessage = normalizeDigits(message)
         val enteredRange = enteredValues.asSequence()
@@ -231,7 +231,7 @@ object SmsPatternMatcher {
         val context = message.substring(maxOf(0, range.first - 48), range.first)
         val isCard = context.contains("کارت")
         val direction = when {
-            transactionType == SmsPatternType.TRANSFER ->
+            transactionType == SmsPatternType.TRANSFER && transferAccountSide != null ->
                 if (transferAccountSide == SmsPatternAccountSide.SOURCE) SmsPatternType.EXPENSE else SmsPatternType.INCOME
             Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(context) ->
                 SmsPatternType.INCOME
