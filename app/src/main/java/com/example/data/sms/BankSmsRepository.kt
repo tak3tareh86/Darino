@@ -146,7 +146,7 @@ class BankSmsRepository(private val context: Context) {
                 val eligibleRules = currentRules.filter { saved.receivedAtMillis >= System.currentTimeMillis() - it.lookbackMillis }
                 val matches = UserBankSmsRuleMatcher.matchAll(saved.smsText, saved.rawSender.orEmpty(), eligibleRules)
                 val match = matches.singleOrNull()?.takeIf { it.type != null && it.rule.id == ruleId } ?: return@mapNotNull null
-                val parsed = GenericBankSmsParser.parse(saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.receivedAtMillis, match.type, match.rule.bankName) ?: return@mapNotNull null
+                val parsed = UserRuleSmsAmountParser.parse(saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.receivedAtMillis, match.rule, match.type!!) ?: return@mapNotNull null
                 return@mapNotNull UserBankSmsRuleMatcher.applyMatch(parsed, match)
             }
             if (saved.patternId.isBlank()) return@mapNotNull null
@@ -311,7 +311,7 @@ class BankSmsRepository(private val context: Context) {
                     if (ruleMatches.isNotEmpty()) {
                         val match = ruleMatches.singleOrNull()?.takeIf { it.type != null }
                         if (match == null) { ambiguousCount++; continue }
-                        val parsedByRule = GenericBankSmsParser.parse(uniqueId, address, body, timestamp, match.type, match.rule.bankName)
+                        val parsedByRule = UserRuleSmsAmountParser.parse(uniqueId, address, body, timestamp, match.rule, match.type!!)
                         if (parsedByRule != null) results.add(UserBankSmsRuleMatcher.applyMatch(parsedByRule, match)) else parseFailureCount++
                         continue
                     }
