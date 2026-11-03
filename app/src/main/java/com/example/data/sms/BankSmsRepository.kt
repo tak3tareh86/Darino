@@ -138,15 +138,18 @@ class BankSmsRepository(private val context: Context) {
             // Do not restore pending suggestions created from SMS outside the active window.
             if (saved.timestampMillis < recognitionStartMillis) return@mapNotNull null
             if (saved.patternId.isBlank()) {
-                val newlyConfiguredMatches = SmsPatternMatcher.findMatchingPatterns(saved.smsText, currentPatterns)
+                val newlyConfiguredMatches = SmsPatternMatcher.findMatchingPatterns(saved.smsText, currentPatterns, saved.rawSender)
                 if (newlyConfiguredMatches.size > 1) return@mapNotNull null
-                val reparsed = if (newlyConfiguredMatches.size == 1) {
-                    BankSmsParser.parseMatchedPattern(
+                val bodyMatchesConfiguredTemplate = currentPatterns.any {
+                    SmsPatternMatcher.matchesTemplateBody(saved.smsText, it)
+                }
+                val reparsed = when {
+                    newlyConfiguredMatches.size == 1 -> BankSmsParser.parseMatchedPattern(
                         saved.id, saved.rawSender.orEmpty(), saved.smsText,
                         saved.timestampMillis, newlyConfiguredMatches.single()
                     )
-                } else {
-                    GenericBankSmsParser.parse(
+                    bodyMatchesConfiguredTemplate -> null // Sender mismatch or invalid/ambiguous configured template: fail closed.
+                    else -> GenericBankSmsParser.parse(
                         saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.timestampMillis
                     )
                 } ?: return@mapNotNull null
@@ -157,7 +160,7 @@ class BankSmsRepository(private val context: Context) {
                 )
             }
             val origin = currentPatterns.singleOrNull { it.id == saved.patternId } ?: return@mapNotNull null
-            val uniqueMatch = SmsPatternMatcher.findUniqueMatch(saved.smsText, currentPatterns)
+            val uniqueMatch = SmsPatternMatcher.findUniqueMatch(saved.smsText, currentPatterns, saved.rawSender)
                 ?: return@mapNotNull null
             if (uniqueMatch.id != origin.id) return@mapNotNull null
             val parsed = BankSmsParser.parseMatchedPattern(saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.timestampMillis, origin)
@@ -276,17 +279,20 @@ class BankSmsRepository(private val context: Context) {
                     }
                     // Prefer one exact user template; otherwise use conservative generic recognition.
                     // Ambiguous configured templates are rejected rather than arbitrarily prioritized.
-                    val matchingPatterns = SmsPatternMatcher.findMatchingPatterns(body, patterns)
+                    val matchingPatterns = SmsPatternMatcher.findMatchingPatterns(body, patterns, address)
                     if (matchingPatterns.size > 1) {
                         ambiguousCount++
                         continue
                     }
-                    val parsed = if (matchingPatterns.size == 1) {
-                        BankSmsParser.parseMatchedPattern(
+                    val bodyMatchesConfiguredTemplate = patterns.any {
+                        SmsPatternMatcher.matchesTemplateBody(body, it)
+                    }
+                    val parsed = when {
+                        matchingPatterns.size == 1 -> BankSmsParser.parseMatchedPattern(
                             uniqueId, address, body, timestamp, matchingPatterns.single()
-                        ) ?: GenericBankSmsParser.parse(uniqueId, address, body, timestamp)
-                    } else {
-                        GenericBankSmsParser.parse(uniqueId, address, body, timestamp)
+                        )
+                        bodyMatchesConfiguredTemplate -> null // Do not bypass an exact sender mismatch through generic parsing.
+                        else -> GenericBankSmsParser.parse(uniqueId, address, body, timestamp)
                     }
                     if (parsed != null) {
                         results.add(parsed)

@@ -261,12 +261,12 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
         SmsPatternEditorDialog(
             pattern = editingPattern,
             onDismiss = { showEditor = false; editingPattern = null },
-            onSave = { name, type, message, slots ->
+            onSave = { name, bankName, senderAddress, accountNumber, dateFormat, timeFormat, type, message, slots ->
                 val existing = editingPattern
                 if (existing == null) {
-                    repository.create(name, type, message, slots)
+                    repository.create(name, type, message, slots, bankName = bankName, senderAddress = senderAddress, accountNumber = accountNumber, dateFormat = dateFormat, timeFormat = timeFormat)
                 } else {
-                    repository.save(existing.copy(name = name.trim(), type = type, sampleMessage = message, slots = slots))
+                    repository.save(existing.copy(name = name.trim(), bankName = bankName.trim(), senderAddress = senderAddress, accountNumber = accountNumber?.trim()?.takeIf { it.isNotEmpty() }, dateFormat = dateFormat, timeFormat = timeFormat, type = type, sampleMessage = message, slots = slots))
                 }
                 patterns = repository.getPatterns()
                 showEditor = false
@@ -328,6 +328,13 @@ private fun PatternCard(
                 Column(modifier = Modifier.weight(1f).padding(horizontal = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(pattern.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(pattern.type.title, color = accent, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        pattern.bankName + (if (pattern.senderAddress.isNotEmpty()) " • " + pattern.senderAddress else ""),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
                 IconButton(onClick = onEdit) { Icon(Icons.Rounded.Edit, contentDescription = "ویرایش الگو") }
                 IconButton(onClick = onDelete) { Icon(Icons.Rounded.Delete, contentDescription = "حذف الگو", tint = MaterialTheme.colorScheme.error) }
@@ -353,189 +360,139 @@ private fun PatternCard(
 private fun SmsPatternEditorDialog(
     pattern: SmsPattern?,
     onDismiss: () -> Unit,
-    onSave: (String, SmsPatternType, String, List<SmsPatternSlot>) -> Unit
+    onSave: (String, String, String, String?, String, String, SmsPatternType, String, List<SmsPatternSlot>) -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
     var name by remember(pattern?.id) { mutableStateOf(pattern?.name.orEmpty()) }
+    var bankName by remember(pattern?.id) { mutableStateOf(pattern?.bankName.orEmpty()) }
+    var senderAddress by remember(pattern?.id) { mutableStateOf(pattern?.senderAddress.orEmpty()) }
+    var accountNumber by remember(pattern?.id) { mutableStateOf(pattern?.accountNumber.orEmpty()) }
+    var dateFormat by remember(pattern?.id) { mutableStateOf(pattern?.dateFormat.orEmpty()) }
+    var timeFormat by remember(pattern?.id) { mutableStateOf(pattern?.timeFormat.orEmpty()) }
     var type by remember(pattern?.id) { mutableStateOf(pattern?.type ?: SmsPatternType.INCOME) }
     var message by remember(pattern?.id) { mutableStateOf(pattern?.sampleMessage.orEmpty()) }
-    var allowedAccountNumbers by remember(pattern?.id) {
-        mutableStateOf(
-            pattern?.slots
-                ?.firstOrNull { it.kind == SmsPatternSlotKind.SOURCE_ACCOUNT || it.kind == SmsPatternSlotKind.SOURCE_CARD }
-                ?.allowedValues?.joinToString("\n").orEmpty()
-        )
-    }
-    val normalizedMessage = message
-    val inferredSlots = remember(normalizedMessage) { SmsPatternMatcher.inferVariableSlots(normalizedMessage) }
+    val inferredSlots = remember(message) { SmsPatternMatcher.inferVariableSlots(message) }
     var compactDateOrder by remember(pattern?.id) {
-        mutableStateOf(
-            pattern?.slots?.firstOrNull {
-                it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY ||
-                    it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR ||
-                    it.kind == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR
-            }?.kind ?: inferredSlots.firstOrNull {
-                it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY || it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
-            }?.kind ?: SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
-        )
+        mutableStateOf(pattern?.slots?.firstOrNull {
+            it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY ||
+                it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR ||
+                it.kind == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR
+        }?.kind ?: inferredSlots.firstOrNull {
+            it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY || it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+        }?.kind ?: SmsPatternSlotKind.DATE_YEAR_MONTH_DAY)
     }
-    val hasAmbiguousShortDate = inferredSlots.any {
-        it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY || it.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+    val dateSlot = inferredSlots.firstOrNull { it.kind in setOf(
+        SmsPatternSlotKind.DATE, SmsPatternSlotKind.DATE_DAY_MONTH, SmsPatternSlotKind.DATE_MONTH_DAY,
+        SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR, SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
+    ) }
+    val timeSlot = inferredSlots.firstOrNull { it.kind == SmsPatternSlotKind.TIME }
+    val normalizedDateFormat = dateFormat.uppercase().replace(" ", "")
+    val supportedDateFormats = setOf(
+        "YYYY/MM/DD", "YYYY-MM-DD", "YYYY.MM.DD", "YY/MM/DD", "YY-MM-DD", "YY.MM.DD",
+        "DD/MM/YYYY", "DD-MM-YYYY", "DD.MM.YYYY", "DD/MM/YY", "DD-MM-YY", "DD.MM.YY",
+        "MM/DD/YYYY", "MM-DD-YYYY", "MM.DD.YYYY", "MM/DD/YY", "MM-DD-YY", "MM.DD.YY",
+        "DD/MM", "DD-MM", "DD.MM", "MM/DD", "MM-DD", "MM.DD"
+    )
+    val validDateFormat = dateSlot == null || (
+        normalizedDateFormat in supportedDateFormats && when (dateSlot.kind) {
+            SmsPatternSlotKind.DATE -> normalizedDateFormat.startsWith("YYYY")
+            SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR ->
+                normalizedDateFormat.endsWith("YYYY") || normalizedDateFormat.endsWith("YY")
+            SmsPatternSlotKind.DATE_DAY_MONTH -> normalizedDateFormat.startsWith("DD")
+            SmsPatternSlotKind.DATE_MONTH_DAY -> normalizedDateFormat.startsWith("MM")
+            else -> true
+        }
+    )
+    val validTimeFormat = timeSlot == null || timeFormat.uppercase().replace(" ", "") in setOf("HH:MM", "H:MM", "HH:MM:SS", "H:MM:SS")
+    val dateKindFromFormat = when (dateFormat.uppercase().replace(" ", "")) {
+        "YYYY/MM/DD", "YYYY-MM-DD", "YYYY.MM.DD" -> SmsPatternSlotKind.DATE
+        "YY/MM/DD", "YY-MM-DD", "YY.MM.DD" -> SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
+        "DD/MM/YYYY", "DD-MM-YYYY", "DD.MM.YYYY", "DD/MM/YY", "DD-MM-YY", "DD.MM.YY" -> SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+        "MM/DD/YYYY", "MM-DD-YYYY", "MM.DD.YYYY", "MM/DD/YY", "MM-DD-YY", "MM.DD.YY" -> SmsPatternSlotKind.DATE_MONTH_DAY_YEAR
+        "DD/MM", "DD-MM", "DD.MM" -> SmsPatternSlotKind.DATE_DAY_MONTH
+        "MM/DD", "MM-DD", "MM.DD" -> SmsPatternSlotKind.DATE_MONTH_DAY
+        else -> compactDateOrder
     }
-    val hasYearFirstShortDate = inferredSlots.any { it.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY }
-    val accountRange = remember(normalizedMessage) { SmsPatternMatcher.inferAccountIdentifierRange(normalizedMessage) }
-    val sampleAccountNumber = accountRange?.let { normalizedMessage.substring(it.first, it.last + 1) }
-    LaunchedEffect(normalizedMessage, sampleAccountNumber) {
-        if (allowedAccountNumbers.isBlank() && sampleAccountNumber != null) {
-            allowedAccountNumbers = sampleAccountNumber
+    LaunchedEffect(message, dateSlot, timeSlot) {
+        if (dateSlot != null && dateFormat.isBlank()) {
+            val rawDate = message.substring(dateSlot.start, dateSlot.endExclusive)
+            val parts = rawDate.split(Regex("[/.-]"))
+            val separator = Regex("[/.-]").find(rawDate)?.value ?: "/"
+            dateFormat = when (dateSlot.kind) {
+                SmsPatternSlotKind.DATE_YEAR_MONTH_DAY -> "YY" + separator + "MM" + separator + "DD"
+                SmsPatternSlotKind.DATE_DAY_MONTH_YEAR -> "DD" + separator + "MM" + separator + if (parts.lastOrNull()?.length == 4) "YYYY" else "YY"
+                SmsPatternSlotKind.DATE_MONTH_DAY_YEAR -> "MM" + separator + "DD" + separator + if (parts.lastOrNull()?.length == 4) "YYYY" else "YY"
+                SmsPatternSlotKind.DATE_DAY_MONTH -> "DD" + separator + "MM"
+                SmsPatternSlotKind.DATE_MONTH_DAY -> "MM" + separator + "DD"
+                else -> (if (parts.firstOrNull()?.length == 4) "YYYY" else "YY") + separator + "MM" + separator + "DD"
+            }
+        }
+        if (timeSlot != null && timeFormat.isBlank()) {
+            val rawTime = message.substring(timeSlot.start, timeSlot.endExclusive)
+            val hourToken = rawTime.substringBefore(':')
+            val hourMask = if (hourToken.length == 1) "H" else "HH"
+            timeFormat = hourMask + if (rawTime.count { it == ':' } == 2) ":mm:ss" else ":mm"
         }
     }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (pattern == null) "افزودن الگوی پیامکی" else "ویرایش الگوی پیامکی", fontWeight = FontWeight.Bold) },
         text = {
-            Column(
-                modifier = Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(11.dp)
-            ) {
-                Text("نام الگو", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("مثلاً بانک ملت - واریز") }
-                )
-                Text("نوع پیامک", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = type == SmsPatternType.INCOME, onClick = { type = SmsPatternType.INCOME },
-                        label = { Text("واریز") }, leadingIcon = { Icon(Icons.Rounded.TrendingUp, null, modifier = Modifier.size(16.dp)) })
-                    FilterChip(selected = type == SmsPatternType.EXPENSE, onClick = { type = SmsPatternType.EXPENSE },
-                        label = { Text("برداشت") }, leadingIcon = { Icon(Icons.Rounded.TrendingDown, null, modifier = Modifier.size(16.dp)) })
-                    FilterChip(selected = type == SmsPatternType.TRANSFER, onClick = { type = SmsPatternType.TRANSFER },
-                        label = { Text("انتقال وجه") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CompareArrows, null, modifier = Modifier.size(16.dp)) })
+            Column(modifier = Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("نام الگو") }, placeholder = { Text("مثلاً رسالت - واریز") })
+                OutlinedTextField(value = bankName, onValueChange = { bankName = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("نام بانک یا مؤسسه") }, placeholder = { Text("مثلاً بانک قرض‌الحسنه رسالت") })
+                OutlinedTextField(value = senderAddress, onValueChange = { senderAddress = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("سرشماره / شناسه فرستنده") }, placeholder = { Text("مثلاً ResalatBank") }, supportingText = { Text("اجباری؛ دقیقاً از قسمت فرستنده پیامک کپی کنید. حروف بزرگ و کوچک، فاصله‌ها، نیم‌فاصله و حروف فارسی را عیناً حفظ کنید.") })
+                OutlinedTextField(value = accountNumber, onValueChange = { accountNumber = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("شماره حساب (اختیاری)") }, placeholder = { Text("در صورت نیاز وارد کنید") }, supportingText = { Text("اگر بانک شماره حساب را در پیامک درج نمی‌کند، این کادر را خالی بگذارید.") })
+                Text("نوع تراکنش", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    FilterChip(selected = type == SmsPatternType.INCOME, onClick = { type = SmsPatternType.INCOME }, label = { Text("واریز") }, leadingIcon = { Icon(Icons.Rounded.TrendingUp, null, modifier = Modifier.size(16.dp)) })
+                    FilterChip(selected = type == SmsPatternType.EXPENSE, onClick = { type = SmsPatternType.EXPENSE }, label = { Text("برداشت") }, leadingIcon = { Icon(Icons.Rounded.TrendingDown, null, modifier = Modifier.size(16.dp)) })
+                    FilterChip(selected = type == SmsPatternType.TRANSFER, onClick = { type = SmsPatternType.TRANSFER }, label = { Text("انتقال") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CompareArrows, null, modifier = Modifier.size(16.dp)) })
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Text("قالب تاریخ شمسی و ساعت", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(value = dateFormat, onValueChange = { dateFormat = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("فرمت تاریخ شمسی") }, placeholder = { Text("مثلاً YYYY/MM/DD یا YY/MM/DD") }, supportingText = { Text("نمونه‌ها: 1405/08/05 و 05/08/05؛ در نمونه دوم ترتیب سال/ماه/روز را مشخص کنید.") })
+                OutlinedTextField(value = timeFormat, onValueChange = { timeFormat = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("فرمت ساعت") }, placeholder = { Text("مثلاً HH:mm") })
+                if (dateSlot != null && dateSlot.kind in setOf(SmsPatternSlotKind.DATE_YEAR_MONTH_DAY, SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR)) {
+                    Text("ترتیب اجزای تاریخ نمونه را مشخص کنید:", style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (dateSlot.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY) FilterChip(selected = compactDateOrder == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY, onClick = { compactDateOrder = SmsPatternSlotKind.DATE_YEAR_MONTH_DAY }, label = { Text("سال/ماه/روز") })
+                        FilterChip(selected = compactDateOrder == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, onClick = { compactDateOrder = SmsPatternSlotKind.DATE_DAY_MONTH_YEAR }, label = { Text("روز/ماه/سال") })
+                        FilterChip(selected = compactDateOrder == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR, onClick = { compactDateOrder = SmsPatternSlotKind.DATE_MONTH_DAY_YEAR }, label = { Text("ماه/روز/سال") })
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("متن کامل پیامک نمونه", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    TextButton(
-                        onClick = { clipboardManager.getText()?.text?.takeIf { it.isNotBlank() }?.let { message = it } },
-                        enabled = !clipboardManager.getText()?.text.isNullOrBlank()
-                    ) {
-                        Icon(Icons.Rounded.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.size(4.dp))
-                        Text("جای‌گذاری")
+                    TextButton(onClick = { clipboardManager.getText()?.text?.takeIf { it.isNotBlank() }?.let { message = it; dateFormat = ""; timeFormat = "" } }, enabled = !clipboardManager.getText()?.text.isNullOrBlank()) {
+                        Icon(Icons.Rounded.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.size(4.dp)); Text("جای‌گذاری")
                     }
                 }
-                OutlinedTextField(
-                    value = message,
-                    onValueChange = { message = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 4,
-                    maxLines = 7,
-                    placeholder = { Text("متن پیامک را از صندوق پیامک کپی و اینجا جای‌گذاری کنید...") },
-                    supportingText = { Text("${message.length} نویسه") }
-                )
-                if (normalizedMessage.isNotBlank()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("بخش‌های متغیر تشخیص‌داده‌شده", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
-                        if (inferredSlots.isEmpty()) {
-                            Text("بخش متغیری تشخیص داده نشد؛ نمونه را بررسی کنید.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                        } else {
-                            inferredSlots.forEach { slot ->
-                                Text(
-                                    "• ${(if (slot.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY || slot.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR) compactDateOrder else slot.kind).title}: ${normalizedMessage.substring(slot.start, slot.endExclusive)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if (sampleAccountNumber != null) {
-                                Text(
-                                    "• شماره حساب/کارت (فقط فهرست مجاز): $sampleAccountNumber",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
+                OutlinedTextField(value = message, onValueChange = { message = it; dateFormat = ""; timeFormat = "" }, modifier = Modifier.fillMaxWidth(), minLines = 4, maxLines = 8, placeholder = { Text("کل پیامک بانکی را عیناً جای‌گذاری کنید؛ خطوط و علائم را تغییر ندهید.") }, supportingText = { Text(message.length.toString() + " نویسه") })
+                if (inferredSlots.isNotEmpty()) {
+                    Text("تحلیل اولیه دارینو", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                    inferredSlots.forEach { slot ->
+                        val kind = if (slot.kind in setOf(SmsPatternSlotKind.DATE_YEAR_MONTH_DAY, SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR)) compactDateOrder else slot.kind
+                        Text("• " + kind.title + ": " + message.substring(slot.start, slot.endExclusive), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                } else if (message.isNotBlank()) {
+                    Text("دارینو هنوز بخش متغیری پیدا نکرده؛ نمونه پیامک و وجود مبلغ را بررسی کنید.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
-                if (hasAmbiguousShortDate) {
-                    Text(
-                        "ترتیب تاریخ سه‌بخشی را مشخص کنید؛ تشخیص خودکار به‌تنهایی نمی‌تواند ترتیب اجزا را با اطمینان تعیین کند.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (hasYearFirstShortDate) {
-                        FilterChip(
-                            selected = compactDateOrder == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY,
-                            onClick = { compactDateOrder = SmsPatternSlotKind.DATE_YEAR_MONTH_DAY },
-                            label = { Text("سال / ماه / روز") }
-                        )
-                        }
-                        FilterChip(
-                            selected = compactDateOrder == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR,
-                            onClick = { compactDateOrder = SmsPatternSlotKind.DATE_DAY_MONTH_YEAR },
-                            label = { Text("روز / ماه / سال") }
-                        )
-                        FilterChip(
-                            selected = compactDateOrder == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR,
-                            onClick = { compactDateOrder = SmsPatternSlotKind.DATE_MONTH_DAY_YEAR },
-                            label = { Text("ماه / روز / سال") }
-                        )
-                    }
-                }
-                if (accountRange != null && sampleAccountNumber != null) {
-                    Text(
-                        "شماره حساب/کارت نمونه شناسایی شد. شماره حساب نمونه به‌صورت خودکار مجاز است؛ برای حساب‌های دیگر همین بانک، هر شماره را در یک خط وارد کنید. فقط شماره‌های این فهرست پذیرفته می‌شوند.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 18.sp
-                    )
-                    OutlinedTextField(
-                        value = allowedAccountNumbers,
-                        onValueChange = { allowedAccountNumbers = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        maxLines = 4,
-                        label = { Text("شماره حساب‌ها / کارت‌های مجاز") },
-                        placeholder = { Text("شماره اول\nشماره دوم\nشماره سوم") },
-                        supportingText = { Text("هر خط یک شماره؛ شماره نمونه نیز به‌طور خودکار افزوده می‌شود.") }
-                    )
-                }
-                Text(
-                    "مبلغ و موجودی با هر تعداد رقم تغییر می‌کنند. روز، ماه، سال و ساعت فقط در قالب تشخیص‌داده‌شده تغییر می‌کنند. متن ثابت، شماره‌های خارج از فهرست مجاز، فاصله‌ها و علائم نگارشی خارج از بخش عددی دقیقاً مطابق نمونه باقی می‌مانند؛ جداکننده هزارگان مبلغ و موجودی فقط با همان نوع جداکننده و متناسب با تعداد رقم‌ها تکرار می‌شود.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 18.sp
-                )
+                Text("مبلغ و موجودی با تعداد رقم متغیر و جداکننده هزارگان سازگار تحلیل می‌شوند. تاریخ شمسی و ساعت بر اساس قالب نمونه و تنظیمات بالا پردازش می‌شوند. متن ثابت، فاصله‌ها و علائم نگارشی تا حد امکان حفظ می‌شوند.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 18.sp)
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val enteredAccounts = allowedAccountNumbers.split(Regex("[\n,;]+")).map { it.trim() }.filter { it.isNotBlank() }
                     val dateAdjustedSlots = inferredSlots.map { slot ->
-                        if (slot.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY ||
-                            slot.kind == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
-                        ) {
-                            slot.copy(kind = compactDateOrder)
-                        } else slot
+                        if (slot.kind in setOf(SmsPatternSlotKind.DATE, SmsPatternSlotKind.DATE_YEAR_MONTH_DAY, SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR, SmsPatternSlotKind.DATE_DAY_MONTH, SmsPatternSlotKind.DATE_MONTH_DAY)) slot.copy(kind = dateKindFromFormat) else slot
                     }
-                    val slots = SmsPatternMatcher.configureAllowedAccountNumbers(
-                        normalizedMessage,
-                        dateAdjustedSlots,
-                        enteredAccounts
-                    )
-                    onSave(name, type, normalizedMessage, slots)
+                    val slots = SmsPatternMatcher.configureAllowedAccountNumbers(message, dateAdjustedSlots, listOfNotNull(accountNumber.trim().takeIf { it.isNotEmpty() }))
+                    onSave(name.trim(), bankName.trim(), senderAddress, accountNumber.trim().takeIf { it.isNotEmpty() }, dateFormat, timeFormat, type, message, slots)
                 },
-                enabled = name.isNotBlank() && message.isNotBlank(),
+                enabled = name.isNotBlank() && bankName.isNotBlank() && senderAddress.isNotBlank() && message.isNotBlank() &&
+                    inferredSlots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } == 1 &&
+                    validDateFormat && validTimeFormat,
                 shape = RoundedCornerShape(10.dp)
-            ) { Text("ذخیره الگو") }
+            ) { Text("تحلیل و ذخیره الگو") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
     )
