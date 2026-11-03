@@ -219,15 +219,26 @@ object SmsPatternMatcher {
         return (inferredSlots.filterNot { range.first < it.endExclusive && range.last + 1 > it.start } +
             SmsPatternSlot(range.first, range.last + 1, kind, allowed)).sortedBy { it.start }
     }
-    fun findMatchingPatterns(message: String, patterns: List<SmsPattern>): List<SmsPattern> {
+    fun findMatchingPatterns(
+        message: String,
+        patterns: List<SmsPattern>,
+        sender: String? = null
+    ): List<SmsPattern> {
         val normalizedMessage = normalizeForMatching(message)
         if (normalizedMessage.isBlank()) return emptyList()
         return patterns.filter { pattern ->
+            // Configured sender IDs are intentionally exact: do not lowercase,
+            // trim, or collapse whitespace because users copy this value verbatim.
+            (pattern.senderAddress.isBlank() || pattern.senderAddress == sender) &&
+                pattern.sampleMessage.isNotBlank() && pattern.senderAddress.isNotBlank().let { senderConfigured ->
+                    !senderConfigured || sender != null
+                } && run {
             val sample = pattern.sampleMessage
             val slots = validSlots(sample, pattern.slots)
             sample.isNotBlank() && slots.isNotEmpty() &&
                 slots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } == 1 &&
                 buildTemplateRegex(sample, slots).matches(normalizedMessage)
+            }
         }
     }
 
