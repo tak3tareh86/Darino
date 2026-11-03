@@ -138,7 +138,7 @@ class BankSmsRepository(private val context: Context) {
             // Do not restore pending suggestions created from SMS outside the active window.
             if (saved.timestampMillis < recognitionStartMillis) return@mapNotNull null
             if (saved.patternId.isBlank()) {
-                val newlyConfiguredMatches = SmsPatternMatcher.findMatchingPatterns(saved.smsText, currentPatterns)
+                val newlyConfiguredMatches = SmsPatternMatcher.findMatchingPatterns(saved.smsText, currentPatterns, saved.rawSender)
                 if (newlyConfiguredMatches.size > 1) return@mapNotNull null
                 val reparsed = if (newlyConfiguredMatches.size == 1) {
                     BankSmsParser.parseMatchedPattern(
@@ -276,7 +276,7 @@ class BankSmsRepository(private val context: Context) {
                     }
                     // Prefer one exact user template; otherwise use conservative generic recognition.
                     // Ambiguous configured templates are rejected rather than arbitrarily prioritized.
-                    val matchingPatterns = SmsPatternMatcher.findMatchingPatterns(body, patterns)
+                    val matchingPatterns = SmsPatternMatcher.findMatchingPatterns(body, patterns, address)
                     if (matchingPatterns.size > 1) {
                         ambiguousCount++
                         continue
