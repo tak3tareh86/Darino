@@ -76,22 +76,23 @@ object GenericBankSmsParser {
         // Prefer the established labeled format; otherwise select only a currency
         // amount whose following sentence explicitly describes a completed credit/debit.
         val labeledAmounts = amountLabel.findAll(normalized).toList()
-        val amountMatch = labeledAmounts.singleOrNull()
-            ?: if (labeledAmounts.isEmpty()) {
-                val contextualAmounts = Regex(
-                    """([0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬٫.]*)\s*(?:ریال|ريال|rial|rials)""",
-                    RegexOption.IGNORE_CASE
-                ).findAll(normalized).filter { match ->
-                    val followingText = normalized.substring(
-                        match.range.last + 1,
-                        minOf(normalized.length, match.range.last + 100)
-                    )
-                    Regex("""به\s*حساب\s*شما\s*نشست|از\s*حساب\s*شما\s*پرید""")
-                        .containsMatchIn(followingText)
-                }.toList()
-                contextualAmounts.singleOrNull()
-            } else null
-            ?: return null
+        val amountMatch = (
+            labeledAmounts.singleOrNull()
+                ?: if (labeledAmounts.isEmpty()) {
+                    val contextualAmounts = Regex(
+                        """([0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬٫.]*)\s*(?:ریال|ريال|rial|rials)""",
+                        RegexOption.IGNORE_CASE
+                    ).findAll(normalized).filter { match ->
+                        val followingText = normalized.substring(
+                            match.range.last + 1,
+                            minOf(normalized.length, match.range.last + 100)
+                        )
+                        Regex("""به\s*حساب\s*شما\s*نشست|از\s*حساب\s*شما\s*پرید""")
+                            .containsMatchIn(followingText)
+                    }.toList()
+                    contextualAmounts.singleOrNull()
+                } else null
+            ) ?: return null
         val amount = parseDigits(amountMatch.groupValues[1]) ?: return null
         if (amount !in 1L..100_000_000_000_000L) return null
 
