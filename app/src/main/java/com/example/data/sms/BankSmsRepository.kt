@@ -216,8 +216,8 @@ class BankSmsRepository(private val context: Context) {
         val patterns = patternRepository.getPatterns(uid)
         val rules = userRuleRepository.getAll(uid)
         val now = System.currentTimeMillis()
-        // Query far enough back for the longest configured template window; generic
-        // recognition remains limited to the default one-day window below.
+        // Query the longest active user-configured lookback window. Each rule/template
+        // is filtered again against its own window before it can match.
         val lookbacks = patterns.map { it.lookbackMillis } + rules.map { it.lookbackMillis }
         val earliestPatternStart = if (lookbacks.isEmpty()) now else now - (lookbacks.maxOrNull() ?: DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS)
         val effectiveReceivedAfterMillis = maxOf(
@@ -273,8 +273,8 @@ class BankSmsRepository(private val context: Context) {
                         unmatchedCount++
                         continue
                     }
-                    // Prefer one exact user template; otherwise use conservative generic recognition.
-                    // Ambiguous configured templates are rejected rather than arbitrarily prioritized.
+                    // Only explicit user-defined rules and legacy templates may recognize an SMS.
+                    // Ambiguous matches are rejected rather than arbitrarily prioritized.
                     val eligibleRules = rules.filter { timestamp >= now - it.lookbackMillis }
                     val ruleMatches = UserBankSmsRuleMatcher.matchAll(body, address, eligibleRules)
                     if (ruleMatches.isNotEmpty()) {
