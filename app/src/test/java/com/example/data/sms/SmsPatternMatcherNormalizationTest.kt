@@ -10,7 +10,7 @@ import org.junit.Test
 class SmsPatternMatcherNormalizationTest {
 
     @Test
-    fun matchesVariableDigitGlyphsButPreservesExactLineEndings() {
+    fun matchesVariableDigitGlyphsAndToleratesDifferentLineEndings() {
         val sample = """حساب4785914725
 برداشت50,000
 مانده7,963,304
@@ -127,7 +127,7 @@ class SmsPatternMatcherNormalizationTest {
 
     @Test
     fun bodyMatchingToleratesWhitespaceLayoutButKeepsFixedWords() {
-        val sample = "واریز مبلغ 100 تومان\\nمانده 500 تومان"
+        val sample = "واریز مبلغ 100 تومان\nمانده 500 تومان"
         val pattern = SmsPattern(
             id = "whitespace",
             name = "نمونه",
@@ -138,10 +138,10 @@ class SmsPatternMatcherNormalizationTest {
         )
 
         assertNotNull(SmsPatternMatcher.findUniqueMatch(
-            "واریز   مبلغ 250 تومان\\r\\nمانده 700 تومان", listOf(pattern), "BankSender"
+            "واریز   مبلغ 250 تومان\r\nمانده 700 تومان", listOf(pattern), "BankSender"
         ))
         assertNull(SmsPatternMatcher.findUniqueMatch(
-            "برداشت   مبلغ 250 تومان\\r\\nمانده 700 تومان", listOf(pattern), "BankSender"
+            "برداشت   مبلغ 250 تومان\r\nمانده 700 تومان", listOf(pattern), "BankSender"
         ))
     }
 
