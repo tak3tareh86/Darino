@@ -17,7 +17,7 @@ object UserRuleSmsAmountParser {
         body: String,
         receivedAtMillis: Long,
         rule: UserBankSmsRule,
-        type: TransactionType
+        type: TransactionType?
     ): BankSmsSuggestion? {
         if (BankSmsParser.containsPasswordKeyword(body)) return null
         val normalized = IranianPhoneUtils.convertDigitsToEnglish(body)
@@ -31,36 +31,41 @@ object UserRuleSmsAmountParser {
             val currencyMatches = currencySuffix + currencyPrefix
             currencyMatches.singleOrNull() ?: Regex("""[+-]\s*$number""").findAll(normalized).toList().singleOrNull()
         } else null
-        val rawAmount = amountMatch?.groupValues?.lastOrNull() ?: return null
-        val amount = rawAmount.filter(Char::isDigit).toLongOrNull()?.takeIf { it in 1L..100_000_000_000_000L } ?: return null
-        val numericRange = amountMatch.groups.lastOrNull()?.range ?: return null
-        val unitRegex = Regex("""ریال|ريال|تومان|تومن|rial|rials|toman""", RegexOption.IGNORE_CASE)
-        val prefixStart = (numericRange.first - 12).coerceAtLeast(0)
-        val suffixEnd = (numericRange.last + 13).coerceAtMost(normalized.length)
-        val prefixText = normalized.substring(prefixStart, numericRange.first)
-        val suffixText = normalized.substring(numericRange.last + 1, suffixEnd)
-        val prefixUnit = unitRegex.findAll(prefixText).lastOrNull()
-        val suffixUnit = unitRegex.find(suffixText)
-        val isRial = when {
-            prefixUnit != null && suffixUnit == null -> Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).matches(prefixUnit.value)
-            suffixUnit != null && prefixUnit == null -> Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).matches(suffixUnit.value)
-            prefixUnit != null && suffixUnit != null -> return null
-            else -> false
+        val parsedAmount: Long? = amountMatch?.let { matched ->
+            val rawAmount = matched.groupValues.lastOrNull() ?: return@let null
+            val amount = rawAmount.filter(Char::isDigit).toLongOrNull()
+                ?.takeIf { it in 1L..100_000_000_000_000L } ?: return@let null
+            val numericRange = matched.groups.lastOrNull()?.range ?: return@let null
+            val unitRegex = Regex("""ریال|ريال|تومان|تومن|rial|rials|toman""", RegexOption.IGNORE_CASE)
+            val prefixStart = (numericRange.first - 12).coerceAtLeast(0)
+            val suffixEnd = (numericRange.last + 13).coerceAtMost(normalized.length)
+            val prefixText = normalized.substring(prefixStart, numericRange.first)
+            val suffixText = normalized.substring(numericRange.last + 1, suffixEnd)
+            val prefixUnit = unitRegex.findAll(prefixText).lastOrNull()
+            val suffixUnit = unitRegex.find(suffixText)
+            val isRial = when {
+                prefixUnit != null && suffixUnit == null -> Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).matches(prefixUnit.value)
+                suffixUnit != null && prefixUnit == null -> Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).matches(suffixUnit.value)
+                prefixUnit != null && suffixUnit != null -> return@let null
+                else -> false
+            }
+            val toman = if (isRial) {
+                if (amount < 10L || amount % 10L != 0L) return@let null
+                amount / 10L
+            } else amount
+            toman.takeIf { it in 1L..100_000_000_000L }
         }
-        val toman = if (isRial) {
-            if (amount < 10L || amount % 10L != 0L) return null
-            amount / 10L
-        } else amount
-        if (toman !in 1L..100_000_000_000L) return null
+        val amountIsValid = parsedAmount != null
+        val toman = parsedAmount ?: 0L
 
         val dateTime = PersianCalendarHelper.fromEpochMillis(receivedAtMillis)
         val time = Regex("""(?<![0-9])([0-2]?[0-9]:[0-5][0-9])""").find(normalized)?.groupValues?.get(1)
             ?: String.format("%02d:%02d", dateTime.hour, dateTime.minute)
         val date = String.format("%04d/%02d/%02d", dateTime.year, dateTime.month, dateTime.day)
-        val formatted = when (type) {
+        val formatted = if (!amountIsValid) "" else when (type) {
             TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(toman, isExpense = true)
             TransactionType.INCOME -> MoneyFormatter.formatSignedToman(toman, isExpense = false)
-            TransactionType.TRANSFER -> MoneyFormatter.formatToman(toman)
+            TransactionType.TRANSFER, null -> MoneyFormatter.formatToman(toman)
         }
         return BankSmsSuggestion(
             id = smsId,
@@ -68,9 +73,9 @@ object UserRuleSmsAmountParser {
             bankName = rule.bankName,
             amount = toman,
             formattedAmount = formatted,
-            isAmountValid = true,
+            isAmountValid = amountIsValid,
             type = type,
-            isTypeUncertain = false,
+            isTypeUncertain = type == null,
             smsText = body,
             dateText = date,
             timeText = time,
@@ -78,6 +83,7 @@ object UserRuleSmsAmountParser {
                 TransactionType.INCOME -> "واریز"
                 TransactionType.EXPENSE -> "برداشت"
                 TransactionType.TRANSFER -> "انتقال وجه"
+                null -> "نیازمند بررسی"
             },
             rawSender = sender,
             timestampMillis = receivedAtMillis,
