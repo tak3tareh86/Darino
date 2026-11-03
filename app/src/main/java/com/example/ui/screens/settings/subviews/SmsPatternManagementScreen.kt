@@ -366,7 +366,7 @@ private fun PatternCard(
 private fun SmsPatternEditorDialog(
     pattern: SmsPattern?,
     onDismiss: () -> Unit,
-    onSave: (String, String, String, String?, String, String, SmsPatternType, String, List<SmsPatternSlot>, SmsPatternAccountSide) -> Unit
+    onSave: (String, String, String, String?, String, String, SmsPatternType, String, List<SmsPatternSlot>, SmsPatternAccountSide?) -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
     var name by remember(pattern?.id) { mutableStateOf(pattern?.name.orEmpty()) }
