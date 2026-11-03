@@ -8,7 +8,14 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-private const val SMS_RECOGNITION_LOOKBACK_MILLIS = 24L * 60L * 60L * 1000L
+const val DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS = 24L * 60L * 60L * 1000L
+val SMS_PATTERN_LOOKBACK_OPTIONS = listOf(
+    1L * 24L * 60L * 60L * 1000L,
+    3L * 24L * 60L * 60L * 1000L,
+    7L * 24L * 60L * 60L * 1000L,
+    30L * 24L * 60L * 60L * 1000L,
+    90L * 24L * 60L * 60L * 1000L
+)
 
 enum class SmsPatternType(val title: String) {
     INCOME("واریز"),
@@ -67,7 +74,9 @@ data class SmsPattern(
     /** User-facing clock mask, e.g. HH:mm. */
     val timeFormat: String = "",
     /** User-selected side for the configured account number in transfer templates. */
-    val transferAccountSide: SmsPatternAccountSide? = null
+    val transferAccountSide: SmsPatternAccountSide? = null,
+    /** Rolling inbox lookback window for this template. Defaults to one day. */
+    val lookbackMillis: Long = DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS
 )
 
 /** Encrypted, account-scoped storage for explicitly configured SMS templates. */
@@ -97,7 +106,7 @@ class SmsPatternRepository(context: Context) {
     fun getRecognitionStartMillis(userId: String? = SessionManager.userId): Long? {
         val key = recognitionStartKey(userId)
         preferences.getLong(key, 0L).takeIf { it > 0L }?.let { return it }
-        val start = System.currentTimeMillis() - SMS_RECOGNITION_LOOKBACK_MILLIS
+        val start = System.currentTimeMillis() - DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS
         preferences.edit().putLong(key, start).commit()
         return start
     }
@@ -161,7 +170,9 @@ class SmsPatternRepository(context: Context) {
                             timeFormat = item.optString("timeFormat"),
                             transferAccountSide = runCatching {
                                 SmsPatternAccountSide.valueOf(item.optString("transferAccountSide"))
-                            }.getOrNull()
+                            }.getOrNull(),
+                            lookbackMillis = item.optLong("lookbackMillis", DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS)
+                                .coerceAtLeast(DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS)
                         )
                     )
                 }
@@ -197,7 +208,8 @@ class SmsPatternRepository(context: Context) {
         accountNumber: String? = null,
         dateFormat: String = "",
         timeFormat: String = "",
-        transferAccountSide: SmsPatternAccountSide? = null
+        transferAccountSide: SmsPatternAccountSide? = null,
+        lookbackMillis: Long = DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS
     ): SmsPattern {
         return SmsPattern(
             id = UUID.randomUUID().toString(),
@@ -210,7 +222,8 @@ class SmsPatternRepository(context: Context) {
             accountNumber = accountNumber?.trim()?.takeIf { it.isNotEmpty() },
             dateFormat = dateFormat.trim(),
             timeFormat = timeFormat.trim(),
-            transferAccountSide = transferAccountSide
+            transferAccountSide = transferAccountSide,
+            lookbackMillis = lookbackMillis.coerceAtLeast(DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS)
         ).also { save(it, userId) }
     }
 
@@ -249,6 +262,7 @@ class SmsPatternRepository(context: Context) {
                     .put("dateFormat", pattern.dateFormat)
                     .put("timeFormat", pattern.timeFormat)
                     .put("transferAccountSide", pattern.transferAccountSide?.name ?: JSONObject.NULL)
+                    .put("lookbackMillis", pattern.lookbackMillis)
             )
         }
         preferences.edit().putString(storageKey(userId), array.toString()).apply()
