@@ -120,8 +120,10 @@ object SmsPatternMatcher {
             // remains fixed and is never learned as a changing numeric field.
             if (currentFieldHasAccountLabel && !currentFieldHasTransactionLabel) return@forEach
 
+            // A balance label belongs to the number it precedes, never to the
+            // previous number merely because it appears in the following field.
             val isBalance = (nearestLabel != null && balanceLabel.matches(nearestLabel)) ||
-                balanceLabel.containsMatchIn(contextAfter)
+                balanceLabel.containsMatchIn(prefix)
             val isAmount = nearestLabel != null && amountLabel.matches(nearestLabel)
             val isTransactionAmount = nearestLabel != null && transactionLabel.matches(nearestLabel)
             val isTracking = nearestLabel != null && trackingLabel.matches(nearestLabel)
