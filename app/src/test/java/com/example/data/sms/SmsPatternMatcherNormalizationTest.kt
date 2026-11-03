@@ -82,6 +82,19 @@ class SmsPatternMatcherNormalizationTest {
         assertEquals("1405/08/06", parsed?.dateText)
         assertEquals("07:14", parsed?.timeText)
         assertNull(BankSmsParser.parseMatchedPattern("wrong-sender", "resalatbank", actual, receivedAt, pattern))
+
+        val fullYearSample = "واریز 80,000 تومان\\n1405/08/05-06:53"
+        val fullYearPattern = pattern.copy(
+            sampleMessage = fullYearSample,
+            slots = SmsPatternMatcher.inferVariableSlots(fullYearSample),
+            dateFormat = "YYYY/MM/DD"
+        )
+        val fullYearActual = "واریز 1,250,000 تومان\\n1405/08/06-07:14"
+        val fullYearParsed = BankSmsParser.parseMatchedPattern(
+            "full-year", "ResalatBank", fullYearActual, receivedAt, fullYearPattern
+        )
+        assertNotNull(fullYearParsed)
+        assertEquals("1405/08/06", fullYearParsed?.dateText)
     }
 
 }
