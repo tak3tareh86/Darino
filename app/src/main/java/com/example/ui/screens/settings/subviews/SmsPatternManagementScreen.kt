@@ -386,6 +386,15 @@ private fun SmsPatternEditorDialog(
         SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR, SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
     ) }
     val timeSlot = inferredSlots.firstOrNull { it.kind == SmsPatternSlotKind.TIME }
+    val normalizedDateFormat = dateFormat.uppercase().replace(" ", "")
+    val supportedDateFormats = setOf(
+        "YYYY/MM/DD", "YYYY-MM-DD", "YYYY.MM.DD", "YY/MM/DD", "YY-MM-DD", "YY.MM.DD",
+        "DD/MM/YYYY", "DD-MM-YYYY", "DD.MM.YYYY", "DD/MM/YY", "DD-MM-YY", "DD.MM.YY",
+        "MM/DD/YYYY", "MM-DD-YYYY", "MM.DD.YYYY", "MM/DD/YY", "MM-DD-YY", "MM.DD.YY",
+        "DD/MM", "DD-MM", "DD.MM", "MM/DD", "MM-DD", "MM.DD"
+    )
+    val validDateFormat = dateSlot == null || normalizedDateFormat in supportedDateFormats
+    val validTimeFormat = timeSlot == null || timeFormat.uppercase().replace(" ", "") in setOf("HH:MM", "H:MM", "HH:MM:SS", "H:MM:SS")
     val dateKindFromFormat = when (dateFormat.uppercase().replace(" ", "")) {
         "YYYY/MM/DD", "YYYY-MM-DD", "YYYY.MM.DD" -> SmsPatternSlotKind.DATE
         "YY/MM/DD", "YY-MM-DD", "YY.MM.DD" -> SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
@@ -397,14 +406,16 @@ private fun SmsPatternEditorDialog(
     }
     LaunchedEffect(message, dateSlot, timeSlot) {
         if (dateSlot != null && dateFormat.isBlank()) {
-            val parts = message.substring(dateSlot.start, dateSlot.endExclusive).split(Regex("[/.-]"))
+            val rawDate = message.substring(dateSlot.start, dateSlot.endExclusive)
+            val parts = rawDate.split(Regex("[/.-]"))
+            val separator = Regex("[/.-]").find(rawDate)?.value ?: "/"
             dateFormat = when (dateSlot.kind) {
-                SmsPatternSlotKind.DATE_YEAR_MONTH_DAY -> "YY/MM/DD"
-                SmsPatternSlotKind.DATE_DAY_MONTH_YEAR -> if (parts.lastOrNull()?.length == 4) "DD/MM/YYYY" else "DD/MM/YY"
-                SmsPatternSlotKind.DATE_MONTH_DAY_YEAR -> if (parts.lastOrNull()?.length == 4) "MM/DD/YYYY" else "MM/DD/YY"
-                SmsPatternSlotKind.DATE_DAY_MONTH -> "DD/MM"
-                SmsPatternSlotKind.DATE_MONTH_DAY -> "MM/DD"
-                else -> if (parts.firstOrNull()?.length == 4) "YYYY/MM/DD" else "YY/MM/DD"
+                SmsPatternSlotKind.DATE_YEAR_MONTH_DAY -> "YY" + separator + "MM" + separator + "DD"
+                SmsPatternSlotKind.DATE_DAY_MONTH_YEAR -> "DD" + separator + "MM" + separator + if (parts.lastOrNull()?.length == 4) "YYYY" else "YY"
+                SmsPatternSlotKind.DATE_MONTH_DAY_YEAR -> "MM" + separator + "DD" + separator + if (parts.lastOrNull()?.length == 4) "YYYY" else "YY"
+                SmsPatternSlotKind.DATE_DAY_MONTH -> "DD" + separator + "MM"
+                SmsPatternSlotKind.DATE_MONTH_DAY -> "MM" + separator + "DD"
+                else -> (if (parts.firstOrNull()?.length == 4) "YYYY" else "YY") + separator + "MM" + separator + "DD"
             }
         }
         if (timeSlot != null && timeFormat.isBlank()) {
@@ -466,7 +477,8 @@ private fun SmsPatternEditorDialog(
                     onSave(name.trim(), bankName.trim(), senderAddress, accountNumber.trim().takeIf { it.isNotEmpty() }, dateFormat, timeFormat, type, message, slots)
                 },
                 enabled = name.isNotBlank() && bankName.isNotBlank() && senderAddress.isNotBlank() && message.isNotBlank() &&
-                    inferredSlots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } == 1,
+                    inferredSlots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } == 1 &&
+                    validDateFormat && validTimeFormat,
                 shape = RoundedCornerShape(10.dp)
             ) { Text("تحلیل و ذخیره الگو") }
         },
