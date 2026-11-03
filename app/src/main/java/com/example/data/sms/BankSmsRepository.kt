@@ -145,8 +145,8 @@ class BankSmsRepository(private val context: Context) {
                 val ruleId = saved.patternId.removePrefix("user-rule:")
                 val eligibleRules = currentRules.filter { saved.receivedAtMillis >= System.currentTimeMillis() - it.lookbackMillis }
                 val matches = UserBankSmsRuleMatcher.matchAll(saved.smsText, saved.rawSender.orEmpty(), eligibleRules)
-                val match = matches.singleOrNull()?.takeIf { it.type != null && it.rule.id == ruleId } ?: return@mapNotNull null
-                val parsed = UserRuleSmsAmountParser.parse(saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.receivedAtMillis, match.rule, match.type!!) ?: return@mapNotNull null
+                val match = matches.singleOrNull()?.takeIf { it.rule.id == ruleId } ?: return@mapNotNull null
+                val parsed = UserRuleSmsAmountParser.parse(saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.receivedAtMillis, match.rule, match.type) ?: return@mapNotNull null
                 return@mapNotNull UserBankSmsRuleMatcher.applyMatch(parsed, match)
             }
             if (saved.patternId.isBlank()) return@mapNotNull null
@@ -278,9 +278,9 @@ class BankSmsRepository(private val context: Context) {
                     val eligibleRules = rules.filter { timestamp >= now - it.lookbackMillis }
                     val ruleMatches = UserBankSmsRuleMatcher.matchAll(body, address, eligibleRules)
                     if (ruleMatches.isNotEmpty()) {
-                        val match = ruleMatches.singleOrNull()?.takeIf { it.type != null }
+                        val match = ruleMatches.singleOrNull()
                         if (match == null) { ambiguousCount++; continue }
-                        val parsedByRule = UserRuleSmsAmountParser.parse(uniqueId, address, body, timestamp, match.rule, match.type!!)
+                        val parsedByRule = UserRuleSmsAmountParser.parse(uniqueId, address, body, timestamp, match.rule, match.type)
                         if (parsedByRule != null) results.add(UserBankSmsRuleMatcher.applyMatch(parsedByRule, match)) else parseFailureCount++
                         continue
                     }
