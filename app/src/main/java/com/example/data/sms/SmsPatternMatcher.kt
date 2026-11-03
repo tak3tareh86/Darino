@@ -232,7 +232,7 @@ object SmsPatternMatcher {
             SmsPatternSlot(range.first, range.last + 1, kind, allowed)).sortedBy { it.start }
     }
     fun matchesTemplateBody(message: String, pattern: SmsPattern): Boolean {
-        val normalizedMessage = normalizeForMatching(message)
+        val normalizedMessage = message
         val sample = pattern.sampleMessage
         val slots = validSlots(sample, pattern.slots)
         return normalizedMessage.isNotBlank() && sample.isNotBlank() && slots.isNotEmpty() &&
@@ -360,27 +360,12 @@ object SmsPatternMatcher {
         append(Regex.escape(value.substring(cursor)))
     }
 
-    /**
-     * Normalize only digit glyphs. Fixed text (including Persian/Arabic letters,
-     * spaces, half-spaces, line breaks and punctuation) remains exact.
-     * This is length-preserving, so saved UTF-16 slot offsets remain valid.
-     */
-    private fun normalizeForMatching(value: String): String = buildString(value.length) {
-        value.forEach { char ->
-            append(when (char) {
-                in '۰'..'۹' -> ('0'.code + char.code - '۰'.code).toChar()
-                in '٠'..'٩' -> ('0'.code + char.code - '٠'.code).toChar()
-                else -> char
-            })
-        }
-    }
-
     private fun appendFixedTextPattern(target: StringBuilder, value: String) {
         target.append(Regex.escape(value))
     }
 
     private fun buildTemplateRegex(sample: String, slots: List<SmsPatternSlot>): Regex {
-        val normalizedSample = normalizeForMatching(sample)
+        val normalizedSample = sample
         val expression = buildString {
             var cursor = 0
             slots.forEach { slot ->
