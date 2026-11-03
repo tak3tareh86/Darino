@@ -101,6 +101,9 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     )
 
     private val refreshMutex = Mutex()
+    private val smsScanMutex = Mutex()
+    private val smsProcessingMutex = Mutex()
+    private val obligationProcessingMutex = Mutex()
     private var latestRequestId = 0L
     private var lastCommittedVersion = 0L
 
@@ -239,10 +242,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
             scanInboxSms()
         }
     }
-
-    private val smsScanMutex = Mutex()
-    private val smsProcessingMutex = Mutex()
-    private val obligationProcessingMutex = Mutex()
 
     fun scanInboxSms() {
         if (!smsRepository.hasSmsPermission()) {
