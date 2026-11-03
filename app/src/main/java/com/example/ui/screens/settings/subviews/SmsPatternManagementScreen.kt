@@ -328,6 +328,13 @@ private fun PatternCard(
                 Column(modifier = Modifier.weight(1f).padding(horizontal = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(pattern.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(pattern.type.title, color = accent, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        pattern.bankName + (if (pattern.senderAddress.isNotEmpty()) " • " + pattern.senderAddress else ""),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
                 IconButton(onClick = onEdit) { Icon(Icons.Rounded.Edit, contentDescription = "ویرایش الگو") }
                 IconButton(onClick = onDelete) { Icon(Icons.Rounded.Delete, contentDescription = "حذف الگو", tint = MaterialTheme.colorScheme.error) }
