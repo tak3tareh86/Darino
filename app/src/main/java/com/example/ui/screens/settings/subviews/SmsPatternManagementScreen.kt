@@ -379,6 +379,15 @@ private fun SmsPatternEditorDialog(
         SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR, SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
     ) }
     val timeSlot = inferredSlots.firstOrNull { it.kind == SmsPatternSlotKind.TIME }
+    val dateKindFromFormat = when (dateFormat.uppercase().replace(" ", "")) {
+        "YYYY/MM/DD", "YYYY-MM-DD", "YYYY.MM.DD" -> SmsPatternSlotKind.DATE
+        "YY/MM/DD", "YY-MM-DD", "YY.MM.DD" -> SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
+        "DD/MM/YYYY", "DD-MM-YYYY", "DD.MM.YYYY", "DD/MM/YY", "DD-MM-YY", "DD.MM.YY" -> SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+        "MM/DD/YYYY", "MM-DD-YYYY", "MM.DD.YYYY", "MM/DD/YY", "MM-DD-YY", "MM.DD.YY" -> SmsPatternSlotKind.DATE_MONTH_DAY_YEAR
+        "DD/MM", "DD-MM", "DD.MM" -> SmsPatternSlotKind.DATE_DAY_MONTH
+        "MM/DD", "MM-DD", "MM.DD" -> SmsPatternSlotKind.DATE_MONTH_DAY
+        else -> compactDateOrder
+    }
     LaunchedEffect(message, dateSlot, timeSlot) {
         if (dateSlot != null && dateFormat.isBlank()) {
             val parts = message.substring(dateSlot.start, dateSlot.endExclusive).split(Regex("[/.-]"))
@@ -444,7 +453,7 @@ private fun SmsPatternEditorDialog(
             Button(
                 onClick = {
                     val dateAdjustedSlots = inferredSlots.map { slot ->
-                        if (slot.kind in setOf(SmsPatternSlotKind.DATE_YEAR_MONTH_DAY, SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR)) slot.copy(kind = compactDateOrder) else slot
+                        if (slot.kind in setOf(SmsPatternSlotKind.DATE_YEAR_MONTH_DAY, SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR, SmsPatternSlotKind.DATE_DAY_MONTH, SmsPatternSlotKind.DATE_MONTH_DAY)) slot.copy(kind = dateKindFromFormat) else slot
                     }
                     val slots = SmsPatternMatcher.configureAllowedAccountNumbers(message, dateAdjustedSlots, listOfNotNull(accountNumber.trim().takeIf { it.isNotEmpty() }))
                     onSave(name.trim(), bankName.trim(), senderAddress, accountNumber.trim().takeIf { it.isNotEmpty() }, dateFormat, timeFormat, type, message, slots)
