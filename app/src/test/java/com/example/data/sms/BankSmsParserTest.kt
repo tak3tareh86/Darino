@@ -168,7 +168,7 @@ class BankSmsParserTest {
             "برداشت از حساب جاری مبلغ 2,000 تومان", listOf(pattern), "BankSender"
         ))
         assertNull(SmsPatternMatcher.findUniqueMatch(
-            "برداشت از حساب‌جاری مبلغ 2,000 تومان", listOf(pattern), "BankSender"
+            "برداشت از حساب\u200dجاری مبلغ 2,000 تومان", listOf(pattern), "BankSender"
         ))
     }
 
