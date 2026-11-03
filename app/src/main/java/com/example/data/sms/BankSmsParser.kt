@@ -159,6 +159,7 @@ object BankSmsParser {
                 rawSender = sender,
                 parseError = null,
                 timestampMillis = finalTimestamp,
+                receivedAtMillis = timestampMillis,
                 balanceAmount = balanceAmount,
                 trackingCode = fields.first(SmsPatternSlotKind.TRACKING)
                     ?.replace(Regex("""\s+"""), "")
