@@ -10,7 +10,6 @@ import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
 import com.example.data.sms.BankSmsRepository
 import com.example.data.sms.BankSmsParser
-import com.example.data.sms.GenericBankSmsParser
 import com.example.data.sms.SmsPatternMatcher
 import com.example.data.sms.SmsPatternRepository
 import com.example.data.sms.UserBankSmsRuleRepository
@@ -373,16 +372,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 return@launch
             }
 
-            // Immediately preserve user's edited details in the pending SMS queue so input is not lost
-            updateSmsCustomDetails(
-                id = id,
-                amount = customAmount,
-                type = customType,
-                category = customCategory,
-                account = customAccount,
-                destAccount = destAccount
-            )
-
             smsProcessingMutex.withLock {
                 // 1. Check if SMS has already been processed or dismissed for this user
                 if (smsRepository.getProcessedSmsIds(userId).contains(id) || smsRepository.getDismissedSmsIds(userId).contains(id)) {
@@ -407,8 +396,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                         val match = UserBankSmsRuleMatcher.matchAll(item.smsText, item.rawSender.orEmpty(), eligibleRules)
                             .singleOrNull()?.takeIf { it.type != null && it.rule.id == ruleId }
                         match?.let {
-                            GenericBankSmsParser.parse(item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis, it.type, it.rule.bankName)
-                                ?.let { parsed -> UserBankSmsRuleMatcher.applyMatch(parsed, it) }
+                            UserRuleSmsAmountParser.parse(item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis, it.rule, it.type!!)
                         }
                     }
                     item.patternId.isBlank() -> null
@@ -439,23 +427,15 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }
 
                 // 2. Amount validation: must be strictly positive and valid
-                if (customAmount != null && customAmount != item.amount) {
-                    onResult(SmsAcceptResult.InvalidAmount)
-                    return@withLock
-                }
-                val finalAmount = item.amount
+                val finalAmount = customAmount ?: item.amount
                 if (finalAmount <= 0L || !item.isAmountValid) {
                     onResult(SmsAcceptResult.InvalidAmount)
                     return@withLock
                 }
 
                 // 3. Type validation
-                if (customType != null && customType != item.type) {
-                    onResult(SmsAcceptResult.TypeNotSelected)
-                    return@withLock
-                }
-                val finalType = item.type
-                if (finalType == null || item.isTypeUncertain) {
+                val finalType = customType ?: item.type
+                if (finalType == null || (item.isTypeUncertain && customType == null)) {
                     onResult(SmsAcceptResult.TypeNotSelected)
                     return@withLock
                 }
