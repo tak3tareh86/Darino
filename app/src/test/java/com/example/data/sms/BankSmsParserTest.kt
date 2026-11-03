@@ -4,6 +4,7 @@ import com.example.ui.screens.finance.model.TransactionType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -131,7 +132,7 @@ class BankSmsParserTest {
     }
 
     @Test
-    fun fixedTextIsCaseSensitiveButWhitespaceIsFlexible() {
+    fun fixedTextRequiresExactCaseWhitespaceAndLineBreaks() {
         val sample = "PAYMENT 1,000 OK"
         val pattern = SmsPattern(
             id = "strict",
@@ -143,13 +144,56 @@ class BankSmsParserTest {
 
         assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT 2,000 OK", listOf(pattern)))
         assertNull(SmsPatternMatcher.findUniqueMatch("payment 2,000 OK", listOf(pattern)))
-        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT  2,000 OK", listOf(pattern)))
-        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT\n2,000 OK", listOf(pattern)))
-        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT\r\n2,000 OK", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT  2,000 OK", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT\n2,000 OK", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT\r\n2,000 OK", listOf(pattern)))
         assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT 2,000 OK extra", listOf(pattern)))
     }
 
     @Test
+
+    @Test
+    fun fixedPersianTextAndHalfSpaceAreNotNormalizedAway() {
+        val sample = "برداشت از حساب\u200cجاری مبلغ 1,000 تومان"
+        val pattern = SmsPattern(
+            id = "half-space",
+            name = "نیم‌فاصله",
+            type = SmsPatternType.EXPENSE,
+            sampleMessage = sample,
+            slots = listOf(slot(sample, "1,000", SmsPatternSlotKind.AMOUNT_TOMAN)),
+            senderAddress = "BankSender"
+        )
+        assertNotNull(SmsPatternMatcher.findUniqueMatch(
+            "برداشت از حساب\u200cجاری مبلغ 2,000 تومان", listOf(pattern), "BankSender"
+        ))
+        assertNull(SmsPatternMatcher.findUniqueMatch(
+            "برداشت از حساب جاری مبلغ 2,000 تومان", listOf(pattern), "BankSender"
+        ))
+        assertNull(SmsPatternMatcher.findUniqueMatch(
+            "برداشت از حساب‌جاری مبلغ 2,000 تومان", listOf(pattern), "BankSender"
+        ))
+    }
+
+    @Test
+    fun senderIdMustBePresentAndMatchExactlyForInboxMatching() {
+        val sample = "واریز 1,000 تومان"
+        val legacy = SmsPattern(
+            id = "legacy-no-sender",
+            name = "قدیمی",
+            type = SmsPatternType.INCOME,
+            sampleMessage = sample,
+            slots = listOf(slot(sample, "1,000", SmsPatternSlotKind.AMOUNT_TOMAN))
+        )
+        val configured = legacy.copy(id = "configured", senderAddress = "Bank Sender")
+        val actual = "واریز 2,000 تومان"
+
+        assertTrue(SmsPatternMatcher.findMatchingPatterns(actual, listOf(legacy), "Bank Sender").isEmpty())
+        assertTrue(SmsPatternMatcher.findMatchingPatterns(actual, listOf(configured), null).isEmpty())
+        assertTrue(SmsPatternMatcher.findMatchingPatterns(actual, listOf(configured), "").isEmpty())
+        assertTrue(SmsPatternMatcher.findMatchingPatterns(actual, listOf(configured), "bank Sender").isEmpty())
+        assertEquals(1, SmsPatternMatcher.findMatchingPatterns(actual, listOf(configured), "Bank Sender").size)
+    }
+
     fun opaqueConfiguredSlotAcceptsAlphanumericTrackingCodeWithoutGuessingItsMeaning() {
         val sample = "کد ABC-123 مبلغ 100 تومان"
         val pattern = SmsPattern(
