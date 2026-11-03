@@ -258,7 +258,7 @@ object SmsPatternMatcher {
 
     fun extractMatchedFields(message: String, pattern: SmsPattern): MatchedFields? {
         val sample = pattern.sampleMessage
-        val normalizedMessage = normalizeForMatching(message)
+        val normalizedMessage = message
         if (sample.isBlank() || normalizedMessage.isBlank()) return null
         val slots = validSlots(sample, pattern.slots)
         if (slots.isEmpty() || slots.count {
