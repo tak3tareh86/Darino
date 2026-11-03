@@ -23,7 +23,7 @@ object GenericBankSmsParser {
         "بانک رفاه" to listOf("بانک رفاه", "رفاه کارگران", "refah bank", "refah"),
         "بانک پاسارگاد" to listOf("بانک پاسارگاد", "pasargad bank", "pasargad"),
         "بانک پارسیان" to listOf("بانک پارسیان", "parsian bank", "parsian"),
-        "بانک سامان" to listOf("بانک سامان", "saman bank", "saman"),
+        "بانک سامان" to listOf("بانک سامان", "saman bank", "saman", "بلو", "بلوبانک", "blue bank", "blu bank", "blu"),
         "بانک اقتصاد نوین" to listOf("اقتصاد نوین", "eghtesad novin"),
         "بانک کارآفرین" to listOf("بانک کارآفرین", "karafarin bank", "karafarin"),
         "بانک سینا" to listOf("بانک سینا", "sina bank", "sina"),
@@ -44,7 +44,7 @@ object GenericBankSmsParser {
     )
 
     private val transactionSignal = Regex(
-        """واریز|واريز|دریافت|دريافت|برداشت|خرید|خريد|پرداخت|انتقال|تراکنش|کارت\s*به\s*کارت|پایا|ساتنا|حواله|deposit|withdraw|debit|credit|purchase|transfer""",
+        """واریز|واريز|دریافت|دريافت|برداشت|خرید|خريد|پرداخت|انتقال|تراکنش|کارت\s*به\s*کارت|پایا|ساتنا|حواله|نشست|پرید|بازپرداخت|وام|deposit|withdraw|debit|credit|purchase|transfer""",
         RegexOption.IGNORE_CASE
     )
     private val amountLabel = Regex(
@@ -71,7 +71,28 @@ object GenericBankSmsParser {
                 .containsMatchIn(normalized)
         ) return null
 
-        val amountMatch = amountLabel.findAll(normalized).singleOrNull() ?: return null
+        // Some banks (including Blu) put the amount before a descriptive verb,
+        // rather than immediately after a label such as "برداشت" or "واریز".
+        // Prefer the established labeled format; otherwise select only a currency
+        // amount whose following sentence explicitly describes a completed credit/debit.
+        val labeledAmounts = amountLabel.findAll(normalized).toList()
+        val amountMatch = (
+            labeledAmounts.singleOrNull()
+                ?: if (labeledAmounts.isEmpty()) {
+                    val contextualAmounts = Regex(
+                        """([0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬٫.]*)\s*(?:ریال|ريال|rial|rials)""",
+                        RegexOption.IGNORE_CASE
+                    ).findAll(normalized).filter { match ->
+                        val followingText = normalized.substring(
+                            match.range.last + 1,
+                            minOf(normalized.length, match.range.last + 100)
+                        )
+                        Regex("""به\s*حساب\s*شما\s*نشست|از\s*حساب\s*شما\s*پرید""")
+                            .containsMatchIn(followingText)
+                    }.toList()
+                    contextualAmounts.singleOrNull()
+                } else null
+            ) ?: return null
         val amount = parseDigits(amountMatch.groupValues[1]) ?: return null
         if (amount !in 1L..100_000_000_000_000L) return null
 
@@ -81,7 +102,7 @@ object GenericBankSmsParser {
             minOf(normalized.length, amountMatch.range.last + 18)
         )
         val amountIsRial = Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE)
-            .containsMatchIn(amountUnitContext)
+            .containsMatchIn(amountMatch.value + amountUnitContext)
         val amountToman = if (amountIsRial) {
             if (amount < 10L || amount % 10L != 0L) return null
             amount / 10L
@@ -214,11 +235,11 @@ object GenericBankSmsParser {
             RegexOption.IGNORE_CASE
         ).containsMatchIn(message)
         val isExpense = Regex(
-            """برداشت|خرید|پرداخت|withdraw|debit|purchase""",
+            """برداشت|خرید|پرداخت|پرید|بازپرداخت|کسر\s*شد|کم\s*شد|withdraw|debit|purchase""",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(message)
         val isIncome = Regex(
-            """واریز|واريز|دریافت|دريافت|deposit|credited|credit""",
+            """واریز|واريز|دریافت|دريافت|نشست|وارد\s*حساب\s*شد|deposit|credited|credit""",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(message)
         return when {
