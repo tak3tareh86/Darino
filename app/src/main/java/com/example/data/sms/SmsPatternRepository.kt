@@ -193,7 +193,7 @@ class SmsPatternRepository(context: Context) {
             // Start one day before the first template is registered, even if READ_SMS
             // permission is granted later. The permission date must not shift this window.
             preferences.edit()
-                .putLong(recognitionStartKey(userId), System.currentTimeMillis() - SMS_RECOGNITION_LOOKBACK_MILLIS)
+                .putLong(recognitionStartKey(userId), System.currentTimeMillis() - DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS)
                 .commit()
         } else if (patterns.isNotEmpty()) {
             getRecognitionStartMillis(userId)
