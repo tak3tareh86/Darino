@@ -297,14 +297,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     // Transaction type is immutable after parsing; configured templates and the generic parser both determine it.
     fun updateSmsTransactionType(id: String, newType: TransactionType) = Unit
 
-    /**
-     * Preserves user's edited details in the pending SMS queue so that in case of error or
-     * re-opening, the user does not lose their typed/selected input.
-     */
-    /**
-     * Only user-owned account links and category/description may be adjusted in review.
-     * Amount and transaction type remain those parsed from the configured template.
-     */
+    /** Persist user-selected category and account links while keeping the original SMS evidence intact. */
     fun updateSmsCustomDetails(
         id: String,
         amount: Long? = null,
