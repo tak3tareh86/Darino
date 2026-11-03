@@ -328,7 +328,8 @@ class BankSmsParserTest {
             name = "مبلغ متغیر",
             type = SmsPatternType.EXPENSE,
             sampleMessage = sample,
-            slots = listOf(slot(sample, "50,000", SmsPatternSlotKind.AMOUNT_TOMAN))
+            slots = listOf(slot(sample, "50,000", SmsPatternSlotKind.AMOUNT_TOMAN)),
+            senderAddress = "bank"
         )
         listOf("برداشت مبلغ 10,000 تومان", "برداشت مبلغ 500000 تومان",
             "برداشت مبلغ 1,000,000 تومان", "برداشت مبلغ 1000000 تومان")
