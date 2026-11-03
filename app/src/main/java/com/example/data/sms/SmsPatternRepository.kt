@@ -16,6 +16,11 @@ enum class SmsPatternType(val title: String) {
     TRANSFER("انتقال وجه")
 }
 
+enum class SmsPatternAccountSide(val title: String) {
+    SOURCE("حساب مبدأ"),
+    DESTINATION("حساب مقصد")
+}
+
 enum class SmsPatternSlotKind(val title: String) {
     AMOUNT_RIAL("مبلغ (ریال)"),
     AMOUNT_TOMAN("مبلغ (تومان)"),
@@ -60,7 +65,9 @@ data class SmsPattern(
     /** User-facing Jalali date mask, e.g. YY/MM/DD or YYYY/MM/DD. */
     val dateFormat: String = "",
     /** User-facing clock mask, e.g. HH:mm. */
-    val timeFormat: String = ""
+    val timeFormat: String = "",
+    /** User-selected side for the configured account number in transfer templates. */
+    val transferAccountSide: SmsPatternAccountSide = SmsPatternAccountSide.SOURCE
 )
 
 /** Encrypted, account-scoped storage for explicitly configured SMS templates. */
@@ -151,7 +158,10 @@ class SmsPatternRepository(context: Context) {
                             senderAddress = item.optString("senderAddress"),
                             accountNumber = item.optString("accountNumber").takeIf { it.isNotBlank() && it != "null" },
                             dateFormat = item.optString("dateFormat"),
-                            timeFormat = item.optString("timeFormat")
+                            timeFormat = item.optString("timeFormat"),
+                            transferAccountSide = runCatching {
+                                SmsPatternAccountSide.valueOf(item.optString("transferAccountSide"))
+                            }.getOrDefault(SmsPatternAccountSide.SOURCE)
                         )
                     )
                 }
@@ -186,7 +196,8 @@ class SmsPatternRepository(context: Context) {
         senderAddress: String = "",
         accountNumber: String? = null,
         dateFormat: String = "",
-        timeFormat: String = ""
+        timeFormat: String = "",
+        transferAccountSide: SmsPatternAccountSide = SmsPatternAccountSide.SOURCE
     ): SmsPattern {
         return SmsPattern(
             id = UUID.randomUUID().toString(),
@@ -198,7 +209,8 @@ class SmsPatternRepository(context: Context) {
             senderAddress = senderAddress,
             accountNumber = accountNumber?.trim()?.takeIf { it.isNotEmpty() },
             dateFormat = dateFormat.trim(),
-            timeFormat = timeFormat.trim()
+            timeFormat = timeFormat.trim(),
+            transferAccountSide = transferAccountSide
         ).also { save(it, userId) }
     }
 
@@ -236,6 +248,7 @@ class SmsPatternRepository(context: Context) {
                     .put("accountNumber", pattern.accountNumber ?: JSONObject.NULL)
                     .put("dateFormat", pattern.dateFormat)
                     .put("timeFormat", pattern.timeFormat)
+                    .put("transferAccountSide", pattern.transferAccountSide.name)
             )
         }
         preferences.edit().putString(storageKey(userId), array.toString()).apply()
