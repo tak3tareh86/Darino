@@ -329,8 +329,13 @@ private fun PatternCard(
                     Text(pattern.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(pattern.type.title, color = accent, style = MaterialTheme.typography.labelSmall)
                     Text(
-                        pattern.bankName + (if (pattern.senderAddress.isNotEmpty()) " • " + pattern.senderAddress else ""),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        pattern.bankName + if (pattern.senderAddress.isNotEmpty()) {
+                            " • " + pattern.senderAddress
+                        } else {
+                            " • شناسه فرستنده ثبت نشده؛ تشخیص خودکار غیرفعال"
+                        },
+                        color = if (pattern.senderAddress.isBlank()) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.labelSmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
