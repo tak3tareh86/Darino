@@ -374,6 +374,39 @@ class BankSmsParserTest {
     }
 
 
+
+    @Test
+    fun zeroBalanceIsPreservedWhileTransactionAmountMustBePositive() {
+        val sample = "برداشت مبلغ 50 تومان مانده 100 تومان"
+        val pattern = SmsPattern(
+            id = "zero-balance",
+            name = "موجودی صفر",
+            type = SmsPatternType.EXPENSE,
+            sampleMessage = sample,
+            slots = listOf(
+                slot(sample, "50", SmsPatternSlotKind.AMOUNT_TOMAN),
+                slot(sample, "100", SmsPatternSlotKind.BALANCE_TOMAN)
+            ),
+            senderAddress = "sender"
+        )
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "zero-balance-sms",
+            "sender",
+            "برداشت مبلغ 50 تومان مانده 0 تومان",
+            1_700_000_000_000L,
+            pattern
+        )
+        assertNotNull(parsed)
+        assertEquals(0L, parsed?.balanceAmount)
+        assertNull(BankSmsParser.parseMatchedPattern(
+            "zero-amount-sms",
+            "sender",
+            "برداشت مبلغ 0 تومان مانده 100 تومان",
+            1_700_000_000_000L,
+            pattern
+        ))
+    }
+
     @Test
     fun configuredAccountNumberMapsToCorrectSideForIncomeAndDirectedTransfer() {
         val incomeSample = "واریز به حساب 123456789 مبلغ 500 تومان"
