@@ -47,7 +47,8 @@ class BankSmsParserTest {
             name = "قالب ورودی",
             type = SmsPatternType.INCOME,
             sampleMessage = sample,
-            slots = listOf(slot(sample, "1,000", SmsPatternSlotKind.AMOUNT_RIAL))
+            slots = listOf(slot(sample, "1,000", SmsPatternSlotKind.AMOUNT_RIAL)),
+            senderAddress = "unknown-sender"
         )
 
         val parsed = BankSmsParser.parseMatchedPattern(
@@ -67,7 +68,8 @@ class BankSmsParserTest {
             name = "بدون مبلغ",
             type = SmsPatternType.EXPENSE,
             sampleMessage = sample,
-            slots = emptyList()
+            slots = emptyList(),
+            senderAddress = "unknown"
         )
         assertNull(SmsPatternMatcher.findUniqueMatch("تراکنش 2,000 ریال", listOf(noAmountPattern)))
 
@@ -94,7 +96,8 @@ class BankSmsParserTest {
                 slot(sample, "1,000", SmsPatternSlotKind.AMOUNT_TOMAN),
                 slot(sample, "1405/08/09", SmsPatternSlotKind.DATE),
                 slot(sample, "18:09", SmsPatternSlotKind.TIME)
-            )
+            ),
+            senderAddress = "unknown"
         )
 
         val parsed = BankSmsParser.parseMatchedPattern(
@@ -122,7 +125,8 @@ class BankSmsParserTest {
             slots = listOf(
                 slot(sample, "08/01", SmsPatternSlotKind.DATE_DAY_MONTH),
                 slot(sample, "100", SmsPatternSlotKind.AMOUNT_TOMAN)
-            )
+            ),
+            senderAddress = "unknown"
         )
         val parsed = BankSmsParser.parseMatchedPattern(
             "sms4", "unknown", "تاریخ 09/02 مبلغ 200 تومان", 1_700_000_000_000L, pattern
@@ -203,7 +207,8 @@ class BankSmsParserTest {
             slots = listOf(
                 slot(sample, "ABC-123", SmsPatternSlotKind.TRACKING),
                 slot(sample, "100", SmsPatternSlotKind.AMOUNT_TOMAN)
-            )
+            ),
+            senderAddress = "sender"
         )
 
         val parsed = BankSmsParser.parseMatchedPattern(
@@ -238,7 +243,8 @@ class BankSmsParserTest {
             slots = listOf(
                 slot(sample, "05/08/10", SmsPatternSlotKind.DATE_DAY_MONTH_YEAR),
                 slot(sample, "100", SmsPatternSlotKind.AMOUNT_TOMAN)
-            )
+            ),
+            senderAddress = "sender"
         )
         val parsed = BankSmsParser.parseMatchedPattern(
             "sms-dmy", "sender", "تاریخ 06/08/10 مبلغ 200 تومان",
@@ -260,7 +266,7 @@ class BankSmsParserTest {
             .let { sample.substring(it.start, it.endExclusive) })
         assertEquals(3, slots.size)
 
-        val pattern = SmsPattern("auto", "نمونه", SmsPatternType.INCOME, sample, slots)
+        val pattern = SmsPattern("auto", "نمونه", SmsPatternType.INCOME, sample, slots, senderAddress = "bank")
         assertNotNull(SmsPatternMatcher.findUniqueMatch(
             "واریز به حساب 123456789012 مبلغ 750000 ریال تاریخ 1405/08/10 ساعت 19:25",
             listOf(pattern)
@@ -278,7 +284,7 @@ class BankSmsParserTest {
         val amountSlot = slots.single { it.kind == SmsPatternSlotKind.AMOUNT_TOMAN }
         assertEquals("۵۰۰تومان", sample.substring(amountSlot.start, amountSlot.endExclusive))
 
-        val pattern = SmsPattern("short", "نمونه", SmsPatternType.EXPENSE, sample, slots)
+        val pattern = SmsPattern("short", "نمونه", SmsPatternType.EXPENSE, sample, slots, senderAddress = "bank")
         val parsed = BankSmsParser.parseMatchedPattern(
             "sms-short",
             "bank",
@@ -341,7 +347,7 @@ class BankSmsParserTest {
         val slots = SmsPatternMatcher.configureAllowedAccountNumbers(
             sample, inferred, listOf("9876543210987", "9876543210988", "9876543210989")
         )
-        val pattern = SmsPattern("multi-account", "بانک", SmsPatternType.EXPENSE, sample, slots)
+        val pattern = SmsPattern("multi-account", "بانک", SmsPatternType.EXPENSE, sample, slots, senderAddress = "bank")
         assertNotNull(SmsPatternMatcher.findUniqueMatch(
             "برداشت از:9876543210988 مبلغ:1,000,000 تومان", listOf(pattern)
         ))
@@ -366,7 +372,8 @@ class BankSmsParserTest {
             slots = listOf(
                 slot(sample, "05/08/11", SmsPatternSlotKind.DATE_YEAR_MONTH_DAY),
                 slot(sample, "100", SmsPatternSlotKind.AMOUNT_TOMAN)
-            )
+            ),
+            senderAddress = "sender"
         )
         val receivedIn1405 = com.example.util.PersianCalendarHelper.jalaliToEpochMillis(1405, 8, 11, 12, 0)
         val parsed = BankSmsParser.parseMatchedPattern(
@@ -393,7 +400,8 @@ class BankSmsParserTest {
             name = "قالب آزمایشی",
             type = SmsPatternType.EXPENSE,
             sampleMessage = sample,
-            slots = listOf(slot(sample, "1,000", SmsPatternSlotKind.AMOUNT_TOMAN))
+            slots = listOf(slot(sample, "1,000", SmsPatternSlotKind.AMOUNT_TOMAN)),
+            senderAddress = "30001234"
         )
 
         assertNotNull(SmsPatternMatcher.findUniqueMatch(sample, listOf(pattern)))
