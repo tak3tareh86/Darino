@@ -388,9 +388,9 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                         val ruleId = item.patternId.removePrefix("user-rule:")
                         val eligibleRules = activeRules.filter { item.receivedAtMillis >= System.currentTimeMillis() - it.lookbackMillis }
                         val match = UserBankSmsRuleMatcher.matchAll(item.smsText, item.rawSender.orEmpty(), eligibleRules)
-                            .singleOrNull()?.takeIf { it.type != null && it.rule.id == ruleId }
+                            .singleOrNull()?.takeIf { it.rule.id == ruleId }
                         match?.let {
-                            UserRuleSmsAmountParser.parse(item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis, it.rule, it.type!!)
+                            UserRuleSmsAmountParser.parse(item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis, it.rule, it.type)
                         }
                     }
                     item.patternId.isBlank() -> null
@@ -422,7 +422,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                 // 2. Amount validation: must be strictly positive and valid
                 val finalAmount = customAmount ?: item.amount
-                if (finalAmount <= 0L || !item.isAmountValid) {
+                if (finalAmount <= 0L) {
                     onResult(SmsAcceptResult.InvalidAmount)
                     return@withLock
                 }
