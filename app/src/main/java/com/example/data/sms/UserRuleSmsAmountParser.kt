@@ -41,7 +41,7 @@ object UserRuleSmsAmountParser {
 
         val dateTime = PersianCalendarHelper.fromEpochMillis(receivedAtMillis)
         val time = Regex("""(?<![0-9])([0-2]?[0-9]:[0-5][0-9])""").find(normalized)?.groupValues?.get(1)
-            ?: dateTime.toFormattedTime()
+            ?: String.format("%02d:%02d", dateTime.hour, dateTime.minute)
         val date = String.format("%04d/%02d/%02d", dateTime.year, dateTime.month, dateTime.day)
         val formatted = when (type) {
             TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(toman, isExpense = true)
