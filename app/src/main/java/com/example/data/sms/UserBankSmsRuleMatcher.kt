@@ -24,10 +24,10 @@ object UserBankSmsRuleMatcher {
     fun parseMarkers(raw: String): List<String>? {
         if (raw.isBlank()) return null
         val values = raw.split('/')
-        if (values.size < 2 || values.any { it.isEmpty() }) return null
+        if (values.size < 2 || values.any { it.isBlank() }) return null
         val normalized = values.map { normalizeMarker(it) }
         if (normalized.any { it.isEmpty() } || normalized.distinct().size < 2) return null
-        if (values.any { token -> token.any { it.isWhitespace() || it == '.' || it == ',' || it == '،' || it == ';' || it == ':' || it == '؛' } }) return null
+        if (values.any { token -> token.trim().any { !(it.isLetterOrDigit() || it == '+' || it == '_' || it == '-') } }) return null
         return normalized.distinct()
     }
 
@@ -36,7 +36,7 @@ object UserBankSmsRuleMatcher {
     private fun normalizeBody(value: String): String = IranianPhoneUtils.convertDigitsToEnglish(value)
         .replace('ي', 'ی').replace('ك', 'ک').filterNot(Char::isWhitespace)
 
-    fun match(body: String, sender: String, rules: List<UserBankSmsRule>): UserBankSmsRuleMatch? {
+    fun matchAll(body: String, sender: String, rules: List<UserBankSmsRule>): List<UserBankSmsRuleMatch> {
         val normalizedBody = normalizeBody(body).replace('-', '_')
         val matching = rules.mapNotNull { rule ->
             if (rule.senderAddresses.none { senderMatches(it, sender) }) return@mapNotNull null
@@ -50,9 +50,11 @@ object UserBankSmsRuleMatcher {
             }.map { it.first }
             if (matchedTypes.isEmpty()) null else rule to matchedTypes
         }
-        if (matching.size != 1) return null
-        val (rule, types) = matching.single()
-        return UserBankSmsRuleMatch(rule, types.singleOrNull())
+        return matching.map { (rule, types) -> UserBankSmsRuleMatch(rule, types.singleOrNull()) }
+    }
+
+    fun match(body: String, sender: String, rules: List<UserBankSmsRule>): UserBankSmsRuleMatch? {
+        return matchAll(body, sender, rules).singleOrNull()?.takeIf { it.type != null }
     }
 
     fun applyMatch(parsed: BankSmsSuggestion, result: UserBankSmsRuleMatch): BankSmsSuggestion = parsed.copy(
