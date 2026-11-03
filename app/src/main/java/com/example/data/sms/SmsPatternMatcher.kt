@@ -284,7 +284,10 @@ object SmsPatternMatcher {
         patterns: List<SmsPattern>,
         sender: String? = null
     ): List<SmsPattern> = patterns.filter { pattern ->
-        senderMatchesPattern(pattern.senderAddress, sender)
+        // A null sender is allowed only for legacy body-only unit tests whose
+        // pattern has no configured sender. Inbox scans always pass the real sender.
+        if (sender == null) pattern.senderAddress.isBlank()
+        else senderMatchesPattern(pattern.senderAddress, sender)
     }.filter { matchesTemplateBody(message, it) }
 
     fun findUniqueMatch(message: String, patterns: List<SmsPattern>, sender: String? = null): SmsPattern? =
