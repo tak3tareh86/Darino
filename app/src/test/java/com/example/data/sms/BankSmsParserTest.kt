@@ -136,7 +136,7 @@ class BankSmsParserTest {
     }
 
     @Test
-    fun fixedTextRequiresExactCaseWhitespaceAndLineBreaks() {
+    fun fixedTextRequiresExactWordsButToleratesWhitespaceAndLineBreaks() {
         val sample = "PAYMENT 1,000 OK"
         val pattern = SmsPattern(
             id = "strict",
@@ -148,9 +148,9 @@ class BankSmsParserTest {
 
         assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT 2,000 OK", listOf(pattern)))
         assertNull(SmsPatternMatcher.findUniqueMatch("payment 2,000 OK", listOf(pattern)))
-        assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT  2,000 OK", listOf(pattern)))
-        assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT\n2,000 OK", listOf(pattern)))
-        assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT\r\n2,000 OK", listOf(pattern)))
+        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT  2,000 OK", listOf(pattern)))
+        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT\n2,000 OK", listOf(pattern)))
+        assertNotNull(SmsPatternMatcher.findUniqueMatch("PAYMENT\r\n2,000 OK", listOf(pattern)))
         assertNull(SmsPatternMatcher.findUniqueMatch("PAYMENT 2,000 OK extra", listOf(pattern)))
     }
 
@@ -275,11 +275,11 @@ class BankSmsParserTest {
         val pattern = SmsPattern("auto", "نمونه", SmsPatternType.INCOME, sample, slots, senderAddress = "bank")
         assertNotNull(SmsPatternMatcher.findUniqueMatch(
             "واریز به حساب 123456789012 مبلغ 750000 ریال تاریخ 1405/08/10 ساعت 19:25",
-            listOf(pattern)
+            listOf(pattern), "bank"
         ))
         assertNull(SmsPatternMatcher.findUniqueMatch(
             "واریز به حساب 999999999999 مبلغ 750000 ریال تاریخ 1405/08/10 ساعت 19:25",
-            listOf(pattern)
+            listOf(pattern), "bank"
         ))
     }
 
@@ -361,10 +361,10 @@ class BankSmsParserTest {
         )
         val pattern = SmsPattern("multi-account", "بانک", SmsPatternType.EXPENSE, sample, slots, senderAddress = "bank")
         assertNotNull(SmsPatternMatcher.findUniqueMatch(
-            "برداشت از:9876543210988 مبلغ:1,000,000 تومان", listOf(pattern)
+            "برداشت از:9876543210988 مبلغ:1,000,000 تومان", listOf(pattern), "bank"
         ))
         assertNull(SmsPatternMatcher.findUniqueMatch(
-            "برداشت از:9876543210990 مبلغ:1,000,000 تومان", listOf(pattern)
+            "برداشت از:9876543210990 مبلغ:1,000,000 تومان", listOf(pattern), "bank"
         ))
         val parsed = BankSmsParser.parseMatchedPattern(
             "sms-account", "bank", "برداشت از:9876543210988 مبلغ:1,000,000 تومان",
@@ -507,7 +507,7 @@ class BankSmsParserTest {
             senderAddress = "30001234"
         )
 
-        assertNotNull(SmsPatternMatcher.findUniqueMatch(sample, listOf(pattern)))
+        assertNotNull(SmsPatternMatcher.findUniqueMatch(sample, listOf(pattern), "30001234"))
         assertNull(
             BankSmsParser.parseMatchedPattern(
                 "password-sms", "30001234", sample, 1_700_000_000_000L, pattern
