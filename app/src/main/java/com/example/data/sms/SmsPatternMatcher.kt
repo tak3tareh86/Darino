@@ -336,14 +336,15 @@ object SmsPatternMatcher {
         )
         if (kind in amountKinds) {
             val numericRun = Regex("""[0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬]*""").find(value)
-            val separators = numericRun?.value?.filter { it == ',' || it == '،' || it == '٬' }?.toList()?.distinct().orEmpty()
-            if (numericRun != null && separators.size == 1) {
-                val separator = Regex.escape(separators.single().toString())
+            if (numericRun != null) {
                 val digit = "[0-9۰-۹٠-٩]"
                 append(Regex.escape(value.substring(0, numericRun.range.first)))
+                // Grouping separators are part of the variable amount, not fixed
+                // template text. Accept the common Persian/Arabic/Latin thousands
+                // separators while still requiring valid groups of three digits.
                 append("(?:")
                 append(digit).append("+|")
-                append(digit).append("{1,3}(?:").append(separator).append(digit).append("{3})+")
+                append(digit).append("{1,3}(?:[,،٬]").append(digit).append("{3})+")
                 append(")")
                 append(Regex.escape(value.substring(numericRun.range.last + 1)))
                 return
