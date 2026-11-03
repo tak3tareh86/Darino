@@ -194,6 +194,12 @@ class BankSmsParserTest {
         assertTrue(SmsPatternMatcher.findMatchingPatterns(actual, listOf(configured), "").isEmpty())
         assertTrue(SmsPatternMatcher.findMatchingPatterns(actual, listOf(configured), "bank Sender").isEmpty())
         assertEquals(1, SmsPatternMatcher.findMatchingPatterns(actual, listOf(configured), "Bank Sender").size)
+        assertNull(BankSmsParser.parseMatchedPattern(
+            "legacy", "Bank Sender", actual, 1_700_000_000_000L, legacy
+        ))
+        assertNotNull(BankSmsParser.parseMatchedPattern(
+            "configured", "Bank Sender", actual, 1_700_000_000_000L, configured
+        ))
     }
 
     @Test
