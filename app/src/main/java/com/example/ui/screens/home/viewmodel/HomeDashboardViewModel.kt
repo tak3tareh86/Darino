@@ -14,6 +14,7 @@ import com.example.data.sms.SmsPatternMatcher
 import com.example.data.sms.SmsPatternRepository
 import com.example.data.sms.UserBankSmsRuleRepository
 import com.example.data.sms.UserBankSmsRuleMatcher
+import com.example.data.sms.UserRuleSmsAmountParser
 import com.example.data.sms.SmsPatternChangeNotifier
 import com.example.ui.screens.finance.data.LocalFinanceRepository
 import com.example.ui.screens.finance.model.TransactionCategory
