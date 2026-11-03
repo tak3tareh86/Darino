@@ -247,6 +247,8 @@ object FinanceDefaultCategories {
             subCategories = listOf("بیمه شخص ثالث", "بیمه بدنه", "بیمه تکمیلی")),
         TransactionCategory("installments", "اقساط و وام", "💳", R.drawable.img_3d_card, Color(0xFF6366F1),
             subCategories = listOf("وام بانکی", "قسط خودرو", "قسط مسکن", "خرید اقساطی")),
+        TransactionCategory("bank_service_fees", "هزینه خدمات بانکی", "🏦", null, Color(0xFF0F766E),
+            subCategories = listOf("کارمزد پیامک", "آبونمان", "سایر کارمزدهای بانکی")),
         TransactionCategory("misc", "سایر هزینه‌ها", "📦", null, Color(0xFF71717A),
             subCategories = listOf("متفرقه", "هدایا", "خیریه"))
     )
