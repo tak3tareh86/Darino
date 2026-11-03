@@ -116,6 +116,12 @@ class SmsPatternMatcherNormalizationTest {
         assertFalse(SmsPatternMatcher.senderMatchesPattern(pattern.senderAddress, "98212345"))
         assertFalse(SmsPatternMatcher.senderMatchesPattern(pattern.senderAddress, "982124"))
         assertEquals(1, SmsPatternMatcher.findMatchingPatterns("واریز مبلغ 250 تومان", listOf(pattern), "98 21 234").size)
+        assertNotNull(BankSmsParser.parseMatchedPattern(
+            "numeric-sender", "98 21 234", "واریز مبلغ 250 تومان", 1_700_000_000_000L, pattern
+        ))
+        assertNull(BankSmsParser.parseMatchedPattern(
+            "wrong-numeric-sender", "98212345", "واریز مبلغ 250 تومان", 1_700_000_000_000L, pattern
+        ))
     }
 
     @Test
