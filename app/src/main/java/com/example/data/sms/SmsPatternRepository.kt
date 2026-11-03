@@ -67,7 +67,7 @@ data class SmsPattern(
     /** User-facing clock mask, e.g. HH:mm. */
     val timeFormat: String = "",
     /** User-selected side for the configured account number in transfer templates. */
-    val transferAccountSide: SmsPatternAccountSide = SmsPatternAccountSide.SOURCE
+    val transferAccountSide: SmsPatternAccountSide? = null
 )
 
 /** Encrypted, account-scoped storage for explicitly configured SMS templates. */
@@ -161,7 +161,7 @@ class SmsPatternRepository(context: Context) {
                             timeFormat = item.optString("timeFormat"),
                             transferAccountSide = runCatching {
                                 SmsPatternAccountSide.valueOf(item.optString("transferAccountSide"))
-                            }.getOrDefault(SmsPatternAccountSide.SOURCE)
+                            }.getOrNull()
                         )
                     )
                 }
@@ -197,7 +197,7 @@ class SmsPatternRepository(context: Context) {
         accountNumber: String? = null,
         dateFormat: String = "",
         timeFormat: String = "",
-        transferAccountSide: SmsPatternAccountSide = SmsPatternAccountSide.SOURCE
+        transferAccountSide: SmsPatternAccountSide? = null
     ): SmsPattern {
         return SmsPattern(
             id = UUID.randomUUID().toString(),
@@ -248,7 +248,7 @@ class SmsPatternRepository(context: Context) {
                     .put("accountNumber", pattern.accountNumber ?: JSONObject.NULL)
                     .put("dateFormat", pattern.dateFormat)
                     .put("timeFormat", pattern.timeFormat)
-                    .put("transferAccountSide", pattern.transferAccountSide.name)
+                    .put("transferAccountSide", pattern.transferAccountSide?.name ?: JSONObject.NULL)
             )
         }
         preferences.edit().putString(storageKey(userId), array.toString()).apply()
