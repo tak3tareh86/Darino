@@ -152,4 +152,63 @@ class GenericBankSmsParserTest {
             assertNull(GenericBankSmsParser.parse("password-$index", "30001234", body, 1_700_000_000_000L))
         }
     }
+
+    @Test
+    fun recognizesBluBankDepositAndWithdrawalMessagesAndMapsBrandToSaman() {
+        val receivedAt = com.example.util.PersianCalendarHelper.jalaliToEpochMillis(1405, 5, 27, 12, 0)
+        val deposit = GenericBankSmsParser.parse(
+            "blu-deposit", "30001234",
+            """بلو
+واریز پول
+فرزاد عزیز، 26,000,000 ریال به حساب شما نشست.
+موجودی: 26,000,000 ریال
+۹:۰۹
+۱۴۰۵.۰۵.۲۷""",
+            receivedAt
+        )
+        val withdrawal = GenericBankSmsParser.parse(
+            "blu-withdrawal", "30001234",
+            """بلو
+برداشت پول
+فرزاد عزیز، 10,000,000 ریال از حساب شما پرید.
+موجودی: 1,857,282 ریال
+۱۷:۰۲
+۱۴۰۵.۰۵.۲۶""",
+            receivedAt
+        )
+
+        assertNotNull(deposit)
+        assertEquals("بانک سامان", deposit?.bankName)
+        assertEquals(TransactionType.INCOME, deposit?.type)
+        assertEquals(2_600_000L, deposit?.amount)
+        assertEquals(2_600_000L, deposit?.balanceAmount)
+        assertEquals("1405/05/27", deposit?.dateText)
+        assertEquals("09:09", deposit?.timeText)
+
+        assertNotNull(withdrawal)
+        assertEquals("بانک سامان", withdrawal?.bankName)
+        assertEquals(TransactionType.EXPENSE, withdrawal?.type)
+        assertEquals(1_000_000L, withdrawal?.amount)
+        assertEquals(185_728L, withdrawal?.balanceAmount)
+        assertEquals("1405/05/26", withdrawal?.dateText)
+        assertEquals("17:02", withdrawal?.timeText)
+    }
+
+    @Test
+    fun doesNotRoundBluRialAmountThatCannotBeRepresentedAsWholeToman() {
+        val parsed = GenericBankSmsParser.parse(
+            "blu-loan-repayment", "30001234",
+            """بلو
+فرزاد عزیز 25,533,522 ریال بابت بازپرداخت بدهی وام نقدی بلو، از حساب شما پرید.
+موجودی: 2,466,478 ریال
+۱۶:۵۸
+۱۴۰۵.۰۷.۲۷""",
+            com.example.util.PersianCalendarHelper.jalaliToEpochMillis(1405, 7, 27, 17, 0)
+        )
+
+        // The app stores transaction amounts as whole Tomans. Reject rather than
+        // silently truncating 2,553,352.2 Tomans to a different financial amount.
+        assertNull(parsed)
+    }
+
 }
