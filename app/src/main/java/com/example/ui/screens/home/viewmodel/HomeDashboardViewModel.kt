@@ -13,6 +13,8 @@ import com.example.data.sms.BankSmsParser
 import com.example.data.sms.GenericBankSmsParser
 import com.example.data.sms.SmsPatternMatcher
 import com.example.data.sms.SmsPatternRepository
+import com.example.data.sms.UserBankSmsRuleRepository
+import com.example.data.sms.UserBankSmsRuleMatcher
 import com.example.data.sms.SmsPatternChangeNotifier
 import com.example.ui.screens.finance.data.LocalFinanceRepository
 import com.example.ui.screens.finance.model.TransactionCategory
@@ -64,6 +66,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     private val aggregator = HomeDashboardAggregator(repository)
     private val smsRepository = BankSmsRepository.getInstance(application)
     private val smsPatternRepository = SmsPatternRepository(application)
+    private val userBankSmsRuleRepository = UserBankSmsRuleRepository(application)
 
     private val _uiState = MutableStateFlow(HomeDashboardState(isLoading = true))
     val uiState: StateFlow<HomeDashboardState> = _uiState.asStateFlow()
@@ -396,18 +399,26 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                 // Revalidate against the current settings at the moment of persistence.
                 val activePatterns = smsPatternRepository.getPatterns(userId)
-                val freshlyParsed = if (item.patternId.isBlank()) {
-                    GenericBankSmsParser.parse(
-                        item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis
-                    )
-                } else {
-                    val originPattern = activePatterns.singleOrNull { it.id == item.patternId }
-                    val uniquePattern = SmsPatternMatcher.findUniqueMatch(item.smsText, activePatterns, item.rawSender)
-                    if (originPattern != null && uniquePattern?.id == originPattern.id) {
-                        BankSmsParser.parseMatchedPattern(
-                            item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis, originPattern
-                        )
-                    } else null
+                val activeRules = userBankSmsRuleRepository.getAll(userId)
+                val freshlyParsed = when {
+                    item.patternId.startsWith("user-rule:") -> {
+                        val ruleId = item.patternId.removePrefix("user-rule:")
+                        val eligibleRules = activeRules.filter { item.receivedAtMillis >= System.currentTimeMillis() - it.lookbackMillis }
+                        val match = UserBankSmsRuleMatcher.matchAll(item.smsText, item.rawSender.orEmpty(), eligibleRules)
+                            .singleOrNull()?.takeIf { it.type != null && it.rule.id == ruleId }
+                        match?.let {
+                            GenericBankSmsParser.parse(item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis, it.type, it.rule.bankName)
+                                ?.let { parsed -> UserBankSmsRuleMatcher.applyMatch(parsed, it) }
+                        }
+                    }
+                    item.patternId.isBlank() -> null
+                    else -> {
+                        val originPattern = activePatterns.singleOrNull { it.id == item.patternId }
+                        val uniquePattern = SmsPatternMatcher.findUniqueMatch(item.smsText, activePatterns, item.rawSender)
+                        if (originPattern != null && uniquePattern?.id == originPattern.id) {
+                            BankSmsParser.parseMatchedPattern(item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis, originPattern)
+                        } else null
+                    }
                 }
                 if (freshlyParsed == null ||
                     freshlyParsed.amount != item.amount ||
