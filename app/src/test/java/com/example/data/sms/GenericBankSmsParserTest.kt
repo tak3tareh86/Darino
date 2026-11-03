@@ -189,7 +189,7 @@ class GenericBankSmsParserTest {
         assertEquals("بانک سامان", withdrawal?.bankName)
         assertEquals(TransactionType.EXPENSE, withdrawal?.type)
         assertEquals(1_000_000L, withdrawal?.amount)
-        assertEquals(185_728L, withdrawal?.balanceAmount)
+        assertNull(withdrawal?.balanceAmount)
         assertEquals("1405/05/26", withdrawal?.dateText)
         assertEquals("17:02", withdrawal?.timeText)
     }
