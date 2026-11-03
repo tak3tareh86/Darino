@@ -260,16 +260,31 @@ object SmsPatternMatcher {
             } == 1 && buildTemplateRegex(sample, slots).matches(normalizedMessage)
     }
 
+    /**
+     * Sender is the first and mandatory gate for a user-defined SMS template.
+     * Numeric sender IDs are compared by their exact digit sequence after removing
+     * whitespace and normalizing Persian/Arabic digits. Alphanumeric IDs remain exact
+     * (apart from surrounding whitespace).
+     */
+    fun senderMatchesPattern(configuredSender: String, actualSender: String?): Boolean {
+        if (configuredSender.isBlank() || actualSender.isNullOrBlank()) return false
+        val configured = normalizeDigits(configuredSender.trim())
+        val actual = normalizeDigits(actualSender.trim())
+        fun isNumericSender(value: String): Boolean =
+            value.all { it.isWhitespace() || it in '0'..'9' }
+        return if (isNumericSender(configured) && isNumericSender(actual)) {
+            configured.filterNot { it.isWhitespace() } == actual.filterNot { it.isWhitespace() }
+        } else {
+            configured == actual
+        }
+    }
+
     fun findMatchingPatterns(
         message: String,
         patterns: List<SmsPattern>,
         sender: String? = null
     ): List<SmsPattern> = patterns.filter { pattern ->
-        // A configured template is usable only with a non-empty, exact sender ID.
-        // The null-sender branch is retained for body-only unit tests; inbox processing
-        // always supplies the SMS provider's sender address.
-        if (sender == null) pattern.senderAddress.isBlank()
-        else pattern.senderAddress.isNotBlank() && pattern.senderAddress == sender
+        senderMatchesPattern(pattern.senderAddress, sender)
     }.filter { matchesTemplateBody(message, it) }
 
     fun findUniqueMatch(message: String, patterns: List<SmsPattern>, sender: String? = null): SmsPattern? =
@@ -389,7 +404,15 @@ object SmsPatternMatcher {
     }
 
     private fun appendFixedTextPattern(target: StringBuilder, value: String) {
-        target.append(Regex.escape(value))
+        // Preserve fixed words and punctuation, but treat runs of whitespace as
+        // formatting rather than message identity (spaces, tabs, LF and CRLF).
+        var cursor = 0
+        Regex("""\\s+""").findAll(value).forEach { whitespace ->
+            target.append(Regex.escape(value.substring(cursor, whitespace.range.first)))
+            target.append("""\\s+""")
+            cursor = whitespace.range.last + 1
+        }
+        target.append(Regex.escape(value.substring(cursor)))
     }
 
     private fun buildTemplateRegex(sample: String, slots: List<SmsPatternSlot>): Regex {
