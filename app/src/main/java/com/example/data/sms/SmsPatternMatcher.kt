@@ -130,6 +130,9 @@ object SmsPatternMatcher {
                 rialLabel.containsMatchIn(contextBefore)
             val hasCurrency = currencyLabel.containsMatchIn(contextAfter) ||
                 currencyLabel.containsMatchIn(contextBefore)
+            // Long unlabeled numbers without a currency/transaction context are
+            // identifiers, not changing money values. Keep them fixed by default.
+            if (compactNumber.length >= 8 && !hasCurrency && nearestLabel == null) return@forEach
 
             val kind = when {
                 isBalance -> if (hasRial) SmsPatternSlotKind.BALANCE_RIAL else SmsPatternSlotKind.BALANCE_TOMAN
@@ -209,11 +212,20 @@ object SmsPatternMatcher {
         inferredSlots: List<SmsPatternSlot>,
         enteredValues: List<String>
     ): List<SmsPatternSlot> {
-        val range = inferAccountIdentifierRange(message) ?: return inferredSlots
+        val normalizedMessage = normalizeDigits(message)
+        val enteredRange = enteredValues.asSequence()
+            .map { normalizeDigits(it).trim() }
+            .filter { it.isNotEmpty() }
+            .mapNotNull { value ->
+                val start = normalizedMessage.indexOf(value)
+                if (start < 0) null else start until (start + value.length)
+            }
+            .firstOrNull()
+        val range = enteredRange ?: inferAccountIdentifierRange(message) ?: return inferredSlots
         val sampleValue = message.substring(range.first, range.last + 1)
-        fun digits(value: String) = normalizeDigits(value).filter { it in '0'..'9' }
-        val allowed = (enteredValues + sampleValue).map(::digits).filter { it.isNotBlank() }.distinct()
-        if (allowed.none { it == digits(sampleValue) }) return inferredSlots
+        val allowed = (enteredValues + sampleValue).map { normalizeDigits(it).trim() }
+            .filter { it.isNotBlank() }.distinct()
+        if (allowed.none { normalizeDigits(it) == normalizeDigits(sampleValue) }) return inferredSlots
         val context = message.substring(maxOf(0, range.first - 36), range.first)
         val kind = if (context.contains("کارت")) SmsPatternSlotKind.SOURCE_CARD else SmsPatternSlotKind.SOURCE_ACCOUNT
         return (inferredSlots.filterNot { range.first < it.endExclusive && range.last + 1 > it.start } +
