@@ -497,7 +497,12 @@ private fun SmsPatternEditorDialog(
                     val dateAdjustedSlots = inferredSlots.map { slot ->
                         if (slot.kind in setOf(SmsPatternSlotKind.DATE, SmsPatternSlotKind.DATE_YEAR_MONTH_DAY, SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR, SmsPatternSlotKind.DATE_DAY_MONTH, SmsPatternSlotKind.DATE_MONTH_DAY)) slot.copy(kind = dateKindFromFormat) else slot
                     }
-                    val slots = SmsPatternMatcher.configureAllowedAccountNumbers(message, dateAdjustedSlots, listOfNotNull(accountNumber.trim().takeIf { it.isNotEmpty() }))
+                    val slots = SmsPatternMatcher.configureAllowedAccountNumbers(
+                        message,
+                        dateAdjustedSlots,
+                        listOfNotNull(accountNumber.trim().takeIf { it.isNotEmpty() }),
+                        type
+                    )
                     onSave(name.trim(), bankName.trim(), senderAddress, accountNumber.trim().takeIf { it.isNotEmpty() }, dateFormat, timeFormat, type, message, slots)
                 },
                 enabled = name.isNotBlank() && bankName.isNotBlank() && senderAddress.isNotBlank() && message.isNotBlank() &&
