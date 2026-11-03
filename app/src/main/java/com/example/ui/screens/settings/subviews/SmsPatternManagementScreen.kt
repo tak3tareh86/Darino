@@ -146,6 +146,23 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
             }
 
             item {
+                UserBankSmsRulesSection()
+            }
+
+            item {
+                Text(
+                    "الگوهای نمونه قدیمی",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "قالب‌های نمونه قبلی شما همچنان حفظ شده‌اند و جدا از قواعد جدید بانک کار می‌کنند.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
