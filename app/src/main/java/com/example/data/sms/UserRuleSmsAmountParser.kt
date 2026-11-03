@@ -26,12 +26,16 @@ object UserRuleSmsAmountParser {
         val number = """([0-9][0-9,،٬٫.]*)"""
         val labeled = Regex("""(?:مبلغ(?:\s*تراکنش)?|مبـلغ|برداشت(?:\s*وجه)?|واریز(?:\s*وجه)?|واريز|دریافت(?:\s*وجه)?|دريافت|خرید|خريد|پرداخت|انتقال(?:\s*وجه)?|وجه|deposit|withdraw(?:al)?|debit|credit|purchase|transfer)\s*[:：]?\s*$number""", RegexOption.IGNORE_CASE).findAll(normalized).toList()
         val amountMatch = labeled.singleOrNull() ?: if (labeled.isEmpty()) {
-            val currency = Regex("""$number\s*(?:ریال|ريال|تومان|تومن|rial|rials|toman)""", RegexOption.IGNORE_CASE).findAll(normalized).toList()
-            currency.singleOrNull() ?: Regex("""[+-]\s*$number""").findAll(normalized).toList().singleOrNull()
+            val currencySuffix = Regex("""$number\s*(?:ریال|ريال|تومان|تومن|rial|rials|toman)""", RegexOption.IGNORE_CASE).findAll(normalized).toList()
+            val currencyPrefix = Regex("""(?:ریال|ريال|تومان|تومن|rial|rials|toman)\s*[:：]?\s*$number""", RegexOption.IGNORE_CASE).findAll(normalized).toList()
+            val currencyMatches = currencySuffix + currencyPrefix
+            currencyMatches.singleOrNull() ?: Regex("""[+-]\s*$number""").findAll(normalized).toList().singleOrNull()
         } else null
         val rawAmount = amountMatch?.groupValues?.lastOrNull() ?: return null
         val amount = rawAmount.filter(Char::isDigit).toLongOrNull()?.takeIf { it in 1L..100_000_000_000_000L } ?: return null
-        val context = amountMatch.value + normalized.substring(amountMatch.range.last + 1, minOf(normalized.length, amountMatch.range.last + 18))
+        val contextStart = (amountMatch.range.first - 18).coerceAtLeast(0)
+        val contextEnd = (amountMatch.range.last + 19).coerceAtMost(normalized.length)
+        val context = normalized.substring(contextStart, contextEnd)
         val isRial = Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).containsMatchIn(context)
         val toman = if (isRial) {
             if (amount < 10L || amount % 10L != 0L) return null
