@@ -14,7 +14,8 @@ data class UserBankSmsRule(
     val senderAddresses: List<String>,
     val incomeMarkers: String,
     val expenseMarkers: String,
-    val transferMarkers: String
+    val transferMarkers: String,
+    val lookbackMillis: Long = DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS
 )
 
 class UserBankSmsRuleRepository(context: Context) {
@@ -52,7 +53,8 @@ class UserBankSmsRuleRepository(context: Context) {
                         senderAddresses = addresses,
                         incomeMarkers = item.optString("incomeMarkers"),
                         expenseMarkers = item.optString("expenseMarkers"),
-                        transferMarkers = item.optString("transferMarkers")
+                        transferMarkers = item.optString("transferMarkers"),
+                        lookbackMillis = item.optLong("lookbackMillis", DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS).coerceIn(SMS_PATTERN_LOOKBACK_OPTIONS.first(), SMS_PATTERN_LOOKBACK_OPTIONS.last())
                     )
                     if (rule.bankName.isNotBlank() && rule.senderAddresses.isNotEmpty()) add(rule)
                 }
@@ -64,6 +66,8 @@ class UserBankSmsRuleRepository(context: Context) {
     fun save(rule: UserBankSmsRule, userId: String? = SessionManager.userId) {
         require(rule.bankName.isNotBlank())
         require(rule.senderAddresses.isNotEmpty())
+        require(listOf(rule.incomeMarkers, rule.expenseMarkers, rule.transferMarkers).filter(String::isNotBlank).all { UserBankSmsRuleMatcher.parseMarkers(it) != null })
+        require(listOf(rule.incomeMarkers, rule.expenseMarkers, rule.transferMarkers).any(String::isNotBlank))
         val normalized = rule.copy(
             bankName = rule.bankName.trim(),
             senderAddresses = rule.senderAddresses.map(String::trim).filter(String::isNotEmpty).distinct()
@@ -92,6 +96,7 @@ class UserBankSmsRuleRepository(context: Context) {
                     .put("incomeMarkers", rule.incomeMarkers)
                     .put("expenseMarkers", rule.expenseMarkers)
                     .put("transferMarkers", rule.transferMarkers)
+                    .put("lookbackMillis", rule.lookbackMillis)
             )
         }
         prefs.edit().putString(key(userId), array.toString()).apply()
