@@ -407,9 +407,9 @@ object SmsPatternMatcher {
         // Preserve fixed words and punctuation, but treat runs of whitespace as
         // formatting rather than message identity (spaces, tabs, LF and CRLF).
         var cursor = 0
-        Regex("""\\s+""").findAll(value).forEach { whitespace ->
+        Regex("""\s+""").findAll(value).forEach { whitespace ->
             target.append(Regex.escape(value.substring(cursor, whitespace.range.first)))
-            target.append("""\\s+""")
+            target.append("""\s+""")
             cursor = whitespace.range.last + 1
         }
         target.append(Regex.escape(value.substring(cursor)))
