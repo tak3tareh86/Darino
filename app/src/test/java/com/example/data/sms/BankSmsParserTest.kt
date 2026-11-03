@@ -337,9 +337,14 @@ class BankSmsParserTest {
             slots = listOf(slot(sample, "50,000", SmsPatternSlotKind.AMOUNT_TOMAN)),
             senderAddress = "bank"
         )
-        listOf("برداشت مبلغ 10,000 تومان", "برداشت مبلغ 500000 تومان",
-            "برداشت مبلغ 1,000,000 تومان", "برداشت مبلغ 1000000 تومان")
-            .forEach { assertNotNull(SmsPatternMatcher.findUniqueMatch(it, listOf(pattern))) }
+        listOf(
+            "برداشت مبلغ 10,000 تومان",
+            "برداشت مبلغ 500000 تومان",
+            "برداشت مبلغ 1,000,000 تومان",
+            "برداشت مبلغ 1000000 تومان",
+            "برداشت مبلغ 1،000،000 تومان",
+            "برداشت مبلغ 1٬000٬000 تومان"
+        ).forEach { assertNotNull(SmsPatternMatcher.findUniqueMatch(it, listOf(pattern))) }
         val parsed = BankSmsParser.parseMatchedPattern(
             "sms-variable-amount", "bank", "برداشت مبلغ 1,000,000 تومان", 1_700_000_000_000L, pattern
         )
