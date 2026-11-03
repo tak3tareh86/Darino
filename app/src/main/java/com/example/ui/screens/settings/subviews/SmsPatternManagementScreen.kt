@@ -419,7 +419,10 @@ private fun SmsPatternEditorDialog(
             }
         }
         if (timeSlot != null && timeFormat.isBlank()) {
-            timeFormat = if (message.substring(timeSlot.start, timeSlot.endExclusive).count { it == ':' } == 2) "HH:mm:ss" else "HH:mm"
+            val rawTime = message.substring(timeSlot.start, timeSlot.endExclusive)
+            val hourToken = rawTime.substringBefore(':')
+            val hourMask = if (hourToken.length == 1) "H" else "HH"
+            timeFormat = hourMask + if (rawTime.count { it == ':' } == 2) ":mm:ss" else ":mm"
         }
     }
     AlertDialog(
