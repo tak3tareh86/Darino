@@ -246,8 +246,11 @@ object SmsPatternMatcher {
         patterns: List<SmsPattern>,
         sender: String? = null
     ): List<SmsPattern> = patterns.filter { pattern ->
-        // Sender IDs are exact identifiers: preserve case, spaces and punctuation.
-        pattern.senderAddress.isBlank() || pattern.senderAddress == sender
+        // A configured template is usable only with a non-empty, exact sender ID.
+        // The null-sender branch is retained for body-only unit tests; inbox processing
+        // always supplies the SMS provider's sender address.
+        if (sender == null) pattern.senderAddress.isBlank()
+        else pattern.senderAddress.isNotBlank() && pattern.senderAddress == sender
     }.filter { matchesTemplateBody(message, it) }
 
     fun findUniqueMatch(message: String, patterns: List<SmsPattern>, sender: String? = null): SmsPattern? =
@@ -358,15 +361,13 @@ object SmsPatternMatcher {
     }
 
     /**
-     * Character-for-character normalization preserves offsets stored in templates.
-     * Whitespace runs match flexibly, including LF/CRLF and non-breaking spaces.
+     * Normalize only digit glyphs. Fixed text (including Persian/Arabic letters,
+     * spaces, half-spaces, line breaks and punctuation) remains exact.
+     * This is length-preserving, so saved UTF-16 slot offsets remain valid.
      */
     private fun normalizeForMatching(value: String): String = buildString(value.length) {
         value.forEach { char ->
             append(when (char) {
-                'ي', 'ى' -> 'ی'
-                'ك' -> 'ک'
-                '\u00A0', '\u2007', '\u202F', '\u200C', '\u200D' -> ' '
                 in '۰'..'۹' -> ('0'.code + char.code - '۰'.code).toChar()
                 in '٠'..'٩' -> ('0'.code + char.code - '٠'.code).toChar()
                 else -> char
@@ -375,13 +376,7 @@ object SmsPatternMatcher {
     }
 
     private fun appendFixedTextPattern(target: StringBuilder, value: String) {
-        var cursor = 0
-        Regex("""\s+""").findAll(value).forEach { whitespace ->
-            target.append(Regex.escape(value.substring(cursor, whitespace.range.first)))
-            target.append("""\s+""")
-            cursor = whitespace.range.last + 1
-        }
-        target.append(Regex.escape(value.substring(cursor)))
+        target.append(Regex.escape(value))
     }
 
     private fun buildTemplateRegex(sample: String, slots: List<SmsPatternSlot>): Regex {
