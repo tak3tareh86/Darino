@@ -29,6 +29,7 @@ class BankSmsRepository(private val context: Context) {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
     private val patternRepository = SmsPatternRepository(context.applicationContext)
+    private val userRuleRepository = UserBankSmsRuleRepository(context.applicationContext)
 
     companion object {
         private const val KEY_PROCESSED_SMS_IDS = "processed_sms_ids"
@@ -99,6 +100,7 @@ class BankSmsRepository(private val context: Context) {
         val key = userKey(KEY_PENDING_SMS_QUEUE, userId) ?: return emptyList()
         val raw = pendingQueuePreferences.getString(key, null) ?: return emptyList()
         val currentPatterns = patternRepository.getPatterns(userId)
+        val userRules = userRuleRepository.getAll(userId)
         val defaultWindowStart = System.currentTimeMillis() - DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS
         return runCatching {
             val array = JSONArray(raw)
@@ -138,6 +140,18 @@ class BankSmsRepository(private val context: Context) {
             // Restore configured-template suggestions only while their own rolling window is active.
             val eligiblePatterns = currentPatterns.filter {
                 saved.receivedAtMillis >= System.currentTimeMillis() - it.lookbackMillis
+            }
+            if (saved.patternId.startsWith("user-rule:")) {
+                val match = UserBankSmsRuleMatcher.match(saved.smsText, saved.rawSender.orEmpty(), userRules)
+                    ?: return@mapNotNull null
+                val reparsed = GenericBankSmsParser.parse(
+                    saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.receivedAtMillis
+                ) ?: return@mapNotNull null
+                return@mapNotNull UserBankSmsRuleMatcher.applyMatch(reparsed, match).copy(
+                    category = saved.category,
+                    sourceAccount = saved.sourceAccount ?: reparsed.sourceAccount,
+                    destinationAccount = saved.destinationAccount ?: reparsed.destinationAccount
+                )
             }
             if (saved.patternId.isNotBlank() && eligiblePatterns.none { it.id == saved.patternId }) return@mapNotNull null
             if (saved.patternId.isBlank()) {
@@ -234,6 +248,7 @@ class BankSmsRepository(private val context: Context) {
         }
 
         val patterns = patternRepository.getPatterns(uid)
+        val userRules = userRuleRepository.getAll(uid)
         val now = System.currentTimeMillis()
         // Query far enough back for the longest configured template window; generic
         // recognition remains limited to the default one-day window below.
@@ -295,6 +310,14 @@ class BankSmsRepository(private val context: Context) {
                     // Prefer one exact user template; otherwise use conservative generic recognition.
                     // Ambiguous configured templates are rejected rather than arbitrarily prioritized.
                     val eligiblePatterns = patterns.filter { timestamp >= now - it.lookbackMillis }
+                    val userRuleMatch = UserBankSmsRuleMatcher.match(body, address, userRules)
+                    if (userRuleMatch != null) {
+                        val generic = GenericBankSmsParser.parse(uniqueId, address, body, timestamp)
+                        if (generic != null) {
+                            results.add(UserBankSmsRuleMatcher.applyMatch(generic, userRuleMatch))
+                            continue
+                        }
+                    }
                     val matchingPatterns = SmsPatternMatcher.findMatchingPatterns(body, eligiblePatterns, address)
                     if (matchingPatterns.size > 1) {
                         ambiguousCount++
