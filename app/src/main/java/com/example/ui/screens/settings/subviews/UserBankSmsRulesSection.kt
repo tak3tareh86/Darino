@@ -92,7 +92,7 @@ private fun RuleEditorDialog(
     var lookbackMenuExpanded by remember { mutableStateOf(false) }
     val senderList = senders.split(Regex("[,،\\n]")).map(String::trim).filter(String::isNotEmpty).distinct()
     val markerFields = listOf(income, expense, transfer).filter(String::isNotBlank)
-    val validMarkers = markerFields.all { UserBankSmsRuleMatcher.parseMarkers(it) != null }
+    val validMarkers = markerFields.all { it.isBlank() || UserBankSmsRuleMatcher.parseMarkers(it) != null }
     val hasAtLeastOneCategory = markerFields.isNotEmpty()
     val valid = bank.isNotBlank() && senderList.isNotEmpty() && hasAtLeastOneCategory && validMarkers
 
