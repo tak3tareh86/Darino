@@ -55,6 +55,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -1074,7 +1076,8 @@ fun EditSmsTransactionDialog(
         onResult: (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit
     ) -> Unit
 ) {
-    val selectedType = suggestion.type
+    var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
+    var typeMenuExpanded by remember(suggestion.id) { mutableStateOf(false) }
     var amountText by remember(suggestion.id) {
         mutableStateOf(if (suggestion.isAmountValid && suggestion.amount > 0L) IranianAmountUtils.formatWithCommas(suggestion.amount.toString()) else "")
     }
@@ -1153,7 +1156,56 @@ fun EditSmsTransactionDialog(
                         )
                     )
 
-                    // Amount parsed from the configured template (read-only)
+                    // The detected type is a suggestion only; the user can correct it before saving.
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            "نوع تراکنش",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Box {
+                            TextButton(onClick = { typeMenuExpanded = true }) {
+                                Text(
+                                    when (selectedType) {
+                                        TransactionType.INCOME -> "واریز"
+                                        TransactionType.EXPENSE -> "برداشت"
+                                        TransactionType.TRANSFER -> "انتقال وجه"
+                                        null -> "انتخاب نوع تراکنش"
+                                    }
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = typeMenuExpanded,
+                                onDismissRequest = { typeMenuExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("واریز") },
+                                    onClick = {
+                                        selectedType = TransactionType.INCOME
+                                        category = "واریز"
+                                        typeMenuExpanded = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("برداشت") },
+                                    onClick = {
+                                        selectedType = TransactionType.EXPENSE
+                                        category = "برداشت"
+                                        typeMenuExpanded = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("انتقال وجه") },
+                                    onClick = {
+                                        selectedType = TransactionType.TRANSFER
+                                        category = "انتقال وجه"
+                                        typeMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Amount is prefilled when detected and remains editable for correction.
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
                             text = "مبلغ تراکنش (تومان):",
@@ -1161,8 +1213,7 @@ fun EditSmsTransactionDialog(
                         )
                         OutlinedTextField(
                             value = amountText,
-                            onValueChange = {},
-                            readOnly = true,
+                            onValueChange = { amountText = it },
                             singleLine = true,
                             isError = !isAmountValid && amountText.isNotEmpty(),
                             placeholder = { Text("مثال: 50,000", fontSize = 11.5.sp) },
@@ -1190,7 +1241,7 @@ fun EditSmsTransactionDialog(
                             )
                         } else {
                             Text(
-                                text = "⚠️ مبلغ استخراج‌شده از جایگاه مبلغ در الگوی شما معتبر نیست؛ این پیامک قابل ثبت نیست.",
+                                text = "مبلغ به‌درستی از پیامک استخراج نشد؛ مبلغ صحیح را وارد کنید.",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 10.sp,
                                     color = Color(0xFFDC2626),
