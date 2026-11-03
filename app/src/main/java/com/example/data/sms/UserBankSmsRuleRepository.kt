@@ -72,6 +72,7 @@ class UserBankSmsRuleRepository(context: Context) {
             bankName = rule.bankName.trim(),
             senderAddresses = rule.senderAddresses.map(String::trim).filter(String::isNotEmpty).distinct()
         )
+        require(normalized.bankName.isNotBlank())
         require(normalized.senderAddresses.isNotEmpty())
         val all = getAll(userId).toMutableList()
         val index = all.indexOfFirst { it.id == normalized.id }
