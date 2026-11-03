@@ -33,7 +33,7 @@ object BankSmsParser {
         if (containsPasswordKeyword(body)) return null
         // Sender IDs entered by the user are exact identifiers. Case, spaces,
         // Persian characters and punctuation are all significant.
-        if (pattern.senderAddress.isNotBlank() && pattern.senderAddress != sender) return null
+        if (pattern.senderAddress.isBlank() || pattern.senderAddress != sender) return null
         return try {
             val fields = SmsPatternMatcher.extractMatchedFields(body, pattern) ?: return null
 
@@ -59,11 +59,11 @@ object BankSmsParser {
 
             val balanceAmount = when {
                 fields.first(SmsPatternSlotKind.BALANCE_RIAL) != null -> {
-                    val raw = parsePositiveNumber(fields.first(SmsPatternSlotKind.BALANCE_RIAL))
-                    raw?.takeIf { it >= 10L && it % 10L == 0L }?.div(10L)
+                    val raw = parseNonNegativeNumber(fields.first(SmsPatternSlotKind.BALANCE_RIAL))
+                    raw?.takeIf { it % 10L == 0L }?.div(10L)
                 }
                 fields.first(SmsPatternSlotKind.BALANCE_TOMAN) != null ->
-                    parsePositiveNumber(fields.first(SmsPatternSlotKind.BALANCE_TOMAN))
+                    parseNonNegativeNumber(fields.first(SmsPatternSlotKind.BALANCE_TOMAN))
                 else -> null
             }
 
@@ -162,15 +162,19 @@ object BankSmsParser {
         }
     }
 
-    private fun parsePositiveNumber(value: String?): Long? {
+    private fun parsePositiveNumber(value: String?): Long? =
+        parseNonNegativeNumber(value)?.takeIf { it > 0L }
+
+    private fun parseNonNegativeNumber(value: String?): Long? {
         // Keep only decimal digits: this also accepts values such as ۱۰۰۰تومان,
         // (1,000), and amounts followed by a currency suffix without changing the
-        // fixed surrounding template text.
+        // fixed surrounding template text. A zero balance is valid, but a zero
+        // transaction amount is rejected by parsePositiveNumber.
         val digits = value?.let(IranianPhoneUtils::convertDigitsToEnglish)
             ?.filter { it in '0'..'9' }
             ?.takeIf { it.isNotEmpty() }
             ?: return null
-        return digits.toLongOrNull()?.takeIf { it > 0L && it <= 1_000_000_000_000_000L }
+        return digits.toLongOrNull()?.takeIf { it <= 1_000_000_000_000_000L }
     }
 
     private fun parseJalaliDate(

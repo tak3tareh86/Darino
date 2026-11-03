@@ -101,7 +101,7 @@ object SmsPatternMatcher {
             // not transaction amounts when the source-account label is explicit.
             val compactNumber = number.value.filter { it in '0'..'9' || it in '۰'..'۹' || it in '٠'..'٩' }
             val explicitAccountSource = Regex("""(?:برداشت|واریز|انتقال)\s+از\s*[:：]?\s*$""").containsMatchIn(contextBefore) ||
-                Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(contextBefore)
+                Regex("""(?:واریز|انتقال)\s+به(?:\s|$|[:：])""").containsMatchIn(contextBefore)
             if (compactNumber.length >= 8 && explicitAccountSource) return@forEach
 
             // Never vary a number explicitly attached to an account/card label.
@@ -189,7 +189,7 @@ object SmsPatternMatcher {
                 Regex("""(?:شماره\s*)?(?:حساب|کارت|شبا)\s*[:：]?\s*$""").containsMatchIn(before)
             val explicitSourceLabel =
                 Regex("""(?:برداشت|واریز|انتقال)\s+از\s*[:：]?\s*$""").containsMatchIn(before) ||
-                    Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(before)
+                    Regex("""(?:واریز|انتقال)\s+به(?:\s|$|[:：])""").containsMatchIn(before)
             (explicitAccountLabel || (explicitSourceLabel && match.value.length >= 8))
         }.toList()
         return candidates.singleOrNull()?.range
@@ -210,7 +210,8 @@ object SmsPatternMatcher {
     fun configureAllowedAccountNumbers(
         message: String,
         inferredSlots: List<SmsPatternSlot>,
-        enteredValues: List<String>
+        enteredValues: List<String>,
+        transactionType: SmsPatternType? = null
     ): List<SmsPatternSlot> {
         val normalizedMessage = normalizeDigits(message)
         val enteredRange = enteredValues.asSequence()
@@ -226,13 +227,28 @@ object SmsPatternMatcher {
         val allowed = (enteredValues + sampleValue).map { normalizeDigits(it).trim() }
             .filter { it.isNotBlank() }.distinct()
         if (allowed.none { normalizeDigits(it) == normalizeDigits(sampleValue) }) return inferredSlots
-        val context = message.substring(maxOf(0, range.first - 36), range.first)
-        val kind = if (context.contains("کارت")) SmsPatternSlotKind.SOURCE_CARD else SmsPatternSlotKind.SOURCE_ACCOUNT
+        val context = message.substring(maxOf(0, range.first - 48), range.first)
+        val isCard = context.contains("کارت")
+        val direction = when {
+            Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(context) ->
+                SmsPatternType.INCOME
+            Regex("""(?:برداشت|انتقال)\s+از(?:\s|$|[:：])""").containsMatchIn(context) ->
+                SmsPatternType.EXPENSE
+            transactionType == SmsPatternType.INCOME -> SmsPatternType.INCOME
+            transactionType == SmsPatternType.EXPENSE -> SmsPatternType.EXPENSE
+            else -> return inferredSlots
+        }
+        val kind = when {
+            isCard && direction == SmsPatternType.INCOME -> SmsPatternSlotKind.DESTINATION_CARD
+            isCard -> SmsPatternSlotKind.SOURCE_CARD
+            direction == SmsPatternType.INCOME -> SmsPatternSlotKind.DESTINATION_ACCOUNT
+            else -> SmsPatternSlotKind.SOURCE_ACCOUNT
+        }
         return (inferredSlots.filterNot { range.first < it.endExclusive && range.last + 1 > it.start } +
             SmsPatternSlot(range.first, range.last + 1, kind, allowed)).sortedBy { it.start }
     }
     fun matchesTemplateBody(message: String, pattern: SmsPattern): Boolean {
-        val normalizedMessage = normalizeForMatching(message)
+        val normalizedMessage = message
         val sample = pattern.sampleMessage
         val slots = validSlots(sample, pattern.slots)
         return normalizedMessage.isNotBlank() && sample.isNotBlank() && slots.isNotEmpty() &&
@@ -246,8 +262,11 @@ object SmsPatternMatcher {
         patterns: List<SmsPattern>,
         sender: String? = null
     ): List<SmsPattern> = patterns.filter { pattern ->
-        // Sender IDs are exact identifiers: preserve case, spaces and punctuation.
-        pattern.senderAddress.isBlank() || pattern.senderAddress == sender
+        // A configured template is usable only with a non-empty, exact sender ID.
+        // The null-sender branch is retained for body-only unit tests; inbox processing
+        // always supplies the SMS provider's sender address.
+        if (sender == null) pattern.senderAddress.isBlank()
+        else pattern.senderAddress.isNotBlank() && pattern.senderAddress == sender
     }.filter { matchesTemplateBody(message, it) }
 
     fun findUniqueMatch(message: String, patterns: List<SmsPattern>, sender: String? = null): SmsPattern? =
@@ -255,7 +274,7 @@ object SmsPatternMatcher {
 
     fun extractMatchedFields(message: String, pattern: SmsPattern): MatchedFields? {
         val sample = pattern.sampleMessage
-        val normalizedMessage = normalizeForMatching(message)
+        val normalizedMessage = message
         if (sample.isBlank() || normalizedMessage.isBlank()) return null
         val slots = validSlots(sample, pattern.slots)
         if (slots.isEmpty() || slots.count {
@@ -316,6 +335,14 @@ object SmsPatternMatcher {
             append(")")
             return
         }
+        if (kind == SmsPatternSlotKind.TRACKING) {
+            // Tracking references can be alphanumeric and change in every position.
+            // Keep the slot bounded to one compact identifier rather than fixing its
+            // alphabetic prefix from the sample.
+            append("""[\p{L}\p{N}][\p{L}\p{N}._/-]*""")
+            return
+        }
+
         val fixedDigitWidth = kind == SmsPatternSlotKind.DATE ||
             kind == SmsPatternSlotKind.DATE_DAY_MONTH ||
             kind == SmsPatternSlotKind.DATE_MONTH_DAY ||
@@ -333,14 +360,15 @@ object SmsPatternMatcher {
         )
         if (kind in amountKinds) {
             val numericRun = Regex("""[0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬]*""").find(value)
-            val separators = numericRun?.value?.filter { it == ',' || it == '،' || it == '٬' }?.toList()?.distinct().orEmpty()
-            if (numericRun != null && separators.size == 1) {
-                val separator = Regex.escape(separators.single().toString())
+            if (numericRun != null) {
                 val digit = "[0-9۰-۹٠-٩]"
                 append(Regex.escape(value.substring(0, numericRun.range.first)))
+                // Grouping separators are part of the variable amount, not fixed
+                // template text. Accept the common Persian/Arabic/Latin thousands
+                // separators while still requiring valid groups of three digits.
                 append("(?:")
                 append(digit).append("+|")
-                append(digit).append("{1,3}(?:").append(separator).append(digit).append("{3})+")
+                append(digit).append("{1,3}(?:[,،٬]").append(digit).append("{3})+")
                 append(")")
                 append(Regex.escape(value.substring(numericRun.range.last + 1)))
                 return
@@ -357,35 +385,12 @@ object SmsPatternMatcher {
         append(Regex.escape(value.substring(cursor)))
     }
 
-    /**
-     * Character-for-character normalization preserves offsets stored in templates.
-     * Whitespace runs match flexibly, including LF/CRLF and non-breaking spaces.
-     */
-    private fun normalizeForMatching(value: String): String = buildString(value.length) {
-        value.forEach { char ->
-            append(when (char) {
-                'ي', 'ى' -> 'ی'
-                'ك' -> 'ک'
-                '\u00A0', '\u2007', '\u202F', '\u200C', '\u200D' -> ' '
-                in '۰'..'۹' -> ('0'.code + char.code - '۰'.code).toChar()
-                in '٠'..'٩' -> ('0'.code + char.code - '٠'.code).toChar()
-                else -> char
-            })
-        }
-    }
-
     private fun appendFixedTextPattern(target: StringBuilder, value: String) {
-        var cursor = 0
-        Regex("""\s+""").findAll(value).forEach { whitespace ->
-            target.append(Regex.escape(value.substring(cursor, whitespace.range.first)))
-            target.append("""\s+""")
-            cursor = whitespace.range.last + 1
-        }
-        target.append(Regex.escape(value.substring(cursor)))
+        target.append(Regex.escape(value))
     }
 
     private fun buildTemplateRegex(sample: String, slots: List<SmsPatternSlot>): Regex {
-        val normalizedSample = normalizeForMatching(sample)
+        val normalizedSample = sample
         val expression = buildString {
             var cursor = 0
             slots.forEach { slot ->
