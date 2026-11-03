@@ -439,11 +439,11 @@ private fun SmsPatternEditorDialog(
                 }
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("متن کامل پیامک نمونه", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    TextButton(onClick = { clipboardManager.getText()?.text?.takeIf { it.isNotBlank() }?.let { message = it } }, enabled = !clipboardManager.getText()?.text.isNullOrBlank()) {
+                    TextButton(onClick = { clipboardManager.getText()?.text?.takeIf { it.isNotBlank() }?.let { message = it; dateFormat = ""; timeFormat = "" } }, enabled = !clipboardManager.getText()?.text.isNullOrBlank()) {
                         Icon(Icons.Rounded.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.size(4.dp)); Text("جای‌گذاری")
                     }
                 }
-                OutlinedTextField(value = message, onValueChange = { message = it }, modifier = Modifier.fillMaxWidth(), minLines = 4, maxLines = 8, placeholder = { Text("کل پیامک بانکی را عیناً جای‌گذاری کنید؛ خطوط و علائم را تغییر ندهید.") }, supportingText = { Text(message.length.toString() + " نویسه") })
+                OutlinedTextField(value = message, onValueChange = { message = it; dateFormat = ""; timeFormat = "" }, modifier = Modifier.fillMaxWidth(), minLines = 4, maxLines = 8, placeholder = { Text("کل پیامک بانکی را عیناً جای‌گذاری کنید؛ خطوط و علائم را تغییر ندهید.") }, supportingText = { Text(message.length.toString() + " نویسه") })
                 if (inferredSlots.isNotEmpty()) {
                     Text("تحلیل اولیه دارینو", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
                     inferredSlots.forEach { slot ->
