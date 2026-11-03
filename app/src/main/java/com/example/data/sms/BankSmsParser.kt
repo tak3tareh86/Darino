@@ -31,9 +31,9 @@ object BankSmsParser {
         pattern: SmsPattern
     ): BankSmsSuggestion? {
         if (containsPasswordKeyword(body)) return null
-        // Sender IDs entered by the user are exact identifiers. Case, spaces,
-        // Persian characters and punctuation are all significant.
-        if (pattern.senderAddress.isBlank() || pattern.senderAddress != sender) return null
+        // The sender is the mandatory first gate. Numeric IDs tolerate formatting
+        // spaces and Persian/Arabic digit glyphs, but their digit sequence stays exact.
+        if (!SmsPatternMatcher.senderMatchesPattern(pattern.senderAddress, sender)) return null
         return try {
             val fields = SmsPatternMatcher.extractMatchedFields(body, pattern) ?: return null
 
