@@ -402,7 +402,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     )
                 } else {
                     val originPattern = activePatterns.singleOrNull { it.id == item.patternId }
-                    val uniquePattern = SmsPatternMatcher.findUniqueMatch(item.smsText, activePatterns)
+                    val uniquePattern = SmsPatternMatcher.findUniqueMatch(item.smsText, activePatterns, item.rawSender)
                     if (originPattern != null && uniquePattern?.id == originPattern.id) {
                         BankSmsParser.parseMatchedPattern(
                             item.id, item.rawSender.orEmpty(), item.smsText, item.timestampMillis, originPattern
