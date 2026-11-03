@@ -44,7 +44,7 @@ object GenericBankSmsParser {
     )
 
     private val transactionSignal = Regex(
-        """واریز|واريز|دریافت|دريافت|برداشت|خرید|خريد|پرداخت|انتقال|تراکنش|کارت\s*به\s*کارت|پایا|ساتنا|حواله|نشست|پرید|بازپرداخت|وام|deposit|withdraw|debit|credit|purchase|transfer""",
+        """واریز|واريز|دریافت|دريافت|برداشت|خرید|خريد|پرداخت|انتقال|تراکنش|کارت\s*به\s*کارت|پایا|ساتنا|حواله|نشست|پرید|بازپرداخت|وام|deposit|withdraw|debit|credit|purchase|transfer|[+-][0-9۰-۹٠-٩]""",
         RegexOption.IGNORE_CASE
     )
     private val amountLabel = Regex(
