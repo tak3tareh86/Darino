@@ -66,8 +66,9 @@ class UserBankSmsRuleRepository(context: Context) {
     fun save(rule: UserBankSmsRule, userId: String? = SessionManager.userId) {
         require(rule.bankName.isNotBlank())
         require(rule.senderAddresses.isNotEmpty())
-        require(listOf(rule.incomeMarkers, rule.expenseMarkers, rule.transferMarkers).filter(String::isNotBlank).all { UserBankSmsRuleMatcher.parseMarkers(it) != null })
-        require(listOf(rule.incomeMarkers, rule.expenseMarkers, rule.transferMarkers).any(String::isNotBlank))
+        require(UserBankSmsRuleMatcher.parseMarkers(rule.incomeMarkers) != null)
+        require(UserBankSmsRuleMatcher.parseMarkers(rule.expenseMarkers) != null)
+        require(UserBankSmsRuleMatcher.parseMarkers(rule.transferMarkers) != null)
         val normalized = rule.copy(
             bankName = rule.bankName.trim(),
             senderAddresses = rule.senderAddresses.map(String::trim).filter(String::isNotEmpty).distinct()
