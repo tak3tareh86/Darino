@@ -344,12 +344,12 @@ class BankSmsParserTest {
             "برداشت مبلغ 1000000 تومان",
             "برداشت مبلغ 1،000،000 تومان",
             "برداشت مبلغ 1٬000٬000 تومان"
-        ).forEach { assertNotNull(SmsPatternMatcher.findUniqueMatch(it, listOf(pattern))) }
+        ).forEach { assertNotNull(SmsPatternMatcher.findUniqueMatch(it, listOf(pattern), "bank")) }
         val parsed = BankSmsParser.parseMatchedPattern(
             "sms-variable-amount", "bank", "برداشت مبلغ 1,000,000 تومان", 1_700_000_000_000L, pattern
         )
         assertEquals(1_000_000L, parsed?.amount)
-        assertNull(SmsPatternMatcher.findUniqueMatch("برداشت مبلغ 1.000.000 تومان", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("برداشت مبلغ 1.000.000 تومان", listOf(pattern), "bank"))
     }
 
     @Test
