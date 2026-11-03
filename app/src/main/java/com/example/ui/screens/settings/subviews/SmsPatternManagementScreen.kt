@@ -386,6 +386,9 @@ private fun SmsPatternEditorDialog(
         SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR, SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
     ) }
     val timeSlot = inferredSlots.firstOrNull { it.kind == SmsPatternSlotKind.TIME }
+    val datePartsForMask = dateSlot?.let { message.substring(it.start, it.endExclusive).split(Regex("[/.-]")) }.orEmpty()
+    val dateSeparator = dateSlot?.let { Regex("[/.-]").find(message.substring(it.start, it.endExclusive))?.value } ?: "/"
+    val dateYearToken = if (datePartsForMask.any { it.length == 4 }) "YYYY" else "YY"
     val normalizedDateFormat = dateFormat.uppercase().replace(" ", "")
     val supportedDateFormats = setOf(
         "YYYY/MM/DD", "YYYY-MM-DD", "YYYY.MM.DD", "YY/MM/DD", "YY-MM-DD", "YY.MM.DD",
@@ -455,9 +458,18 @@ private fun SmsPatternEditorDialog(
                 if (dateSlot != null && dateSlot.kind in setOf(SmsPatternSlotKind.DATE_YEAR_MONTH_DAY, SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR)) {
                     Text("ترتیب اجزای تاریخ نمونه را مشخص کنید:", style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (dateSlot.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY) FilterChip(selected = compactDateOrder == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY, onClick = { compactDateOrder = SmsPatternSlotKind.DATE_YEAR_MONTH_DAY }, label = { Text("سال/ماه/روز") })
-                        FilterChip(selected = compactDateOrder == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, onClick = { compactDateOrder = SmsPatternSlotKind.DATE_DAY_MONTH_YEAR }, label = { Text("روز/ماه/سال") })
-                        FilterChip(selected = compactDateOrder == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR, onClick = { compactDateOrder = SmsPatternSlotKind.DATE_MONTH_DAY_YEAR }, label = { Text("ماه/روز/سال") })
+                        if (dateSlot.kind == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY) FilterChip(selected = dateKindFromFormat == SmsPatternSlotKind.DATE_YEAR_MONTH_DAY, onClick = {
+                                compactDateOrder = SmsPatternSlotKind.DATE_YEAR_MONTH_DAY
+                                dateFormat = dateYearToken + dateSeparator + "MM" + dateSeparator + "DD"
+                            }, label = { Text("سال/ماه/روز") })
+                        FilterChip(selected = dateKindFromFormat == SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, onClick = {
+                            compactDateOrder = SmsPatternSlotKind.DATE_DAY_MONTH_YEAR
+                            dateFormat = "DD" + dateSeparator + "MM" + dateSeparator + dateYearToken
+                        }, label = { Text("روز/ماه/سال") })
+                        FilterChip(selected = dateKindFromFormat == SmsPatternSlotKind.DATE_MONTH_DAY_YEAR, onClick = {
+                            compactDateOrder = SmsPatternSlotKind.DATE_MONTH_DAY_YEAR
+                            dateFormat = "MM" + dateSeparator + "DD" + dateSeparator + dateYearToken
+                        }, label = { Text("ماه/روز/سال") })
                     }
                 }
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
