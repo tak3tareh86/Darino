@@ -105,7 +105,19 @@ private fun RuleEditorDialog(
                 item { OutlinedTextField(senders, { senders = it }, modifier = Modifier.fillMaxWidth(), label = { Text("سرشماره‌ها (هر خط یک مورد)") }, minLines = 2) }
                 item { OutlinedTextField(income, { income = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های واریز") }, placeholder = { Text("واریز/نشست") }, singleLine = true) }
                 item { OutlinedTextField(expense, { expense = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های برداشت") }, placeholder = { Text("برداشت/پرید") }, singleLine = true) }
-                item { OutlinedTextField(transfer, { transfer = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های انتقال وجه") }, placeholder = { Text("انتقال/کارت_به_کارت") }, singleLine = true) }\n                item {\n                    Column {\n                        Text("بازه بررسی پیامک‌های قدیمی")\n                        TextButton(onClick = { lookbackMenuExpanded = true }) { Text("$lookbackDays روز") }\n                        DropdownMenu(expanded = lookbackMenuExpanded, onDismissRequest = { lookbackMenuExpanded = false }) {\n                            SMS_PATTERN_LOOKBACK_OPTIONS.forEach { millis ->\n                                val days = (millis / (24L * 60L * 60L * 1000L)).toInt()\n                                DropdownMenuItem(text = { Text("$days روز") }, onClick = { lookbackDays = days; lookbackMenuExpanded = false })\n                            }\n                        }\n                    }\n                }
+                item { OutlinedTextField(transfer, { transfer = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های انتقال وجه") }, placeholder = { Text("انتقال/کارت_به_کارت") }, singleLine = true) }
+                item {
+                    Column {
+                        Text("بازه بررسی پیامک‌های قدیمی")
+                        TextButton(onClick = { lookbackMenuExpanded = true }) { Text("$lookbackDays روز") }
+                        DropdownMenu(expanded = lookbackMenuExpanded, onDismissRequest = { lookbackMenuExpanded = false }) {
+                            SMS_PATTERN_LOOKBACK_OPTIONS.forEach { millis ->
+                                val days = (millis / (24L * 60L * 60L * 1000L)).toInt()
+                                DropdownMenuItem(text = { Text("$days روز") }, onClick = { lookbackDays = days; lookbackMenuExpanded = false })
+                            }
+                        }
+                    }
+                }
                 item {
                     Text(
                         "نشانه‌ها را فقط با / جدا کنید؛ حداقل دو نشانه لازم است. فاصله و علائم نگارشی دیگر مجاز نیستند. هر سه دسته اختیاری‌اند، اما هر دسته‌ای که تکمیل شود باید معتبر باشد.",
