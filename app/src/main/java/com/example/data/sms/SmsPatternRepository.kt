@@ -7,8 +7,13 @@ import com.example.data.security.SessionManager
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
+import kotlinx.coroutines.flow.MutableSharedFlow
 
 const val DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS = 24L * 60L * 60L * 1000L
+object SmsPatternChangeNotifier {
+    val changes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+}
+
 val SMS_PATTERN_LOOKBACK_OPTIONS = listOf(
     1L * 24L * 60L * 60L * 1000L,
     3L * 24L * 60L * 60L * 1000L,
@@ -195,6 +200,7 @@ class SmsPatternRepository(context: Context) {
         }
         if (index >= 0) patterns[index] = pattern else patterns.add(0, pattern)
         persist(patterns, userId)
+        SmsPatternChangeNotifier.changes.tryEmit(Unit)
     }
 
     fun create(
@@ -234,6 +240,7 @@ class SmsPatternRepository(context: Context) {
         if (remaining.isEmpty()) {
             preferences.edit().remove(recognitionStartKey(userId)).commit()
         }
+        SmsPatternChangeNotifier.changes.tryEmit(Unit)
     }
 
     private fun persist(patterns: List<SmsPattern>, userId: String? = SessionManager.userId) {
