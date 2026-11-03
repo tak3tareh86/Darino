@@ -60,7 +60,7 @@ object GenericBankSmsParser {
     private val dateRegex = Regex("""(?<![0-9۰-۹٠-٩])([0-9۰-۹٠-٩]{1,4})[/.-]([0-9۰-۹٠-٩]{1,2})[/.-]([0-9۰-۹٠-٩]{1,4})(?![0-9۰-۹٠-٩])""")
     private val monthDayDateRegex = Regex("""(?<![0-9۰-۹٠-٩])([0-9۰-۹٠-٩]{1,2})/([0-9۰-۹٠-٩]{1,2})(?![0-9۰-۹٠-٩])""")
 
-    fun parse(smsId: String, sender: String, body: String, timestampMillis: Long): BankSmsSuggestion? {
+    fun parse(smsId: String, sender: String, body: String, timestampMillis: Long, forcedType: TransactionType? = null, forcedBankName: String? = null): BankSmsSuggestion? {
         // Reject every message containing "رمز", regardless of the following words.
         if (BankSmsParser.containsPasswordKeyword(body)) return null
         val normalized = normalize(body)
@@ -98,7 +98,7 @@ object GenericBankSmsParser {
         val amount = parseDigits(amountMatch.groupValues[1]) ?: return null
         if (amount !in 1L..100_000_000_000_000L) return null
 
-        val type = classifyType(normalized) ?: return null
+        val type = forcedType ?: classifyType(normalized) ?: return null
         val amountUnitContext = normalized.substring(
             amountMatch.range.last + 1,
             minOf(normalized.length, amountMatch.range.last + 18)
@@ -122,7 +122,7 @@ object GenericBankSmsParser {
             if (balanceIsRial) it.takeIf { value -> value >= 10L && value % 10L == 0L }?.div(10L) else it
         }
 
-        val bankName = identifyBank(normalized, sender)
+        val bankName = forcedBankName?.takeIf { it.isNotBlank() } ?: identifyBank(normalized, sender)
         val receivedDateTime = PersianCalendarHelper.fromEpochMillis(timestampMillis)
         val dateParts = dateRegex.find(normalized)?.let { match ->
             parseJalaliDate(
