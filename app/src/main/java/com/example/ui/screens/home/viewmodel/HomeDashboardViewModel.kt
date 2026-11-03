@@ -398,14 +398,14 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 val activePatterns = smsPatternRepository.getPatterns(userId)
                 val freshlyParsed = if (item.patternId.isBlank()) {
                     GenericBankSmsParser.parse(
-                        item.id, item.rawSender.orEmpty(), item.smsText, item.timestampMillis
+                        item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis
                     )
                 } else {
                     val originPattern = activePatterns.singleOrNull { it.id == item.patternId }
                     val uniquePattern = SmsPatternMatcher.findUniqueMatch(item.smsText, activePatterns, item.rawSender)
                     if (originPattern != null && uniquePattern?.id == originPattern.id) {
                         BankSmsParser.parseMatchedPattern(
-                            item.id, item.rawSender.orEmpty(), item.smsText, item.timestampMillis, originPattern
+                            item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis, originPattern
                         )
                     } else null
                 }
@@ -414,6 +414,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     freshlyParsed.type != item.type ||
                     freshlyParsed.patternId != item.patternId ||
                     freshlyParsed.timestampMillis != item.timestampMillis ||
+                    freshlyParsed.receivedAtMillis != item.receivedAtMillis ||
                     freshlyParsed.dateText != item.dateText ||
                     freshlyParsed.timeText != item.timeText ||
                     freshlyParsed.balanceAmount != item.balanceAmount ||
