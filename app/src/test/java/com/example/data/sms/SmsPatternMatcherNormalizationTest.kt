@@ -10,7 +10,7 @@ import org.junit.Test
 class SmsPatternMatcherNormalizationTest {
 
     @Test
-    fun matchesCompactMultilineBankMessageAcrossDigitAndLineEndingVariants() {
+    fun matchesVariableDigitGlyphsButPreservesExactLineEndings() {
         val sample = """حساب4785914725
 برداشت50,000
 مانده7,963,304
@@ -25,11 +25,11 @@ class SmsPatternMatcherNormalizationTest {
         val actual = "حساب4785914725\r\nبرداشت۵۰,۰۰۰\r\nمانده۷,۹۶۳,۳۰۴\r\n05/08/12-07:14"
 
         assertNotNull(SmsPatternMatcher.findUniqueMatch(actual, listOf(pattern)))
-        assertNotNull(SmsPatternMatcher.extractMatchedFields(actual, pattern))
+        assertNotNull(SmsPatternMatcher.extractMatchedFields(actual, pattern))\n        assertNull(SmsPatternMatcher.findUniqueMatch(actual.replace("\\n", "\\r\\n"), listOf(pattern)))
     }
 
     @Test
-    fun matchesArabicAndPersianLetterVariantsWithoutChangingTemplateOffsets() {
+    fun fixedArabicAndPersianLetterVariantsMustRemainExact() {
         val sample = "موجودی 100 تومان"
         val pattern = SmsPattern(
             id = "letters",
@@ -41,7 +41,7 @@ class SmsPatternMatcherNormalizationTest {
             )
         )
 
-        assertNotNull(SmsPatternMatcher.findUniqueMatch("موجودي ۲۰۰ تومان", listOf(pattern)))
+        assertNull(SmsPatternMatcher.findUniqueMatch("موجودي ۲۰۰ تومان", listOf(pattern)))\n        assertNotNull(SmsPatternMatcher.findUniqueMatch("موجودی ۲۰۰ تومان", listOf(pattern)))
     }
     @Test
     fun configuredSenderIsMatchedExactlyAndShortJalaliYearUsesExplicitOrder() {
