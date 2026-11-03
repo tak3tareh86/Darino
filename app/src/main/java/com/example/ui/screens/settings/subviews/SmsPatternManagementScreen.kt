@@ -67,6 +67,8 @@ import com.example.data.sms.SmsPatternRepository
 import com.example.data.sms.SmsPatternSlot
 import com.example.data.sms.SmsPatternSlotKind
 import com.example.data.sms.SmsPatternType
+import com.example.data.sms.SMS_PATTERN_LOOKBACK_OPTIONS
+import com.example.data.sms.DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS
 import com.example.ui.screens.settings.components.SettingsHeader
 
 private enum class PatternFilter { ALL, INCOME, EXPENSE, TRANSFER }
@@ -230,7 +232,11 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
                     PatternCard(
                         pattern = pattern,
                         onEdit = { editingPattern = pattern; showEditor = true },
-                        onDelete = { patternToDelete = pattern }
+                        onDelete = { patternToDelete = pattern },
+                        onLookbackChange = { millis ->
+                            repository.save(pattern.copy(lookbackMillis = millis))
+                            patterns = repository.getPatterns()
+                        }
                     )
                 }
             }
@@ -297,8 +303,18 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
 private fun PatternCard(
     pattern: SmsPattern,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onLookbackChange: (Long) -> Unit
 ) {
+    var lookbackMenuExpanded by remember(pattern.id) { mutableStateOf(false) }
+    val lookbackLabel = when (pattern.lookbackMillis) {
+        1L * 24L * 60L * 60L * 1000L -> "۱ روز گذشته"
+        3L * 24L * 60L * 60L * 1000L -> "۳ روز گذشته"
+        7L * 24L * 60L * 60L * 1000L -> "۷ روز گذشته"
+        30L * 24L * 60L * 60L * 1000L -> "۳۰ روز گذشته"
+        90L * 24L * 60L * 60L * 1000L -> "۹۰ روز گذشته"
+        else -> "۱ روز گذشته"
+    }
     val accent = when (pattern.type) {
         SmsPatternType.INCOME -> Color(0xFF059669)
         SmsPatternType.EXPENSE -> Color(0xFFE11D48)
@@ -357,6 +373,42 @@ private fun PatternCard(
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("مدت بررسی پیامک‌ها", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    Text("از $lookbackLabel", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Box {
+                    TextButton(onClick = { lookbackMenuExpanded = true }) {
+                        Text("تغییر مدت")
+                    }
+                    DropdownMenu(
+                        expanded = lookbackMenuExpanded,
+                        onDismissRequest = { lookbackMenuExpanded = false }
+                    ) {
+                        SMS_PATTERN_LOOKBACK_OPTIONS.forEach { millis ->
+                            val label = when (millis) {
+                                1L * 24L * 60L * 60L * 1000L -> "۱ روز"
+                                3L * 24L * 60L * 60L * 1000L -> "۳ روز"
+                                7L * 24L * 60L * 60L * 1000L -> "۷ روز"
+                                30L * 24L * 60L * 60L * 1000L -> "۳۰ روز"
+                                else -> "۹۰ روز"
+                            }
+                            DropdownMenuItem(
+                                text = { Text(label + if (millis == pattern.lookbackMillis) " ✓" else "") },
+                                onClick = {
+                                    onLookbackChange(millis)
+                                    lookbackMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
     }
