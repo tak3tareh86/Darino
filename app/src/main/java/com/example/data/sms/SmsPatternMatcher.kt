@@ -335,6 +335,14 @@ object SmsPatternMatcher {
             append(")")
             return
         }
+        if (kind == SmsPatternSlotKind.TRACKING) {
+            // Tracking references can be alphanumeric and change in every position.
+            // Keep the slot bounded to one compact identifier rather than fixing its
+            // alphabetic prefix from the sample.
+            append("""[\\p{L}\\p{N}][\\p{L}\\p{N}._/-]*""")
+            return
+        }
+
         val fixedDigitWidth = kind == SmsPatternSlotKind.DATE ||
             kind == SmsPatternSlotKind.DATE_DAY_MONTH ||
             kind == SmsPatternSlotKind.DATE_MONTH_DAY ||
