@@ -189,6 +189,7 @@ object GenericBankSmsParser {
             destinationAccount = destinationAccountNumber?.let { "حساب/کارت $it" },
             rawSender = sender,
             timestampMillis = finalTimestamp,
+            receivedAtMillis = timestampMillis,
             balanceAmount = balance,
             trackingCode = tracking
         )
