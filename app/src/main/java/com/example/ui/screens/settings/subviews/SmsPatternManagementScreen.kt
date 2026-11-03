@@ -393,7 +393,16 @@ private fun SmsPatternEditorDialog(
         "MM/DD/YYYY", "MM-DD-YYYY", "MM.DD.YYYY", "MM/DD/YY", "MM-DD-YY", "MM.DD.YY",
         "DD/MM", "DD-MM", "DD.MM", "MM/DD", "MM-DD", "MM.DD"
     )
-    val validDateFormat = dateSlot == null || normalizedDateFormat in supportedDateFormats
+    val validDateFormat = dateSlot == null || (
+        normalizedDateFormat in supportedDateFormats && when (dateSlot.kind) {
+            SmsPatternSlotKind.DATE -> normalizedDateFormat.startsWith("YYYY")
+            SmsPatternSlotKind.DATE_DAY_MONTH_YEAR, SmsPatternSlotKind.DATE_MONTH_DAY_YEAR ->
+                normalizedDateFormat.endsWith("YYYY") || normalizedDateFormat.endsWith("YY")
+            SmsPatternSlotKind.DATE_DAY_MONTH -> normalizedDateFormat.startsWith("DD")
+            SmsPatternSlotKind.DATE_MONTH_DAY -> normalizedDateFormat.startsWith("MM")
+            else -> true
+        }
+    )
     val validTimeFormat = timeSlot == null || timeFormat.uppercase().replace(" ", "") in setOf("HH:MM", "H:MM", "HH:MM:SS", "H:MM:SS")
     val dateKindFromFormat = when (dateFormat.uppercase().replace(" ", "")) {
         "YYYY/MM/DD", "YYYY-MM-DD", "YYYY.MM.DD" -> SmsPatternSlotKind.DATE
