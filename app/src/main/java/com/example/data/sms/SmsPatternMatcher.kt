@@ -230,9 +230,9 @@ object SmsPatternMatcher {
         val context = message.substring(maxOf(0, range.first - 48), range.first)
         val isCard = context.contains("کارت")
         val direction = when {
-            Regex("""(?:واریز|انتقال)\\s+به\\s*[:：]?\\s*$""").containsMatchIn(context) ->
+            Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(context) ->
                 SmsPatternType.INCOME
-            Regex("""(?:برداشت|انتقال)\\s+از\\s*[:：]?\\s*$""").containsMatchIn(context) ->
+            Regex("""(?:برداشت|انتقال)\s+از\s*[:：]?\s*$""").containsMatchIn(context) ->
                 SmsPatternType.EXPENSE
             transactionType == SmsPatternType.INCOME -> SmsPatternType.INCOME
             transactionType == SmsPatternType.EXPENSE -> SmsPatternType.EXPENSE
