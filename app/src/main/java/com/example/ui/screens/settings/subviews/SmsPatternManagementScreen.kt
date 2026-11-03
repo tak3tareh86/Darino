@@ -377,7 +377,7 @@ private fun SmsPatternEditorDialog(
     var timeFormat by remember(pattern?.id) { mutableStateOf(pattern?.timeFormat.orEmpty()) }
     var type by remember(pattern?.id) { mutableStateOf(pattern?.type ?: SmsPatternType.INCOME) }
     var transferAccountSide by remember(pattern?.id) {
-        mutableStateOf(pattern?.transferAccountSide ?: SmsPatternAccountSide.SOURCE)
+        mutableStateOf(pattern?.transferAccountSide)
     }
     var message by remember(pattern?.id) { mutableStateOf(pattern?.sampleMessage.orEmpty()) }
     val inferredSlots = remember(message) { SmsPatternMatcher.inferVariableSlots(message) }
@@ -532,7 +532,10 @@ private fun SmsPatternEditorDialog(
                 },
                 enabled = name.isNotBlank() && bankName.isNotBlank() && senderAddress.isNotBlank() && message.isNotBlank() &&
                     inferredSlots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } == 1 &&
-                    validDateFormat && validTimeFormat,
+                    validDateFormat && validTimeFormat &&
+                    (type != SmsPatternType.TRANSFER ||
+                        (accountNumber.isBlank() && SmsPatternMatcher.inferAccountIdentifierRange(message) == null) ||
+                        transferAccountSide != null),
                 shape = RoundedCornerShape(10.dp)
             ) { Text("تحلیل و ذخیره الگو") }
         },
