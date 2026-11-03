@@ -33,10 +33,20 @@ object UserRuleSmsAmountParser {
         } else null
         val rawAmount = amountMatch?.groupValues?.lastOrNull() ?: return null
         val amount = rawAmount.filter(Char::isDigit).toLongOrNull()?.takeIf { it in 1L..100_000_000_000_000L } ?: return null
-        val contextStart = (amountMatch.range.first - 18).coerceAtLeast(0)
-        val contextEnd = (amountMatch.range.last + 19).coerceAtMost(normalized.length)
-        val context = normalized.substring(contextStart, contextEnd)
-        val isRial = Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).containsMatchIn(context)
+        val numericRange = amountMatch.groups.lastOrNull()?.range ?: return null
+        val unitRegex = Regex("""ریال|ريال|تومان|تومن|rial|rials|toman""", RegexOption.IGNORE_CASE)
+        val prefixStart = (numericRange.first - 12).coerceAtLeast(0)
+        val suffixEnd = (numericRange.last + 13).coerceAtMost(normalized.length)
+        val prefixText = normalized.substring(prefixStart, numericRange.first)
+        val suffixText = normalized.substring(numericRange.last + 1, suffixEnd)
+        val prefixUnit = unitRegex.findAll(prefixText).lastOrNull()
+        val suffixUnit = unitRegex.find(suffixText)
+        val isRial = when {
+            prefixUnit != null && suffixUnit == null -> Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).matches(prefixUnit.value)
+            suffixUnit != null && prefixUnit == null -> Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).matches(suffixUnit.value)
+            prefixUnit != null && suffixUnit != null -> return null
+            else -> false
+        }
         val toman = if (isRial) {
             if (amount < 10L || amount % 10L != 0L) return null
             amount / 10L
