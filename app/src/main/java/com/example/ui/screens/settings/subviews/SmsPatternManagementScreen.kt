@@ -146,6 +146,10 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
             }
 
             item {
+                UserBankSmsRulesSection()
+            }
+
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
