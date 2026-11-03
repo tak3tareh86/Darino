@@ -306,6 +306,15 @@ class BankSmsRepository(private val context: Context) {
                     }
                     // Prefer one exact user template; otherwise use conservative generic recognition.
                     // Ambiguous configured templates are rejected rather than arbitrarily prioritized.
+                    val eligibleRules = rules.filter { timestamp >= now - it.lookbackMillis }
+                    val ruleMatches = UserBankSmsRuleMatcher.matchAll(body, address, eligibleRules)
+                    if (ruleMatches.isNotEmpty()) {
+                        val match = ruleMatches.singleOrNull()?.takeIf { it.type != null }
+                        if (match == null) { ambiguousCount++; continue }
+                        val parsedByRule = GenericBankSmsParser.parse(uniqueId, address, body, timestamp, match.type, match.rule.bankName)
+                        if (parsedByRule != null) results.add(UserBankSmsRuleMatcher.applyMatch(parsedByRule, match)) else parseFailureCount++
+                        continue
+                    }
                     val eligiblePatterns = patterns.filter { timestamp >= now - it.lookbackMillis }
                     val matchingPatterns = SmsPatternMatcher.findMatchingPatterns(body, eligiblePatterns, address)
                     if (matchingPatterns.size > 1) {
