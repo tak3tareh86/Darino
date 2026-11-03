@@ -126,10 +126,16 @@ object BankSmsParser {
             val configuredAccount = pattern.accountNumber?.takeIf { it.isNotBlank() }?.let { "حساب $it" }
             val sourceAccount = account(SmsPatternSlotKind.SOURCE_CARD, "کارت")
                 ?: account(SmsPatternSlotKind.SOURCE_ACCOUNT, "حساب")
-                ?: configuredAccount?.takeIf { configuredType == TransactionType.EXPENSE }
+                ?: configuredAccount?.takeIf {
+                    configuredType == TransactionType.EXPENSE ||
+                        (configuredType == TransactionType.TRANSFER && pattern.transferAccountSide == SmsPatternAccountSide.SOURCE)
+                }
             val destinationAccount = account(SmsPatternSlotKind.DESTINATION_CARD, "کارت")
                 ?: account(SmsPatternSlotKind.DESTINATION_ACCOUNT, "حساب")
-                ?: configuredAccount?.takeIf { configuredType == TransactionType.INCOME }
+                ?: configuredAccount?.takeIf {
+                    configuredType == TransactionType.INCOME ||
+                        (configuredType == TransactionType.TRANSFER && pattern.transferAccountSide == SmsPatternAccountSide.DESTINATION)
+                }
 
             BankSmsSuggestion(
                 id = smsId,

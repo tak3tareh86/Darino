@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.sms.BankSmsParser
 import com.example.data.sms.SmsPattern
+import com.example.data.sms.SmsPatternAccountSide
 import com.example.data.sms.SmsPatternMatcher
 import com.example.data.sms.SmsPatternRepository
 import com.example.data.sms.SmsPatternSlot
@@ -261,12 +262,12 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
         SmsPatternEditorDialog(
             pattern = editingPattern,
             onDismiss = { showEditor = false; editingPattern = null },
-            onSave = { name, bankName, senderAddress, accountNumber, dateFormat, timeFormat, type, message, slots ->
+            onSave = { name, bankName, senderAddress, accountNumber, dateFormat, timeFormat, type, message, slots, transferAccountSide ->
                 val existing = editingPattern
                 if (existing == null) {
-                    repository.create(name, type, message, slots, bankName = bankName, senderAddress = senderAddress, accountNumber = accountNumber, dateFormat = dateFormat, timeFormat = timeFormat)
+                    repository.create(name, type, message, slots, bankName = bankName, senderAddress = senderAddress, accountNumber = accountNumber, dateFormat = dateFormat, timeFormat = timeFormat, transferAccountSide = transferAccountSide)
                 } else {
-                    repository.save(existing.copy(name = name.trim(), bankName = bankName.trim(), senderAddress = senderAddress, accountNumber = accountNumber?.trim()?.takeIf { it.isNotEmpty() }, dateFormat = dateFormat, timeFormat = timeFormat, type = type, sampleMessage = message, slots = slots))
+                    repository.save(existing.copy(name = name.trim(), bankName = bankName.trim(), senderAddress = senderAddress, accountNumber = accountNumber?.trim()?.takeIf { it.isNotEmpty() }, dateFormat = dateFormat, timeFormat = timeFormat, type = type, sampleMessage = message, slots = slots, transferAccountSide = transferAccountSide))
                 }
                 patterns = repository.getPatterns()
                 showEditor = false
@@ -365,7 +366,7 @@ private fun PatternCard(
 private fun SmsPatternEditorDialog(
     pattern: SmsPattern?,
     onDismiss: () -> Unit,
-    onSave: (String, String, String, String?, String, String, SmsPatternType, String, List<SmsPatternSlot>) -> Unit
+    onSave: (String, String, String, String?, String, String, SmsPatternType, String, List<SmsPatternSlot>, SmsPatternAccountSide?) -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
     var name by remember(pattern?.id) { mutableStateOf(pattern?.name.orEmpty()) }
@@ -375,6 +376,9 @@ private fun SmsPatternEditorDialog(
     var dateFormat by remember(pattern?.id) { mutableStateOf(pattern?.dateFormat.orEmpty()) }
     var timeFormat by remember(pattern?.id) { mutableStateOf(pattern?.timeFormat.orEmpty()) }
     var type by remember(pattern?.id) { mutableStateOf(pattern?.type ?: SmsPatternType.INCOME) }
+    var transferAccountSide by remember(pattern?.id) {
+        mutableStateOf(pattern?.transferAccountSide)
+    }
     var message by remember(pattern?.id) { mutableStateOf(pattern?.sampleMessage.orEmpty()) }
     val inferredSlots = remember(message) { SmsPatternMatcher.inferVariableSlots(message) }
     var compactDateOrder by remember(pattern?.id) {
@@ -451,6 +455,21 @@ private fun SmsPatternEditorDialog(
                 OutlinedTextField(value = bankName, onValueChange = { bankName = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("نام بانک یا مؤسسه") }, placeholder = { Text("مثلاً بانک قرض‌الحسنه رسالت") })
                 OutlinedTextField(value = senderAddress, onValueChange = { senderAddress = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("سرشماره / شناسه فرستنده") }, placeholder = { Text("مثلاً ResalatBank") }, supportingText = { Text("اجباری؛ دقیقاً از قسمت فرستنده پیامک کپی کنید. حروف بزرگ و کوچک، فاصله‌ها، نیم‌فاصله و حروف فارسی را عیناً حفظ کنید.") })
                 OutlinedTextField(value = accountNumber, onValueChange = { accountNumber = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("شماره حساب (اختیاری)") }, placeholder = { Text("در صورت نیاز وارد کنید") }, supportingText = { Text("اگر بانک شماره حساب را در پیامک درج نمی‌کند، این کادر را خالی بگذارید.") })
+                if (type == SmsPatternType.TRANSFER) {
+                    Text("شماره حساب واردشده مربوط به کدام طرف انتقال است؟", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = transferAccountSide == SmsPatternAccountSide.SOURCE,
+                            onClick = { transferAccountSide = SmsPatternAccountSide.SOURCE },
+                            label = { Text("حساب مبدأ") }
+                        )
+                        FilterChip(
+                            selected = transferAccountSide == SmsPatternAccountSide.DESTINATION,
+                            onClick = { transferAccountSide = SmsPatternAccountSide.DESTINATION },
+                            label = { Text("حساب مقصد") }
+                        )
+                    }
+                }
                 Text("نوع تراکنش", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     FilterChip(selected = type == SmsPatternType.INCOME, onClick = { type = SmsPatternType.INCOME }, label = { Text("واریز") }, leadingIcon = { Icon(Icons.Rounded.TrendingUp, null, modifier = Modifier.size(16.dp)) })
@@ -506,13 +525,17 @@ private fun SmsPatternEditorDialog(
                         message,
                         dateAdjustedSlots,
                         listOfNotNull(accountNumber.trim().takeIf { it.isNotEmpty() }),
-                        type
+                        type,
+                        transferAccountSide
                     )
-                    onSave(name.trim(), bankName.trim(), senderAddress, accountNumber.trim().takeIf { it.isNotEmpty() }, dateFormat, timeFormat, type, message, slots)
+                    onSave(name.trim(), bankName.trim(), senderAddress, accountNumber.trim().takeIf { it.isNotEmpty() }, dateFormat, timeFormat, type, message, slots, transferAccountSide)
                 },
                 enabled = name.isNotBlank() && bankName.isNotBlank() && senderAddress.isNotBlank() && message.isNotBlank() &&
                     inferredSlots.count { it.kind == SmsPatternSlotKind.AMOUNT_RIAL || it.kind == SmsPatternSlotKind.AMOUNT_TOMAN } == 1 &&
-                    validDateFormat && validTimeFormat,
+                    validDateFormat && validTimeFormat &&
+                    (type != SmsPatternType.TRANSFER ||
+                        (accountNumber.isBlank() && SmsPatternMatcher.inferAccountIdentifierRange(message) == null) ||
+                        transferAccountSide != null),
                 shape = RoundedCornerShape(10.dp)
             ) { Text("تحلیل و ذخیره الگو") }
         },

@@ -992,7 +992,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                         )
                     )
                 }
-                _categories.value = list
+                // Add newly introduced built-in categories for existing users without
+                // overwriting their custom categories or active/disabled preferences.
+                val knownIds = list.map { it.id }.toSet()
+                val newlyAddedDefaults = FinanceDefaultCategories.allDefaultCategories.filter { it.id !in knownIds }
+                _categories.value = list + newlyAddedDefaults
             } else {
                 _categories.value = FinanceDefaultCategories.allDefaultCategories
             }

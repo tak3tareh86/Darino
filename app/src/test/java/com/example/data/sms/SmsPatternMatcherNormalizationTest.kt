@@ -128,4 +128,34 @@ class SmsPatternMatcherNormalizationTest {
         assertTrue(SmsPatternMatcher.findMatchingPatterns(changedAccount, listOf(pattern), "ResalatBank").isEmpty())
     }
 
+    @Test
+    fun transferAccountNumberUsesTheExplicitlySelectedSide() {
+        val sample = "انتقال به حساب 123456789 مبلغ 100 تومان"
+        val inferred = SmsPatternMatcher.inferVariableSlots(sample)
+        val sourceSlots = SmsPatternMatcher.configureAllowedAccountNumbers(
+            sample, inferred, listOf("123456789"), SmsPatternType.TRANSFER, SmsPatternAccountSide.SOURCE
+        )
+        val destinationSlots = SmsPatternMatcher.configureAllowedAccountNumbers(
+            sample, inferred, listOf("123456789"), SmsPatternType.TRANSFER, SmsPatternAccountSide.DESTINATION
+        )
+
+        assertTrue(sourceSlots.any { it.kind == SmsPatternSlotKind.SOURCE_ACCOUNT })
+        assertFalse(sourceSlots.any { it.kind == SmsPatternSlotKind.DESTINATION_ACCOUNT })
+        assertTrue(destinationSlots.any { it.kind == SmsPatternSlotKind.DESTINATION_ACCOUNT })
+        assertFalse(destinationSlots.any { it.kind == SmsPatternSlotKind.SOURCE_ACCOUNT })
+    }
+
+    @Test
+    fun transferAccountNumberIsNotAssignedWithoutUserSelectionWhenNoDirectionIsExplicit() {
+        val sample = "انتقال 123456789 مبلغ 100 تومان"
+        val inferred = SmsPatternMatcher.inferVariableSlots(sample)
+        val configured = SmsPatternMatcher.configureAllowedAccountNumbers(
+            sample, inferred, listOf("123456789"), SmsPatternType.TRANSFER, null
+        )
+
+        assertFalse(configured.any {
+            it.kind == SmsPatternSlotKind.SOURCE_ACCOUNT || it.kind == SmsPatternSlotKind.DESTINATION_ACCOUNT
+        })
+    }
+
 }
