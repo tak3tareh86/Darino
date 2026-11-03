@@ -37,26 +37,28 @@ object GenericBankSmsParser {
         "بانک توسعه صادرات" to listOf("توسعه صادرات", "tose'e saderat"),
         "بانک صنعت و معدن" to listOf("صنعت و معدن", "sanat va madan"),
         "بانک قرض‌الحسنه مهر ایران" to listOf("مهر ایران", "mehr iran"),
-        "بانک قرض‌الحسنه رسالت" to listOf("بانک رسالت", "قرض الحسنه رسالت", "resalat"),
+        "بانک قرض‌الحسنه رسالت" to listOf("بانک رسالت", "قرض الحسنه رسالت", "resalat", "resalatbank"),
         "مؤسسه اعتباری ملل" to listOf("موسسه اعتباری ملل", "مؤسسه اعتباری ملل", "اعتباری ملل", "melal"),
         "مؤسسه اعتباری نور" to listOf("موسسه اعتباری نور", "مؤسسه اعتباری نور", "اعتباری نور"),
         "مؤسسه اعتباری کوثر" to listOf("موسسه اعتباری کوثر", "مؤسسه اعتباری کوثر", "اعتباری کوثر")
     )
 
     private val transactionSignal = Regex(
-        """واریز|واريز|دریافت|دريافت|برداشت|خرید|خريد|پرداخت|انتقال|تراکنش|کارت\s*به\s*کارت|پایا|ساتنا|حواله|نشست|پرید|بازپرداخت|وام|deposit|withdraw|debit|credit|purchase|transfer""",
+        """واریز|واريز|دریافت|دريافت|برداشت|خرید|خريد|پرداخت|انتقال|تراکنش|کارت\s*به\s*کارت|پایا|ساتنا|حواله|نشست|پرید|بازپرداخت|وام|deposit|withdraw|debit|credit|purchase|transfer|[+-][0-9۰-۹٠-٩]""",
         RegexOption.IGNORE_CASE
     )
     private val amountLabel = Regex(
         """(?:مبلغ(?:\s*تراکنش)?|مبـلغ|برداشت(?:\s*وجه)?|واریز(?:\s*وجه)?|واريز|دریافت(?:\s*وجه)?|دريافت|خرید|خريد|پرداخت|انتقال|کارت\s*به\s*کارت|انتقال\s*وجه|وجه\s*انتقالی|deposit|withdraw(?:al)?|debit|credit|purchase|transfer)\s*[:：]?\s*([0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬٫.]*)""",
         RegexOption.IGNORE_CASE
     )
+    private val signedAmount = Regex("""[+-]\s*([0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬٫.]*)""")
     private val balanceLabel = Regex(
         """(?:مانده|موجودی|موجودى|balance)\s*[:：]?\s*([0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬٫.]*)""",
         RegexOption.IGNORE_CASE
     )
     private val timeRegex = Regex("""(?<![0-9۰-۹٠-٩])([0-2]?[0-9]:[0-5][0-9])(?::[0-5][0-9])?(?![0-9۰-۹٠-٩])""")
     private val dateRegex = Regex("""(?<![0-9۰-۹٠-٩])([0-9۰-۹٠-٩]{1,4})[/.-]([0-9۰-۹٠-٩]{1,2})[/.-]([0-9۰-۹٠-٩]{1,4})(?![0-9۰-۹٠-٩])""")
+    private val monthDayDateRegex = Regex("""(?<![0-9۰-۹٠-٩])([0-9۰-۹٠-٩]{1,2})/([0-9۰-۹٠-٩]{1,2})(?![0-9۰-۹٠-٩])""")
 
     fun parse(smsId: String, sender: String, body: String, timestampMillis: Long): BankSmsSuggestion? {
         // Reject every message containing "رمز", regardless of the following words.
@@ -90,7 +92,7 @@ object GenericBankSmsParser {
                         Regex("""به\s*حساب\s*شما\s*نشست|از\s*حساب\s*شما\s*پرید""")
                             .containsMatchIn(followingText)
                     }.toList()
-                    contextualAmounts.singleOrNull()
+                    contextualAmounts.singleOrNull() ?: signedAmount.findAll(normalized).toList().singleOrNull()
                 } else null
             ) ?: return null
         val amount = parseDigits(amountMatch.groupValues[1]) ?: return null
@@ -127,6 +129,12 @@ object GenericBankSmsParser {
                 match.groupValues[1], match.groupValues[2], match.groupValues[3],
                 receivedDateTime.year
             )
+        } ?: monthDayDateRegex.find(normalized)?.let { match ->
+            val month = IranianPhoneUtils.convertDigitsToEnglish(match.groupValues[1]).toIntOrNull()
+            val day = IranianPhoneUtils.convertDigitsToEnglish(match.groupValues[2]).toIntOrNull()
+            if (month != null && day != null && month in 1..12 &&
+                day in 1..PersianCalendarHelper.getDaysInMonth(receivedDateTime.year, month)
+            ) Triple(receivedDateTime.year, month, day) else null
         } ?: Triple(receivedDateTime.year, receivedDateTime.month, receivedDateTime.day)
         val time = timeRegex.findAll(normalized).mapNotNull {
             val parts = IranianPhoneUtils.convertDigitsToEnglish(it.groupValues[1]).split(":")
@@ -134,7 +142,7 @@ object GenericBankSmsParser {
             val minute = parts.getOrNull(1)?.toIntOrNull() ?: return@mapNotNull null
             if (hour in 0..23 && minute in 0..59) hour to minute else null
         }.firstOrNull() ?: (receivedDateTime.hour to receivedDateTime.minute)
-        val hasExplicitDateOrTime = dateRegex.containsMatchIn(normalized) || timeRegex.containsMatchIn(normalized)
+        val hasExplicitDateOrTime = dateRegex.containsMatchIn(normalized) || monthDayDateRegex.containsMatchIn(normalized) || timeRegex.containsMatchIn(normalized)
         val finalTimestamp = if (hasExplicitDateOrTime) {
             runCatching {
                 PersianCalendarHelper.jalaliToEpochMillis(
@@ -234,11 +242,13 @@ object GenericBankSmsParser {
             """کارت\s*به\s*کارت|انتقال|پایا|ساتنا|حواله|transfer""",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(message)
-        val isExpense = Regex(
+        val hasPositiveSignedAmount = Regex("""(?:^|[\s_])\+\s*[0-9۰-۹٠-٩]""").containsMatchIn(message)
+        val hasNegativeSignedAmount = Regex("""(?:^|[\s_])-\s*[0-9۰-۹٠-٩]""").containsMatchIn(message)
+        val isExpense = hasNegativeSignedAmount || Regex(
             """برداشت|خرید|پرداخت|پرید|بازپرداخت|کسر\s*شد|کم\s*شد|withdraw|debit|purchase""",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(message)
-        val isIncome = Regex(
+        val isIncome = hasPositiveSignedAmount || Regex(
             """واریز|واريز|دریافت|دريافت|نشست|وارد\s*حساب\s*شد|deposit|credited|credit""",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(message)

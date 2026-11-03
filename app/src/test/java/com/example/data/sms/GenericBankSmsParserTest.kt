@@ -211,4 +211,45 @@ class GenericBankSmsParserTest {
         assertNull(parsed)
     }
 
+
+    @Test
+    fun recognizesResalatSignedDepositAndWithdrawalMessages() {
+        val receivedAt = com.example.util.PersianCalendarHelper.jalaliToEpochMillis(1405, 7, 13, 12, 16)
+        val deposit = GenericBankSmsParser.parse(
+            "resalat-deposit",
+            "ResalatBank",
+            """10.8805139.1
++80,000,000 
+07/13_12:16
+مانده: 381,835,350""",
+            receivedAt
+        )
+        val withdrawal = GenericBankSmsParser.parse(
+            "resalat-withdrawal",
+            "ResalatBank",
+            """10.8805139.1
+-750,000 
+07/13_12:16
+مانده: 381,085,350""",
+            receivedAt
+        )
+
+        assertNotNull(deposit)
+        assertEquals("بانک قرض‌الحسنه رسالت", deposit?.bankName)
+        assertEquals(TransactionType.INCOME, deposit?.type)
+        assertEquals(80_000_000L, deposit?.amount)
+        assertEquals(381_835_350L, deposit?.balanceAmount)
+        assertEquals("1405/07/13", deposit?.dateText)
+        assertEquals("12:16", deposit?.timeText)
+
+        assertNotNull(withdrawal)
+        assertEquals("بانک قرض‌الحسنه رسالت", withdrawal?.bankName)
+        assertEquals(TransactionType.EXPENSE, withdrawal?.type)
+        assertEquals(750_000L, withdrawal?.amount)
+        assertEquals(381_085_350L, withdrawal?.balanceAmount)
+        assertEquals("1405/07/13", withdrawal?.dateText)
+        assertEquals("12:16", withdrawal?.timeText)
+    }
+
+
 }
