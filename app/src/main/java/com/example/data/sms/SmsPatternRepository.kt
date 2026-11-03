@@ -56,7 +56,11 @@ data class SmsPattern(
     /** Exact sender address copied from the SMS app; case and whitespace are significant. */
     val senderAddress: String = "",
     /** Optional account identifier associated with this pattern. */
-    val accountNumber: String? = null
+    val accountNumber: String? = null,
+    /** User-facing Jalali date mask, e.g. YY/MM/DD or YYYY/MM/DD. */
+    val dateFormat: String = "",
+    /** User-facing clock mask, e.g. HH:mm. */
+    val timeFormat: String = ""
 )
 
 /** Encrypted, account-scoped storage for explicitly configured SMS templates. */
@@ -145,7 +149,9 @@ class SmsPatternRepository(context: Context) {
                             slots = slots.sortedBy { it.start },
                             bankName = item.optString("bankName").ifBlank { name },
                             senderAddress = item.optString("senderAddress"),
-                            accountNumber = item.optString("accountNumber").takeIf { it.isNotBlank() && it != "null" }
+                            accountNumber = item.optString("accountNumber").takeIf { it.isNotBlank() && it != "null" },
+                            dateFormat = item.optString("dateFormat"),
+                            timeFormat = item.optString("timeFormat")
                         )
                     )
                 }
@@ -178,7 +184,9 @@ class SmsPatternRepository(context: Context) {
         userId: String? = SessionManager.userId,
         bankName: String = name,
         senderAddress: String = "",
-        accountNumber: String? = null
+        accountNumber: String? = null,
+        dateFormat: String = "",
+        timeFormat: String = ""
     ): SmsPattern {
         return SmsPattern(
             id = UUID.randomUUID().toString(),
@@ -188,7 +196,9 @@ class SmsPatternRepository(context: Context) {
             slots = slots.sortedBy { it.start },
             bankName = bankName.trim(),
             senderAddress = senderAddress,
-            accountNumber = accountNumber?.trim()?.takeIf { it.isNotEmpty() }
+            accountNumber = accountNumber?.trim()?.takeIf { it.isNotEmpty() },
+            dateFormat = dateFormat.trim(),
+            timeFormat = timeFormat.trim()
         ).also { save(it, userId) }
     }
 
@@ -224,6 +234,8 @@ class SmsPatternRepository(context: Context) {
                     .put("bankName", pattern.bankName)
                     .put("senderAddress", pattern.senderAddress)
                     .put("accountNumber", pattern.accountNumber ?: JSONObject.NULL)
+                    .put("dateFormat", pattern.dateFormat)
+                    .put("timeFormat", pattern.timeFormat)
             )
         }
         preferences.edit().putString(storageKey(userId), array.toString()).apply()
