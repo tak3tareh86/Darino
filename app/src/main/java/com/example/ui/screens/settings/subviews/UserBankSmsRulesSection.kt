@@ -12,6 +12,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -27,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.example.data.sms.UserBankSmsRule
 import com.example.data.sms.UserBankSmsRuleMatcher
 import com.example.data.sms.UserBankSmsRuleRepository
+import com.example.data.sms.SMS_PATTERN_LOOKBACK_OPTIONS
 
 @Composable
 fun UserBankSmsRulesSection() {
@@ -53,6 +56,7 @@ fun UserBankSmsRulesSection() {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(rule.bankName, style = MaterialTheme.typography.titleSmall)
                     Text("سرشماره‌ها: " + rule.senderAddresses.joinToString("، "), style = MaterialTheme.typography.bodySmall)
+                    Text("بازه بررسی پیامک: ${rule.lookbackMillis / (24L * 60L * 60L * 1000L)} روز", style = MaterialTheme.typography.bodySmall)
                     TextButton(onClick = { editing = rule; showEditor = true }) { Text("ویرایش") }
                     TextButton(onClick = { repository.delete(rule.id); rules = repository.getAll() }) { Text("حذف") }
                 }
@@ -84,6 +88,8 @@ private fun RuleEditorDialog(
     var income by remember(initial?.id) { mutableStateOf(initial?.incomeMarkers.orEmpty()) }
     var expense by remember(initial?.id) { mutableStateOf(initial?.expenseMarkers.orEmpty()) }
     var transfer by remember(initial?.id) { mutableStateOf(initial?.transferMarkers.orEmpty()) }
+    var lookbackDays by remember(initial?.id) { mutableStateOf((initial?.lookbackMillis ?: 24L * 60L * 60L * 1000L).let { (it / (24L * 60L * 60L * 1000L)).toInt().coerceIn(1, 90) }) }
+    var lookbackMenuExpanded by remember { mutableStateOf(false) }
     val senderList = senders.split(Regex("[,،\\n]")).map(String::trim).filter(String::isNotEmpty).distinct()
     val markerFields = listOf(income, expense, transfer).filter(String::isNotBlank)
     val validMarkers = markerFields.all { UserBankSmsRuleMatcher.parseMarkers(it) != null }
@@ -99,7 +105,7 @@ private fun RuleEditorDialog(
                 item { OutlinedTextField(senders, { senders = it }, modifier = Modifier.fillMaxWidth(), label = { Text("سرشماره‌ها (هر خط یک مورد)") }, minLines = 2) }
                 item { OutlinedTextField(income, { income = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های واریز") }, placeholder = { Text("واریز/نشست") }, singleLine = true) }
                 item { OutlinedTextField(expense, { expense = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های برداشت") }, placeholder = { Text("برداشت/پرید") }, singleLine = true) }
-                item { OutlinedTextField(transfer, { transfer = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های انتقال وجه") }, placeholder = { Text("انتقال/کارت_به_کارت") }, singleLine = true) }
+                item { OutlinedTextField(transfer, { transfer = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های انتقال وجه") }, placeholder = { Text("انتقال/کارت_به_کارت") }, singleLine = true) }\n                item {\n                    Column {\n                        Text("بازه بررسی پیامک‌های قدیمی")\n                        TextButton(onClick = { lookbackMenuExpanded = true }) { Text("$lookbackDays روز") }\n                        DropdownMenu(expanded = lookbackMenuExpanded, onDismissRequest = { lookbackMenuExpanded = false }) {\n                            SMS_PATTERN_LOOKBACK_OPTIONS.forEach { millis ->\n                                val days = (millis / (24L * 60L * 60L * 1000L)).toInt()\n                                DropdownMenuItem(text = { Text("$days روز") }, onClick = { lookbackDays = days; lookbackMenuExpanded = false })\n                            }\n                        }\n                    }\n                }
                 item {
                     Text(
                         "نشانه‌ها را فقط با / جدا کنید؛ حداقل دو نشانه لازم است. فاصله و علائم نگارشی دیگر مجاز نیستند. هر سه دسته اختیاری‌اند، اما هر دسته‌ای که تکمیل شود باید معتبر باشد.",
@@ -120,7 +126,8 @@ private fun RuleEditorDialog(
                             senderAddresses = senderList,
                             incomeMarkers = income,
                             expenseMarkers = expense,
-                            transferMarkers = transfer
+                            transferMarkers = transfer,
+                            lookbackMillis = lookbackDays.toLong() * 24L * 60L * 60L * 1000L
                         )
                     )
                 }
