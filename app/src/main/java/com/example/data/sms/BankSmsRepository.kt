@@ -158,9 +158,11 @@ class BankSmsRepository(private val context: Context) {
                         saved.timestampMillis, newlyConfiguredMatches.single()
                     )
                     bodyMatchesConfiguredTemplate -> null // Sender mismatch or invalid/ambiguous configured template: fail closed.
-                    else -> GenericBankSmsParser.parse(
-                        saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.timestampMillis
-                    )
+                    else -> if (saved.timestampMillis >= defaultWindowStart) {
+                        GenericBankSmsParser.parse(
+                            saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.timestampMillis
+                        )
+                    } else null
                 } ?: return@mapNotNull null
                 return@mapNotNull reparsed.copy(
                     category = saved.category,
