@@ -238,8 +238,8 @@ object SmsPatternMatcher {
         pattern.senderAddress.isBlank() || pattern.senderAddress == sender
     }.filter { matchesTemplateBody(message, it) }
 
-    fun findUniqueMatch(message: String, patterns: List<SmsPattern>): SmsPattern? =
-        findMatchingPatterns(message, patterns).singleOrNull()
+    fun findUniqueMatch(message: String, patterns: List<SmsPattern>, sender: String? = null): SmsPattern? =
+        findMatchingPatterns(message, patterns, sender).singleOrNull()
 
     fun extractMatchedFields(message: String, pattern: SmsPattern): MatchedFields? {
         val sample = pattern.sampleMessage
