@@ -101,7 +101,7 @@ object SmsPatternMatcher {
             // not transaction amounts when the source-account label is explicit.
             val compactNumber = number.value.filter { it in '0'..'9' || it in '۰'..'۹' || it in '٠'..'٩' }
             val explicitAccountSource = Regex("""(?:برداشت|واریز|انتقال)\s+از\s*[:：]?\s*$""").containsMatchIn(contextBefore) ||
-                Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(contextBefore)
+                Regex("""(?:واریز|انتقال)\s+به(?:\s|$|[:：])""").containsMatchIn(contextBefore)
             if (compactNumber.length >= 8 && explicitAccountSource) return@forEach
 
             // Never vary a number explicitly attached to an account/card label.
@@ -232,7 +232,7 @@ object SmsPatternMatcher {
         val direction = when {
             Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(context) ->
                 SmsPatternType.INCOME
-            Regex("""(?:برداشت|انتقال)\s+از\s*[:：]?\s*$""").containsMatchIn(context) ->
+            Regex("""(?:برداشت|انتقال)\s+از(?:\s|$|[:：])""").containsMatchIn(context) ->
                 SmsPatternType.EXPENSE
             transactionType == SmsPatternType.INCOME -> SmsPatternType.INCOME
             transactionType == SmsPatternType.EXPENSE -> SmsPatternType.EXPENSE
