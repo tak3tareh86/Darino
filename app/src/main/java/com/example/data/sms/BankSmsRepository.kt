@@ -99,8 +99,7 @@ class BankSmsRepository(private val context: Context) {
         val key = userKey(KEY_PENDING_SMS_QUEUE, userId) ?: return emptyList()
         val raw = pendingQueuePreferences.getString(key, null) ?: return emptyList()
         val currentPatterns = patternRepository.getPatterns(userId)
-        val recognitionStartMillis = patternRepository.getRecognitionStartMillis(userId)
-            ?: return emptyList()
+        val defaultWindowStart = System.currentTimeMillis() - DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS
         return runCatching {
             val array = JSONArray(raw)
             buildList {
@@ -135,10 +134,14 @@ class BankSmsRepository(private val context: Context) {
                 }
             }
         }.getOrDefault(emptyList()).mapNotNull { saved ->
-            // Do not restore pending suggestions created from SMS outside the active window.
-            if (saved.timestampMillis < recognitionStartMillis) return@mapNotNull null
+            // Restore configured-template suggestions only while their own rolling window is active.
+            val eligiblePatterns = currentPatterns.filter {
+                saved.timestampMillis >= System.currentTimeMillis() - it.lookbackMillis
+            }
+            if (saved.patternId.isNotBlank() && eligiblePatterns.none { it.id == saved.patternId }) return@mapNotNull null
             if (saved.patternId.isBlank()) {
-                val bodyMatchesConfiguredTemplate = currentPatterns.any {
+                if (saved.timestampMillis < defaultWindowStart && eligiblePatterns.isEmpty()) return@mapNotNull null
+                val bodyMatchesConfiguredTemplate = eligiblePatterns.any {
                     SmsPatternMatcher.matchesTemplateBody(saved.smsText, it)
                 }
                 // A persisted suggestion without its original sender cannot safely
@@ -146,7 +149,7 @@ class BankSmsRepository(private val context: Context) {
                 val newlyConfiguredMatches = if (saved.rawSender.isNullOrBlank()) {
                     emptyList()
                 } else {
-                    SmsPatternMatcher.findMatchingPatterns(saved.smsText, currentPatterns, saved.rawSender)
+                    SmsPatternMatcher.findMatchingPatterns(saved.smsText, eligiblePatterns, saved.rawSender)
                 }
                 if (newlyConfiguredMatches.size > 1) return@mapNotNull null
                 val reparsed = when {
@@ -165,8 +168,8 @@ class BankSmsRepository(private val context: Context) {
                     destinationAccount = saved.destinationAccount ?: reparsed.destinationAccount
                 )
             }
-            val origin = currentPatterns.singleOrNull { it.id == saved.patternId } ?: return@mapNotNull null
-            val uniqueMatch = SmsPatternMatcher.findUniqueMatch(saved.smsText, currentPatterns, saved.rawSender)
+            val origin = eligiblePatterns.singleOrNull { it.id == saved.patternId } ?: return@mapNotNull null
+            val uniqueMatch = SmsPatternMatcher.findUniqueMatch(saved.smsText, eligiblePatterns, saved.rawSender)
                 ?: return@mapNotNull null
             if (uniqueMatch.id != origin.id) return@mapNotNull null
             val parsed = BankSmsParser.parseMatchedPattern(saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.timestampMillis, origin)
@@ -227,12 +230,14 @@ class BankSmsRepository(private val context: Context) {
         }
 
         val patterns = patternRepository.getPatterns(uid)
-        val recognitionStartMillis = patternRepository.getRecognitionStartMillis(uid)
-            ?: return@withContext emptyList()
-        // The per-user boundary is mandatory; caller filters may only narrow the scan.
+        val now = System.currentTimeMillis()
+        // Query far enough back for the longest configured template window; generic
+        // recognition remains limited to the default one-day window below.
+        val earliestPatternStart = patterns.minOfOrNull { now - it.lookbackMillis }
+            ?: (now - DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS)
         val effectiveReceivedAfterMillis = maxOf(
-            recognitionStartMillis,
-            receivedAfterMillis ?: recognitionStartMillis
+            earliestPatternStart,
+            receivedAfterMillis ?: earliestPatternStart
         )
 
         val processedIds = getProcessedSmsIds(uid)
@@ -285,12 +290,13 @@ class BankSmsRepository(private val context: Context) {
                     }
                     // Prefer one exact user template; otherwise use conservative generic recognition.
                     // Ambiguous configured templates are rejected rather than arbitrarily prioritized.
-                    val matchingPatterns = SmsPatternMatcher.findMatchingPatterns(body, patterns, address)
+                    val eligiblePatterns = patterns.filter { timestamp >= now - it.lookbackMillis }
+                    val matchingPatterns = SmsPatternMatcher.findMatchingPatterns(body, eligiblePatterns, address)
                     if (matchingPatterns.size > 1) {
                         ambiguousCount++
                         continue
                     }
-                    val bodyMatchesConfiguredTemplate = patterns.any {
+                    val bodyMatchesConfiguredTemplate = eligiblePatterns.any {
                         SmsPatternMatcher.matchesTemplateBody(body, it)
                     }
                     val parsed = when {
@@ -298,7 +304,7 @@ class BankSmsRepository(private val context: Context) {
                             uniqueId, address, body, timestamp, matchingPatterns.single()
                         )
                         bodyMatchesConfiguredTemplate -> null // Do not bypass an exact sender mismatch through generic parsing.
-                        else -> GenericBankSmsParser.parse(uniqueId, address, body, timestamp)
+                        else -> if (timestamp >= now - DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS) GenericBankSmsParser.parse(uniqueId, address, body, timestamp) else null
                     }
                     if (parsed != null) {
                         results.add(parsed)
