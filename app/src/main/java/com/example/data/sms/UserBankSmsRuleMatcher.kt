@@ -27,7 +27,7 @@ object UserBankSmsRuleMatcher {
         if (values.size < 2 || values.any { it.isBlank() }) return null
         val normalized = values.map { normalizeMarker(it) }
         if (normalized.any { it.isEmpty() } || normalized.distinct().size < 2) return null
-        if (values.any { token -> token.trim().any { !(it.isLetterOrDigit() || it == '+' || it == '_' || it == '-') } }) return null
+        if (values.any { token -> token.filterNot(Char::isWhitespace).any { !(it.isLetterOrDigit() || it == '+' || it == '_' || it == '-') } }) return null
         return normalized.distinct()
     }
 
