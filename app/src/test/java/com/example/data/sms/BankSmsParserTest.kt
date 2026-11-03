@@ -151,8 +151,6 @@ class BankSmsParserTest {
     }
 
     @Test
-
-    @Test
     fun fixedPersianTextAndHalfSpaceAreNotNormalizedAway() {
         val sample = "برداشت از حساب\u200cجاری مبلغ 1,000 تومان"
         val pattern = SmsPattern(
@@ -194,6 +192,7 @@ class BankSmsParserTest {
         assertEquals(1, SmsPatternMatcher.findMatchingPatterns(actual, listOf(configured), "Bank Sender").size)
     }
 
+    @Test
     fun opaqueConfiguredSlotAcceptsAlphanumericTrackingCodeWithoutGuessingItsMeaning() {
         val sample = "کد ABC-123 مبلغ 100 تومان"
         val pattern = SmsPattern(
