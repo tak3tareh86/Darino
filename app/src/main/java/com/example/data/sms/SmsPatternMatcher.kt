@@ -210,7 +210,8 @@ object SmsPatternMatcher {
     fun configureAllowedAccountNumbers(
         message: String,
         inferredSlots: List<SmsPatternSlot>,
-        enteredValues: List<String>
+        enteredValues: List<String>,
+        transactionType: SmsPatternType? = null
     ): List<SmsPatternSlot> {
         val normalizedMessage = normalizeDigits(message)
         val enteredRange = enteredValues.asSequence()
@@ -226,8 +227,23 @@ object SmsPatternMatcher {
         val allowed = (enteredValues + sampleValue).map { normalizeDigits(it).trim() }
             .filter { it.isNotBlank() }.distinct()
         if (allowed.none { normalizeDigits(it) == normalizeDigits(sampleValue) }) return inferredSlots
-        val context = message.substring(maxOf(0, range.first - 36), range.first)
-        val kind = if (context.contains("کارت")) SmsPatternSlotKind.SOURCE_CARD else SmsPatternSlotKind.SOURCE_ACCOUNT
+        val context = message.substring(maxOf(0, range.first - 48), range.first)
+        val isCard = context.contains("کارت")
+        val direction = when {
+            Regex("""(?:واریز|انتقال)\\s+به\\s*[:：]?\\s*$""").containsMatchIn(context) ->
+                SmsPatternType.INCOME
+            Regex("""(?:برداشت|انتقال)\\s+از\\s*[:：]?\\s*$""").containsMatchIn(context) ->
+                SmsPatternType.EXPENSE
+            transactionType == SmsPatternType.INCOME -> SmsPatternType.INCOME
+            transactionType == SmsPatternType.EXPENSE -> SmsPatternType.EXPENSE
+            else -> return inferredSlots
+        }
+        val kind = when {
+            isCard && direction == SmsPatternType.INCOME -> SmsPatternSlotKind.DESTINATION_CARD
+            isCard -> SmsPatternSlotKind.SOURCE_CARD
+            direction == SmsPatternType.INCOME -> SmsPatternSlotKind.DESTINATION_ACCOUNT
+            else -> SmsPatternSlotKind.SOURCE_ACCOUNT
+        }
         return (inferredSlots.filterNot { range.first < it.endExclusive && range.last + 1 > it.start } +
             SmsPatternSlot(range.first, range.last + 1, kind, allowed)).sortedBy { it.start }
     }
