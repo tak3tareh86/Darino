@@ -370,16 +370,6 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 return@launch
             }
 
-            // Immediately preserve user's edited details in the pending SMS queue so input is not lost
-            updateSmsCustomDetails(
-                id = id,
-                amount = customAmount,
-                type = customType,
-                category = customCategory,
-                account = customAccount,
-                destAccount = destAccount
-            )
-
             smsProcessingMutex.withLock {
                 // 1. Check if SMS has already been processed or dismissed for this user
                 if (smsRepository.getProcessedSmsIds(userId).contains(id) || smsRepository.getDismissedSmsIds(userId).contains(id)) {
@@ -396,18 +386,27 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                 // Revalidate against the current settings at the moment of persistence.
                 val activePatterns = smsPatternRepository.getPatterns(userId)
-                val freshlyParsed = if (item.patternId.isBlank()) {
-                    GenericBankSmsParser.parse(
+                val freshlyParsed = when {
+                    item.patternId.startsWith("user-rule:") -> {
+                        val rules = UserBankSmsRuleRepository(getApplication()).getAll(userId)
+                        val match = UserBankSmsRuleMatcher.match(item.smsText, item.rawSender.orEmpty(), rules)
+                        val generic = GenericBankSmsParser.parse(
+                            item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis
+                        )
+                        if (match != null && generic != null) UserBankSmsRuleMatcher.applyMatch(generic, match) else null
+                    }
+                    item.patternId.isBlank() -> GenericBankSmsParser.parse(
                         item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis
                     )
-                } else {
-                    val originPattern = activePatterns.singleOrNull { it.id == item.patternId }
-                    val uniquePattern = SmsPatternMatcher.findUniqueMatch(item.smsText, activePatterns, item.rawSender)
-                    if (originPattern != null && uniquePattern?.id == originPattern.id) {
-                        BankSmsParser.parseMatchedPattern(
-                            item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis, originPattern
-                        )
-                    } else null
+                    else -> {
+                        val originPattern = activePatterns.singleOrNull { it.id == item.patternId }
+                        val uniquePattern = SmsPatternMatcher.findUniqueMatch(item.smsText, activePatterns, item.rawSender)
+                        if (originPattern != null && uniquePattern?.id == originPattern.id) {
+                            BankSmsParser.parseMatchedPattern(
+                                item.id, item.rawSender.orEmpty(), item.smsText, item.receivedAtMillis, originPattern
+                            )
+                        } else null
+                    }
                 }
                 if (freshlyParsed == null ||
                     freshlyParsed.amount != item.amount ||
@@ -428,22 +427,14 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }
 
                 // 2. Amount validation: must be strictly positive and valid
-                if (customAmount != null && customAmount != item.amount) {
-                    onResult(SmsAcceptResult.InvalidAmount)
-                    return@withLock
-                }
-                val finalAmount = item.amount
+                val finalAmount = customAmount ?: item.amount
                 if (finalAmount <= 0L || !item.isAmountValid) {
                     onResult(SmsAcceptResult.InvalidAmount)
                     return@withLock
                 }
 
                 // 3. Type validation
-                if (customType != null && customType != item.type) {
-                    onResult(SmsAcceptResult.TypeNotSelected)
-                    return@withLock
-                }
-                val finalType = item.type
+                val finalType = customType ?: item.type
                 if (finalType == null || item.isTypeUncertain) {
                     onResult(SmsAcceptResult.TypeNotSelected)
                     return@withLock
