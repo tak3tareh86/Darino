@@ -59,6 +59,8 @@ object GenericBankSmsParser {
     private val dateRegex = Regex("""(?<![0-9۰-۹٠-٩])([0-9۰-۹٠-٩]{1,4})[/.-]([0-9۰-۹٠-٩]{1,2})[/.-]([0-9۰-۹٠-٩]{1,4})(?![0-9۰-۹٠-٩])""")
 
     fun parse(smsId: String, sender: String, body: String, timestampMillis: Long): BankSmsSuggestion? {
+        // Reject every message containing "رمز", regardless of the following words.
+        if (BankSmsParser.containsPasswordKeyword(body)) return null
         val normalized = normalize(body)
         if (normalized.isBlank() || !transactionSignal.containsMatchIn(normalized)) return null
 
