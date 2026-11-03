@@ -31,6 +31,9 @@ object BankSmsParser {
         pattern: SmsPattern
     ): BankSmsSuggestion? {
         if (containsPasswordKeyword(body)) return null
+        // Sender IDs entered by the user are exact identifiers. Case, spaces,
+        // Persian characters and punctuation are all significant.
+        if (pattern.senderAddress.isNotBlank() && pattern.senderAddress != sender) return null
         return try {
             val fields = SmsPatternMatcher.extractMatchedFields(body, pattern) ?: return null
 
@@ -122,13 +125,14 @@ object BankSmsParser {
 
             val sourceAccount = account(SmsPatternSlotKind.SOURCE_CARD, "کارت")
                 ?: account(SmsPatternSlotKind.SOURCE_ACCOUNT, "حساب")
+                ?: pattern.accountNumber?.takeIf { it.isNotBlank() }?.let { "حساب $it" }
             val destinationAccount = account(SmsPatternSlotKind.DESTINATION_CARD, "کارت")
                 ?: account(SmsPatternSlotKind.DESTINATION_ACCOUNT, "حساب")
 
             BankSmsSuggestion(
                 id = smsId,
                 patternId = pattern.id,
-                bankName = pattern.name,
+                bankName = pattern.bankName.ifBlank { pattern.name },
                 amount = amountToman,
                 formattedAmount = formattedAmount,
                 isAmountValid = true,
