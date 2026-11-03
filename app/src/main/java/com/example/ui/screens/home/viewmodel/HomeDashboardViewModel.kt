@@ -13,6 +13,7 @@ import com.example.data.sms.BankSmsParser
 import com.example.data.sms.GenericBankSmsParser
 import com.example.data.sms.SmsPatternMatcher
 import com.example.data.sms.SmsPatternRepository
+import com.example.data.sms.SmsPatternChangeNotifier
 import com.example.ui.screens.finance.data.LocalFinanceRepository
 import com.example.ui.screens.finance.model.TransactionCategory
 import com.example.ui.screens.finance.model.TransactionItemData
@@ -215,6 +216,14 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         viewModelScope.launch {
             com.example.data.preferences.AppPreferencesRepository.getInstance(application).currency.collect {
                 loadDashboardData()
+            }
+        }
+
+        // Re-scan immediately when a template is added, edited, deleted,
+        // or its per-template lookback window changes in SMS pattern management.
+        viewModelScope.launch {
+            SmsPatternChangeNotifier.changes.collect {
+                scanInboxSms()
             }
         }
 
