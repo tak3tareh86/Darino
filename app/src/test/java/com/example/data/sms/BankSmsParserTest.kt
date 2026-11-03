@@ -373,6 +373,64 @@ class BankSmsParserTest {
         assertEquals("حساب 9876543210988", parsed?.sourceAccount)
     }
 
+
+    @Test
+    fun configuredAccountNumberMapsToCorrectSideForIncomeAndDirectedTransfer() {
+        val incomeSample = "واریز به حساب 123456789 مبلغ 500 تومان"
+        val incomeSlots = SmsPatternMatcher.configureAllowedAccountNumbers(
+            incomeSample,
+            SmsPatternMatcher.inferVariableSlots(incomeSample),
+            listOf("123456789"),
+            SmsPatternType.INCOME
+        )
+        assertEquals(SmsPatternSlotKind.DESTINATION_ACCOUNT, incomeSlots.single {
+            it.kind == SmsPatternSlotKind.DESTINATION_ACCOUNT || it.kind == SmsPatternSlotKind.SOURCE_ACCOUNT
+        }.kind)
+        val incomePattern = SmsPattern(
+            id = "income-account",
+            name = "واریز",
+            type = SmsPatternType.INCOME,
+            sampleMessage = incomeSample,
+            slots = incomeSlots,
+            senderAddress = "sender"
+        )
+        val incomeParsed = BankSmsParser.parseMatchedPattern(
+            "income-account-sms",
+            "sender",
+            "واریز به حساب 123456789 مبلغ 750 تومان",
+            1_700_000_000_000L,
+            incomePattern
+        )
+        assertEquals("حساب 123456789", incomeParsed?.destinationAccount)
+        assertNull(incomeParsed?.sourceAccount)
+
+        val transferSample = "انتقال به حساب 123456789 مبلغ 500 تومان"
+        val transferSlots = SmsPatternMatcher.configureAllowedAccountNumbers(
+            transferSample,
+            SmsPatternMatcher.inferVariableSlots(transferSample),
+            listOf("123456789"),
+            SmsPatternType.TRANSFER
+        )
+        assertTrue(transferSlots.any { it.kind == SmsPatternSlotKind.DESTINATION_ACCOUNT })
+        val transferPattern = SmsPattern(
+            id = "transfer-account",
+            name = "انتقال",
+            type = SmsPatternType.TRANSFER,
+            sampleMessage = transferSample,
+            slots = transferSlots,
+            senderAddress = "sender"
+        )
+        val transferParsed = BankSmsParser.parseMatchedPattern(
+            "transfer-account-sms",
+            "sender",
+            "انتقال به حساب 123456789 مبلغ 750 تومان",
+            1_700_000_000_000L,
+            transferPattern
+        )
+        assertEquals("حساب 123456789", transferParsed?.destinationAccount)
+        assertNull(transferParsed?.sourceAccount)
+    }
+
     @Test
     fun twoDigitYearFirstJalaliDateUsesReceiveYearCenturyAndKeepsDateOrder() {
         val sample = "تاریخ 05/08/11 مبلغ 100 تومان"
