@@ -242,7 +242,7 @@ object GenericBankSmsParser {
             """کارت\s*به\s*کارت|انتقال|پایا|ساتنا|حواله|transfer""",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(message)
-        val hasPositiveSignedAmount = Regex("""(?:^|[\s_])\\+\s*[0-9۰-۹٠-٩]""").containsMatchIn(message)
+        val hasPositiveSignedAmount = Regex("""(?:^|[\s_])\+\s*[0-9۰-۹٠-٩]""").containsMatchIn(message)
         val hasNegativeSignedAmount = Regex("""(?:^|[\s_])-\s*[0-9۰-۹٠-٩]""").containsMatchIn(message)
         val isExpense = hasNegativeSignedAmount || Regex(
             """برداشت|خرید|پرداخت|پرید|بازپرداخت|کسر\s*شد|کم\s*شد|withdraw|debit|purchase""",
