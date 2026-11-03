@@ -138,4 +138,18 @@ class GenericBankSmsParserTest {
         assertEquals(50_000L, parsed?.amount)
         assertEquals("بانک ملت", parsed?.bankName)
     }
+
+    @Test
+    fun rejectsAnyMessageContainingPasswordKeywordRegardlessOfFollowingText() {
+        val samples = listOf(
+            "بانک ملت برداشت 25,000 تومان رمز",
+            "بانک شهر برداشت 25,000 تومان رمز پویا",
+            "برداشت 25,000 تومان - رمز خرید اینترنتی شما",
+            "برداشت 25,000 تومان؛ لطفاً رمز ورود را وارد کنید"
+        )
+
+        samples.forEachIndexed { index, body ->
+            assertNull(GenericBankSmsParser.parse("password-$index", "30001234", body, 1_700_000_000_000L))
+        }
+    }
 }
