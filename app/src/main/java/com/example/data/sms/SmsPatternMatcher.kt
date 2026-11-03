@@ -189,7 +189,7 @@ object SmsPatternMatcher {
                 Regex("""(?:شماره\s*)?(?:حساب|کارت|شبا)\s*[:：]?\s*$""").containsMatchIn(before)
             val explicitSourceLabel =
                 Regex("""(?:برداشت|واریز|انتقال)\s+از\s*[:：]?\s*$""").containsMatchIn(before) ||
-                    Regex("""(?:واریز|انتقال)\s+به\s*[:：]?\s*$""").containsMatchIn(before)
+                    Regex("""(?:واریز|انتقال)\s+به(?:\s|$|[:：])""").containsMatchIn(before)
             (explicitAccountLabel || (explicitSourceLabel && match.value.length >= 8))
         }.toList()
         return candidates.singleOrNull()?.range
