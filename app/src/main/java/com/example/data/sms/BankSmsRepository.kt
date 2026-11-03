@@ -151,37 +151,6 @@ class BankSmsRepository(private val context: Context) {
             }
             if (saved.patternId.isBlank()) return@mapNotNull null
             if (eligiblePatterns.none { it.id == saved.patternId }) return@mapNotNull null
-            if (saved.patternId.isBlank()) {
-                if (saved.receivedAtMillis < defaultWindowStart && eligiblePatterns.isEmpty()) return@mapNotNull null
-                val bodyMatchesConfiguredTemplate = eligiblePatterns.any {
-                    SmsPatternMatcher.matchesTemplateBody(saved.smsText, it)
-                }
-                // A persisted suggestion without its original sender cannot safely
-                // activate a legacy template whose sender ID was never configured.
-                val newlyConfiguredMatches = if (saved.rawSender.isNullOrBlank()) {
-                    emptyList()
-                } else {
-                    SmsPatternMatcher.findMatchingPatterns(saved.smsText, eligiblePatterns, saved.rawSender)
-                }
-                if (newlyConfiguredMatches.size > 1) return@mapNotNull null
-                val reparsed = when {
-                    newlyConfiguredMatches.size == 1 -> BankSmsParser.parseMatchedPattern(
-                        saved.id, saved.rawSender.orEmpty(), saved.smsText,
-                        saved.receivedAtMillis, newlyConfiguredMatches.single()
-                    )
-                    bodyMatchesConfiguredTemplate -> null // Sender mismatch or invalid/ambiguous configured template: fail closed.
-                    else -> if (saved.receivedAtMillis >= defaultWindowStart) {
-                        GenericBankSmsParser.parse(
-                            saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.receivedAtMillis
-                        )
-                    } else null
-                } ?: return@mapNotNull null
-                return@mapNotNull reparsed.copy(
-                    category = saved.category,
-                    sourceAccount = saved.sourceAccount ?: reparsed.sourceAccount,
-                    destinationAccount = saved.destinationAccount ?: reparsed.destinationAccount
-                )
-            }
             val origin = eligiblePatterns.singleOrNull { it.id == saved.patternId } ?: return@mapNotNull null
             val uniqueMatch = SmsPatternMatcher.findUniqueMatch(saved.smsText, eligiblePatterns, saved.rawSender)
                 ?: return@mapNotNull null
