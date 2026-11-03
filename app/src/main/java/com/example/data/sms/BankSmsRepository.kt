@@ -127,6 +127,7 @@ class BankSmsRepository(private val context: Context) {
                             rawSender = item.optString("rawSender").takeIf { it.isNotBlank() && it != "null" },
                             parseError = item.optString("parseError").takeIf { it.isNotBlank() && it != "null" },
                             timestampMillis = item.optLong("timestampMillis", System.currentTimeMillis()),
+                            receivedAtMillis = item.optLong("receivedAtMillis", item.optLong("timestampMillis", System.currentTimeMillis())),
                             balanceAmount = if (item.has("balanceAmount") && !item.isNull("balanceAmount")) item.optLong("balanceAmount") else null,
                             trackingCode = item.optString("trackingCode").takeIf { it.isNotBlank() && it != "null" }
                         )
@@ -136,11 +137,11 @@ class BankSmsRepository(private val context: Context) {
         }.getOrDefault(emptyList()).mapNotNull { saved ->
             // Restore configured-template suggestions only while their own rolling window is active.
             val eligiblePatterns = currentPatterns.filter {
-                saved.timestampMillis >= System.currentTimeMillis() - it.lookbackMillis
+                saved.receivedAtMillis >= System.currentTimeMillis() - it.lookbackMillis
             }
             if (saved.patternId.isNotBlank() && eligiblePatterns.none { it.id == saved.patternId }) return@mapNotNull null
             if (saved.patternId.isBlank()) {
-                if (saved.timestampMillis < defaultWindowStart && eligiblePatterns.isEmpty()) return@mapNotNull null
+                if (saved.receivedAtMillis < defaultWindowStart && eligiblePatterns.isEmpty()) return@mapNotNull null
                 val bodyMatchesConfiguredTemplate = eligiblePatterns.any {
                     SmsPatternMatcher.matchesTemplateBody(saved.smsText, it)
                 }
@@ -155,12 +156,12 @@ class BankSmsRepository(private val context: Context) {
                 val reparsed = when {
                     newlyConfiguredMatches.size == 1 -> BankSmsParser.parseMatchedPattern(
                         saved.id, saved.rawSender.orEmpty(), saved.smsText,
-                        saved.timestampMillis, newlyConfiguredMatches.single()
+                        saved.receivedAtMillis, newlyConfiguredMatches.single()
                     )
                     bodyMatchesConfiguredTemplate -> null // Sender mismatch or invalid/ambiguous configured template: fail closed.
-                    else -> if (saved.timestampMillis >= defaultWindowStart) {
+                    else -> if (saved.receivedAtMillis >= defaultWindowStart) {
                         GenericBankSmsParser.parse(
-                            saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.timestampMillis
+                            saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.receivedAtMillis
                         )
                     } else null
                 } ?: return@mapNotNull null
@@ -174,7 +175,7 @@ class BankSmsRepository(private val context: Context) {
             val uniqueMatch = SmsPatternMatcher.findUniqueMatch(saved.smsText, eligiblePatterns, saved.rawSender)
                 ?: return@mapNotNull null
             if (uniqueMatch.id != origin.id) return@mapNotNull null
-            val parsed = BankSmsParser.parseMatchedPattern(saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.timestampMillis, origin)
+            val parsed = BankSmsParser.parseMatchedPattern(saved.id, saved.rawSender.orEmpty(), saved.smsText, saved.receivedAtMillis, origin)
                 ?: return@mapNotNull null
             parsed.copy(
                 category = saved.category,
@@ -207,6 +208,7 @@ class BankSmsRepository(private val context: Context) {
                     .put("rawSender", suggestion.rawSender ?: JSONObject.NULL)
                     .put("parseError", suggestion.parseError ?: JSONObject.NULL)
                     .put("timestampMillis", suggestion.timestampMillis)
+                    .put("receivedAtMillis", suggestion.receivedAtMillis)
                     .put("balanceAmount", suggestion.balanceAmount ?: JSONObject.NULL)
                     .put("trackingCode", suggestion.trackingCode ?: JSONObject.NULL)
             )
