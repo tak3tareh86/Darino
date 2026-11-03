@@ -42,7 +42,7 @@ fun UserBankSmsRulesSection() {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("تشخیص پیامک با سرشماره و نشانه‌های دلخواه", style = MaterialTheme.typography.titleMedium)
         Text(
-            "برای هر بانک چند سرشماره و برای هر نوع تراکنش حداقل دو نشانه وارد کنید. تمام نشانه‌های یک دسته باید در متن پیامک وجود داشته باشند.",
+            "برای هر بانک چند سرشماره ثبت کنید. هر سه کادر واریز، برداشت و انتقال باید حداقل دو نشانه داشته باشند و تمام نشانه‌های همان کادر باید در یک پیامک پیدا شوند.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -91,10 +91,8 @@ private fun RuleEditorDialog(
     var lookbackDays by remember(initial?.id) { mutableStateOf((initial?.lookbackMillis ?: 24L * 60L * 60L * 1000L).let { (it / (24L * 60L * 60L * 1000L)).toInt().coerceIn(1, 90) }) }
     var lookbackMenuExpanded by remember { mutableStateOf(false) }
     val senderList = senders.split(Regex("[,،\\n]")).map(String::trim).filter(String::isNotEmpty).distinct()
-    val markerFields = listOf(income, expense, transfer).filter(String::isNotBlank)
-    val validMarkers = markerFields.all { it.isBlank() || UserBankSmsRuleMatcher.parseMarkers(it) != null }
-    val hasAtLeastOneCategory = markerFields.isNotEmpty()
-    val valid = bank.isNotBlank() && senderList.isNotEmpty() && hasAtLeastOneCategory && validMarkers
+    val validMarkers = listOf(income, expense, transfer).all { UserBankSmsRuleMatcher.parseMarkers(it) != null }
+    val valid = bank.isNotBlank() && senderList.isNotEmpty() && validMarkers
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -120,7 +118,7 @@ private fun RuleEditorDialog(
                 }
                 item {
                     Text(
-                        "نشانه‌ها را فقط با / جدا کنید؛ حداقل دو نشانه لازم است. فاصله‌ها هنگام تطبیق نادیده گرفته می‌شوند؛ علائم نگارشی به‌جز +، _ و - مجاز نیستند. هر سه دسته اختیاری‌اند، اما هر دسته‌ای که تکمیل شود باید معتبر باشد.",
+                        "در هر سه کادر حداقل دو نشانه وارد کنید و فقط از / برای جداکردن آن‌ها استفاده کنید. فاصله و علائم نگارشی دیگر جداکننده نیستند؛ فاصله‌ها هنگام تطبیق نادیده گرفته می‌شوند و _ و - معادل‌اند. هر دو نشانه باید در همان پیامک وجود داشته باشند.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
