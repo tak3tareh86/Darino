@@ -51,7 +51,7 @@ object GenericBankSmsParser {
         """(?:مبلغ(?:\s*تراکنش)?|مبـلغ|برداشت(?:\s*وجه)?|واریز(?:\s*وجه)?|واريز|دریافت(?:\s*وجه)?|دريافت|خرید|خريد|پرداخت|انتقال|کارت\s*به\s*کارت|انتقال\s*وجه|وجه\s*انتقالی|deposit|withdraw(?:al)?|debit|credit|purchase|transfer)\s*[:：]?\s*([0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬٫.]*)""",
         RegexOption.IGNORE_CASE
     )
-    private val signedAmount = Regex("""[+-]\\s*([0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬٫.]*)""")
+    private val signedAmount = Regex("""[+-]\s*([0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬٫.]*)""")
     private val balanceLabel = Regex(
         """(?:مانده|موجودی|موجودى|balance)\s*[:：]?\s*([0-9۰-۹٠-٩][0-9۰-۹٠-٩,،٬٫.]*)""",
         RegexOption.IGNORE_CASE
@@ -242,14 +242,14 @@ object GenericBankSmsParser {
             """کارت\s*به\s*کارت|انتقال|پایا|ساتنا|حواله|transfer""",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(message)
-        val hasPositiveSignedAmount = Regex("""(?:^|[\\s_])\\+\\s*[0-9۰-۹٠-٩]""").containsMatchIn(message)
-        val hasNegativeSignedAmount = Regex("""(?:^|[\\s_])-\\s*[0-9۰-۹٠-٩]""").containsMatchIn(message)
+        val hasPositiveSignedAmount = Regex("""(?:^|[\s_])\\+\s*[0-9۰-۹٠-٩]""").containsMatchIn(message)
+        val hasNegativeSignedAmount = Regex("""(?:^|[\s_])-\s*[0-9۰-۹٠-٩]""").containsMatchIn(message)
         val isExpense = hasNegativeSignedAmount || Regex(
-            """برداشت|خرید|پرداخت|پرید|بازپرداخت|کسر\\s*شد|کم\\s*شد|withdraw|debit|purchase""",
+            """برداشت|خرید|پرداخت|پرید|بازپرداخت|کسر\s*شد|کم\s*شد|withdraw|debit|purchase""",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(message)
         val isIncome = hasPositiveSignedAmount || Regex(
-            """واریز|واريز|دریافت|دريافت|نشست|وارد\\s*حساب\\s*شد|deposit|credited|credit""",
+            """واریز|واريز|دریافت|دريافت|نشست|وارد\s*حساب\s*شد|deposit|credited|credit""",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(message)
         return when {
