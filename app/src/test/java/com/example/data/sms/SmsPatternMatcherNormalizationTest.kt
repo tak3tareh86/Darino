@@ -26,7 +26,7 @@ class SmsPatternMatcherNormalizationTest {
 
         assertNotNull(SmsPatternMatcher.findUniqueMatch(actual, listOf(pattern)))
         assertNotNull(SmsPatternMatcher.extractMatchedFields(actual, pattern))
-        assertNull(SmsPatternMatcher.findUniqueMatch(actual.replace("\n", "\r\n"), listOf(pattern)))
+        assertNotNull(SmsPatternMatcher.findUniqueMatch(actual.replace("\n", "\r\n"), listOf(pattern)))
     }
 
     @Test
@@ -98,6 +98,51 @@ class SmsPatternMatcherNormalizationTest {
         )
         assertNotNull(fullYearParsed)
         assertEquals("1405/08/06", fullYearParsed?.dateText)
+    }
+
+    @Test
+    fun numericSenderIgnoresWhitespaceAndPersianArabicDigitGlyphsButKeepsExactDigits() {
+        val pattern = SmsPattern(
+            id = "numeric-sender",
+            name = "نمونه",
+            type = SmsPatternType.INCOME,
+            sampleMessage = "واریز مبلغ 100 تومان",
+            slots = SmsPatternMatcher.inferVariableSlots("واریز مبلغ 100 تومان"),
+            senderAddress = "۹۸۲۱ ۲۳۴"
+        )
+
+        assertTrue(SmsPatternMatcher.senderMatchesPattern(pattern.senderAddress, "9821234"))
+        assertTrue(SmsPatternMatcher.senderMatchesPattern("98 21 234", "۹۸۲۱۲۳۴"))
+        assertFalse(SmsPatternMatcher.senderMatchesPattern(pattern.senderAddress, "98212345"))
+        assertFalse(SmsPatternMatcher.senderMatchesPattern(pattern.senderAddress, "982124"))
+        assertEquals(1, SmsPatternMatcher.findMatchingPatterns("واریز مبلغ 250 تومان", listOf(pattern), "98 21 234").size)
+    }
+
+    @Test
+    fun alphanumericSenderRemainsExactApartFromOuterWhitespace() {
+        assertTrue(SmsPatternMatcher.senderMatchesPattern("ResalatBank", " ResalatBank "))
+        assertFalse(SmsPatternMatcher.senderMatchesPattern("ResalatBank", "resalatbank"))
+        assertFalse(SmsPatternMatcher.senderMatchesPattern("ResalatBank", "Resalat Bank"))
+    }
+
+    @Test
+    fun bodyMatchingToleratesWhitespaceLayoutButKeepsFixedWords() {
+        val sample = "واریز مبلغ 100 تومان\\nمانده 500 تومان"
+        val pattern = SmsPattern(
+            id = "whitespace",
+            name = "نمونه",
+            type = SmsPatternType.INCOME,
+            sampleMessage = sample,
+            slots = SmsPatternMatcher.inferVariableSlots(sample),
+            senderAddress = "BankSender"
+        )
+
+        assertNotNull(SmsPatternMatcher.findUniqueMatch(
+            "واریز   مبلغ 250 تومان\\r\\nمانده 700 تومان", listOf(pattern), "BankSender"
+        ))
+        assertNull(SmsPatternMatcher.findUniqueMatch(
+            "برداشت   مبلغ 250 تومان\\r\\nمانده 700 تومان", listOf(pattern), "BankSender"
+        ))
     }
 
     @Test
