@@ -269,6 +269,11 @@ class BankSmsRepository(private val context: Context) {
                     }
 
                     scannedCount++
+                    // Credential/OTP messages must never reach either recognition path.
+                    if (BankSmsParser.containsPasswordKeyword(body)) {
+                        unmatchedCount++
+                        continue
+                    }
                     // Prefer one exact user template; otherwise use conservative generic recognition.
                     // Ambiguous configured templates are rejected rather than arbitrarily prioritized.
                     val matchingPatterns = SmsPatternMatcher.findMatchingPatterns(body, patterns)

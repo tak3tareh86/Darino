@@ -19,6 +19,10 @@ object BankSmsParser {
             .replace('\u00A0', ' ')
             .trim()
 
+    /** Any SMS containing the Persian password keyword is excluded from bank recognition. */
+    fun containsPasswordKeyword(message: String): Boolean =
+        normalizeText(message).contains("رمز")
+
     fun parseMatchedPattern(
         smsId: String,
         sender: String,
@@ -26,6 +30,7 @@ object BankSmsParser {
         timestampMillis: Long,
         pattern: SmsPattern
     ): BankSmsSuggestion? {
+        if (containsPasswordKeyword(body)) return null
         return try {
             val fields = SmsPatternMatcher.extractMatchedFields(body, pattern) ?: return null
 

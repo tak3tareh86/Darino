@@ -341,4 +341,23 @@ class BankSmsParserTest {
         }
         assertEquals("11/08/1405", sample.substring(dateSlot.start, dateSlot.endExclusive))
     }
+
+    @Test
+    fun rejectsPasswordKeywordEvenWhenAnExactUserTemplateMatches() {
+        val sample = "برداشت 1,000 تومان رمز خرید"
+        val pattern = SmsPattern(
+            id = "password-template",
+            name = "قالب آزمایشی",
+            type = SmsPatternType.EXPENSE,
+            sampleMessage = sample,
+            slots = listOf(slot(sample, "1,000", SmsPatternSlotKind.AMOUNT_TOMAN))
+        )
+
+        assertNotNull(SmsPatternMatcher.findUniqueMatch(sample, listOf(pattern)))
+        assertNull(
+            BankSmsParser.parseMatchedPattern(
+                "password-sms", "30001234", sample, 1_700_000_000_000L, pattern
+            )
+        )
+    }
 }
