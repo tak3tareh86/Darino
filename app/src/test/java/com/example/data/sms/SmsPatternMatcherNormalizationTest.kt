@@ -1,6 +1,7 @@
 package com.example.data.sms
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -95,6 +96,34 @@ class SmsPatternMatcherNormalizationTest {
         )
         assertNotNull(fullYearParsed)
         assertEquals("1405/08/06", fullYearParsed?.dateText)
+    }
+
+    @Test
+    fun keepsLongUnlabeledDottedAccountIdentifierFixed() {
+        val sample = """10.8805139.1
++80,000
+07/13_12:16
+مانده: 381,835,350"""
+        val slots = SmsPatternMatcher.inferVariableSlots(sample)
+        val identifierStart = sample.indexOf("10.8805139.1")
+        assertFalse(slots.any { it.start < identifierStart + 12 && it.endExclusive > identifierStart })
+
+        val pattern = SmsPattern(
+            id = "dotted-account",
+            name = "رسالت",
+            type = SmsPatternType.INCOME,
+            sampleMessage = sample,
+            slots = slots,
+            senderAddress = "ResalatBank"
+        )
+        val sameAccountDifferentAmounts = """10.8805139.1
++125,000
+07/14_13:20
+مانده: 1,381,835,350"""
+        val changedAccount = sameAccountDifferentAmounts.replace("10.8805139.1", "10.8805139.2")
+
+        assertTrue(SmsPatternMatcher.findMatchingPatterns(sameAccountDifferentAmounts, listOf(pattern), "ResalatBank").isNotEmpty())
+        assertTrue(SmsPatternMatcher.findMatchingPatterns(changedAccount, listOf(pattern), "ResalatBank").isEmpty())
     }
 
 }
