@@ -138,11 +138,17 @@ class BankSmsRepository(private val context: Context) {
             // Do not restore pending suggestions created from SMS outside the active window.
             if (saved.timestampMillis < recognitionStartMillis) return@mapNotNull null
             if (saved.patternId.isBlank()) {
-                val newlyConfiguredMatches = SmsPatternMatcher.findMatchingPatterns(saved.smsText, currentPatterns, saved.rawSender)
-                if (newlyConfiguredMatches.size > 1) return@mapNotNull null
                 val bodyMatchesConfiguredTemplate = currentPatterns.any {
                     SmsPatternMatcher.matchesTemplateBody(saved.smsText, it)
                 }
+                // A persisted suggestion without its original sender cannot safely
+                // activate a legacy template whose sender ID was never configured.
+                val newlyConfiguredMatches = if (saved.rawSender.isNullOrBlank()) {
+                    emptyList()
+                } else {
+                    SmsPatternMatcher.findMatchingPatterns(saved.smsText, currentPatterns, saved.rawSender)
+                }
+                if (newlyConfiguredMatches.size > 1) return@mapNotNull null
                 val reparsed = when {
                     newlyConfiguredMatches.size == 1 -> BankSmsParser.parseMatchedPattern(
                         saved.id, saved.rawSender.orEmpty(), saved.smsText,
