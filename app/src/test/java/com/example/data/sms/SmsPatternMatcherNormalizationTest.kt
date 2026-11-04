@@ -112,6 +112,11 @@ class SmsPatternMatcherNormalizationTest {
         )
 
         assertTrue(SmsPatternMatcher.senderMatchesPattern(pattern.senderAddress, "9821234"))
+        assertTrue(SmsPatternMatcher.senderMatchesPattern("+۹۸۲۱ ۲۳۴", "9821234"))
+        assertTrue(SmsPatternMatcher.senderMatchesPattern("9821234", "+98 21 234"))
+        assertTrue(SmsPatternMatcher.senderMatchesPattern("+98 21 234", "۹۸۲۱۲۳۴"))
+        assertFalse(SmsPatternMatcher.senderMatchesPattern("9821234", "++9821234"))
+        assertFalse(SmsPatternMatcher.senderMatchesPattern("9821234", "+98212345"))
         assertTrue(SmsPatternMatcher.senderMatchesPattern("98 21 234", "۹۸۲۱۲۳۴"))
         assertFalse(SmsPatternMatcher.senderMatchesPattern(pattern.senderAddress, "98212345"))
         assertFalse(SmsPatternMatcher.senderMatchesPattern(pattern.senderAddress, "982124"))
