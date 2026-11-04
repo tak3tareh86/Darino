@@ -89,13 +89,12 @@ fun SettingsHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(headerGradient)
-                // Keep the system-bar inset so the title never collides with status icons.
-                .statusBarsPadding()
-                // Reduce the oversized empty space above and below the header content.
+                // The parent Scaffold already applies the status-bar inset.
+                // Keep only a small visual gap above the header content.
                 .padding(
                     start = if (compact) 16.dp else 20.dp,
                     end = if (compact) 16.dp else 20.dp,
-                    top = if (compact) 2.dp else 4.dp,
+                    top = if (compact) 2.dp else 3.dp,
                     bottom = if (compact) 5.dp else 8.dp
                 )
         ) {
