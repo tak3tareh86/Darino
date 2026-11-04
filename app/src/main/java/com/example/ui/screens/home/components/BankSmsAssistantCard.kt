@@ -207,9 +207,6 @@ fun BankSmsAssistantCard(
                         onQuickAccept = { id ->
                             editingSuggestionId = id
                         },
-                        onEditClick = { suggestion ->
-                            editingSuggestionId = suggestion.id
-                        },
                         onManagePatterns = onManagePatterns,
                         onDismiss = onDismiss,
                         onRefreshScan = onRefreshScan
@@ -524,7 +521,6 @@ private fun SmsGrantedContentView(
     queue: List<BankSmsSuggestion>,
     onTypeChange: (id: String, type: TransactionType) -> Unit,
     onQuickAccept: (id: String) -> Unit,
-    onEditClick: (BankSmsSuggestion) -> Unit,
     onManagePatterns: () -> Unit,
     onDismiss: (id: String) -> Unit,
     onRefreshScan: () -> Unit
@@ -968,34 +964,10 @@ private fun SmsGrantedContentView(
                             )
                         }
 
-                        // Edit Before Save Button
-                        OutlinedButton(
-                            onClick = { onEditClick(item) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(32.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Edit,
-                                contentDescription = null,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text(
-                                text = "ویرایش",
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
                         // Register Transaction Button
                         Button(
                             onClick = { onQuickAccept(item.id) },
-                            enabled = (item.type != null && !item.isTypeUncertain && item.isAmountValid && item.amount > 0L),
+                            // Open review even when parsing is incomplete so the user can correct it.
                             modifier = Modifier
                                 .weight(1.3f)
                                 .height(32.dp)
@@ -1102,476 +1074,141 @@ fun EditSmsTransactionDialog(
                 ?.takeIf { it > 0L && it != suggestion.amount }
                 ?.let { add(it to "موجودی حساب") }
         }
+   @Composable
+fun EditSmsTransactionDialog(
+    suggestion: BankSmsSuggestion,
+    userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
+    onDismiss: () -> Unit,
+    onConfirm: (Long, TransactionType, String, String, String, String?, (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit) -> Unit
+) {
+    var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
+    var amountText by remember(suggestion.id) { mutableStateOf(if (suggestion.isAmountValid && suggestion.amount > 0L) IranianAmountUtils.formatWithCommas(suggestion.amount.toString()) else "") }
+    val amount = remember(amountText) { IranianAmountUtils.cleanAmountDigits(amountText).toLongOrNull() ?: 0L }
+    val validAmount = amount > 0L
+    val amountOptions = remember(suggestion.id, suggestion.amount, suggestion.isAmountValid, suggestion.balanceAmount) {
+        buildList {
+            if (suggestion.isAmountValid && suggestion.amount > 0L) add(suggestion.amount to "مبلغ تراکنش")
+            suggestion.balanceAmount?.takeIf { it > 0L && it != suggestion.amount }?.let { add(it to "موجودی حساب") }
+        }
     }
-
     var category by remember(suggestion.id) { mutableStateOf(suggestion.category) }
-    val activeAccounts = remember(userAccounts) {
-        userAccounts.filter { it.isActive && it.deletedAt == null }
+    val accounts = remember(userAccounts) { userAccounts.filter { it.isActive && it.deletedAt == null } }
+    val sourceDigits = suggestion.sourceAccount?.let(IranianPhoneUtils::convertDigitsToEnglish)?.filter { it in '0'..'9' }
+    val exactAccount = accounts.singleOrNull { a ->
+        val digits = a.accountNumberMasked?.let(IranianPhoneUtils::convertDigitsToEnglish)?.filter { it in '0'..'9' }
+        !sourceDigits.isNullOrBlank() && digits == sourceDigits
     }
-    // Auto-link only when a stored account number is a full exact match.
-    // Masked/partial values never trigger a guess; the user chooses manually instead.
-    val recognizedBankAccountDigits = suggestion.sourceAccount
-        ?.let(IranianPhoneUtils::convertDigitsToEnglish)
-        ?.filter { it in '0'..'9' }
-    val exactStoredAccount = activeAccounts.singleOrNull { account ->
-        val storedDigits = account.accountNumberMasked
-            ?.let(IranianPhoneUtils::convertDigitsToEnglish)
-            ?.filter { it in '0'..'9' }
-        !recognizedBankAccountDigits.isNullOrBlank() && storedDigits == recognizedBankAccountDigits
-    }
-    var selectedAccountId by remember(suggestion.id, activeAccounts, recognizedBankAccountDigits) {
-        mutableStateOf<String?>(exactStoredAccount?.stringId)
-    }
-    var selectedDestinationAccountId by remember(suggestion.id, activeAccounts) {
-        mutableStateOf<String?>(null)
-    }
-    var description by remember(suggestion.id) {
-        mutableStateOf("ثبت از پیامک ${suggestion.bankName}")
-    }
+    var accountId by remember(suggestion.id, accounts, sourceDigits) { mutableStateOf<String?>(exactAccount?.stringId) }
+    var destinationId by remember(suggestion.id, accounts) { mutableStateOf<String?>(null) }
+    var submitting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var smsExpanded by remember(suggestion.id) { mutableStateOf(false) }
+    var bankAccountExpanded by remember(suggestion.id) { mutableStateOf(false) }
+    val expenseCats=listOf("خرید روزمره","سوپرمارکت و خرید","غذا و رستوران","خودرو و سوخت","قبوض و خدمات","اقساط و تسهیلات","سلامت و درمان","سایر")
+    val incomeCats=listOf("حقوق و دستمزد","درآمد و واریز","سود سپرده","یارانه و کمک‌معیشتی","فروش کالا","سایر")
+    val transferCats=listOf("انتقال بین‌بانکی","کارت به کارت","پایا","ساتنا","انتقال داخلی")
+    val cats=when(selectedType){TransactionType.EXPENSE->expenseCats;TransactionType.INCOME->incomeCats;TransactionType.TRANSFER->transferCats;null->emptyList()}
 
-    var isSubmitting by remember { mutableStateOf(false) }
-    var dialogError by remember { mutableStateOf<String?>(null) }
-
-    val expenseCategories = listOf("خرید روزمره", "سوپرمارکت و خرید", "غذا و رستوران", "خودرو و سوخت", "قبوض و خدمات", "اقساط و تسهیلات", "سلامت و درمان", "سایر")
-    val incomeCategories = listOf("حقوق و دستمزد", "درآمد و واریز", "سود سپرده", "یارانه و کمک‌معیشتی", "فروش کالا", "سایر")
-    val transferCategories = listOf("انتقال بین‌بانکی", "کارت به کارت", "پایا", "ساتنا", "انتقال داخلی")
-
-    val categoriesList = when (selectedType) {
-        TransactionType.EXPENSE -> expenseCategories
-        TransactionType.INCOME -> incomeCategories
-        TransactionType.TRANSFER -> transferCategories
-        null -> emptyList()
-    }
-
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+    androidx.compose.ui.window.Dialog(onDismissRequest=onDismiss,properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
+        Card(
+            modifier=Modifier.fillMaxWidth().widthIn(max=420.dp).heightIn(max=660.dp).padding(horizontal=14.dp),
+            shape=RoundedCornerShape(18.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)
         ) {
-            Card(
-                modifier = Modifier
-                    .widthIn(max = 340.dp)
-                    .heightIn(max = 720.dp)
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Title
-                    Text(
-                        text = "ویرایش تراکنش قبل از ثبت",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                    )
-
-                    // The detected type is only a suggestion; the user can correct it here.
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            "نوع تراکنش",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            FilterChip(
-                                modifier = Modifier.weight(1f),
-                                selected = selectedType == TransactionType.INCOME,
-                                onClick = {
-                                    selectedType = TransactionType.INCOME
-                                    category = incomeCategories.first()
-                                    dialogError = null
-                                },
-                                label = { Text("درآمد", fontSize = 10.sp, maxLines = 1) }
-                            )
-                            FilterChip(
-                                modifier = Modifier.weight(1f),
-                                selected = selectedType == TransactionType.EXPENSE,
-                                onClick = {
-                                    selectedType = TransactionType.EXPENSE
-                                    category = expenseCategories.first()
-                                    dialogError = null
-                                },
-                                label = { Text("هزینه", fontSize = 10.sp, maxLines = 1) }
-                            )
-                            FilterChip(
-                                modifier = Modifier.weight(1f),
-                                selected = selectedType == TransactionType.TRANSFER,
-                                onClick = {
-                                    selectedType = TransactionType.TRANSFER
-                                    category = transferCategories.first()
-                                    dialogError = null
-                                },
-                                label = { Text("انتقال", fontSize = 10.sp, maxLines = 1) }
-                            )
-                        }
+            Column(modifier=Modifier.fillMaxWidth().heightIn(max=660.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().padding(start=15.dp,end=6.dp,top=6.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
+                    Column {
+                        Text("بررسی و ثبت تراکنش",style=MaterialTheme.typography.titleMedium.copy(fontWeight=FontWeight.Bold))
+                        Text(suggestion.bankName,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-
-                    // Keep the original SMS visible in the review dialog for verification.
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                    ) {
-                        Column(modifier = Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                "متن کامل پیامک بانکی",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                suggestion.smsText,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 10.sp,
-                                    lineHeight = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
+                    IconButton(onClick=onDismiss,enabled=!submitting){Icon(Icons.Rounded.Close,contentDescription="بستن")}
+                }
+                Surface(Modifier.fillMaxWidth().padding(horizontal=12.dp),shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.primaryContainer.copy(alpha=.45f)) {
+                    Column(Modifier.padding(horizontal=10.dp,vertical=7.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                        Text("مبلغ تراکنش (تومان)",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
+                        OutlinedTextField(amountText,{amountText=it;error=null},singleLine=true,isError=!validAmount&&amountText.isNotEmpty(),placeholder={Text("مبلغ را وارد کنید")},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(9.dp),textStyle=MaterialTheme.typography.titleMedium.copy(fontWeight=FontWeight.Bold))
+                        if(amountOptions.isNotEmpty()) LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                            items(amountOptions){(v,label)->FilterChip(selected=amount==v,onClick={amountText=IranianAmountUtils.formatWithCommas(v.toString());error=null},label={Text(label + ": " + MoneyFormatter.formatToman(v,currency=com.example.ui.screens.settings.model.AppCurrency.TOMAN),fontSize=10.sp)})}
                         }
+                        if(!validAmount) Text("مبلغ پیامک معتبر نیست؛ مبلغ صحیح را وارد کنید.",style=MaterialTheme.typography.bodySmall,color=Color(0xFFDC2626))
                     }
-
-                    // Selectable values extracted from the SMS; balance is clearly distinguished from transaction amount.
-                    if (amountSuggestions.isNotEmpty()) {
-                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text(
-                                text = "مبلغ‌های پیشنهادی از پیامک",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                            )
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                                items(amountSuggestions) { (value, label) ->
-                                    val isSelected = parsedAmount == value
-                                    Surface(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .clickable {
-                                                amountText = IranianAmountUtils.formatWithCommas(value.toString())
-                                                dialogError = null
-                                            },
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                                        border = BorderStroke(
-                                            1.dp,
-                                            if (isSelected) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.outlineVariant
-                                        )
-                                    ) {
-                                        Column(
-                                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
-                                            verticalArrangement = Arrangement.spacedBy(3.dp)
-                                        ) {
-                                            Text(
-                                                text = label,
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                                        else MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            )
-                                            Text(
-                                                text = "${MoneyFormatter.formatToman(value, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)} تومان",
-                                                style = MaterialTheme.typography.bodySmall.copy(
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                                        else MaterialTheme.colorScheme.onSurface
-                                                )
-                                            )
-                                        }
-                                    }
-                                }
+                }
+                Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState()).padding(horizontal=13.dp),verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                    Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                        Text("نوع تراکنش",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
+                        Row(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                            listOf(TransactionType.INCOME to "درآمد",TransactionType.EXPENSE to "هزینه",TransactionType.TRANSFER to "انتقال").forEach{(t,label)->
+                                FilterChip(Modifier.weight(1f),selected=selectedType==t,onClick={selectedType=t;category=when(t){TransactionType.INCOME->incomeCats.first();TransactionType.EXPENSE->expenseCats.first();TransactionType.TRANSFER->transferCats.first()};error=null},label={Text(label,maxLines=1)})
                             }
                         }
                     }
-
-                    // The selected suggestion is copied into this editable field; manual correction remains available.
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(
-                            text = "مبلغ تراکنش (تومان):",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                        OutlinedTextField(
-                            value = amountText,
-                            onValueChange = { amountText = it },
-                            singleLine = true,
-                            isError = !isAmountValid && amountText.isNotEmpty(),
-                            placeholder = { Text("مثال: 50,000", fontSize = 11.5.sp) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp),
-                            textStyle = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = when (selectedType) {
-                                    TransactionType.EXPENSE -> ExpenseRoseLight
-                                    TransactionType.INCOME -> EmeraldPrimaryLight
-                                    TransactionType.TRANSFER -> Color(0xFF3B82F6)
-                                    null -> MaterialTheme.colorScheme.onSurface
-                                }
-                            )
-                        )
-                        if (isAmountValid) {
-                            Text(
-                                text = "مبلغ: ${MoneyFormatter.formatToman(parsedAmount, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)}",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                        } else {
-                            Text(
-                                text = "مبلغ به‌درستی از پیامک استخراج نشد؛ مبلغ صحیح را وارد کنید.",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 10.sp,
-                                    color = Color(0xFFDC2626),
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
+                    Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                        Text(if(selectedType==TransactionType.TRANSFER)"حساب مبدأ" else "حساب مرتبط",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
+                        if(accounts.isEmpty()) Text("حساب فعال پیدا نشد؛ ابتدا یک حساب فعال بسازید.",color=Color(0xFFDC2626),style=MaterialTheme.typography.bodySmall)
+                        else LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)){items(accounts){a->FilterChip(selected=accountId==a.stringId,onClick={accountId=a.stringId;error=null},label={Text(a.name,fontSize=10.sp)})}}
+                        if(selectedType==TransactionType.TRANSFER){
+                            Text("حساب مقصد",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
+                            LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)){items(accounts){a->FilterChip(selected=destinationId==a.stringId,onClick={destinationId=a.stringId;error=null},label={Text(a.name,fontSize=10.sp)})}}
                         }
                     }
-
-                    // Display the exact bank account number recognized by the saved allow-list.
-                    // The user still explicitly links it to a Darino account; no account is guessed.
-                    if (!suggestion.sourceAccount.isNullOrBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(
-                                    "شماره حساب بانکی شناسایی‌شده",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                                )
-                                Text(
-                                    suggestion.sourceAccount.orEmpty(),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                Text(
-                                    "اگر شماره کامل در حساب دارینو ذخیره شده باشد، حساب متناظر خودکار انتخاب می‌شود؛ در غیر این صورت آن را دستی انتخاب کنید.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                    Column(verticalArrangement=Arrangement.spacedBy(4.dp)){
+                        Text("دسته‌بندی",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
+                        OutlinedTextField(category,{category=it},singleLine=true,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(9.dp),textStyle=MaterialTheme.typography.bodyMedium)
+                        LazyRow(horizontalArrangement=Arrangement.spacedBy(4.dp)){items(cats){c->FilterChip(selected=category==c,onClick={category=c},label={Text(c,fontSize=10.sp)})}}
+                    }
+                    if(!suggestion.sourceAccount.isNullOrBlank()) Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(9.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.4f)){
+                        Column(Modifier.padding(8.dp)){
+                            Row(Modifier.fillMaxWidth().clickable{bankAccountExpanded=!bankAccountExpanded},horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+                                Text("شماره حساب بانکی شناسایی‌شده",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
+                                Text(if(bankAccountExpanded)"بستن" else "نمایش",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.labelSmall)
                             }
+                            if(bankAccountExpanded) Text(suggestion.sourceAccount.orEmpty(),style=MaterialTheme.typography.bodySmall)
                         }
                     }
-
-                    // Link the SMS transaction to real accounts so account balances stay correct.
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = if (selectedType == TransactionType.TRANSFER) "حساب مبدأ" else "حساب مرتبط",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                        if (activeAccounts.isEmpty()) {
-                            Text(
-                                text = "حساب فعال پیدا نشد؛ ابتدا یک حساب فعال بسازید.",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626), fontSize = 10.sp)
-                            )
-                        } else {
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                items(activeAccounts) { account ->
-                                    FilterChip(
-                                        selected = selectedAccountId == account.stringId,
-                                        onClick = {
-                                            selectedAccountId = account.stringId
-                                            dialogError = null
-                                        },
-                                        label = { Text(account.name, fontSize = 9.sp) }
-                                    )
-                                }
+                    Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(9.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.4f)){
+                        Column(Modifier.padding(8.dp)){
+                            Row(Modifier.fillMaxWidth().clickable{smsExpanded=!smsExpanded},horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+                                Text("متن کامل پیامک بانکی",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
+                                Text(if(smsExpanded)"بستن" else "نمایش",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.labelSmall)
                             }
+                            if(smsExpanded) Text(suggestion.smsText,style=MaterialTheme.typography.bodySmall.copy(lineHeight=17.sp),color=MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-
-                    if (selectedType == TransactionType.TRANSFER) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                text = "حساب مقصد",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                            )
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                items(activeAccounts) { account ->
-                                    FilterChip(
-                                        selected = selectedDestinationAccountId == account.stringId,
-                                        onClick = {
-                                            selectedDestinationAccountId = account.stringId
-                                            dialogError = null
-                                        },
-                                        label = { Text(account.name, fontSize = 9.sp) }
-                                    )
-                                }
-                            }
-                            Text(
-                                text = "می‌توانید هر حساب فعالی را به‌عنوان مقصد انتخاب کنید؛ حتی همان حساب مبدأ.",
-                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
-                            )
+                    if(error!=null) Surface(shape=RoundedCornerShape(9.dp),color=Color(0xFFFEF2F2),border=BorderStroke(1.dp,Color(0xFFFCA5A5)),modifier=Modifier.fillMaxWidth()){
+                        Row(Modifier.padding(8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)){
+                            Icon(Icons.Rounded.Info,null,tint=Color(0xFFDC2626),modifier=Modifier.size(16.dp))
+                            Text(error!!,style=MaterialTheme.typography.bodySmall,color=Color(0xFF991B1B))
                         }
                     }
-
-                    // Category input
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(
-                            text = "دسته‌بندی:",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                        OutlinedTextField(
-                            value = category,
-                            onValueChange = { category = it },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp),
-                            textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp)
-                        )
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            items(categoriesList) { cat ->
-                                FilterChip(
-                                    selected = category == cat,
-                                    onClick = { category = cat },
-                                    label = { Text(cat, fontSize = 9.sp) }
-                                )
+                }
+                Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=9.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                    OutlinedButton(onClick=onDismiss,enabled=!submitting,modifier=Modifier.weight(1f),shape=RoundedCornerShape(9.dp)){Text("انصراف")}
+                    Button(
+                        onClick={
+                            val t=selectedType
+                            if(t==null){error="لطفاً نوع تراکنش را مشخص کنید.";return@Button}
+                            if(!validAmount){error="لطفاً مبلغ معتبر وارد کنید.";return@Button}
+                            val src=accountId
+                            if(src.isNullOrBlank()){error="لطفاً حساب مرتبط را انتخاب کنید.";return@Button}
+                            val dst=if(t==TransactionType.TRANSFER)destinationId else null
+                            if(t==TransactionType.TRANSFER&&dst.isNullOrBlank()){error="لطفاً حساب مقصد را انتخاب کنید.";return@Button}
+                            submitting=true;error=null
+                            onConfirm(amount,t,category.trim().ifEmpty{suggestion.category},src,"ثبت از پیامک " + suggestion.bankName,dst){result->
+                                submitting=false
+                                when(result){
+                                    com.example.ui.screens.home.viewmodel.SmsAcceptResult.Success,com.example.ui.screens.home.viewmodel.SmsAcceptResult.AlreadyExists->onDismiss()
+                                    com.example.ui.screens.home.viewmodel.SmsAcceptResult.AccountRequired->error="لطفاً یک حساب معتبر انتخاب کنید."
+                                    com.example.ui.screens.home.viewmodel.SmsAcceptResult.DestinationAccountRequired->error="لطفاً حساب مقصد معتبری انتخاب کنید."
+                                    com.example.ui.screens.home.viewmodel.SmsAcceptResult.InvalidAmount->error="مبلغ استخراج‌شده نامعتبر است؛ مبلغ را بررسی کنید."
+                                    com.example.ui.screens.home.viewmodel.SmsAcceptResult.TypeNotSelected->error="لطفاً نوع تراکنش را مشخص کنید."
+                                    com.example.ui.screens.home.viewmodel.SmsAcceptResult.Failed->error="خطا در ثبت تراکنش؛ دوباره تلاش کنید."
+                                }
                             }
-                        }
-                    }
-
-                    // The selected account IDs are validated again by the ViewModel before persistence.
-
-                    // Error Banner if validation / registration failed (Dialog stays open so user can correct)
-                    if (dialogError != null) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFFEF2F2),
-                            border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Info,
-                                    contentDescription = null,
-                                    tint = Color(0xFFDC2626),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Text(
-                                    text = dialogError!!,
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontSize = 10.5.sp,
-                                        color = Color(0xFF991B1B),
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-                    }
-
-                    val canSubmit = selectedType != null && isAmountValid && !isSubmitting
-
-                    // Actions
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        TextButton(
-                            onClick = onDismiss,
-                            enabled = !isSubmitting,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("انصراف", fontSize = 11.5.sp)
-                        }
-
-                        Button(
-                            onClick = {
-                                val sType = selectedType ?: return@Button
-                                if (!isAmountValid) return@Button
-                                dialogError = null
-                                val finalCat = category.trim().ifEmpty { suggestion.category }
-                                val sourceId = selectedAccountId
-                                if (sourceId.isNullOrBlank()) {
-                                    dialogError = "لطفاً حساب مرتبط را انتخاب کنید."
-                                    return@Button
-                                }
-                                val destinationId = if (sType == TransactionType.TRANSFER) {
-                                    selectedDestinationAccountId
-                                } else {
-                                    null
-                                }
-                                if (sType == TransactionType.TRANSFER && destinationId.isNullOrBlank()) {
-                                    dialogError = "لطفاً حساب مقصد را انتخاب کنید."
-                                    return@Button
-                                }
-
-                                isSubmitting = true
-                                onConfirm(
-                                    parsedAmount,
-                                    sType,
-                                    finalCat,
-                                    sourceId,
-                                    description,
-                                    destinationId
-                                ) { result ->
-                                    isSubmitting = false
-                                    when (result) {
-                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.Success,
-                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.AlreadyExists -> {
-                                            onDismiss()
-                                        }
-                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.AccountRequired -> {
-                                            dialogError = "حساب بانکی مشخص نیست؛ لطفاً یک حساب معتبر انتخاب کنید."
-                                        }
-                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.DestinationAccountRequired -> {
-                                            dialogError = "حساب مقصد انتقال نامعتبر است؛ لطفاً یک حساب فعال انتخاب کنید."
-                                        }
-                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.InvalidAmount -> {
-                                            dialogError = "مبلغ استخراج‌شده از الگوی ثبت‌شده نامعتبر است؛ الگو و متن پیامک را بررسی کنید."
-                                        }
-                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.TypeNotSelected -> {
-                                            dialogError = "لطفاً نوع تراکنش را مشخص کنید."
-                                        }
-                                        com.example.ui.screens.home.viewmodel.SmsAcceptResult.Failed -> {
-                                            dialogError = "خطا در ثبت تراکنش در پایگاه داده. لطفاً دوباره تلاش کنید."
-                                        }
-                                    }
-                                }
-                            },
-                            enabled = canSubmit,
-                            modifier = Modifier.weight(1.3f),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = when (selectedType) {
-                                    TransactionType.EXPENSE -> ExpenseRoseLight
-                                    TransactionType.INCOME -> EmeraldPrimaryLight
-                                    TransactionType.TRANSFER -> Color(0xFF3B82F6)
-                                    null -> Color.Gray
-                                }
-                            )
-                        ) {
-                            if (isSubmitting) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color = Color.White
-                                )
-                            } else {
-                                Text(
-                                    text = "تأیید و ثبت",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
+                        },
+                        enabled=selectedType!=null&&validAmount&&!submitting,
+                        modifier=Modifier.weight(1.35f),shape=RoundedCornerShape(9.dp),
+                        colors=ButtonDefaults.buttonColors(containerColor=when(selectedType){TransactionType.EXPENSE->ExpenseRoseLight;TransactionType.INCOME->EmeraldPrimaryLight;TransactionType.TRANSFER->Color(0xFF3B82F6);null->Color.Gray})
+                    ){
+                        if(submitting) CircularProgressIndicator(Modifier.size(16.dp),strokeWidth=2.dp,color=Color.White) else Text("تأیید و ثبت",fontWeight=FontWeight.Bold)
                     }
                 }
             }
