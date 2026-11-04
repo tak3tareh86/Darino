@@ -153,6 +153,45 @@ object MoneyFormatter {
     }
 
     /**
+     * Formats an amount that is already expressed in the selected currency.
+     * Unlike the Toman-based formatters, this method never converts or scales it.
+     */
+    fun formatRawAmount(
+        amount: Long,
+        includeUnit: Boolean = true,
+        currency: AppCurrency = activeCurrency,
+        language: AppLanguage = activeLanguage
+    ): String {
+        if (isPrivacyModeEnabled) return maskedAmount(includeUnit, currency, language)
+        val absAmount = kotlin.math.abs(amount)
+        val formattedNumber = formatNumberWithCommas(absAmount)
+        val displayFormatted = AppNumberFormatter.formatDigits(formattedNumber, activeNumberMode)
+        val prefix = if (amount < 0) "−" else ""
+        val unit = getUnitLabel(currency, language)
+        return if (includeUnit) "$prefix$displayFormatted $unit" else "$prefix$displayFormatted"
+    }
+
+    /**
+     * Formats an already-selected-currency amount with an income/expense sign,
+     * without converting between Rial and Toman.
+     */
+    fun formatRawSignedAmount(
+        amount: Long,
+        isExpense: Boolean = false,
+        includeUnit: Boolean = true,
+        currency: AppCurrency = activeCurrency,
+        language: AppLanguage = activeLanguage
+    ): String {
+        if (isPrivacyModeEnabled) return maskedAmount(includeUnit, currency, language)
+        val absAmount = kotlin.math.abs(amount)
+        val formattedNumber = formatNumberWithCommas(absAmount)
+        val displayFormatted = AppNumberFormatter.formatDigits(formattedNumber, activeNumberMode)
+        val sign = if (isExpense || amount < 0) "−" else "+"
+        val unit = getUnitLabel(currency, language)
+        return if (includeUnit) "$sign$displayFormatted $unit" else "$sign$displayFormatted"
+    }
+
+    /**
      * Formats raw number with commas.
      */
     fun formatTomanRaw(
