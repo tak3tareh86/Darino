@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -532,8 +534,55 @@ private fun GuideTab(title: String, selected: Boolean, onClick: () -> Unit, modi
     }
 }
 
+private data class SmsGuideGroup(
+    val icon: String,
+    val title: String,
+    val shortTitle: String,
+    val bullets: List<String>,
+    val examples: List<String>
+)
+
 @Composable
 private fun SmsRulesGuide() {
+    val groups = listOf(
+        SmsGuideGroup(
+            icon = "↔",
+            title = "قوانین نشانه‌های واریز، برداشت و انتقال وجه",
+            shortTitle = "نشانه‌ها",
+            bullets = listOf(
+                "تنها جداکننده مجاز بین نشانه‌ها علامت / است.",
+                "فاصله و علائم دیگر مانند ، . ؛ - یا , جداکننده مجاز نیستند.",
+                "حداقل دو نشانه متفاوت برای هر دسته وارد کنید.",
+                "تمام نشانه‌های یک دسته باید در همان پیامک وجود داشته باشند؛ ترتیبشان مهم نیست."
+            ),
+            examples = listOf("مثال صحیح", "واریز/پرداخت/نشست", "مثال نادرست", "واریز، پرداخت، نشست")
+        ),
+        SmsGuideGroup(
+            icon = "👤",
+            title = "قوانین سرشناسه",
+            shortTitle = "سرشناسه",
+            bullets = listOf(
+                "سرشناسه عددی: ارقام فارسی، عربی و انگلیسی معادل‌اند؛ فاصله‌ها و علامت + ابتدایی نادیده گرفته می‌شوند.",
+                "سرشناسه متنی: فاصله‌های ابتدا و انتها حذف می‌شوند؛ حروف «ي» و «ی» و همچنین «ك» و «ک» معادل‌اند.",
+                "در سرشناسه متنی، بزرگی و کوچکی حروف انگلیسی اهمیت دارد."
+            ),
+            examples = listOf("مثال عددی", "0912 345 6789  =  ۰۹۱۲۳۴۵۶۷۸۹", "مثال متنی", "Bank Mellat  ≠  bank mellat")
+        ),
+        SmsGuideGroup(
+            icon = "✎",
+            title = "قوانین حروف و علائم در نشانه‌ها",
+            shortTitle = "حروف و علائم",
+            bullets = listOf(
+                "حروف فارسی و عربی «ی/ي» و «ک/ك» هنگام تطبیق معادل‌اند.",
+                "ارقام فارسی، عربی و انگلیسی یکسان در نظر گرفته می‌شوند.",
+                "فاصله‌ها هنگام تطبیق نشانه‌ها نادیده گرفته می‌شوند.",
+                "علامت‌های _ و - هنگام تطبیق معادل یکدیگرند؛ اما برای جداکردن نشانه‌ها فقط / معتبر است."
+            ),
+            examples = listOf("نمونه معادل", "کارت_به_کارت  =  کارت-به-کارت", "نمونه غیرمجاز", "واریز / برداشت (فاصله در کادر مجاز نیست)")
+        )
+    )
+    var selectedGroup by remember { mutableStateOf<SmsGuideGroup?>(null) }
+
     Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
         Surface(
             shape = RoundedCornerShape(22.dp),
@@ -542,53 +591,40 @@ private fun SmsRulesGuide() {
         ) {
             Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text("راهنمای قوانین و قواعد ورود اطلاعات", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                Text("برای شناسایی درست پیامک‌های بانکی، نکات زیر را هنگام تعریف الگو رعایت کنید.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text("برای مشاهده جزئیات، یکی از مجموعه قوانین زیر را انتخاب کنید.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
         }
 
-        GuideRuleCard(
-            icon = "↔",
-            title = "قوانین نشانه‌های واریز، برداشت و انتقال وجه",
-            bullets = listOf(
-                "تنها جداکننده مجاز بین نشانه‌ها علامت / است.",
-                "فاصله و علائم دیگر مانند ، . ؛ - یا , جداکننده مجاز نیستند.",
-                "حداقل دو نشانه متفاوت برای هر دسته وارد کنید.",
-                "تمام نشانه‌های یک دسته باید در همان پیامک وجود داشته باشند؛ ترتیبشان مهم نیست."
-            ),
-            examples = listOf(
-                "مثال صحیح", "واریز/پرداخت/نشست",
-                "مثال نادرست", "واریز، پرداخت، نشست"
-            )
-        )
-
-        GuideRuleCard(
-            icon = "👤",
-            title = "قوانین سرشناسه",
-            bullets = listOf(
-                "سرشناسه عددی: ارقام فارسی، عربی و انگلیسی معادل‌اند؛ فاصله‌ها و علامت + ابتدایی نادیده گرفته می‌شوند.",
-                "سرشناسه متنی: فاصله‌های ابتدا و انتها حذف می‌شوند؛ حروف «ي» و «ی» و همچنین «ك» و «ک» معادل‌اند.",
-                "در سرشناسه متنی، بزرگی و کوچکی حروف انگلیسی اهمیت دارد."
-            ),
-            examples = listOf(
-                "مثال عددی", "0912 345 6789  =  ۰۹۱۲۳۴۵۶۷۸۹",
-                "مثال متنی", "Bank Mellat  ≠  bank mellat"
-            )
-        )
-
-        GuideRuleCard(
-            icon = "✎",
-            title = "قوانین حروف و علائم در نشانه‌ها",
-            bullets = listOf(
-                "حروف فارسی و عربی «ی/ي» و «ک/ك» هنگام تطبیق معادل‌اند.",
-                "ارقام فارسی، عربی و انگلیسی یکسان در نظر گرفته می‌شوند.",
-                "فاصله‌ها هنگام تطبیق نشانه‌ها نادیده گرفته می‌شوند.",
-                "علامت‌های _ و - هنگام تطبیق معادل یکدیگرند؛ اما برای جداکردن نشانه‌ها فقط / معتبر است."
-            ),
-            examples = listOf(
-                "نمونه معادل", "کارت_به_کارت  =  کارت-به-کارت",
-                "نمونه غیرمجاز", "واریز / برداشت (فاصله در کادر مجاز نیست)"
-            )
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            groups.forEach { group ->
+                Surface(
+                    onClick = { selectedGroup = group },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 2.dp,
+                    shadowElevation = 1.dp
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        Text(group.icon, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            group.shortTitle,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2
+                        )
+                    }
+                }
+            }
+        }
 
         Surface(
             shape = RoundedCornerShape(18.dp),
@@ -600,6 +636,52 @@ private fun SmsRulesGuide() {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("نکته مهم", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
                     Text("اگر بیش از یک دسته نشانه در پیامک تطبیق پیدا کند، نوع تراکنش نیازمند تأیید کاربر خواهد بود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+
+    selectedGroup?.let { group ->
+        Dialog(onDismissRequest = { selectedGroup = null }) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 560.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 12.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            group.title,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        TextButton(onClick = { selectedGroup = null }) {
+                            Text("بستن")
+                        }
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        GuideRuleCard(
+                            icon = group.icon,
+                            title = group.title,
+                            bullets = group.bullets,
+                            examples = group.examples
+                        )
+                    }
                 }
             }
         }
