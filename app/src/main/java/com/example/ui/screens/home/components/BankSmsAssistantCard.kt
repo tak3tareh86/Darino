@@ -1052,11 +1052,22 @@ fun EditSmsTransactionDialog(
     var amountText by remember(suggestion.id) { mutableStateOf(if (suggestion.isAmountValid && suggestion.amount > 0L) IranianAmountUtils.formatWithCommas(suggestion.amount.toString()) else "") }
     val amount = remember(amountText) { IranianAmountUtils.cleanAmountDigits(amountText).toLongOrNull() ?: 0L }
     val validAmount = amount > 0L
-    val amountOptions = remember(suggestion.id, suggestion.amount, suggestion.isAmountValid, suggestion.balanceAmount) {
+    val amountOptions = remember(
+        suggestion.id, suggestion.amount, suggestion.isAmountValid,
+        suggestion.balanceAmount, suggestion.amountCandidates
+    ) {
         buildList {
             if (suggestion.isAmountValid && suggestion.amount > 0L) add(suggestion.amount to "مبلغ تراکنش")
-            suggestion.balanceAmount?.takeIf { it > 0L && it != suggestion.amount }?.let { add(it to "موجودی حساب") }
-        }
+            suggestion.balanceAmount?.takeIf { it > 0L }?.let { add(it to "موجودی/مانده") }
+            suggestion.amountCandidates.filter { it > 0L }.forEach { candidate ->
+                val label = when (candidate) {
+                    suggestion.amount -> "مبلغ تراکنش"
+                    suggestion.balanceAmount -> "موجودی/مانده"
+                    else -> "مبلغ شناسایی‌شده"
+                }
+                add(candidate to label)
+            }
+        }.distinctBy { it.first }
     }
     var category by remember(suggestion.id) { mutableStateOf(suggestion.category) }
     val accounts = remember(userAccounts) { userAccounts.filter { it.isActive && it.deletedAt == null } }
@@ -1092,7 +1103,19 @@ fun EditSmsTransactionDialog(
                 Surface(Modifier.fillMaxWidth().padding(horizontal=12.dp),shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.primaryContainer.copy(alpha=.45f)) {
                     Column(Modifier.padding(horizontal=10.dp,vertical=7.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                         Text("مبلغ تراکنش (تومان)",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
-                        OutlinedTextField(amountText,{amountText=it;error=null},singleLine=true,isError=!validAmount&&amountText.isNotEmpty(),placeholder={Text("مبلغ را وارد کنید")},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(9.dp),textStyle=MaterialTheme.typography.titleMedium.copy(fontWeight=FontWeight.Bold))
+                        OutlinedTextField(
+                             value = amountText,
+                             onValueChange = { input ->
+                                 amountText = IranianAmountUtils.formatWithCommas(input)
+                                 error = null
+                             },
+                             singleLine = true,
+                             isError = !validAmount && amountText.isNotEmpty(),
+                             placeholder = { Text("مبلغ را وارد کنید") },
+                             modifier = Modifier.fillMaxWidth(),
+                             shape = RoundedCornerShape(9.dp),
+                             textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                         )
                         if(amountOptions.isNotEmpty()) LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
                             items(amountOptions){(v,label)->FilterChip(selected=amount==v,onClick={amountText=IranianAmountUtils.formatWithCommas(v.toString());error=null},label={Text(label + ": " + MoneyFormatter.formatToman(v,currency=com.example.ui.screens.settings.model.AppCurrency.TOMAN),fontSize=10.sp)})}
                         }
