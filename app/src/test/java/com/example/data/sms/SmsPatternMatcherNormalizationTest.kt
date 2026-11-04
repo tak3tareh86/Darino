@@ -261,4 +261,66 @@ class SmsPatternMatcherNormalizationTest {
         })
     }
 
+
+    private fun parseCustomAmount(body: String): com.example.ui.screens.home.domain.BankSmsSuggestion? {
+        val rule = UserBankSmsRule(
+            id = "amount-test",
+            bankName = "نمونه",
+            incomeMarkers = "واریز/نشست",
+            expenseMarkers = "برداشت/انجام",
+            transferMarkers = "انتقال/موفق"
+        )
+        return UserRuleSmsAmountParser.parse(
+            smsId = "sms-test",
+            sender = "TestSender",
+            body = body,
+            receivedAtMillis = 1_700_000_000_000L,
+            rule = rule,
+            type = com.example.ui.screens.finance.model.TransactionType.INCOME
+        )
+    }
+
+    @Test
+    fun customAmountParserPrefersRialDepositNarrativeOverFollowingBalance() {
+        val parsed = parseCustomAmount(
+            "واریز پول\\n30,000,000 ریال به حساب شما نشست.\\nموجودی: 30,000,000 ریال"
+        )
+        assertNotNull(parsed)
+        assertTrue(parsed!!.isAmountValid)
+        assertEquals(3_000_000L, parsed.amount)
+    }
+
+    @Test
+    fun customAmountParserSupportsPersianDigitsAndLabeledTomanAmount() {
+        val parsed = parseCustomAmount(
+            "واریز\\nمبلغ تراکنش: ۵۰۰٬۰۰۰ تومان\\nموجودی حساب: ۲٬۵۰۰٬۰۰۰ تومان"
+        )
+        assertNotNull(parsed)
+        assertTrue(parsed!!.isAmountValid)
+        assertEquals(500_000L, parsed.amount)
+    }
+
+    @Test
+    fun customAmountParserSupportsAmountBeforeCurrencyAndTransactionVerb() {
+        val parsed = parseCustomAmount("مبلغ 750,000 تومان بابت خرید با موفقیت انجام شد")
+        assertNotNull(parsed)
+        assertTrue(parsed!!.isAmountValid)
+        assertEquals(750_000L, parsed.amount)
+    }
+
+    @Test
+    fun customAmountParserDoesNotMistakeBalanceForTransactionAmount() {
+        val parsed = parseCustomAmount("موجودی حساب شما: 1,250,000 تومان")
+        assertNotNull(parsed)
+        assertFalse(parsed!!.isAmountValid)
+        assertEquals(0L, parsed.amount)
+    }
+
+    @Test
+    fun customAmountParserRejectsEquallyPlausibleCompetingAmounts() {
+        val parsed = parseCustomAmount("مبلغ واریز: 500,000 تومان و مبلغ برداشت: 200,000 تومان")
+        assertNotNull(parsed)
+        assertFalse(parsed!!.isAmountValid)
+    }
+
 }
