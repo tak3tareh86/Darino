@@ -1,5 +1,6 @@
 package com.example.vehicle.presentation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.expandVertically
@@ -181,6 +182,10 @@ fun DarinoVehicleMainDashboard(
                 }
             }
         )
+    }
+
+    BackHandler(enabled = state.showProfileScreen && state.selectedVehicle != null) {
+        viewModel.closeProfile()
     }
 
     if (state.showProfileScreen && state.selectedVehicle != null) {
