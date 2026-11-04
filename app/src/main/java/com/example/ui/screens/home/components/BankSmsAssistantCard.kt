@@ -1049,7 +1049,13 @@ fun EditSmsTransactionDialog(
     onConfirm: (Long, TransactionType, String, String, String, String?, (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit) -> Unit
 ) {
     var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
-    var amountText by remember(suggestion.id) { mutableStateOf(if (suggestion.isAmountValid && suggestion.amount > 0L) IranianAmountUtils.formatWithCommas(suggestion.amount.toString()) else "") }
+    var amountText by remember(suggestion.id) {
+        mutableStateOf(
+            if (suggestion.amountCandidates.filter { it > 0L }.distinct().size > 1) ""
+            else if (suggestion.isAmountValid && suggestion.amount > 0L) IranianAmountUtils.formatWithCommas(suggestion.amount.toString())
+            else ""
+        )
+    }
     val amount = remember(amountText) { IranianAmountUtils.cleanAmountDigits(amountText).toLongOrNull() ?: 0L }
     val validAmount = amount > 0L
     val amountOptions = remember(
@@ -1057,16 +1063,19 @@ fun EditSmsTransactionDialog(
         suggestion.balanceAmount, suggestion.amountCandidates
     ) {
         buildList {
-            if (suggestion.isAmountValid && suggestion.amount > 0L) add(suggestion.amount to "مبلغ تراکنش")
-            suggestion.balanceAmount?.takeIf { it > 0L }?.let { add(it to "موجودی/مانده") }
+            // Show every distinct grouped number extracted from the original SMS.
+            // The user chooses the transaction amount; do not silently preselect
+            // a guessed value when the message contains multiple candidates.
             suggestion.amountCandidates.filter { it > 0L }.forEach { candidate ->
                 val label = when (candidate) {
-                    suggestion.amount -> "مبلغ تراکنش"
                     suggestion.balanceAmount -> "موجودی/مانده"
-                    else -> "مبلغ شناسایی‌شده"
+                    suggestion.amount -> "مبلغ پیشنهادی"
+                    else -> "عدد گروه‌بندی‌شده"
                 }
                 add(candidate to label)
             }
+            if (suggestion.isAmountValid && suggestion.amount > 0L) add(suggestion.amount to "مبلغ پیشنهادی")
+            suggestion.balanceAmount?.takeIf { it > 0L }?.let { add(it to "موجودی/مانده") }
         }.distinctBy { it.first }
     }
     var category by remember(suggestion.id) { mutableStateOf(suggestion.category) }
@@ -1102,7 +1111,7 @@ fun EditSmsTransactionDialog(
                 }
                 Surface(Modifier.fillMaxWidth().padding(horizontal=12.dp),shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.primaryContainer.copy(alpha=.45f)) {
                     Column(Modifier.padding(horizontal=10.dp,vertical=7.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                        Text("مبلغ تراکنش (تومان)",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
+                        Text("مبلغ تراکنش (عدد خام پیامک؛ بدون تبدیل ریال/تومان)",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
                         OutlinedTextField(
                              value = amountText,
                              onValueChange = { input ->
@@ -1117,7 +1126,7 @@ fun EditSmsTransactionDialog(
                              textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                          )
                         if(amountOptions.isNotEmpty()) LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-                            items(amountOptions){(v,label)->FilterChip(selected=amount==v,onClick={amountText=IranianAmountUtils.formatWithCommas(v.toString());error=null},label={Text(label + ": " + MoneyFormatter.formatToman(v,currency=com.example.ui.screens.settings.model.AppCurrency.TOMAN),fontSize=10.sp)})}
+                            items(amountOptions){(v,label)->FilterChip(selected=amount==v,onClick={amountText=IranianAmountUtils.formatWithCommas(v.toString());error=null},label={Text(label + ": " + IranianAmountUtils.formatWithCommas(v.toString()),fontSize=10.sp)})}
                         }
                         if(!validAmount) Text("مبلغ پیامک معتبر نیست؛ مبلغ صحیح را وارد کنید.",style=MaterialTheme.typography.bodySmall,color=Color(0xFFDC2626))
                     }
