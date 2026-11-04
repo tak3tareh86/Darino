@@ -39,6 +39,7 @@ import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.reminder.components.PersianTimeInputField
 import com.example.util.IranianAmountUtils
+import com.example.util.MoneyFormatter
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.ServiceType
 import com.example.vehicle.data.VehicleEntity
@@ -338,7 +339,6 @@ fun AddServiceSheet(
                     value = costText,
                     onValueChange = { costText = it },
                     label = "هزینه سرویس",
-                    unitLabel = "تومان",
                     placeholder = "مثال: ۸۵۰,۰۰۰",
                     showWordsPreview = false,
                     modifier = Modifier.weight(1.2f),
@@ -614,7 +614,7 @@ fun AddServiceSheet(
                         if (!isReminderEnabled || (selectedOffsets.isEmpty() && calcKm <= 0)) {
                             showNoAlertConfirmation = true
                         } else {
-                            val cost = IranianAmountUtils.parseAmountToLong(costText)
+                            val cost = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(costText))
                             val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onAddService(
                                 title, selectedType, date, mileage, cost, description,
@@ -659,7 +659,7 @@ fun AddServiceSheet(
             confirmButton = {
                 TextButton(onClick = {
                     showNoAlertConfirmation = false
-                    val cost = IranianAmountUtils.parseAmountToLong(costText)
+                    val cost = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(costText))
                     val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                     onAddService(
                         title, selectedType, date, mileage, cost, description,
