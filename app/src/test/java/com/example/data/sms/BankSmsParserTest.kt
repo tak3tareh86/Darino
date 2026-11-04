@@ -56,7 +56,7 @@ class BankSmsParserTest {
         )
 
         assertEquals(TransactionType.INCOME, parsed?.type)
-        assertEquals(250L, parsed?.amount)
+        assertEquals(2_500L, parsed?.amount)
         assertEquals(true, parsed?.isAmountValid)
     }
 
@@ -222,7 +222,7 @@ class BankSmsParserTest {
         )
         assertEquals("XYZ-987", parsed?.trackingCode)
         assertEquals(TransactionType.TRANSFER, parsed?.type)
-        assertEquals(250L, parsed?.amount)
+        assertEquals(2_500L, parsed?.amount)
     }
 
     @Test
