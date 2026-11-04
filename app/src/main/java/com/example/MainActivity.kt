@@ -519,7 +519,7 @@ fun AppNavigationContainer(
                                     FinancialScreen(
                                         currentNavTab = currentTab,
                                         onNavigateToTab = { tab ->
-                                            currentTab = tab
+                                            navigateToTab(tab)
                                         },
                                         bottomBar = {}
                                     )
