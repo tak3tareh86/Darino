@@ -105,11 +105,10 @@ object GenericBankSmsParser {
         )
         val amountIsRial = Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE)
             .containsMatchIn(amountMatch.value + amountUnitContext)
-        val amountToman = if (amountIsRial) {
-            if (amount < 10L || amount % 10L != 0L) return null
-            amount / 10L
-        } else amount
-        if (amountToman !in 1L..100_000_000_000L) return null
+        // Preserve the exact numeric value found in the SMS. Currency labels never
+        // change the extracted amount; both Rial and Toman messages keep their digits.
+        val amountValue = amount
+        if (amountValue !in 1L..100_000_000_000_000L) return null
 
         val balanceMatch = balanceLabel.findAll(normalized).singleOrNull()
         val balanceRaw = balanceMatch?.let { parseDigits(it.groupValues[1]) }
@@ -118,9 +117,8 @@ object GenericBankSmsParser {
         }.orEmpty()
         val balanceIsRial = balanceRaw != null &&
             Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).containsMatchIn(balanceUnitContext)
-        val balance = balanceRaw?.let {
-            if (balanceIsRial) it.takeIf { value -> value >= 10L && value % 10L == 0L }?.div(10L) else it
-        }
+        // Balance values follow the same raw-number rule as transaction amounts.
+        val balance = balanceRaw
 
         val bankName = forcedBankName?.takeIf { it.isNotBlank() } ?: identifyBank(normalized, sender)
         val receivedDateTime = PersianCalendarHelper.fromEpochMillis(timestampMillis)
@@ -152,9 +150,9 @@ object GenericBankSmsParser {
         } else timestampMillis
 
         val formatted = when (type) {
-            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountToman, isExpense = true)
-            TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountToman, isExpense = false)
-            TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountToman)
+            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountValue, isExpense = true)
+            TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountValue, isExpense = false)
+            TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountValue)
         }
         val destinationAccountNumber = Regex(
             """(?:به|مقصد)\s*(?:حساب|کارت)\s*[:：]?\s*([0-9۰-۹٠-٩*]{4,26})"""
@@ -172,7 +170,7 @@ object GenericBankSmsParser {
         return BankSmsSuggestion(
             id = smsId,
             bankName = bankName,
-            amount = amountToman,
+            amount = amountValue,
             formattedAmount = formatted,
             isAmountValid = true,
             type = type,
