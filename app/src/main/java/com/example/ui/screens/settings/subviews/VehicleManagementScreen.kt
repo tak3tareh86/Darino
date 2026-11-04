@@ -73,6 +73,8 @@ import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
+import com.example.ui.components.PersianAmountInputField
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleRepository
 
@@ -449,7 +451,7 @@ fun AddEditVehicleSheet(
     var mileage by remember { mutableStateOf(vehicle?.currentMileage?.toString() ?: "") }
     var plate by remember { mutableStateOf(vehicle?.plate ?: "") }
     var vin by remember { mutableStateOf(vehicle?.vin ?: "") }
-    var estimatedValueText by remember { mutableStateOf(if ((vehicle?.estimatedValue ?: 0L) > 0L) vehicle!!.estimatedValue.toString() else "") }
+    var estimatedValueText by remember(vehicle, MoneyFormatter.activeCurrency) { mutableStateOf(if ((vehicle?.estimatedValue ?: 0L) > 0L) MoneyFormatter.convertFromToman(vehicle!!.estimatedValue).toString() else "") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(
@@ -576,14 +578,14 @@ fun AddEditVehicleSheet(
                     shape = RoundedCornerShape(RadiusMD)
                 )
 
-                OutlinedTextField(
+                PersianAmountInputField(
                     value = estimatedValueText,
                     onValueChange = { estimatedValueText = it; errorMessage = null },
-                    label = { Text("ارزش تقریبی (تومان)") },
+                    label = "ارزش تقریبی",
+                    placeholder = "مبلغ را وارد کنید",
                     modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(RadiusMD)
+                    showWordsPreview = false,
+                    testTag = "vehicle_management_estimated_value_input"
                 )
             }
 
@@ -594,7 +596,7 @@ fun AddEditVehicleSheet(
                         return@Button
                     }
                     val mileageInt = mileage.replace(",", "").trim().toIntOrNull() ?: 0
-                    val estValueLong = com.example.util.IranianAmountUtils.parseAmountToLong(estimatedValueText)
+                    val estValueLong = MoneyFormatter.convertToToman(com.example.util.IranianAmountUtils.parseAmountToLong(estimatedValueText))
                     onSave(
                         brand.trim(),
                         model.trim(),
