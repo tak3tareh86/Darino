@@ -75,10 +75,13 @@ object UserRuleSmsAmountParser {
             val after = text.substring(match.range.last + 1, right)
             val nearLeft = before.takeLast(24)
             val nearRight = after.take(24)
+            val directTransactionContext = amountLabelRegex.containsMatchIn(before.takeLast(18)) ||
+                transactionContextRegex.containsMatchIn(before.takeLast(16))
             val balance = balanceContextRegex.containsMatchIn(nearLeft) ||
-                Regex("""^\s*[:：]?\s*(?:مانده|موجودی|balance)""", RegexOption.IGNORE_CASE).containsMatchIn(nearRight)
-            val transaction = amountLabelRegex.containsMatchIn(before.takeLast(18)) ||
-                transactionContextRegex.containsMatchIn(before.takeLast(16) + " " + after.take(28))
+                (!directTransactionContext &&
+                    Regex("""^\s*[:：]?\s*(?:مانده|موجودی|balance)""", RegexOption.IGNORE_CASE).containsMatchIn(nearRight))
+            val transaction = directTransactionContext ||
+                transactionContextRegex.containsMatchIn(after.take(28))
             val irrelevant = irrelevantContextRegex.containsMatchIn(before.takeLast(22))
             if (irrelevant && !transaction) return@mapNotNull null
             Triple(value, balance, transaction)
