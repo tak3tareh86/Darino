@@ -23,7 +23,9 @@ data class BankSmsSuggestion(
     val trackingCode: String? = null,
     val patternId: String = "",
     // Actual inbox receipt time; distinct from the transaction date parsed from the SMS body.
-    val receivedAtMillis: Long = timestampMillis
+    val receivedAtMillis: Long = timestampMillis,
+    // All distinct, strictly grouped numeric amounts found in the original SMS.
+    val amountCandidates: List<Long> = emptyList()
 ) {
     val isExpense: Boolean
         get() = type == TransactionType.EXPENSE
