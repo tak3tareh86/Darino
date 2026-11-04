@@ -139,9 +139,9 @@ object GenericBankSmsParser {
         } else timestampMillis
 
         val formatted = when (type) {
-            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountValue, isExpense = true)
-            TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountValue, isExpense = false)
-            TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountValue)
+            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountValue, isExpense = true, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
+            TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountValue, isExpense = false, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
+            TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountValue, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
         }
         val destinationAccountNumber = Regex(
             """(?:به|مقصد)\s*(?:حساب|کارت)\s*[:：]?\s*([0-9۰-۹٠-٩*]{4,26})"""
