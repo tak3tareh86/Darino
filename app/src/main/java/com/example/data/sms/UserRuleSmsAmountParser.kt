@@ -24,13 +24,26 @@ object UserRuleSmsAmountParser {
         if (Regex("""رمز\s*(?:پویا|یکبار|یک\s*بار)|رمز\s*عبور|کد\s*تأیید|کد\s*تاييد|otp|ناموفق|لغو\s*شد|انجام\s*نشد|تراکنش\s*رد\s*شد|failed|declined|cancelled""", RegexOption.IGNORE_CASE).containsMatchIn(normalized)) return null
 
         val number = """([0-9][0-9,،٬٫.]*)"""
+        // Some banks describe a deposit as "30,000,000 ریال به حساب شما نشست"
+        // and then list the balance separately. Prefer the amount tied to that
+        // explicit transaction phrase instead of treating the balance as a rival.
+        val depositNarrative = Regex(
+            """$number\s*(?:ریال|ريال)\s*به\s*حساب\s*شما\s*نشست""",
+            RegexOption.IGNORE_CASE
+        ).findAll(normalized).toList()
         val labeled = Regex("""(?:مبلغ(?:\s*تراکنش)?|مبـلغ|برداشت(?:\s*وجه)?|واریز(?:\s*وجه)?|واريز|دریافت(?:\s*وجه)?|دريافت|خرید|خريد|پرداخت|انتقال(?:\s*وجه)?|وجه|deposit|withdraw(?:al)?|debit|credit|purchase|transfer)\s*[:：]?\s*$number""", RegexOption.IGNORE_CASE).findAll(normalized).toList()
-        val amountMatch = labeled.singleOrNull() ?: if (labeled.isEmpty()) {
-            val currencySuffix = Regex("""$number\s*(?:ریال|ريال|تومان|تومن|rial|rials|toman)""", RegexOption.IGNORE_CASE).findAll(normalized).toList()
-            val currencyPrefix = Regex("""(?:ریال|ريال|تومان|تومن|rial|rials|toman)\s*[:：]?\s*$number""", RegexOption.IGNORE_CASE).findAll(normalized).toList()
-            val currencyMatches = currencySuffix + currencyPrefix
-            currencyMatches.singleOrNull() ?: Regex("""[+-]\s*$number""").findAll(normalized).toList().singleOrNull()
-        } else null
+        val amountMatch = when {
+            depositNarrative.size == 1 -> depositNarrative.single()
+            depositNarrative.isNotEmpty() -> null
+            labeled.size == 1 -> labeled.single()
+            labeled.isNotEmpty() -> null
+            else -> {
+                val currencySuffix = Regex("""$number\s*(?:ریال|ريال|تومان|تومن|rial|rials|toman)""", RegexOption.IGNORE_CASE).findAll(normalized).toList()
+                val currencyPrefix = Regex("""(?:ریال|ريال|تومان|تومن|rial|rials|toman)\s*[:：]?\s*$number""", RegexOption.IGNORE_CASE).findAll(normalized).toList()
+                val currencyMatches = currencySuffix + currencyPrefix
+                currencyMatches.singleOrNull() ?: Regex("""[+-]\s*$number""").findAll(normalized).toList().singleOrNull()
+            }
+        }
         val parsedAmount: Long? = amountMatch?.let { matched ->
             val rawAmount = matched.groupValues.lastOrNull() ?: return@let null
             val amount = rawAmount.filter(Char::isDigit).toLongOrNull()
