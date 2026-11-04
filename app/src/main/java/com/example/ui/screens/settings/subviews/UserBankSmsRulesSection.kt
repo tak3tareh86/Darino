@@ -102,7 +102,7 @@ fun UserBankSmsRulesSection() {
     var rules by remember { mutableStateOf(repository.getAll()) }
     var editing by remember { mutableStateOf<UserBankSmsRule?>(null) }
     var showEditor by remember { mutableStateOf(false) }
-    var selectedTab by remember { mutableStateOf(1) }
+    var selectedTab by remember { mutableStateOf(0) }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -115,8 +115,8 @@ fun UserBankSmsRulesSection() {
         }
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GuideTab(title = "قوانین ثبت الگو", selected = selectedTab == 1, onClick = { selectedTab = 1 }, modifier = Modifier.weight(1f))
             GuideTab(title = "مدیریت بانک‌ها", selected = selectedTab == 0, onClick = { selectedTab = 0 }, modifier = Modifier.weight(1f))
+            GuideTab(title = "قوانین ثبت الگو", selected = selectedTab == 1, onClick = { selectedTab = 1 }, modifier = Modifier.weight(1f))
         }
 
         if (selectedTab == 1) {
@@ -502,14 +502,14 @@ private fun SmsRulesGuide() {
 
         Surface(
             shape = RoundedCornerShape(18.dp),
-            color = Color(0xFFE8F0FF),
+            color = MaterialTheme.colorScheme.surfaceVariant,
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("💡", style = MaterialTheme.typography.headlineSmall)
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("نکته مهم", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
-                    Text("اگر بیش از یک دسته نشانه در پیامک تطبیق پیدا کند، نوع تراکنش نیازمند تأیید کاربر خواهد بود.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF26345F))
+                    Text("اگر بیش از یک دسته نشانه در پیامک تطبیق پیدا کند، نوع تراکنش نیازمند تأیید کاربر خواهد بود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -544,12 +544,20 @@ private fun GuideRuleCard(icon: String, title: String, bullets: List<String>, ex
                     val correct = pair.firstOrNull()?.contains("صحیح") == true || pair.firstOrNull()?.contains("معادل") == true || pair.firstOrNull()?.contains("عددی") == true || pair.firstOrNull()?.contains("متنی") == true
                     Surface(
                         shape = RoundedCornerShape(13.dp),
-                        color = if (correct) Color(0xFFE4F7EC) else Color(0xFFFFE9E9),
+                        color = if (correct) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text((if (correct) "✓ " else "✕ ") + (pair.getOrNull(0) ?: ""), color = if (correct) Color(0xFF087C48) else Color(0xFFC43D3D), style = MaterialTheme.typography.labelLarge)
-                            Text(pair.getOrNull(1).orEmpty(), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                (if (correct) "✓ " else "✕ ") + (pair.getOrNull(0) ?: ""),
+                                color = if (correct) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            Text(
+                                pair.getOrNull(1).orEmpty(),
+                                color = if (correct) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer,
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                     }
                 }
