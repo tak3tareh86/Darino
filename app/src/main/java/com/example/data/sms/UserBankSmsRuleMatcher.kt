@@ -25,8 +25,13 @@ object UserBankSmsRuleMatcher {
         val expectedDigits = numericDigits(expected)
         val receivedDigits = numericDigits(received)
         return if (expectedDigits != null && receivedDigits != null) expectedDigits == receivedDigits
-        else expected == received
+        else normalizeSenderText(expected) == normalizeSenderText(received)
     }
+
+    private fun normalizeSenderText(value: String): String = value
+        .replace('ي', 'ی')
+        .replace('ى', 'ی')
+        .replace('ك', 'ک')
 
     fun parseMarkers(raw: String): List<String>? {
         if (raw.isBlank()) return null
