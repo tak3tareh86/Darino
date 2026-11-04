@@ -131,6 +131,9 @@ class BankSmsRepository(private val context: Context) {
                             timestampMillis = item.optLong("timestampMillis", System.currentTimeMillis()),
                             receivedAtMillis = item.optLong("receivedAtMillis", item.optLong("timestampMillis", System.currentTimeMillis())),
                             balanceAmount = if (item.has("balanceAmount") && !item.isNull("balanceAmount")) item.optLong("balanceAmount") else null,
+                            amountCandidates = item.optJSONArray("amountCandidates")?.let { values ->
+                                buildList { for (i in 0 until values.length()) values.optLong(i).takeIf { it > 0L }?.let(::add) }
+                            } ?: emptyList(),
                             trackingCode = item.optString("trackingCode").takeIf { it.isNotBlank() && it != "null" }
                         )
                     )
@@ -190,6 +193,7 @@ class BankSmsRepository(private val context: Context) {
                     .put("timestampMillis", suggestion.timestampMillis)
                     .put("receivedAtMillis", suggestion.receivedAtMillis)
                     .put("balanceAmount", suggestion.balanceAmount ?: JSONObject.NULL)
+                    .put("amountCandidates", JSONArray(suggestion.amountCandidates))
                     .put("trackingCode", suggestion.trackingCode ?: JSONObject.NULL)
             )
         }
