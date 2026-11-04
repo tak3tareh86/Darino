@@ -99,12 +99,6 @@ object GenericBankSmsParser {
         if (amount !in 1L..100_000_000_000_000L) return null
 
         val type = forcedType ?: classifyType(normalized) ?: return null
-        val amountUnitContext = normalized.substring(
-            amountMatch.range.last + 1,
-            minOf(normalized.length, amountMatch.range.last + 18)
-        )
-        val amountIsRial = Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE)
-            .containsMatchIn(amountMatch.value + amountUnitContext)
         // Preserve the exact numeric value found in the SMS. Currency labels never
         // change the extracted amount; both Rial and Toman messages keep their digits.
         val amountValue = amount
@@ -112,11 +106,6 @@ object GenericBankSmsParser {
 
         val balanceMatch = balanceLabel.findAll(normalized).singleOrNull()
         val balanceRaw = balanceMatch?.let { parseDigits(it.groupValues[1]) }
-        val balanceUnitContext = balanceMatch?.let {
-            normalized.substring(it.range.last + 1, minOf(normalized.length, it.range.last + 18))
-        }.orEmpty()
-        val balanceIsRial = balanceRaw != null &&
-            Regex("""ریال|ريال|rial|rials""", RegexOption.IGNORE_CASE).containsMatchIn(balanceUnitContext)
         // Balance values follow the same raw-number rule as transaction amounts.
         val balance = balanceRaw
 
