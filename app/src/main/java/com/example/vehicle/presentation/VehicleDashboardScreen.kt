@@ -68,6 +68,15 @@ fun DarinoVehicleMainDashboard(
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val vehicleTabBackStack = remember { mutableStateListOf(state.activeTab) }
+    fun selectVehicleTab(tab: VehicleTab) {
+        if (vehicleTabBackStack.lastOrNull() != tab) vehicleTabBackStack.add(tab)
+        viewModel.selectTab(tab)
+    }
+    BackHandler(enabled = vehicleTabBackStack.size > 1) {
+        vehicleTabBackStack.removeAt(vehicleTabBackStack.lastIndex)
+        viewModel.selectTab(vehicleTabBackStack.last())
+    }
 
     LaunchedEffect(Unit) {
         viewModel.initRepository(context)
@@ -382,7 +391,7 @@ fun DarinoVehicleMainDashboard(
                 // 3. Tab Switcher (4 Navigation Tabs)
                 VehicleTabRow(
                     selectedTab = state.activeTab,
-                    onTabSelected = { viewModel.selectTab(it) }
+                    onTabSelected = { selectVehicleTab(it) }
                 )
 
                 // 4. Tab Content Crossfade
