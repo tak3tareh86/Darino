@@ -50,6 +50,7 @@ object GenericBankSmsParser {
             .mapNotNull { parseDigits(it.value) }
             .filter { it in 1L..100_000_000_000_000L }
             .distinct()
+            .toList()
 
     private val transactionSignal = Regex(
         """واریز|واريز|دریافت|دريافت|برداشت|خرید|خريد|پرداخت|انتقال|تراکنش|کارت\s*به\s*کارت|پایا|ساتنا|حواله|نشست|پرید|بازپرداخت|وام|deposit|withdraw|debit|credit|purchase|transfer|[+-][0-9۰-۹٠-٩]""",
