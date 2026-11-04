@@ -46,6 +46,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MarkEmailRead
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Security
@@ -1092,8 +1093,9 @@ fun EditSmsTransactionDialog(
     var destinationId by remember(suggestion.id, accounts) { mutableStateOf<String?>(null) }
     var submitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var smsExpanded by remember(suggestion.id) { mutableStateOf(false) }
-    var bankAccountExpanded by remember(suggestion.id) { mutableStateOf(false) }
+    var accountMenuExpanded by remember(suggestion.id) { mutableStateOf(false) }
+    var destinationMenuExpanded by remember(suggestion.id) { mutableStateOf(false) }
+    var categoryMenuExpanded by remember(suggestion.id) { mutableStateOf(false) }
     val expenseCats=listOf("خرید روزمره","سوپرمارکت و خرید","غذا و رستوران","خودرو و سوخت","قبوض و خدمات","اقساط و تسهیلات","سلامت و درمان","سایر")
     val incomeCats=listOf("حقوق و دستمزد","درآمد و واریز","سود سپرده","یارانه و کمک‌معیشتی","فروش کالا","سایر")
     val transferCats=listOf("انتقال بین‌بانکی","کارت به کارت","پایا","ساتنا","انتقال داخلی")
@@ -1144,35 +1146,168 @@ fun EditSmsTransactionDialog(
                         }
                     }
                     Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                        Text(if(selectedType==TransactionType.TRANSFER)"حساب مبدأ" else "حساب مرتبط",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
-                        if(accounts.isEmpty()) Text("حساب فعال پیدا نشد؛ ابتدا یک حساب فعال بسازید.",color=Color(0xFFDC2626),style=MaterialTheme.typography.bodySmall)
-                        else LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)){items(accounts){a->FilterChip(selected=accountId==a.stringId,onClick={accountId=a.stringId;error=null},label={Text(a.name,fontSize=10.sp)})}}
-                        if(selectedType==TransactionType.TRANSFER){
-                            Text("حساب مقصد",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
-                            LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)){items(accounts){a->FilterChip(selected=destinationId==a.stringId,onClick={destinationId=a.stringId;error=null},label={Text(a.name,fontSize=10.sp)})}}
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            val selectedAccountName = accounts.firstOrNull { it.stringId == accountId }?.name.orEmpty()
+                            OutlinedTextField(
+                                value = selectedAccountName,
+                                onValueChange = {},
+                                readOnly = true,
+                                enabled = accounts.isNotEmpty(),
+                                singleLine = true,
+                                label = { Text(if (selectedType == TransactionType.TRANSFER) "حساب مبدأ" else "حساب مرتبط", maxLines = 1) },
+                                placeholder = { Text("انتخاب حساب", maxLines = 1) },
+                                trailingIcon = {
+                                    IconButton(onClick = { accountMenuExpanded = true }, enabled = accounts.isNotEmpty()) {
+                                        Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب حساب")
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(9.dp),
+                                textStyle = MaterialTheme.typography.bodySmall
+                            )
+                            DropdownMenu(
+                                expanded = accountMenuExpanded,
+                                onDismissRequest = { accountMenuExpanded = false },
+                                modifier = Modifier.widthIn(min = 150.dp, max = 230.dp)
+                            ) {
+                                accounts.forEach { account ->
+                                    DropdownMenuItem(
+                                        text = { Text(account.name, maxLines = 1) },
+                                        onClick = {
+                                            accountId = account.stringId
+                                            accountMenuExpanded = false
+                                            error = null
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            OutlinedTextField(
+                                value = category,
+                                onValueChange = {
+                                    category = it
+                                    error = null
+                                },
+                                singleLine = true,
+                                label = { Text("دسته‌بندی", maxLines = 1) },
+                                placeholder = { Text("انتخاب یا ورود دستی", maxLines = 1) },
+                                trailingIcon = {
+                                    IconButton(onClick = { categoryMenuExpanded = true }) {
+                                        Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب دسته‌بندی")
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(9.dp),
+                                textStyle = MaterialTheme.typography.bodySmall
+                            )
+                            DropdownMenu(
+                                expanded = categoryMenuExpanded,
+                                onDismissRequest = { categoryMenuExpanded = false },
+                                modifier = Modifier.widthIn(min = 150.dp, max = 230.dp)
+                            ) {
+                                cats.forEach { item ->
+                                    DropdownMenuItem(
+                                        text = { Text(item, maxLines = 1) },
+                                        onClick = {
+                                            category = item
+                                            categoryMenuExpanded = false
+                                            error = null
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
-                    Column(verticalArrangement=Arrangement.spacedBy(4.dp)){
-                        Text("دسته‌بندی",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
-                        OutlinedTextField(category,{category=it},singleLine=true,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(9.dp),textStyle=MaterialTheme.typography.bodyMedium)
-                        LazyRow(horizontalArrangement=Arrangement.spacedBy(4.dp)){items(cats){c->FilterChip(selected=category==c,onClick={category=c},label={Text(c,fontSize=10.sp)})}}
+                    if (accounts.isEmpty()) {
+                        Text(
+                            "حساب فعالی پیدا نشد؛ ابتدا یک حساب فعال ایجاد کنید.",
+                            color = Color(0xFFDC2626),
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
-                    if(!suggestion.sourceAccount.isNullOrBlank()) Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(9.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.4f)){
-                        Column(Modifier.padding(8.dp)){
-                            Row(Modifier.fillMaxWidth().clickable{bankAccountExpanded=!bankAccountExpanded},horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
-                                Text("شماره حساب بانکی شناسایی‌شده",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
-                                Text(if(bankAccountExpanded)"بستن" else "نمایش",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.labelSmall)
+                    if (selectedType == TransactionType.TRANSFER) {
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            val selectedDestinationName = accounts.firstOrNull { it.stringId == destinationId }?.name.orEmpty()
+                            OutlinedTextField(
+                                value = selectedDestinationName,
+                                onValueChange = {},
+                                readOnly = true,
+                                enabled = accounts.isNotEmpty(),
+                                singleLine = true,
+                                label = { Text("حساب مقصد") },
+                                placeholder = { Text("انتخاب حساب مقصد") },
+                                trailingIcon = {
+                                    IconButton(onClick = { destinationMenuExpanded = true }, enabled = accounts.isNotEmpty()) {
+                                        Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب حساب مقصد")
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(9.dp),
+                                textStyle = MaterialTheme.typography.bodySmall
+                            )
+                            DropdownMenu(
+                                expanded = destinationMenuExpanded,
+                                onDismissRequest = { destinationMenuExpanded = false },
+                                modifier = Modifier.widthIn(min = 180.dp, max = 280.dp)
+                            ) {
+                                accounts.filterNot { it.stringId == accountId }.forEach { account ->
+                                    DropdownMenuItem(
+                                        text = { Text(account.name, maxLines = 1) },
+                                        onClick = {
+                                            destinationId = account.stringId
+                                            destinationMenuExpanded = false
+                                            error = null
+                                        }
+                                    )
+                                }
                             }
-                            if(bankAccountExpanded) Text(suggestion.sourceAccount.orEmpty(),style=MaterialTheme.typography.bodySmall)
                         }
                     }
-                    Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(9.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.4f)){
-                        Column(Modifier.padding(8.dp)){
-                            Row(Modifier.fillMaxWidth().clickable{smsExpanded=!smsExpanded},horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
-                                Text("متن کامل پیامک بانکی",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
-                                Text(if(smsExpanded)"بستن" else "نمایش",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.labelSmall)
-                            }
-                            if(smsExpanded) Text(suggestion.smsText,style=MaterialTheme.typography.bodySmall.copy(lineHeight=17.sp),color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(9.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                "متن کامل پیام بانکی",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text(
+                                suggestion.smsText,
+                                style = MaterialTheme.typography.bodySmall.copy(lineHeight = 17.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                    if (!suggestion.sourceAccount.isNullOrBlank()) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(9.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .25f)
+                        ) {
+                            Text(
+                                "شماره حساب بانکی شناسایی‌شده: ${suggestion.sourceAccount}",
+                                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                     if(error!=null) Surface(shape=RoundedCornerShape(9.dp),color=Color(0xFFFEF2F2),border=BorderStroke(1.dp,Color(0xFFFCA5A5)),modifier=Modifier.fillMaxWidth()){
