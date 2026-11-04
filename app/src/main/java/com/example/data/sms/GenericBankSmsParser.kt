@@ -43,6 +43,14 @@ object GenericBankSmsParser {
         "مؤسسه اعتباری کوثر" to listOf("موسسه اعتباری کوثر", "مؤسسه اعتباری کوثر", "اعتباری کوثر")
     )
 
+    private val groupedAmountRegex = Regex("""(?<![\\p{L}\\d])[+-]?\\d{1,3}(?:[,،٬٫.]\\d{3})+(?![\\d])""")
+
+    private fun extractGroupedAmounts(message: String): List<Long> =
+        groupedAmountRegex.findAll(normalize(message))
+            .mapNotNull { parseDigits(it.value) }
+            .filter { it in 1L..100_000_000_000_000L }
+            .distinct()
+
     private val transactionSignal = Regex(
         """واریز|واريز|دریافت|دريافت|برداشت|خرید|خريد|پرداخت|انتقال|تراکنش|کارت\s*به\s*کارت|پایا|ساتنا|حواله|نشست|پرید|بازپرداخت|وام|deposit|withdraw|debit|credit|purchase|transfer|[+-][0-9۰-۹٠-٩]""",
         RegexOption.IGNORE_CASE
@@ -178,6 +186,7 @@ object GenericBankSmsParser {
             timestampMillis = finalTimestamp,
             receivedAtMillis = timestampMillis,
             balanceAmount = balance,
+            amountCandidates = (extractGroupedAmounts(body) + listOfNotNull(amountValue, balance)).distinct(),
             trackingCode = tracking
         )
     }
