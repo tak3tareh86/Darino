@@ -68,8 +68,8 @@ object UserRuleSmsAmountParser {
             val after = text.substring(match.range.last + 1, right)
             val hasAmountLabel = amountLabelRegex.containsMatchIn(before.takeLast(32))
             val hasTransactionContext = transactionContextRegex.containsMatchIn(context)
-            if ((balanceContextRegex.containsMatchIn(nearLeft) || balanceContextRegex.containsMatchIn(nearRight)) &&
-                !hasAmountLabel && !hasTransactionContext
+            if (balanceContextRegex.containsMatchIn(nearLeft) ||
+                (balanceContextRegex.containsMatchIn(nearRight) && !hasAmountLabel && !hasTransactionContext)
             ) return@mapNotNull null
             val hasCurrency = rialRegex.containsMatchIn(after.take(16)) ||
                 tomanRegex.containsMatchIn(after.take(16)) ||
