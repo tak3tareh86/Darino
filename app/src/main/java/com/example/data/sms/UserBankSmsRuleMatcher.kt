@@ -15,12 +15,22 @@ object UserBankSmsRuleMatcher {
         val received = actual.trim()
         if (expected.isEmpty() || received.isEmpty()) return false
         fun numericDigits(value: String): String? {
-            val withoutLeadingPlus = value.removePrefix("+")
-            val isNumeric = withoutLeadingPlus.isNotEmpty() &&
-                withoutLeadingPlus.all {
-                    it.isWhitespace() || it in '0'..'9' || it in '۰'..'۹' || it in '٠'..'٩'
+            // SMS providers may decorate numeric short codes with Unicode spaces,
+            // bidi marks or a leading international '+'; normalize those before
+            // deciding whether this is a numeric sender ID.
+            val converted = IranianPhoneUtils.convertDigitsToEnglish(value)
+            val compact = buildString {
+                converted.forEach { ch ->
+                    when {
+                        ch.isWhitespace() || Character.getType(ch) == Character.FORMAT.toInt() -> Unit
+                        else -> append(ch)
+                    }
                 }
-            return if (isNumeric) digits(withoutLeadingPlus) else null
+            }
+            val withoutLeadingPlus = compact.removePrefix("+")
+            val isNumeric = withoutLeadingPlus.isNotEmpty() &&
+                withoutLeadingPlus.all { it in '0'..'9' }
+            return if (isNumeric) withoutLeadingPlus else null
         }
         val expectedDigits = numericDigits(expected)
         val receivedDigits = numericDigits(received)
