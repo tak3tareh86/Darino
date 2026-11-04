@@ -133,7 +133,7 @@ fun UserBankSmsRulesSection() {
         ) {
             Box(
                 modifier = Modifier.background(
-                    Brush.horizontalGradient(listOf(Color(0xFF2563EB), Color(0xFF6D4AFF), Color(0xFF8B5CF6)))
+                    Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary.copy(alpha = 0.82f)))
                 ).padding(horizontal = 20.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -229,8 +229,8 @@ fun UserBankSmsRulesSection() {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(Modifier.weight(1f))
-                        Surface(shape = CircleShape, color = Color(0xFFDDF8E9)) {
-                            Text("فعال", modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp), color = Color(0xFF07864B), style = MaterialTheme.typography.labelMedium)
+                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+                            Text("فعال", modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp), color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -395,12 +395,12 @@ private fun GuideTab(title: String, selected: Boolean, onClick: () -> Unit, modi
         onClick = onClick,
         modifier = modifier.height(54.dp),
         shape = RoundedCornerShape(17.dp),
-        color = if (selected) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
         shadowElevation = if (selected) 4.dp else 0.dp
     ) {
         Box(
             modifier = Modifier.background(
-                if (selected) Brush.horizontalGradient(listOf(Color(0xFF1677F2), Color(0xFF7438E8)))
+                if (selected) Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary.copy(alpha = 0.82f)))
                 else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
             ).padding(horizontal = 8.dp),
             contentAlignment = Alignment.Center
@@ -415,12 +415,12 @@ private fun SmsRulesGuide() {
     Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
         Surface(
             shape = RoundedCornerShape(22.dp),
-            color = Color(0xFFE8F0FF),
+            color = MaterialTheme.colorScheme.primaryContainer,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("راهنمای قوانین و قواعد ورود اطلاعات", style = MaterialTheme.typography.titleMedium, color = Color(0xFF172B70))
-                Text("برای شناسایی درست پیامک‌های بانکی، نکات زیر را هنگام تعریف الگو رعایت کنید.", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF26345F))
+                Text("راهنمای قوانین و قواعد ورود اطلاعات", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text("برای شناسایی درست پیامک‌های بانکی، نکات زیر را هنگام تعریف الگو رعایت کنید.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
         }
 
@@ -476,7 +476,7 @@ private fun SmsRulesGuide() {
             Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("💡", style = MaterialTheme.typography.headlineSmall)
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("نکته مهم", color = Color(0xFF1746B5), style = MaterialTheme.typography.titleSmall)
+                    Text("نکته مهم", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
                     Text("اگر بیش از یک دسته نشانه در پیامک تطبیق پیدا کند، نوع تراکنش نیازمند تأیید کاربر خواهد بود.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF26345F))
                 }
             }
@@ -494,16 +494,16 @@ private fun GuideRuleCard(icon: String, title: String, bullets: List<String>, ex
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFFE8EEFF)) {
+                Surface(shape = RoundedCornerShape(13.dp), color = MaterialTheme.colorScheme.primaryContainer) {
                     Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
-                        Text(icon, color = Color(0xFF245CE8), style = MaterialTheme.typography.titleLarge)
+                        Text(icon, color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.titleLarge)
                     }
                 }
                 Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
             }
             bullets.forEach { line ->
                 Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text("✓", color = Color(0xFF2478E8), style = MaterialTheme.typography.titleSmall)
+                    Text("✓", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
                     Text(line, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
