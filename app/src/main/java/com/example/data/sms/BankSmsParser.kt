@@ -12,7 +12,7 @@ import com.example.util.PersianCalendarHelper
  */
 object BankSmsParser {
 
-    private val groupedAmountRegex = Regex("""(?<![\\p{L}\\d])[+-]?\\d{1,3}(?:[,،٬٫.]\\d{3})+(?![\\d])""")
+    private val groupedAmountRegex = Regex("""(?<![\p{L}\d])[+-]?\d{1,3}(?:[,،٬٫.]\d{3})+(?![\d])""")
 
     private fun findGroupedAmounts(body: String): List<Long> =
         groupedAmountRegex.findAll(normalizeText(body))
