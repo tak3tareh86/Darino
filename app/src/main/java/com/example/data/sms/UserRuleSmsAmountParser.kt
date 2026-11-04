@@ -14,7 +14,7 @@ import com.example.util.PersianCalendarHelper
  */
 object UserRuleSmsAmountParser {
     private data class AmountCandidate(
-        val amountToman: Long,
+        val amountValue: Long,
         val score: Int,
         val start: Int,
         val end: Int
@@ -93,11 +93,8 @@ object UserRuleSmsAmountParser {
             val isRial = rialRegex.containsMatchIn(unitText)
             val isToman = tomanRegex.containsMatchIn(unitText)
             if (isRial && isToman) return@mapNotNull null
-            val toman = if (isRial) {
-                if (amount < 10L || amount % 10L != 0L) return@mapNotNull null
-                amount / 10L
-            } else amount
-            toman.takeIf { it in 1L..100_000_000_000L }?.let {
+            // Keep the exact digits from the message, irrespective of Rial/Toman suffix.
+            amount.takeIf { it in 1L..100_000_000_000_000L }?.let {
                 AmountCandidate(it, score, match.range.first, match.range.last + 1)
             }
         }.toList()
@@ -106,7 +103,7 @@ object UserRuleSmsAmountParser {
         val highestScore = candidates.maxOf { it.score }
         val best = candidates.filter { it.score == highestScore }
         // Multiple equally plausible amounts must not silently create a wrong transaction.
-        return best.singleOrNull()?.amountToman
+        return best.singleOrNull()?.amountValue
     }
 
     fun parse(
@@ -127,23 +124,23 @@ object UserRuleSmsAmountParser {
 
         val amount = extractAmount(normalized)
         val amountIsValid = amount != null
-        val toman = amount ?: 0L
+        val amountValue = amount ?: 0L
         val dateTime = PersianCalendarHelper.fromEpochMillis(receivedAtMillis)
         val time = Regex("""(?<![0-9])([0-2]?[0-9]:[0-5][0-9])""")
             .find(normalized)?.groupValues?.get(1)
             ?: String.format("%02d:%02d", dateTime.hour, dateTime.minute)
         val date = String.format("%04d/%02d/%02d", dateTime.year, dateTime.month, dateTime.day)
         val formatted = if (!amountIsValid) "" else when (type) {
-            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(toman, isExpense = true)
+            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountValue, isExpense = true)
             TransactionType.INCOME -> MoneyFormatter.formatSignedToman(toman, isExpense = false)
-            TransactionType.TRANSFER, null -> MoneyFormatter.formatToman(toman)
+            TransactionType.TRANSFER, null -> MoneyFormatter.formatToman(amountValue)
         }
 
         return BankSmsSuggestion(
             id = smsId,
             patternId = "user-rule:" + rule.id,
             bankName = rule.bankName,
-            amount = toman,
+            amount = amountValue,
             formattedAmount = formatted,
             isAmountValid = amountIsValid,
             type = type,
