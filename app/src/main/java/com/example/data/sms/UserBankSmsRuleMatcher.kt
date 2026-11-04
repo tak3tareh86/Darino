@@ -14,10 +14,17 @@ object UserBankSmsRuleMatcher {
         val expected = configured.trim()
         val received = actual.trim()
         if (expected.isEmpty() || received.isEmpty()) return false
-        val numeric = { value: String ->
-            value.all { it.isWhitespace() || it in '0'..'9' || it in '۰'..'۹' || it in '٠'..'٩' }
+        fun numericDigits(value: String): String? {
+            val withoutLeadingPlus = value.removePrefix("+")
+            val isNumeric = withoutLeadingPlus.isNotEmpty() &&
+                withoutLeadingPlus.all {
+                    it.isWhitespace() || it in '0'..'9' || it in '۰'..'۹' || it in '٠'..'٩'
+                }
+            return if (isNumeric) digits(withoutLeadingPlus) else null
         }
-        return if (numeric(expected) && numeric(received)) digits(expected) == digits(received)
+        val expectedDigits = numericDigits(expected)
+        val receivedDigits = numericDigits(received)
+        return if (expectedDigits != null && receivedDigits != null) expectedDigits == receivedDigits
         else expected == received
     }
 
