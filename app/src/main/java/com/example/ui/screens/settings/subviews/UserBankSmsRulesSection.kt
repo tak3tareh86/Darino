@@ -194,7 +194,10 @@ fun UserBankSmsRulesSection() {
                                 Icon(Icons.Rounded.Phone, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.width(5.dp))
                                 Text(
-                                    rule.senderAddresses.joinToString("، "),
+                                    listOfNotNull(
+                                        rule.textSenderAddresses.takeIf { it.isNotEmpty() }?.joinToString("، ")?.let { "متنی: $it" },
+                                        rule.numericSenderAddresses.takeIf { it.isNotEmpty() }?.joinToString("، ")?.let { "عددی: $it" }
+                                    ).joinToString("  |  "),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr)
                                 )
@@ -282,15 +285,20 @@ private fun RuleEditorDialog(
     var bank by remember(initial?.id) { mutableStateOf(initial?.bankName.orEmpty()) }
     var bankSearch by remember { mutableStateOf("") }
     var showBankPicker by remember { mutableStateOf(false) }
-    var senders by remember(initial?.id) { mutableStateOf(initial?.senderAddresses?.joinToString("\n").orEmpty()) }
+    var textSenders by remember(initial?.id) { mutableStateOf(initial?.textSenderAddresses?.joinToString("\n").orEmpty()) }
+    var numericSenders by remember(initial?.id) { mutableStateOf(initial?.numericSenderAddresses?.joinToString("\n").orEmpty()) }
     var income by remember(initial?.id) { mutableStateOf(initial?.incomeMarkers.orEmpty()) }
     var expense by remember(initial?.id) { mutableStateOf(initial?.expenseMarkers.orEmpty()) }
     var transfer by remember(initial?.id) { mutableStateOf(initial?.transferMarkers.orEmpty()) }
     var lookbackDays by remember(initial?.id) { mutableStateOf((initial?.lookbackMillis ?: 24L * 60L * 60L * 1000L).let { (it / (24L * 60L * 60L * 1000L)).toInt().coerceIn(1, 90) }) }
     var lookbackMenuExpanded by remember { mutableStateOf(false) }
-    val senderList = senders.split(Regex("[,،\\n]")).map(String::trim).filter(String::isNotEmpty).distinct()
+    val textSenderList = textSenders.split(Regex("[,،\\n]")).map(String::trim).filter(String::isNotEmpty).distinct()
+    val numericSenderList = numericSenders.split(Regex("[,،\\n]")).map(String::trim).filter(String::isNotEmpty).distinct()
+    val numericSendersValid = numericSenderList.all { UserBankSmsRuleMatcher.isNumericSender(it) }
+    val textSendersValid = textSenderList.all { !UserBankSmsRuleMatcher.isNumericSender(it) }
     val validMarkers = listOf(income, expense, transfer).all { UserBankSmsRuleMatcher.parseMarkers(it) != null }
-    val valid = bank.isNotBlank() && senderList.isNotEmpty() && validMarkers
+    val valid = bank.isNotBlank() && (textSenderList.isNotEmpty() || numericSenderList.isNotEmpty()) &&
+        numericSendersValid && textSendersValid && validMarkers
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -305,16 +313,39 @@ private fun RuleEditorDialog(
                 }
                 item {
                     OutlinedTextField(
-                        value = senders,
-                        onValueChange = { senders = it },
+                        value = textSenders,
+                        onValueChange = { textSenders = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("سرشماره‌ها (هر خط یک مورد)") },
+                        label = { Text("سرشماره متنی (هر خط یک مورد)") },
+                        placeholder = { Text("مثلاً Blu یا BankMellat") },
                         minLines = 2,
                         textStyle = MaterialTheme.typography.bodyLarge.copy(
                             textDirection = TextDirection.Ltr,
                             textAlign = TextAlign.Start
                         )
                     )
+                }
+                item {
+                    OutlinedTextField(
+                        value = numericSenders,
+                        onValueChange = { numericSenders = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("سرشماره عددی (هر خط یک مورد)") },
+                        placeholder = { Text("مثلاً 0999 998 7641") },
+                        minLines = 2,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            textDirection = TextDirection.Ltr,
+                            textAlign = TextAlign.Start
+                        ),
+                        isError = !numericSendersValid
+                    )
+                    if (!numericSendersValid) {
+                        Text("در کادر عددی فقط ارقام، فاصله و + ابتدایی مجاز است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (!textSendersValid) {
+                        Text("مقدار عددی را در کادر سرشماره عددی وارد کنید.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text("پرکردن یکی از دو کادر کافی است؛ اگر هر دو را وارد کنید، تطبیق با هرکدام پذیرفته می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 item { OutlinedTextField(income, { income = sanitizeMarkerInput(it) }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های واریز") }, placeholder = { Text("واریز/نشست") }, singleLine = true) }
                 item { OutlinedTextField(expense, { expense = sanitizeMarkerInput(it) }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های برداشت") }, placeholder = { Text("برداشت/پرید") }, singleLine = true) }
@@ -348,7 +379,8 @@ private fun RuleEditorDialog(
                         UserBankSmsRule(
                             id = initial?.id ?: java.util.UUID.randomUUID().toString(),
                             bankName = bank.trim(),
-                            senderAddresses = senderList,
+                            textSenderAddresses = textSenderList,
+                            numericSenderAddresses = numericSenderList,
                             incomeMarkers = income,
                             expenseMarkers = expense,
                             transferMarkers = transfer,
