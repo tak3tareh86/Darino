@@ -161,7 +161,7 @@ fun AddVehicleExpenseSheet(
                     value = amountText,
                     onValueChange = { amountText = it },
                     label = "مبلغ هزینه",
-                    placeholder = "مثال: ۵۰۰,۰۰۰",
+                    placeholder = "مبلغ را وارد کنید",
                     showWordsPreview = false,
                     modifier = Modifier.weight(1.2f),
                     testTag = "expense_amount_input"
