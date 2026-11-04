@@ -197,6 +197,11 @@ object SmsPatternMatcher {
         return candidates.singleOrNull()?.range
     }
 
+    private fun normalizeSenderText(value: String): String = value
+        .replace('ي', 'ی')
+        .replace('ى', 'ی')
+        .replace('ك', 'ک')
+
     private fun normalizeDigits(value: String): String = buildString {
         value.forEach { char ->
             append(when (char) {
@@ -283,7 +288,7 @@ object SmsPatternMatcher {
         return if (configuredDigits != null && actualDigits != null) {
             configuredDigits == actualDigits
         } else {
-            configured == actual
+            normalizeSenderText(configured) == normalizeSenderText(actual)
         }
     }
 
