@@ -43,7 +43,7 @@ object GenericBankSmsParser {
         "مؤسسه اعتباری کوثر" to listOf("موسسه اعتباری کوثر", "مؤسسه اعتباری کوثر", "اعتباری کوثر")
     )
 
-    private val groupedAmountRegex = Regex("""(?<![\p{L}\d])[+-]?\d{1,3}(?:[,،٬٫.]\d{3})+(?![\d])""")
+    private val groupedAmountRegex = Regex("""(?<!\d)[+-]?\d{1,3}(?:[,،٬٫.]\d{3})+(?![\d])""")
 
     private fun extractGroupedAmounts(message: String): List<Long> =
         groupedAmountRegex.findAll(normalize(message))
