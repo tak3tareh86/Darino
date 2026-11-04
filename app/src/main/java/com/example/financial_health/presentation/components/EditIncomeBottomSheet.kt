@@ -160,9 +160,9 @@ fun EditIncomeBottomSheet(
                 ) {
                     listOf(20_000_000L, 30_000_000L, 40_000_000L, 50_000_000L)
                         .forEach { baseTomanValue ->
-                        val value = MoneyFormatter.convertFromToman(baseTomanValue, activeCurrency)
-                        val label = IranianPhoneUtils.convertDigitsToPersian("${value / 1_000_000L} م")
-                        Surface(
+                            val value = MoneyFormatter.convertFromToman(baseTomanValue, activeCurrency)
+                            val label = IranianPhoneUtils.convertDigitsToPersian("${value / 1_000_000L} م")
+                            Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
@@ -176,7 +176,7 @@ fun EditIncomeBottomSheet(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = IranianPhoneUtils.convertDigitsToPersian(label),
+                                    text = label,
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Medium,
                                         fontSize = 11.sp
