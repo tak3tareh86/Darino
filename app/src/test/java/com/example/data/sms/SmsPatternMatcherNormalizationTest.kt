@@ -130,10 +130,20 @@ class SmsPatternMatcherNormalizationTest {
     }
 
     @Test
-    fun alphanumericSenderRemainsExactApartFromOuterWhitespace() {
+    fun alphanumericSenderRemainsExactApartFromOuterWhitespaceButNormalizesArabicPersianLetters() {
         assertTrue(SmsPatternMatcher.senderMatchesPattern("ResalatBank", " ResalatBank "))
         assertFalse(SmsPatternMatcher.senderMatchesPattern("ResalatBank", "resalatbank"))
         assertFalse(SmsPatternMatcher.senderMatchesPattern("ResalatBank", "Resalat Bank"))
+        assertTrue(SmsPatternMatcher.senderMatchesPattern("بانک ملی", "بانک ملي"))
+        assertTrue(SmsPatternMatcher.senderMatchesPattern("بانک ملی", "بانک ملي".replace('ي', 'ى')))
+        assertTrue(SmsPatternMatcher.senderMatchesPattern("بانک مرکزی", "بانك مرکزی"))
+    }
+
+    @Test
+    fun customBankRuleSenderNormalizesArabicPersianLetters() {
+        assertTrue(UserBankSmsRuleMatcher.senderMatches("بانک ملی", "بانک ملي"))
+        assertTrue(UserBankSmsRuleMatcher.senderMatches("بانک مرکزی", "بانك مرکزی"))
+        assertFalse(UserBankSmsRuleMatcher.senderMatches("بانک ملی", "بانک ملت"))
     }
 
     @Test
