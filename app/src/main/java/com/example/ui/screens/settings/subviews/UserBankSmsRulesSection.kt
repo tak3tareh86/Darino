@@ -269,6 +269,8 @@ private fun RuleEditorDialog(
     onSave: (UserBankSmsRule) -> Unit
 ) {
     var bank by remember(initial?.id) { mutableStateOf(initial?.bankName.orEmpty()) }
+    var bankSearch by remember { mutableStateOf("") }
+    var showBankPicker by remember { mutableStateOf(false) }
     var senders by remember(initial?.id) { mutableStateOf(initial?.senderAddresses?.joinToString("\n").orEmpty()) }
     var income by remember(initial?.id) { mutableStateOf(initial?.incomeMarkers.orEmpty()) }
     var expense by remember(initial?.id) { mutableStateOf(initial?.expenseMarkers.orEmpty()) }
@@ -284,7 +286,12 @@ private fun RuleEditorDialog(
         title = { Text(if (initial == null) "تعریف بانک" else "ویرایش بانک") },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { OutlinedTextField(bank, { bank = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نام بانک") }, singleLine = true) }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        OutlinedTextField(value = bank, onValueChange = { bank = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نام بانک یا مؤسسه") }, singleLine = true)
+                        TextButton(onClick = { bankSearch = ""; showBankPicker = true }) { Text("انتخاب از فهرست بانک‌ها و مؤسسات") }
+                    }
+                }
                 item {
                     OutlinedTextField(
                         value = senders,
@@ -342,4 +349,30 @@ private fun RuleEditorDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
     )
+    if (showBankPicker) {
+        Dialog(onDismissRequest = { showBankPicker = false }) {
+            Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("فهرست بانک‌ها و مؤسسات", style = MaterialTheme.typography.titleLarge)
+                    OutlinedTextField(value = bankSearch, onValueChange = { bankSearch = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("جست‌وجوی نام بانک") })
+                    LazyColumn(modifier = Modifier.fillMaxWidth().height(420.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        items(BankCatalog.search(bankSearch), key = { it.id }) { entry ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { bank = entry.title; showBankPicker = false }.padding(horizontal = 8.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                BankLogo(name = entry.title)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(entry.title, style = MaterialTheme.typography.bodyMedium)
+                                    Text(entry.group, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                    TextButton(onClick = { showBankPicker = false }, modifier = Modifier.align(Alignment.End)) { Text("بستن") }
+                }
+            }
+        }
+    }
 }
