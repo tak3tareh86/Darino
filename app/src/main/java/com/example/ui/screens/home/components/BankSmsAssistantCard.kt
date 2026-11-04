@@ -98,6 +98,7 @@ import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.util.IranianPhoneUtils
+import com.example.util.LocalAppCurrency
 import com.example.util.MoneyFormatter
 
 @Composable
@@ -525,6 +526,7 @@ private fun SmsGrantedContentView(
     onDismiss: (id: String) -> Unit,
     onRefreshScan: () -> Unit
 ) {
+    val appCurrency = LocalAppCurrency.current
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -792,10 +794,9 @@ private fun SmsGrantedContentView(
 
                         Text(
                             text = when (item.type) {
-                                TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(item.amount, isExpense = true, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
-                                TransactionType.INCOME -> MoneyFormatter.formatSignedToman(item.amount, isExpense = false, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
-                                TransactionType.TRANSFER -> MoneyFormatter.formatToman(item.amount, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
-                                null -> MoneyFormatter.formatToman(item.amount, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
+                                TransactionType.EXPENSE -> MoneyFormatter.formatRawSignedAmount(item.amount, isExpense = true, currency = appCurrency)
+                                TransactionType.INCOME -> MoneyFormatter.formatRawSignedAmount(item.amount, isExpense = false, currency = appCurrency)
+                                TransactionType.TRANSFER, null -> MoneyFormatter.formatRawAmount(item.amount, currency = appCurrency)
                             },
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
@@ -1048,6 +1049,8 @@ fun EditSmsTransactionDialog(
     onDismiss: () -> Unit,
     onConfirm: (Long, TransactionType, String, String, String, String?, (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit) -> Unit
 ) {
+    val appCurrency = LocalAppCurrency.current
+    val amountUnit = MoneyFormatter.getUnitLabel(appCurrency)
     var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
     var amountText by remember(suggestion.id) {
         mutableStateOf(
@@ -1111,7 +1114,7 @@ fun EditSmsTransactionDialog(
                 }
                 Surface(Modifier.fillMaxWidth().padding(horizontal=12.dp),shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.primaryContainer.copy(alpha=.45f)) {
                     Column(Modifier.padding(horizontal=10.dp,vertical=7.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                        Text("مبلغ تراکنش (عدد خام پیامک؛ بدون تبدیل ریال/تومان)",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
+                        Text("مبلغ تراکنش (عدد را به $amountUnit وارد کنید)",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
                         OutlinedTextField(
                              value = amountText,
                              onValueChange = { input ->
@@ -1120,13 +1123,13 @@ fun EditSmsTransactionDialog(
                              },
                              singleLine = true,
                              isError = !validAmount && amountText.isNotEmpty(),
-                             placeholder = { Text("مبلغ را وارد کنید") },
+                             placeholder = { Text("مبلغ را به $amountUnit وارد کنید") },
                              modifier = Modifier.fillMaxWidth(),
                              shape = RoundedCornerShape(9.dp),
                              textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                          )
                         if(amountOptions.isNotEmpty()) LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-                            items(amountOptions){(v,label)->FilterChip(selected=amount==v,onClick={amountText=IranianAmountUtils.formatWithCommas(v.toString());error=null},label={Text(label + ": " + IranianAmountUtils.formatWithCommas(v.toString()),fontSize=10.sp)})}
+                            items(amountOptions){(v,label)->FilterChip(selected=amount==v,onClick={amountText=IranianAmountUtils.formatWithCommas(v.toString());error=null},label={Text(label + ": " + IranianAmountUtils.formatWithCommas(v.toString()) + " " + amountUnit,fontSize=10.sp)})}
                         }
                         if(!validAmount) Text("مبلغ پیامک معتبر نیست؛ مبلغ صحیح را وارد کنید.",style=MaterialTheme.typography.bodySmall,color=Color(0xFFDC2626))
                     }
