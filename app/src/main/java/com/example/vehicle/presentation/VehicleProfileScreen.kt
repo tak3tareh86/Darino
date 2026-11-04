@@ -34,6 +34,7 @@ import com.example.ui.components.Layered3DCard
 import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
+import com.example.util.MoneyFormatter
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.VehicleEntity
 import com.example.ui.components.IranianLicensePlate
@@ -71,7 +72,7 @@ fun VehicleProfileScreen(
     var plateIranCode by remember(vehicle) { mutableStateOf(initialPlateParts.iranCode) }
     var vin by remember(vehicle) { mutableStateOf(vehicle.vin) }
     var estimatedValueText by remember(vehicle) {
-        mutableStateOf(if (vehicle.estimatedValue > 0) vehicle.estimatedValue.toString() else "")
+        mutableStateOf(if (vehicle.estimatedValue > 0) MoneyFormatter.convertFromToman(vehicle.estimatedValue).toString() else "")
     }
     var currentMileageText by remember(vehicle) { mutableStateOf(vehicle.currentMileage.toString()) }
     val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
@@ -346,8 +347,7 @@ fun VehicleProfileScreen(
                             value = estimatedValueText,
                             onValueChange = { estimatedValueText = it },
                             label = "ارزش تقریبی",
-                            unitLabel = "تومان",
-                            placeholder = "مثال: ۸۵۰,۰۰۰,۰۰۰",
+                            placeholder = "مبلغ را وارد کنید",
                             showWordsPreview = false,
                             modifier = Modifier.weight(1.3f),
                             fieldHeight = 64.dp,
@@ -357,7 +357,7 @@ fun VehicleProfileScreen(
 
                     Button(
                         onClick = {
-                            val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
+                            val estVal = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(estimatedValueText))
                             val km = IranianPhoneUtils.convertDigitsToEnglish(currentMileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onUpdateMileage(km)
                             onSaveSpecs(brand, model, year, color, plate, vin, estVal)
