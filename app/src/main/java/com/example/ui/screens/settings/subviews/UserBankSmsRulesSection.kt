@@ -25,6 +25,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.example.data.sms.UserBankSmsRule
 import com.example.data.sms.UserBankSmsRuleMatcher
@@ -100,7 +103,19 @@ private fun RuleEditorDialog(
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item { OutlinedTextField(bank, { bank = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نام بانک") }, singleLine = true) }
-                item { OutlinedTextField(senders, { senders = it }, modifier = Modifier.fillMaxWidth(), label = { Text("سرشماره‌ها (هر خط یک مورد)") }, minLines = 2) }
+                item {
+                    OutlinedTextField(
+                        value = senders,
+                        onValueChange = { senders = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("سرشماره‌ها (هر خط یک مورد)") },
+                        minLines = 2,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            textDirection = TextDirection.Ltr,
+                            textAlign = TextAlign.Start
+                        )
+                    )
+                }
                 item { OutlinedTextField(income, { income = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های واریز") }, placeholder = { Text("واریز/نشست") }, singleLine = true) }
                 item { OutlinedTextField(expense, { expense = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های برداشت") }, placeholder = { Text("برداشت/پرید") }, singleLine = true) }
                 item { OutlinedTextField(transfer, { transfer = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های انتقال وجه") }, placeholder = { Text("انتقال/کارت_به_کارت") }, singleLine = true) }
