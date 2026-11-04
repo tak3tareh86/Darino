@@ -168,7 +168,7 @@ fun UserBankSmsRulesSection() {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(Icons.Rounded.AccountBalance, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp))
-                    Text("هنوز بانکی اضافه نکرده‌اید", style = MaterialTheme.typography.labelLarge)
+                    Text("هنوز بانکی اضافه نکرده‌اید", style = MaterialTheme.typography.titleSmall)
                     Text("برای شروع، روی دکمه افزودن بانک بزنید.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -437,7 +437,7 @@ private fun GuideTab(title: String, selected: Boolean, onClick: () -> Unit, modi
             ).padding(horizontal = 8.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(title, color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleSmall)
+            Text(title, color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelLarge)
         }
     }
 }
