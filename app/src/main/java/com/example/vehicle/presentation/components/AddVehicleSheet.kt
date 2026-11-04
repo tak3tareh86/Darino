@@ -40,6 +40,7 @@ import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
 import com.example.util.IranianPhoneUtils
+import com.example.vehicle.data.VehicleModelCatalog
 
 /**
  * Bottom sheet to add a new vehicle profile
@@ -65,6 +66,9 @@ fun AddVehicleSheet(
     var brand by remember { mutableStateOf("ایران‌خودرو") }
     var customBrand by remember { mutableStateOf("") }
     var model by remember { mutableStateOf("") }
+    var modelManualEntry by remember { mutableStateOf(false) }
+    var showModelDialog by remember { mutableStateOf(false) }
+    var modelSearchQuery by remember { mutableStateOf("") }
     var engine by remember { mutableStateOf("") }
     var transmission by remember { mutableStateOf("") }
     var year by remember { mutableStateOf(currentYear) }
@@ -106,6 +110,10 @@ fun AddVehicleSheet(
         (1380..maxOf(1405, currentYear.toIntOrNull() ?: 1405)).map { it.toString() }
     }
     var brandSearchQuery by remember { mutableStateOf("") }
+    val availableModels = remember(brand) { VehicleModelCatalog.modelsFor(brand) }
+    val filteredModels = remember(availableModels, modelSearchQuery) {
+        availableModels.filter { it.contains(modelSearchQuery.trim(), ignoreCase = true) }
+    }
     val filteredBrands = remember(brands, brandSearchQuery) {
         brands.filter { it.contains(brandSearchQuery.trim(), ignoreCase = true) }
     }
@@ -284,7 +292,12 @@ fun AddVehicleSheet(
                                                 .heightIn(min = 56.dp)
                                                 .clip(RoundedCornerShape(10.dp))
                                                 .clickable {
-                                                    brand = b
+                                                    if (brand != b) {
+                                                        brand = b
+                                                        model = ""
+                                                        modelManualEntry = false
+                                                        modelSearchQuery = ""
+                                                    }
                                                     showBrandDialog = false
                                                     brandSearchQuery = ""
                                                 },
@@ -469,19 +482,136 @@ fun AddVehicleSheet(
                 )
             }
 
+
+            if (showModelDialog) {
+                AlertDialog(
+                    onDismissRequest = { showModelDialog = false },
+                    title = { Text("مدل و تیپ $brand", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = modelSearchQuery,
+                                onValueChange = { modelSearchQuery = it },
+                                modifier = Modifier.fillMaxWidth().testTag("vehicle_model_search"),
+                                label = { Text("جست‌وجوی مدل یا تیپ") },
+                                singleLine = true,
+                                trailingIcon = {
+                                    if (modelSearchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { modelSearchQuery = "" }) {
+                                            Icon(Icons.Rounded.Close, contentDescription = "پاک کردن جست‌وجو")
+                                        }
+                                    }
+                                }
+                            )
+                            if (filteredModels.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().height(224.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("مدلی پیدا نشد؛ می‌توانید نام آن را دستی وارد کنید.")
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxWidth().height(224.dp).testTag("vehicle_model_options"),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    items(filteredModels) { option ->
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth().height(52.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable {
+                                                    model = option
+                                                    modelManualEntry = false
+                                                    showModelDialog = false
+                                                    modelSearchQuery = ""
+                                                },
+                                            color = if (model == option) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(option, style = MaterialTheme.typography.bodyMedium)
+                                                if (model == option) Icon(
+                                                    Icons.Rounded.Check,
+                                                    contentDescription = "انتخاب‌شده",
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            model = ""
+                            modelManualEntry = true
+                            showModelDialog = false
+                            modelSearchQuery = ""
+                        }) { Text("مدل در فهرست نیست؛ ورود دستی") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showModelDialog = false }) { Text("بستن") }
+                    }
+                )
+            }
+
             // Model & Year
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
-                    value = model,
-                    onValueChange = { model = it },
-                    label = { Text("مدل / تیپ خودرو") },
-                    placeholder = { Text("مثلاً: ۲۰۷i، تارا، دنا") },
-                    modifier = Modifier.weight(1.5f),
-                    singleLine = true
-                )
+                Column(modifier = Modifier.weight(1.5f)) {
+                    if (modelManualEntry || brand == "سایر" || availableModels.isEmpty()) {
+                        OutlinedTextField(
+                            value = model,
+                            onValueChange = { model = it },
+                            label = { Text("مدل / تیپ خودرو") },
+                            placeholder = { Text("نام مدل و تیپ را وارد کنید") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            trailingIcon = {
+                                if (availableModels.isNotEmpty() && brand != "سایر") {
+                                    IconButton(onClick = { modelManualEntry = false; model = "" }) {
+                                        Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب از فهرست مدل‌ها")
+                                    }
+                                }
+                            }
+                        )
+                    } else {
+                        OutlinedCard(
+                            onClick = { showModelDialog = true },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = model.ifBlank { "انتخاب مدل / تیپ خودرو" },
+                                    color = if (model.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
+                                    else MaterialTheme.colorScheme.onSurface,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب مدل خودرو")
+                            }
+                        }
+                        Text(
+                            text = "مدل و تیپ را از فهرست آفلاین انتخاب کنید",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
                 OutlinedTextField(
                     value = year,
