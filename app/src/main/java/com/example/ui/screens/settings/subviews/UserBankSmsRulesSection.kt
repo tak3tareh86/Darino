@@ -339,9 +339,15 @@ private fun RuleEditorDialog(
     val numericSenderList = numericSenders.split(Regex("[,،\\n]")).map(String::trim).filter(String::isNotEmpty).distinct()
     val numericSendersValid = numericSenderList.all { UserBankSmsRuleMatcher.isNumericSender(it) }
     val textSendersValid = textSenderList.all { !UserBankSmsRuleMatcher.isNumericSender(it) }
-    val validMarkers = listOf(income, expense, transfer).all { UserBankSmsRuleMatcher.parseMarkers(it) != null }
+    val markerInputs = listOf(income, expense, transfer)
+    val markerInputsValid = markerInputs.all { marker ->
+        marker.isBlank() || UserBankSmsRuleMatcher.parseMarkers(marker) != null
+    }
+    val hasAtLeastOneValidMarker = markerInputs.any { marker ->
+        marker.isNotBlank() && UserBankSmsRuleMatcher.parseMarkers(marker) != null
+    }
     val valid = bank.isNotBlank() && (textSenderList.isNotEmpty() || numericSenderList.isNotEmpty()) &&
-        numericSendersValid && textSendersValid && validMarkers
+        numericSendersValid && textSendersValid && markerInputsValid && hasAtLeastOneValidMarker
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -394,20 +400,68 @@ private fun RuleEditorDialog(
                 item { OutlinedTextField(expense, { expense = sanitizeMarkerInput(it) }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های برداشت") }, placeholder = { Text("برداشت/پرید") }, singleLine = true) }
                 item { OutlinedTextField(transfer, { transfer = sanitizeMarkerInput(it) }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های انتقال وجه") }, placeholder = { Text("انتقال/کارت_به_کارت") }, singleLine = true) }
                 item {
-                    Column {
-                        Text("بازه بررسی پیامک‌های قدیمی")
-                        TextButton(onClick = { lookbackMenuExpanded = true }) { Text("$lookbackDays روز") }
-                        DropdownMenu(expanded = lookbackMenuExpanded, onDismissRequest = { lookbackMenuExpanded = false }) {
-                            SMS_PATTERN_LOOKBACK_OPTIONS.forEach { millis ->
-                                val days = (millis / (24L * 60L * 60L * 1000L)).toInt()
-                                DropdownMenuItem(text = { Text("$days روز") }, onClick = { lookbackDays = days; lookbackMenuExpanded = false })
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(11.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Rounded.CalendarMonth,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("بررسی پیامک‌های قدیمی", style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    "جست‌وجو در پیامک‌های $lookbackDays روز گذشته",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Box {
+                                TextButton(onClick = { lookbackMenuExpanded = true }) {
+                                    Text("$lookbackDays روز")
+                                    Icon(
+                                        Icons.Rounded.CalendarMonth,
+                                        contentDescription = "انتخاب بازه",
+                                        modifier = Modifier.padding(start = 4.dp).size(16.dp)
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = lookbackMenuExpanded,
+                                    onDismissRequest = { lookbackMenuExpanded = false }
+                                ) {
+                                    SMS_PATTERN_LOOKBACK_OPTIONS.forEach { millis ->
+                                        val days = (millis / (24L * 60L * 60L * 1000L)).toInt()
+                                        DropdownMenuItem(
+                                            text = { Text("$days روز") },
+                                            onClick = {
+                                                lookbackDays = days
+                                                lookbackMenuExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
                 item {
                     Text(
-                        "در این سه کادر فقط حروف و اعداد و نشانه‌های +، _، - و جداکننده / پذیرفته می‌شوند؛ فاصله و سایر علائم نگارشی قابل ورود نیستند. برای ثبت چند نشانه فقط از / استفاده کنید. _ و - هنگام تطبیق معادل‌اند و همه نشانه‌های یک دسته باید در همان پیامک وجود داشته باشند.",
+                        "پرکردن حداقل یکی از سه کادر نشانه کافی است. کادرهای دیگر می‌توانند خالی بمانند؛ اما هر کادر تکمیل‌شده باید حداقل دو نشانه متفاوت با جداکننده / داشته باشد. در نشانه‌ها فقط حروف، اعداد و علائم +، _ و - مجازند.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
