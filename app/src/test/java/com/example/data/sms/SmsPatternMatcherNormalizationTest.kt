@@ -140,6 +140,16 @@ class SmsPatternMatcherNormalizationTest {
     }
 
     @Test
+    fun customBankRuleSenderMatchesIranianMobileWithOrWithoutCountryPrefix() {
+        val configured = "09999987641"
+        assertTrue(UserBankSmsRuleMatcher.senderMatches(configured, "+989999987641"))
+        assertTrue(UserBankSmsRuleMatcher.senderMatches(configured, "989999987641"))
+        assertTrue(UserBankSmsRuleMatcher.senderMatches(configured, "00989999987641"))
+        assertTrue(UserBankSmsRuleMatcher.senderMatches(configured, "9999987641"))
+        assertFalse(UserBankSmsRuleMatcher.senderMatches(configured, "09999987642"))
+    }
+
+    @Test
     fun customBankRuleSenderNormalizesArabicPersianLetters() {
         assertTrue(UserBankSmsRuleMatcher.senderMatches("بانک ملی", "بانک ملي"))
         assertTrue(UserBankSmsRuleMatcher.senderMatches("بانک مرکزی", "بانك مرکزی"))
