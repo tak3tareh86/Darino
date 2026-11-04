@@ -1092,6 +1092,17 @@ fun EditSmsTransactionDialog(
         IranianAmountUtils.cleanAmountDigits(amountText).toLongOrNull() ?: 0L
     }
     val isAmountValid = parsedAmount > 0L
+    // Prefer the amount parsed by the bank SMS pattern; expose balance only as a labelled alternative.
+    val amountSuggestions = remember(suggestion.id, suggestion.amount, suggestion.isAmountValid, suggestion.balanceAmount) {
+        buildList {
+            if (suggestion.isAmountValid && suggestion.amount > 0L) {
+                add(suggestion.amount to "مبلغ تراکنش")
+            }
+            suggestion.balanceAmount
+                ?.takeIf { it > 0L && it != suggestion.amount }
+                ?.let { add(it to "موجودی حساب") }
+        }
+    }
 
     var category by remember(suggestion.id) { mutableStateOf(suggestion.category) }
     val activeAccounts = remember(userAccounts) {
@@ -1230,7 +1241,60 @@ fun EditSmsTransactionDialog(
                         }
                     }
 
-                    // Amount is prefilled when detected and remains editable for correction.
+                    // Selectable values extracted from the SMS; balance is clearly distinguished from transaction amount.
+                    if (amountSuggestions.isNotEmpty()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text(
+                                text = "مبلغ‌های پیشنهادی از پیامک",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                items(amountSuggestions) { (value, label) ->
+                                    val isSelected = parsedAmount == value
+                                    Surface(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .clickable {
+                                                amountText = IranianAmountUtils.formatWithCommas(value.toString())
+                                                dialogError = null
+                                            },
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.outlineVariant
+                                        )
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            )
+                                            Text(
+                                                text = "${MoneyFormatter.formatToman(value)} تومان",
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                                        else MaterialTheme.colorScheme.onSurface
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // The selected suggestion is copied into this editable field; manual correction remains available.
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
                             text = "مبلغ تراکنش (تومان):",
