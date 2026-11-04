@@ -10,47 +10,45 @@ object UserBankSmsRuleMatcher {
     private fun digits(value: String): String = IranianPhoneUtils.convertDigitsToEnglish(value)
         .filter { it in '0'..'9' }
 
-    fun senderMatches(configured: String, actual: String): Boolean {
-        val expected = configured.trim()
-        val received = actual.trim()
-        if (expected.isEmpty() || received.isEmpty()) return false
-        fun numericDigits(value: String): String? {
-            // SMS providers may decorate numeric short codes with Unicode spaces,
-            // bidi marks or a leading international '+'; normalize those before
-            // deciding whether this is a numeric sender ID.
-            val converted = IranianPhoneUtils.convertDigitsToEnglish(value)
-            val compact = buildString {
-                converted.forEach { ch ->
-                    when {
-                        ch.isWhitespace() || Character.getType(ch) == Character.FORMAT.toInt() -> Unit
-                        else -> append(ch)
-                    }
-                }
-            }
-            val withoutLeadingPlus = compact.removePrefix("+")
-            val isNumeric = withoutLeadingPlus.isNotEmpty() &&
-                withoutLeadingPlus.all { it in '0'..'9' }
-            return if (isNumeric) withoutLeadingPlus else null
-        }
-        val expectedDigits = numericDigits(expected)
-        val receivedDigits = numericDigits(received)
-        return if (expectedDigits != null && receivedDigits != null) {
-            // Android/SMS gateways may expose the same Iranian mobile sender as
-            // 09xxxxxxxxx, 9xxxxxxxxx, 98xxxxxxxxxx, 0098..., or +98...
-            val expectedMobile = IranianPhoneUtils.normalizeIranianPhoneNumber(expectedDigits)
-            val receivedMobile = IranianPhoneUtils.normalizeIranianPhoneNumber(receivedDigits)
-            if (expectedMobile != null && receivedMobile != null) {
-                expectedMobile == receivedMobile
-            } else {
-                expectedDigits == receivedDigits
-            }
-        } else normalizeSenderText(expected) == normalizeSenderText(received)
+    fun isNumericSender(value: String): Boolean {
+        val compact = compactSender(value)
+        val digits = compact.removePrefix("+")
+        return digits.isNotEmpty() && digits.all { it in '0'..'9' }
     }
 
-    private fun normalizeSenderText(value: String): String = value
+    private fun compactSender(value: String): String = buildString {
+        IranianPhoneUtils.convertDigitsToEnglish(value).forEach { ch ->
+            when {
+                ch.isWhitespace() || Character.getType(ch) == Character.FORMAT.toInt() -> Unit
+                else -> append(ch)
+            }
+        }
+    }
+
+    private fun normalizeNumericSender(value: String): String? {
+        val compact = compactSender(value)
+        val digits = compact.removePrefix("+")
+        if (digits.isEmpty() || !digits.all { it in '0'..'9' }) return null
+        return IranianPhoneUtils.normalizeIranianPhoneNumber(digits) ?: digits
+    }
+
+    private fun normalizeSenderText(value: String): String = value.trim()
+        .filterNot { Character.getType(it) == Character.FORMAT.toInt() }
         .replace('ي', 'ی')
         .replace('ى', 'ی')
         .replace('ك', 'ک')
+
+    fun senderMatches(configured: String, actual: String): Boolean {
+        if (configured.isBlank() || actual.isBlank()) return false
+        val configuredNumeric = isNumericSender(configured)
+        val actualNumeric = isNumericSender(actual)
+        if (configuredNumeric != actualNumeric) return false
+        return if (configuredNumeric) {
+            normalizeNumericSender(configured) == normalizeNumericSender(actual)
+        } else {
+            normalizeSenderText(configured) == normalizeSenderText(actual)
+        }
+    }
 
     fun parseMarkers(raw: String): List<String>? {
         if (raw.isBlank()) return null
@@ -70,7 +68,21 @@ object UserBankSmsRuleMatcher {
     fun matchAll(body: String, sender: String, rules: List<UserBankSmsRule>): List<UserBankSmsRuleMatch> {
         val normalizedBody = normalizeBody(body).replace('-', '_')
         val matching = rules.mapNotNull { rule ->
-            if (rule.senderAddresses.none { senderMatches(it, sender) }) return@mapNotNull null
+            val textSenders = if (rule.textSenderAddresses.isNotEmpty() || rule.numericSenderAddresses.isNotEmpty()) {
+                rule.textSenderAddresses
+            } else {
+                rule.senderAddresses.filterNot(::isNumericSender)
+            }
+            val numericSenders = if (rule.textSenderAddresses.isNotEmpty() || rule.numericSenderAddresses.isNotEmpty()) {
+                rule.numericSenderAddresses
+            } else {
+                rule.senderAddresses.filter(::isNumericSender)
+            }
+            val senderMatched = when {
+                isNumericSender(sender) -> numericSenders.any { senderMatches(it, sender) }
+                else -> textSenders.any { senderMatches(it, sender) }
+            }
+            if (!senderMatched) return@mapNotNull null
             val categories = listOf(
                 TransactionType.INCOME to parseMarkers(rule.incomeMarkers),
                 TransactionType.EXPENSE to parseMarkers(rule.expenseMarkers),
