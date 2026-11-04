@@ -108,9 +108,9 @@ object BankSmsParser {
             } else timestampMillis
 
             val formattedAmount = when (configuredType) {
-                TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountValue, isExpense = true)
-                TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountValue, isExpense = false)
-                TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountValue)
+                TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountValue, isExpense = true, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
+                TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountValue, isExpense = false, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
+                TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountValue, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
             }
 
             fun account(kind: SmsPatternSlotKind, label: String): String? =
