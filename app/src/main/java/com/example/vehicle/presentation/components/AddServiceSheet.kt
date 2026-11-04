@@ -576,23 +576,25 @@ fun AddServiceSheet(
                         )
                     }
 
-                    Text(
-                        text = buildString {
-                            if (calcKm > 0) {
-                                append("یادآوری کیلومتری: ")
-                                append(IranianPhoneUtils.convertDigitsToPersian(calcKm.toString()))
-                                append(" کیلومتر")
-                            }
-                            if (calcDate.isNotBlank()) {
-                                if (isNotEmpty()) append(" یا ")
-                                append("تاریخ پیشنهادی: ")
-                                append(IranianPhoneUtils.convertDigitsToPersian(calcDate))
-                            }
-                            append(" ثبت خواهد شد.")
-                        },
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    if (calcKm > 0 || calcDate.isNotBlank()) {
+                        Text(
+                            text = buildString {
+                                if (calcKm > 0) {
+                                    append("یادآوری کیلومتری: ")
+                                    append(IranianPhoneUtils.convertDigitsToPersian(calcKm.toString()))
+                                    append(" کیلومتر")
+                                }
+                                if (calcDate.isNotBlank()) {
+                                    if (isNotEmpty()) append(" یا ")
+                                    append("تاریخ پیشنهادی: ")
+                                    append(IranianPhoneUtils.convertDigitsToPersian(calcDate))
+                                }
+                                append(" ثبت خواهد شد.")
+                            },
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     Text(
                         text = "مبنای بازه: " + interval.source + "\nاگر دفترچهٔ خودروی شما بازهٔ دیگری دارد، همان ملاک نهایی است.",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
