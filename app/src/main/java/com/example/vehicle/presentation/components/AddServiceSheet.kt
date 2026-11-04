@@ -339,7 +339,7 @@ fun AddServiceSheet(
                     value = costText,
                     onValueChange = { costText = it },
                     label = "هزینه سرویس",
-                    placeholder = "مثال: ۸۵۰,۰۰۰",
+                    placeholder = "مبلغ را وارد کنید",
                     showWordsPreview = false,
                     modifier = Modifier.weight(1.2f),
                     testTag = "service_cost_input"
