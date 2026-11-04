@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -148,13 +147,7 @@ fun UserBankSmsRulesSection() {
                     Icon(Icons.Rounded.AccountBalance, null, tint = Color.White, modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("افزودن بانک", color = Color.White, style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.width(12.dp))
-                    Box(
-                        modifier = Modifier.size(32.dp).background(Color.White.copy(alpha = 0.20f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(21.dp))
-                    }
+
                 }
             }
         }
