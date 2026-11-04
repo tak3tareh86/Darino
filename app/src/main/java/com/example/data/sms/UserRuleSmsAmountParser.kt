@@ -60,7 +60,7 @@ object UserRuleSmsAmountParser {
     // Strict Iranian-style grouping: the first group has 1-3 digits and every
     // group after it has exactly 3 digits. Persian/Arabic digits are normalized first.
     private val groupedNumberRegex = Regex(
-        """(?<![\\p{L}\\d])([+-]?\\d{1,3}(?:[,،٬٫.]\\d{3})+)(?![\\d])"""
+        """(?<![\p{L}\d])([+-]?\d{1,3}(?:[,،٬٫.]\d{3})+)(?![\d])"""
     )
 
     private fun extractGroupedAmounts(body: String): ExtractedAmounts {
@@ -76,7 +76,7 @@ object UserRuleSmsAmountParser {
             val nearLeft = before.takeLast(24)
             val nearRight = after.take(24)
             val balance = balanceContextRegex.containsMatchIn(nearLeft) ||
-                Regex("""^\\s*[:：]?\\s*(?:مانده|موجودی|balance)""", RegexOption.IGNORE_CASE).containsMatchIn(nearRight)
+                Regex("""^\s*[:：]?\s*(?:مانده|موجودی|balance)""", RegexOption.IGNORE_CASE).containsMatchIn(nearRight)
             val transaction = amountLabelRegex.containsMatchIn(before.takeLast(34)) ||
                 transactionContextRegex.containsMatchIn(nearLeft + " " + nearRight)
             val irrelevant = irrelevantContextRegex.containsMatchIn(before.takeLast(22))
