@@ -11,7 +11,10 @@ import java.util.UUID
 data class UserBankSmsRule(
     val id: String = UUID.randomUUID().toString(),
     val bankName: String,
-    val senderAddresses: List<String>,
+    // Legacy field retained for source compatibility with older callers/backups.
+    val senderAddresses: List<String> = emptyList(),
+    val textSenderAddresses: List<String> = emptyList(),
+    val numericSenderAddresses: List<String> = emptyList(),
     val incomeMarkers: String,
     val expenseMarkers: String,
     val transferMarkers: String,
@@ -47,16 +50,31 @@ class UserBankSmsRuleRepository(context: Context) {
                             senders.optString(j).trim().takeIf { it.isNotEmpty() }?.let(::add)
                         }
                     }.distinct()
+                    val hasSplitSenders = item.has("textSenders") || item.has("numericSenders")
+                    fun readSenders(name: String): List<String> {
+                        val values = item.optJSONArray(name) ?: JSONArray()
+                        return buildList {
+                            for (j in 0 until values.length()) {
+                                values.optString(j).trim().takeIf { it.isNotEmpty() }?.let(::add)
+                            }
+                        }.distinct()
+                    }
+                    val legacyText = if (hasSplitSenders) emptyList() else addresses.filterNot(UserBankSmsRuleMatcher::isNumericSender)
+                    val legacyNumeric = if (hasSplitSenders) emptyList() else addresses.filter(UserBankSmsRuleMatcher::isNumericSender)
+                    val textSenders = (readSenders("textSenders") + legacyText).distinct()
+                    val numericSenders = (readSenders("numericSenders") + legacyNumeric).distinct()
                     val rule = UserBankSmsRule(
                         id = item.optString("id"),
                         bankName = item.optString("bankName").trim(),
-                        senderAddresses = addresses,
+                        senderAddresses = (textSenders + numericSenders).distinct(),
+                        textSenderAddresses = textSenders,
+                        numericSenderAddresses = numericSenders,
                         incomeMarkers = item.optString("incomeMarkers"),
                         expenseMarkers = item.optString("expenseMarkers"),
                         transferMarkers = item.optString("transferMarkers"),
                         lookbackMillis = item.optLong("lookbackMillis", DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS).coerceIn(SMS_PATTERN_LOOKBACK_OPTIONS.first(), SMS_PATTERN_LOOKBACK_OPTIONS.last())
                     )
-                    if (rule.bankName.isNotBlank() && rule.senderAddresses.isNotEmpty()) add(rule)
+                    if (rule.bankName.isNotBlank() && (rule.textSenderAddresses.isNotEmpty() || rule.numericSenderAddresses.isNotEmpty())) add(rule)
                 }
             }
         }.getOrDefault(emptyList())
@@ -65,16 +83,23 @@ class UserBankSmsRuleRepository(context: Context) {
     @Synchronized
     fun save(rule: UserBankSmsRule, userId: String? = SessionManager.userId) {
         require(rule.bankName.isNotBlank())
-        require(rule.senderAddresses.isNotEmpty())
+        require(rule.textSenderAddresses.isNotEmpty() || rule.numericSenderAddresses.isNotEmpty() || rule.senderAddresses.isNotEmpty())
         require(UserBankSmsRuleMatcher.parseMarkers(rule.incomeMarkers) != null)
         require(UserBankSmsRuleMatcher.parseMarkers(rule.expenseMarkers) != null)
         require(UserBankSmsRuleMatcher.parseMarkers(rule.transferMarkers) != null)
+        val legacy = rule.senderAddresses.map(String::trim).filter(String::isNotEmpty)
+        val textSenders = (rule.textSenderAddresses + legacy.filterNot(UserBankSmsRuleMatcher::isNumericSender))
+            .map(String::trim).filter(String::isNotEmpty).distinct()
+        val numericSenders = (rule.numericSenderAddresses + legacy.filter(UserBankSmsRuleMatcher::isNumericSender))
+            .map(String::trim).filter(String::isNotEmpty).distinct()
         val normalized = rule.copy(
             bankName = rule.bankName.trim(),
-            senderAddresses = rule.senderAddresses.map(String::trim).filter(String::isNotEmpty).distinct()
+            senderAddresses = (textSenders + numericSenders).distinct(),
+            textSenderAddresses = textSenders,
+            numericSenderAddresses = numericSenders
         )
         require(normalized.bankName.isNotBlank())
-        require(normalized.senderAddresses.isNotEmpty())
+        require(normalized.textSenderAddresses.isNotEmpty() || normalized.numericSenderAddresses.isNotEmpty())
         val all = getAll(userId).toMutableList()
         val index = all.indexOfFirst { it.id == normalized.id }
         if (index >= 0) all[index] = normalized else all.add(normalized)
@@ -96,6 +121,8 @@ class UserBankSmsRuleRepository(context: Context) {
                     .put("id", rule.id)
                     .put("bankName", rule.bankName)
                     .put("senders", JSONArray(rule.senderAddresses))
+                    .put("textSenders", JSONArray(rule.textSenderAddresses))
+                    .put("numericSenders", JSONArray(rule.numericSenderAddresses))
                     .put("incomeMarkers", rule.incomeMarkers)
                     .put("expenseMarkers", rule.expenseMarkers)
                     .put("transferMarkers", rule.transferMarkers)
