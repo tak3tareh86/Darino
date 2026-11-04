@@ -18,6 +18,7 @@ object BankSmsParser {
         groupedAmountRegex.findAll(normalizeText(body))
             .mapNotNull { parsePositiveNumber(it.value) }
             .distinct()
+            .toList()
 
     fun normalizeText(input: String): String =
         IranianPhoneUtils.convertDigitsToEnglish(input)
