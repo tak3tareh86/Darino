@@ -150,7 +150,7 @@ fun FuelEntrySheet(
                 }
             }
 
-            // Amount Input Field with Live Toman Formatter & Persian Words
+            // Amount Input Field with the selected currency & Persian words
             PersianAmountInputField(
                 value = amountInput,
                 onValueChange = { amountInput = it },
