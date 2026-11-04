@@ -102,6 +102,7 @@ fun UserBankSmsRulesSection() {
     var rules by remember { mutableStateOf(repository.getAll()) }
     var editing by remember { mutableStateOf<UserBankSmsRule?>(null) }
     var showEditor by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(1) }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -113,6 +114,14 @@ fun UserBankSmsRulesSection() {
             )
         }
 
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GuideTab(title = "قوانین ثبت الگو", selected = selectedTab == 1, onClick = { selectedTab = 1 }, modifier = Modifier.weight(1f))
+            GuideTab(title = "مدیریت بانک‌ها", selected = selectedTab == 0, onClick = { selectedTab = 0 }, modifier = Modifier.weight(1f))
+        }
+
+        if (selectedTab == 1) {
+            SmsRulesGuide()
+        } else {
         Surface(
             onClick = { editing = null; showEditor = true },
             modifier = Modifier
@@ -228,9 +237,10 @@ fun UserBankSmsRulesSection() {
                 }
             }
         }
+        }
     }
 
-    if (showEditor) {
+    if (showEditor && selectedTab == 0) {
         RuleEditorDialog(
             initial = editing,
             onDismiss = { showEditor = false },
@@ -373,6 +383,144 @@ private fun RuleEditorDialog(
                         }
                     }
                     TextButton(onClick = { showBankPicker = false }, modifier = Modifier.align(Alignment.End)) { Text("بستن") }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun GuideTab(title: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(54.dp),
+        shape = RoundedCornerShape(17.dp),
+        color = if (selected) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+        shadowElevation = if (selected) 4.dp else 0.dp
+    ) {
+        Box(
+            modifier = Modifier.background(
+                if (selected) Brush.horizontalGradient(listOf(Color(0xFF1677F2), Color(0xFF7438E8)))
+                else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
+            ).padding(horizontal = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(title, color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleSmall)
+        }
+    }
+}
+
+@Composable
+private fun SmsRulesGuide() {
+    Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = Color(0xFFE8F0FF),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("راهنمای قوانین و قواعد ورود اطلاعات", style = MaterialTheme.typography.titleMedium, color = Color(0xFF172B70))
+                Text("برای شناسایی درست پیامک‌های بانکی، نکات زیر را هنگام تعریف الگو رعایت کنید.", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF26345F))
+            }
+        }
+
+        GuideRuleCard(
+            icon = "↔",
+            title = "قوانین نشانه‌های واریز، برداشت و انتقال وجه",
+            bullets = listOf(
+                "تنها جداکننده مجاز بین نشانه‌ها علامت / است.",
+                "فاصله و علائم دیگر مانند ، . ؛ - یا , جداکننده مجاز نیستند.",
+                "حداقل دو نشانه متفاوت برای هر دسته وارد کنید.",
+                "تمام نشانه‌های یک دسته باید در همان پیامک وجود داشته باشند؛ ترتیبشان مهم نیست."
+            ),
+            examples = listOf(
+                "مثال صحیح", "واریز/پرداخت/نشست",
+                "مثال نادرست", "واریز، پرداخت، نشست"
+            )
+        )
+
+        GuideRuleCard(
+            icon = "👤",
+            title = "قوانین سرشناسه",
+            bullets = listOf(
+                "سرشناسه عددی: ارقام فارسی، عربی و انگلیسی معادل‌اند؛ فاصله‌ها و علامت + ابتدایی نادیده گرفته می‌شوند.",
+                "سرشناسه متنی: فاصله‌های ابتدا و انتها حذف می‌شوند؛ حروف «ي» و «ی» و همچنین «ك» و «ک» معادل‌اند.",
+                "در سرشناسه متنی، بزرگی و کوچکی حروف انگلیسی اهمیت دارد."
+            ),
+            examples = listOf(
+                "مثال عددی", "0912 345 6789  =  ۰۹۱۲۳۴۵۶۷۸۹",
+                "مثال متنی", "Bank Mellat  ≠  bank mellat"
+            )
+        )
+
+        GuideRuleCard(
+            icon = "✎",
+            title = "قوانین حروف و علائم در نشانه‌ها",
+            bullets = listOf(
+                "حروف فارسی و عربی «ی/ي» و «ک/ك» هنگام تطبیق معادل‌اند.",
+                "ارقام فارسی، عربی و انگلیسی یکسان در نظر گرفته می‌شوند.",
+                "فاصله‌ها هنگام تطبیق نشانه‌ها نادیده گرفته می‌شوند.",
+                "علامت‌های _ و - هنگام تطبیق معادل یکدیگرند؛ اما برای جداکردن نشانه‌ها فقط / معتبر است."
+            ),
+            examples = listOf(
+                "نمونه معادل", "کارت_به_کارت  =  کارت-به-کارت",
+                "نمونه غیرمجاز", "واریز / برداشت (فاصله در کادر مجاز نیست)"
+            )
+        )
+
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = Color(0xFFE8F0FF),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("💡", style = MaterialTheme.typography.headlineSmall)
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("نکته مهم", color = Color(0xFF1746B5), style = MaterialTheme.typography.titleSmall)
+                    Text("اگر بیش از یک دسته نشانه در پیامک تطبیق پیدا کند، نوع تراکنش نیازمند تأیید کاربر خواهد بود.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF26345F))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuideRuleCard(icon: String, title: String, bullets: List<String>, examples: List<String>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(21.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFFE8EEFF)) {
+                    Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+                        Text(icon, color = Color(0xFF245CE8), style = MaterialTheme.typography.titleLarge)
+                    }
+                }
+                Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+            }
+            bullets.forEach { line ->
+                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("✓", color = Color(0xFF2478E8), style = MaterialTheme.typography.titleSmall)
+                    Text(line, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                examples.chunked(2).forEach { pair ->
+                    val correct = pair.firstOrNull()?.contains("صحیح") == true || pair.firstOrNull()?.contains("معادل") == true || pair.firstOrNull()?.contains("عددی") == true || pair.firstOrNull()?.contains("متنی") == true
+                    Surface(
+                        shape = RoundedCornerShape(13.dp),
+                        color = if (correct) Color(0xFFE4F7EC) else Color(0xFFFFE9E9),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text((if (correct) "✓ " else "✕ ") + (pair.getOrNull(0) ?: ""), color = if (correct) Color(0xFF087C48) else Color(0xFFC43D3D), style = MaterialTheme.typography.labelLarge)
+                            Text(pair.getOrNull(1).orEmpty(), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                 }
             }
         }
