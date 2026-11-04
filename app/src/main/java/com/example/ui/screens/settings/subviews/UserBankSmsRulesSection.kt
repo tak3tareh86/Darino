@@ -84,6 +84,8 @@ private object BankLogoRepository {
         }
     }
 }
+private fun sanitizeMarkerInput(value: String): String = value.filter { it.isLetterOrDigit() || it == '/' || it == '_' || it == '-' || it == '+' }
+
 private fun renderBankLogo(source: String): Bitmap? = runCatching {
     val bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
     val svg = SVG.getFromString(source)
@@ -305,9 +307,9 @@ private fun RuleEditorDialog(
                         )
                     )
                 }
-                item { OutlinedTextField(income, { income = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های واریز") }, placeholder = { Text("واریز/نشست") }, singleLine = true) }
-                item { OutlinedTextField(expense, { expense = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های برداشت") }, placeholder = { Text("برداشت/پرید") }, singleLine = true) }
-                item { OutlinedTextField(transfer, { transfer = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های انتقال وجه") }, placeholder = { Text("انتقال/کارت_به_کارت") }, singleLine = true) }
+                item { OutlinedTextField(income, { income = sanitizeMarkerInput(it) }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های واریز") }, placeholder = { Text("واریز/نشست") }, singleLine = true) }
+                item { OutlinedTextField(expense, { expense = sanitizeMarkerInput(it) }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های برداشت") }, placeholder = { Text("برداشت/پرید") }, singleLine = true) }
+                item { OutlinedTextField(transfer, { transfer = sanitizeMarkerInput(it) }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های انتقال وجه") }, placeholder = { Text("انتقال/کارت_به_کارت") }, singleLine = true) }
                 item {
                     Column {
                         Text("بازه بررسی پیامک‌های قدیمی")
@@ -322,7 +324,7 @@ private fun RuleEditorDialog(
                 }
                 item {
                     Text(
-                        "در هر سه کادر حداقل دو نشانه وارد کنید و فقط از / برای جداکردن آن‌ها استفاده کنید. فاصله و علائم نگارشی دیگر جداکننده نیستند؛ فاصله‌ها هنگام تطبیق نادیده گرفته می‌شوند و _ و - معادل‌اند. هر دو نشانه باید در همان پیامک وجود داشته باشند.",
+                        "در این سه کادر فقط حروف و اعداد و نشانه‌های +، _، - و جداکننده / پذیرفته می‌شوند؛ فاصله و سایر علائم نگارشی قابل ورود نیستند. برای ثبت چند نشانه فقط از / استفاده کنید. _ و - هنگام تطبیق معادل‌اند و همه نشانه‌های یک دسته باید در همان پیامک وجود داشته باشند.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
