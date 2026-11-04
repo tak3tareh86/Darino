@@ -71,7 +71,7 @@ fun VehicleProfileScreen(
     var platePart2 by remember(vehicle) { mutableStateOf(initialPlateParts.part2) }
     var plateIranCode by remember(vehicle) { mutableStateOf(initialPlateParts.iranCode) }
     var vin by remember(vehicle) { mutableStateOf(vehicle.vin) }
-    var estimatedValueText by remember(vehicle) {
+    var estimatedValueText by remember(vehicle, MoneyFormatter.activeCurrency) {
         mutableStateOf(if (vehicle.estimatedValue > 0) MoneyFormatter.convertFromToman(vehicle.estimatedValue).toString() else "")
     }
     var currentMileageText by remember(vehicle) { mutableStateOf(vehicle.currentMileage.toString()) }
