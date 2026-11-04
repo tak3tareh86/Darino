@@ -1,6 +1,7 @@
 package com.example.ui.screens.settings.subviews
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,6 +31,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Dialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -44,41 +47,51 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import androidx.compose.foundation.Image
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import com.caverock.androidsvg.SVG
+import org.json.JSONObject
 import com.example.data.sms.UserBankSmsRule
 import com.example.data.sms.UserBankSmsRuleMatcher
 import com.example.data.sms.UserBankSmsRuleRepository
 import com.example.data.sms.SMS_PATTERN_LOOKBACK_OPTIONS
 
-private data class BankBrand(val domain: String, val accent: Color)
-
-private fun bankBrand(name: String): BankBrand? {
-    val normalized = name.trim().replace("ي", "ی").replace("ك", "ک")
-    val brands = listOf(
-        listOf("ملی", "ملی ایران", "بانک ملی") to BankBrand("bmi.ir", Color(0xFF2563EB)),
-        listOf("ملت", "بانک ملت") to BankBrand("bankmellat.ir", Color(0xFFEA4335)),
-        listOf("سامان", "بانک سامان") to BankBrand("sb24.ir", Color(0xFF2563EB)),
-        listOf("تجارت", "بانک تجارت") to BankBrand("tejaratbank.ir", Color(0xFF0F766E)),
-        listOf("صادرات", "بانک صادرات") to BankBrand("bsi.ir", Color(0xFF0D9488)),
-        listOf("سپاه", "بانک سپه") to BankBrand("banksepah.ir", Color(0xFF0F766E)),
-        listOf("پاسارگاد", "بانک پاسارگاد") to BankBrand("bpi.ir", Color(0xFFDC2626)),
-        listOf("اقتصاد نوین", "بانک اقتصاد نوین") to BankBrand("enbank.ir", Color(0xFFDC2626)),
-        listOf("پارسیان", "بانک پارسیان") to BankBrand("parsian-bank.ir", Color(0xFF7C3AED)),
-        listOf("رفاه", "بانک رفاه") to BankBrand("refah-bank.ir", Color(0xFF0D9488)),
-        listOf("مسکن", "بانک مسکن") to BankBrand("bank-maskan.ir", Color(0xFF2563EB)),
-        listOf("کشاورزی", "بانک کشاورزی") to BankBrand("bki.ir", Color(0xFF16A34A)),
-        listOf("پست بانک", "پست‌بانک", "بانک پست بانک") to BankBrand("postbank.ir", Color(0xFF0D9488)),
-        listOf("شهر", "بانک شهر") to BankBrand("shahr-bank.ir", Color(0xFF2563EB)),
-        listOf("آینده", "بانک آینده") to BankBrand("ba24.ir", Color(0xFF7C3AED))
-    )
-    return brands.firstOrNull { (aliases, _) -> aliases.any { normalized.contains(it) } }?.second
+private object BankLogoRepository {
+    private val assetFiles = listOf("bank-logos-1.json", "bank-logos-2.json", "bank-logos-3.json", "bank-logos-4.json", "bank-logos-5.json", "bank-logos-6.json")
+    @Volatile private var cached: Map<String, String>? = null
+    fun get(context: android.content.Context): Map<String, String> {
+        cached?.let { return it }
+        return synchronized(this) {
+            cached ?: buildMap {
+                assetFiles.forEach { file ->
+                    runCatching {
+                        val raw = context.assets.open(file).bufferedReader().use { it.readText() }
+                        val json = JSONObject(raw)
+                        val keys = json.keys()
+                        while (keys.hasNext()) { val key = keys.next(); put(key, json.getString(key)) }
+                    }
+                }
+            }.also { cached = it }
+        }
+    }
 }
+private fun renderBankLogo(source: String): Bitmap? = runCatching {
+    val bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
+    val svg = SVG.getFromString(source)
+    svg.setDocumentWidth("256px")
+    svg.setDocumentHeight("256px")
+    svg.renderToCanvas(Canvas(bitmap))
+    bitmap
+}.getOrNull()
 
 @Composable
 fun UserBankSmsRulesSection() {
