@@ -20,7 +20,7 @@ class UserRuleSmsAmountParserTest {
         val parsed = UserRuleSmsAmountParser.parse(
             smsId = "sms-1",
             sender = "30001234",
-            body = "برداشت 50,000 تومان از حساب؛ مانده 7,963,304 تومان",
+            body = "برداشت50,000 تومان از حساب؛ مانده7,963,304 تومان",
             receivedAtMillis = 1_700_000_000_000L,
             rule = rule,
             type = TransactionType.EXPENSE
