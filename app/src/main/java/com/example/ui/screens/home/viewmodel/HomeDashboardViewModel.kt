@@ -449,7 +449,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
 
                 val destinationAccount = if (finalType == TransactionType.TRANSFER) {
                     val destinationId = selectedDestinationId?.takeIf { it.isNotBlank() }
-                    if (destinationId == null || destinationId == selectedSourceId) {
+                    if (destinationId == null) {
                         onResult(SmsAcceptResult.DestinationAccountRequired)
                         return@withLock
                     }
