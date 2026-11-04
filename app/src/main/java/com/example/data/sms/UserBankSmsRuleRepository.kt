@@ -13,12 +13,12 @@ data class UserBankSmsRule(
     val bankName: String,
     // Legacy field retained for source compatibility with older callers/backups.
     val senderAddresses: List<String> = emptyList(),
-    val textSenderAddresses: List<String> = emptyList(),
-    val numericSenderAddresses: List<String> = emptyList(),
     val incomeMarkers: String,
     val expenseMarkers: String,
     val transferMarkers: String,
-    val lookbackMillis: Long = DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS
+    val lookbackMillis: Long = DEFAULT_SMS_PATTERN_LOOKBACK_MILLIS,
+    val textSenderAddresses: List<String> = emptyList(),
+    val numericSenderAddresses: List<String> = emptyList()
 )
 
 class UserBankSmsRuleRepository(context: Context) {
