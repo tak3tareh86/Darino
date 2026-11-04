@@ -272,10 +272,16 @@ object SmsPatternMatcher {
         if (configuredSender.isBlank() || actualSender.isNullOrBlank()) return false
         val configured = normalizeDigits(configuredSender.trim())
         val actual = normalizeDigits(actualSender.trim())
-        fun isNumericSender(value: String): Boolean =
-            value.all { it.isWhitespace() || it in '0'..'9' }
-        return if (isNumericSender(configured) && isNumericSender(actual)) {
-            configured.filterNot { it.isWhitespace() } == actual.filterNot { it.isWhitespace() }
+        fun numericDigits(value: String): String? {
+            val withoutLeadingPlus = value.removePrefix("+")
+            val isNumericSender = withoutLeadingPlus.isNotEmpty() &&
+                withoutLeadingPlus.all { it.isWhitespace() || it in '0'..'9' }
+            return if (isNumericSender) withoutLeadingPlus.filterNot { it.isWhitespace() } else null
+        }
+        val configuredDigits = numericDigits(configured)
+        val actualDigits = numericDigits(actual)
+        return if (configuredDigits != null && actualDigits != null) {
+            configuredDigits == actualDigits
         } else {
             configured == actual
         }
