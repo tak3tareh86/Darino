@@ -1231,6 +1231,32 @@ fun EditSmsTransactionDialog(
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(9.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                "متن کامل پیام بانکی",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text(
+                                suggestion.smsText,
+                                style = MaterialTheme.typography.bodySmall.copy(lineHeight = 17.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
                     if (selectedType == TransactionType.TRANSFER) {
                         Box(modifier = Modifier.fillMaxWidth()) {
                             val selectedDestinationName = accounts.firstOrNull { it.stringId == destinationId }?.name.orEmpty()
@@ -1267,32 +1293,6 @@ fun EditSmsTransactionDialog(
                                     )
                                 }
                             }
-                        }
-                    }
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(9.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f)
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                "متن کامل پیام بانکی",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Text(
-                                suggestion.smsText,
-                                style = MaterialTheme.typography.bodySmall.copy(lineHeight = 17.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
                         }
                     }
                     if (!suggestion.sourceAccount.isNullOrBlank()) {
