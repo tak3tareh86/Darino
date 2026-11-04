@@ -866,17 +866,22 @@ private fun SmsGrantedContentView(
                         }
                     }
 
-                    // Original SMS snippet
-                    Text(
-                        text = item.smsText,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 10.sp,
-                            lineHeight = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    // Show the complete original SMS so the user can review the source text.
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                    ) {
+                        Text(
+                            text = item.smsText,
+                            modifier = Modifier.padding(9.dp),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+                    }
 
                     // Suggested Category & Date/Time
                     Row(
@@ -1077,7 +1082,6 @@ fun EditSmsTransactionDialog(
     ) -> Unit
 ) {
     var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
-    var typeMenuExpanded by remember(suggestion.id) { mutableStateOf(false) }
     var amountText by remember(suggestion.id) {
         mutableStateOf(if (suggestion.isAmountValid && suggestion.amount > 0L) IranianAmountUtils.formatWithCommas(suggestion.amount.toString()) else "")
     }
@@ -1156,52 +1160,68 @@ fun EditSmsTransactionDialog(
                         )
                     )
 
-                    // The detected type is a suggestion only; the user can correct it before saving.
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    // The detected type is only a suggestion; the user can correct it here.
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
                             "نوع تراکنش",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                         )
-                        Box {
-                            TextButton(onClick = { typeMenuExpanded = true }) {
-                                Text(
-                                    when (selectedType) {
-                                        TransactionType.INCOME -> "واریز"
-                                        TransactionType.EXPENSE -> "برداشت"
-                                        TransactionType.TRANSFER -> "انتقال وجه"
-                                        null -> "انتخاب نوع تراکنش"
-                                    }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            FilterChip(
+                                modifier = Modifier.weight(1f),
+                                selected = selectedType == TransactionType.INCOME,
+                                onClick = {
+                                    selectedType = TransactionType.INCOME
+                                    category = incomeCategories.first()
+                                    dialogError = null
+                                },
+                                label = { Text("درآمد", fontSize = 10.sp, maxLines = 1) }
+                            )
+                            FilterChip(
+                                modifier = Modifier.weight(1f),
+                                selected = selectedType == TransactionType.EXPENSE,
+                                onClick = {
+                                    selectedType = TransactionType.EXPENSE
+                                    category = expenseCategories.first()
+                                    dialogError = null
+                                },
+                                label = { Text("هزینه", fontSize = 10.sp, maxLines = 1) }
+                            )
+                            FilterChip(
+                                modifier = Modifier.weight(1f),
+                                selected = selectedType == TransactionType.TRANSFER,
+                                onClick = {
+                                    selectedType = TransactionType.TRANSFER
+                                    category = transferCategories.first()
+                                    dialogError = null
+                                },
+                                label = { Text("انتقال", fontSize = 10.sp, maxLines = 1) }
+                            )
+                        }
+                    }
+
+                    // Keep the original SMS visible in the review dialog for verification.
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                    ) {
+                        Column(modifier = Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                "متن کامل پیامک بانکی",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                suggestion.smsText,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 10.sp,
+                                    lineHeight = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            }
-                            DropdownMenu(
-                                expanded = typeMenuExpanded,
-                                onDismissRequest = { typeMenuExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("واریز") },
-                                    onClick = {
-                                        selectedType = TransactionType.INCOME
-                                        category = "واریز"
-                                        typeMenuExpanded = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("برداشت") },
-                                    onClick = {
-                                        selectedType = TransactionType.EXPENSE
-                                        category = "برداشت"
-                                        typeMenuExpanded = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("انتقال وجه") },
-                                    onClick = {
-                                        selectedType = TransactionType.TRANSFER
-                                        category = "انتقال وجه"
-                                        typeMenuExpanded = false
-                                    }
-                                )
-                            }
+                            )
                         }
                     }
 
