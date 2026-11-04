@@ -93,7 +93,8 @@ fun SettingsHeader(
                 .statusBarsPadding()
                 // Reduce the oversized empty space above and below the header content.
                 .padding(
-                    horizontal = if (compact) 16.dp else 20.dp,
+                    start = if (compact) 16.dp else 20.dp,
+                    end = if (compact) 16.dp else 20.dp,
                     top = if (compact) 2.dp else 4.dp,
                     bottom = if (compact) 5.dp else 8.dp
                 )
