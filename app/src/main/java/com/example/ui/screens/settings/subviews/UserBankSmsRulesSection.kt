@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -182,7 +183,7 @@ fun UserBankSmsRulesSection() {
             ) {
                 rowRules.forEach { rule ->
                     Card(
-                        modifier = Modifier.weight(1f).height(218.dp),
+                        modifier = Modifier.weight(1f).aspectRatio(0.82f),
                         shape = RoundedCornerShape(19.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -303,15 +304,15 @@ private fun BankLogo(name: String) {
     val svg = remember(entry) { entry?.let { BankLogoRepository.get(context)[it.logoKey] } }
     val bitmap = remember(svg) { svg?.let { renderBankLogo(it) } }
     Surface(
-        modifier = Modifier.size(58.dp),
-        shape = RoundedCornerShape(17.dp),
+        modifier = Modifier.size(46.dp),
+        shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
     ) {
         Box(contentAlignment = Alignment.Center) {
             if (bitmap != null) {
-                Image(bitmap.asImageBitmap(), contentDescription = "لوگوی بانک", modifier = Modifier.size(46.dp), contentScale = ContentScale.Fit)
+                Image(bitmap.asImageBitmap(), contentDescription = "لوگوی بانک", modifier = Modifier.size(36.dp), contentScale = ContentScale.Fit)
             } else {
-                Icon(Icons.Rounded.AccountBalance, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
+                Icon(Icons.Rounded.AccountBalance, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             }
         }
     }
