@@ -37,6 +37,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -191,6 +192,13 @@ fun AppNavigationContainer(
 ) {
     var isSplashFinished by remember { mutableStateOf(false) }
     var currentTab by remember { mutableStateOf(BottomNavItem.HOME) }
+    val tabBackStack = remember { mutableStateListOf(BottomNavItem.HOME) }
+
+    fun navigateToTab(tab: BottomNavItem) {
+        if (tab == currentTab) return
+        tabBackStack.add(tab)
+        currentTab = tab
+    }
     var isSettingsOpen by remember { mutableStateOf(false) }
     var settingsInitialDestination by remember { mutableStateOf(SettingsDestination.MAIN) }
     var isNotificationsOpen by remember { mutableStateOf(false) }
@@ -322,16 +330,22 @@ fun AppNavigationContainer(
     ) {
         SubscriptionGate(subscriptionViewModel = subscriptionViewModel) {
             // Back navigation interceptors
-        BackHandler(enabled = isSettingsOpen || isNotificationsOpen || isFinancialHealthOpen || currentTab != BottomNavItem.HOME) {
+        BackHandler(enabled = isSettingsOpen || isNotificationsOpen || isFinancialHealthOpen || tabBackStack.size > 1) {
             when {
-                isSettingsOpen -> isSettingsOpen = false
+                isSettingsOpen -> {
+                    isSettingsOpen = false
+                    settingsInitialDestination = SettingsDestination.MAIN
+                }
                 isNotificationsOpen -> isNotificationsOpen = false
                 isFinancialHealthOpen -> isFinancialHealthOpen = false
-                currentTab != BottomNavItem.HOME -> currentTab = BottomNavItem.HOME
+                tabBackStack.size > 1 -> {
+                    tabBackStack.removeAt(tabBackStack.lastIndex)
+                    currentTab = tabBackStack.last()
+                }
             }
         }
 
-        BackHandler(enabled = !isSettingsOpen && !isNotificationsOpen && !isFinancialHealthOpen && currentTab == BottomNavItem.HOME) {
+        BackHandler(enabled = !isSettingsOpen && !isNotificationsOpen && !isFinancialHealthOpen && tabBackStack.size <= 1) {
             showExitDialog = true
         }
 
@@ -345,7 +359,7 @@ fun AppNavigationContainer(
                     HomeBottomNavigation(
                         selectedItem = currentTab,
                         onItemSelected = { tab ->
-                            currentTab = tab
+                            navigateToTab(tab)
                         }
                     )
                 }
@@ -484,7 +498,7 @@ fun AppNavigationContainer(
                                 BottomNavItem.HOME -> {
                                     HomeScreen(
                                         onNavigateToTab = { tab ->
-                                            currentTab = tab
+                                            navigateToTab(tab)
                                         },
                                         onNotificationClick = {
                                             isNotificationsOpen = true
