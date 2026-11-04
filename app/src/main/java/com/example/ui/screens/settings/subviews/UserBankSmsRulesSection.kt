@@ -106,9 +106,9 @@ fun UserBankSmsRulesSection() {
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text("مدیریت بانک‌ها", style = MaterialTheme.typography.titleLarge)
+            Text("مدیریت الگوهای پیامکی", style = MaterialTheme.typography.titleLarge)
             Text(
-                "بانک‌ها و قواعد تشخیص پیامک‌هایشان را یک‌جا مدیریت کنید.",
+                "بانک‌ها را مدیریت کنید و راهنمای قوانین ثبت الگو را ببینید.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
