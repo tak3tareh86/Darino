@@ -164,7 +164,6 @@ fun UserBankSmsRulesSection() {
         }
 
         rules.forEach { rule ->
-            val brand = bankBrand(rule.bankName)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(22.dp),
@@ -177,7 +176,7 @@ fun UserBankSmsRulesSection() {
                         verticalAlignment = Alignment.Top,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        BankLogo(name = rule.bankName, brand = brand)
+                        BankLogo(name = rule.bankName)
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text(rule.bankName, style = MaterialTheme.typography.titleMedium)
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -243,22 +242,21 @@ fun UserBankSmsRulesSection() {
 }
 
 @Composable
-private fun BankLogo(name: String, brand: BankBrand?) {
-    val fallbackColor = brand?.accent ?: MaterialTheme.colorScheme.primary
+private fun BankLogo(name: String) {
+    val context = LocalContext.current
+    val entry = remember(name) { BankCatalog.find(name) }
+    val svg = remember(entry) { entry?.let { BankLogoRepository.get(context)[it.logoKey] } }
+    val bitmap = remember(svg) { svg?.let { renderBankLogo(it) } }
     Surface(
         modifier = Modifier.size(58.dp),
         shape = RoundedCornerShape(17.dp),
-        color = fallbackColor.copy(alpha = 0.09f)
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            if (brand != null) {
-                AsyncImage(
-                    model = "https://www.google.com/s2/favicons?domain=${brand.domain}&sz=128",
-                    contentDescription = "نشان وب‌سایت بانک ${name}",
-                    modifier = Modifier.size(38.dp)
-                )
+            if (bitmap != null) {
+                Image(bitmap.asImageBitmap(), contentDescription = "لوگوی بانک", modifier = Modifier.size(46.dp), contentScale = ContentScale.Fit)
             } else {
-                Icon(Icons.Rounded.AccountBalance, null, tint = fallbackColor, modifier = Modifier.size(30.dp))
+                Icon(Icons.Rounded.AccountBalance, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
             }
         }
     }
