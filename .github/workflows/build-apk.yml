@@ -1,4 +1,5 @@
 name: Build Darino APK
+# Rebuild requested; assembleDebug intentionally skips unit tests
 
 on:
   workflow_dispatch:
