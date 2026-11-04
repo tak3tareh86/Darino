@@ -77,7 +77,7 @@ object UserRuleSmsAmountParser {
             val nearRight = after.take(24)
             val balance = balanceContextRegex.containsMatchIn(nearLeft) ||
                 Regex("""^\s*[:：]?\s*(?:مانده|موجودی|balance)""", RegexOption.IGNORE_CASE).containsMatchIn(nearRight)
-            val transaction = amountLabelRegex.containsMatchIn(before.takeLast(34)) ||
+            val transaction = amountLabelRegex.containsMatchIn(before.takeLast(18)) ||
                 transactionContextRegex.containsMatchIn(before.takeLast(16) + " " + after.take(28))
             val irrelevant = irrelevantContextRegex.containsMatchIn(before.takeLast(22))
             if (irrelevant && !transaction) return@mapNotNull null
