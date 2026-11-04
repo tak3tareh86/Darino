@@ -197,7 +197,7 @@ fun UserBankSmsRulesSection() {
                                     rule.senderAddresses.joinToString("، "),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textDirection = TextDirection.Ltr
+                                    style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr)
                                 )
                             }
                         }
