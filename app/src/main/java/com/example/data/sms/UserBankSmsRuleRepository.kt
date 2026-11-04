@@ -84,9 +84,10 @@ class UserBankSmsRuleRepository(context: Context) {
     fun save(rule: UserBankSmsRule, userId: String? = SessionManager.userId) {
         require(rule.bankName.isNotBlank())
         require(rule.textSenderAddresses.isNotEmpty() || rule.numericSenderAddresses.isNotEmpty() || rule.senderAddresses.isNotEmpty())
-        require(UserBankSmsRuleMatcher.parseMarkers(rule.incomeMarkers) != null)
-        require(UserBankSmsRuleMatcher.parseMarkers(rule.expenseMarkers) != null)
-        require(UserBankSmsRuleMatcher.parseMarkers(rule.transferMarkers) != null)
+        // Each transaction type is optional; validate only marker groups the user filled in.
+        val markerGroups = listOf(rule.incomeMarkers, rule.expenseMarkers, rule.transferMarkers)
+        require(markerGroups.all { it.isBlank() || UserBankSmsRuleMatcher.parseMarkers(it) != null })
+        require(markerGroups.any { it.isNotBlank() && UserBankSmsRuleMatcher.parseMarkers(it) != null })
         val legacy = rule.senderAddresses.map(String::trim).filter(String::isNotEmpty)
         val textSenders = (rule.textSenderAddresses + legacy.filterNot(UserBankSmsRuleMatcher::isNumericSender))
             .map(String::trim).filter(String::isNotEmpty).distinct()
