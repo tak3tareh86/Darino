@@ -258,13 +258,13 @@ private fun RuleEditorDialog(
     onSave: (UserBankSmsRule) -> Unit
 ) {
     var bank by remember(initial?.id) { mutableStateOf(initial?.bankName.orEmpty()) }
-    var senders by remember(initial?.id) { mutableStateOf(initial?.senderAddresses?.joinToString("\\n").orEmpty()) }
+    var senders by remember(initial?.id) { mutableStateOf(initial?.senderAddresses?.joinToString("\n").orEmpty()) }
     var income by remember(initial?.id) { mutableStateOf(initial?.incomeMarkers.orEmpty()) }
     var expense by remember(initial?.id) { mutableStateOf(initial?.expenseMarkers.orEmpty()) }
     var transfer by remember(initial?.id) { mutableStateOf(initial?.transferMarkers.orEmpty()) }
     var lookbackDays by remember(initial?.id) { mutableStateOf((initial?.lookbackMillis ?: 24L * 60L * 60L * 1000L).let { (it / (24L * 60L * 60L * 1000L)).toInt().coerceIn(1, 90) }) }
     var lookbackMenuExpanded by remember { mutableStateOf(false) }
-    val senderList = senders.split(Regex("[,،\\\\n]")).map(String::trim).filter(String::isNotEmpty).distinct()
+    val senderList = senders.split(Regex("[,،\\n]")).map(String::trim).filter(String::isNotEmpty).distinct()
     val validMarkers = listOf(income, expense, transfer).all { UserBankSmsRuleMatcher.parseMarkers(it) != null }
     val valid = bank.isNotBlank() && senderList.isNotEmpty() && validMarkers
 
