@@ -104,7 +104,7 @@ fun UserBankSmsRulesSection() {
     var showEditor by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text("مدیریت الگوهای پیامکی", style = MaterialTheme.typography.titleLarge)
             Text(
@@ -126,15 +126,15 @@ fun UserBankSmsRulesSection() {
             onClick = { editing = null; showEditor = true },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(76.dp)
-                .shadow(8.dp, RoundedCornerShape(22.dp)),
-            shape = RoundedCornerShape(22.dp),
+                .height(60.dp)
+                .shadow(5.dp, RoundedCornerShape(18.dp)),
+            shape = RoundedCornerShape(18.dp),
             color = Color.Transparent
         ) {
             Box(
                 modifier = Modifier.background(
                     Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary.copy(alpha = 0.82f)))
-                ).padding(horizontal = 20.dp),
+                ).padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(
@@ -142,15 +142,15 @@ fun UserBankSmsRulesSection() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(Icons.Rounded.AccountBalance, null, tint = Color.White, modifier = Modifier.size(30.dp))
+                    Icon(Icons.Rounded.AccountBalance, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("افزودن بانک", color = Color.White, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.width(12.dp))
-                    Text("افزودن بانک", color = Color.White, style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.width(18.dp))
                     Box(
-                        modifier = Modifier.size(38.dp).background(Color.White.copy(alpha = 0.20f), CircleShape),
+                        modifier = Modifier.size(32.dp).background(Color.White.copy(alpha = 0.20f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(26.dp))
+                        Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(21.dp))
                     }
                 }
             }
@@ -168,7 +168,7 @@ fun UserBankSmsRulesSection() {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(Icons.Rounded.AccountBalance, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp))
-                    Text("هنوز بانکی اضافه نکرده‌اید", style = MaterialTheme.typography.titleSmall)
+                    Text("هنوز بانکی اضافه نکرده‌اید", style = MaterialTheme.typography.labelLarge)
                     Text("برای شروع، روی دکمه افزودن بانک بزنید.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -425,8 +425,8 @@ private fun RuleEditorDialog(
 private fun GuideTab(title: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         onClick = onClick,
-        modifier = modifier.height(54.dp),
-        shape = RoundedCornerShape(17.dp),
+        modifier = modifier.height(44.dp),
+        shape = RoundedCornerShape(14.dp),
         color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
         shadowElevation = if (selected) 4.dp else 0.dp
     ) {
