@@ -20,7 +20,7 @@ object UserRuleSmsAmountParser {
         val end: Int
     )
 
-    private val numberRegex = Regex("""(?<![\p{L}\d])([+-]?\d[\d,،٬٫.\u00A0 ]*)(?![\p{L}\d])""")
+    private val numberRegex = Regex("""(?<!\d)([+-]?\d[\d,،٬٫.\u00A0 ]*)(?![\p{L}\d])""")
     private val rialRegex = Regex("""(?:ریال|ريال|rial|rials)""", RegexOption.IGNORE_CASE)
     private val tomanRegex = Regex("""(?:تومان|تومن|toman|tomans)""", RegexOption.IGNORE_CASE)
     private val amountLabelRegex = Regex(
@@ -60,7 +60,7 @@ object UserRuleSmsAmountParser {
     // Strict Iranian-style grouping: the first group has 1-3 digits and every
     // group after it has exactly 3 digits. Persian/Arabic digits are normalized first.
     private val groupedNumberRegex = Regex(
-        """(?<![\p{L}\d])([+-]?\d{1,3}(?:[,،٬٫.]\d{3})+)(?![\d])"""
+        """(?<!\d)([+-]?\d{1,3}(?:[,،٬٫.]\d{3})+)(?![\d])"""
     )
 
     private fun extractGroupedAmounts(body: String): ExtractedAmounts {
