@@ -19,6 +19,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -88,7 +89,19 @@ fun FinancialScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var currentSubScreen by remember { mutableStateOf(FinanceSubScreen.MAIN) }
+    val subScreenBackStack = remember { mutableStateListOf(FinanceSubScreen.MAIN) }
+    val currentSubScreen = subScreenBackStack.last()
+    fun navigateToSubScreen(destination: FinanceSubScreen) {
+        if (subScreenBackStack.lastOrNull() != destination) subScreenBackStack.add(destination)
+    }
+    fun navigateBack() {
+        if (subScreenBackStack.size > 1) subScreenBackStack.removeAt(subScreenBackStack.lastIndex)
+    }
+    fun returnToMain() {
+        subScreenBackStack.clear()
+        subScreenBackStack.add(FinanceSubScreen.MAIN)
+    }
+    BackHandler(enabled = subScreenBackStack.size > 1) { navigateBack() }
 
     // Bottom Sheets State
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -147,7 +160,7 @@ fun FinancialScreen(
                             formattedExpense = state.formattedExpense,
                             formattedBalance = state.formattedBalance,
                             savingsRate = state.savingsRate,
-                            onCardClick = { currentSubScreen = FinanceSubScreen.ALL_TRANSACTIONS }
+                            onCardClick = { navigateToSubScreen(FinanceSubScreen.ALL_TRANSACTIONS) }
                         )
 
                         // 2. Monthly Budget Card (Total, Spent, Remaining, Progress, Status)
@@ -157,7 +170,7 @@ fun FinancialScreen(
                             remainingFormatted = state.formattedBudgetRemaining,
                             usagePercentage = state.budgetProgress,
                             status = state.budgetStatus,
-                            onCardClick = { currentSubScreen = FinanceSubScreen.BUDGETS }
+                            onCardClick = { navigateToSubScreen(FinanceSubScreen.BUDGETS) }
                         )
 
                         // 3. Quick Actions: ثبت هزینه، ثبت درآمد، انتقال
@@ -183,10 +196,10 @@ fun FinancialScreen(
 
                         // 4. Quick Links: بودجه‌ها، اهداف پس‌انداز، تکرارشونده، دسته‌بندی‌ها
                         FinanceQuickLinks(
-                            onNavigateToBudgets = { currentSubScreen = FinanceSubScreen.BUDGETS },
-                            onNavigateToSavingsGoals = { currentSubScreen = FinanceSubScreen.SAVINGS_GOALS },
-                            onNavigateToRecurring = { currentSubScreen = FinanceSubScreen.RECURRING_TRANSACTIONS },
-                            onNavigateToCategories = { currentSubScreen = FinanceSubScreen.CATEGORIES }
+                            onNavigateToBudgets = { navigateToSubScreen(FinanceSubScreen.BUDGETS) },
+                            onNavigateToSavingsGoals = { navigateToSubScreen(FinanceSubScreen.SAVINGS_GOALS) },
+                            onNavigateToRecurring = { navigateToSubScreen(FinanceSubScreen.RECURRING_TRANSACTIONS) },
+                            onNavigateToCategories = { navigateToSubScreen(FinanceSubScreen.CATEGORIES) }
                         )
 
                         // 5. Recent Transactions Section (Max 4 items + "همه ›" button)
@@ -194,7 +207,7 @@ fun FinancialScreen(
                             transactions = state.recentTransactions,
                             onTransactionClick = { tx ->
                                 selectedTransactionDetail = tx
-                                currentSubScreen = FinanceSubScreen.TRANSACTION_DETAIL
+                                navigateToSubScreen(FinanceSubScreen.TRANSACTION_DETAIL)
                             },
                             onEditClick = { tx ->
                                 editingTransaction = tx
@@ -219,7 +232,7 @@ fun FinancialScreen(
                                 }
                             },
                             onSeeAllClick = {
-                                currentSubScreen = FinanceSubScreen.ALL_TRANSACTIONS
+                                navigateToSubScreen(FinanceSubScreen.ALL_TRANSACTIONS)
                             }
                         )
 
@@ -232,10 +245,10 @@ fun FinancialScreen(
                 TransactionsScreen(
                     transactions = state.allTransactions,
                     categories = state.categories,
-                    onBackClick = { currentSubScreen = FinanceSubScreen.MAIN },
+                    onBackClick = { navigateBack() },
                     onTransactionClick = { tx ->
                         selectedTransactionDetail = tx
-                        currentSubScreen = FinanceSubScreen.TRANSACTION_DETAIL
+                        navigateToSubScreen(FinanceSubScreen.TRANSACTION_DETAIL)
                     },
                     onAddNewTransaction = {
                         addTxInitialType = TransactionType.EXPENSE
@@ -267,7 +280,7 @@ fun FinancialScreen(
                 selectedTransactionDetail?.let { tx ->
                     TransactionDetailScreen(
                         transaction = tx,
-                        onBackClick = { currentSubScreen = FinanceSubScreen.MAIN },
+                        onBackClick = { navigateBack() },
                         onEditClick = {
                             editingTransaction = tx
                             showAddTxSheet = true
@@ -275,7 +288,7 @@ fun FinancialScreen(
                         onDuplicateClick = {
                             viewModel.duplicateTransaction(tx.id) { duplicated ->
                                 if (duplicated != null) {
-                                    currentSubScreen = FinanceSubScreen.MAIN
+                                    returnToMain()
                                     scope.launch { snackbarHostState.showSnackbar("تراکنش کپی شد") }
                                 } else {
                                     scope.launch { snackbarHostState.showSnackbar("خطا در کپی تراکنش") }
@@ -285,7 +298,7 @@ fun FinancialScreen(
                         onDeleteClick = {
                             viewModel.deleteTransaction(tx.id) { res ->
                                 if (res == TransactionOperationResult.SUCCESS) {
-                                    currentSubScreen = FinanceSubScreen.MAIN
+                                    returnToMain()
                                     scope.launch { snackbarHostState.showSnackbar("تراکنش حذف شد") }
                                 } else {
                                     scope.launch { snackbarHostState.showSnackbar("خطا در حذف تراکنش") }
@@ -294,14 +307,14 @@ fun FinancialScreen(
                         }
                     )
                 } ?: run {
-                    currentSubScreen = FinanceSubScreen.MAIN
+                    returnToMain()
                 }
             }
 
             FinanceSubScreen.BUDGETS -> {
                 BudgetScreen(
                     budgets = state.activeBudgets,
-                    onBackClick = { currentSubScreen = FinanceSubScreen.MAIN },
+                    onBackClick = { navigateBack() },
                     onAddBudgetClick = {
                         editingBudget = null
                         showAddBudgetSheet = true
@@ -327,7 +340,7 @@ fun FinancialScreen(
             FinanceSubScreen.SAVINGS_GOALS -> {
                 SavingsGoalsScreen(
                     goals = state.savingsGoals,
-                    onBackClick = { currentSubScreen = FinanceSubScreen.MAIN },
+                    onBackClick = { navigateBack() },
                     onAddGoalClick = {
                         editingGoal = null
                         showAddGoalSheet = true
@@ -349,7 +362,7 @@ fun FinancialScreen(
             FinanceSubScreen.RECURRING_TRANSACTIONS -> {
                 RecurringTransactionsScreen(
                     recurringList = state.recurringTransactions,
-                    onBackClick = { currentSubScreen = FinanceSubScreen.MAIN },
+                    onBackClick = { navigateBack() },
                     onAddClick = {
                         editingRecurring = null
                         showAddRecurringSheet = true
@@ -371,7 +384,7 @@ fun FinancialScreen(
             FinanceSubScreen.CATEGORIES -> {
                 CategoryManagementScreen(
                     categories = state.categories,
-                    onBackClick = { currentSubScreen = FinanceSubScreen.MAIN },
+                    onBackClick = { navigateBack() },
                     onSaveCategory = { cat ->
                         viewModel.saveCategory(cat)
                         scope.launch { snackbarHostState.showSnackbar("دسته‌بندی ذخیره شد") }
