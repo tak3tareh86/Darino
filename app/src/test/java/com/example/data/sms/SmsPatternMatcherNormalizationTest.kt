@@ -150,6 +150,33 @@ class SmsPatternMatcherNormalizationTest {
     }
 
     @Test
+    fun textAndNumericSenderKindsNeverCrossMatch() {
+        assertTrue(UserBankSmsRuleMatcher.isNumericSender("۰۹۹۹ ۹۹۸ ۷۶۴۱"))
+        assertFalse(UserBankSmsRuleMatcher.isNumericSender("Blu"))
+        assertFalse(UserBankSmsRuleMatcher.senderMatches("09999987641", "Blu"))
+        assertFalse(UserBankSmsRuleMatcher.senderMatches("Blu", "09999987641"))
+        assertTrue(UserBankSmsRuleMatcher.senderMatches("Blu", "Blu"))
+        assertTrue(UserBankSmsRuleMatcher.senderMatches("۰۹۹۹ ۹۹۸ ۷۶۴۱", "+989999987641"))
+    }
+
+    @Test
+    fun customRuleMatchesEitherConfiguredTextOrNumericSender() {
+        val rule = UserBankSmsRule(
+            id = "split-senders",
+            bankName = "بلو",
+            textSenderAddresses = listOf("Blu"),
+            numericSenderAddresses = listOf("09999987641"),
+            incomeMarkers = "واریز/نشست",
+            expenseMarkers = "برداشت/انجام",
+            transferMarkers = "انتقال/موفق"
+        )
+        val body = "واریز 30,000,000 ریال به حساب شما نشست"
+        assertEquals(1, UserBankSmsRuleMatcher.matchAll(body, "Blu", listOf(rule)).size)
+        assertEquals(1, UserBankSmsRuleMatcher.matchAll(body, "۰۹۹۹ ۹۹۸ ۷۶۴۱", listOf(rule)).size)
+        assertTrue(UserBankSmsRuleMatcher.matchAll(body, "09999987642", listOf(rule)).isEmpty())
+    }
+
+    @Test
     fun customBankRuleSenderNormalizesArabicPersianLetters() {
         assertTrue(UserBankSmsRuleMatcher.senderMatches("بانک ملی", "بانک ملي"))
         assertTrue(UserBankSmsRuleMatcher.senderMatches("بانک مرکزی", "بانك مرکزی"))
