@@ -51,7 +51,80 @@ object UserRuleSmsAmountParser {
         .replace('٬', ',')
         .replace('،', ',')
 
-    private fun extractAmount(body: String): Long? {
+    private data class ExtractedAmounts(
+        val transactionAmount: Long?,
+        val balanceAmount: Long?,
+        val candidates: List<Long>
+    )
+
+    // Strict Iranian-style grouping: the first group has 1-3 digits and every
+    // group after it has exactly 3 digits. Persian/Arabic digits are normalized first.
+    private val groupedNumberRegex = Regex(
+        """(?<![\\p{L}\\d])([+-]?\\d{1,3}(?:[,،٬٫.]\\d{3})+)(?![\\d])"""
+    )
+
+    private fun extractGroupedAmounts(body: String): ExtractedAmounts {
+        val text = normalizeBody(body)
+        val found = groupedNumberRegex.findAll(text).mapNotNull { match ->
+            val raw = match.groupValues[1]
+            val value = raw.filter { it in '0'..'9' }.toLongOrNull()
+                ?.takeIf { it in 1L..100_000_000_000_000L } ?: return@mapNotNull null
+            val left = (match.range.first - 38).coerceAtLeast(0)
+            val right = (match.range.last + 39).coerceAtMost(text.length)
+            val before = text.substring(left, match.range.first)
+            val after = text.substring(match.range.last + 1, right)
+            val nearLeft = before.takeLast(24)
+            val nearRight = after.take(24)
+            val balance = balanceContextRegex.containsMatchIn(nearLeft) ||
+                Regex("""^\\s*[:：]?\\s*(?:مانده|موجودی|balance)""", RegexOption.IGNORE_CASE).containsMatchIn(nearRight)
+            val transaction = amountLabelRegex.containsMatchIn(before.takeLast(34)) ||
+                transactionContextRegex.containsMatchIn(nearLeft + " " + nearRight)
+            val irrelevant = irrelevantContextRegex.containsMatchIn(before.takeLast(22))
+            if (irrelevant && !transaction) return@mapNotNull null
+            Triple(value, balance, transaction)
+        }.toList()
+
+        val allValues = found.map { it.first }.distinct()
+        if (allValues.isEmpty()) return ExtractedAmounts(null, null, emptyList())
+
+        val explicitTransaction = found.filter { !it.second && it.third }.map { it.first }.distinct()
+        val explicitBalance = found.filter { it.second }.map { it.first }.distinct()
+        val inferredTransaction: Long?
+        val inferredBalance: Long?
+        when {
+            explicitTransaction.size == 1 -> {
+                inferredTransaction = explicitTransaction.single()
+                inferredBalance = explicitBalance.singleOrNull()
+                    ?: allValues.filter { it != inferredTransaction }.maxOrNull()
+            }
+            explicitTransaction.size > 1 -> {
+                inferredTransaction = null
+                inferredBalance = explicitBalance.singleOrNull()
+            }
+            explicitBalance.isNotEmpty() -> {
+                val nonBalance = allValues.filterNot { it in explicitBalance }
+                inferredTransaction = nonBalance.singleOrNull()
+                    ?: if (nonBalance.size == 1) nonBalance.first() else null
+                inferredBalance = explicitBalance.maxOrNull()
+            }
+            allValues.size == 1 -> {
+                inferredTransaction = allValues.single()
+                inferredBalance = null
+            }
+            allValues.size == 2 -> {
+                // In the common bank-SMS layout, transaction amount <= resulting balance.
+                inferredTransaction = allValues.minOrNull()
+                inferredBalance = allValues.maxOrNull()
+            }
+            else -> {
+                inferredTransaction = null
+                inferredBalance = null
+            }
+        }
+        return ExtractedAmounts(inferredTransaction, inferredBalance, allValues)
+    }
+
+    private fun extractAmountLegacy(body: String): Long? {
         val text = normalizeBody(body)
         val candidates = numberRegex.findAll(text).mapNotNull { match ->
             val raw = match.groupValues[1].trim().trimEnd(',', '.', '،')
@@ -76,10 +149,7 @@ object UserRuleSmsAmountParser {
                 rialRegex.containsMatchIn(before.takeLast(16)) ||
                 tomanRegex.containsMatchIn(before.takeLast(16))
             val hasIrrelevantContext = irrelevantContextRegex.containsMatchIn(before.takeLast(20))
-
-            // A number next to a balance or account identifier is never promoted to a transaction amount.
             if (hasIrrelevantContext && !hasAmountLabel && !hasTransactionContext) return@mapNotNull null
-
             val score = when {
                 hasAmountLabel -> 100
                 hasTransactionContext && hasCurrency -> 90
@@ -88,22 +158,11 @@ object UserRuleSmsAmountParser {
                 else -> 0
             }
             if (score == 0) return@mapNotNull null
-
-            val unitText = (before.takeLast(16) + " " + after.take(16))
-            val isRial = rialRegex.containsMatchIn(unitText)
-            val isToman = tomanRegex.containsMatchIn(unitText)
-            if (isRial && isToman) return@mapNotNull null
-            // Keep the exact digits from the message, irrespective of Rial/Toman suffix.
-            amount.takeIf { it in 1L..100_000_000_000_000L }?.let {
-                AmountCandidate(it, score, match.range.first, match.range.last + 1)
-            }
+            AmountCandidate(amount, score, match.range.first, match.range.last + 1)
         }.toList()
-
         if (candidates.isEmpty()) return null
         val highestScore = candidates.maxOf { it.score }
-        val best = candidates.filter { it.score == highestScore }
-        // Multiple equally plausible amounts must not silently create a wrong transaction.
-        return best.singleOrNull()?.amountValue
+        return candidates.filter { it.score == highestScore }.singleOrNull()?.amountValue
     }
 
     fun parse(
@@ -122,7 +181,8 @@ object UserRuleSmsAmountParser {
             ).containsMatchIn(normalized)
         ) return null
 
-        val amount = extractAmount(normalized)
+        val extracted = extractGroupedAmounts(normalized)
+        val amount = extracted.transactionAmount ?: extractAmountLegacy(normalized)
         val amountIsValid = amount != null
         val amountValue = amount ?: 0L
         val dateTime = PersianCalendarHelper.fromEpochMillis(receivedAtMillis)
@@ -156,6 +216,8 @@ object UserRuleSmsAmountParser {
             },
             rawSender = sender,
             timestampMillis = receivedAtMillis,
+            balanceAmount = extracted.balanceAmount,
+            amountCandidates = (extracted.candidates + listOfNotNull(amount, extracted.balanceAmount)).distinct(),
             receivedAtMillis = receivedAtMillis
         )
     }
