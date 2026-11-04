@@ -1,5 +1,6 @@
 package com.example.ui.screens.check
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -91,6 +92,14 @@ fun CheckScreen(
     }
     
     var showStatusFilters by remember { mutableStateOf(false) }
+    val tabBackStack = remember { mutableStateListOf(selectedMainTab) }
+    fun selectMainTab(index: Int) {
+        if (selectedMainTab != index) {
+            tabBackStack.add(index)
+            selectedMainTab = index
+        }
+    }
+
     var selectedCheckForEdit by remember { mutableStateOf<Check?>(null) }
     var selectedCheckForDetail by remember { mutableStateOf<Check?>(null) }
 
@@ -98,6 +107,20 @@ fun CheckScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     var operationErrorDialog by remember { mutableStateOf<String?>(null) }
+
+    BackHandler(enabled = showAddDialog || selectedCheckForEdit != null || selectedCheckForDetail != null || operationErrorDialog != null || showStatusFilters || tabBackStack.size > 1) {
+        when {
+            operationErrorDialog != null -> operationErrorDialog = null
+            selectedCheckForDetail != null -> selectedCheckForDetail = null
+            selectedCheckForEdit != null -> selectedCheckForEdit = null
+            showAddDialog -> showAddDialog = false
+            showStatusFilters -> showStatusFilters = false
+            tabBackStack.size > 1 -> {
+                tabBackStack.removeAt(tabBackStack.lastIndex)
+                selectedMainTab = tabBackStack.last()
+            }
+        }
+    }
 
     fun showOperationResult(result: com.example.ui.screens.check.data.CheckOperationResult, successMessage: String) {
         val message = when (result) {
@@ -222,16 +245,16 @@ fun CheckScreen(
                     }
                 ) {
                     Tab(selected = selectedMainTab == 0, onClick = {
-                        selectedMainTab = 0
+                        selectMainTab(0)
                     }, text = { Text("همه") })
                     Tab(selected = selectedMainTab == 1, onClick = {
-                        selectedMainTab = 1
+                        selectMainTab(1)
                     }, text = { Text("دریافتی") })
                     Tab(selected = selectedMainTab == 2, onClick = {
-                        selectedMainTab = 2
+                        selectMainTab(2)
                     }, text = { Text("پرداختی") })
                     Tab(selected = selectedMainTab == 3, onClick = {
-                        selectedMainTab = 3
+                        selectMainTab(3)
                         showStatusFilters = false
                     }, text = { Text("گزارش") })
                 }
