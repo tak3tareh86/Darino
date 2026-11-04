@@ -192,7 +192,7 @@ fun MaintenanceEntrySheet(
                 }
             }
 
-            // Cost Input Field with Live Toman Formatter & Persian Words
+            // Cost Input Field with the selected currency & Persian words
             PersianAmountInputField(
                 value = costInput,
                 onValueChange = { costInput = it },
