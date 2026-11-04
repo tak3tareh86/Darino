@@ -119,6 +119,7 @@ dependencies {
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.poolakey)
   implementation(libs.coil.compose)
+  implementation(libs.android.svg)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
   // Uncomment to use Firestore:
