@@ -22,6 +22,7 @@ class GenericBankSmsParserTest {
         assertEquals(TransactionType.EXPENSE, parsed?.type)
         assertEquals(50_000L, parsed?.amount)
         assertEquals(7_963_304L, parsed?.balanceAmount)
+        assertEquals(listOf(50_000L, 7_963_304L), parsed?.amountCandidates)
         assertEquals("1405/08/11", parsed?.dateText)
         assertEquals("06:53", parsed?.timeText)
         assertEquals("حساب/کارت 4785914725", parsed?.sourceAccount)
