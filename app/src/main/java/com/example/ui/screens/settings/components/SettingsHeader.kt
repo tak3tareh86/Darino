@@ -89,15 +89,20 @@ fun SettingsHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(headerGradient)
+                // Keep the system-bar inset so the title never collides with status icons.
                 .statusBarsPadding()
-                .padding(horizontal = if (compact) 16.dp else 20.dp, vertical = if (compact) 7.dp else 16.dp)
+                // Reduce the oversized empty space above and below the header content.
+                .padding(
+                    horizontal = if (compact) 16.dp else 20.dp,
+                    top = if (compact) 2.dp else 4.dp,
+                    bottom = if (compact) 5.dp else 8.dp
+                )
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Leading: Back button OR 3D Illustration
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -121,7 +126,6 @@ fun SettingsHeader(
                             )
                         }
                     } else {
-                        // 3D Settings Gear Icon with soft glow
                         Box(
                             modifier = Modifier
                                 .size(46.dp)
@@ -141,9 +145,7 @@ fun SettingsHeader(
                         }
                     }
 
-                    Column(
-                        verticalArrangement = Arrangement.Center
-                    ) {
+                    Column(verticalArrangement = Arrangement.Center) {
                         Text(
                             text = title,
                             style = MaterialTheme.typography.titleLarge.copy(
@@ -155,22 +157,20 @@ fun SettingsHeader(
 
                         Text(
                             text = subtitle,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 12.sp
-                            ),
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                // Trailing: Search Action Button (on main settings)
                 if (showSearch) {
                     Box(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isSearchActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                                if (isSearchActive) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
                             )
                             .clickable(onClick = onSearchToggle)
                             .testTag("settings_search_toggle_button"),
@@ -179,7 +179,8 @@ fun SettingsHeader(
                         Icon(
                             imageVector = Icons.Rounded.Search,
                             contentDescription = "جستجو در تنظیمات",
-                            tint = if (isSearchActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                            tint = if (isSearchActive) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
