@@ -21,9 +21,9 @@ object MarketConfig {
     const val DISPLAY_PRICE_TOMAN = 500_000L
 
     /**
-     * Free Trial Duration in Days (30 Days)
+     * Free Trial Duration in Days (7 Days)
      */
-    const val TRIAL_DURATION_DAYS = 15L
+    const val TRIAL_DURATION_DAYS = 7L
 
     /**
      * Subscription Validity Duration in Days (365 Days)
