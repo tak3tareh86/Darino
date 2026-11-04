@@ -131,9 +131,9 @@ object UserRuleSmsAmountParser {
             ?: String.format("%02d:%02d", dateTime.hour, dateTime.minute)
         val date = String.format("%04d/%02d/%02d", dateTime.year, dateTime.month, dateTime.day)
         val formatted = if (!amountIsValid) "" else when (type) {
-            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountValue, isExpense = true)
-            TransactionType.INCOME -> MoneyFormatter.formatSignedToman(toman, isExpense = false)
-            TransactionType.TRANSFER, null -> MoneyFormatter.formatToman(amountValue)
+            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountValue, isExpense = true, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
+            TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountValue, isExpense = false, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
+            TransactionType.TRANSFER, null -> MoneyFormatter.formatToman(amountValue, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
         }
 
         return BankSmsSuggestion(
