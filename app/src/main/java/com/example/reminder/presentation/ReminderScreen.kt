@@ -1,5 +1,6 @@
 package com.example.reminder.presentation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -67,6 +68,17 @@ fun ReminderScreen(
     var currentSubScreen by remember { mutableStateOf(ReminderSubScreen.LIST) }
     var selectedReminderForDetail by remember { mutableStateOf<ReminderEntity?>(null) }
     var showSnoozeSheetForReminder by remember { mutableStateOf<ReminderEntity?>(null) }
+
+    BackHandler(enabled = currentSubScreen != ReminderSubScreen.LIST) {
+        when (currentSubScreen) {
+            ReminderSubScreen.ADD, ReminderSubScreen.NOTIFICATION_CENTER -> currentSubScreen = ReminderSubScreen.LIST
+            ReminderSubScreen.DETAIL -> {
+                selectedReminderForDetail = null
+                currentSubScreen = ReminderSubScreen.LIST
+            }
+            ReminderSubScreen.LIST -> Unit
+        }
+    }
 
     when (currentSubScreen) {
         ReminderSubScreen.ADD -> {
