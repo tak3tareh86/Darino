@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.Image
 import android.graphics.Bitmap
@@ -174,69 +175,109 @@ fun UserBankSmsRulesSection() {
             }
         }
 
-        rules.forEach { rule ->
-            Card(
+        rules.chunked(2).forEach { rowRules ->
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Top,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                rowRules.forEach { rule ->
+                    Card(
+                        modifier = Modifier.weight(1f).height(218.dp),
+                        shape = RoundedCornerShape(19.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
-                        BankLogo(name = rule.bankName)
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text(rule.bankName, style = MaterialTheme.typography.titleMedium)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Rounded.Phone, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
-                                Spacer(Modifier.width(5.dp))
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 11.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            BankLogo(name = rule.bankName)
+                            Text(
+                                rule.bankName,
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.titleSmall,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            val senderSummary = listOfNotNull(
+                                rule.textSenderAddresses.takeIf { it.isNotEmpty() }?.joinToString("، ")?.let { "متنی: $it" },
+                                rule.numericSenderAddresses.takeIf { it.isNotEmpty() }?.joinToString("، ")?.let { "عددی: $it" }
+                            ).joinToString(" | ")
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(Icons.Rounded.Phone, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp))
+                                Spacer(Modifier.width(4.dp))
                                 Text(
-                                    listOfNotNull(
-                                        rule.textSenderAddresses.takeIf { it.isNotEmpty() }?.joinToString("، ")?.let { "متنی: $it" },
-                                        rule.numericSenderAddresses.takeIf { it.isNotEmpty() }?.joinToString("، ")?.let { "عددی: $it" }
-                                    ).joinToString("  |  "),
+                                    senderSummary,
+                                    modifier = Modifier.weight(1f),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr)
+                                    style = MaterialTheme.typography.labelSmall.copy(textDirection = TextDirection.Ltr),
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
-                        }
-                        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            TextButton(
-                                onClick = { editing = rule; showEditor = true },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            Spacer(Modifier.weight(1f))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(3.dp))
-                                Text("ویرایش", style = MaterialTheme.typography.labelMedium)
+                                TextButton(
+                                    onClick = { editing = rule; showEditor = true },
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                                ) {
+                                    Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(3.dp))
+                                    Text("ویرایش", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
+                                }
+                                TextButton(
+                                    onClick = { repository.delete(rule.id); rules = repository.getAll() },
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                                ) {
+                                    Icon(Icons.Rounded.DeleteOutline, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
+                                    Spacer(Modifier.width(3.dp))
+                                    Text("حذف", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, maxLines = 1, softWrap = false)
+                                }
                             }
-                            TextButton(
-                                onClick = { repository.delete(rule.id); rules = repository.getAll() },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
                             ) {
-                                Icon(Icons.Rounded.DeleteOutline, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
-                                Spacer(Modifier.width(3.dp))
-                                Text("حذف", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+                                Icon(Icons.Rounded.CalendarMonth, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "بررسی: ${rule.lookbackMillis / (24L * 60L * 60L * 1000L)} روز",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+                                    Text(
+                                        "فعال",
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1
+                                    )
+                                }
                             }
-                        }
-                    }
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.CalendarMonth, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(7.dp))
-                        Text(
-                            "بازه بررسی: ${rule.lookbackMillis / (24L * 60L * 60L * 1000L)} روز",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.weight(1f))
-                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
-                            Text("فعال", modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp), color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
+                if (rowRules.size == 1) Spacer(Modifier.weight(1f))
             }
         }
         }
