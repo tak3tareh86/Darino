@@ -376,7 +376,7 @@ fun SubscriptionStatusCard(
                                 )
                             } else {
                                 Text(
-                                    text = "از تمام امکانات برنامه به مدت ۱۴ روز رایگان و بدون محدودیت استفاده کن. اگر از",
+                                    text = "از تمام امکانات برنامه به مدت ۷ روز رایگان و بدون محدودیت استفاده کن. اگر از",
                                     modifier = Modifier.fillMaxWidth(),
                                     textAlign = TextAlign.Justify,
                                     style = MaterialTheme.typography.bodySmall.copy(
