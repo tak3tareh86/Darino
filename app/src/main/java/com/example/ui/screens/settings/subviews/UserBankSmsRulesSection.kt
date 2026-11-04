@@ -195,7 +195,6 @@ fun UserBankSmsRulesSection() {
                                 Spacer(Modifier.width(5.dp))
                                 Text(
                                     rule.senderAddresses.joinToString("، "),
-                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr)
                                 )
