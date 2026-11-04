@@ -34,8 +34,17 @@ object UserBankSmsRuleMatcher {
         }
         val expectedDigits = numericDigits(expected)
         val receivedDigits = numericDigits(received)
-        return if (expectedDigits != null && receivedDigits != null) expectedDigits == receivedDigits
-        else normalizeSenderText(expected) == normalizeSenderText(received)
+        return if (expectedDigits != null && receivedDigits != null) {
+            // Android/SMS gateways may expose the same Iranian mobile sender as
+            // 09xxxxxxxxx, 9xxxxxxxxx, 98xxxxxxxxxx, 0098..., or +98...
+            val expectedMobile = IranianPhoneUtils.normalizeIranianPhoneNumber(expectedDigits)
+            val receivedMobile = IranianPhoneUtils.normalizeIranianPhoneNumber(receivedDigits)
+            if (expectedMobile != null && receivedMobile != null) {
+                expectedMobile == receivedMobile
+            } else {
+                expectedDigits == receivedDigits
+            }
+        } else normalizeSenderText(expected) == normalizeSenderText(received)
     }
 
     private fun normalizeSenderText(value: String): String = value
