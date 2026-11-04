@@ -26,6 +26,7 @@ import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
+import com.example.util.MoneyFormatter
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleExpenseCategory
 
@@ -160,7 +161,6 @@ fun AddVehicleExpenseSheet(
                     value = amountText,
                     onValueChange = { amountText = it },
                     label = "مبلغ هزینه",
-                    unitLabel = "تومان",
                     placeholder = "مثال: ۵۰۰,۰۰۰",
                     showWordsPreview = false,
                     modifier = Modifier.weight(1.2f),
@@ -191,7 +191,7 @@ fun AddVehicleExpenseSheet(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        val amount = IranianAmountUtils.parseAmountToLong(amountText)
+                        val amount = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(amountText))
                         onAddExpense(title, selectedCategory, amount, date, description)
                     }
                 },
