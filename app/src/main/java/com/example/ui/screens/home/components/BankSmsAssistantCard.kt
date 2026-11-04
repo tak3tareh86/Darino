@@ -1046,39 +1046,6 @@ fun EditSmsTransactionDialog(
     suggestion: BankSmsSuggestion,
     userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
     onDismiss: () -> Unit,
-    onConfirm: (
-        amount: Long,
-        type: TransactionType,
-        category: String,
-        account: String,
-        description: String,
-        destAccount: String?,
-        onResult: (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit
-    ) -> Unit
-) {
-    var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
-    var amountText by remember(suggestion.id) {
-        mutableStateOf(if (suggestion.isAmountValid && suggestion.amount > 0L) IranianAmountUtils.formatWithCommas(suggestion.amount.toString()) else "")
-    }
-    val parsedAmount = remember(amountText) {
-        IranianAmountUtils.cleanAmountDigits(amountText).toLongOrNull() ?: 0L
-    }
-    val isAmountValid = parsedAmount > 0L
-    // Prefer the amount parsed by the bank SMS pattern; expose balance only as a labelled alternative.
-    val amountSuggestions = remember(suggestion.id, suggestion.amount, suggestion.isAmountValid, suggestion.balanceAmount) {
-        buildList {
-            if (suggestion.isAmountValid && suggestion.amount > 0L) {
-                add(suggestion.amount to "مبلغ تراکنش")
-            }
-            suggestion.balanceAmount
-                ?.takeIf { it > 0L && it != suggestion.amount }
-                ?.let { add(it to "موجودی حساب") }
-        }
-   @Composable
-fun EditSmsTransactionDialog(
-    suggestion: BankSmsSuggestion,
-    userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
-    onDismiss: () -> Unit,
     onConfirm: (Long, TransactionType, String, String, String, String?, (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit) -> Unit
 ) {
     var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
