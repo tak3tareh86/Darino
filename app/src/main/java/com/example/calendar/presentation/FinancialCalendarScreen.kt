@@ -1,5 +1,6 @@
 package com.example.calendar.presentation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -62,6 +63,13 @@ fun FinancialCalendarScreen(
     var showAddSheet by remember { mutableStateOf(false) }
     var showSearchBar by remember { mutableStateOf(false) }
     var selectedDayForFullDetail by remember { mutableStateOf<String?>(null) }
+    BackHandler(enabled = showAddSheet || selectedDayForFullDetail != null) {
+        when {
+            showAddSheet -> showAddSheet = false
+            selectedDayForFullDetail != null -> selectedDayForFullDetail = null
+        }
+    }
+
     val selectedDateNormalized = remember(state.selectedDate) {
         CalendarDateUtils.normalizeDate(state.selectedDate)
     }
