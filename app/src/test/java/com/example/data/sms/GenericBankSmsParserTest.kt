@@ -43,7 +43,7 @@ class GenericBankSmsParserTest {
 
         assertEquals("بانک ملت", persian?.bankName)
         assertEquals(TransactionType.INCOME, persian?.type)
-        assertEquals(12_000L, persian?.amount)
+        assertEquals(120_000L, persian?.amount)
         assertEquals("بانک ملت", english?.bankName)
         assertEquals(TransactionType.INCOME, english?.type)
         assertEquals(250_000L, english?.amount)
@@ -180,22 +180,22 @@ class GenericBankSmsParserTest {
         assertNotNull(deposit)
         assertEquals("بانک سامان", deposit?.bankName)
         assertEquals(TransactionType.INCOME, deposit?.type)
-        assertEquals(2_600_000L, deposit?.amount)
-        assertEquals(2_600_000L, deposit?.balanceAmount)
+        assertEquals(26_000_000L, deposit?.amount)
+        assertEquals(26_000_000L, deposit?.balanceAmount)
         assertEquals("1405/05/27", deposit?.dateText)
         assertEquals("09:09", deposit?.timeText)
 
         assertNotNull(withdrawal)
         assertEquals("بانک سامان", withdrawal?.bankName)
         assertEquals(TransactionType.EXPENSE, withdrawal?.type)
-        assertEquals(1_000_000L, withdrawal?.amount)
+        assertEquals(10_000_000L, withdrawal?.amount)
         assertNull(withdrawal?.balanceAmount)
         assertEquals("1405/05/26", withdrawal?.dateText)
         assertEquals("17:02", withdrawal?.timeText)
     }
 
     @Test
-    fun doesNotRoundBluRialAmountThatCannotBeRepresentedAsWholeToman() {
+    fun preservesExactBluRialAmountThatCannotBeRepresentedAsWholeToman() {
         val parsed = GenericBankSmsParser.parse(
             "blu-loan-repayment", "30001234",
             """بلو
@@ -206,9 +206,9 @@ class GenericBankSmsParserTest {
             com.example.util.PersianCalendarHelper.jalaliToEpochMillis(1405, 7, 27, 17, 0)
         )
 
-        // The app stores transaction amounts as whole Tomans. Reject rather than
-        // silently truncating 2,553,352.2 Tomans to a different financial amount.
-        assertNull(parsed)
+        assertNotNull(parsed)
+        assertEquals(25_533_522L, parsed?.amount)
+        assertEquals(2_466_478L, parsed?.balanceAmount)
     }
 
 
