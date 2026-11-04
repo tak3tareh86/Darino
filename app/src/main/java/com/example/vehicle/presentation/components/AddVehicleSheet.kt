@@ -38,6 +38,7 @@ import com.example.R
 import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
+import com.example.util.MoneyFormatter
 import com.example.util.IranianPhoneUtils
 
 /**
@@ -666,8 +667,7 @@ fun AddVehicleSheet(
                 value = estimatedValueText,
                 onValueChange = { estimatedValueText = it },
                 label = "ارزش تقریبی خودرو (اختیاری)",
-                unitLabel = "تومان",
-                placeholder = "مثال: ۸۵۰,۰۰۰,۰۰۰",
+                placeholder = "مبلغ را وارد کنید",
                 showWordsPreview = true,
                 testTag = "vehicle_estimated_value_input"
             )
@@ -677,7 +677,7 @@ fun AddVehicleSheet(
                 onClick = {
                     if (model.isNotBlank()) {
                         val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: 0
-                        val estVal = IranianAmountUtils.parseAmountToLong(estimatedValueText)
+                        val estVal = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(estimatedValueText))
                         val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
                         onAddVehicle(if (brand == "سایر") customBrand.trim() else brand, model, year, color, plate, vin, mileage, estVal, engine.trim(), transmission.trim())
                     }

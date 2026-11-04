@@ -59,6 +59,7 @@ import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,7 +79,7 @@ fun MaintenanceEntrySheet(
     ) -> Unit
 ) {
     var selectedType by remember { mutableStateOf(initialServiceType) }
-    var costInput by remember { mutableStateOf("۱,۵۰۰,۰۰۰") }
+    var costInput by remember(MoneyFormatter.activeCurrency) { mutableStateOf(MoneyFormatter.formatTomanRaw(1_500_000L)) }
     var odometerInput by remember { mutableStateOf(currentOdometer.toString()) }
     var serviceCenterInput by remember { mutableStateOf("") }
     var partsInput by remember { mutableStateOf("") }
@@ -191,12 +192,12 @@ fun MaintenanceEntrySheet(
                 }
             }
 
-            // Cost Input Field with Live Toman Formatter & Persian Words
+            // Cost Input Field with the selected currency & Persian words
             PersianAmountInputField(
                 value = costInput,
                 onValueChange = { costInput = it },
-                label = "هزینه کل سرویس / فاکتور (تومان)",
-                placeholder = "۸۵۰,۰۰۰",
+                label = "هزینه کل سرویس / فاکتور",
+                placeholder = "مبلغ را وارد کنید",
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("maint_cost_input")
@@ -289,7 +290,7 @@ fun MaintenanceEntrySheet(
                 onClick = {
                     onSubmitMaintenance(
                         selectedType,
-                        costInput,
+                        MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(costInput)).toString(),
                         odometerInput,
                         serviceCenterInput.ifBlank { "تعمیرگاه تخصصی" },
                         partsInput,

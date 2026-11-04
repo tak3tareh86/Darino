@@ -60,6 +60,7 @@ import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,7 +77,7 @@ fun FuelEntrySheet(
         stationNote: String
     ) -> Unit
 ) {
-    var amountInput by remember { mutableStateOf("۱۵۰,۰۰۰") }
+    var amountInput by remember(MoneyFormatter.activeCurrency) { mutableStateOf(MoneyFormatter.formatTomanRaw(150_000L)) }
     var litersInput by remember { mutableStateOf("۵۰") }
     var odometerInput by remember { mutableStateOf(currentOdometer.toString()) }
     var selectedFuelType by remember { mutableStateOf("بنزین سهمیه‌ای (۱,۵۰۰ ت)") }
@@ -149,12 +150,12 @@ fun FuelEntrySheet(
                 }
             }
 
-            // Amount Input Field with Live Toman Formatter & Persian Words
+            // Amount Input Field with the selected currency & Persian words
             PersianAmountInputField(
                 value = amountInput,
                 onValueChange = { amountInput = it },
-                label = "مبلغ پرداختی سوخت (تومان)",
-                placeholder = "۱۵۰,۰۰۰",
+                label = "مبلغ پرداختی سوخت",
+                placeholder = "مبلغ را وارد کنید",
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("fuel_amount_input")
@@ -266,7 +267,7 @@ fun FuelEntrySheet(
             Button(
                 onClick = {
                     onSubmitFuelEntry(
-                        amountInput,
+                        MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(amountInput)).toString(),
                         litersInput,
                         selectedFuelType,
                         odometerInput,
