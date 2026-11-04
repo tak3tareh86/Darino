@@ -43,13 +43,9 @@ object BankSmsParser {
                 else -> return null
             }
             val rawAmount = parsePositiveNumber(fields.first(amountKind)) ?: return null
-            val amountToman = when (amountKind) {
-                SmsPatternSlotKind.AMOUNT_RIAL -> {
-                    if (rawAmount < 10L || rawAmount % 10L != 0L) return null
-                    rawAmount / 10L
-                }
-                else -> rawAmount
-            }.takeIf { it in 1L..100_000_000_000L } ?: return null
+            // Preserve the exact extracted number. Rial/Toman is descriptive metadata,
+            // not a reason to scale the transaction amount.
+            val amountValue = rawAmount.takeIf { it in 1L..1_000_000_000_000_000L } ?: return null
 
             val configuredType = when (pattern.type) {
                 SmsPatternType.INCOME -> TransactionType.INCOME
@@ -58,10 +54,8 @@ object BankSmsParser {
             }
 
             val balanceAmount = when {
-                fields.first(SmsPatternSlotKind.BALANCE_RIAL) != null -> {
-                    val raw = parseNonNegativeNumber(fields.first(SmsPatternSlotKind.BALANCE_RIAL))
-                    raw?.takeIf { it % 10L == 0L }?.div(10L)
-                }
+                fields.first(SmsPatternSlotKind.BALANCE_RIAL) != null ->
+                    parseNonNegativeNumber(fields.first(SmsPatternSlotKind.BALANCE_RIAL))
                 fields.first(SmsPatternSlotKind.BALANCE_TOMAN) != null ->
                     parseNonNegativeNumber(fields.first(SmsPatternSlotKind.BALANCE_TOMAN))
                 else -> null
@@ -114,9 +108,9 @@ object BankSmsParser {
             } else timestampMillis
 
             val formattedAmount = when (configuredType) {
-                TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountToman, isExpense = true)
-                TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountToman, isExpense = false)
-                TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountToman)
+                TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountValue, isExpense = true)
+                TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountValue, isExpense = false)
+                TransactionType.TRANSFER -> MoneyFormatter.formatToman(amountValue)
             }
 
             fun account(kind: SmsPatternSlotKind, label: String): String? =
@@ -141,7 +135,7 @@ object BankSmsParser {
                 id = smsId,
                 patternId = pattern.id,
                 bankName = pattern.bankName.ifBlank { pattern.name },
-                amount = amountToman,
+                amount = amountValue,
                 formattedAmount = formattedAmount,
                 isAmountValid = true,
                 type = configuredType,
