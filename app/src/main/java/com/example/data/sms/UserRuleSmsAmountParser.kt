@@ -64,14 +64,13 @@ object UserRuleSmsAmountParser {
             val context = text.substring(left, right)
             val nearLeft = text.substring((match.range.first - 18).coerceAtLeast(0), match.range.first)
             val nearRight = text.substring(match.range.last + 1, (match.range.last + 19).coerceAtMost(text.length))
-            if (balanceContextRegex.containsMatchIn(nearLeft) || balanceContextRegex.containsMatchIn(nearRight)) {
-                return@mapNotNull null
-            }
-
             val before = text.substring(left, match.range.first)
             val after = text.substring(match.range.last + 1, right)
             val hasAmountLabel = amountLabelRegex.containsMatchIn(before.takeLast(32))
             val hasTransactionContext = transactionContextRegex.containsMatchIn(context)
+            if ((balanceContextRegex.containsMatchIn(nearLeft) || balanceContextRegex.containsMatchIn(nearRight)) &&
+                !hasAmountLabel && !hasTransactionContext
+            ) return@mapNotNull null
             val hasCurrency = rialRegex.containsMatchIn(after.take(16)) ||
                 tomanRegex.containsMatchIn(after.take(16)) ||
                 rialRegex.containsMatchIn(before.takeLast(16)) ||
