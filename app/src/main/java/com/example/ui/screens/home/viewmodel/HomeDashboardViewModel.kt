@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.database.AppDatabase
 import com.example.data.database.TransactionEntity
+import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
 import com.example.data.sms.BankSmsRepository
@@ -489,11 +490,16 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }
 
                 // Single Write: Insert directly into Room database with accurate SMS timestamp and account links
+                // The review dialog accepts values in the user's selected currency.
+                // Room stores transaction amounts in the app's base unit (Toman).
+                val selectedCurrency = AppPreferencesRepository.getInstance(getApplication()).currency.value
+                val amountInBaseToman = MoneyFormatter.convertToToman(finalAmount, selectedCurrency)
+
                 val entity = TransactionEntity(
                     stringId = txId,
                     userId = userId,
                     title = txTitle,
-                    amount = finalAmount,
+                    amount = amountInBaseToman,
                     type = finalType.name,
                     category = finalCategory,
                     accountName = sourceAccount.name.ifBlank { item.bankName.ifBlank { "بدون حساب مشخص" } },
