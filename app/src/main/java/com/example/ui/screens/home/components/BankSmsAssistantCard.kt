@@ -1295,9 +1295,6 @@ fun EditSmsTransactionDialog(
                                         selected = selectedAccountId == account.stringId,
                                         onClick = {
                                             selectedAccountId = account.stringId
-                                            if (selectedDestinationAccountId == account.stringId) {
-                                                selectedDestinationAccountId = null
-                                            }
                                             dialogError = null
                                         },
                                         label = { Text(account.name, fontSize = 9.sp) }
@@ -1314,7 +1311,7 @@ fun EditSmsTransactionDialog(
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                             )
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                items(activeAccounts.filter { it.stringId != selectedAccountId }) { account ->
+                                items(activeAccounts) { account ->
                                     FilterChip(
                                         selected = selectedDestinationAccountId == account.stringId,
                                         onClick = {
@@ -1325,14 +1322,8 @@ fun EditSmsTransactionDialog(
                                     )
                                 }
                             }
-                            if (activeAccounts.size < 2) {
-                                Text(
-                                    text = "برای انتقال، حداقل دو حساب فعال و متفاوت لازم است.",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626), fontSize = 10.sp)
-                                )
-                            }
                             Text(
-                                text = "نوع انتقال از الگوی انتخاب‌شده در تنظیمات گرفته می‌شود؛ حساب مقصد باید متعلق به خودتان باشد.",
+                                text = "می‌توانید هر حساب فعالی را به‌عنوان مقصد انتخاب کنید؛ حتی همان حساب مبدأ.",
                                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
                             )
                         }
@@ -1428,10 +1419,8 @@ fun EditSmsTransactionDialog(
                                 } else {
                                     null
                                 }
-                                if (sType == TransactionType.TRANSFER &&
-                                    (destinationId.isNullOrBlank() || destinationId == sourceId)
-                                ) {
-                                    dialogError = "برای انتقال، حساب مقصد متفاوت را انتخاب کنید."
+                                if (sType == TransactionType.TRANSFER && destinationId.isNullOrBlank()) {
+                                    dialogError = "لطفاً حساب مقصد را انتخاب کنید."
                                     return@Button
                                 }
 
@@ -1454,7 +1443,7 @@ fun EditSmsTransactionDialog(
                                             dialogError = "حساب بانکی مشخص نیست؛ لطفاً یک حساب معتبر انتخاب کنید."
                                         }
                                         com.example.ui.screens.home.viewmodel.SmsAcceptResult.DestinationAccountRequired -> {
-                                            dialogError = "حساب مقصد انتقال نامعتبر یا یکسان با مبدأ است؛ لطفاً حساب مقصد دیگری انتخاب کنید."
+                                            dialogError = "حساب مقصد انتقال نامعتبر است؛ لطفاً یک حساب فعال انتخاب کنید."
                                         }
                                         com.example.ui.screens.home.viewmodel.SmsAcceptResult.InvalidAmount -> {
                                             dialogError = "مبلغ استخراج‌شده از الگوی ثبت‌شده نامعتبر است؛ الگو و متن پیامک را بررسی کنید."
