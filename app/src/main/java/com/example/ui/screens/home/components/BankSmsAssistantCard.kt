@@ -799,7 +799,7 @@ private fun SmsGrantedContentView(
                                 TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(item.amount, isExpense = true, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
                                 TransactionType.INCOME -> MoneyFormatter.formatSignedToman(item.amount, isExpense = false, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
                                 TransactionType.TRANSFER -> MoneyFormatter.formatToman(item.amount, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
-                                null -> MoneyFormatter.formatToman(item.amount)
+                                null -> MoneyFormatter.formatToman(item.amount, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
                             },
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
@@ -1321,7 +1321,7 @@ fun EditSmsTransactionDialog(
                         )
                         if (isAmountValid) {
                             Text(
-                                text = "معادل: ${MoneyFormatter.formatToman(parsedAmount, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)}",
+                                text = "مبلغ: ${MoneyFormatter.formatToman(parsedAmount, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)}",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 10.sp,
                                     color = MaterialTheme.colorScheme.primary,
