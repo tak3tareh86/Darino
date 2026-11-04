@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.components.PersianAmountInputField
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
-import java.text.DecimalFormat
+import com.example.util.MoneyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,35 +35,31 @@ fun EditIncomeBottomSheet(
     onDismiss: () -> Unit,
     onSave: (income: Long, fixedExpenses: Long, onResult: (Boolean) -> Unit) -> Unit
 ) {
+    val activeCurrency = MoneyFormatter.activeCurrency
     var rawIncomeText by remember(currentIncome) {
-        mutableStateOf(if (currentIncome > 0) currentIncome.toString() else "")
+        mutableStateOf(if (currentIncome > 0L) MoneyFormatter.convertFromToman(currentIncome).toString() else "")
     }
     var rawFixedText by remember(currentFixedExpenses) {
-        mutableStateOf(if (currentFixedExpenses > 0) currentFixedExpenses.toString() else "")
+        mutableStateOf(if (currentFixedExpenses > 0L) MoneyFormatter.convertFromToman(currentFixedExpenses).toString() else "")
+    }
+    var previousCurrency by remember { mutableStateOf(activeCurrency) }
+
+    // Preserve in-progress values when the selected currency changes while this sheet is open.
+    LaunchedEffect(activeCurrency) {
+        if (previousCurrency != activeCurrency) {
+            val incomeInToman = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(rawIncomeText), previousCurrency)
+            val fixedInToman = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(rawFixedText), previousCurrency)
+            rawIncomeText = if (rawIncomeText.isBlank()) "" else MoneyFormatter.convertFromToman(incomeInToman, activeCurrency).toString()
+            rawFixedText = if (rawFixedText.isBlank()) "" else MoneyFormatter.convertFromToman(fixedInToman, activeCurrency).toString()
+            previousCurrency = activeCurrency
+        }
     }
 
     var validationError by remember { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
-
-    val decimalFormat = remember { DecimalFormat("#,###") }
-
-    val formattedIncomePreview = remember(rawIncomeText) {
-        val num = IranianAmountUtils.parseAmountToLong(rawIncomeText)
-        if (num > 0) {
-            IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(num)) + " تومان"
-        } else {
-            "۰ تومان"
-        }
-    }
-
-    val formattedFixedPreview = remember(rawFixedText) {
-        val num = IranianAmountUtils.parseAmountToLong(rawFixedText)
-        if (num > 0) {
-            IranianPhoneUtils.convertDigitsToPersian(decimalFormat.format(num)) + " تومان"
-        } else {
-            "۰ تومان"
-        }
-    }
+    val unitLabel = MoneyFormatter.getUnitLabel()
+    val formattedIncomePreview = MoneyFormatter.formatRawAmount(IranianAmountUtils.parseAmountToLong(rawIncomeText))
+    val formattedFixedPreview = MoneyFormatter.formatRawAmount(IranianAmountUtils.parseAmountToLong(rawFixedText))
 
     ModalBottomSheet(
         onDismissRequest = { if (!isSaving) onDismiss() },
@@ -151,8 +147,8 @@ fun EditIncomeBottomSheet(
                     value = rawIncomeText,
                     onValueChange = { rawIncomeText = it },
                     label = null,
-                    unitLabel = "تومان",
-                    placeholder = "مثال: ۳۰,۰۰۰,۰۰۰ تومان",
+                    unitLabel = unitLabel,
+                    placeholder = "مثال: ۳۰,۰۰۰,۰۰۰ $unitLabel",
                     showWordsPreview = false,
                     testTag = "input_monthly_income"
                 )
@@ -162,13 +158,11 @@ fun EditIncomeBottomSheet(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    listOf(
-                        "۲۰ م" to 20_000_000L,
-                        "۳۰ م" to 30_000_000L,
-                        "۴۰ م" to 40_000_000L,
-                        "۵۰ م" to 50_000_000L
-                    ).forEach { (label, value) ->
-                        Surface(
+                    listOf(20_000_000L, 30_000_000L, 40_000_000L, 50_000_000L)
+                        .forEach { baseTomanValue ->
+                            val value = MoneyFormatter.convertFromToman(baseTomanValue, activeCurrency)
+                            val label = IranianPhoneUtils.convertDigitsToPersian("${value / 1_000_000L} م")
+                            Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
@@ -182,7 +176,7 @@ fun EditIncomeBottomSheet(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = IranianPhoneUtils.convertDigitsToPersian(label),
+                                    text = label,
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Medium,
                                         fontSize = 11.sp
@@ -223,8 +217,8 @@ fun EditIncomeBottomSheet(
                     value = rawFixedText,
                     onValueChange = { rawFixedText = it },
                     label = null,
-                    unitLabel = "تومان",
-                    placeholder = "مثال: ۴,۰۰۰,۰۰۰ تومان",
+                    unitLabel = unitLabel,
+                    placeholder = "مثال: ۴,۰۰۰,۰۰۰ $unitLabel",
                     showWordsPreview = false,
                     testTag = "input_fixed_expenses"
                 )
@@ -252,7 +246,9 @@ fun EditIncomeBottomSheet(
                     } else {
                         validationError = null
                         isSaving = true
-                        onSave(incomeVal, fixedVal) { saved ->
+                        val incomeInToman = MoneyFormatter.convertToToman(incomeVal, activeCurrency)
+                        val fixedInToman = MoneyFormatter.convertToToman(fixedVal, activeCurrency)
+                        onSave(incomeInToman, fixedInToman) { saved ->
                             isSaving = false
                             if (saved) {
                                 onDismiss()
