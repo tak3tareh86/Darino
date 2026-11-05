@@ -102,11 +102,41 @@ fun UpcomingObligationsCard(
                                 shape = RoundedCornerShape(RadiusMD),
                                 color = (if (nearestItem.isOverdue || nearestItem.relativeDaysText.contains("گذشته") || nearestItem.relativeDaysText.contains("معوق") || nearestItem.relativeDaysText == "فردا" || nearestItem.relativeDaysText == "امروز") ExpenseRoseLight else WarningAmberLight).copy(alpha = 0.12f)
                             ) {
-                                Text(
-                                    text = nearestItem.relativeDaysText,
+                                val isUrgent = nearestItem.isOverdue ||
+                                    nearestItem.relativeDaysText.contains("گذشته") ||
+                                    nearestItem.relativeDaysText.contains("معوق") ||
+                                    nearestItem.relativeDaysText == "فردا" ||
+                                    nearestItem.relativeDaysText == "امروز"
+                                val overdueParts = nearestItem.relativeDaysText.split(" (", limit = 2)
+                                Column(
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = if (nearestItem.isOverdue || nearestItem.relativeDaysText.contains("گذشته") || nearestItem.relativeDaysText.contains("معوق") || nearestItem.relativeDaysText == "فردا" || nearestItem.relativeDaysText == "امروز") ExpenseRoseLight else WarningAmberLight)
-                                )
+                                    horizontalAlignment = Alignment.End,
+                                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                                ) {
+                                    Text(
+                                        text = overdueParts.first(),
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Clip,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isUrgent) ExpenseRoseLight else WarningAmberLight
+                                        )
+                                    )
+                                    if (overdueParts.size > 1) {
+                                        Text(
+                                            text = "(${overdueParts[1]}",
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 8.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = ExpenseRoseLight
+                                            )
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
