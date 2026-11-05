@@ -158,7 +158,6 @@ fun CheckScreen(
                     )
                 }
             )
-        }
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
