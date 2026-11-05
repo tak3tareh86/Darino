@@ -40,6 +40,7 @@ import com.example.reminder.viewmodel.ReminderViewModel
 import com.example.calendar.presentation.components.CalendarView
 import com.example.calendar.presentation.components.EventCard
 import com.example.calendar.viewmodel.FinancialCalendarViewModel
+import com.example.ui.components.AppSectionHeader
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.theme.EmeraldPrimaryLight
@@ -123,103 +124,63 @@ fun FinancialCalendarScreen(
             .testTag("financial_calendar_screen"),
         contentWindowInsets = WindowInsets(0),
         topBar = {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(
-                        elevation = 3.dp,
-                        shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
-                        ambientColor = Color.Black.copy(alpha = 0.05f),
-                        spotColor = Color.Black.copy(alpha = 0.08f)
-                    ),
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.weight(1f)
+            AppSectionHeader(
+                title = "تقویم مالی من",
+                subtitle = "مدیریت یکپارچه اقساط، یادآورها و خدمات خودرو",
+                leadingIcon = {
+                    Soft3DIcon(
+                        imageRes = R.drawable.img_3d_calendar,
+                        contentDescription = "تقویم مالی",
+                        size = 28.dp,
+                        accentColor = MaterialTheme.colorScheme.primary
+                    )
+                },
+                actions = {
+                    IconButton(
+                        onClick = { showSearchBar = !showSearchBar },
+                        modifier = Modifier
+                            .size(34.dp)
+                            .testTag("calendar_search_toggle_button")
                     ) {
-                        if (onBack != null) {
-                            IconButton(
-                                onClick = onBack,
-                                modifier = Modifier
-                                    .size(26.dp)
-                                    .testTag("calendar_back_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                    contentDescription = "بازگشت",
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-
-                        Soft3DIcon(
-                            imageRes = R.drawable.img_3d_calendar,
-                            contentDescription = "تقویم مالی",
-                            size = 20.dp,
-                            accentColor = MaterialTheme.colorScheme.primary
+                        Icon(
+                            imageVector = if (showSearchBar) Icons.Rounded.Close else Icons.Rounded.Search,
+                            contentDescription = "جستجو",
+                            modifier = Modifier.size(18.dp),
+                            tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary
                         )
-
-                        Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                            Text(
-                                text = "تقویم مالی من",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.5.sp
-                                )
-                            )
-                            Text(
-                                text = "مدیریت یکپارچه اقساط، یادآورها و خدمات خودرو",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 7.5.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    IconButton(
+                        onClick = { viewModel.jumpToToday() },
+                        modifier = Modifier
+                            .size(34.dp)
+                            .testTag("calendar_today_button")
                     ) {
-                        IconButton(
-                            onClick = { showSearchBar = !showSearchBar },
-                            modifier = Modifier
-                                .size(26.dp)
-                                .testTag("calendar_search_toggle_button")
-                        ) {
-                            Icon(
-                                imageVector = if (showSearchBar) Icons.Rounded.Close else Icons.Rounded.Search,
-                                contentDescription = "جستجو",
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Rounded.Today,
+                            contentDescription = "امروز",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
 
-                        // Jump to Today
+                    if (onBack != null) {
                         IconButton(
-                            onClick = { viewModel.jumpToToday() },
+                            onClick = onBack,
                             modifier = Modifier
-                                .size(26.dp)
-                                .testTag("calendar_today_button")
+                                .size(34.dp)
+                                .testTag("calendar_back_button")
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Today,
-                                contentDescription = "امروز",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(14.dp)
+                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                contentDescription = "بازگشت",
+                                modifier = Modifier.size(18.dp),
+                                tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary
                             )
                         }
                     }
                 }
-            }
+            )
         }
     ) { innerPadding ->
         LazyColumn(
