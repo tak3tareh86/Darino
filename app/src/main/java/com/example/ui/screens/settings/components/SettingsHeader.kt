@@ -58,9 +58,9 @@ fun SettingsHeader(
     val headerGradient = if (isDark) {
         Brush.verticalGradient(
             colors = listOf(
+                Color(0xFF131D31),
                 Color(0xFF0F172A),
-                Color(0xFF131B2E),
-                Color(0xFF090D16)
+                Color(0xFF0B2926)
             )
         )
     } else {
@@ -77,8 +77,8 @@ fun SettingsHeader(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                elevation = 12.dp,
-                shape = HeaderShape,
+                elevation = 4.dp,
+                shape = RoundedCornerShape(bottomStart = com.example.ui.theme.RadiusXL, bottomEnd = com.example.ui.theme.RadiusXL),
                 ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
                 spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
             ),
@@ -92,26 +92,26 @@ fun SettingsHeader(
                 // The parent Scaffold already applies the status-bar inset.
                 // Keep only a small visual gap above the header content.
                 .padding(
-                    start = if (compact) 16.dp else 20.dp,
-                    end = if (compact) 16.dp else 20.dp,
-                    top = if (compact) 2.dp else 3.dp,
-                    bottom = if (compact) 5.dp else 8.dp
+                    start = 14.dp,
+                    end = 14.dp,
+                    top = 0.dp,
+                    bottom = 2.dp
                 )
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(34.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.weight(1f)
                 ) {
                     if (showBack) {
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(34.dp)
                                 .clip(RoundedCornerShape(RadiusMD))
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
                                 .clickable(onClick = onBackClick)
@@ -122,13 +122,13 @@ fun SettingsHeader(
                                 imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                                 contentDescription = "بازگشت",
                                 tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     } else {
                         Box(
                             modifier = Modifier
-                                .size(46.dp)
+                                .size(34.dp)
                                 .shadow(8.dp, RoundedCornerShape(RadiusMD), spotColor = Color(0xFF14B8A6))
                                 .clip(RoundedCornerShape(RadiusMD))
                                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
@@ -138,7 +138,7 @@ fun SettingsHeader(
                                 painter = painterResource(id = R.drawable.img_3d_settings_gear),
                                 contentDescription = "تنظیمات",
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(28.dp)
                                     .clip(RoundedCornerShape(RadiusMD)),
                                 contentScale = ContentScale.Crop
                             )
@@ -150,14 +150,14 @@ fun SettingsHeader(
                             text = title,
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 19.sp
+                                fontSize = 14.sp
                             ),
                             color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
                         )
 
                         Text(
                             text = subtitle,
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
