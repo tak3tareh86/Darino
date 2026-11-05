@@ -141,31 +141,36 @@ fun CheckScreen(
 
     Scaffold(
         topBar = {
-            val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-            val headerGradient = if (isDark) {
-                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF131D31), Color(0xFF0F172A), Color(0xFF0B2926)))
-            } else {
-                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.primaryContainer))
-            }
-            Box(
-                modifier = Modifier.fillMaxWidth()
-                    .shadow(4.dp, RoundedCornerShape(bottomStart = com.example.ui.theme.RadiusXL, bottomEnd = com.example.ui.theme.RadiusXL),
-                        ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                    .clip(RoundedCornerShape(bottomStart = com.example.ui.theme.RadiusXL, bottomEnd = com.example.ui.theme.RadiusXL))
-                    .background(headerGradient).statusBarsPadding()
-                    .padding(start = 14.dp, end = 14.dp, top = 0.dp, bottom = 2.dp)
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 1.dp
             ) {
-                Row(Modifier.fillMaxWidth().height(34.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                        Text("مدیریت چک‌ها", style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold),
-                            color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface)
-                        Text("نمای کلی چک‌های دریافتی و پرداختی", style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            "مدیریت چک‌ها",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "نمای کلی چک‌های دریافتی و پرداختی",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f), modifier = Modifier.size(34.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(15.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(46.dp)
+                    ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.ReceiptLong, contentDescription = null,
-                                tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Rounded.ReceiptLong, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(25.dp))
                         }
                     }
                 }
@@ -192,8 +197,8 @@ fun CheckScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
 
 
@@ -203,100 +208,83 @@ fun CheckScreen(
             }
 
             if (selectedMainTab != 3) {
-            // 2. Compact search and status-filter controls with matching dimensions
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = uiState.searchQuery,
-                        onValueChange = { viewModel.onSearchQueryChanged(it) },
-                        placeholder = { Text("جستجو در چک‌ها...", maxLines = 1) },
-                        modifier = Modifier.weight(1f).height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                        trailingIcon = if (uiState.searchQuery.isNotEmpty()) {
-                            {
-                                IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                    Icon(Icons.Rounded.Clear, null)
-                                }
+            // Search and status controls retain their original ViewModel callbacks.
+            if (selectedMainTab != 3) {
+                item(key = "check-search-controls") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.searchQuery,
+                                onValueChange = { viewModel.onSearchQueryChanged(it) },
+                                placeholder = { Text("جست‌وجو در چک‌ها...", maxLines = 1) },
+                                modifier = Modifier.weight(1f).heightIn(min = 54.dp),
+                                shape = RoundedCornerShape(18.dp),
+                                leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                                trailingIcon = if (uiState.searchQuery.isNotEmpty()) {
+                                    {
+                                        IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                            Icon(Icons.Rounded.Clear, null)
+                                        }
+                                    }
+                                } else null,
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            FilledTonalButton(
+                                onClick = { showStatusFilters = !showStatusFilters },
+                                modifier = Modifier.height(54.dp),
+                                shape = RoundedCornerShape(18.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp)
+                            ) {
+                                Icon(Icons.Rounded.FilterList, null)
+                                Spacer(Modifier.width(5.dp))
+                                Text(
+                                    if (uiState.selectedStatus == null) "فیلتر" else uiState.selectedStatus?.title.orEmpty(),
+                                    maxLines = 1,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
                             }
-                        } else null,
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                        )
-                    )
-
-                    OutlinedButton(
-                        onClick = { showStatusFilters = !showStatusFilters },
-                        modifier = Modifier.weight(1f).height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.primary
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (showStatusFilters) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outline
-                        )
-                    ) {
-                        Icon(Icons.Rounded.FilterList, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = when {
-                                uiState.selectedStatus == null -> "فیلتر وضعیت"
-                                else -> uiState.selectedStatus?.title.orEmpty()
-                            },
-                            maxLines = 1,
-                            softWrap = false,
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                        Spacer(Modifier.width(2.dp))
-                        Icon(
-                            if (showStatusFilters) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                            contentDescription = null
-                        )
+                        }
                     }
                 }
             }
 
-            }
-
-            // Operational tabs plus the independent historical report.
-            item {
-                PrimaryTabRow(
-                    selectedTabIndex = selectedMainTab,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)),
-                    divider = {},
-                    indicator = {
-                        TabRowDefaults.PrimaryIndicator(
-                            modifier = Modifier.tabIndicatorOffset(selectedMainTab),
-                            width = 64.dp,
-                            shape = RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
-                        )
-                    }
+            // Compact segmented navigation for operational tabs and report.
+            item(key = "check-main-tabs") {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                 ) {
-                    Tab(selected = selectedMainTab == 0, onClick = {
-                        selectMainTab(0)
-                    }, text = { Text("همه") })
-                    Tab(selected = selectedMainTab == 1, onClick = {
-                        selectMainTab(1)
-                    }, text = { Text("دریافتی") })
-                    Tab(selected = selectedMainTab == 2, onClick = {
-                        selectMainTab(2)
-                    }, text = { Text("پرداختی") })
-                    Tab(selected = selectedMainTab == 3, onClick = {
-                        selectMainTab(3)
-                        showStatusFilters = false
-                    }, text = { Text("گزارش") })
+                    PrimaryTabRow(
+                        selectedTabIndex = selectedMainTab,
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        divider = {},
+                        indicator = {
+                            TabRowDefaults.PrimaryIndicator(
+                                modifier = Modifier.tabIndicatorOffset(selectedMainTab),
+                                width = 48.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
+                            )
+                        }
+                    ) {
+                        Tab(selected = selectedMainTab == 0, onClick = { selectMainTab(0) }, text = { Text("همه", maxLines = 1) })
+                        Tab(selected = selectedMainTab == 1, onClick = { selectMainTab(1) }, text = { Text("دریافتی", maxLines = 1) })
+                        Tab(selected = selectedMainTab == 2, onClick = { selectMainTab(2) }, text = { Text("پرداختی", maxLines = 1) })
+                        Tab(selected = selectedMainTab == 3, onClick = { selectMainTab(3); showStatusFilters = false }, text = { Text("گزارش", maxLines = 1) })
+                    }
                 }
             }
 
