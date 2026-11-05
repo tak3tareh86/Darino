@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.components.AppSectionHeader
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusXL
 import com.example.util.IranianPhoneUtils
@@ -52,113 +53,30 @@ fun HomeHeader(
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-
-    val headerGradient = if (isDark) {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color(0xFF131D31),
-                Color(0xFF0F172A),
-                Color(0xFF0B2926)
+    AppSectionHeader(
+        title = "سلام $userName 👋",
+        subtitle = todayDateText,
+        modifier = modifier,
+        leadingIcon = {
+            Image(
+                painter = painterResource(id = R.drawable.img_darino_logo),
+                contentDescription = "لوگوی دارینو",
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(6.dp)),
+                contentScale = ContentScale.Crop
             )
-        )
-    } else {
-        Brush.verticalGradient(
-            colors = listOf(
-                MaterialTheme.colorScheme.surface,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primaryContainer
+        },
+        actions = {
+            NotificationButton(
+                badgeCount = unreadNotificationsCount,
+                onClick = onNotificationClick
             )
-        )
-    }
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(
-                elevation = 4.dp,
-                shape = RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL),
-                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+            SettingsButton(
+                onClick = onSettingsClick
             )
-            .clip(RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL))
-            .background(headerGradient)
-            .statusBarsPadding()
-            .padding(start = 14.dp, end = 14.dp, top = 0.dp, bottom = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Right Side (RTL): App 3D Avatar/Logo + Greeting + Persian Date
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // 3D App Icon
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .shadow(
-                            elevation = 2.dp,
-                            shape = RoundedCornerShape(8.dp),
-                            ambientColor = Color(0xFF14B8A6).copy(alpha = 0.15f),
-                            spotColor = Color(0xFF14B8A6).copy(alpha = 0.3f)
-                        )
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
-                        .padding(1.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.img_darino_logo),
-                        contentDescription = "لوگوی دارینو",
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(6.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-
-                // Greeting Texts
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(0.dp)
-                ) {
-                    Text(
-                        text = "سلام $userName 👋",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        ),
-                        color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = todayDateText,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Normal
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Left Side (RTL): Notification Button with Badge and Settings Button
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                NotificationButton(
-                    badgeCount = unreadNotificationsCount,
-                    onClick = onNotificationClick
-                )
-                SettingsButton(
-                    onClick = onSettingsClick
-                )
-            }
         }
-    }
+    )
 }
 
 @Composable
