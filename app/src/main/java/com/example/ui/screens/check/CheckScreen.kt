@@ -207,7 +207,6 @@ fun CheckScreen(
                 item { CheckSummaryCards(checks = uiState.checks) }
             }
 
-            if (selectedMainTab != 3) {
             // Search and status controls retain their original ViewModel callbacks.
             if (selectedMainTab != 3) {
                 item(key = "check-search-controls") {
