@@ -1,8 +1,5 @@
 package com.example.ui.screens.settings.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,13 +8,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
@@ -38,8 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.ui.theme.HeaderShape
 import com.example.ui.theme.RadiusMD
+import com.example.ui.theme.RadiusXL
 
 @Composable
 fun SettingsHeader(
@@ -73,92 +69,99 @@ fun SettingsHeader(
         )
     }
 
+    val headerTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
                 elevation = 4.dp,
-                shape = RoundedCornerShape(bottomStart = com.example.ui.theme.RadiusXL, bottomEnd = com.example.ui.theme.RadiusXL),
+                shape = RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL),
                 ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
                 spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
             ),
-        shape = RoundedCornerShape(bottomStart = com.example.ui.theme.RadiusXL, bottomEnd = com.example.ui.theme.RadiusXL),
+        shape = RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL),
         color = MaterialTheme.colorScheme.surface
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(headerGradient)
-                // The parent Scaffold already applies the status-bar inset.
-                // Keep only a small visual gap above the header content.
-                .padding(
-                    start = 14.dp,
-                    end = 14.dp,
-                    top = 0.dp,
-                    bottom = 2.dp
-                )
+                .padding(start = 14.dp, end = 14.dp, top = 0.dp, bottom = 2.dp)
         ) {
+            // The title/subtitle follow FinancialHeader's centered composition.
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.displayMedium.copy(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = headerTextColor
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Keep the existing back/search actions and their callbacks unchanged.
             Row(
-                modifier = Modifier.fillMaxWidth().height(34.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(34.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    if (showBack) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(RadiusMD))
-                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
-                                .clickable(onClick = onBackClick)
-                                .testTag("settings_header_back_button"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                                contentDescription = "بازگشت",
-                                tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
+                if (showBack) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (isDark) Color.White.copy(alpha = 0.15f)
+                                else Color(0xFF0D9488).copy(alpha = 0.10f)
                             )
-                        }
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .shadow(8.dp, RoundedCornerShape(RadiusMD), spotColor = Color(0xFF14B8A6))
-                                .clip(RoundedCornerShape(RadiusMD))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.img_3d_settings_gear),
-                                contentDescription = "تنظیمات",
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(RoundedCornerShape(RadiusMD)),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                    }
-
-                    Column(verticalArrangement = Arrangement.Center) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            ),
-                            color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+                            .clickable(onClick = onBackClick)
+                            .testTag("settings_header_back_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            contentDescription = "بازگشت",
+                            tint = headerTextColor,
+                            modifier = Modifier.size(18.dp)
                         )
-
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .shadow(
+                                elevation = 2.dp,
+                                shape = RoundedCornerShape(8.dp),
+                                ambientColor = Color.Black.copy(alpha = 0.15f),
+                                spotColor = Color(0xFF14B8A6).copy(alpha = 0.2f)
+                            )
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (isDark) Color.White.copy(alpha = 0.15f)
+                                else Color(0xFF0D9488).copy(alpha = 0.10f)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.img_3d_settings_gear),
+                            contentDescription = "تنظیمات",
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(RadiusMD)),
+                            contentScale = ContentScale.Crop
                         )
                     }
                 }
@@ -166,11 +169,12 @@ fun SettingsHeader(
                 if (showSearch) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(34.dp)
                             .clip(CircleShape)
                             .background(
                                 if (isSearchActive) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                                else if (isDark) Color.White.copy(alpha = 0.15f)
+                                else Color(0xFF0D9488).copy(alpha = 0.10f)
                             )
                             .clickable(onClick = onSearchToggle)
                             .testTag("settings_search_toggle_button"),
@@ -180,10 +184,12 @@ fun SettingsHeader(
                             imageVector = Icons.Rounded.Search,
                             contentDescription = "جستجو در تنظیمات",
                             tint = if (isSearchActive) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
+                            else headerTextColor,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
+                } else {
+                    Box(modifier = Modifier.size(34.dp))
                 }
             }
         }
