@@ -82,7 +82,7 @@ fun SettingsHeader(
                 ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
                 spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
             ),
-        shape = HeaderShape,
+        shape = RoundedCornerShape(bottomStart = com.example.ui.theme.RadiusXL, bottomEnd = com.example.ui.theme.RadiusXL),
         color = MaterialTheme.colorScheme.surface
     ) {
         Box(
