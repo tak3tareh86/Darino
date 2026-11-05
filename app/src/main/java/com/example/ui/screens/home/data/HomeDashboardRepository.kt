@@ -16,6 +16,7 @@ import com.example.ui.screens.installments.model.InstallmentCategory
 import com.example.ui.screens.installments.model.InstallmentItem
 import com.example.ui.screens.installments.model.InstallmentStatus
 import com.example.ui.screens.installments.model.PaymentHistoryItem
+import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
 import kotlinx.coroutines.flow.firstOrNull
 import com.example.util.IranianDateUtils
