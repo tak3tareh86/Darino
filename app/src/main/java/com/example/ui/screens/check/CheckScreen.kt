@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ui.components.AppSectionHeader
 import com.example.ui.screens.check.components.AddEditCheckDialog
 import com.example.ui.screens.check.components.CheckCard
 import com.example.ui.screens.check.components.CheckSummaryCards
@@ -141,40 +142,23 @@ fun CheckScreen(
 
     Scaffold(
         topBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 1.dp
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            "مدیریت چک‌ها",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            "نمای کلی چک‌های دریافتی و پرداختی",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(15.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(46.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.ReceiptLong, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(25.dp))
-                        }
-                    }
+            AppSectionHeader(
+                title = "مدیریت چک‌ها",
+                subtitle = "نمای کلی چک‌های دریافتی و پرداختی",
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.ReceiptLong,
+                        contentDescription = "مدیریت چک‌ها",
+                        tint = if (MaterialTheme.colorScheme.background.red < 0.2f) {
+                            Color.White
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
-            }
+            )
+        }
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
