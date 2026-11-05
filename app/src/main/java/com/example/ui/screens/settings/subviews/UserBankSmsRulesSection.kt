@@ -25,6 +25,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
@@ -89,6 +91,8 @@ private object BankLogoRepository {
         }
     }
 }
+private fun normalizeSmsRuleSearch(value: String): String = value.trim().map { ch -> when (ch) { in '۰'..'۹' -> ('0'.code + (ch - '۰')).toChar(); in '٠'..'٩' -> ('0'.code + (ch - '٠')).toChar(); else -> ch } }.joinToString("").lowercase().replace("ي", "ی").replace("ك", "ک")
+
 private fun sanitizeMarkerInput(value: String): String = value.filter { it.isLetterOrDigit() || it == '/' || it == '_' || it == '-' || it == '+' }
 
 private fun renderBankLogo(source: String): Bitmap? = runCatching {
@@ -101,13 +105,15 @@ private fun renderBankLogo(source: String): Bitmap? = runCatching {
 }.getOrNull()
 
 @Composable
-fun UserBankSmsRulesSection() {
+fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit, addBankRequest: Int) {
     val context = LocalContext.current
     val repository = remember(context) { UserBankSmsRuleRepository(context) }
     var rules by remember { mutableStateOf(repository.getAll()) }
     var editing by remember { mutableStateOf<UserBankSmsRule?>(null) }
     var showEditor by remember { mutableStateOf(false) }
-    var selectedTab by remember { mutableStateOf(0) }
+    var searchQuery by remember { mutableStateOf("") }
+    androidx.compose.runtime.LaunchedEffect(addBankRequest) { if (addBankRequest > 0) { editing = null; showEditor = true } }
+    val filteredRules = remember(rules, searchQuery) { val query = normalizeSmsRuleSearch(searchQuery); if (query.isBlank()) rules else rules.filter { rule -> (listOf(rule.bankName) + rule.textSenderAddresses + rule.numericSenderAddresses).any { normalizeSmsRuleSearch(it).contains(query) } } }
 
     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -120,42 +126,16 @@ fun UserBankSmsRulesSection() {
         }
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GuideTab(title = "مدیریت بانک‌ها", selected = selectedTab == 0, onClick = { selectedTab = 0 }, modifier = Modifier.weight(1f))
-            GuideTab(title = "قوانین ثبت الگو", selected = selectedTab == 1, onClick = { selectedTab = 1 }, modifier = Modifier.weight(1f))
+            GuideTab(title = "مدیریت بانک‌ها", selected = selectedTab == 0, onClick = { onSelectedTabChange(0) }, modifier = Modifier.weight(1f))
+            GuideTab(title = "قوانین ثبت الگو", selected = selectedTab == 1, onClick = { onSelectedTabChange(1) }, modifier = Modifier.weight(1f))
         }
 
         if (selectedTab == 1) {
             SmsRulesGuide()
         } else {
-        Surface(
-            onClick = { editing = null; showEditor = true },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-                .shadow(5.dp, RoundedCornerShape(18.dp)),
-            shape = RoundedCornerShape(18.dp),
-            color = Color.Transparent
-        ) {
-            Box(
-                modifier = Modifier.background(
-                    Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary.copy(alpha = 0.82f)))
-                ).padding(horizontal = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(Icons.Rounded.AccountBalance, null, tint = Color.White, modifier = Modifier.size(24.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("افزودن بانک", color = Color.White, style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("جست‌وجوی بانک یا سرشناسه") }, placeholder = { Text("نام بانک، سرشناسه متنی یا عددی") }, leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) }, trailingIcon = { if (searchQuery.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Rounded.Close, contentDescription = "پاک کردن جست‌وجو") } })
 
-                }
-            }
-        }
-
-        if (rules.isEmpty()) {
+        if (filteredRules.isEmpty()) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -167,13 +147,13 @@ fun UserBankSmsRulesSection() {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(Icons.Rounded.AccountBalance, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp))
-                    Text("هنوز بانکی اضافه نکرده‌اید", style = MaterialTheme.typography.titleSmall)
-                    Text("برای شروع، روی دکمه افزودن بانک بزنید.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (rules.isEmpty()) "هنوز بانکی اضافه نکرده‌اید" else "موردی پیدا نشد", style = MaterialTheme.typography.titleSmall)
+                    Text(if (rules.isEmpty()) "برای افزودن بانک، از دکمه + پایین صفحه استفاده کنید." else "نام بانک یا سرشناسه دیگری را جست‌وجو کنید.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
 
-        rules.chunked(2).forEach { rowRules ->
+        filteredRules.chunked(2).forEach { rowRules ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
