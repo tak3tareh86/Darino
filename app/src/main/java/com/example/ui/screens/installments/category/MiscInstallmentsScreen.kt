@@ -96,14 +96,14 @@ fun MiscInstallmentsScreen(
 
                         Soft3DIcon(
                             imageRes = R.drawable.img_3d_installment,
-                            contentDescription = "اقساط متفرقه",
+                            contentDescription = "وام‌های متفرقه و شخصی",
                             size = 36.dp,
                             accentColor = ExpenseRoseLight,
                             containerShape = RoundedCornerShape(10.dp)
                         )
 
                         Text(
-                            text = "اقساط متفرقه و خرید کالا",
+                            text = "وام‌های متفرقه و شخصی",
                             style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -149,7 +149,7 @@ fun MiscInstallmentsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "مجموع اقساط کالا و شخصی (${installments.size} مورد)",
+                                text = "مجموع وام‌های متفرقه و شخصی (${installments.size} مورد)",
                                 style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.5.sp),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
