@@ -38,6 +38,7 @@ import com.example.reminder.viewmodel.ReminderFilterChip
 import com.example.reminder.viewmodel.ReminderTab
 import com.example.reminder.viewmodel.ReminderViewModel
 import com.example.ui.screens.reminder.NotificationCenterScreen
+import com.example.ui.components.AppSectionHeader
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.theme.EmeraldPrimaryLight
@@ -141,42 +142,27 @@ fun ReminderScreen(
                 snackbarHost = { SnackbarHost(snackbarHostState) },
                 bottomBar = bottomBar,
                 topBar = {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth().shadow(4.dp),
-                        color = MaterialTheme.colorScheme.surface
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .statusBarsPadding()
-                                .padding(horizontal = 14.dp, vertical = 7.dp)
-                                .fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text(
-                                    text = "یادآورها و سررسیدها",
-                                    style = MaterialTheme.typography.titleLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp
-                                    )
-                                )
-                                Text(
-                                    text = "مدیریت سررسید اقساط، بیمه و سرویس خودرو",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 9.sp
-                                    )
-                                )
-                            }
-
-                            IconButton(
-                                onClick = { currentSubScreen = ReminderSubScreen.NOTIFICATION_CENTER },
+                    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+                    AppSectionHeader(
+                        title = "یادآورها و سررسیدها",
+                        subtitle = "مدیریت سررسید اقساط، بیمه و سرویس خودرو",
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Rounded.NotificationsNone,
+                                contentDescription = "یادآورها",
+                                tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        actions = {
+                            Box(
                                 modifier = Modifier
-                                    .size(32.dp)
+                                    .size(34.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                                    .testTag("btn_notification_center")
+                                    .background(Color.White.copy(alpha = 0.15f))
+                                    .clickable { currentSubScreen = ReminderSubScreen.NOTIFICATION_CENTER }
+                                    .testTag("btn_notification_center"),
+                                contentAlignment = Alignment.Center
                             ) {
                                 BadgedBox(
                                     badge = {
@@ -193,13 +179,14 @@ fun ReminderScreen(
                                     Icon(
                                         imageVector = Icons.Rounded.NotificationsNone,
                                         contentDescription = "مرکز اعلان‌ها",
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(16.dp)
+                                        tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
                         }
-                    }
+                    )
+                }
                 },
                 floatingActionButton = {
                     FloatingActionButton(
