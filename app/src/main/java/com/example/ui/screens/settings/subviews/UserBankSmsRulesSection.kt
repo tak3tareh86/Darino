@@ -297,7 +297,6 @@ fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit
             }
         }
         }
-        }
     }
 
     if (showEditor && selectedTab == 0) {
