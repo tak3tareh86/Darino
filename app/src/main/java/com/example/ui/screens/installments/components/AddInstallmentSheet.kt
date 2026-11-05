@@ -880,7 +880,7 @@ private fun FormDetailsStep(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isCustomScheduleActive) "اقساط غیرهمسان فعال است" else "تنظیم اقساط غیرهمسان / کارمزددار",
+                            text = if (isCustomScheduleActive) "اقساط غیرهمسان فعال است" else "تنظیم اقساط",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = if (isCustomScheduleActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
