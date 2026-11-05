@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -139,7 +140,37 @@ fun CheckScreen(
     }
 
     Scaffold(
-        topBar = {},
+        topBar = {
+            val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+            val headerGradient = if (isDark) {
+                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF131D31), Color(0xFF0F172A), Color(0xFF0B2926)))
+            } else {
+                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.primaryContainer))
+            }
+            Box(
+                modifier = Modifier.fillMaxWidth()
+                    .shadow(4.dp, RoundedCornerShape(bottomStart = com.example.ui.theme.RadiusXL, bottomEnd = com.example.ui.theme.RadiusXL),
+                        ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                    .clip(RoundedCornerShape(bottomStart = com.example.ui.theme.RadiusXL, bottomEnd = com.example.ui.theme.RadiusXL))
+                    .background(headerGradient).statusBarsPadding()
+                    .padding(start = 14.dp, end = 14.dp, top = 0.dp, bottom = 2.dp)
+            ) {
+                Row(Modifier.fillMaxWidth().height(34.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                        Text("مدیریت چک‌ها", style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold),
+                            color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface)
+                        Text("نمای کلی چک‌های دریافتی و پرداختی", style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f), modifier = Modifier.size(34.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.ReceiptLong, contentDescription = null,
+                                tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                }
+            }
+        },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -164,41 +195,7 @@ fun CheckScreen(
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "مدیریت چک‌ها",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "نمای کلی چک‌های دریافتی و پرداختی",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Rounded.ReceiptLong,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(25.dp)
-                            )
-                        }
-                    }
-                }
-            }
+
 
             // Existing operational summary remains outside the historical report tab.
             if (selectedMainTab != 3) {

@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -215,6 +216,42 @@ fun DarinoVehicleMainDashboard(
         modifier = modifier
             .fillMaxSize()
             .testTag("vehicle_dashboard_screen"),
+        topBar = {
+            val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+            val headerGradient = if (isDark) {
+                Brush.verticalGradient(listOf(Color(0xFF131D31), Color(0xFF0F172A), Color(0xFF0B2926)))
+            } else {
+                Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.primaryContainer))
+            }
+            Box(
+                modifier = Modifier.fillMaxWidth()
+                    .shadow(4.dp, RoundedCornerShape(bottomStart = com.example.ui.theme.RadiusXL, bottomEnd = com.example.ui.theme.RadiusXL),
+                        ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                    .clip(RoundedCornerShape(bottomStart = com.example.ui.theme.RadiusXL, bottomEnd = com.example.ui.theme.RadiusXL))
+                    .background(headerGradient).statusBarsPadding()
+                    .padding(start = 14.dp, end = 14.dp, top = 0.dp, bottom = 2.dp)
+            ) {
+                Row(Modifier.fillMaxWidth().height(34.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Soft3DIcon(imageRes = R.drawable.img_3d_car, contentDescription = "دستیار خودرو دارینو",
+                            size = 34.dp, accentColor = MaterialTheme.colorScheme.primary)
+                        Column {
+                            Text("خودروهای من", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
+                                color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface)
+                            Text("دستیار هوشمند نگهداری، سرویس و هزینه‌ها", style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    FilledTonalButton(onClick = { viewModel.openAddVehicle() }, shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                        modifier = Modifier.testTag("top_add_vehicle_btn").height(34.dp)) {
+                        Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(3.dp))
+                        Text("ثبت خودرو", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp))
+                    }
+                }
+            }
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = bottomBar,
         containerColor = MaterialTheme.colorScheme.background,
@@ -227,59 +264,7 @@ fun DarinoVehicleMainDashboard(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 1. Top Header: Title + Add Vehicle Action
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Soft3DIcon(
-                        imageRes = R.drawable.img_3d_car,
-                        contentDescription = "دستیار خودرو دارینو",
-                        size = 22.dp,
-                        accentColor = MaterialTheme.colorScheme.primary
-                    )
-                    Column {
-                        Text(
-                            text = "خودروهای من",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.5.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "دستیار هوشمند نگهداری، سرویس و هزینه‌ها",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
 
-                FilledTonalButton(
-                    onClick = { viewModel.openAddVehicle() },
-                    shape = RoundedCornerShape(6.dp),
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                    modifier = Modifier.testTag("top_add_vehicle_btn").height(24.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = "ثبت خودرو",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 8.5.sp)
-                    )
-                }
-            }
 
             // 2. Multi-Vehicle Collapsible Selector (Modern Design)
             var isExpanded by remember { mutableStateOf(false) }
