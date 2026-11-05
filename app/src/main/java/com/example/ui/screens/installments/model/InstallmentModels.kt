@@ -42,14 +42,14 @@ enum class InstallmentCategory(
     ),
     CAR_INSURANCE(
         id = "car_insurance",
-        title = "اقساط بیمه خودرو",
+        title = "وام‌های بیمه خودرو",
         subtitle = "بیمه شخص ثالث و بدنه خودروها",
         iconRes = R.drawable.img_3d_insurance,
         accentColor = InfoIndigoLight
     ),
     MISC(
         id = "misc_installments",
-        title = "اقساط متفرقه",
+        title = "وام‌های متفرقه و شخصی",
         subtitle = "خرید کالا، لوازم و تعهدات شخصی",
         iconRes = R.drawable.img_3d_installment,
         accentColor = ExpenseRoseLight

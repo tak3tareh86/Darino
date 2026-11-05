@@ -114,14 +114,14 @@ fun CarInsuranceInstallmentsScreen(
     
                             Soft3DIcon(
                                 imageRes = R.drawable.img_3d_insurance,
-                                contentDescription = "اقساط بیمه خودرو",
+                                contentDescription = "وام‌های بیمه خودرو",
                                 size = 36.dp,
                                 accentColor = InfoIndigoLight,
                                 containerShape = RoundedCornerShape(10.dp)
                             )
     
                             Text(
-                                text = "اقساط بیمه خودرو",
+                                text = "وام‌های بیمه خودرو",
                                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
