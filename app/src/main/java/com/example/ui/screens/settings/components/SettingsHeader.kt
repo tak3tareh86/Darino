@@ -91,7 +91,9 @@ fun SettingsHeader(
         ) {
             // The title/subtitle follow FinancialHeader's centered composition.
             Column(
-                modifier = Modifier.align(Alignment.Center),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth(0.72f),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
