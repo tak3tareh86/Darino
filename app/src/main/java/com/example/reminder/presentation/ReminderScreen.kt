@@ -186,7 +186,6 @@ fun ReminderScreen(
                             }
                         }
                     )
-                }
                 },
                 floatingActionButton = {
                     FloatingActionButton(
