@@ -819,94 +819,41 @@ private fun FormDetailsStep(
                         modifier = Modifier.testTag("installment_total_input")
                     )
 
-                    if (category == InstallmentCategory.BANK_LOANS) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedTextField(
-                                value = paidInstallmentsCount,
-                                onValueChange = { input ->
-                                    onPaidInstallmentsCountChange(
-                                        IranianPhoneUtils.convertDigitsToPersian(
-                                            IranianPhoneUtils.convertDigitsToEnglish(input).filter { it.isDigit() }
-                                        )
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                        "تعداد اقساط پرداخت‌شده",
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        fontSize = 10.sp
-                                    )
-                                },
-                                isError = submitValidationError != null,
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier
-                                    .weight(1.2f)
-                                    .testTag("installment_paid_count_input"),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-
-                            OutlinedTextField(
-                                value = installmentsCount,
-                                onValueChange = onInstallmentsCountChange,
-                                label = { Text("تعداد اقساط", maxLines = 1, softWrap = false) },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier
-                                    .weight(0.8f)
-                                    .testTag("installment_count_input"),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        }
-
-                        OutlinedButton(
-                            onClick = onOpenCustomSchedule,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, if (isCustomScheduleActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Tune,
-                                contentDescription = null,
-                                tint = if (isCustomScheduleActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (isCustomScheduleActive) "اقساط غیرهمسان فعال است" else "تنظیم اقساط غیرهمسان / کارمزددار",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = if (isCustomScheduleActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(modifier = Modifier.weight(1.2f)) {
-                            PersianAmountInputField(
-                                value = installmentAmount,
-                                onValueChange = onInstallmentAmountChange,
-                                label = "مبلغ هر قسط",
-                                showWordsPreview = false,
-                                useOuterHeader = false,
-                                modifier = Modifier.testTag("installment_monthly_input")
-                            )
-                        }
+                        OutlinedTextField(
+                            value = paidInstallmentsCount,
+                            onValueChange = { input ->
+                                onPaidInstallmentsCountChange(
+                                    IranianPhoneUtils.convertDigitsToPersian(
+                                        IranianPhoneUtils.convertDigitsToEnglish(input).filter { it.isDigit() }
+                                    )
+                                )
+                            },
+                            label = {
+                                Text(
+                                    "تعداد اقساط پرداخت‌شده",
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    fontSize = 10.sp
+                                )
+                            },
+                            isError = submitValidationError != null,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier
+                                .weight(1.2f)
+                                .testTag("installment_paid_count_input"),
+                            shape = RoundedCornerShape(10.dp)
+                        )
 
                         OutlinedTextField(
                             value = installmentsCount,
                             onValueChange = onInstallmentsCountChange,
-                            label = { Text("تعداد اقساط") },
+                            label = { Text("تعداد اقساط", maxLines = 1, softWrap = false) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier
@@ -916,26 +863,29 @@ private fun FormDetailsStep(
                         )
                     }
 
-                    OutlinedTextField(
-                        value = paidInstallmentsCount,
-                        onValueChange = { input ->
-                            onPaidInstallmentsCountChange(
-                                IranianPhoneUtils.convertDigitsToPersian(
-                                    IranianPhoneUtils.convertDigitsToEnglish(input).filter { it.isDigit() }
-                                )
-                            )
-                        },
-                        label = { Text("تعداد اقساط پرداخت‌شده") },
-                        isError = submitValidationError != null,
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    OutlinedButton(
+                        onClick = onOpenCustomSchedule,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("installment_paid_count_input"),
-                        shape = RoundedCornerShape(10.dp)
-                    )
-
+                            .height(48.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, if (isCustomScheduleActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Tune,
+                            contentDescription = null,
+                            tint = if (isCustomScheduleActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isCustomScheduleActive) "اقساط غیرهمسان فعال است" else "تنظیم اقساط غیرهمسان / کارمزددار",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = if (isCustomScheduleActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
+
                     if (submitValidationError != null) {
                         Text(
                             text = submitValidationError.orEmpty(),
