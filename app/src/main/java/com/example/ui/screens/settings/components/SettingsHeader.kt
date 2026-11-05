@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
@@ -172,7 +171,7 @@ fun SettingsHeader(
                     Box(
                         modifier = Modifier
                             .size(34.dp)
-                            .clip(CircleShape)
+                            .clip(RoundedCornerShape(8.dp))
                             .background(
                                 if (isSearchActive) MaterialTheme.colorScheme.primary
                                 else if (isDark) Color.White.copy(alpha = 0.15f)
