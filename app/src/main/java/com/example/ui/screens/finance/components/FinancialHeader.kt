@@ -53,14 +53,14 @@ fun FinancialHeader(
     } else {
         Brush.verticalGradient(
             colors = listOf(
-                Color(0xFFF8FAFC),
-                Color(0xFFE6FFFB),
-                Color(0xFFD1FAE5)
+                MaterialTheme.colorScheme.surface,
+                MaterialTheme.colorScheme.surfaceVariant,
+                MaterialTheme.colorScheme.primaryContainer
             )
         )
     }
-    val headerTextColor = if (isDark) Color.White else Color(0xFF0F172A)
-    val headerSubtitleColor = if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.8f) else Color(0xFF475569)
+    val headerTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+    val headerSubtitleColor = MaterialTheme.colorScheme.onSurfaceVariant
     val filterSurfaceColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF0D9488).copy(alpha = 0.10f)
     val filterBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF0D9488).copy(alpha = 0.22f)
 
@@ -70,13 +70,13 @@ fun FinancialHeader(
             .shadow(
                 elevation = 4.dp,
                 shape = RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL),
-                ambientColor = Color(0xFF0D9488).copy(alpha = 0.1f),
-                spotColor = Color(0xFF0F172A).copy(alpha = 0.15f)
+                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
             )
             .clip(RoundedCornerShape(bottomStart = RadiusXL, bottomEnd = RadiusXL))
             .background(headerGradient)
             .statusBarsPadding()
-            .padding(start = 14.dp, end = 14.dp, top = 0.dp, bottom = 1.dp)
+            .padding(start = 14.dp, end = 14.dp, top = 0.dp, bottom = 2.dp)
     ) {
         Box(
             modifier = Modifier.fillMaxWidth(),
@@ -90,7 +90,7 @@ fun FinancialHeader(
                 Text(
                     text = "مالی",
                     style = MaterialTheme.typography.displayMedium.copy(
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     ),
                     color = headerTextColor
@@ -105,7 +105,8 @@ fun FinancialHeader(
             // Top-Left Aligned: Filter Button
             Surface(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
+                    .align(Alignment.CenterStart)
+                    .height(34.dp)
                     .testTag("finance_filter_button")
                     .shadow(
                         elevation = 2.dp,
@@ -120,7 +121,7 @@ fun FinancialHeader(
                 border = BorderStroke(1.dp, filterBorderColor)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
