@@ -48,7 +48,7 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Stretch
+        verticalAlignment = Alignment.Top
     ) {
         // In RTL layout this first card appears on the right, matching the reference composition.
         MonthChecksCard(
