@@ -1,18 +1,20 @@
 package com.example.ui.screens.check.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Tag
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -26,76 +28,88 @@ import com.example.util.PersianCalendarHelper
 @Composable
 fun CheckCard(check: Check, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val isReceived = check.type == CheckType.RECEIVED
-    val typeColor = if (isReceived) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
     val personLabel = if (isReceived) check.holderName else check.receiverName
-    val personPrefix = if (isReceived) "از:" else "به:"
+    val personPrefix = if (isReceived) "صاحب چک:" else "دریافت‌کننده:"
+    val dueColor = if (check.isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
 
     Card(
         modifier = modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.58f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                StatusBadge(status = check.status)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    MoneyFormatter.format(check.amount),
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 19.sp, fontWeight = FontWeight.ExtraBold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CheckBankLogo(bankName = check.bankName)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    InfoLine(
+                        icon = { Icon(Icons.Rounded.Tag, null) },
+                        text = "شماره چک: ${check.checkNumber}"
+                    )
+                    InfoLine(
+                        icon = { Icon(Icons.Rounded.Person, null) },
+                        text = "$personPrefix $personLabel"
+                    )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        Icon(Icons.Rounded.Event, null, tint = dueColor, modifier = Modifier.size(17.dp))
                         Text(
-                            MoneyFormatter.format(check.amount),
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, fontWeight = FontWeight.ExtraBold),
-                            color = MaterialTheme.colorScheme.onSurface,
+                            "سررسید: ${check.formattedDueDate}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = dueColor,
+                            fontWeight = if (check.isOverdue) FontWeight.Bold else FontWeight.Normal,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(Modifier.width(6.dp))
-                        StatusBadge(status = check.status)
                     }
-                    Text(check.bankName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+
+                Box(
+                    Modifier.width(1.dp).fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f))
+                )
+
+                Column(
+                    modifier = Modifier.widthIn(min = 78.dp, max = 104.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    CheckBankLogo(bankName = check.bankName, modifier = Modifier.size(78.dp))
                     Text(
-                        "شماره چک: ${check.checkNumber}",
-                        style = MaterialTheme.typography.bodySmall,
+                        check.bankName,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(Icons.Rounded.Person, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
-                    Text(
-                        "$personPrefix $personLabel",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Icon(Icons.Rounded.Event, null, tint = if (check.isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                    Text(
-                        check.formattedDueDate,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (check.isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = if (check.isOverdue) FontWeight.Bold else FontWeight.Normal
                     )
                 }
             }
@@ -103,37 +117,93 @@ fun CheckCard(check: Check, onClick: () -> Unit, modifier: Modifier = Modifier) 
             if (check.reminderDateTime != null) {
                 val reminder = PersianCalendarHelper.fromEpochMillis(check.reminderDateTime)
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(11.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.48f)
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
+                        Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
-                        Icon(Icons.Rounded.NotificationsActive, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
+                        Icon(
+                            Icons.Rounded.NotificationsActive,
+                            null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
                         Text(
-                            "یادآور: ${reminder.toFormattedDate()} ${reminder.toFormattedTime()}",
+                            "یادآور: ${reminder.toFormattedDate()}، ${reminder.toFormattedTime()}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    "مشاهده جزئیات و عملیات چک",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.width(7.dp))
+                Icon(
+                    Icons.Rounded.ArrowBackIosNew,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(13.dp)
+                )
             }
         }
     }
 }
 
 @Composable
+private fun InfoLine(
+    icon: @Composable () -> Unit,
+    text: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        CompositionLocalProvider(
+            androidx.compose.material3.LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant
+        ) {
+            Box(Modifier.size(17.dp), contentAlignment = Alignment.Center) {
+                icon()
+            }
+        }
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
 fun StatusBadge(status: CheckStatus) {
-    val statusColor = Color(status.color)
+    val statusColor = androidx.compose.ui.graphics.Color(status.color)
     Surface(
-        color = statusColor.copy(alpha = 0.13f),
-        shape = RoundedCornerShape(50)
+        color = statusColor.copy(alpha = 0.14f),
+        shape = RoundedCornerShape(50),
+        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.18f))
     ) {
         Text(
             text = status.title,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
             style = MaterialTheme.typography.labelSmall,
             color = statusColor,
             fontWeight = FontWeight.Bold,
