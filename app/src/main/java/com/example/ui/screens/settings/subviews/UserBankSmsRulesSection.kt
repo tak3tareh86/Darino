@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,6 +11,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -155,12 +156,12 @@ fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit
 
         filteredRules.chunked(2).forEach { rowRules ->
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 rowRules.forEach { rule ->
                     Card(
-                        modifier = Modifier.weight(1f).aspectRatio(0.82f),
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                         shape = RoundedCornerShape(19.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -176,31 +177,68 @@ fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit
                                 modifier = Modifier.fillMaxWidth(),
                                 style = MaterialTheme.typography.titleSmall,
                                 textAlign = TextAlign.Center,
-                                maxLines = 1,
-                                softWrap = false,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            val senderSummary = listOfNotNull(
-                                rule.textSenderAddresses.takeIf { it.isNotEmpty() }?.joinToString("، ")?.let { "متنی: $it" },
-                                rule.numericSenderAddresses.takeIf { it.isNotEmpty() }?.joinToString("، ")?.let { "عددی: $it" }
-                            ).joinToString(" | ")
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(Icons.Rounded.Phone, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    senderSummary,
-                                    modifier = Modifier.weight(1f),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.labelSmall.copy(textDirection = TextDirection.Ltr),
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+
+                            if (rule.textSenderAddresses.isNotEmpty()) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Text(
+                                        "نوع سرشماره: متنی",
+                                        modifier = Modifier.fillMaxWidth(),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Start
+                                    )
+                                    Text(
+                                        "سرشماره:",
+                                        modifier = Modifier.fillMaxWidth(),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        rule.textSenderAddresses.joinToString("، "),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Content),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Start,
+                                        softWrap = true
+                                    )
+                                }
                             }
+
+                            if (rule.numericSenderAddresses.isNotEmpty()) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Text(
+                                        "نوع سرشماره: عددی",
+                                        modifier = Modifier.fillMaxWidth(),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Start
+                                    )
+                                    Text(
+                                        "سرشماره:",
+                                        modifier = Modifier.fillMaxWidth(),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        rule.numericSenderAddresses.joinToString("، "),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Start,
+                                        softWrap = true
+                                    )
+                                }
+                            }
+
                             Spacer(Modifier.weight(1f))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -257,6 +295,7 @@ fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit
                 }
                 if (rowRules.size == 1) Spacer(Modifier.weight(1f))
             }
+        }
         }
         }
     }
