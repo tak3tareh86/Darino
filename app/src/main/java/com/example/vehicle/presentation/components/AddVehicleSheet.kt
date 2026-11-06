@@ -81,6 +81,11 @@ fun AddVehicleSheet(
     var vin by remember { mutableStateOf("") }
     var mileageText by remember { mutableStateOf("") }
     var estimatedValueText by remember { mutableStateOf("") }
+    val parsedEstimatedValueRials = estimatedValueText.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() >= 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val estimatedValueInputInvalid = estimatedValueText.isNotBlank() && parsedEstimatedValueRials == null
 
     val brands = listOf(
         "ایران‌خودرو", "سایپا", "مدیران‌خودرو", "کرمان‌موتور", "بهمن‌موتور",
@@ -806,17 +811,21 @@ fun AddVehicleSheet(
                 testTag = "vehicle_estimated_value_input"
             )
 
+            if (estimatedValueInputInvalid) {
+                Text("ارزش تقریبی خودرو معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+
             // Submit Button
             Button(
                 onClick = {
                     if (model.isNotBlank()) {
                         val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: 0
-                        val estVal = IranianAmountUtils.parseAmountToBigDecimal(estimatedValueText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
+                        val estVal = parsedEstimatedValueRials ?: 0L
                         val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
                         onAddVehicle(if (brand == "سایر") customBrand.trim() else brand, model, year, color, plate, vin, mileage, estVal, engine.trim(), transmission.trim())
                     }
                 },
-                enabled = model.isNotBlank() && (brand != "سایر" || customBrand.isNotBlank()),
+                enabled = model.isNotBlank() && (brand != "سایر" || customBrand.isNotBlank()) && !estimatedValueInputInvalid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
