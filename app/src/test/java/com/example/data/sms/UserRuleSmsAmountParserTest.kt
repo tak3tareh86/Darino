@@ -1,6 +1,7 @@
 package com.example.data.sms
 
 import com.example.ui.screens.finance.model.TransactionType
+import com.example.ui.screens.settings.model.AppCurrency
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
@@ -47,6 +48,22 @@ class UserRuleSmsAmountParserTest {
         assertEquals(125_000_000L, parsed?.amount)
         assertEquals(130_000_000L, parsed?.balanceAmount)
         assertEquals(listOf(125_000_000L, 130_000_000L), parsed?.amountCandidates)
+    }
+
+    @Test
+    fun detectsTransactionAndBalanceUnitsIndependently() {
+        val parsed = UserRuleSmsAmountParser.parse(
+            smsId = "sms-mixed-units",
+            sender = "30001234",
+            body = "برداشت ۱۲۳٬۴۵۶ ریال از حساب بانکی؛ مانده نهایی ۷۸۹٬۰۱۲ تومان",
+            receivedAtMillis = 1_700_000_000_000L,
+            rule = rule,
+            type = TransactionType.EXPENSE
+        )
+
+        assertNotNull(parsed)
+        assertEquals(AppCurrency.RIAL, parsed?.amountUnit)
+        assertEquals(AppCurrency.TOMAN, parsed?.balanceAmountUnit)
     }
 
     @Test
