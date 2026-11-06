@@ -2,6 +2,7 @@ package com.example.loan.domain
 
 import kotlin.math.pow
 import kotlin.math.roundToLong
+import com.example.ui.screens.settings.model.AppCurrency
 
 /**
  * Mathematical estimates for common repayment models.
@@ -48,7 +49,8 @@ class LoanCalculatorEngine {
         interestPeriod: InterestPeriod = InterestPeriod.ANNUAL,
         duration: Int,
         durationType: DurationType = DurationType.MONTHS,
-        method: CalculationMethod = CalculationMethod.ANNUITY
+        method: CalculationMethod = CalculationMethod.ANNUITY,
+        amountUnit: AppCurrency = AppCurrency.TOMAN
     ): CalculationResult {
         require(validateInputs(amount, interestRate, duration, interestPeriod, durationType) is ValidationResult.Valid) {
             "ورودی‌های محاسبه تسهیلات معتبر نیستند"
@@ -56,9 +58,9 @@ class LoanCalculatorEngine {
         val totalMonths = if (durationType == DurationType.YEARS) duration * 12 else duration
         val annualRate = if (interestPeriod == InterestPeriod.MONTHLY) interestRate * 12.0 else interestRate
         return when (method) {
-            CalculationMethod.ANNUITY -> calculateAnnuity(amount, annualRate, totalMonths)
-            CalculationMethod.SIMPLE_INTEREST -> calculateSimpleInterest(amount, annualRate, totalMonths)
-            CalculationMethod.CUSTOM -> calculateCustomFlatFee(amount, annualRate, totalMonths)
+            CalculationMethod.ANNUITY -> calculateAnnuity(amount, annualRate, totalMonths, amountUnit)
+            CalculationMethod.SIMPLE_INTEREST -> calculateSimpleInterest(amount, annualRate, totalMonths, amountUnit)
+            CalculationMethod.CUSTOM -> calculateCustomFlatFee(amount, annualRate, totalMonths, amountUnit)
         }
     }
 
@@ -67,7 +69,7 @@ class LoanCalculatorEngine {
      * The displayed installment is rounded to whole tomans; totals are derived from it
      * so total payment always reconciles with the displayed monthly installment.
      */
-    private fun calculateAnnuity(principal: Long, annualRate: Double, months: Int): CalculationResult {
+    private fun calculateAnnuity(principal: Long, annualRate: Double, months: Int, amountUnit: AppCurrency): CalculationResult {
         val monthlyRate = annualRate / 1200.0
         val payment = if (monthlyRate == 0.0) {
             (principal.toDouble() / months).roundToLong()
@@ -77,20 +79,20 @@ class LoanCalculatorEngine {
         }.coerceAtLeast(1L)
         val totalPayment = Math.multiplyExact(payment, months.toLong())
         val totalInterest = (totalPayment - principal).coerceAtLeast(0L)
-        return result(principal, annualRate, months, payment, totalPayment, totalInterest, CalculationMethod.ANNUITY)
+        return result(principal, annualRate, months, payment, totalPayment, totalInterest, CalculationMethod.ANNUITY, amountUnit)
     }
 
     /**
      * Flat/simple-interest estimate. Interest is charged on the original principal
      * for the full term; this is deliberately NOT represented as standard bank amortization.
      */
-    private fun calculateSimpleInterest(principal: Long, annualRate: Double, months: Int): CalculationResult {
+    private fun calculateSimpleInterest(principal: Long, annualRate: Double, months: Int, amountUnit: AppCurrency): CalculationResult {
         val interest = (principal.toDouble() * annualRate / 1200.0 * months).roundToLong()
         val total = Math.addExact(principal, interest)
         val payment = (total.toDouble() / months).roundToLong()
         val reconciledTotal = Math.multiplyExact(payment, months.toLong())
         val reconciledInterest = (reconciledTotal - principal).coerceAtLeast(0L)
-        return result(principal, annualRate, months, payment, reconciledTotal, reconciledInterest, CalculationMethod.SIMPLE_INTEREST)
+        return result(principal, annualRate, months, payment, reconciledTotal, reconciledInterest, CalculationMethod.SIMPLE_INTEREST, amountUnit)
     }
 
     /**
@@ -98,13 +100,13 @@ class LoanCalculatorEngine {
      * fee = principal × annual fee rate × actual months / 12.
      * The applicable fee must still be taken from the specific contract/regulation.
      */
-    private fun calculateCustomFlatFee(principal: Long, annualRate: Double, months: Int): CalculationResult {
+    private fun calculateCustomFlatFee(principal: Long, annualRate: Double, months: Int, amountUnit: AppCurrency): CalculationResult {
         val fee = (principal.toDouble() * annualRate / 1200.0 * months).roundToLong()
         val total = Math.addExact(principal, fee)
         val payment = (total.toDouble() / months).roundToLong()
         val reconciledTotal = Math.multiplyExact(payment, months.toLong())
         val reconciledFee = (reconciledTotal - principal).coerceAtLeast(0L)
-        return result(principal, annualRate, months, payment, reconciledTotal, reconciledFee, CalculationMethod.CUSTOM)
+        return result(principal, annualRate, months, payment, reconciledTotal, reconciledFee, CalculationMethod.CUSTOM, amountUnit)
     }
 
     private fun result(
@@ -114,7 +116,8 @@ class LoanCalculatorEngine {
         monthlyPayment: Long,
         totalPayment: Long,
         totalInterest: Long,
-        method: CalculationMethod
+        method: CalculationMethod,
+        amountUnit: AppCurrency
     ) = CalculationResult(
         principalAmount = principal,
         durationMonths = months,
@@ -123,7 +126,8 @@ class LoanCalculatorEngine {
         totalPayment = totalPayment,
         totalInterest = totalInterest,
         realCostPercentage = totalInterest.toDouble() / principal.toDouble() * 100.0,
-        method = method
+        method = method,
+        amountUnit = amountUnit
     )
 
     fun compareLoans(loan1Input: ComparisonLoanInput, loan2Input: ComparisonLoanInput): ComparisonResult {
