@@ -96,6 +96,7 @@ fun AddReminderScreen(
     var repeatType by remember { mutableStateOf(RepeatType.NONE) }
     var repeatInterval by remember { mutableStateOf("1") }
     var amountText by remember { mutableStateOf("") }
+    var amountError by remember { mutableStateOf<String?>(null) }
     var targetKmText by remember { mutableStateOf("") }
 
     // Multi-Offset selection
@@ -107,6 +108,17 @@ fun AddReminderScreen(
         if (isSaving || title.isBlank()) return
         validationMessage = null
         saveErrorMessage = null
+        val parsedReminderAmountRials = if (amountText.isBlank()) null else {
+            IranianAmountUtils.parseAmountToBigDecimal(amountText)
+                ?.takeIf { it.signum() > 0 }
+                ?.let { entered -> runCatching { MoneyAmount(entered, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+        }
+        if (amountText.isNotBlank() && parsedReminderAmountRials == null) {
+            amountError = "مبلغ یادآور باید معتبر، بزرگ‌تر از صفر و قابل ذخیره باشد."
+            validationMessage = amountError
+            return
+        }
+        amountError = null
 
         val normalizedDate = IranianPhoneUtils.convertDigitsToEnglish(date).trim()
         val hasValidDateShape = Regex("^(?:\\d{4}/\\d{2}/\\d{2}|\\d{8})$").matches(normalizedDate)
@@ -157,11 +169,7 @@ fun AddReminderScreen(
             status = "ACTIVE",
             date = date.trim(),
             time = time.trim(),
-            amount = amountText.takeIf { it.isNotBlank() }?.let { raw ->
-                IranianAmountUtils.parseAmountToBigDecimal(raw)?.let { entered ->
-                    runCatching { MoneyAmount(entered, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull()
-                }
-            },
+            amount = parsedReminderAmountRials,
             amountUnit = AppCurrency.RIAL.name,
             targetKilometer = targetKmText.toLongOrNull(),
             notificationEnabled = offsetsToSave.isNotEmpty(),
@@ -333,7 +341,9 @@ fun AddReminderScreen(
                     value = amountText,
                     onValueChange = { amountText = it },
                     allowDecimalInput = true,
-                    onRawDecimalAmountChange = { rawValue, _ -> amountText = rawValue },
+                    onRawDecimalAmountChange = { rawValue, _ -> amountText = rawValue; amountError = null },
+                    isError = amountError != null,
+                    errorMessage = amountError,
                     label = "مبلغ به ${MoneyFormatter.getUnitLabel()} (اختیاری)",
                     placeholder = "مثال: ۲,۵۰۰,۰۰۰",
                     modifier = Modifier
