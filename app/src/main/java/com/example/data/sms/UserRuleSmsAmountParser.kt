@@ -157,8 +157,8 @@ object UserRuleSmsAmountParser {
         }.toList()
         val preferred = preferredContext?.let { context ->
             matches.filter { match ->
-                val left = text.substring((match.range.first - 40).coerceAtLeast(0), match.range.first)
-                val right = text.substring(match.range.last + 1, (match.range.last + 41).coerceAtMost(text.length))
+                val left = text.substring((match.range.first - 24).coerceAtLeast(0), match.range.first)
+                val right = text.substring(match.range.last + 1, (match.range.last + 25).coerceAtMost(text.length))
                 context.containsMatchIn(left) || context.containsMatchIn(right)
             }
         }.orEmpty()
