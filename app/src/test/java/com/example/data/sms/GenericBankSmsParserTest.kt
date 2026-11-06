@@ -108,6 +108,8 @@ class GenericBankSmsParserTest {
         assertNotNull(parsed)
         assertEquals(1_234L, parsed?.amount)
         assertEquals(1_234L, parsed?.balanceAmount)
+        assertEquals(com.example.ui.screens.settings.model.AppCurrency.RIAL, parsed?.amountUnit)
+        assertEquals(com.example.ui.screens.settings.model.AppCurrency.TOMAN, parsed?.balanceAmountUnit)
         assertEquals(
             listOf(
                 com.example.ui.screens.settings.model.AppCurrency.RIAL,
