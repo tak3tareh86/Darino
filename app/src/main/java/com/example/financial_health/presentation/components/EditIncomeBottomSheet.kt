@@ -45,23 +45,46 @@ fun EditIncomeBottomSheet(
         mutableStateOf(if (currentFixedExpenses > 0L) IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(currentFixedExpenses, AppCurrency.RIAL).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()) else "")
     }
     var previousCurrency by remember { mutableStateOf(activeCurrency) }
+    var validationError by remember { mutableStateOf<String?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
 
     // Preserve in-progress values when the selected currency changes while this sheet is open.
+    // Invalid precision is cleared rather than being reinterpreted in the newly selected unit.
     LaunchedEffect(activeCurrency) {
         if (previousCurrency != activeCurrency) {
-            val incomeRials = IranianAmountUtils.parseAmountToBigDecimal(rawIncomeText)?.let { MoneyAmount(it, previousCurrency).asRialsLongExact() }
-            val fixedRials = IranianAmountUtils.parseAmountToBigDecimal(rawFixedText)?.let { MoneyAmount(it, previousCurrency).asRialsLongExact() }
-            rawIncomeText = if (rawIncomeText.isBlank()) "" else incomeRials?.let { IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(it, AppCurrency.RIAL).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()) }.orEmpty()
-            rawFixedText = if (rawFixedText.isBlank()) "" else fixedRials?.let { IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(it, AppCurrency.RIAL).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()) }.orEmpty()
+            val incomeRials = IranianAmountUtils.parseAmountToBigDecimal(rawIncomeText)?.let { entered ->
+                runCatching { MoneyAmount(entered, previousCurrency).asRialsLongExact() }.getOrNull()
+            }
+            val fixedRials = IranianAmountUtils.parseAmountToBigDecimal(rawFixedText)?.let { entered ->
+                runCatching { MoneyAmount(entered, previousCurrency).asRialsLongExact() }.getOrNull()
+            }
+            if (rawIncomeText.isNotBlank() && incomeRials == null) {
+                rawIncomeText = ""
+                validationError = "دقت مبلغ درآمد با واحد قبلی سازگار نبود؛ لطفاً دوباره وارد کنید."
+            } else {
+                rawIncomeText = if (rawIncomeText.isBlank()) "" else incomeRials?.let {
+                    IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(it, AppCurrency.RIAL).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString())
+                }.orEmpty()
+            }
+            if (rawFixedText.isNotBlank() && fixedRials == null) {
+                rawFixedText = ""
+                validationError = "دقت مبلغ هزینه ثابت با واحد قبلی سازگار نبود؛ لطفاً دوباره وارد کنید."
+            } else {
+                rawFixedText = if (rawFixedText.isBlank()) "" else fixedRials?.let {
+                    IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(it, AppCurrency.RIAL).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString())
+                }.orEmpty()
+            }
             previousCurrency = activeCurrency
         }
     }
 
-    var validationError by remember { mutableStateOf<String?>(null) }
-    var isSaving by remember { mutableStateOf(false) }
     val unitLabel = MoneyFormatter.getUnitLabel()
-    val formattedIncomePreview = IranianAmountUtils.parseAmountToBigDecimal(rawIncomeText)?.let { MoneyFormatter.formatExact(MoneyAmount(it, activeCurrency)) }.orEmpty()
-    val formattedFixedPreview = IranianAmountUtils.parseAmountToBigDecimal(rawFixedText)?.let { MoneyFormatter.formatExact(MoneyAmount(it, activeCurrency)) }.orEmpty()
+    val formattedIncomePreview = IranianAmountUtils.parseAmountToBigDecimal(rawIncomeText)?.let { entered ->
+        runCatching { MoneyFormatter.formatExact(MoneyAmount(entered, activeCurrency)) }.getOrNull()
+    }.orEmpty()
+    val formattedFixedPreview = IranianAmountUtils.parseAmountToBigDecimal(rawFixedText)?.let { entered ->
+        runCatching { MoneyFormatter.formatExact(MoneyAmount(entered, activeCurrency)) }.getOrNull()
+    }.orEmpty()
 
     ModalBottomSheet(
         onDismissRequest = { if (!isSaving) onDismiss() },
