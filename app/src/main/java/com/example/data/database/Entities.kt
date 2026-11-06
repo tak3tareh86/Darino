@@ -31,6 +31,7 @@ data class AccountEntity(
     val bankName: String? = null,
     val accountNumberMasked: String? = null,
     val initialBalance: Long = 0L,
+    @ColumnInfo(defaultValue = "'TOMAN'") val initialBalanceUnit: String = "TOMAN",
     val isActive: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),

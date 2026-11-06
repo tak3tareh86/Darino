@@ -75,7 +75,7 @@ class FinancialViewModel(
 
         // Calculate real balances for all accounts (unrestricted by period)
         val accountBalances = accounts.associate { acc ->
-            var balance = MoneyAmount.of(acc.initialBalance, AppCurrency.TOMAN).asRialsLongExact()
+            var balance = MoneyAmount.of(acc.initialBalance, acc.initialBalanceUnit).asRialsLongExact()
             transactions.forEach { tx ->
                 // Note: transactions from repository are already filtered by user and not deleted
                 when (tx.type) {

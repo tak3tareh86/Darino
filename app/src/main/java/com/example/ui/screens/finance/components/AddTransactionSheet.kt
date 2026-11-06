@@ -350,7 +350,7 @@ fun AddTransactionSheet(
                                             color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            text = com.example.util.MoneyFormatter.formatToman(acc.initialBalance) + " تومان",
+                                            text = com.example.util.MoneyFormatter.formatExact(MoneyAmount.of(acc.initialBalance, acc.initialBalanceUnit)),
                                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                                             color = if (isSelected) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
                                         )

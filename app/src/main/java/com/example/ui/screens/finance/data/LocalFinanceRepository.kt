@@ -130,6 +130,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             accountNumberMasked = entity.accountNumberMasked,
             initialBalance = entity.initialBalance,
             isActive = entity.isActive,
+            initialBalanceUnit = runCatching { AppCurrency.valueOf(entity.initialBalanceUnit) }.getOrDefault(AppCurrency.TOMAN),
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt
         )
@@ -144,6 +145,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             bankName = account.bankName,
             accountNumberMasked = account.accountNumberMasked,
             initialBalance = account.initialBalance,
+            initialBalanceUnit = account.initialBalanceUnit.name,
             isActive = account.isActive,
             createdAt = account.createdAt,
             updatedAt = account.updatedAt,
@@ -1164,7 +1166,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         
         val txs = db.transactionDao().getAllTransactionsList(userId)
         
-        var balance = MoneyAmount.of(account.initialBalance, AppCurrency.TOMAN).asRialsLongExact()
+        var balance = MoneyAmount.of(account.initialBalance, runCatching { AppCurrency.valueOf(account.initialBalanceUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact()
         for (tx in txs) {
             if (tx.deletedAt != null) continue
             val txAmountRials = MoneyAmount.of(

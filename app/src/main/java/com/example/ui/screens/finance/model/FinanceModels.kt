@@ -94,7 +94,8 @@ data class Account(
     val initialBalance: Long = 0L,
     val isActive: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val initialBalanceUnit: AppCurrency = AppCurrency.TOMAN
 )
 
 data class TransactionItemData(
