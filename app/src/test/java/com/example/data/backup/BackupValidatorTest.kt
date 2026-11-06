@@ -1,6 +1,7 @@
 package com.example.data.backup
 
 import com.example.data.database.UserPreferenceEntity
+import com.example.data.database.TransactionEntity
 import com.example.data.database.VehicleStoreEntity
 import com.example.reminder.data.ReminderDeliveryLogEntity
 import org.junit.Assert.assertEquals
@@ -170,6 +171,28 @@ class BackupValidatorTest {
 
         assertEquals(2, backup.metadata.recordCount)
         assertTrue(BackupValidator.validate(backup) is ValidationResult.Valid)
+    }
+
+    @Test
+    fun versionSevenBackupRejectsUnknownPerRecordCurrencyUnit() {
+        val unsigned = DarinoBackup(
+            metadata = BackupMetadata(
+                backupVersion = 7,
+                createdAt = 1L,
+                recordCount = 1,
+                currencyUnit = "PER_RECORD"
+            ),
+            transactions = listOf(
+                TransactionEntity(
+                    userId = "backup-user",
+                    amount = 1234L,
+                    amountUnit = "UNKNOWN"
+                )
+            )
+        )
+        val validChecksum = BackupValidator.withChecksum(unsigned)
+
+        assertTrue(BackupValidator.validate(validChecksum) is ValidationResult.Invalid)
     }
 
     @Test
