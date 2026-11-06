@@ -77,8 +77,8 @@ class FinancialHealthRepository(context: Context) {
                     FinancialHealthProfile(
                         id = saved.id,
                         monthlyIncome = MoneyAmount.of(saved.monthlyIncome, parseStoredMoneyUnit(saved.amountUnit)).asRialsLongExact(),
-                        monthlyInstallments = MoneyAmount.of(saved.monthlyInstallments, runCatching { AppCurrency.valueOf(saved.amountUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact(),
-                        fixedExpenses = MoneyAmount.of(saved.fixedExpenses, runCatching { AppCurrency.valueOf(saved.amountUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact(),
+                        monthlyInstallments = MoneyAmount.of(saved.monthlyInstallments, parseStoredMoneyUnit(saved.amountUnit)).asRialsLongExact(),
+                        fixedExpenses = MoneyAmount.of(saved.fixedExpenses, parseStoredMoneyUnit(saved.amountUnit)).asRialsLongExact(),
                         amountUnit = AppCurrency.RIAL,
                         financialPressure = saved.financialPressure,
                         healthStatus = status, isConfigured = true, updatedAt = saved.updatedAt
@@ -92,7 +92,7 @@ class FinancialHealthRepository(context: Context) {
         val (start, end) = currentMonthRange()
         val income = transactions.filter {
             it.type == "INCOME" && it.timestamp >= start && it.timestamp < end && it.amount > 0L
-        }.fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, runCatching { AppCurrency.valueOf(tx.amountUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact()) }
+        }.fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, parseStoredMoneyUnit(tx.amountUnit)).asRialsLongExact()) }
         // Fixed expenses are user-entered. Never invent a value when they are unknown.
         val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(0L, income) ?: 0f
         return FinancialHealthProfile(
@@ -135,7 +135,7 @@ class FinancialHealthRepository(context: Context) {
         require(newFixed >= 0L)
         val existing = dao.getProfileSync(requireUserId(), DEFAULT_PROFILE_ID)
             ?: throw IllegalStateException("ابتدا درآمد و هزینه‌های ثابت را هم‌زمان از فرم سلامت مالی ثبت کنید.")
-        val unit = runCatching { AppCurrency.valueOf(existing.amountUnit) }.getOrDefault(AppCurrency.TOMAN)
+        val unit = parseStoredMoneyUnit(existing.amountUnit)
         saveProfile(MoneyAmount.of(existing.monthlyIncome, unit).asRialsLongExact(), MoneyAmount.of(existing.monthlyInstallments, unit).asRialsLongExact(), newFixed)
     }
 }
