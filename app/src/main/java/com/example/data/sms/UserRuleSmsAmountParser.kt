@@ -225,6 +225,7 @@ object UserRuleSmsAmountParser {
             rawSender = sender,
             timestampMillis = receivedAtMillis,
             balanceAmount = extracted.balanceAmount,
+            balanceAmountUnit = amountUnit,
             amountCandidates = (extracted.candidates + listOfNotNull(amount, extracted.balanceAmount)).distinct(),
             receivedAtMillis = receivedAtMillis
         )
