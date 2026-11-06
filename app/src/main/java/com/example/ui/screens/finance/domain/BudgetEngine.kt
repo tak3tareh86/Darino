@@ -100,7 +100,9 @@ object BudgetEngine {
         val usagePercentage = if (totalBudget <= 0L) {
             if (totalSpent > 0L) 100 else 0
         } else {
-            BigInteger.valueOf(totalSpent).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(totalBudget)).toInt()
+            BigInteger.valueOf(totalSpent).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(totalBudget))
+                .min(BigInteger.valueOf(Int.MAX_VALUE.toLong()))
+                .toInt()
         }
 
         val status = determineBudgetStatus(totalSpent, totalBudget)
