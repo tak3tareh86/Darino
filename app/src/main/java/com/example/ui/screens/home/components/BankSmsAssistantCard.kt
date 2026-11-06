@@ -1067,19 +1067,21 @@ fun EditSmsTransactionDialog(
     val validAmount = amountDecimal != null && amountDecimal.signum() > 0 && amountRials > 0L
     val amountOptions = remember(
         suggestion.id, suggestion.amount, suggestion.isAmountValid,
-        suggestion.balanceAmount, suggestion.balanceAmountUnit, suggestion.amountUnit, suggestion.amountCandidates
+        suggestion.balanceAmount, suggestion.balanceAmountUnit, suggestion.amountUnit, suggestion.amountCandidates, suggestion.amountCandidateUnits
     ) {
         buildList {
             // Show every distinct grouped number extracted from the original SMS.
             // The user chooses the transaction amount; do not silently preselect
             // a guessed value when the message contains multiple candidates.
             suggestion.amountCandidates.filter { it > 0L }.forEach { candidate ->
+                val candidateIndex = suggestion.amountCandidates.indexOf(candidate)
+                val candidateUnit = suggestion.amountCandidateUnits.getOrNull(candidateIndex)
+                    ?: if (candidate == suggestion.balanceAmount) suggestion.balanceAmountUnit ?: suggestion.amountUnit else suggestion.amountUnit
                 val label = when (candidate) {
                     suggestion.balanceAmount -> "موجودی/مانده"
                     suggestion.amount -> "مبلغ پیشنهادی"
                     else -> "عدد گروه‌بندی‌شده"
                 }
-                val candidateUnit = if (candidate == suggestion.balanceAmount) suggestion.balanceAmountUnit ?: suggestion.amountUnit else suggestion.amountUnit
                 add(MoneyAmount.of(candidate, candidateUnit).inUnit(appCurrency).value to label)
             }
             if (suggestion.isAmountValid && suggestion.amount > 0L) add(MoneyAmount.of(suggestion.amount, suggestion.amountUnit).inUnit(appCurrency).value to "مبلغ پیشنهادی")
