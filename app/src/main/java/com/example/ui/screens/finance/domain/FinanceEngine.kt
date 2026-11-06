@@ -99,8 +99,9 @@ object FinanceEngine {
         }
         if (currentAmount <= 0L) return 0
         val percent = BigInteger.valueOf(currentAmount).multiply(BigInteger.valueOf(100L))
-            .divide(BigInteger.valueOf(targetAmount)).toInt()
-        return percent.coerceIn(0, 100)
+            .divide(BigInteger.valueOf(targetAmount))
+            .min(BigInteger.valueOf(100L))
+        return percent.toInt().coerceAtLeast(0)
     }
 
     /**
