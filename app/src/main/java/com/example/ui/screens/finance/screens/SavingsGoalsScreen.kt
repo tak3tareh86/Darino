@@ -85,7 +85,7 @@ fun SavingsGoalsScreen(
 
     val totalTarget = goals.fold(0L) { total, goal -> Math.addExact(total, MoneyAmount.of(goal.targetAmount, goal.amountUnit).asRialsLongExact()) }
     val totalSaved = goals.fold(0L) { total, goal -> Math.addExact(total, MoneyAmount.of(goal.currentAmount, goal.amountUnit).asRialsLongExact()) }
-    val overallProgress = if (totalTarget > 0L) BigInteger.valueOf(totalSaved).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(totalTarget)).toInt() else 0
+    val overallProgress = if (totalTarget > 0L) BigInteger.valueOf(totalSaved).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(totalTarget)).min(BigInteger.valueOf(100L)).toInt() else 0
 
     Scaffold(
         modifier = modifier.fillMaxSize().testTag("savings_goals_screen"),
