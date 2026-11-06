@@ -65,7 +65,13 @@ fun AddBudgetSheet(
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
     var title by remember { mutableStateOf(initialBudget?.title ?: "") }
-    var rawAmount by remember { mutableStateOf(initialBudget?.amount?.toString() ?: "") }
+    val activeCurrency = MoneyFormatter.activeCurrency
+    val currencyUnit = MoneyFormatter.getUnitLabel(currency = activeCurrency)
+    var rawAmount by remember {
+        mutableStateOf(
+            initialBudget?.amount?.let { MoneyFormatter.convertFromToman(it, activeCurrency).toString() } ?: ""
+        )
+    }
     var selectedCategoryId by remember { mutableStateOf<String?>(initialBudget?.categoryId) }
     var period by remember { mutableStateOf(initialBudget?.period ?: "این ماه") }
     var isEnabled by remember { mutableStateOf(initialBudget?.isEnabled ?: true) }
@@ -207,9 +213,9 @@ fun AddBudgetSheet(
                 value = rawAmount,
                 onValueChange = { rawAmount = it },
                 onRawAmountChange = { rawDigits, _ -> rawAmount = rawDigits },
-                label = "مبلغ سقف بودجه (تومان)",
-                placeholder = "مثال: ۳,۰۰۰,۰۰۰",
-                unitLabel = "تومان",
+                label = "مبلغ سقف بودجه ($currencyUnit)",
+                placeholder = "مبلغ را وارد کنید",
+                unitLabel = currencyUnit,
                 showWordsPreview = true,
                 testTag = "budget_amount_input"
             )
@@ -269,7 +275,7 @@ fun AddBudgetSheet(
                         title = title.ifBlank { catTitle ?: "بودجه این ماه" },
                         categoryId = selectedCategoryId,
                         categoryTitle = catTitle,
-                        amount = parsedAmount,
+                        amount = MoneyFormatter.convertToToman(parsedAmount, activeCurrency),
                         period = period,
                         isEnabled = isEnabled,
                         enabled = isEnabled
