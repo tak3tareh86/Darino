@@ -1,6 +1,7 @@
 package com.example.financial_health.domain
 
 import androidx.compose.ui.graphics.Color
+import com.example.ui.screens.settings.model.AppCurrency
 
 enum class FinancialHealthStatus(
     val title: String,
@@ -84,5 +85,6 @@ data class FinancialHealthProfile(
     val financialPressure: Float,
     val healthStatus: FinancialHealthStatus,
     val updatedAt: Long = System.currentTimeMillis(),
-    val isConfigured: Boolean = false
+    val isConfigured: Boolean = false,
+    val amountUnit: AppCurrency = AppCurrency.RIAL
 )
