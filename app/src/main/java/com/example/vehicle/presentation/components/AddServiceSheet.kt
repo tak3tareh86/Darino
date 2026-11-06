@@ -665,7 +665,7 @@ fun AddServiceSheet(
             confirmButton = {
                 TextButton(onClick = {
                     showNoAlertConfirmation = false
-                    val cost = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(costText))
+                    IranianAmountUtils.parseAmountToBigDecimal(costText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
                     val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                     onAddService(
                         title, selectedType, date, mileage, cost, description,
