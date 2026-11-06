@@ -110,7 +110,9 @@ object BankSmsParser {
             val normalizedBody = normalizeText(body)
             val amountCandidatePairs = buildList {
                 add(amountValue to amountUnit)
-                if (balanceAmount != null) add(balanceAmount to (balanceAmountUnit ?: amountUnit))
+                if (balanceAmount != null && (balanceAmount != amountValue || balanceAmountUnit != amountUnit)) {
+                    add(balanceAmount to (balanceAmountUnit ?: amountUnit))
+                }
                 groupedAmountCandidates(normalizedBody, amountUnit).forEach { candidate ->
                     if (none { it.first == candidate.first && it.second == candidate.second }) add(candidate)
                 }
