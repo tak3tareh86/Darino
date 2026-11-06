@@ -478,6 +478,7 @@ class VehicleRepository {
         // Verify business identity to prevent silent ID collisions
         val matchesBusinessIdentity = existingTx.userId == userId &&
                 existingTx.amount == financialTransaction.amount &&
+                existingTx.amountUnit == financialTransaction.amountUnit &&
                 existingTx.type == financialTransaction.type &&
                 existingTx.sourceType == financialTransaction.sourceType &&
                 existingTx.sourceId == financialTransaction.sourceId &&
@@ -1196,6 +1197,7 @@ class VehicleRepository {
                 date = date.trim(),
                 mileage = mileage,
                 cost = cost,
+                costUnit = AppCurrency.RIAL,
                 description = description.trim(),
                 nextReminderDate = nextReminderDate?.trim(),
                 nextReminderMileage = nextReminderMileage,
@@ -1441,6 +1443,7 @@ class VehicleRepository {
                 if (financialTransaction.userId != userId ||
                     financialTransaction.amount <= 0L ||
                     financialTransaction.amount != serviceCost ||
+                    financialTransaction.amountUnit != existing.costUnit ||
                     financialTransaction.type != "EXPENSE" ||
                     (financialTransaction.sourceType != "MAINTENANCE" && financialTransaction.sourceType != "SERVICE") ||
                     financialTransaction.sourceId != serviceId) {
@@ -1523,7 +1526,8 @@ class VehicleRepository {
                     db.vehicleDao().updateExpense(
                         expense.copy(
                             date = completedDate.trim(),
-                            amount = if (serviceCost > 0L) serviceCost else expense.amount
+                            amount = if (serviceCost > 0L) serviceCost else expense.amount,
+                            amountUnit = if (serviceCost > 0L) AppCurrency.RIAL.name else expense.amountUnit
                         )
                     )
                 } else if (serviceCost > 0L) {
@@ -1535,6 +1539,7 @@ class VehicleRepository {
                             title = existing.title,
                             category = VehicleExpenseCategory.SERVICE.name,
                             amount = serviceCost,
+                            amountUnit = AppCurrency.RIAL.name,
                             date = completedDate.trim(),
                             description = "سرویس دوره‌ای خودرو: ${existing.notes ?: ""}".trim()
                         )
@@ -1695,7 +1700,7 @@ class VehicleRepository {
                 title = title.trim(),
                 category = category.name,
                 amount = amount,
-                amountUnit = AppCurrency.RIAL,
+                amountUnit = AppCurrency.RIAL.name,
                 date = date.trim(),
                 description = description.trim()
             )
@@ -1784,6 +1789,7 @@ class VehicleRepository {
                 startDate = startDate.trim(),
                 endDate = endDate.trim(),
                 amount = amount,
+                amountUnit = AppCurrency.RIAL,
                 policyNumber = policyNumber.trim(),
                 reminderDays = reminderDays.distinct(),
                 reminderEnabled = reminderEnabled,
@@ -1816,6 +1822,7 @@ class VehicleRepository {
                             title = "تمدید ${type.trim()} (${company.trim()})",
                             category = VehicleExpenseCategory.INSURANCE.name,
                             amount = amount,
+                            amountUnit = AppCurrency.RIAL.name,
                             date = startDate.trim(),
                             description = "شماره بیمه‌نامه: ${policyNumber.trim()}"
                         )
@@ -1883,6 +1890,7 @@ class VehicleRepository {
                 if (financialTransaction.userId != userId ||
                     financialTransaction.amount <= 0L ||
                     financialTransaction.amount != insAmount ||
+                    financialTransaction.amountUnit != existing.amountUnit ||
                     financialTransaction.type != "EXPENSE" ||
                     financialTransaction.sourceType != "INSURANCE" ||
                     financialTransaction.sourceId != insuranceId) {
@@ -1975,6 +1983,7 @@ class VehicleRepository {
                             title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
                             category = VehicleExpenseCategory.INSURANCE.name,
                             amount = if (insAmount > 0L) insAmount else expense.amount,
+                            amountUnit = if (insAmount > 0L) AppCurrency.RIAL.name else expense.amountUnit,
                             amountUnit = AppCurrency.RIAL.name,
                             date = today,
                             description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
@@ -1989,6 +1998,7 @@ class VehicleRepository {
                             title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
                             category = VehicleExpenseCategory.INSURANCE.name,
                             amount = insAmount,
+                            amountUnit = AppCurrency.RIAL.name,
                             date = today,
                             description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
                         )
@@ -2140,6 +2150,7 @@ class VehicleRepository {
                             title = "معاینه فنی خودرو ($centerName)",
                             category = VehicleExpenseCategory.INSPECTION.name,
                             amount = cost,
+                            amountUnit = AppCurrency.RIAL.name,
                             date = lastInspectionDate.trim(),
                             description = "مرکز معاینه فنی: $centerName"
                         )
