@@ -208,7 +208,17 @@ object UserRuleSmsAmountParser {
         val amount = extracted.transactionAmount ?: extractAmountLegacy(normalized)
         val amountIsValid = amount != null
         val amountValue = amount ?: 0L
-        val amountUnit = when { rialRegex.containsMatchIn(normalized) && !tomanRegex.containsMatchIn(normalized) -> AppCurrency.RIAL; else -> AppCurrency.TOMAN }
+        val messageFallbackUnit = when {
+            rialRegex.containsMatchIn(normalized) && !tomanRegex.containsMatchIn(normalized) -> AppCurrency.RIAL
+            tomanRegex.containsMatchIn(normalized) && !rialRegex.containsMatchIn(normalized) -> AppCurrency.TOMAN
+            else -> AppCurrency.TOMAN
+        }
+        val amountUnit = if (amountIsValid) {
+            currencyUnitNearAmount(normalized, amountValue, messageFallbackUnit)
+        } else messageFallbackUnit
+        val balanceUnit = extracted.balanceAmount?.let {
+            currencyUnitNearAmount(normalized, it, messageFallbackUnit)
+        }
         val dateTime = PersianCalendarHelper.fromEpochMillis(receivedAtMillis)
         val time = Regex("""(?<![0-9])([0-2]?[0-9]:[0-5][0-9])""")
             .find(normalized)?.groupValues?.get(1)
@@ -243,7 +253,7 @@ object UserRuleSmsAmountParser {
             rawSender = sender,
             timestampMillis = receivedAtMillis,
             balanceAmount = extracted.balanceAmount,
-            balanceAmountUnit = extracted.balanceAmount?.let { currencyUnitNearAmount(normalized, it, amountUnit) },
+            balanceAmountUnit = balanceUnit,
             amountCandidates = (extracted.candidates + listOfNotNull(amount, extracted.balanceAmount)).distinct(),
             receivedAtMillis = receivedAtMillis
         )
