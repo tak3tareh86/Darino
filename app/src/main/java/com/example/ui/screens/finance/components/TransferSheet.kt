@@ -209,6 +209,7 @@ fun TransferSheet(
                         focusedBorderColor = InfoIndigoLight,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                     ),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
                     singleLine = true
                 )
 
