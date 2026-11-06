@@ -308,7 +308,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             userId = userId,
             type = CheckType.valueOf(type),
             amount = amount,
-            amountUnit = runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(amountUnit) }.getOrDefault(com.example.ui.screens.settings.model.AppCurrency.TOMAN),
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.valueOf(amountUnit),
             checkNumber = checkNumber,
             sayadId = sayadId?.normalizeCheckDigits(),
             bankName = bankName,
