@@ -89,6 +89,11 @@ fun AddServiceSheet(
     var date by remember { mutableStateOf(todayJalali) }
     var mileageText by remember { mutableStateOf(if (vehicle.currentMileage > 0) vehicle.currentMileage.toString() else "") }
     var costText by remember { mutableStateOf("") }
+    val parsedCostRials = costText.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() >= 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val costInputInvalid = costText.isNotBlank() && parsedCostRials == null
     var description by remember { mutableStateOf("") }
 
     // Custom service intervals must be entered explicitly; no universal default is assumed.
@@ -607,6 +612,10 @@ fun AddServiceSheet(
                 }
             }
 
+            if (costInputInvalid) {
+                Text("مبلغ هزینه معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+
             // Submit Button
             Button(
                 onClick = {
@@ -620,7 +629,7 @@ fun AddServiceSheet(
                         if (!isReminderEnabled || (selectedOffsets.isEmpty() && calcKm <= 0)) {
                             showNoAlertConfirmation = true
                         } else {
-                            val cost = IranianAmountUtils.parseAmountToBigDecimal(costText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
+                            val cost = parsedCostRials ?: 0L
                             val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onAddService(
                                 title, selectedType, date, mileage, cost, description,
@@ -631,7 +640,7 @@ fun AddServiceSheet(
                         }
                     }
                 },
-                enabled = title.isNotBlank(),
+                enabled = title.isNotBlank() && !costInputInvalid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
@@ -665,7 +674,7 @@ fun AddServiceSheet(
             confirmButton = {
                 TextButton(onClick = {
                     showNoAlertConfirmation = false
-                    IranianAmountUtils.parseAmountToBigDecimal(costText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
+                    val cost = parsedCostRials ?: 0L
                     val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                     onAddService(
                         title, selectedType, date, mileage, cost, description,
