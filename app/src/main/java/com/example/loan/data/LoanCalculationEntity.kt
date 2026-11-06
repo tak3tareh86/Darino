@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 import com.example.loan.domain.DurationType
 import com.example.loan.domain.LoanCalculation
 import com.example.loan.domain.LoanType
+import com.example.ui.screens.settings.model.AppCurrency
 
 @Entity(tableName = "loan_calculations")
 data class LoanCalculationEntity(
@@ -47,7 +48,7 @@ data class LoanCalculationEntity(
             totalInterest = totalInterest,
             realCostPercentage = realCostPercentage,
             createdAt = createdAt,
-            amountUnit = runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(amountUnit) }.getOrDefault(com.example.ui.screens.settings.model.AppCurrency.TOMAN)
+            amountUnit = AppCurrency.valueOf(amountUnit)
         )
     }
 
