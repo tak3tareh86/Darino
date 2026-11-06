@@ -24,8 +24,10 @@ class LoanCalculatorEngine {
         amountUnit: AppCurrency = AppCurrency.TOMAN
     ): ValidationResult {
         if (amount == null) return ValidationResult.Invalid("لطفاً مبلغ وام را وارد کنید")
-        if (amount <= 0L || amount > if (amountUnit == AppCurrency.RIAL) Math.multiplyExact(MAX_PRINCIPAL, 10L) else MAX_PRINCIPAL) {
-            return ValidationResult.Invalid("مبلغ وام باید بین ۱ تومان تا ۱٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰ تومان باشد")
+        val maxPrincipal = if (amountUnit == AppCurrency.RIAL) Math.multiplyExact(MAX_PRINCIPAL, 10L) else MAX_PRINCIPAL
+        if (amount <= 0L || amount > maxPrincipal) {
+            val unitLabel = if (amountUnit == AppCurrency.RIAL) "ریال" else "تومان"
+            return ValidationResult.Invalid("مبلغ وام باید بین ۱ $unitLabel تا ${maxPrincipal} $unitLabel باشد")
         }
         if (interestRate == null || !interestRate.isFinite()) {
             return ValidationResult.Invalid("لطفاً نرخ سود معتبر وارد کنید")
@@ -67,7 +69,7 @@ class LoanCalculatorEngine {
 
     /**
      * Equal-payment amortization estimate: monthly rate = nominal annual rate / 12.
-     * The displayed installment is rounded to whole tomans; totals are derived from it
+     * The displayed installment is rounded to whole units of the selected calculation scale; totals are derived from it
      * so total payment always reconciles with the displayed monthly installment.
      */
     private fun calculateAnnuity(principal: Long, annualRate: Double, months: Int, amountUnit: AppCurrency): CalculationResult {
