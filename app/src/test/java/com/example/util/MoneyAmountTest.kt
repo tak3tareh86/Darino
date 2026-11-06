@@ -4,6 +4,7 @@ import com.example.ui.screens.settings.model.AppCurrency
 import java.math.BigDecimal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 class MoneyAmountTest {
@@ -41,13 +42,15 @@ class MoneyAmountTest {
     @Test
     fun decimalParserPreservesFractionalToman() {
         val parsed = IranianAmountUtils.parseAmountToBigDecimal("۱۲۳٫۴")
-        assertEquals(0, BigDecimal("123.4").compareTo(parsed))
+        assertNotNull(parsed)
+        assertEquals(0, BigDecimal("123.4").compareTo(parsed!!))
     }
 
     @Test
     fun decimalParserAcceptsGroupedEnglishInput() {
         val parsed = IranianAmountUtils.parseAmountToBigDecimal("1,234.50")
-        assertEquals(0, BigDecimal("1234.50").compareTo(parsed))
+        assertNotNull(parsed)
+        assertEquals(0, BigDecimal("1234.50").compareTo(parsed!!))
     }
 
     @Test
@@ -64,8 +67,17 @@ class MoneyAmountTest {
     }
 
     @Test
+    fun decimalInputKeepsTrailingZerosWhileEditing() {
+        assertEquals("۱۲٫۰", IranianAmountUtils.formatDecimalWithCommas("12.0"))
+        assertEquals("۱۲٫۰۵", IranianAmountUtils.formatDecimalWithCommas("12.05"))
+        assertEquals("۱۲٫", IranianAmountUtils.formatDecimalWithCommas("12."))
+    }
+
+    @Test
     fun bothUnitsIdentifySameIsoCurrency() {
         assertEquals("IRR", MoneyAmount.of(1L, AppCurrency.TOMAN).iso4217Code)
         assertEquals("IRR", MoneyAmount.of(1L, AppCurrency.RIAL).iso4217Code)
+        assertEquals("IRR", AppCurrency.TOMAN.code)
+        assertEquals("IRR", AppCurrency.RIAL.code)
     }
 }
