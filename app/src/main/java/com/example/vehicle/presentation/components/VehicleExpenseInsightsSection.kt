@@ -22,6 +22,8 @@ import com.example.vehicle.data.VehicleExpenseCategory
 import com.example.vehicle.data.VehicleExpenseEntity
 import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
+import java.math.BigDecimal
+import java.math.RoundingMode
 import com.example.ui.screens.settings.model.AppCurrency
 import java.text.NumberFormat
 import java.util.Locale
@@ -318,9 +320,13 @@ private fun AmountSummary(title: String, amount: Long, count: Int, modifier: Mod
 
 @Composable
 private fun DifferenceSummary(first: Long, second: Long, firstCount: Int, secondCount: Int) {
-    val difference = first - second
+    val difference = Math.subtractExact(first, second)
     val bothEmpty = firstCount == 0 && secondCount == 0
-    val percent = if (second != 0L) difference.toDouble() / second.toDouble() * 100.0 else null
+    val percent = if (second != 0L) {
+        BigDecimal.valueOf(difference).multiply(BigDecimal("100"))
+            .divide(BigDecimal.valueOf(second), 1, RoundingMode.HALF_UP)
+            .abs().stripTrailingZeros().toPlainString()
+    } else null
     val color = when { difference > 0L -> MaterialTheme.colorScheme.error; difference < 0L -> MaterialTheme.colorScheme.primary; else -> MaterialTheme.colorScheme.onSurfaceVariant }
     val icon = when { difference > 0L -> Icons.Rounded.TrendingUp; difference < 0L -> Icons.Rounded.TrendingDown; else -> Icons.Rounded.CompareArrows }
     Surface(shape = RoundedCornerShape(12.dp), color = color.copy(alpha = 0.08f)) {
@@ -334,7 +340,7 @@ private fun DifferenceSummary(first: Long, second: Long, firstCount: Int, second
                     difference == 0L -> Text("مجموع هزینه دو بازه برابر است.", color = color, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                     else -> {
                         Text((if (difference > 0L) "افزایش " else "کاهش ") + money(abs(difference)), color = color, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                        Text(fa(String.format(Locale.US, "%.1f", abs(percent ?: 0.0))) + "٪ " + (if (difference > 0L) "افزایش" else "کاهش") + " نسبت به بازه دوم", color = color, style = MaterialTheme.typography.bodySmall)
+                        Text(fa(percent ?: "۰") + "٪ " + (if (difference > 0L) "افزایش" else "کاهش") + " نسبت به بازه دوم", color = color, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
