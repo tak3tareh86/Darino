@@ -496,11 +496,15 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val index = current.indexOfFirst { it.id == goalId }
         if (index != -1) {
             val goal = current[index]
-            val newAmount = goal.currentAmount + amount
-            val progress = FinanceEngine.calculateSavingsGoalProgress(newAmount, goal.targetAmount)
-            val status = if (newAmount >= goal.targetAmount) SavingsGoalStatus.COMPLETED else goal.status
+            val targetRials = MoneyAmount.of(goal.targetAmount, goal.amountUnit).asRialsLongExact()
+            val currentRials = MoneyAmount.of(goal.currentAmount, goal.amountUnit).asRialsLongExact()
+            val newAmount = Math.addExact(currentRials, amount)
+            val progress = FinanceEngine.calculateSavingsGoalProgress(newAmount, targetRials)
+            val status = if (newAmount >= targetRials) SavingsGoalStatus.COMPLETED else goal.status
             current[index] = goal.copy(
+                targetAmount = targetRials,
                 currentAmount = newAmount,
+                amountUnit = AppCurrency.RIAL,
                 progressPercentage = progress,
                 status = status
             )
@@ -671,6 +675,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                             id = executionStringId,
                             title = item.title,
                             amount = item.amount,
+                            amountUnit = item.amountUnit,
                             type = item.type,
                             category = category,
                             categoryId = category.id,
@@ -809,6 +814,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 obj.put("categoryId", b.categoryId ?: "")
                 obj.put("categoryTitle", b.categoryTitle ?: "")
                 obj.put("amount", b.amount)
+                obj.put("amountUnit", b.amountUnit.name)
                 obj.put("period", b.period)
                 obj.put("startDate", b.startDate)
                 obj.put("endDate", b.endDate)

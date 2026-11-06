@@ -278,9 +278,12 @@ fun DepositGoalSheet(
     onDeposit: (Long) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val activeCurrency = MoneyFormatter.activeCurrency
     var rawAmount by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    val parsedAmount = rawAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L
+    val parsedAmountRials = IranianAmountUtils.parseAmountToBigDecimal(rawAmount)?.let {
+        runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -331,11 +334,12 @@ fun DepositGoalSheet(
             PersianAmountInputField(
                 value = rawAmount,
                 onValueChange = { rawAmount = it },
-                onRawAmountChange = { rawDigits, _ -> rawAmount = rawDigits },
-                label = "مبلغ واریز (تومان)",
-                placeholder = "مثال: ۱,۰۰۰,۰۰۰",
-                unitLabel = "تومان",
-                showWordsPreview = true,
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> rawAmount = rawValue },
+                label = "مبلغ واریز (${MoneyFormatter.getUnitLabel(activeCurrency)})",
+                placeholder = "مثال: ۱,۰۰۰,۰۰۰ یا ۱۲۳٫۴",
+                unitLabel = MoneyFormatter.getUnitLabel(activeCurrency),
+                showWordsPreview = false,
                 testTag = "deposit_amount_input"
             )
 
@@ -345,11 +349,11 @@ fun DepositGoalSheet(
 
             Button(
                 onClick = {
-                    if (parsedAmount <= 0L) {
+                    if (parsedAmountRials == null || parsedAmountRials <= 0L) {
                         errorMessage = "مبلغ باید بزرگتر از صفر باشد."
                         return@Button
                     }
-                    onDeposit(parsedAmount)
+                    onDeposit(parsedAmountRials)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
