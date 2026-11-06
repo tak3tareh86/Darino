@@ -28,19 +28,19 @@ object BankSmsParser {
             rialUnitRegex.findAll(normalizedBody).forEach { add(it to AppCurrency.RIAL) }
             tomanUnitRegex.findAll(normalizedBody).forEach { add(it to AppCurrency.TOMAN) }
         }
-        val closest = nearbyUnits.minByOrNull { (unitMatch, _) ->
-            when {
+        val rankedUnits = nearbyUnits.map { (unitMatch, unit) ->
+            val distance = when {
                 unitMatch.range.last < amountMatch.range.first -> amountMatch.range.first - unitMatch.range.last
                 unitMatch.range.first > amountMatch.range.last -> unitMatch.range.first - amountMatch.range.last
                 else -> 0
             }
-        } ?: return fallback
-        val distance = when {
-            closest.first.range.last < amountMatch.range.first -> amountMatch.range.first - closest.first.range.last
-            closest.first.range.first > amountMatch.range.last -> closest.first.range.first - amountMatch.range.last
-            else -> 0
-        }
-        return if (distance <= 24) closest.second else fallback
+            unit to distance
+        }.filter { it.second <= 24 }.sortedBy { it.second }
+        val closest = rankedUnits.firstOrNull() ?: return fallback
+        val equallyCloseDifferentUnit = rankedUnits.getOrNull(1)?.let {
+            it.second == closest.second && it.first != closest.first
+        } == true
+        return if (equallyCloseDifferentUnit) fallback else closest.first
     }
 
     private fun groupedAmountCandidates(
