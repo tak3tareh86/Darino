@@ -27,8 +27,7 @@ data class FinancialCalendarState(
                 com.example.util.MoneyAmount.of(
                     monthlyTotal,
                     com.example.ui.screens.settings.model.AppCurrency.RIAL
-                ),
-                targetCurrency = com.example.ui.screens.settings.model.AppCurrency.TOMAN
+                )
             )
         }
 
