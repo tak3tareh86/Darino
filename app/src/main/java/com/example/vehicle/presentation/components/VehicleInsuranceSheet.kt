@@ -265,7 +265,7 @@ fun VehicleInsuranceSheet(
                             }
                             showNoReminderConfirmation = true
                         } else {
-                            onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(insuranceAmountText)), policyNumber, insuranceReminderEnabled, insuranceReminderTime, insuranceReminderDays.sortedDescending(), editingInsurance?.id)
+                            onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, IranianAmountUtils.parseAmountToBigDecimal(insuranceAmountText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L, policyNumber, insuranceReminderEnabled, insuranceReminderTime, insuranceReminderDays.sortedDescending(), editingInsurance?.id)
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_insurance_btn"),
