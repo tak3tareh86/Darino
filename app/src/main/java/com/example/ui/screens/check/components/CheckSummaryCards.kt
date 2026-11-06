@@ -222,7 +222,7 @@ private fun MonthChecksCard(
             }
             if (bouncedAmount > 0) {
                 Text(
-                    "برگشتی: ${MoneyFormatter.format(bouncedAmount)}",
+                    "برگشتی: ${MoneyFormatter.formatExact(MoneyAmount.of(bouncedAmount, AppCurrency.RIAL))}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
                     maxLines = 2,
