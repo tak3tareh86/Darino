@@ -78,6 +78,16 @@ fun VehicleInsuranceSheet(
     var lastInspectionDate by remember(editingInspection) { mutableStateOf(editingInspection?.lastInspectionDate ?: todayJalali) }
     var inspectionExpiryDate by remember(editingInspection) { mutableStateOf(editingInspection?.expiryDate ?: nextYearJalali) }
     var inspectionCostText by remember(editingInspection, MoneyFormatter.activeCurrency) { mutableStateOf(editingInspection?.cost?.takeIf { it > 0 }?.let { IranianPhoneUtils.convertDigitsToPersian(MoneyAmount.of(it, editingInspection?.costUnit ?: AppCurrency.TOMAN).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString()) } ?: "") }
+    val parsedInsuranceAmountRials = insuranceAmountText.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() >= 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val invalidInsuranceAmount = insuranceAmountText.isNotBlank() && parsedInsuranceAmountRials == null
+    val parsedInspectionCostRials = inspectionCostText.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() >= 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val invalidInspectionCost = inspectionCostText.isNotBlank() && parsedInspectionCostRials == null
     var inspectionStatus by remember(editingInspection) { mutableStateOf(editingInspection?.status ?: "معتبر (گواهی معاینه فنی)") }
     var centerName by remember(editingInspection) { mutableStateOf(editingInspection?.centerName ?: "") }
     var insuranceReminderEnabled by remember(editingInsurance) { mutableStateOf(editingInsurance?.reminderEnabled ?: false) }
@@ -257,15 +267,17 @@ fun VehicleInsuranceSheet(
                     defaultTimeText = defaultReminderTimeText,
                     tag = "insurance_reminder"
                 )
+                if (invalidInsuranceAmount) Text("مبلغ حق بیمه معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 Button(
+                    enabled = !invalidInsuranceAmount,
                     onClick = {
                         if (!insuranceReminderEnabled || insuranceReminderDays.isEmpty() || !globalDeliveryConfigured) {
                             pendingNoReminderSave = {
-                                onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, IranianAmountUtils.parseAmountToBigDecimal(insuranceAmountText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L, policyNumber, false, insuranceReminderTime, emptyList(), editingInsurance?.id)
+                                onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, parsedInsuranceAmountRials ?: 0L, policyNumber, false, insuranceReminderTime, emptyList(), editingInsurance?.id)
                             }
                             showNoReminderConfirmation = true
                         } else {
-                            onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, IranianAmountUtils.parseAmountToBigDecimal(insuranceAmountText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L, policyNumber, insuranceReminderEnabled, insuranceReminderTime, insuranceReminderDays.sortedDescending(), editingInsurance?.id)
+                            onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, parsedInsuranceAmountRials ?: 0L, policyNumber, insuranceReminderEnabled, insuranceReminderTime, insuranceReminderDays.sortedDescending(), editingInsurance?.id)
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_insurance_btn"),
@@ -291,15 +303,17 @@ fun VehicleInsuranceSheet(
                     defaultTimeText = defaultReminderTimeText,
                     tag = "inspection_reminder"
                 )
+                if (invalidInspectionCost) Text("مبلغ معاینه فنی معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 Button(
+                    enabled = !invalidInspectionCost,
                     onClick = {
                         if (!inspectionReminderEnabled || inspectionReminderDays.isEmpty() || !globalDeliveryConfigured) {
                             pendingNoReminderSave = {
-                                onSaveInspection(lastInspectionDate, inspectionExpiryDate, IranianAmountUtils.parseAmountToBigDecimal(inspectionCostText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L, inspectionStatus, centerName, false, inspectionReminderTime, emptyList(), editingInspection?.id)
+                                onSaveInspection(lastInspectionDate, inspectionExpiryDate, parsedInspectionCostRials ?: 0L, inspectionStatus, centerName, false, inspectionReminderTime, emptyList(), editingInspection?.id)
                             }
                             showNoReminderConfirmation = true
                         } else {
-                            onSaveInspection(lastInspectionDate, inspectionExpiryDate, IranianAmountUtils.parseAmountToBigDecimal(inspectionCostText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L, inspectionStatus, centerName, inspectionReminderEnabled, inspectionReminderTime, inspectionReminderDays.sortedDescending(), editingInspection?.id)
+                            onSaveInspection(lastInspectionDate, inspectionExpiryDate, parsedInspectionCostRials ?: 0L, inspectionStatus, centerName, inspectionReminderEnabled, inspectionReminderTime, inspectionReminderDays.sortedDescending(), editingInspection?.id)
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_inspection_btn"),
