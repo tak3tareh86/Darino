@@ -685,6 +685,7 @@ interface CheckDao {
                 doubleCheckTx.sourceId == check.id.toString() && 
                 doubleCheckTx.accountId == check.accountId &&
                 doubleCheckTx.amount == check.amount &&
+                doubleCheckTx.amountUnit == check.amountUnit &&
                 doubleCheckTx.type == expectedType) {
                 return true
             }
