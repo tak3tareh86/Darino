@@ -25,7 +25,7 @@ enum class NumberDisplayMode(val title: String, val sample: String) {
 }
 
 enum class AppCurrency(val title: String, val symbol: String, val code: String) {
-    TOMAN("تومان", "تومان", "IRT"),
+    TOMAN("تومان", "تومان", "IRR"),
     RIAL("ریال", "ریال", "IRR")
 }
 
