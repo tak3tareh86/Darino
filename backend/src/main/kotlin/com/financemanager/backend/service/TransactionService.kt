@@ -38,6 +38,9 @@ class TransactionService(private val repository: TransactionRepository) {
 
     @Transactional
     fun save(userId: String, c: UpsertTransactionCommand): Transaction {
+        require(c.amountUnit == "TOMAN" || c.amountUnit == "RIAL") {
+            "Unsupported transaction amount unit: ${c.amountUnit}"
+        }
         val now = Instant.now()
         repository.upsertAtomically(
             id = UUID.randomUUID().toString(),
