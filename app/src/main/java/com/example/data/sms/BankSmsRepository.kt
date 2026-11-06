@@ -116,6 +116,28 @@ class BankSmsRepository(private val context: Context) {
                     val amountUnit = runCatching {
                         com.example.ui.screens.settings.model.AppCurrency.valueOf(rawAmountUnit)
                     }.getOrNull() ?: continue
+                    val rawBalanceUnit = item.optString("balanceAmountUnit").takeIf { it.isNotBlank() }
+                    val balanceAmountUnit = rawBalanceUnit?.let { raw ->
+                        runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(raw) }.getOrNull()
+                    }
+                    // A present but unknown balance unit must not fall back to the transaction unit.
+                    if (rawBalanceUnit != null && balanceAmountUnit == null) continue
+                    val rawAmountCandidates = item.optJSONArray("amountCandidates")
+                    val amountCandidates = rawAmountCandidates?.let { values ->
+                        buildList { for (i in 0 until values.length()) values.optLong(i).takeIf { it > 0L }?.let(::add) }
+                    } ?: emptyList()
+                    val rawCandidateUnits = item.optJSONArray("amountCandidateUnits")
+                    val amountCandidateUnits = rawCandidateUnits?.let { values ->
+                        buildList {
+                            for (i in 0 until values.length()) {
+                                val raw = values.optString(i)
+                                val parsed = runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(raw) }.getOrNull()
+                                    ?: continue
+                                add(parsed)
+                            }
+                        }
+                    } ?: emptyList()
+                    if (rawCandidateUnits != null && amountCandidateUnits.size != amountCandidates.size) continue
                     add(
                         BankSmsSuggestion(
                             id = id,
@@ -123,7 +145,7 @@ class BankSmsRepository(private val context: Context) {
                             bankName = item.optString("bankName"),
                             amount = item.optLong("amount"),
                             amountUnit = amountUnit,
-                            balanceAmountUnit = item.optString("balanceAmountUnit").takeIf { it.isNotBlank() }?.let { runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(it) }.getOrNull() },
+                            balanceAmountUnit = balanceAmountUnit,
                             formattedAmount = item.optString("formattedAmount"),
                             isAmountValid = item.optBoolean("isAmountValid"),
                             type = type,
@@ -139,19 +161,8 @@ class BankSmsRepository(private val context: Context) {
                             timestampMillis = item.optLong("timestampMillis", System.currentTimeMillis()),
                             receivedAtMillis = item.optLong("receivedAtMillis", item.optLong("timestampMillis", System.currentTimeMillis())),
                             balanceAmount = if (item.has("balanceAmount") && !item.isNull("balanceAmount")) item.optLong("balanceAmount") else null,
-                            amountCandidates = item.optJSONArray("amountCandidates")?.let { values ->
-                                buildList { for (i in 0 until values.length()) values.optLong(i).takeIf { it > 0L }?.let(::add) }
-                            } ?: emptyList(),
-                            amountCandidateUnits = item.optJSONArray("amountCandidateUnits")?.let { values ->
-                                buildList {
-                                    for (i in 0 until values.length()) {
-                                        values.optString(i).takeIf { it.isNotBlank() }?.let { raw ->
-                                            runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(raw) }
-                                                .getOrNull()?.let(::add)
-                                        }
-                                    }
-                                }
-                            } ?: emptyList(),
+                            amountCandidates = amountCandidates,
+                            amountCandidateUnits = amountCandidateUnits,
                             trackingCode = item.optString("trackingCode").takeIf { it.isNotBlank() && it != "null" }
                         )
                     )
