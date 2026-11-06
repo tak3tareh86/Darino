@@ -13,6 +13,8 @@ import com.example.ui.screens.installments.model.*
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
+import java.math.BigDecimal
+import java.math.RoundingMode
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.*
@@ -183,10 +185,16 @@ class LocalInstallmentRepository private constructor() {
                         .minByOrNull { parseJalaliStringToMillis(it.dueDate) ?: Long.MAX_VALUE }
                     val effectiveNextPaymentDate = firstUnpaid?.dueDate ?: nextDueJalali
 
-                    val monthly = if (payments.isNotEmpty()) {
-                        payments.first().amount
+                    val monthlyAmount = if (payments.isNotEmpty()) {
+                        MoneyAmount.of(payments.first().amount, payments.first().amountUnit)
                     } else {
-                        entity.amount / entity.totalInstallments.coerceAtLeast(1)
+                        val totalRials = MoneyAmount.of(entity.amount, AppCurrency.valueOf(entity.amountUnit)).asRials()
+                        val averageRials = totalRials.divide(
+                            BigDecimal.valueOf(entity.totalInstallments.coerceAtLeast(1).toLong()),
+                            0,
+                            RoundingMode.HALF_UP
+                        ).longValueExact()
+                        MoneyAmount.of(averageRials, AppCurrency.RIAL)
                     }
 
                     InstallmentItem(
@@ -201,7 +209,7 @@ class LocalInstallmentRepository private constructor() {
                         paidAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(paidAmount, AppCurrency.valueOf(entity.amountUnit))),
                         remainingAmount = remainingAmount,
                         remainingAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmount, AppCurrency.valueOf(entity.amountUnit))),
-                        monthlyPaymentFormatted = MoneyFormatter.formatExact(MoneyAmount.of(monthly, AppCurrency.valueOf(entity.amountUnit))),
+                        monthlyPaymentFormatted = MoneyFormatter.formatExact(monthlyAmount),
                         totalInstallments = entity.totalInstallments,
                         remainingInstallments = remainingInstallmentsCount,
                         nextPaymentDate = effectiveNextPaymentDate,
