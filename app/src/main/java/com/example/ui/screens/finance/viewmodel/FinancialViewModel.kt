@@ -16,6 +16,8 @@ import com.example.ui.screens.finance.model.SavingsGoal
 import com.example.ui.screens.finance.model.TransactionCategory
 import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -73,12 +75,12 @@ class FinancialViewModel(
 
         // Calculate real balances for all accounts (unrestricted by period)
         val accountBalances = accounts.associate { acc ->
-            var balance = acc.initialBalance
+            var balance = MoneyAmount.of(acc.initialBalance, AppCurrency.TOMAN).asRialsLongExact()
             transactions.forEach { tx ->
                 // Note: transactions from repository are already filtered by user and not deleted
                 when (tx.type) {
-                    TransactionType.INCOME -> if (tx.accountId == acc.id) balance += tx.amount
-                    TransactionType.EXPENSE -> if (tx.accountId == acc.id) balance -= tx.amount
+                    TransactionType.INCOME -> if (tx.accountId == acc.id) balance = Math.addExact(balance, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
+                    TransactionType.EXPENSE -> if (tx.accountId == acc.id) balance = Math.subtractExact(balance, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
                     TransactionType.TRANSFER -> {
                         if (tx.transferSourceAccountId == acc.id) balance -= tx.amount
                         if (tx.transferDestinationAccountId == acc.id) balance += tx.amount
@@ -88,7 +90,7 @@ class FinancialViewModel(
             acc.id to balance
         }
 
-        val totalRealBalance = accountBalances.values.sum()
+        val totalRealBalance = accountBalances.values.fold(0L, Math::addExact)
 
         val income = FinanceEngine.calculateMonthlyIncome(filteredTransactions)
         val expense = FinanceEngine.calculateMonthlyExpense(filteredTransactions)
@@ -107,17 +109,17 @@ class FinancialViewModel(
             monthlyExpense = expense,
             monthlyBalance = balance,
             savingsRate = savingsRate,
-            formattedIncome = MoneyFormatter.formatSignedToman(income, isExpense = false, currency = currency),
-            formattedExpense = MoneyFormatter.formatSignedToman(expense, isExpense = true, currency = currency),
-            formattedBalance = MoneyFormatter.formatToman(totalRealBalance, currency = currency), // Show total real balance in summary card? User said current balance shouldn't be restricted.
+            formattedIncome = MoneyFormatter.formatExact(MoneyAmount.of(income, AppCurrency.RIAL), targetCurrency = currency).let { if (it.startsWith("−")) it else "+$it" },
+            formattedExpense = MoneyFormatter.formatExact(MoneyAmount.of(expense, AppCurrency.RIAL), targetCurrency = currency).let { if (it.startsWith("−")) it else "−$it" },
+            formattedBalance = MoneyFormatter.formatExact(MoneyAmount.of(totalRealBalance, AppCurrency.RIAL), targetCurrency = currency), // Show total real balance in summary card? User said current balance shouldn't be restricted.
             monthlyBudget = budgetSummary.totalBudget,
             budgetUsed = budgetSummary.totalSpent,
             budgetRemaining = budgetSummary.remainingBudget,
             budgetProgress = budgetSummary.usagePercentage,
             budgetStatus = budgetSummary.status,
-            formattedMonthlyBudget = MoneyFormatter.formatToman(budgetSummary.totalBudget, currency = currency),
-            formattedBudgetUsed = MoneyFormatter.formatToman(budgetSummary.totalSpent, currency = currency),
-            formattedBudgetRemaining = MoneyFormatter.formatToman(budgetSummary.remainingBudget, currency = currency),
+            formattedMonthlyBudget = MoneyFormatter.formatExact(MoneyAmount.of(budgetSummary.totalBudget, AppCurrency.RIAL), targetCurrency = currency),
+            formattedBudgetUsed = MoneyFormatter.formatExact(MoneyAmount.of(budgetSummary.totalSpent, AppCurrency.RIAL), targetCurrency = currency),
+            formattedBudgetRemaining = MoneyFormatter.formatExact(MoneyAmount.of(budgetSummary.remainingBudget, AppCurrency.RIAL), targetCurrency = currency),
             recentTransactions = filteredTransactions.take(4),
             allTransactions = filteredTransactions,
             activeBudgets = updatedBudgets,

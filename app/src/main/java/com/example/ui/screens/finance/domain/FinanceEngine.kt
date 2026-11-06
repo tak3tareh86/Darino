@@ -4,6 +4,8 @@ import com.example.ui.screens.finance.model.RecurringTransaction
 import com.example.ui.screens.finance.model.SavingsGoal
 import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionType
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 /**
  * Pure Domain calculation engine for Finance module.
@@ -18,7 +20,7 @@ object FinanceEngine {
         var total = 0L
         for (tx in transactions) {
             if (tx.type == TransactionType.INCOME) {
-                total += tx.amount
+                total = Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
             }
         }
         return total
@@ -31,7 +33,7 @@ object FinanceEngine {
         var total = 0L
         for (tx in transactions) {
             if (tx.type == TransactionType.EXPENSE) {
-                total += tx.amount
+                total = Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
             }
         }
         return total
@@ -67,7 +69,7 @@ object FinanceEngine {
         for (tx in transactions) {
             if (tx.type == TransactionType.EXPENSE) {
                 val current = map.getOrDefault(tx.categoryId, 0L)
-                map[tx.categoryId] = current + tx.amount
+                map[tx.categoryId] = Math.addExact(current, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
             }
         }
         return map

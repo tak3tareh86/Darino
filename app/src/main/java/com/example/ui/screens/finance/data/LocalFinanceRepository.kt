@@ -19,6 +19,8 @@ import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionSourceType
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.util.PersianCalendarHelper
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -1150,19 +1152,19 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         
         val txs = db.transactionDao().getAllTransactionsList(userId)
         
-        var balance = account.initialBalance
+        var balance = MoneyAmount.of(account.initialBalance, AppCurrency.TOMAN).asRialsLongExact()
         for (tx in txs) {
             if (tx.deletedAt != null) continue
             
             when (tx.type) {
                 "INCOME" -> {
                     if (tx.accountId == accountId) {
-                        balance += tx.amount
+                        balance = Math.addExact(balance, MoneyAmount.of(tx.amount, runCatching { AppCurrency.valueOf(tx.amountUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact())
                     }
                 }
                 "EXPENSE" -> {
                     if (tx.accountId == accountId) {
-                        balance -= tx.amount
+                        balance = Math.subtractExact(balance, MoneyAmount.of(tx.amount, runCatching { AppCurrency.valueOf(tx.amountUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact())
                     }
                 }
                 "TRANSFER" -> {

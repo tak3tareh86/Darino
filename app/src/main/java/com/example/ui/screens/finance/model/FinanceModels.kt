@@ -162,7 +162,9 @@ data class Budget(
     val startDate: String = "",
     val endDate: String = "",
     val spentAmount: Long = 0L,
+    val spentAmountUnit: AppCurrency = AppCurrency.RIAL,
     val remainingAmount: Long = 0L,
+    val remainingAmountUnit: AppCurrency = AppCurrency.RIAL,
     val usagePercentage: Int = 0,
     val status: BudgetStatus = BudgetStatus.SAFE,
     val isEnabled: Boolean = true,
@@ -172,9 +174,9 @@ data class Budget(
     val formattedAmount: String
         get() = MoneyFormatter.formatToman(amount)
     val formattedSpent: String
-        get() = MoneyFormatter.formatToman(spentAmount)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(spentAmount, spentAmountUnit))
     val formattedRemaining: String
-        get() = MoneyFormatter.formatToman(remainingAmount)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmount, remainingAmountUnit))
 }
 
 data class SavingsGoal(
