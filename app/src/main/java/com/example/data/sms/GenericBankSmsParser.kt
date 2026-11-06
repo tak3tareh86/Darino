@@ -191,6 +191,7 @@ object GenericBankSmsParser {
             timestampMillis = finalTimestamp,
             receivedAtMillis = timestampMillis,
             balanceAmount = balance,
+            balanceAmountUnit = amountUnit,
             amountCandidates = (extractGroupedAmounts(body) + listOfNotNull(amountValue, balance)).distinct(),
             trackingCode = tracking
         )
