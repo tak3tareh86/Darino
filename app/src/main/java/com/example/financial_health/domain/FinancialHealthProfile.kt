@@ -67,7 +67,7 @@ data class NextMonthPrediction(
     val vehicleExpensesAmountRecorded: Boolean = false
 ) {
     /** Sum of known amounts only; unrecorded categories are deliberately not guessed. */
-    val total: Long get() = installments + fixedExpenses + reminders + vehicleExpenses
+    val total: Long get() = Math.addExact(Math.addExact(installments, fixedExpenses), Math.addExact(reminders, vehicleExpenses))
 }
 
 data class MonthlyPressureData(
