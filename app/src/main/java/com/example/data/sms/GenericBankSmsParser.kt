@@ -213,6 +213,10 @@ object GenericBankSmsParser {
             balanceAmount = balance,
             balanceAmountUnit = balanceAmountUnit,
             amountCandidates = (extractGroupedAmounts(body) + listOfNotNull(amountValue, balance)).distinct(),
+            amountCandidateUnits = (extractGroupedAmounts(body) + listOfNotNull(amountValue, balance)).distinct().map { candidate ->
+                val candidateMatch = groupedAmountRegex.findAll(normalize(body)).firstOrNull { parseDigits(it.value) == candidate }
+                unitNear(candidateMatch, if (candidate == balance) balanceAmountUnit else amountUnit)
+            },
             trackingCode = tracking
         )
     }
