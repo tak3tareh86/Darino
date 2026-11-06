@@ -1539,7 +1539,7 @@ class VehicleRepository {
                             title = existing.title,
                             category = VehicleExpenseCategory.SERVICE.name,
                             amount = serviceCost,
-                            amountUnit = AppCurrency.RIAL.name,
+                            amountUnit = existing.costUnit,
                             date = completedDate.trim(),
                             description = "سرویس دوره‌ای خودرو: ${existing.notes ?: ""}".trim()
                         )
@@ -1648,7 +1648,7 @@ class VehicleRepository {
                 title = title.trim(),
                 category = category,
                 amount = amount,
-                amountUnit = AppCurrency.RIAL.name,
+                amountUnit = AppCurrency.RIAL,
                 date = date.trim(),
                 description = description.trim()
             )
@@ -1718,7 +1718,8 @@ class VehicleRepository {
                 amount = amount,
                 date = date.trim(),
                 description = description.trim(),
-                receiptImageUri = existing.receiptImageUri
+                receiptImageUri = existing.receiptImageUri,
+                amountUnit = AppCurrency.RIAL
             )
             Result.success(updatedDomain)
         } catch (e: Exception) {
@@ -1983,8 +1984,7 @@ class VehicleRepository {
                             title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
                             category = VehicleExpenseCategory.INSURANCE.name,
                             amount = if (insAmount > 0L) insAmount else expense.amount,
-                            amountUnit = if (insAmount > 0L) AppCurrency.RIAL.name else expense.amountUnit,
-                            amountUnit = AppCurrency.RIAL.name,
+                            amountUnit = existing.amountUnit,
                             date = today,
                             description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
                         )
@@ -1998,7 +1998,7 @@ class VehicleRepository {
                             title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
                             category = VehicleExpenseCategory.INSURANCE.name,
                             amount = insAmount,
-                            amountUnit = AppCurrency.RIAL.name,
+                            amountUnit = existing.amountUnit,
                             date = today,
                             description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
                         )
