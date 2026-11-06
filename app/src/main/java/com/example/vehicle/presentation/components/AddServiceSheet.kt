@@ -354,6 +354,10 @@ fun AddServiceSheet(
                     testTag = "service_cost_input"
                 )
 
+                if (costInputInvalid) {
+                    Text("مبلغ هزینه سرویس معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+
                 OutlinedTextField(
                     value = IranianPhoneUtils.convertDigitsToPersian(mileageText),
                     onValueChange = {
