@@ -27,7 +27,9 @@ data class BankSmsSuggestion(
     val receivedAtMillis: Long = timestampMillis,
     // All distinct, strictly grouped numeric amounts found in the original SMS.
     val amountCandidates: List<Long> = emptyList(),
-    val amountUnit: AppCurrency = AppCurrency.TOMAN
+    val amountUnit: AppCurrency = AppCurrency.TOMAN,
+    // Balance values can use a different unit from the transaction in the same SMS.
+    val balanceAmountUnit: AppCurrency? = null
 ) {
     val isExpense: Boolean
         get() = type == TransactionType.EXPENSE
