@@ -645,6 +645,7 @@ interface CheckDao {
             userId = check.userId,
             type = check.type,
             amount = check.amount,
+            amountUnit = check.amountUnit,
             checkNumber = check.checkNumber,
             sayadId = check.sayadId,
             bankName = check.bankName,
