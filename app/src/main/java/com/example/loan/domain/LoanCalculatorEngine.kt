@@ -20,10 +20,11 @@ class LoanCalculatorEngine {
         interestRate: Double?,
         duration: Int?,
         interestPeriod: InterestPeriod = InterestPeriod.ANNUAL,
-        durationType: DurationType = DurationType.MONTHS
+        durationType: DurationType = DurationType.MONTHS,
+        amountUnit: AppCurrency = AppCurrency.TOMAN
     ): ValidationResult {
         if (amount == null) return ValidationResult.Invalid("لطفاً مبلغ وام را وارد کنید")
-        if (amount <= 0L || amount > MAX_PRINCIPAL) {
+        if (amount <= 0L || amount > if (amountUnit == AppCurrency.RIAL) Math.multiplyExact(MAX_PRINCIPAL, 10L) else MAX_PRINCIPAL) {
             return ValidationResult.Invalid("مبلغ وام باید بین ۱ تومان تا ۱٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰ تومان باشد")
         }
         if (interestRate == null || !interestRate.isFinite()) {
@@ -52,7 +53,7 @@ class LoanCalculatorEngine {
         method: CalculationMethod = CalculationMethod.ANNUITY,
         amountUnit: AppCurrency = AppCurrency.TOMAN
     ): CalculationResult {
-        require(validateInputs(amount, interestRate, duration, interestPeriod, durationType) is ValidationResult.Valid) {
+        require(validateInputs(amount, interestRate, duration, interestPeriod, durationType, amountUnit) is ValidationResult.Valid) {
             "ورودی‌های محاسبه تسهیلات معتبر نیستند"
         }
         val totalMonths = if (durationType == DurationType.YEARS) duration * 12 else duration
