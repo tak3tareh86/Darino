@@ -62,8 +62,18 @@ fun AddSavingsGoalSheet(
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
     var title by remember { mutableStateOf(initialGoal?.title ?: "") }
-    var targetAmountRaw by remember { mutableStateOf(initialGoal?.targetAmount?.toString() ?: "") }
-    var currentAmountRaw by remember { mutableStateOf(initialGoal?.currentAmount?.toString() ?: "0") }
+    val activeCurrency = MoneyFormatter.activeCurrency
+    val currencyUnit = MoneyFormatter.getUnitLabel(currency = activeCurrency)
+    var targetAmountRaw by remember {
+        mutableStateOf(
+            initialGoal?.targetAmount?.let { MoneyFormatter.convertFromToman(it, activeCurrency).toString() } ?: ""
+        )
+    }
+    var currentAmountRaw by remember {
+        mutableStateOf(
+            initialGoal?.currentAmount?.let { MoneyFormatter.convertFromToman(it, activeCurrency).toString() } ?: "0"
+        )
+    }
     var targetDate by remember { mutableStateOf(initialGoal?.targetDate ?: "۱۴۰۵/۱۲/۲۹") }
     var description by remember { mutableStateOf(initialGoal?.description ?: "") }
     var selectedEmoji by remember { mutableStateOf(initialGoal?.iconEmoji ?: "🎯") }
@@ -162,9 +172,9 @@ fun AddSavingsGoalSheet(
                 value = targetAmountRaw,
                 onValueChange = { targetAmountRaw = it },
                 onRawAmountChange = { rawDigits, _ -> targetAmountRaw = rawDigits },
-                label = "مبلغ کل هدف (تومان)",
-                placeholder = "مثال: ۶۰,۰۰۰,۰۰۰",
-                unitLabel = "تومان",
+                label = "مبلغ کل هدف ($currencyUnit)",
+                placeholder = "مبلغ را وارد کنید",
+                unitLabel = currencyUnit,
                 showWordsPreview = true,
                 testTag = "goal_target_amount_input"
             )
@@ -174,9 +184,9 @@ fun AddSavingsGoalSheet(
                 value = currentAmountRaw,
                 onValueChange = { currentAmountRaw = it },
                 onRawAmountChange = { rawDigits, _ -> currentAmountRaw = rawDigits },
-                label = "مبلغ پس‌اندازشده فعلی (تومان)",
+                label = "مبلغ پس‌اندازشده فعلی ($currencyUnit)",
                 placeholder = "۰",
-                unitLabel = "تومان",
+                unitLabel = currencyUnit,
                 showWordsPreview = false,
                 testTag = "goal_current_amount_input"
             )
@@ -225,8 +235,8 @@ fun AddSavingsGoalSheet(
                     val g = SavingsGoal(
                         id = initialGoal?.id ?: UUID.randomUUID().toString(),
                         title = title,
-                        targetAmount = parsedTarget,
-                        currentAmount = parsedCurrent,
+                        targetAmount = MoneyFormatter.convertToToman(parsedTarget, activeCurrency),
+                        currentAmount = MoneyFormatter.convertToToman(parsedCurrent, activeCurrency),
                         targetDate = targetDate,
                         description = description,
                         iconEmoji = selectedEmoji,
