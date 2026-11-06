@@ -39,7 +39,10 @@ fun DayDetailsScreen(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val displayDate = CalendarDateUtils.toPersianDisplay(date)
-    val totalAmount = events.mapNotNull { it.amount }.sum()
+    val totalAmountRials = events.fold(0L) { total, event ->
+        val amountRials = event.amount?.let { com.example.util.MoneyAmount.of(it, event.amountUnit).asRialsLongExact() } ?: 0L
+        Math.addExact(total, amountRials)
+    }
 
     Scaffold(
         modifier = modifier
@@ -117,7 +120,7 @@ fun DayDetailsScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                                                         Text(
-                                text = com.example.util.MoneyFormatter.formatToman(totalAmount),
+                                text = com.example.util.MoneyFormatter.formatExact(com.example.util.MoneyAmount.of(totalAmountRials, com.example.ui.screens.settings.model.AppCurrency.RIAL)),
                                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
                                 color = MaterialTheme.colorScheme.primary
                             )
