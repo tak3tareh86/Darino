@@ -12,6 +12,10 @@ import com.example.loan.domain.LoanCalculation
 import com.example.loan.domain.LoanCalculatorEngine
 import com.example.loan.domain.LoanType
 import com.example.util.IranianPhoneUtils
+import com.example.util.IranianAmountUtils
+import com.example.util.MoneyAmount
+import com.example.util.MoneyFormatter
+import com.example.ui.screens.settings.model.AppCurrency
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +36,15 @@ class LoanCalculatorViewModel(
         viewModelScope.launch {
             repository.savedCalculations.collect { list ->
                 _state.update { it.copy(savedCalculations = list) }
+            }
+        }
+        // Keep the canonical calculation value in Rials while reflecting the active input unit.
+        val initialInput = MoneyAmount.of(_state.value.amount, AppCurrency.RIAL).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString()
+        _state.update { it.copy(amountInput = IranianAmountUtils.formatDecimalWithCommas(initialInput)) }
+        viewModelScope.launch {
+            MoneyFormatter.activeCurrencyFlow.collect { currency ->
+                val value = MoneyAmount.of(_state.value.amount, AppCurrency.RIAL).inUnit(currency).value.stripTrailingZeros().toPlainString()
+                _state.update { it.copy(amountInput = IranianAmountUtils.formatDecimalWithCommas(value)) }
             }
         }
         // Run initial calculation with default parameters
@@ -60,8 +73,8 @@ class LoanCalculatorViewModel(
     }
 
     fun onAmountInputChanged(raw: String) {
-        val clean = IranianPhoneUtils.convertDigitsToEnglish(raw).filter { it.isDigit() }
-        val parsed = clean.toLongOrNull() ?: 0L
+        val clean = IranianPhoneUtils.convertDigitsToEnglish(raw).trim()
+        val parsed = IranianAmountUtils.parseAmountToBigDecimal(clean)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
         _state.update {
             it.copy(
                 amountInput = clean,
@@ -75,8 +88,8 @@ class LoanCalculatorViewModel(
     fun onQuickAmountSelected(amount: Long) {
         _state.update {
             it.copy(
-                amountInput = amount.toString(),
-                amount = amount,
+                amountInput = IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(amount, AppCurrency.TOMAN).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString()),
+                amount = MoneyAmount.of(amount, AppCurrency.TOMAN).asRialsLongExact(),
                 errorMessage = null
             )
         }
@@ -177,6 +190,7 @@ class LoanCalculatorViewModel(
             is LoanCalculatorEngine.ValidationResult.Valid -> {
                 val res = engine.calculate(
                     amount = current.amount,
+            amountUnit = AppCurrency.RIAL,
                     interestRate = current.interestRate,
                     interestPeriod = current.interestPeriod,
                     duration = current.duration,
@@ -207,7 +221,7 @@ class LoanCalculatorViewModel(
         val title = if (!customTitle.isNullOrBlank()) {
             customTitle
         } else {
-            val amountFormatted = CalculationResult.formatMoney(current.amount)
+            val amountFormatted = CalculationResult.formatMoney(current.amount, AppCurrency.RIAL)
             "${current.loanType.title} ($amountFormatted)"
         }
 
@@ -248,8 +262,8 @@ class LoanCalculatorViewModel(
             it.copy(
                 currentTab = LoanScreenTab.CALCULATOR,
                 loanType = calculation.loanType,
-                amountInput = calculation.amount.toString(),
-                amount = calculation.amount,
+                amountInput = IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(calculation.amount, calculation.amountUnit).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString()),
+                amount = MoneyAmount.of(calculation.amount, calculation.amountUnit).asRialsLongExact(),
                 interestRateInput = calculation.interestRate.toString(),
                 interestRate = calculation.interestRate,
                 durationInput = calculation.duration.toString(),
