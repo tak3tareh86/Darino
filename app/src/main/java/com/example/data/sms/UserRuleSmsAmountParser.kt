@@ -136,13 +136,19 @@ object UserRuleSmsAmountParser {
             rialRegex.findAll(text, start).filter { it.range.first < end }.forEach { add(it to AppCurrency.RIAL) }
             tomanRegex.findAll(text, start).filter { it.range.first < end }.forEach { add(it to AppCurrency.TOMAN) }
         }
-        return nearbyTokens.minByOrNull { (token, _) ->
-            when {
+        val rankedUnits = nearbyTokens.map { (token, unit) ->
+            val distance = when {
                 token.range.first > match.range.last -> token.range.first - match.range.last - 1
                 token.range.last < match.range.first -> match.range.first - token.range.last - 1
                 else -> 0
             }
-        }?.second ?: fallback
+            unit to distance
+        }.sortedBy { it.second }
+        val closest = rankedUnits.firstOrNull() ?: return fallback
+        val equallyCloseDifferentUnit = rankedUnits.getOrNull(1)?.let {
+            it.second == closest.second && it.first != closest.first
+        } == true
+        return if (equallyCloseDifferentUnit) fallback else closest.first
     }
 
     private fun currencyUnitNearAmount(
