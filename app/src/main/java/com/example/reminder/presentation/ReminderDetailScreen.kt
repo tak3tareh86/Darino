@@ -34,6 +34,8 @@ import com.example.ui.theme.RadiusSM
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -201,11 +203,16 @@ fun ReminderDetailScreen(
                         }
                     )
 
-                    if (reminder.amount != null && reminder.amount > 0) {
+                    val formattedReminderAmount = reminder.amount?.takeIf { it > 0L }?.let { amount ->
+                        runCatching {
+                            MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.valueOf(reminder.amountUnit)))
+                        }.getOrNull()
+                    }
+                    if (formattedReminderAmount != null) {
                         DetailRow(
                             icon = Icons.Rounded.AttachMoney,
                             label = "مبلغ تعهد",
-                            value = MoneyFormatter.formatToman(reminder.amount)
+                            value = formattedReminderAmount
                         )
                     }
 
