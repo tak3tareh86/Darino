@@ -92,19 +92,44 @@ object IranianAmountUtils {
      * as grouping separators; malformed or multiple decimal separators are rejected.
      */
     fun parseAmountToBigDecimal(input: String): BigDecimal? {
-        val normalizedDigits = IranianPhoneUtils.convertDigitsToEnglish(input)
-        val compact = normalizedDigits
-            .replace(",", "")
-            .replace("٬", "")
-            .replace(" ", "")
-            .replace("\u00A0", "")
-            .replace("٫", ".")
-        if (compact.isEmpty()) return null
-        if (compact.count { it == '.' } > 1) return null
-        if (compact.any { it != '.' && it !in '0'..'9' }) return null
-        if (compact == "." || compact.endsWith(".")) return null
-        val normalized = if (compact.startsWith(".")) "0$compact" else compact
-        return runCatching { BigDecimal(normalized) }.getOrNull()
+        val normalized = IranianPhoneUtils.convertDigitsToEnglish(input)
+            .replace('\u00A0', ' ')
+            .trim()
+        if (normalized.isEmpty()) return null
+
+        // Do not silently discard signs, letters, or malformed separators.
+        // Grouping separators are accepted only in correctly grouped integer parts.
+        val decimalParts = normalized.split('.', '٫')
+        if (decimalParts.size > 2) return null
+        val integerPart = decimalParts[0].replace(" ", "")
+        val fractionPart = decimalParts.getOrNull(1)
+        if (fractionPart != null && (fractionPart.isEmpty() || fractionPart.any { it !in '0'..'9' })) {
+            return null
+        }
+
+        val groupingSeparators = setOf(',', '٬')
+        val integerDigits = if (integerPart.any { it in groupingSeparators }) {
+            // Mixing grouping separator styles is ambiguous and therefore rejected.
+            val usedSeparators = integerPart.filter { it in groupingSeparators }.toSet()
+            if (usedSeparators.size != 1) return null
+            val separator = usedSeparators.single()
+            val groups = integerPart.split(separator)
+            if (groups.isEmpty() || groups.first().isEmpty() || groups.first().length !in 1..3 ||
+                groups.first().any { it !in '0'..'9' } ||
+                groups.drop(1).any { group -> group.length != 3 || group.any { it !in '0'..'9' } }
+            ) return null
+            groups.joinToString("")
+        } else {
+            if (integerPart.any { it !in '0'..'9' }) return null
+            integerPart
+        }
+
+        if (integerDigits.isEmpty() && fractionPart == null) return null
+        if (integerDigits.isEmpty() && fractionPart != null) {
+            return runCatching { BigDecimal("0.$fractionPart") }.getOrNull()
+        }
+        val normalizedNumber = integerDigits + (fractionPart?.let { ".$it" } ?: "")
+        return runCatching { BigDecimal(normalizedNumber) }.getOrNull()
     }
 
     /**
