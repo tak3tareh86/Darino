@@ -148,7 +148,7 @@ fun PersianAmountInputField(
                     )
                 }
             } else null,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(keyboardType = if (allowDecimalInput) KeyboardType.Decimal else KeyboardType.Number),
             singleLine = singleLine,
             enabled = enabled,
             isError = isError,
@@ -163,7 +163,7 @@ fun PersianAmountInputField(
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(start = 4.dp)
             )
-        } else if (showWordsPreview && parsedAmount > 0L) {
+        } else if (showWordsPreview && !allowDecimalInput && parsedAmount > 0L) {
             val words = remember(parsedAmount, unitLabel) {
                 IranianAmountUtils.amountToPersianWords(parsedAmount, unitLabel)
             }
