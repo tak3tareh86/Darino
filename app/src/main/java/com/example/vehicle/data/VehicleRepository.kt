@@ -1472,7 +1472,7 @@ class VehicleRepository {
                                 title = existing.title,
                                 category = VehicleExpenseCategory.SERVICE.name,
                                 amount = serviceCost,
-                            amountUnit = AppCurrency.RIAL.name,
+                            amountUnit = existing.costUnit,
                                 date = completedDate.trim(),
                                 description = "سرویس دوره‌ای خودرو: ${existing.notes ?: ""}".trim()
                             )
@@ -1527,7 +1527,7 @@ class VehicleRepository {
                         expense.copy(
                             date = completedDate.trim(),
                             amount = if (serviceCost > 0L) serviceCost else expense.amount,
-                            amountUnit = if (serviceCost > 0L) AppCurrency.RIAL.name else expense.amountUnit
+                            amountUnit = if (serviceCost > 0L) existing.costUnit else expense.amountUnit
                         )
                     )
                 } else if (serviceCost > 0L) {
