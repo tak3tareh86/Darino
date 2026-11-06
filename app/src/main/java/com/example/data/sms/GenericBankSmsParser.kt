@@ -51,7 +51,6 @@ object GenericBankSmsParser {
         groupedAmountRegex.findAll(normalize(message))
             .mapNotNull { parseDigits(it.value) }
             .filter { it in 1L..100_000_000_000_000L }
-            .distinct()
             .toList()
 
     private val transactionSignal = Regex(
@@ -218,10 +217,21 @@ object GenericBankSmsParser {
             receivedAtMillis = timestampMillis,
             balanceAmount = balance,
             balanceAmountUnit = balanceAmountUnit,
-            amountCandidates = (extractGroupedAmounts(body) + listOfNotNull(amountValue, balance)).distinct(),
-            amountCandidateUnits = (extractGroupedAmounts(body) + listOfNotNull(amountValue, balance)).distinct().map { candidate ->
-                val candidateMatch = groupedAmountRegex.findAll(normalize(body)).firstOrNull { parseDigits(it.value) == candidate }
-                unitNear(candidateMatch, if (candidate == balance) balanceAmountUnit else amountUnit)
+            amountCandidates = run {
+                val values = extractGroupedAmounts(body).toMutableList()
+                if (amountValue !in values) values.add(amountValue)
+                if (balance != null && balance !in values) values.add(balance)
+                values
+            },
+            amountCandidateUnits = run {
+                val candidateMatches = groupedAmountRegex.findAll(normalize(body))
+                    .filter { parseDigits(it.value)?.let { value -> value in 1L..100_000_000_000_000L } == true }
+                    .toList()
+                val units = candidateMatches.map { match -> unitNear(match, messageDefaultUnit) }.toMutableList()
+                val values = extractGroupedAmounts(body)
+                if (amountValue !in values) units.add(amountUnit)
+                if (balance != null && balance !in values && balance != amountValue) units.add(balanceAmountUnit)
+                units
             },
             trackingCode = tracking
         )
