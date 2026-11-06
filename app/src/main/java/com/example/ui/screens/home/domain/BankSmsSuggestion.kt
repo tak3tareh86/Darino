@@ -25,7 +25,7 @@ data class BankSmsSuggestion(
     val patternId: String = "",
     // Actual inbox receipt time; distinct from the transaction date parsed from the SMS body.
     val receivedAtMillis: Long = timestampMillis,
-    // All distinct, strictly grouped numeric amounts found in the original SMS.
+    // Numeric candidates paired with their units; equal values remain separate when units differ.
     val amountCandidates: List<Long> = emptyList(),
     val amountUnit: AppCurrency = AppCurrency.TOMAN,
     // Balance values can use a different unit from the transaction in the same SMS.
