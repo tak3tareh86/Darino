@@ -53,6 +53,8 @@ import com.example.ui.screens.reminder.components.PersianTimePickerDialog
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 
 /**
@@ -164,14 +166,19 @@ fun AddInstallmentSheet(
     var showCustomScheduleDialog by remember { mutableStateOf(false) }
 
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+    val activeCurrency = MoneyFormatter.activeCurrency
 
     // Smart Auto-Calculation:
     LaunchedEffect(totalAmount, installmentsCount) {
-        val parsedTotal = IranianAmountUtils.parseAmountToLong(totalAmount)
-        val parsedCount = installmentsCount.filter { it.isDigit() }.toIntOrNull() ?: 0
-        if (parsedTotal > 0 && parsedCount > 0) {
-            val calcMonthly = parsedTotal / parsedCount
-            installmentAmount = IranianAmountUtils.formatWithCommas(calcMonthly.toString())
+        val parsedTotalRials = IranianAmountUtils.parseAmountToBigDecimal(totalAmount)?.let {
+            runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
+        }
+        val parsedCount = IranianPhoneUtils.convertDigitsToEnglish(installmentsCount).filter { it.isDigit() }.toIntOrNull() ?: 0
+        if (parsedTotalRials != null && parsedTotalRials > 0L && parsedCount > 0) {
+            val calcMonthlyRials = parsedTotalRials / parsedCount
+            val displayMonthly = MoneyAmount.of(calcMonthlyRials, AppCurrency.RIAL)
+                .inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()
+            installmentAmount = IranianAmountUtils.formatDecimalWithCommas(displayMonthly)
         }
     }
 
@@ -251,15 +258,19 @@ fun AddInstallmentSheet(
                             IranianPhoneUtils.convertDigitsToEnglish(installmentsCount)
                                 .filter { it.isDigit() }.toIntOrNull() ?: 0
                         }
-                        val parsedTotalForValidation = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(totalAmount))
-                        val parsedMonthlyForValidation = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(installmentAmount))
+                        val parsedTotalForValidation = IranianAmountUtils.parseAmountToBigDecimal(totalAmount)?.let {
+                            runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
+                        } ?: 0L
+                        val parsedMonthlyForValidation = IranianAmountUtils.parseAmountToBigDecimal(installmentAmount)?.let {
+                            runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
+                        } ?: 0L
                         if (paidCountValue > totalCountValue) {
                             submitValidationError = "تعداد اقساط پرداخت‌شده نمی‌تواند از تعداد کل اقساط بیشتر باشد."
                             return@FormDetailsStep
                         }
                         if (currentCustomScheduleItems.isNullOrEmpty() &&
                             totalCountValue > 1 &&
-                            parsedMonthlyForValidation * (totalCountValue - 1L) >= parsedTotalForValidation
+                            Math.multiplyExact(parsedMonthlyForValidation, (totalCountValue - 1L).toLong()) >= parsedTotalForValidation
                         ) {
                             submitValidationError = "مبلغ هر قسط با مبلغ کل و تعداد اقساط سازگار نیست؛ لطفاً مبالغ را بررسی کنید."
                             return@FormDetailsStep
@@ -478,6 +489,7 @@ fun AddInstallmentSheet(
     if (showCustomScheduleDialog) {
         CustomInstallmentsDialog(
             totalAmountStr = totalAmount,
+            activeCurrency = activeCurrency,
             installmentAmountStr = installmentAmount,
             installmentsCountStr = installmentsCount,
             dueDateStr = dueDate,
@@ -1063,6 +1075,7 @@ private fun ReminderOptionRow(
 @Composable
 private fun CustomInstallmentsDialog(
     totalAmountStr: String,
+    activeCurrency: AppCurrency,
     installmentAmountStr: String,
     installmentsCountStr: String,
     dueDateStr: String,
@@ -1070,7 +1083,7 @@ private fun CustomInstallmentsDialog(
     onDismiss: () -> Unit,
     onConfirm: (List<com.example.ui.screens.installments.model.PaymentHistoryItem>) -> Unit
 ) {
-    val totalAmountLong = IranianAmountUtils.parseAmountToLong(totalAmountStr)
+    val totalAmountLong = IranianAmountUtils.parseAmountToBigDecimal(totalAmountStr)?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
     val countInt = IranianPhoneUtils.convertDigitsToEnglish(installmentsCountStr).filter { it.isDigit() }.toIntOrNull()?.coerceAtLeast(1) ?: 12
 
     var rangeStartStr by remember { mutableStateOf("۱") }
@@ -1090,7 +1103,8 @@ private fun CustomInstallmentsDialog(
                         dueDate = if (i == 1) dueDateStr else com.example.util.PersianCalendarHelper.addMonthsToPersianDate(dueDateStr, i - 1),
                         amountFormatted = "",
                         status = if (i == 1) com.example.ui.screens.installments.model.InstallmentStatus.DUE_SOON else com.example.ui.screens.installments.model.InstallmentStatus.PENDING,
-                        amount = 0L
+                        amount = 0L,
+                        amountUnit = AppCurrency.RIAL
                     )
                 }
             }
@@ -1177,24 +1191,20 @@ private fun CustomInstallmentsDialog(
                             onClick = {
                                 val first = IranianPhoneUtils.convertDigitsToEnglish(rangeStartStr).filter { it.isDigit() }.toIntOrNull()
                                 val last = IranianPhoneUtils.convertDigitsToEnglish(rangeEndStr).filter { it.isDigit() }.toIntOrNull()
-                                val amountRaw = IranianAmountUtils.parseAmountToLong(rangeAmountStr)
-                                val isRialInput = MoneyFormatter.activeCurrency == com.example.ui.screens.settings.model.AppCurrency.RIAL
-                                if (isRialInput && amountRaw % 10L != 0L) {
-                                    validationError = "در حالت ورود ریال، مبلغ باید مضربی از ۱۰ باشد تا تبدیل به تومان بدون حذف باقی‌مانده انجام شود."
-                                    return@Button
-                                }
-                                val amountToman = MoneyFormatter.convertToToman(amountRaw)
+                                val amountRials = IranianAmountUtils.parseAmountToBigDecimal(rangeAmountStr)?.let {
+                                    runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
+                                } ?: 0L
                                 if (first == null || last == null || first < 1 || last < first || last > scheduleList.size) {
                                     validationError = "بازه شماره اقساط معتبر نیست؛ شماره شروع و پایان را بررسی کنید."
                                     return@Button
                                 }
-                                if (amountRaw <= 0L || amountToman <= 0L) {
+                                if (amountRials <= 0L) {
                                     validationError = "لطفاً مبلغی بیشتر از صفر برای هر قسط وارد کنید."
                                     return@Button
                                 }
                                 scheduleList = scheduleList.map { item ->
                                     if (item.installmentNumber in first..last) {
-                                        item.copy(amount = amountToman, amountFormatted = MoneyFormatter.formatToman(amountToman))
+                                        item.copy(amount = amountRials, amountUnit = AppCurrency.RIAL, amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(amountRials, AppCurrency.RIAL)))
                                     } else item
                                 }
                                 validationError = null
@@ -1222,7 +1232,7 @@ private fun CustomInstallmentsDialog(
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
-                                text = if (item.amount > 0L) MoneyFormatter.formatToman(item.amount) else "تعیین نشده",
+                                text = if (item.amount > 0L) MoneyFormatter.formatExact(MoneyAmount.of(item.amount, item.amountUnit)) else "تعیین نشده",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = if (item.amount > 0L) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error
                             )
@@ -1232,17 +1242,17 @@ private fun CustomInstallmentsDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                val sumCustom = scheduleList.sumOf { it.amount }
-                val expectedTotal = MoneyFormatter.convertToToman(totalAmountLong)
-                val totalDifference = expectedTotal - sumCustom
+                val sumCustom = scheduleList.fold(0L) { total, item -> Math.addExact(total, item.amount) }
+                val expectedTotal = totalAmountLong
+                val totalDifference = Math.subtractExact(expectedTotal, sumCustom)
                 Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        text = "جمع کل اقساط: ${MoneyFormatter.formatToman(sumCustom)}",
+                        text = "جمع کل اقساط: ${MoneyFormatter.formatExact(MoneyAmount.of(sumCustom, AppCurrency.RIAL))}",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "مبلغ کل وام: ${MoneyFormatter.formatToman(expectedTotal)}",
+                        text = "مبلغ کل وام: ${MoneyFormatter.formatExact(MoneyAmount.of(expectedTotal, AppCurrency.RIAL))}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1250,9 +1260,9 @@ private fun CustomInstallmentsDialog(
                         text = if (totalDifference == 0L) {
                             "مجموع اقساط با مبلغ کل وام برابر است."
                         } else if (totalDifference > 0L) {
-                            "مبلغ اقساط ${MoneyFormatter.formatToman(totalDifference)} کمتر از مبلغ وام است."
+                            "مبلغ اقساط ${MoneyFormatter.formatExact(MoneyAmount.of(totalDifference, AppCurrency.RIAL))} کمتر از مبلغ وام است."
                         } else {
-                            "مبلغ اقساط ${MoneyFormatter.formatToman(kotlin.math.abs(totalDifference))} بیشتر از مبلغ وام است."
+                            "مبلغ اقساط ${MoneyFormatter.formatExact(MoneyAmount.of(totalDifference.absoluteValue, AppCurrency.RIAL))} بیشتر از مبلغ وام است."
                         },
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = if (totalDifference == 0L) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
@@ -1289,21 +1299,17 @@ private fun CustomInstallmentsDialog(
                                 item.dueDate.isBlank() ||
                                 !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(item.dueDate)
                             }
-                            val isRialInput = MoneyFormatter.activeCurrency == com.example.ui.screens.settings.model.AppCurrency.RIAL
-                            val hasInvalidRialTotal = isRialInput && totalAmountLong % 10L != 0L
-                            val expectedTotal = MoneyFormatter.convertToToman(totalAmountLong)
-                            val actualTotal = scheduleList.sumOf { it.amount }
+                            val expectedTotal = totalAmountLong
+                            val actualTotal = scheduleList.fold(0L) { total, item -> Math.addExact(total, item.amount) }
                             val expectedNumbers = (1..countInt).toList()
                             val actualNumbers = scheduleList.map { it.installmentNumber }.sorted()
-                            if (hasInvalidRialTotal) {
-                                validationError = "مبلغ کل وام در حالت ریال باید مضربی از ۱۰ باشد تا تبدیل دقیق انجام شود."
-                            } else if (scheduleList.size != countInt || actualNumbers != expectedNumbers) {
+                            if (scheduleList.size != countInt || actualNumbers != expectedNumbers) {
                                 validationError = "شماره اقساط باید از ۱ تا ${IranianPhoneUtils.convertDigitsToPersian(countInt.toString())} کامل و بدون تکرار باشد."
                             } else if (invalidItem != null) {
                                 validationError = "تمام اقساط باید شماره معتبر، مبلغ بیشتر از صفر و تاریخ سررسید معتبر شمسی داشته باشند."
                             } else if (expectedTotal <= 0L || actualTotal != expectedTotal) {
                                 val difference = kotlin.math.abs(expectedTotal - actualTotal)
-                                validationError = "جمع اقساط باید دقیقاً برابر مبلغ کل وام باشد. مبلغ کل: ${MoneyFormatter.formatToman(expectedTotal)}، جمع اقساط: ${MoneyFormatter.formatToman(actualTotal)}، اختلاف: ${MoneyFormatter.formatToman(difference)}"
+                                validationError = "جمع اقساط باید دقیقاً برابر مبلغ کل وام باشد. مبلغ کل: ${MoneyFormatter.formatExact(MoneyAmount.of(expectedTotal, AppCurrency.RIAL))}، جمع اقساط: ${MoneyFormatter.formatExact(MoneyAmount.of(actualTotal, AppCurrency.RIAL))}، اختلاف: ${MoneyFormatter.formatExact(MoneyAmount.of(difference, AppCurrency.RIAL))}"
                             } else {
                                 validationError = null
                                 onConfirm(scheduleList)
