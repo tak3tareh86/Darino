@@ -55,6 +55,12 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
 
     private fun isUnpaid(status: InstallmentStatus) = status != InstallmentStatus.PAID && status != InstallmentStatus.COMPLETED
 
+    private fun parseCurrencyUnit(value: String): AppCurrency? = when (value) {
+        AppCurrency.TOMAN.name -> AppCurrency.TOMAN
+        AppCurrency.RIAL.name -> AppCurrency.RIAL
+        else -> null
+    }
+
     private fun hasCompletePaymentHistory(item: InstallmentItem): Boolean {
         val expectedCount = item.totalInstallments
         if (expectedCount <= 0) return false
@@ -99,7 +105,9 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
 
     private fun scheduledVehicleExpenses(services: List<VehicleServiceEntity>, range: MonthRange): Long = services.fold(0L) { total, service ->
         val due = service.dueDate
-        val costRials = if (service.status != "COMPLETED" && service.cost > 0L && due != null && due >= range.start && due < range.end) MoneyAmount.of(service.cost, runCatching { AppCurrency.valueOf(service.costUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact() else 0L
+        val costRials = if (service.status != "COMPLETED" && service.cost > 0L && due != null && due >= range.start && due < range.end) {
+            parseCurrencyUnit(service.costUnit)?.let { MoneyAmount.of(service.cost, it).asRialsLongExact() } ?: 0L
+        } else 0L
         Math.addExact(total, costRials)
     }
 
@@ -131,7 +139,10 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             } else {
                 transactions.filter {
                     it.type == "INCOME" && it.deletedAt == null && it.timestamp >= range.start && it.timestamp < range.end && it.amount > 0L
-                }.fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, runCatching { AppCurrency.valueOf(tx.amountUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact()) }
+                }.fold(0L) { total, tx ->
+                    val unit = parseCurrencyUnit(tx.amountUnit) ?: return@fold total
+                    Math.addExact(total, MoneyAmount.of(tx.amount, unit).asRialsLongExact())
+                }
             }
             if (income <= 0L) continue
             val installmentDue = scheduledAmount(installments, range, includePaid = true)
@@ -165,7 +176,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val scheduledNextMonth = if (hasCompleteInstallmentSchedule) scheduledAmount(active, nextMonthRange) else 0L
         val nextMonthVehicleExpenses = scheduledVehicleExpenses(vehicleServices, nextMonthRange)
         val hasNextMonthVehicleExpenseAmount = vehicleServices.any { service ->
-            service.status != "COMPLETED" && service.cost > 0L && service.dueDate?.let { it >= nextMonthRange.start && it < nextMonthRange.end } == true
+            service.status != "COMPLETED" && service.cost > 0L && parseCurrencyUnit(service.costUnit) != null && service.dueDate?.let { it >= nextMonthRange.start && it < nextMonthRange.end } == true
         }
         val income = profile.monthlyIncome.coerceAtLeast(0L)
         val fixedExpenses = profile.fixedExpenses.coerceAtLeast(0L)
@@ -211,8 +222,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             (PersianCalendarHelper.getJalaliEpochDay(dueJalali.year, dueJalali.month, dueJalali.day) - todayEpochDay).toInt()
         } ?: 0
         val largest = active.flatMap { item ->
-            item.paymentHistory.filter { isUnpaid(it.status) && it.amount > 0L }.map { item to it }
-        }.maxByOrNull { it.second.amount }
+            item.paymentHistory.filter { isUnpaid(it.status) && it.amount > 0L && parseCurrencyUnit(it.amountUnit.name) != null }.map { item to it }
+        }.maxByOrNull { (_, payment) -> MoneyAmount.of(payment.amount, payment.amountUnit).asRialsLongExact() }
 
         val nextMonth = NextMonthPrediction(
             installments = scheduledNextMonth, fixedExpenses = fixedExpenses, reminders = 0L, vehicleExpenses = nextMonthVehicleExpenses,
