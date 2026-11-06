@@ -66,19 +66,23 @@ class FinancialHealthRepository(context: Context) {
             }
             if (userId == null) flowOf(emptyProfile())
             else dao.getProfile(userId, DEFAULT_PROFILE_ID).combine(db.transactionDao().getAllTransactions(userId)) { entity, transactions ->
-                val validProfile = entity != null &&
+                val storedUnit = entity?.amountUnit?.let { raw ->
+                    runCatching { parseStoredMoneyUnit(raw) }.getOrNull()
+                }
+                val validProfile = entity != null && storedUnit != null &&
                     entity.monthlyIncome >= 0L && entity.monthlyInstallments >= 0L && entity.fixedExpenses >= 0L &&
                     entity.financialPressure.isFinite() && entity.financialPressure >= 0f && entity.updatedAt > 0L
                 if (!validProfile) calculateProfile(userId, transactions)
                 else {
                     val saved = requireNotNull(entity)
+                    val unit = requireNotNull(storedUnit)
                     val status = runCatching { FinancialHealthStatus.valueOf(saved.healthStatus) }
                         .getOrElse { FinancialAnalyzerEngine.calculateHealthStatus(saved.financialPressure) }
                     FinancialHealthProfile(
                         id = saved.id,
-                        monthlyIncome = MoneyAmount.of(saved.monthlyIncome, parseStoredMoneyUnit(saved.amountUnit)).asRialsLongExact(),
-                        monthlyInstallments = MoneyAmount.of(saved.monthlyInstallments, parseStoredMoneyUnit(saved.amountUnit)).asRialsLongExact(),
-                        fixedExpenses = MoneyAmount.of(saved.fixedExpenses, parseStoredMoneyUnit(saved.amountUnit)).asRialsLongExact(),
+                        monthlyIncome = MoneyAmount.of(saved.monthlyIncome, unit).asRialsLongExact(),
+                        monthlyInstallments = MoneyAmount.of(saved.monthlyInstallments, unit).asRialsLongExact(),
+                        fixedExpenses = MoneyAmount.of(saved.fixedExpenses, unit).asRialsLongExact(),
                         amountUnit = AppCurrency.RIAL,
                         financialPressure = saved.financialPressure,
                         healthStatus = status, isConfigured = true, updatedAt = saved.updatedAt
