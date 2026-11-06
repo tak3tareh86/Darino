@@ -86,6 +86,11 @@ fun MaintenanceEntrySheet(
     var serviceCenterInput by remember { mutableStateOf("") }
     var partsInput by remember { mutableStateOf("") }
     var nextReminderKm by remember { mutableStateOf("۵,۰۰۰ کیلومتر دیگر") }
+    val parsedMaintenanceCostRials = costInput.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() >= 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val maintenanceCostInvalid = costInput.isNotBlank() && parsedMaintenanceCostRials == null
 
     val commonServices = listOf(
         "سرویس روغن و فیلتر",
@@ -200,6 +205,8 @@ fun MaintenanceEntrySheet(
                 onValueChange = { costInput = it },
                 allowDecimalInput = true,
                 onRawDecimalAmountChange = { rawValue, _ -> costInput = rawValue },
+                isError = maintenanceCostInvalid,
+                errorMessage = if (maintenanceCostInvalid) "مبلغ سرویس معتبر نیست یا خارج از محدوده قابل ذخیره است." else null,
                 label = "هزینه کل سرویس / فاکتور (${MoneyFormatter.getUnitLabel()})",
                 unitLabel = MoneyFormatter.getUnitLabel(),
                 placeholder = "مبلغ را وارد کنید",
@@ -292,10 +299,11 @@ fun MaintenanceEntrySheet(
 
             // Submit Button
             Button(
+                enabled = !maintenanceCostInvalid,
                 onClick = {
                     onSubmitMaintenance(
                         selectedType,
-                        IranianAmountUtils.parseAmountToBigDecimal(costInput)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }?.toString().orEmpty(),
+                        (parsedMaintenanceCostRials ?: 0L).toString(),
                         odometerInput,
                         serviceCenterInput.ifBlank { "تعمیرگاه تخصصی" },
                         partsInput,
