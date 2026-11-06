@@ -198,7 +198,10 @@ fun MaintenanceEntrySheet(
             PersianAmountInputField(
                 value = costInput,
                 onValueChange = { costInput = it },
-                label = "هزینه کل سرویس / فاکتور",
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> costInput = rawValue },
+                label = "هزینه کل سرویس / فاکتور (${MoneyFormatter.getUnitLabel()})",
+                unitLabel = MoneyFormatter.getUnitLabel(),
                 placeholder = "مبلغ را وارد کنید",
                 modifier = Modifier
                     .fillMaxWidth()
