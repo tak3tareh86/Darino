@@ -101,13 +101,13 @@ object IranianAmountUtils {
         // Grouping separators are accepted only in correctly grouped integer parts.
         val decimalParts = normalized.split('.', '٫')
         if (decimalParts.size > 2) return null
-        val integerPart = decimalParts[0].replace(" ", "")
+        val integerPart = decimalParts[0]
         val fractionPart = decimalParts.getOrNull(1)
         if (fractionPart != null && (fractionPart.isEmpty() || fractionPart.any { it !in '0'..'9' })) {
             return null
         }
 
-        val groupingSeparators = setOf(',', '٬')
+        val groupingSeparators = setOf(',', '٬', ' ')
         val integerDigits = if (integerPart.any { it in groupingSeparators }) {
             // Mixing grouping separator styles is ambiguous and therefore rejected.
             val usedSeparators = integerPart.filter { it in groupingSeparators }.toSet()
