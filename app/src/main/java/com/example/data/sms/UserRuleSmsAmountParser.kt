@@ -89,7 +89,7 @@ object UserRuleSmsAmountParser {
             Triple(value, balance, transaction)
         }.toList()
 
-        val allValues = found.map { it.first }.distinct()
+        val allValues = found.map { it.first }
         if (allValues.isEmpty()) return ExtractedAmounts(null, null, emptyList())
 
         val explicitTransaction = found.filter { !it.second && it.third }.map { it.first }.distinct()
@@ -129,27 +129,41 @@ object UserRuleSmsAmountParser {
         return ExtractedAmounts(inferredTransaction, inferredBalance, allValues)
     }
 
-    private fun currencyUnitNearAmount(body: String, amount: Long, fallback: AppCurrency): AppCurrency {
+    private fun currencyUnitForMatch(text: String, match: MatchResult, fallback: AppCurrency): AppCurrency {
+        val start = (match.range.first - 24).coerceAtLeast(0)
+        val end = (match.range.last + 25).coerceAtMost(text.length)
+        val nearbyTokens = buildList {
+            rialRegex.findAll(text, start).filter { it.range.first < end }.forEach { add(it to AppCurrency.RIAL) }
+            tomanRegex.findAll(text, start).filter { it.range.first < end }.forEach { add(it to AppCurrency.TOMAN) }
+        }
+        return nearbyTokens.minByOrNull { (token, _) ->
+            when {
+                token.range.first > match.range.last -> token.range.first - match.range.last - 1
+                token.range.last < match.range.first -> match.range.first - token.range.last - 1
+                else -> 0
+            }
+        }?.second ?: fallback
+    }
+
+    private fun currencyUnitNearAmount(
+        body: String,
+        amount: Long,
+        fallback: AppCurrency,
+        preferredContext: Regex? = null
+    ): AppCurrency {
         val text = normalizeBody(body)
         val matches = groupedNumberRegex.findAll(text).filter { match ->
             match.groupValues[1].filter { it in '0'..'9' }.toLongOrNull() == amount
         }.toList()
-        val explicitUnits = matches.mapNotNull { match ->
-            val start = (match.range.first - 24).coerceAtLeast(0)
-            val end = (match.range.last + 25).coerceAtMost(text.length)
-            val nearbyTokens = buildList {
-                rialRegex.findAll(text, start).filter { it.range.first < end }.forEach { add(it to AppCurrency.RIAL) }
-                tomanRegex.findAll(text, start).filter { it.range.first < end }.forEach { add(it to AppCurrency.TOMAN) }
+        val preferred = preferredContext?.let { context ->
+            matches.filter { match ->
+                val left = text.substring((match.range.first - 40).coerceAtLeast(0), match.range.first)
+                val right = text.substring(match.range.last + 1, (match.range.last + 41).coerceAtMost(text.length))
+                context.containsMatchIn(left) || context.containsMatchIn(right)
             }
-            nearbyTokens.minByOrNull { (token, _) ->
-                when {
-                    token.range.first > match.range.last -> token.range.first - match.range.last - 1
-                    token.range.last < match.range.first -> match.range.first - token.range.last - 1
-                    else -> 0
-                }
-            }?.second
-        }.distinct()
-        return explicitUnits.singleOrNull() ?: fallback
+        }.orEmpty()
+        val selected = preferred.ifEmpty { matches }
+        return selected.firstOrNull()?.let { currencyUnitForMatch(text, it, fallback) } ?: fallback
     }
 
     private fun extractAmountLegacy(body: String): Long? {
@@ -219,10 +233,10 @@ object UserRuleSmsAmountParser {
             else -> AppCurrency.TOMAN
         }
         val amountUnit = if (amountIsValid) {
-            currencyUnitNearAmount(normalized, amountValue, messageFallbackUnit)
+            currencyUnitNearAmount(normalized, amountValue, messageFallbackUnit, transactionContextRegex)
         } else messageFallbackUnit
         val balanceUnit = extracted.balanceAmount?.let {
-            currencyUnitNearAmount(normalized, it, messageFallbackUnit)
+            currencyUnitNearAmount(normalized, it, messageFallbackUnit, balanceContextRegex)
         }
         val dateTime = PersianCalendarHelper.fromEpochMillis(receivedAtMillis)
         val time = Regex("""(?<![0-9])([0-2]?[0-9]:[0-5][0-9])""")
@@ -259,13 +273,25 @@ object UserRuleSmsAmountParser {
             timestampMillis = receivedAtMillis,
             balanceAmount = extracted.balanceAmount,
             balanceAmountUnit = balanceUnit,
-            amountCandidates = (extracted.candidates + listOfNotNull(amount, extracted.balanceAmount)).distinct(),
-            amountCandidateUnits = (extracted.candidates + listOfNotNull(amount, extracted.balanceAmount)).distinct().map { candidate ->
-                when (candidate) {
-                    extracted.balanceAmount -> balanceUnit ?: amountUnit
-                    amountValue -> amountUnit
-                    else -> currencyUnitNearAmount(normalized, candidate, messageFallbackUnit)
+            amountCandidates = (extracted.candidates + listOfNotNull(amount, extracted.balanceAmount).filter { it !in extracted.candidates }),
+            amountCandidateUnits = run {
+                val seen = mutableMapOf<Long, Int>()
+                val groupedMatches = groupedNumberRegex.findAll(normalized).toList()
+                val groupedUnits = extracted.candidates.map { candidate ->
+                    val occurrence = seen.getOrDefault(candidate, 0)
+                    seen[candidate] = occurrence + 1
+                    val match = groupedMatches.filter { it.groupValues[1].filter { ch -> ch in '0'..'9' }.toLongOrNull() == candidate }.getOrNull(occurrence)
+                    match?.let { currencyUnitForMatch(normalized, it, messageFallbackUnit) } ?: messageFallbackUnit
                 }
+                groupedUnits + listOfNotNull(amount, extracted.balanceAmount)
+                    .filter { it !in extracted.candidates }
+                    .map { candidate ->
+                        when (candidate) {
+                            amount -> amountUnit
+                            extracted.balanceAmount -> balanceUnit ?: amountUnit
+                            else -> messageFallbackUnit
+                        }
+                    }
             },
             receivedAtMillis = receivedAtMillis
         )
