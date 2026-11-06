@@ -241,12 +241,16 @@ fun EditIncomeBottomSheet(
             // Save Action Button
             Button(
                 onClick = {
-                    val incomeVal = IranianAmountUtils.parseAmountToBigDecimal(rawIncomeText)?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
-                    val fixedVal = IranianAmountUtils.parseAmountToBigDecimal(rawFixedText)?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
-                    if (incomeVal <= 0L) {
-                        validationError = "درآمد ماهانه باید بیشتر از صفر باشد."
+                    val incomeVal = IranianAmountUtils.parseAmountToBigDecimal(rawIncomeText)
+                        ?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() }
+                    val fixedVal = IranianAmountUtils.parseAmountToBigDecimal(rawFixedText)
+                        ?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() }
+                    if (rawIncomeText.isBlank() || incomeVal == null || incomeVal <= 0L) {
+                        validationError = "درآمد ماهانه معتبر و بزرگ‌تر از صفر وارد کنید؛ دقت و محدوده مبلغ را بررسی کنید."
                     } else if (rawFixedText.isBlank()) {
                         validationError = "هزینه‌های ثابت را وارد کنید؛ اگر هزینه ثابتی ندارید، صفر بنویسید."
+                    } else if (fixedVal == null) {
+                        validationError = "مبلغ هزینه ثابت معتبر نیست یا خارج از محدوده قابل ذخیره است."
                     } else if (fixedVal < 0L) {
                         validationError = "هزینه ثابت نمی‌تواند منفی باشد."
                     } else {
