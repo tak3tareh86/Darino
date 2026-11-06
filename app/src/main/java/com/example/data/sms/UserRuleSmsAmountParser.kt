@@ -129,6 +129,24 @@ object UserRuleSmsAmountParser {
         return ExtractedAmounts(inferredTransaction, inferredBalance, allValues)
     }
 
+    private fun currencyUnitNearAmount(body: String, amount: Long, fallback: AppCurrency): AppCurrency {
+        val text = normalizeBody(body)
+        val matches = groupedNumberRegex.findAll(text).filter { match ->
+            match.groupValues[1].filter { it in '0'..'9' }.toLongOrNull() == amount
+        }.toList()
+        val explicitUnits = matches.mapNotNull { match ->
+            val start = (match.range.first - 24).coerceAtLeast(0)
+            val end = (match.range.last + 25).coerceAtMost(text.length)
+            val context = text.substring(start, end)
+            when {
+                rialRegex.containsMatchIn(context) && !tomanRegex.containsMatchIn(context) -> AppCurrency.RIAL
+                tomanRegex.containsMatchIn(context) && !rialRegex.containsMatchIn(context) -> AppCurrency.TOMAN
+                else -> null
+            }
+        }.distinct()
+        return explicitUnits.singleOrNull() ?: fallback
+    }
+
     private fun extractAmountLegacy(body: String): Long? {
         val text = normalizeBody(body)
         val candidates = numberRegex.findAll(text).mapNotNull { match ->
@@ -225,7 +243,7 @@ object UserRuleSmsAmountParser {
             rawSender = sender,
             timestampMillis = receivedAtMillis,
             balanceAmount = extracted.balanceAmount,
-            balanceAmountUnit = amountUnit,
+            balanceAmountUnit = extracted.balanceAmount?.let { currencyUnitNearAmount(normalized, it, amountUnit) },
             amountCandidates = (extracted.candidates + listOfNotNull(amount, extracted.balanceAmount)).distinct(),
             receivedAtMillis = receivedAtMillis
         )
