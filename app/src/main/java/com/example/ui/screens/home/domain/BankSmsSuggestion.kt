@@ -29,7 +29,9 @@ data class BankSmsSuggestion(
     val amountCandidates: List<Long> = emptyList(),
     val amountUnit: AppCurrency = AppCurrency.TOMAN,
     // Balance values can use a different unit from the transaction in the same SMS.
-    val balanceAmountUnit: AppCurrency? = null
+    val balanceAmountUnit: AppCurrency? = null,
+    // Unit for each entry in amountCandidates, kept index-aligned with that list.
+    val amountCandidateUnits: List<AppCurrency> = emptyList()
 ) {
     val isExpense: Boolean
         get() = type == TransactionType.EXPENSE
