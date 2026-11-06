@@ -2,6 +2,7 @@ package com.example.data.sms
 
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.domain.BankSmsSuggestion
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
@@ -54,6 +55,7 @@ object BankSmsParser {
             // Preserve the exact extracted number. Rial/Toman is descriptive metadata,
             // not a reason to scale the transaction amount.
             val amountValue = rawAmount.takeIf { it in 1L..1_000_000_000_000_000L } ?: return null
+            val amountUnit = if (amountKind == SmsPatternSlotKind.AMOUNT_RIAL) AppCurrency.RIAL else AppCurrency.TOMAN
 
             val configuredType = when (pattern.type) {
                 SmsPatternType.INCOME -> TransactionType.INCOME
@@ -144,6 +146,7 @@ object BankSmsParser {
                 patternId = pattern.id,
                 bankName = pattern.bankName.ifBlank { pattern.name },
                 amount = amountValue,
+                amountUnit = amountUnit,
                 formattedAmount = formattedAmount,
                 isAmountValid = true,
                 type = configuredType,
