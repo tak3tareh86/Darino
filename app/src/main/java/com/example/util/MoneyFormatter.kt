@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.ui.screens.settings.model.AppLanguage
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -95,14 +96,7 @@ object MoneyFormatter {
      * 1 Toman = 10 Rials.
      */
     fun convertFromToman(amountInToman: Long, targetCurrency: AppCurrency = activeCurrency): Long {
-        return when (targetCurrency) {
-            AppCurrency.RIAL -> when {
-                amountInToman > Long.MAX_VALUE / 10L -> Long.MAX_VALUE
-                amountInToman < Long.MIN_VALUE / 10L -> Long.MIN_VALUE
-                else -> amountInToman * 10L
-            }
-            AppCurrency.TOMAN -> amountInToman
-        }
+        return MoneyAmount.of(amountInToman, AppCurrency.TOMAN).inUnit(targetCurrency).value.longValueExact()
     }
 
     /**
@@ -110,10 +104,7 @@ object MoneyFormatter {
      * 10 Rials = 1 Toman.
      */
     fun convertToToman(amountInSource: Long, sourceCurrency: AppCurrency = activeCurrency): Long {
-        return when (sourceCurrency) {
-            AppCurrency.RIAL -> amountInSource / 10L
-            AppCurrency.TOMAN -> amountInSource
-        }
+        return MoneyAmount.of(amountInSource, sourceCurrency).inUnit(AppCurrency.TOMAN).value.longValueExact()
     }
 
     /**
@@ -138,22 +129,7 @@ object MoneyFormatter {
         language: AppLanguage = activeLanguage
     ): String {
         if (isPrivacyModeEnabled) return maskedAmount(includeUnit, currency, language)
-        val convertedAmount = convertFromToman(amount, currency)
-        val absAmount = kotlin.math.abs(convertedAmount)
-        val formattedNumber = formatNumberWithCommas(absAmount)
-        val displayFormatted = AppNumberFormatter.formatDigits(formattedNumber, activeNumberMode)
-        val prefix = if (convertedAmount < 0) "−" else ""
-        val unit = getUnitLabel(currency, language)
-
-        return if (includeUnit) {
-            if (language == AppLanguage.ENGLISH) {
-                "$prefix$displayFormatted $unit"
-            } else {
-                "$prefix$displayFormatted $unit"
-            }
-        } else {
-            "$prefix$displayFormatted"
-        }
+        return formatExact(MoneyAmount.of(amount, AppCurrency.TOMAN), currency, includeUnit, language)
     }
 
     /**
@@ -168,18 +144,10 @@ object MoneyFormatter {
         language: AppLanguage = activeLanguage
     ): String {
         if (isPrivacyModeEnabled) return maskedAmount(includeUnit, currency, language)
-        val convertedAmount = convertFromToman(amount, currency)
-        val absAmount = kotlin.math.abs(convertedAmount)
-        val formattedNumber = formatNumberWithCommas(absAmount)
-        val displayFormatted = AppNumberFormatter.formatDigits(formattedNumber, activeNumberMode)
-        val sign = if (isExpense || convertedAmount < 0) "−" else "+"
-        val unit = getUnitLabel(currency, language)
-
-        return if (includeUnit) {
-            "$sign$displayFormatted $unit"
-        } else {
-            "$sign$displayFormatted"
-        }
+        val absolute = BigDecimal.valueOf(amount).abs()
+        val formatted = formatExact(MoneyAmount(absolute, AppCurrency.TOMAN), currency, includeUnit = false, language = language)
+        val sign = if (isExpense || amount < 0L) "−" else "+"
+        return if (includeUnit) "$sign$formatted ${getUnitLabel(currency, language)}" else "$sign$formatted"
     }
 
     /**
@@ -193,12 +161,7 @@ object MoneyFormatter {
         language: AppLanguage = activeLanguage
     ): String {
         if (isPrivacyModeEnabled) return maskedAmount(includeUnit, currency, language)
-        val absAmount = kotlin.math.abs(amount)
-        val formattedNumber = formatNumberWithCommas(absAmount)
-        val displayFormatted = AppNumberFormatter.formatDigits(formattedNumber, activeNumberMode)
-        val prefix = if (amount < 0) "−" else ""
-        val unit = getUnitLabel(currency, language)
-        return if (includeUnit) "$prefix$displayFormatted $unit" else "$prefix$displayFormatted"
+        return formatExact(MoneyAmount.of(amount, currency), currency, includeUnit, language)
     }
 
     /**
@@ -213,12 +176,10 @@ object MoneyFormatter {
         language: AppLanguage = activeLanguage
     ): String {
         if (isPrivacyModeEnabled) return maskedAmount(includeUnit, currency, language)
-        val absAmount = kotlin.math.abs(amount)
-        val formattedNumber = formatNumberWithCommas(absAmount)
-        val displayFormatted = AppNumberFormatter.formatDigits(formattedNumber, activeNumberMode)
-        val sign = if (isExpense || amount < 0) "−" else "+"
-        val unit = getUnitLabel(currency, language)
-        return if (includeUnit) "$sign$displayFormatted $unit" else "$sign$displayFormatted"
+        val absolute = BigDecimal.valueOf(amount).abs()
+        val formatted = formatExact(MoneyAmount(absolute, currency), currency, includeUnit = false, language = language)
+        val sign = if (isExpense || amount < 0L) "−" else "+"
+        return if (includeUnit) "$sign$formatted ${getUnitLabel(currency, language)}" else "$sign$formatted"
     }
 
     /**
@@ -247,9 +208,9 @@ object MoneyFormatter {
         language: AppLanguage = activeLanguage
     ): String {
         if (isPrivacyModeEnabled) return maskedAmount(true, currency, language)
-        val converted = convertFromToman(amount, currency)
-        val abs = kotlin.math.abs(converted)
-        val sign = if (converted < 0) "−" else ""
+        val converted = MoneyAmount.of(amount, AppCurrency.TOMAN).inUnit(currency).value
+        val abs = converted.abs()
+        val sign = if (converted.signum() < 0) "−" else ""
         val unitShort = if (currency == AppCurrency.RIAL) {
             if (language == AppLanguage.ENGLISH) "IRR" else "ریال"
         } else {
@@ -257,22 +218,22 @@ object MoneyFormatter {
         }
 
         return when {
-            abs >= 1_000_000_000L -> {
-                val b = abs / 1_000_000_000.0
+            abs >= BigDecimal.valueOf(1_000_000_000L) -> {
+                val b = abs.divide(BigDecimal.valueOf(1_000_000_000L), 1, RoundingMode.HALF_UP).toDouble()
                 val formatted = String.format(Locale.US, "%.1f", b).trimEnd('0').trimEnd('.')
                 val num = AppNumberFormatter.formatDigits(formatted, activeNumberMode)
                 val suffix = if (language == AppLanguage.ENGLISH) "B" else "میلیارد"
                 "$sign$num $suffix $unitShort"
             }
-            abs >= 1_000_000L -> {
-                val m = abs / 1_000_000.0
+            abs >= BigDecimal.valueOf(1_000_000L) -> {
+                val m = abs.divide(BigDecimal.valueOf(1_000_000L), 1, RoundingMode.HALF_UP).toDouble()
                 val formatted = String.format(Locale.US, "%.1f", m).trimEnd('0').trimEnd('.')
                 val num = AppNumberFormatter.formatDigits(formatted, activeNumberMode)
                 val suffix = if (language == AppLanguage.ENGLISH) "M" else "م"
                 "$sign$num $suffix $unitShort"
             }
-            abs >= 1_000L -> {
-                val k = abs / 1_000.0
+            abs >= BigDecimal.valueOf(1_000L) -> {
+                val k = abs.divide(BigDecimal.valueOf(1_000L), 1, RoundingMode.HALF_UP).toDouble()
                 val formatted = String.format(Locale.US, "%.0f", k)
                 val num = AppNumberFormatter.formatDigits(formatted, activeNumberMode)
                 val suffix = if (language == AppLanguage.ENGLISH) "K" else "هـ"
