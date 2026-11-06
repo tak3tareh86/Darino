@@ -1155,24 +1155,28 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         var balance = MoneyAmount.of(account.initialBalance, AppCurrency.TOMAN).asRialsLongExact()
         for (tx in txs) {
             if (tx.deletedAt != null) continue
-            
+            val txAmountRials = MoneyAmount.of(
+                tx.amount,
+                runCatching { AppCurrency.valueOf(tx.amountUnit) }.getOrDefault(AppCurrency.TOMAN)
+            ).asRialsLongExact()
+
             when (tx.type) {
                 "INCOME" -> {
                     if (tx.accountId == accountId) {
-                        balance = Math.addExact(balance, MoneyAmount.of(tx.amount, runCatching { AppCurrency.valueOf(tx.amountUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact())
+                        balance = Math.addExact(balance, txAmountRials)
                     }
                 }
                 "EXPENSE" -> {
                     if (tx.accountId == accountId) {
-                        balance = Math.subtractExact(balance, MoneyAmount.of(tx.amount, runCatching { AppCurrency.valueOf(tx.amountUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact())
+                        balance = Math.subtractExact(balance, txAmountRials)
                     }
                 }
                 "TRANSFER" -> {
                     if (tx.transferSourceAccountId == accountId) {
-                        balance -= tx.amount
+                        balance = Math.subtractExact(balance, txAmountRials)
                     }
                     if (tx.transferDestinationAccountId == accountId) {
-                        balance += tx.amount
+                        balance = Math.addExact(balance, txAmountRials)
                     }
                 }
             }

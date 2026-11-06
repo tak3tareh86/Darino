@@ -90,7 +90,7 @@ class FinancialViewModel(
             acc.id to balance
         }
 
-        val totalRealBalance = accountBalances.values.fold(0L, Math::addExact)
+        val totalRealBalance = accountBalances.values.fold(0L) { total, value -> Math.addExact(total, value) }
 
         val income = FinanceEngine.calculateMonthlyIncome(filteredTransactions)
         val expense = FinanceEngine.calculateMonthlyExpense(filteredTransactions)
