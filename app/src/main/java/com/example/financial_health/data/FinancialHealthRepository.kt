@@ -76,7 +76,7 @@ class FinancialHealthRepository(context: Context) {
                         .getOrElse { FinancialAnalyzerEngine.calculateHealthStatus(saved.financialPressure) }
                     FinancialHealthProfile(
                         id = saved.id,
-                        monthlyIncome = MoneyAmount.of(saved.monthlyIncome, runCatching { AppCurrency.valueOf(saved.amountUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact(),
+                        monthlyIncome = MoneyAmount.of(saved.monthlyIncome, parseStoredMoneyUnit(saved.amountUnit)).asRialsLongExact(),
                         monthlyInstallments = MoneyAmount.of(saved.monthlyInstallments, runCatching { AppCurrency.valueOf(saved.amountUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact(),
                         fixedExpenses = MoneyAmount.of(saved.fixedExpenses, runCatching { AppCurrency.valueOf(saved.amountUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact(),
                         amountUnit = AppCurrency.RIAL,
@@ -127,7 +127,7 @@ class FinancialHealthRepository(context: Context) {
         require(newIncome >= 0L)
         val existing = dao.getProfileSync(requireUserId(), DEFAULT_PROFILE_ID)
             ?: throw IllegalStateException("ابتدا درآمد و هزینه‌های ثابت را هم‌زمان از فرم سلامت مالی ثبت کنید.")
-        val unit = runCatching { AppCurrency.valueOf(existing.amountUnit) }.getOrDefault(AppCurrency.TOMAN)
+        val unit = parseStoredMoneyUnit(existing.amountUnit)
         saveProfile(newIncome, MoneyAmount.of(existing.monthlyInstallments, unit).asRialsLongExact(), MoneyAmount.of(existing.fixedExpenses, unit).asRialsLongExact())
     }
 
@@ -138,4 +138,10 @@ class FinancialHealthRepository(context: Context) {
         val unit = runCatching { AppCurrency.valueOf(existing.amountUnit) }.getOrDefault(AppCurrency.TOMAN)
         saveProfile(MoneyAmount.of(existing.monthlyIncome, unit).asRialsLongExact(), MoneyAmount.of(existing.monthlyInstallments, unit).asRialsLongExact(), newFixed)
     }
+}
+
+internal fun parseStoredMoneyUnit(value: String): AppCurrency = when (value) {
+    AppCurrency.TOMAN.name -> AppCurrency.TOMAN
+    AppCurrency.RIAL.name -> AppCurrency.RIAL
+    else -> throw IllegalArgumentException("Unsupported stored money unit: $value")
 }
