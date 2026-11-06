@@ -22,6 +22,8 @@ import com.example.reminder.receiver.ReminderBroadcastReceiver
 import com.example.reminder.presentation.ReminderAlarmActivity
 import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 class NotificationDispatcher(private val context: Context) {
 
@@ -317,7 +319,11 @@ class NotificationDispatcher(private val context: Context) {
         )
 
         // Build notification body
-        val amountText = reminder.amount?.takeIf { it > 0L }?.let { " • مبلغ: ${MoneyFormatter.formatToman(it)}" }.orEmpty()
+        val amountText = reminder.amount?.takeIf { it > 0L }?.let { amount ->
+            runCatching {
+                MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.valueOf(reminder.amountUnit)))
+            }.getOrNull()
+        }?.let { " • مبلغ: $it" }.orEmpty()
         val bodyText = if (reminder.description.isNotBlank()) {
             "${reminder.description}$amountText"
         } else {
