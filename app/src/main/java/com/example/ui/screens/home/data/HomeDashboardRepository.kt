@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import com.example.util.IranianDateUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import com.example.util.PersianCalendarHelper
 import com.example.vehicle.data.VehicleRepository
 
@@ -145,7 +146,7 @@ class HomeDashboardRepository(
             } else {
                 item.totalAmount / item.totalInstallments.coerceAtLeast(1)
             }
-            val formattedAmount = MoneyFormatter.formatToman(paymentAmount)
+            val formattedAmount = MoneyFormatter.formatExact(MoneyAmount.of(paymentAmount, item.amountUnit))
             val bankName = item.providerOrPerson.trim()
 
             val diff = calculateDaysDifference(effectiveDueDate)
