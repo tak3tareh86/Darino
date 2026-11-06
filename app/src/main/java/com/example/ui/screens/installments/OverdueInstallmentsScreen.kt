@@ -85,6 +85,8 @@ import com.example.ui.theme.RadiusSM
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 
 @Composable
@@ -517,21 +519,16 @@ private fun ManualPaymentDateDialog(
     val baseMonthlyAmount = remember(item) {
         item.totalAmount / item.totalInstallments.coerceAtLeast(1)
     }
-
-    val parsedPenalty = remember(penaltyInput) {
-        IranianAmountUtils.parseAmountToLong(penaltyInput)
+    val baseMonthlyRials = remember(item, baseMonthlyAmount) {
+        MoneyAmount.of(baseMonthlyAmount, item.amountUnit).asRialsLongExact()
     }
-
-    val penaltyInToman = remember(parsedPenalty) {
-        if (MoneyFormatter.activeCurrency == AppCurrency.RIAL) {
-            parsedPenalty / 10L
-        } else {
-            parsedPenalty
-        }
+    val penaltyInRials = remember(penaltyInput, MoneyFormatter.activeCurrency) {
+        IranianAmountUtils.parseAmountToBigDecimal(penaltyInput)?.let { entered ->
+            runCatching { MoneyAmount(entered, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull()
+        } ?: 0L
     }
-
-    val totalPayableToman = baseMonthlyAmount + penaltyInToman
-    val totalPayableFormatted = MoneyFormatter.formatToman(totalPayableToman)
+    val totalPayableRials = Math.addExact(baseMonthlyRials, penaltyInRials)
+    val totalPayableFormatted = MoneyFormatter.formatExact(MoneyAmount.of(totalPayableRials, AppCurrency.RIAL))
 
     val parsedDateParts = remember(paymentDate) {
         try {
@@ -648,7 +645,7 @@ private fun ManualPaymentDateDialog(
                                     maxLines = 1
                                 )
                                 Text(
-                                    text = MoneyFormatter.formatToman(baseMonthlyAmount),
+                                    text = MoneyFormatter.formatExact(MoneyAmount.of(baseMonthlyAmount, item.amountUnit)),
                                     style = MaterialTheme.typography.titleSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp,
@@ -680,7 +677,7 @@ private fun ManualPaymentDateDialog(
                         OutlinedTextField(
                             value = penaltyInput,
                             onValueChange = { input ->
-                                penaltyInput = IranianAmountUtils.formatWithCommas(input)
+                                penaltyInput = input
                             },
                             placeholder = {
                                 Text(
@@ -702,7 +699,7 @@ private fun ManualPaymentDateDialog(
                                     modifier = Modifier.padding(end = 12.dp)
                                 )
                             },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
