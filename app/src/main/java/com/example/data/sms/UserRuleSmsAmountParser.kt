@@ -249,6 +249,24 @@ object UserRuleSmsAmountParser {
             TransactionType.INCOME -> "+$formattedValue"
             TransactionType.TRANSFER, null -> formattedValue
         }
+        val extraCandidates = buildList {
+            if (amount != null && amount !in extracted.candidates) add(amount to amountUnit)
+            if (extracted.balanceAmount != null && extracted.balanceAmount !in extracted.candidates) {
+                add(extracted.balanceAmount to (balanceUnit ?: amountUnit))
+            }
+        }
+        val candidateValues = extracted.candidates + extraCandidates.map { it.first }
+        val candidateUnits = run {
+            val seen = mutableMapOf<Long, Int>()
+            val groupedMatches = groupedNumberRegex.findAll(normalized).toList()
+            val groupedUnits = extracted.candidates.map { candidate ->
+                val occurrence = seen.getOrDefault(candidate, 0)
+                seen[candidate] = occurrence + 1
+                val match = groupedMatches.filter { it.groupValues[1].filter { ch -> ch in '0'..'9' }.toLongOrNull() == candidate }.getOrNull(occurrence)
+                match?.let { currencyUnitForMatch(normalized, it, messageFallbackUnit) } ?: messageFallbackUnit
+            }
+            groupedUnits + extraCandidates.map { it.second }
+        }
 
         return BankSmsSuggestion(
             id = smsId,
@@ -273,26 +291,8 @@ object UserRuleSmsAmountParser {
             timestampMillis = receivedAtMillis,
             balanceAmount = extracted.balanceAmount,
             balanceAmountUnit = balanceUnit,
-            amountCandidates = (extracted.candidates + listOfNotNull(amount, extracted.balanceAmount).filter { it !in extracted.candidates }),
-            amountCandidateUnits = run {
-                val seen = mutableMapOf<Long, Int>()
-                val groupedMatches = groupedNumberRegex.findAll(normalized).toList()
-                val groupedUnits = extracted.candidates.map { candidate ->
-                    val occurrence = seen.getOrDefault(candidate, 0)
-                    seen[candidate] = occurrence + 1
-                    val match = groupedMatches.filter { it.groupValues[1].filter { ch -> ch in '0'..'9' }.toLongOrNull() == candidate }.getOrNull(occurrence)
-                    match?.let { currencyUnitForMatch(normalized, it, messageFallbackUnit) } ?: messageFallbackUnit
-                }
-                groupedUnits + listOfNotNull(amount, extracted.balanceAmount)
-                    .filter { it !in extracted.candidates }
-                    .map { candidate ->
-                        when (candidate) {
-                            amount -> amountUnit
-                            extracted.balanceAmount -> balanceUnit ?: amountUnit
-                            else -> messageFallbackUnit
-                        }
-                    }
-            },
+            amountCandidates = candidateValues,
+            amountCandidateUnits = candidateUnits,
             receivedAtMillis = receivedAtMillis
         )
     }
