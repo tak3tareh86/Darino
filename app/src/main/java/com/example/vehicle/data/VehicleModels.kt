@@ -2,6 +2,7 @@ package com.example.vehicle.data
 
 import androidx.annotation.DrawableRes
 import com.example.R
+import com.example.ui.screens.settings.model.AppCurrency
 
 /**
  * Main Vehicle Entity
@@ -18,7 +19,8 @@ data class VehicleEntity(
     val estimatedValue: Long = 0L, // e.g. 750_000_000L
     val createdAt: Long = System.currentTimeMillis(),
     val engine: String = "",
-    val transmission: String = ""
+    val transmission: String = "",
+    val estimatedValueUnit: AppCurrency = AppCurrency.TOMAN
 )
 
 /**
@@ -65,7 +67,8 @@ data class VehicleServiceEntity(
     val nextReminderMileage: Int? = null, // e.g. 50000
     val isReminderEnabled: Boolean = false,
     val reminderAlarmFailed: Boolean = false,
-    val reminderAlarmErrorMessage: String? = null
+    val reminderAlarmErrorMessage: String? = null,
+    val costUnit: AppCurrency = AppCurrency.TOMAN
 )
 
 /**
@@ -94,7 +97,8 @@ data class VehicleExpenseEntity(
     val amount: Long,
     val date: String,
     val description: String = "",
-    val receiptImageUri: String? = null
+    val receiptImageUri: String? = null,
+    val amountUnit: AppCurrency = AppCurrency.TOMAN
 )
 
 /**
@@ -111,7 +115,8 @@ data class VehicleInsuranceEntity(
     val policyNumber: String = "",
     val reminderDays: List<Int> = emptyList(),
     val reminderEnabled: Boolean = false,
-    val reminderTime: String = "۰۹:۰۰"
+    val reminderTime: String = "۰۹:۰۰",
+    val amountUnit: AppCurrency = AppCurrency.TOMAN
 )
 
 /**
@@ -127,7 +132,8 @@ data class VehicleInspectionEntity(
     val centerName: String = "مرکز معاینه فنی نیایش",
     val reminderEnabled: Boolean = false,
     val reminderTime: String = "۰۹:۰۰",
-    val reminderDays: List<Int> = emptyList()
+    val reminderDays: List<Int> = emptyList(),
+    val costUnit: AppCurrency = AppCurrency.TOMAN
 )
 
 /**
@@ -140,7 +146,8 @@ sealed class VehicleTimelineEvent(
     open val amount: Long,
     open val subtitle: String,
     @DrawableRes open val iconRes: Int,
-    open val colorHex: Long
+    open val colorHex: Long,
+    open val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
     data class ServiceEvent(
         override val id: String,
@@ -150,6 +157,16 @@ sealed class VehicleTimelineEvent(
         override val subtitle: String,
         @DrawableRes override val iconRes: Int,
         override val colorHex: Long,
+        val mileage: Int
+    data class ServiceEvent(
+        override val id: String,
+        override val date: String,
+        override val title: String,
+        override val amount: Long,
+        override val subtitle: String,
+        @DrawableRes override val iconRes: Int,
+        override val colorHex: Long,
+        override val amountUnit: AppCurrency = AppCurrency.TOMAN,
         val mileage: Int
     ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex)
 
@@ -162,6 +179,16 @@ sealed class VehicleTimelineEvent(
         @DrawableRes override val iconRes: Int,
         override val colorHex: Long,
         val category: VehicleExpenseCategory
+    data class ExpenseEvent(
+        override val id: String,
+        override val date: String,
+        override val title: String,
+        override val amount: Long,
+        override val subtitle: String,
+        @DrawableRes override val iconRes: Int,
+        override val colorHex: Long,
+        override val amountUnit: AppCurrency = AppCurrency.TOMAN,
+        val category: VehicleExpenseCategory
     ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex)
 
     data class InsuranceEvent(
@@ -173,6 +200,16 @@ sealed class VehicleTimelineEvent(
         @DrawableRes override val iconRes: Int,
         override val colorHex: Long,
         val company: String
+    data class InsuranceEvent(
+        override val id: String,
+        override val date: String,
+        override val title: String,
+        override val amount: Long,
+        override val subtitle: String,
+        @DrawableRes override val iconRes: Int,
+        override val colorHex: Long,
+        override val amountUnit: AppCurrency = AppCurrency.TOMAN,
+        val company: String
     ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex)
 
     data class InspectionEvent(
@@ -183,6 +220,16 @@ sealed class VehicleTimelineEvent(
         override val subtitle: String,
         @DrawableRes override val iconRes: Int,
         override val colorHex: Long,
+        val expiryDate: String
+    data class InspectionEvent(
+        override val id: String,
+        override val date: String,
+        override val title: String,
+        override val amount: Long,
+        override val subtitle: String,
+        @DrawableRes override val iconRes: Int,
+        override val colorHex: Long,
+        override val amountUnit: AppCurrency = AppCurrency.TOMAN,
         val expiryDate: String
     ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex)
 }
