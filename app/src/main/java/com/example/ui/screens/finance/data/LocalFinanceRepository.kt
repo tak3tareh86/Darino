@@ -130,7 +130,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             accountNumberMasked = entity.accountNumberMasked,
             initialBalance = entity.initialBalance,
             isActive = entity.isActive,
-            initialBalanceUnit = runCatching { AppCurrency.valueOf(entity.initialBalanceUnit) }.getOrDefault(AppCurrency.TOMAN),
+            initialBalanceUnit = AppCurrency.valueOf(entity.initialBalanceUnit),
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt
         )
@@ -906,7 +906,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                             categoryId = obj.optString("categoryId").ifBlank { null },
                             categoryTitle = obj.optString("categoryTitle").ifBlank { null },
                             amount = obj.getLong("amount"),
-                            amountUnit = runCatching { AppCurrency.valueOf(obj.optString("amountUnit", "TOMAN")) }.getOrDefault(AppCurrency.TOMAN),
+                            amountUnit = AppCurrency.valueOf(obj.optString("amountUnit", "TOMAN")),
                             period = obj.optString("period", "این ماه"),
                             startDate = obj.optString("startDate", ""),
                             endDate = obj.optString("endDate", ""),
@@ -938,7 +938,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                             title = obj.getString("title"),
                             targetAmount = target,
                             currentAmount = curr,
-                            amountUnit = runCatching { AppCurrency.valueOf(obj.optString("amountUnit", "TOMAN")) }.getOrDefault(AppCurrency.TOMAN),
+                            amountUnit = AppCurrency.valueOf(obj.optString("amountUnit", "TOMAN")),
                             targetDate = obj.optString("targetDate", ""),
                             description = obj.optString("description", ""),
                             status = st,
@@ -963,7 +963,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                             id = obj.getString("id"),
                             title = obj.getString("title"),
                             amount = obj.getLong("amount"),
-                            amountUnit = runCatching { AppCurrency.valueOf(obj.optString("amountUnit", "TOMAN")) }.getOrDefault(AppCurrency.TOMAN),
+                            amountUnit = AppCurrency.valueOf(obj.optString("amountUnit", "TOMAN")),
                             type = try { TransactionType.valueOf(obj.getString("type")) } catch (e: Exception) { TransactionType.EXPENSE },
                             categoryId = obj.getString("categoryId"),
                             categoryTitle = obj.getString("categoryTitle"),
@@ -1079,7 +1079,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             id = if (entity.stringId.isNotBlank()) entity.stringId else entity.id.toString(),
             title = if (entity.title.isNotBlank()) entity.title else entity.description.ifBlank { entity.category },
             amount = entity.amount,
-            amountUnit = runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(com.example.ui.screens.settings.model.AppCurrency.TOMAN),
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.valueOf(entity.amountUnit),
             type = typeEnum,
             category = cat,
             categoryId = cat.id,
@@ -1172,7 +1172,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             if (tx.deletedAt != null) continue
             val txAmountRials = MoneyAmount.of(
                 tx.amount,
-                runCatching { AppCurrency.valueOf(tx.amountUnit) }.getOrDefault(AppCurrency.TOMAN)
+                AppCurrency.valueOf(tx.amountUnit)
             ).asRialsLongExact()
 
             when (tx.type) {
