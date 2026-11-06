@@ -672,7 +672,7 @@ fun TransactionsScreen(
                         )
 
                         val totalFilteredIncome = remember(displayedTransactions) {
-                            displayedTransactions.sumOf { it.amount }
+                            displayedTransactions.fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()) }
                         }
 
                         Card(
