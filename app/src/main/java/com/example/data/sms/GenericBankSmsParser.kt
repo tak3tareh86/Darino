@@ -119,13 +119,23 @@ object GenericBankSmsParser {
                 (match.range.first - 24).coerceAtLeast(0),
                 (match.range.last + 25).coerceAtMost(normalized.length)
             )
-            val hasRial = Regex("""(?:ریال|ريال|rial|rials)""", RegexOption.IGNORE_CASE).containsMatchIn(context)
-            val hasToman = Regex("""(?:تومان|تومن|toman|tomans)""", RegexOption.IGNORE_CASE).containsMatchIn(context)
-            return when {
-                hasRial && !hasToman -> AppCurrency.RIAL
-                hasToman && !hasRial -> AppCurrency.TOMAN
-                else -> fallback
+            val unitTokens = buildList {
+                Regex("""(?:ریال|ريال|rial|rials)""", RegexOption.IGNORE_CASE)
+                    .findAll(normalized, (match.range.first - 24).coerceAtLeast(0))
+                    .filter { it.range.first <= match.range.last + 25 }
+                    .forEach { add(it to AppCurrency.RIAL) }
+                Regex("""(?:تومان|تومن|toman|tomans)""", RegexOption.IGNORE_CASE)
+                    .findAll(normalized, (match.range.first - 24).coerceAtLeast(0))
+                    .filter { it.range.first <= match.range.last + 25 }
+                    .forEach { add(it to AppCurrency.TOMAN) }
             }
+            return unitTokens.minByOrNull { (token, _) ->
+                when {
+                    token.range.first > match.range.last -> token.range.first - match.range.last - 1
+                    token.range.last < match.range.first -> match.range.first - token.range.last - 1
+                    else -> 0
+                }
+            }?.second ?: fallback
         }
         val messageDefaultUnit = if (
             Regex("""(?:ریال|ريال|rial|rials)""", RegexOption.IGNORE_CASE).containsMatchIn(normalized) &&
