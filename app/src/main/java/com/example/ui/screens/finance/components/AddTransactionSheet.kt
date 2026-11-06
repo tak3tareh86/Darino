@@ -84,6 +84,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 import java.util.UUID
 
@@ -105,7 +107,16 @@ fun AddTransactionSheet(
     }
 
     var selectedType by remember { mutableStateOf(initialTransaction?.type ?: initialType) }
-    var rawAmount by remember { mutableStateOf(initialTransaction?.amount?.toString() ?: "") }
+    val activeCurrency = MoneyFormatter.activeCurrency
+    var rawAmount by remember {
+        mutableStateOf(
+            initialTransaction?.let {
+                runCatching {
+                    MoneyAmount.of(it.amount, it.amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()
+                }.getOrDefault("")
+            } ?: ""
+        )
+    }
     var title by remember { mutableStateOf(initialTransaction?.title ?: "") }
 
     val availableCategories = remember(selectedType, categories) {
@@ -181,7 +192,11 @@ fun AddTransactionSheet(
     var isAdvancedExpanded by remember { mutableStateOf(initialTransaction != null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val parsedAmount = IranianAmountUtils.parseAmountToLong(rawAmount)
+    val parsedAmountRials = remember(rawAmount, activeCurrency) {
+        IranianAmountUtils.parseAmountToBigDecimal(rawAmount)?.let { entered ->
+            runCatching { MoneyAmount(entered, activeCurrency).asRialsLongExact() }.getOrNull()
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -418,21 +433,22 @@ fun AddTransactionSheet(
                 }
             }
 
-            // 2. Amount Input Field with Live Toman Formatter & Persian Words
+            // 2. Amount Input Field in the selected IRR unit
             PersianAmountInputField(
                 value = rawAmount,
                 onValueChange = { formatted ->
                     rawAmount = formatted
                     errorMessage = null
                 },
-                onRawAmountChange = { rawDigits, _ ->
-                    rawAmount = rawDigits
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ ->
+                    rawAmount = rawValue
                     errorMessage = null
                 },
-                label = "مبلغ (تومان)",
-                placeholder = "مثال: ۴۵۰,۰۰۰",
-                unitLabel = "تومان",
-                showWordsPreview = true,
+                label = "مبلغ (${MoneyFormatter.getUnitLabel(activeCurrency)})",
+                placeholder = "مثال: ۴۵۰,۰۰۰ یا ۱۲۳٫۴",
+                unitLabel = MoneyFormatter.getUnitLabel(activeCurrency),
+                showWordsPreview = false,
                 testTag = "tx_amount_input"
             )
 
@@ -676,7 +692,7 @@ fun AddTransactionSheet(
                             return@Button
                         }
                     }
-                    if (parsedAmount <= 0L) {
+                    if (parsedAmountRials == null || parsedAmountRials <= 0L) {
                         errorMessage = "لطفاً مبلغ معتبری وارد کنید."
                         return@Button
                     }
@@ -691,7 +707,8 @@ fun AddTransactionSheet(
                     val item = TransactionItemData(
                         id = initialTransaction?.id ?: UUID.randomUUID().toString(),
                         title = finalTitle,
-                        amount = parsedAmount,
+                        amount = parsedAmountRials,
+                        amountUnit = AppCurrency.RIAL,
                         type = selectedType,
                         category = selectedCategory,
                         categoryId = selectedCategory.id,

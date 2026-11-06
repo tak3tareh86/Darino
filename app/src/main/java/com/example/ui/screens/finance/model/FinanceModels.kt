@@ -8,6 +8,8 @@ import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 enum class TransactionType(val title: String) {
     EXPENSE("هزینه"),
@@ -116,13 +118,14 @@ data class TransactionItemData(
     val recurringFrequency: RecurringFrequency? = null,
     val accountId: String? = null,
     val transferSourceAccountId: String? = null,
-    val transferDestinationAccountId: String? = null
+    val transferDestinationAccountId: String? = null,
+    val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
     val amountFormatted: String
         get() = when (type) {
-            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amount, isExpense = true)
-            TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amount, isExpense = false)
-            TransactionType.TRANSFER -> MoneyFormatter.formatToman(amount)
+            TransactionType.EXPENSE -> MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit), includeUnit = true).let { if (it.startsWith("−")) it else "−$it" }
+            TransactionType.INCOME -> MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit), includeUnit = true).let { if (it.startsWith("−")) it else "+$it" }
+            TransactionType.TRANSFER -> MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit), includeUnit = true)
         }
 }
 
