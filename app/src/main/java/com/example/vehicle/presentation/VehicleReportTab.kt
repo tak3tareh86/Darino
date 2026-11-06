@@ -30,6 +30,8 @@ import com.example.util.PersianCalendarHelper
 import com.example.vehicle.presentation.components.VehicleCostChart
 import com.example.vehicle.presentation.components.VehicleExpenseInsightsSection
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -52,9 +54,9 @@ fun VehicleReportTab(
         return
     }
 
-    val monthCostFormatted = MoneyFormatter.formatToman(statistics.currentMonthCost)
-    val yearCostFormatted = MoneyFormatter.formatToman(statistics.yearlyCost)
-    val topCostAmountFormatted = MoneyFormatter.formatToman(statistics.topCostAmount)
+    val monthCostFormatted = MoneyFormatter.formatExact(MoneyAmount.of(statistics.currentMonthCost, AppCurrency.RIAL))
+    val yearCostFormatted = MoneyFormatter.formatExact(MoneyAmount.of(statistics.yearlyCost, AppCurrency.RIAL))
+    val topCostAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(statistics.topCostAmount, AppCurrency.RIAL))
     val today = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
     val currentYear = today.year
     val currentMonth = today.month
@@ -75,14 +77,14 @@ fun VehicleReportTab(
     val annualChartBars = remember(parsedExpenses, chartYear, currentYear, currentMonth) {
         (1..12).map { month ->
             val items = parsedExpenses.filter { it.second == chartYear && it.third == month }.map { it.first }
-            val fuel = items.filter { it.category == VehicleExpenseCategory.FUEL }.sumOf { it.amount }
-            val repair = items.filter { it.category == VehicleExpenseCategory.REPAIRS || it.category == VehicleExpenseCategory.PARTS }.sumOf { it.amount }
-            val service = items.filter { it.category == VehicleExpenseCategory.SERVICE }.sumOf { it.amount }
-            val insurance = items.filter { it.category == VehicleExpenseCategory.INSURANCE }.sumOf { it.amount }
-            val other = items.filter { it.category !in setOf(VehicleExpenseCategory.FUEL, VehicleExpenseCategory.REPAIRS, VehicleExpenseCategory.PARTS, VehicleExpenseCategory.SERVICE, VehicleExpenseCategory.INSURANCE) }.sumOf { it.amount }
+            val fuel = items.filter { it.category == VehicleExpenseCategory.FUEL }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
+            val repair = items.filter { it.category == VehicleExpenseCategory.REPAIRS || it.category == VehicleExpenseCategory.PARTS }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
+            val service = items.filter { it.category == VehicleExpenseCategory.SERVICE }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
+            val insurance = items.filter { it.category == VehicleExpenseCategory.INSURANCE }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
+            val other = items.filter { it.category !in setOf(VehicleExpenseCategory.FUEL, VehicleExpenseCategory.REPAIRS, VehicleExpenseCategory.PARTS, VehicleExpenseCategory.SERVICE, VehicleExpenseCategory.INSURANCE) }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
             com.example.vehicle.domain.VehicleMonthlyExpenseBar(
                 monthName = shortMonthNames[month - 1], fuelAmount = fuel, repairAmount = repair,
-                serviceAmount = service, insuranceAmount = insurance, totalAmount = items.sumOf { it.amount },
+                serviceAmount = service, insuranceAmount = insurance, totalAmount = items.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) },
                 isCurrentMonth = chartYear == currentYear && month == currentMonth, otherAmount = other
             )
         }
@@ -335,7 +337,7 @@ fun VehicleReportTab(
                     )
 
                     statistics.categoryBreakdown.forEach { item ->
-                        val amountStr = MoneyFormatter.formatToman(item.amount, includeUnit = false)
+                        val amountStr = MoneyFormatter.formatExact(MoneyAmount.of(item.amount, item.amountUnit), includeUnit = false)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
