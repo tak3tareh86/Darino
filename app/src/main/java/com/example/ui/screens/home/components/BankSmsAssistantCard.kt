@@ -101,6 +101,8 @@ import com.example.ui.theme.RadiusSM
 import com.example.util.IranianPhoneUtils
 import com.example.util.LocalAppCurrency
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.util.IranianAmountUtils
 
 @Composable
 fun BankSmsAssistantCard(
@@ -1056,12 +1058,13 @@ fun EditSmsTransactionDialog(
     var amountText by remember(suggestion.id) {
         mutableStateOf(
             if (suggestion.amountCandidates.filter { it > 0L }.distinct().size > 1) ""
-            else if (suggestion.isAmountValid && suggestion.amount > 0L) IranianAmountUtils.formatWithCommas(suggestion.amount.toString())
+            else if (suggestion.isAmountValid && suggestion.amount > 0L) IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(suggestion.amount, suggestion.amountUnit).inUnit(appCurrency).value.stripTrailingZeros().toPlainString())
             else ""
         )
     }
-    val amount = remember(amountText) { IranianAmountUtils.cleanAmountDigits(amountText).toLongOrNull() ?: 0L }
-    val validAmount = amount > 0L
+    val amountDecimal = remember(amountText) { IranianAmountUtils.parseAmountToBigDecimal(amountText) }
+    val amountRials = remember(amountDecimal, appCurrency) { amountDecimal?.let { runCatching { MoneyAmount(it, appCurrency).asRialsLongExact() }.getOrNull() } ?: 0L }
+    val validAmount = amountDecimal != null && amountDecimal.signum() > 0 && amountRials > 0L
     val amountOptions = remember(
         suggestion.id, suggestion.amount, suggestion.isAmountValid,
         suggestion.balanceAmount, suggestion.amountCandidates
@@ -1076,10 +1079,10 @@ fun EditSmsTransactionDialog(
                     suggestion.amount -> "مبلغ پیشنهادی"
                     else -> "عدد گروه‌بندی‌شده"
                 }
-                add(candidate to label)
+                add(MoneyAmount.of(candidate, suggestion.amountUnit).inUnit(appCurrency).value to label)
             }
-            if (suggestion.isAmountValid && suggestion.amount > 0L) add(suggestion.amount to "مبلغ پیشنهادی")
-            suggestion.balanceAmount?.takeIf { it > 0L }?.let { add(it to "موجودی/مانده") }
+            if (suggestion.isAmountValid && suggestion.amount > 0L) add(MoneyAmount.of(suggestion.amount, suggestion.amountUnit).inUnit(appCurrency).value to "مبلغ پیشنهادی")
+            suggestion.balanceAmount?.takeIf { it > 0L }?.let { add(MoneyAmount.of(it, suggestion.amountUnit).inUnit(appCurrency).value to "موجودی/مانده") }
         }.distinctBy { it.first }
     }
     var category by remember(suggestion.id) { mutableStateOf(suggestion.category) }
@@ -1120,10 +1123,11 @@ fun EditSmsTransactionDialog(
                         OutlinedTextField(
                              value = amountText,
                              onValueChange = { input ->
-                                 amountText = IranianAmountUtils.formatWithCommas(input)
+                                 amountText = input
                                  error = null
                              },
                              singleLine = true,
+                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
                              isError = !validAmount && amountText.isNotEmpty(),
                              placeholder = { Text("مبلغ را به $amountUnit وارد کنید") },
                              modifier = Modifier.fillMaxWidth(),
@@ -1131,7 +1135,7 @@ fun EditSmsTransactionDialog(
                              textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                          )
                         if(amountOptions.isNotEmpty()) LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-                            items(amountOptions){(v,label)->FilterChip(selected=amount==v,onClick={amountText=IranianAmountUtils.formatWithCommas(v.toString());error=null},label={Text(label + ": " + IranianAmountUtils.formatWithCommas(v.toString()) + " " + amountUnit,fontSize=10.sp)})}
+                            items(amountOptions){(v,label)->FilterChip(selected=amountDecimal?.compareTo(v)==0,onClick={amountText=IranianAmountUtils.formatDecimalWithCommas(v.stripTrailingZeros().toPlainString());error=null},label={Text(label + ": " + IranianAmountUtils.formatDecimalWithCommas(v.stripTrailingZeros().toPlainString()) + " " + amountUnit,fontSize=10.sp)})}
                         }
                         if(!validAmount) Text("مبلغ پیامک معتبر نیست؛ مبلغ صحیح را وارد کنید.",style=MaterialTheme.typography.bodySmall,color=Color(0xFFDC2626))
                     }
@@ -1329,7 +1333,7 @@ fun EditSmsTransactionDialog(
                             val dst=if(t==TransactionType.TRANSFER)destinationId else null
                             if(t==TransactionType.TRANSFER&&dst.isNullOrBlank()){error="لطفاً حساب مقصد را انتخاب کنید.";return@Button}
                             submitting=true;error=null
-                            onConfirm(amount,t,category.trim().ifEmpty{suggestion.category},src,"ثبت از پیامک " + suggestion.bankName,dst){result->
+                            onConfirm(amountRials,t,category.trim().ifEmpty{suggestion.category},src,"ثبت از پیامک " + suggestion.bankName,dst){result->
                                 submitting=false
                                 when(result){
                                     com.example.ui.screens.home.viewmodel.SmsAcceptResult.Success,com.example.ui.screens.home.viewmodel.SmsAcceptResult.AlreadyExists->onDismiss()
