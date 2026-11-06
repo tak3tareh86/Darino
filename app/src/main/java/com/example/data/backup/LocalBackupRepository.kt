@@ -496,7 +496,7 @@ class LocalBackupRepository(
 
             buildString {
                 appendLine(
-                    "Time,Type,Category,AccountName,Amount,Description"
+                    "Time,Type,Category,AccountName,Amount,AmountUnit,Description"
                 )
 
                 transactions.forEach { transaction ->
@@ -506,6 +506,7 @@ class LocalBackupRepository(
                                 "\"${transaction.category}\"," +
                                 "\"${transaction.accountName}\"," +
                                 "${transaction.amount}," +
+                                "${transaction.amountUnit}," +
                                 "\"${transaction.description}\""
                     )
                 }
@@ -522,7 +523,7 @@ class LocalBackupRepository(
 
             buildString {
                 appendLine(
-                    "Title,Provider,Amount,TotalInstallments," +
+                    "Title,Provider,Amount,AmountUnit,TotalInstallments," +
                             "RemainingInstallments,NextDueDate,Status"
                 )
 
@@ -531,6 +532,7 @@ class LocalBackupRepository(
                         "\"${installment.title}\"," +
                                 "\"${installment.providerName}\"," +
                                 "${installment.amount}," +
+                                "${installment.amountUnit}," +
                                 "${installment.totalInstallments}," +
                                 "${installment.remainingInstallments}," +
                                 "${installment.nextDueDate}," +
