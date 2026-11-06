@@ -137,12 +137,17 @@ object UserRuleSmsAmountParser {
         val explicitUnits = matches.mapNotNull { match ->
             val start = (match.range.first - 24).coerceAtLeast(0)
             val end = (match.range.last + 25).coerceAtMost(text.length)
-            val context = text.substring(start, end)
-            when {
-                rialRegex.containsMatchIn(context) && !tomanRegex.containsMatchIn(context) -> AppCurrency.RIAL
-                tomanRegex.containsMatchIn(context) && !rialRegex.containsMatchIn(context) -> AppCurrency.TOMAN
-                else -> null
+            val nearbyTokens = buildList {
+                rialRegex.findAll(text, start).filter { it.range.first < end }.forEach { add(it to AppCurrency.RIAL) }
+                tomanRegex.findAll(text, start).filter { it.range.first < end }.forEach { add(it to AppCurrency.TOMAN) }
             }
+            nearbyTokens.minByOrNull { (token, _) ->
+                when {
+                    token.range.first > match.range.last -> token.range.first - match.range.last - 1
+                    token.range.last < match.range.first -> match.range.first - token.range.last - 1
+                    else -> 0
+                }
+            }?.second
         }.distinct()
         return explicitUnits.singleOrNull() ?: fallback
     }
