@@ -59,9 +59,16 @@ fun CarInsuranceInstallmentsScreen(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
-    val totalAmount = installments.sumOf { it.totalAmount }
-    val paidAmount = installments.sumOf { it.paidAmount }
-    val remainingAmount = installments.sumOf { it.remainingAmount }
+    // Aggregate contract values in Rial so mixed legacy and explicitly selected units reconcile.
+    val totalAmount = installments.fold(0L) { total, item ->
+        Math.addExact(total, com.example.util.MoneyAmount.of(item.totalAmount, item.amountUnit).asRialsLongExact())
+    }
+    val paidAmount = installments.fold(0L) { total, item ->
+        Math.addExact(total, com.example.util.MoneyAmount.of(item.paidAmount, item.amountUnit).asRialsLongExact())
+    }
+    val remainingAmount = installments.fold(0L) { total, item ->
+        Math.addExact(total, com.example.util.MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact())
+    }
     val progress = if (totalAmount > 0) (paidAmount.toFloat() / totalAmount.toFloat()) else 0f
 
     var selectedTabIndex by remember { mutableStateOf(0) }
@@ -193,7 +200,7 @@ fun CarInsuranceInstallmentsScreen(
                                 )
                             }
                             Text(
-                                text = "باقیمانده: ${(filteredInstallments.sumOf { it.remainingAmount } / 1_000_000).toInt()}M تومان",
+                                text = "باقیمانده: ${com.example.util.MoneyFormatter.formatExact(com.example.util.MoneyAmount.of(filteredInstallments.fold(0L) { total, item -> Math.addExact(total, com.example.util.MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }, com.example.ui.screens.settings.model.AppCurrency.RIAL))}",
                                 style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
                                 color = InfoIndigoLight
                             )
