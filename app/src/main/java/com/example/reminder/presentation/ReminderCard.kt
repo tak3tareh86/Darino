@@ -35,6 +35,8 @@ import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 @Composable
 fun ReminderCard(
@@ -247,9 +249,14 @@ fun ReminderCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (reminder.amount != null && reminder.amount > 0) {
+                    val formattedReminderAmount = reminder.amount?.takeIf { it > 0L }?.let { amount ->
+                        runCatching {
+                            MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.valueOf(reminder.amountUnit)))
+                        }.getOrNull()
+                    }
+                    if (formattedReminderAmount != null) {
                         Text(
-                            text = MoneyFormatter.formatToman(reminder.amount),
+                            text = formattedReminderAmount,
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
