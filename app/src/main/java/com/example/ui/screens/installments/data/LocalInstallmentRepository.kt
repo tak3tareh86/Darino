@@ -508,7 +508,8 @@ class LocalInstallmentRepository private constructor() {
         newDueDate: String? = null,
         newStatus: InstallmentStatus? = null,
         note: String? = null,
-        context: Context? = null
+        context: Context? = null,
+        newAmountUnit: AppCurrency? = null
     ): Boolean {
         val targetContext = context?.applicationContext ?: appContext ?: return false
         if (newDueDate != null && parseJalaliStringToMillis(newDueDate) == null) return false
@@ -522,23 +523,25 @@ class LocalInstallmentRepository private constructor() {
             val targetScheduleItem = targetInstallment.paymentHistory.firstOrNull { it.id == scheduleItemId }
                 ?: return@withLock false
 
-            val targetAmount = newAmountLong ?: targetScheduleItem.amount
+            val targetUnit = newAmountUnit ?: targetInstallment.amountUnit
+            val targetTotalAmount = MoneyAmount.of(targetInstallment.totalAmount, targetInstallment.amountUnit).inUnit(targetUnit).value.longValueExact()
+            val previousScheduleAmount = MoneyAmount.of(targetScheduleItem.amount, targetScheduleItem.amountUnit).inUnit(targetUnit).value.longValueExact()
+            val targetAmount = newAmountLong ?: previousScheduleAmount
             val updatedHistory = targetInstallment.paymentHistory.map { historyItem ->
-                if (historyItem.id != scheduleItemId) {
-                    historyItem
-                } else {
-                    val targetStatus = newStatus ?: historyItem.status
-                    historyItem.copy(
-                        amount = targetAmount,
-                        amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(targetAmount, targetInstallment.amountUnit)),
-                        dueDate = newDueDate ?: historyItem.dueDate,
-                        status = targetStatus,
-                        note = note ?: historyItem.note,
-                        paidDate = if (targetStatus == InstallmentStatus.PAID && historyItem.paidDate.isNullOrBlank()) {
-                            PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-                        } else historyItem.paidDate
-                    )
-                }
+                val convertedAmount = MoneyAmount.of(historyItem.amount, historyItem.amountUnit).inUnit(targetUnit).value.longValueExact()
+                val amountForRow = if (historyItem.id == scheduleItemId) targetAmount else convertedAmount
+                val targetStatus = if (historyItem.id == scheduleItemId) newStatus ?: historyItem.status else historyItem.status
+                historyItem.copy(
+                    amount = amountForRow,
+                    amountUnit = targetUnit,
+                    amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(amountForRow, targetUnit)),
+                    dueDate = if (historyItem.id == scheduleItemId) newDueDate ?: historyItem.dueDate else historyItem.dueDate,
+                    status = targetStatus,
+                    note = if (historyItem.id == scheduleItemId) note ?: historyItem.note else historyItem.note,
+                    paidDate = if (historyItem.id == scheduleItemId && targetStatus == InstallmentStatus.PAID && historyItem.paidDate.isNullOrBlank()) {
+                        PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                    } else historyItem.paidDate
+                )
             }
 
             val paidItems = updatedHistory.filter {
@@ -547,7 +550,7 @@ class LocalInstallmentRepository private constructor() {
             val paidCount = paidItems.size
             val paidSum = paidItems.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
             // Adjust the contract total by the edited installment's delta, allowing both increases and decreases.
-            val totalSum = Math.addExact(Math.subtractExact(targetInstallment.totalAmount, targetScheduleItem.amount), targetAmount).coerceAtLeast(0L)
+            val totalSum = Math.addExact(Math.subtractExact(targetTotalAmount, previousScheduleAmount), targetAmount).coerceAtLeast(0L)
             val remainingSum = (totalSum - paidSum).coerceAtLeast(0L)
             val remainingCount = (targetInstallment.totalInstallments - paidCount).coerceAtLeast(0)
             val nextPending = updatedHistory
@@ -558,11 +561,12 @@ class LocalInstallmentRepository private constructor() {
             val nextStatus = if (remainingCount == 0) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
             val updatedInstallment = targetInstallment.copy(
                 totalAmount = totalSum,
-                totalAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(totalSum, targetInstallment.amountUnit)),
+                amountUnit = targetUnit,
+                totalAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(totalSum, targetUnit)),
                 paidAmount = paidSum,
-                paidAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(paidSum, targetInstallment.amountUnit)),
+                paidAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(paidSum, targetUnit)),
                 remainingAmount = remainingSum,
-                remainingAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(remainingSum, targetInstallment.amountUnit)),
+                remainingAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(remainingSum, targetUnit)),
                 remainingInstallments = remainingCount,
                 status = nextStatus,
                 nextPaymentDate = nextPaymentDate,
