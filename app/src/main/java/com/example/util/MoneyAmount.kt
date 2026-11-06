@@ -17,6 +17,13 @@ data class MoneyAmount(
     val value: BigDecimal,
     val unit: AppCurrency
 ) {
+    init {
+        require(value.multiply(if (unit == AppCurrency.TOMAN) BigDecimal.TEN else BigDecimal.ONE)
+            .stripTrailingZeros().scale() <= 0) {
+            "Money precision cannot be smaller than one Rial."
+        }
+    }
+
     /** ISO 4217 identifies the underlying currency, independently of its unit. */
     val iso4217Code: String
         get() = ISO_4217_CODE
