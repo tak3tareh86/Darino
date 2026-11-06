@@ -84,6 +84,11 @@ fun FuelEntrySheet(
     var odometerInput by remember { mutableStateOf(currentOdometer.toString()) }
     var selectedFuelType by remember { mutableStateOf("بنزین سهمیه‌ای (۱,۵۰۰ ت)") }
     var stationInput by remember { mutableStateOf("") }
+    val parsedFuelAmountRials = amountInput.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() > 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val fuelAmountInvalid = parsedFuelAmountRials == null
 
     val fuelTypes = listOf(
         "بنزین سهمیه‌ای (۱,۵۰۰ ت)",
@@ -158,6 +163,8 @@ fun FuelEntrySheet(
                 onValueChange = { amountInput = it },
                 allowDecimalInput = true,
                 onRawDecimalAmountChange = { rawValue, _ -> amountInput = rawValue },
+                isError = fuelAmountInvalid,
+                errorMessage = if (fuelAmountInvalid) "مبلغ سوخت باید معتبر و بزرگ‌تر از صفر باشد." else null,
                 label = "مبلغ پرداختی سوخت (${MoneyFormatter.getUnitLabel()})",
                 unitLabel = MoneyFormatter.getUnitLabel(),
                 placeholder = "مبلغ را وارد کنید",
@@ -270,9 +277,10 @@ fun FuelEntrySheet(
 
             // Submit Button
             Button(
+                enabled = !fuelAmountInvalid,
                 onClick = {
                     onSubmitFuelEntry(
-                        IranianAmountUtils.parseAmountToBigDecimal(amountInput)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }?.toString().orEmpty(),
+                        requireNotNull(parsedFuelAmountRials).toString(),
                         litersInput,
                         selectedFuelType,
                         odometerInput,
