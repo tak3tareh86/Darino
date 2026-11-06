@@ -74,6 +74,9 @@ import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.util.IranianAmountUtils
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.ui.components.PersianAmountInputField
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleRepository
@@ -451,7 +454,7 @@ fun AddEditVehicleSheet(
     var mileage by remember { mutableStateOf(vehicle?.currentMileage?.toString() ?: "") }
     var plate by remember { mutableStateOf(vehicle?.plate ?: "") }
     var vin by remember { mutableStateOf(vehicle?.vin ?: "") }
-    var estimatedValueText by remember(vehicle, MoneyFormatter.activeCurrency) { mutableStateOf(if ((vehicle?.estimatedValue ?: 0L) > 0L) MoneyFormatter.convertFromToman(vehicle!!.estimatedValue).toString() else "") }
+    var estimatedValueText by remember(vehicle, MoneyFormatter.activeCurrency) { mutableStateOf(vehicle?.takeIf { it.estimatedValue > 0L }?.let { IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(it.estimatedValue, it.estimatedValueUnit).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString()) }.orEmpty()) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(
@@ -581,7 +584,10 @@ fun AddEditVehicleSheet(
                 PersianAmountInputField(
                     value = estimatedValueText,
                     onValueChange = { estimatedValueText = it; errorMessage = null },
-                    label = "ارزش تقریبی",
+                    allowDecimalInput = true,
+                    onRawDecimalAmountChange = { rawValue, _ -> estimatedValueText = rawValue; errorMessage = null },
+                    label = "ارزش تقریبی (${MoneyFormatter.getUnitLabel()})",
+                    unitLabel = MoneyFormatter.getUnitLabel(),
                     placeholder = "مبلغ را وارد کنید",
                     modifier = Modifier.weight(1f),
                     showWordsPreview = false,
@@ -596,7 +602,7 @@ fun AddEditVehicleSheet(
                         return@Button
                     }
                     val mileageInt = mileage.replace(",", "").trim().toIntOrNull() ?: 0
-                    val estValueLong = MoneyFormatter.convertToToman(com.example.util.IranianAmountUtils.parseAmountToLong(estimatedValueText))
+                    val estValueLong = IranianAmountUtils.parseAmountToBigDecimal(estimatedValueText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
                     onSave(
                         brand.trim(),
                         model.trim(),
