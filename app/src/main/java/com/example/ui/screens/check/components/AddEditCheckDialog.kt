@@ -59,9 +59,10 @@ fun AddEditCheckDialog(
     val globalDeliveryConfigured = globalNotificationsEnabled && globalDeliveryMode != AlertDeliveryPreference.NONE
 
     var type by remember { mutableStateOf(check?.type ?: CheckType.RECEIVED) }
+    val activeCurrency = MoneyFormatter.activeCurrency
     var amount by remember {
         mutableStateOf(
-            check?.amount?.let { MoneyFormatter.convertFromToman(it).toString() }.orEmpty()
+            check?.let { MoneyAmount.of(it.amount, it.amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString() }.orEmpty()
         )
     }
     var showBankPickerDialog by remember { mutableStateOf(false) }
@@ -106,10 +107,11 @@ fun AddEditCheckDialog(
     }
     val isReminderInvalid = reminderCalendarDay != null && reminderCalendarDay > dueCalendarDay
     val isReminderInPast = reminderEnabled && reminderDateTime != null && reminderDateTime!! <= System.currentTimeMillis()
-    val amountValueForValidation = amount.toEnglishDigits().toLongOrNull()
-    val amountUnitLabel = MoneyFormatter.getUnitLabel()
-    val isAmountInvalid = amountValueForValidation == null ||
-        MoneyFormatter.convertToToman(amountValueForValidation ?: 0L) <= 0L
+    val amountUnitLabel = MoneyFormatter.getUnitLabel(activeCurrency)
+    val amountInRials = IranianAmountUtils.parseAmountToBigDecimal(amount)?.let {
+        runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
+    }
+    val isAmountInvalid = amountInRials == null || amountInRials <= 0L
     val isCheckNumberInvalid = checkNumber.isBlank()
     val isBankNameInvalid = bankName.isBlank()
     val normalizedSayadId = sayadId.toEnglishDigits().filter { it.isDigit() }
@@ -117,16 +119,18 @@ fun AddEditCheckDialog(
     var showError by remember { mutableStateOf(false) }
 
     fun submitCheck(reminderAt: Long?) {
-        val enteredAmount = amount.toEnglishDigits().toLongOrNull() ?: 0L
-        val amountInToman = MoneyFormatter.convertToToman(enteredAmount)
-        if (amountInToman > 0 && checkNumber.isNotBlank() && bankName.isNotBlank() &&
+        val amountInRials = IranianAmountUtils.parseAmountToBigDecimal(amount)?.let {
+            runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
+        }
+        if (amountInRials != null && amountInRials > 0L && checkNumber.isNotBlank() && bankName.isNotBlank() &&
             !isDateInvalid && (reminderAt == null || (!isReminderInvalid && reminderAt > System.currentTimeMillis())) && !isSayadIdInvalid) {
             onConfirm(
                 Check(
                     id = check?.id ?: 0,
                     userId = check?.userId ?: "",
                     type = type,
-                    amount = amountInToman,
+                    amount = amountInRials,
+                    amountUnit = AppCurrency.RIAL,
                     checkNumber = checkNumber,
                     sayadId = normalizedSayadId.ifBlank { null },
                     bankName = bankName.trim(),
@@ -237,7 +241,9 @@ fun AddEditCheckDialog(
 
                 PersianAmountInputField(
                     value = amount,
-                    onValueChange = { amount = IranianAmountUtils.cleanAmountDigits(it) },
+                    onValueChange = { amount = it },
+                    allowDecimalInput = true,
+                    onRawDecimalAmountChange = { rawValue, _ -> amount = rawValue },
                     label = "مبلغ چک ($amountUnitLabel)",
                     unitLabel = amountUnitLabel,
                     showWordsPreview = false,

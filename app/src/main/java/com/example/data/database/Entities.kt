@@ -288,6 +288,7 @@ data class CheckEntity(
     val userId: String,
     val type: String, // "RECEIVED", "PAID"
     val amount: Long,
+    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
     val checkNumber: String,
     val sayadId: String? = null,
     val bankName: String,

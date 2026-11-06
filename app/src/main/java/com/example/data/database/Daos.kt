@@ -550,7 +550,7 @@ interface CheckDao {
 
     @Query("""
         UPDATE checks 
-        SET type = :type, amount = :amount, checkNumber = :checkNumber, sayadId = :sayadId, 
+        SET type = :type, amount = :amount, amountUnit = :amountUnit, checkNumber = :checkNumber, sayadId = :sayadId, 
             bankName = :bankName, branch = :branch, holderName = :holderName, 
             receiverName = :receiverName, issueDate = :issueDate, dueDate = :dueDate, 
             status = :status, notes = :notes, accountId = :accountId, 
@@ -562,6 +562,7 @@ interface CheckDao {
         userId: String,
         type: String,
         amount: Long,
+        amountUnit: String,
         checkNumber: String,
         sayadId: String?,
         bankName: String,
@@ -603,6 +604,7 @@ interface CheckDao {
                 existingTx.sourceId != check.id.toString() ||
                 existingTx.accountId != check.accountId ||
                 existingTx.amount != check.amount ||
+                existingTx.amountUnit != check.amountUnit ||
                 existingTx.type != expectedType
             ) {
                 return false
@@ -614,6 +616,7 @@ interface CheckDao {
                 userId = check.userId,
                 type = check.type,
                 amount = check.amount,
+                amountUnit = check.amountUnit,
                 checkNumber = check.checkNumber,
                 sayadId = check.sayadId,
                 bankName = check.bankName,

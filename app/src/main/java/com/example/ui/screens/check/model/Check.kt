@@ -1,6 +1,9 @@
 package com.example.ui.screens.check.model
 
 import com.example.util.PersianCalendarHelper
+import com.example.ui.screens.settings.model.AppCurrency
+import com.example.util.MoneyAmount
+import com.example.util.MoneyFormatter
 import java.util.Calendar
 
 enum class CheckType(val title: String) {
@@ -34,13 +37,17 @@ data class Check(
     val accountId: String? = null,
     val reminderDateTime: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
     val formattedDueDate: String
         get() = PersianCalendarHelper.fromEpochMillis(dueDate).toFormattedDate()
 
     val formattedIssueDate: String
         get() = PersianCalendarHelper.fromEpochMillis(issueDate).toFormattedDate()
+
+    val formattedAmount: String
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit))
 
     /**
      * Calendar-day difference in the device's local time zone.

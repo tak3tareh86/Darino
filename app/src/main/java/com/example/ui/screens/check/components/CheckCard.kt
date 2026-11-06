@@ -52,7 +52,7 @@ fun CheckCard(check: Check, onClick: () -> Unit, modifier: Modifier = Modifier) 
                 StatusBadge(status = check.status)
                 Spacer(Modifier.weight(1f))
                 Text(
-                    MoneyFormatter.format(check.amount),
+                    check.formattedAmount,
                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 19.sp, fontWeight = FontWeight.ExtraBold),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
