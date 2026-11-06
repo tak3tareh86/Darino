@@ -73,7 +73,13 @@ fun AddRecurringTransactionSheet(
     val today = remember { PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate() }
 
     var title by remember { mutableStateOf(initialItem?.title ?: "") }
-    var rawAmount by remember { mutableStateOf(initialItem?.amount?.toString() ?: "") }
+    val activeCurrency = MoneyFormatter.activeCurrency
+    val currencyUnit = MoneyFormatter.getUnitLabel(currency = activeCurrency)
+    var rawAmount by remember {
+        mutableStateOf(
+            initialItem?.amount?.let { MoneyFormatter.convertFromToman(it, activeCurrency).toString() } ?: ""
+        )
+    }
     var selectedType by remember { mutableStateOf(initialItem?.type ?: TransactionType.EXPENSE) }
     var selectedFrequency by remember { mutableStateOf(initialItem?.frequency ?: RecurringFrequency.MONTHLY) }
     var startDate by remember { mutableStateOf(initialItem?.startDate ?: today) }
@@ -293,9 +299,9 @@ fun AddRecurringTransactionSheet(
                 value = rawAmount,
                 onValueChange = { rawAmount = it },
                 onRawAmountChange = { rawDigits, _ -> rawAmount = rawDigits },
-                label = "مبلغ هر دوره (تومان)",
-                placeholder = "مثال: ۴۵۰,۰۰۰",
-                unitLabel = "تومان",
+                label = "مبلغ هر دوره ($currencyUnit)",
+                placeholder = "مبلغ را وارد کنید",
+                unitLabel = currencyUnit,
                 showWordsPreview = true,
                 testTag = "recurring_amount_input"
             )
@@ -328,7 +334,7 @@ fun AddRecurringTransactionSheet(
                     val rec = RecurringTransaction(
                         id = initialItem?.id ?: UUID.randomUUID().toString(),
                         title = title,
-                        amount = parsedAmount,
+                        amount = MoneyFormatter.convertToToman(parsedAmount, activeCurrency),
                         type = selectedType,
                         categoryId = selectedCategory.id,
                         categoryTitle = selectedCategory.title,
