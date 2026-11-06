@@ -670,6 +670,7 @@ fun InstallmentsScreen(
                                 installmentId = newItem.id,
                                 title = newItem.title,
                                 amount = nextUnpaidPayment?.amount ?: parsedMonthly,
+                                amountUnit = newItem.amountUnit,
                                 dueDatePersian = newItem.nextPaymentDate,
                                 dueTimePersian = reminderTime,
                                 selectedOffsets = selectedOffsets,
