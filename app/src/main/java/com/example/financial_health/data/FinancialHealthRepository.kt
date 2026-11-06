@@ -114,7 +114,7 @@ class FinancialHealthRepository(context: Context) {
         require(monthlyIncome >= 0L) { "درآمد نمی‌تواند منفی باشد." }
         require(monthlyInstallments >= 0L) { "مبلغ اقساط نمی‌تواند منفی باشد." }
         require(fixedExpenses >= 0L) { "هزینه ثابت نمی‌تواند منفی باشد." }
-        val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(monthlyInstallments + fixedExpenses, monthlyIncome) ?: 0f
+        val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(Math.addExact(monthlyInstallments, fixedExpenses), monthlyIncome) ?: 0f
         val status = FinancialAnalyzerEngine.calculateHealthStatus(pressure)
         dao.saveProfile(FinancialHealthEntity(
             id = DEFAULT_PROFILE_ID, userId = requireUserId(), monthlyIncome = monthlyIncome,
