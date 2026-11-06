@@ -220,8 +220,9 @@ fun LoanCalculatorScreen(
                                 DurationType.MONTHS -> state.duration
                                 DurationType.YEARS -> state.duration * 12
                             }
-                            val totalFormatted = res?.totalPaymentFormatted ?: CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)
-                            val monthlyFormatted = res?.monthlyPaymentFormatted ?: ""
+                            val totalFormatted = res?.let { MoneyFormatter.formatExact(MoneyAmount.of(it.totalPayment, AppCurrency.RIAL), includeUnit = false) }
+                                ?: MoneyFormatter.formatExact(MoneyAmount.of(state.amount, AppCurrency.RIAL), includeUnit = false)
+                            val monthlyFormatted = res?.let { MoneyFormatter.formatExact(MoneyAmount.of(it.monthlyPayment, AppCurrency.RIAL), includeUnit = false) }.orEmpty()
                             val title = "${state.loanType.title} (${CalculationResult.formatMoney(state.amount)})"
 
                             onCreateInstallment(cat, title, totalFormatted, monthlyFormatted, durationMonths)
