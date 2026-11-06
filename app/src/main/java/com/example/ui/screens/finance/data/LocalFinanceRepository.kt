@@ -1167,7 +1167,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         
         val txs = db.transactionDao().getAllTransactionsList(userId)
         
-        var balance = MoneyAmount.of(account.initialBalance, runCatching { AppCurrency.valueOf(account.initialBalanceUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact()
+        var balance = MoneyAmount.of(account.initialBalance, AppCurrency.valueOf(account.initialBalanceUnit)).asRialsLongExact()
         for (tx in txs) {
             if (tx.deletedAt != null) continue
             val txAmountRials = MoneyAmount.of(
