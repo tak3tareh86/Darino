@@ -41,6 +41,9 @@ import com.example.ui.theme.RadiusXL
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.PersianCalendarHelper
+import com.example.util.MoneyAmount
+import com.example.util.MoneyFormatter
+import com.example.ui.screens.settings.model.AppCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +69,7 @@ fun AddFinancialEventSheet(
     var showNoReminderConfirmation by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val preferences = remember { AppPreferencesRepository.getInstance(context) }
+    val activeCurrency = MoneyFormatter.activeCurrency
     val globalDeliveryMode by preferences.alertDelivery.collectAsState()
     val globalNotificationsEnabled by preferences.notificationsEnabled.collectAsState()
 
@@ -108,7 +112,8 @@ fun AddFinancialEventSheet(
             title = title.trim(),
             description = description.trim(),
             type = selectedType,
-            amount = IranianAmountUtils.parseAmountToLong(amountText),
+            amount = if (amountText.isBlank()) null else IranianAmountUtils.parseAmountToBigDecimal(amountText)?.let { MoneyAmount(it, activeCurrency).asRialsLongExact() },
+            amountUnit = if (amountText.isBlank()) activeCurrency else AppCurrency.RIAL,
             date = CalendarDateUtils.normalizeDate(dateText),
             time = timeText.trim(),
             reminderBefore = effectiveReminderBefore,
@@ -241,8 +246,11 @@ fun AddFinancialEventSheet(
                 PersianAmountInputField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = "مبلغ به تومان",
-                    placeholder = "مثال: ۳,۰۰۰,۰۰۰",
+                    allowDecimalInput = true,
+                    onRawDecimalAmountChange = { rawValue, _ -> amountText = rawValue },
+                    label = "مبلغ (${MoneyFormatter.getUnitLabel(activeCurrency)})",
+                    unitLabel = MoneyFormatter.getUnitLabel(activeCurrency),
+                    placeholder = "مبلغ را وارد کنید",
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("event_amount_input")
