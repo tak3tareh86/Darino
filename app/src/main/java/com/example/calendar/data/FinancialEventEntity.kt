@@ -7,6 +7,7 @@ import com.example.calendar.domain.model.FinancialEventStatus
 import com.example.calendar.domain.model.FinancialEventType
 import com.example.calendar.domain.model.ReminderBeforeOption
 import com.example.util.PersianCalendarHelper
+import com.example.ui.screens.settings.model.AppCurrency
 
 @Entity(
     tableName = "financial_events",
@@ -30,13 +31,20 @@ data class FinancialEventEntity(
     @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN"
 ) {
     fun toDomain(): FinancialEvent {
+        val parsedAmountUnit = when (amountUnit) {
+            AppCurrency.TOMAN.name -> AppCurrency.TOMAN
+            AppCurrency.RIAL.name -> AppCurrency.RIAL
+            else -> null
+        }
         return FinancialEvent(
             id = id,
             title = title,
             description = description,
             type = FinancialEventType.fromString(type),
-            amount = amount,
-            amountUnit = runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(amountUnit) }.getOrDefault(com.example.ui.screens.settings.model.AppCurrency.TOMAN),
+            // Never reinterpret an amount with an unknown persisted unit as Toman.
+            // Keep the event visible, but omit its monetary value until the data is repaired.
+            amount = amount.takeIf { parsedAmountUnit != null },
+            amountUnit = parsedAmountUnit ?: AppCurrency.TOMAN,
             date = date,
             time = time,
             repeatType = repeatType,
