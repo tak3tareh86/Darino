@@ -163,11 +163,11 @@ class LocalInstallmentRepository private constructor() {
                     require(duplicateNumbers.isEmpty()) { "Duplicate installment schedule rows in DB: ${entity.id}" }
                     require(payments.all { it.amountUnit == entity.amountUnit }) { "Installment and payment currency units differ: ${entity.id}" }
                     val paidPayments = payments.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
-                    val paidAmount = paidPayments.sumOf { it.amount }
+                    val paidAmount = paidPayments.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
                     require(paidAmount <= entity.amount) { "Paid amount exceeds contract amount in DB: ${entity.id}" }
                     val paidInstallmentsCount = paidPayments.map { it.installmentNumber }.toSet().size
                     val remainingInstallmentsCount = (entity.totalInstallments - paidInstallmentsCount).coerceAtLeast(0)
-                    val remainingAmount = entity.amount - paidAmount
+                    val remainingAmount = Math.subtractExact(entity.amount, paidAmount)
 
                     // Schedule/payment history is the source of truth for whether a contract is still active.
                     // Do not let a stale top-level PAID/COMPLETED flag hide unpaid scheduled payments.
@@ -195,7 +195,6 @@ class LocalInstallmentRepository private constructor() {
                         category = cat,
                         providerOrPerson = entity.providerName,
                         totalAmount = entity.amount,
-                        amountUnit = runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN),
                         totalAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(entity.amount, runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN))),
                         paidAmount = paidAmount,
                         amountUnit = runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN),
@@ -253,8 +252,8 @@ class LocalInstallmentRepository private constructor() {
         val activeItems = items.filter { it.remainingInstallments > 0 }
         val nearestItem = activeItems.minByOrNull { parseJalaliStringToMillis(it.nextPaymentDate) ?: Long.MAX_VALUE }
 
-        val totalPaid = items.sumOf { it.paidAmount }
-        val totalRemaining = items.sumOf { it.remainingAmount }
+        val totalPaid = items.fold(0L) { total, item -> Math.addExact(total, MoneyAmount.of(item.paidAmount, item.amountUnit).asRialsLongExact()) }
+        val totalRemaining = items.fold(0L) { total, item -> Math.addExact(total, MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }
 
         _summary.value = InstallmentSummaryData(
             activeCount = activeItems.size,
@@ -461,8 +460,8 @@ class LocalInstallmentRepository private constructor() {
                 val paidCount = history.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
                 val remainingCount = (item.totalInstallments - paidCount).coerceAtLeast(0)
 
-                val actualPaidAmount = history.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }.sumOf { it.amount }
-                val actualRemainingAmount = (item.totalAmount - actualPaidAmount).coerceAtLeast(0L)
+                val actualPaidAmount = history.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
+                val actualRemainingAmount = Math.subtractExact(item.totalAmount, actualPaidAmount).coerceAtLeast(0L)
 
                 val isCompleted = remainingCount == 0
                 val newStatus = if (isCompleted) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
@@ -531,7 +530,7 @@ class LocalInstallmentRepository private constructor() {
                     val targetStatus = newStatus ?: historyItem.status
                     historyItem.copy(
                         amount = targetAmount,
-                        amountFormatted = MoneyFormatter.formatToman(targetAmount),
+                        amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(targetAmount, targetInstallment.amountUnit)),
                         dueDate = newDueDate ?: historyItem.dueDate,
                         status = targetStatus,
                         note = note ?: historyItem.note,
@@ -546,9 +545,9 @@ class LocalInstallmentRepository private constructor() {
                 it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED
             }
             val paidCount = paidItems.size
-            val paidSum = paidItems.sumOf { it.amount }
+            val paidSum = paidItems.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
             // Adjust the contract total by the edited installment's delta, allowing both increases and decreases.
-            val totalSum = (targetInstallment.totalAmount - targetScheduleItem.amount + targetAmount).coerceAtLeast(0L)
+            val totalSum = Math.addExact(Math.subtractExact(targetInstallment.totalAmount, targetScheduleItem.amount), targetAmount).coerceAtLeast(0L)
             val remainingSum = (totalSum - paidSum).coerceAtLeast(0L)
             val remainingCount = (targetInstallment.totalInstallments - paidCount).coerceAtLeast(0)
             val nextPending = updatedHistory
@@ -559,11 +558,11 @@ class LocalInstallmentRepository private constructor() {
             val nextStatus = if (remainingCount == 0) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
             val updatedInstallment = targetInstallment.copy(
                 totalAmount = totalSum,
-                totalAmountFormatted = MoneyFormatter.formatToman(totalSum),
+                totalAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(totalSum, targetInstallment.amountUnit)),
                 paidAmount = paidSum,
-                paidAmountFormatted = MoneyFormatter.formatToman(paidSum),
+                paidAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(paidSum, targetInstallment.amountUnit)),
                 remainingAmount = remainingSum,
-                remainingAmountFormatted = MoneyFormatter.formatToman(remainingSum),
+                remainingAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(remainingSum, targetInstallment.amountUnit)),
                 remainingInstallments = remainingCount,
                 status = nextStatus,
                 nextPaymentDate = nextPaymentDate,
