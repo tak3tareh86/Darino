@@ -116,6 +116,7 @@ class BankSmsRepository(private val context: Context) {
                             patternId = item.optString("patternId"),
                             bankName = item.optString("bankName"),
                             amount = item.optLong("amount"),
+                            amountUnit = runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(item.optString("amountUnit", "TOMAN")) }.getOrDefault(com.example.ui.screens.settings.model.AppCurrency.TOMAN),
                             formattedAmount = item.optString("formattedAmount"),
                             isAmountValid = item.optBoolean("isAmountValid"),
                             type = type,
@@ -178,6 +179,7 @@ class BankSmsRepository(private val context: Context) {
                     .put("patternId", suggestion.patternId)
                     .put("bankName", suggestion.bankName)
                     .put("amount", suggestion.amount)
+                    .put("amountUnit", suggestion.amountUnit.name)
                     .put("formattedAmount", suggestion.formattedAmount)
                     .put("isAmountValid", suggestion.isAmountValid)
                     .put("type", suggestion.type?.name ?: JSONObject.NULL)
