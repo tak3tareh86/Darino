@@ -82,8 +82,9 @@ class FinancialViewModel(
                     TransactionType.INCOME -> if (tx.accountId == acc.id) balance = Math.addExact(balance, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
                     TransactionType.EXPENSE -> if (tx.accountId == acc.id) balance = Math.subtractExact(balance, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
                     TransactionType.TRANSFER -> {
-                        if (tx.transferSourceAccountId == acc.id) balance -= tx.amount
-                        if (tx.transferDestinationAccountId == acc.id) balance += tx.amount
+                        val transferAmountRials = MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()
+                        if (tx.transferSourceAccountId == acc.id) balance = Math.subtractExact(balance, transferAmountRials)
+                        if (tx.transferDestinationAccountId == acc.id) balance = Math.addExact(balance, transferAmountRials)
                     }
                 }
             }

@@ -420,13 +420,16 @@ fun FinancialScreen(
             accounts = state.accounts,
             onDismiss = { showTransferSheet = false },
             onSubmitTransfer = { srcId, destId, amountStr, desc ->
-                val parsedAmt = com.example.util.IranianAmountUtils.parseAmountToLong(amountStr) ?: amountStr.toLongOrNull() ?: 0L
-                if (parsedAmt > 0L) {
+                val parsedAmtRials = com.example.util.IranianAmountUtils.parseAmountToBigDecimal(amountStr)?.let { entered ->
+                    runCatching { com.example.util.MoneyAmount(entered, com.example.util.MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull()
+                }
+                if (parsedAmtRials != null && parsedAmtRials > 0L) {
                     val now = System.currentTimeMillis()
                     val transferTx = TransactionItemData(
                         id = java.util.UUID.randomUUID().toString(),
                         title = "انتقال وجه",
-                        amount = parsedAmt,
+                        amount = parsedAmtRials,
+                        amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL,
                         type = TransactionType.TRANSFER,
                         category = FinanceDefaultCategories.transferCategory,
                         dateMillis = now,

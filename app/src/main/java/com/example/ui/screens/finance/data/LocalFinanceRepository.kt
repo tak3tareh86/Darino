@@ -155,6 +155,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
     private fun validateTransaction(transaction: TransactionItemData): Boolean {
         if (transaction.amount <= 0L) return false
+        if (runCatching { MoneyAmount.of(transaction.amount, transaction.amountUnit).asRialsLongExact() }.isFailure) return false
         if (transaction.title.isBlank()) return false
         if (transaction.type != TransactionType.EXPENSE && transaction.type != TransactionType.INCOME && transaction.type != TransactionType.TRANSFER) return false
         if (transaction.type == TransactionType.INCOME || transaction.type == TransactionType.EXPENSE) {
