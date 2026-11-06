@@ -168,6 +168,11 @@ object BankSmsParser {
                 timestampMillis = finalTimestamp,
                 receivedAtMillis = timestampMillis,
                 balanceAmount = balanceAmount,
+                balanceAmountUnit = when {
+                    fields.first(SmsPatternSlotKind.BALANCE_RIAL) != null -> AppCurrency.RIAL
+                    fields.first(SmsPatternSlotKind.BALANCE_TOMAN) != null -> AppCurrency.TOMAN
+                    else -> null
+                },
                 amountCandidates = (findGroupedAmounts(body) + listOfNotNull(amountValue, balanceAmount)).distinct(),
                 trackingCode = fields.first(SmsPatternSlotKind.TRACKING)
                     ?.replace(Regex("""\s+"""), "")
