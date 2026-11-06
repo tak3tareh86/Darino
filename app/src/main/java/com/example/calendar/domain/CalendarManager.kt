@@ -10,6 +10,7 @@ import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
 import com.example.util.IranianPhoneUtils
 import com.example.util.PersianCalendarHelper
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.vehicle.data.VehicleRepository
 import com.example.vehicle.data.VehicleServiceEntity
 import com.example.vehicle.data.VehicleInsuranceEntity
@@ -20,6 +21,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
+
+private fun parseCalendarCurrencyUnit(value: String): AppCurrency? = when (value) {
+    AppCurrency.TOMAN.name -> AppCurrency.TOMAN
+    AppCurrency.RIAL.name -> AppCurrency.RIAL
+    else -> null
+}
 
 private data class Quadruple<A, B, C, D>(
     val first: A,
@@ -85,6 +92,7 @@ class CalendarManager(private val context: Context) {
                     val normDate = CalendarDateUtils.normalizeDate(rem.date)
                     val normTime = IranianPhoneUtils.convertDigitsToEnglish(rem.time)
 
+                    val reminderAmountUnit = parseCalendarCurrencyUnit(rem.amountUnit)
                     val status = when (rem.status) {
                         "COMPLETED", "CANCELLED" -> FinancialEventStatus.PAID
                         else -> FinancialEventStatus.PENDING
@@ -101,7 +109,8 @@ class CalendarManager(private val context: Context) {
                                 "FINANCE", "EXPENSE" -> FinancialEventType.EXPENSE
                                 else -> FinancialEventType.REMINDER
                             },
-                            amount = rem.amount,
+                            amount = rem.amount.takeIf { reminderAmountUnit != null },
+                            amountUnit = reminderAmountUnit ?: AppCurrency.TOMAN,
                             date = normDate,
                             time = normTime,
                             repeatType = "NONE",
@@ -132,6 +141,7 @@ class CalendarManager(private val context: Context) {
                     val title = "${inst.title}$providerSuffix"
                     val desc = "اقساط ${inst.title} - پرداخت شده: ${inst.paidInstallments} از ${inst.totalInstallments}"
 
+                    val installmentAmountUnit = parseCalendarCurrencyUnit(inst.amountUnit)
                     val monthlyAmount = if (inst.totalInstallments > 0) {
                         inst.amount / inst.totalInstallments
                     } else {
@@ -150,7 +160,8 @@ class CalendarManager(private val context: Context) {
                             title = title,
                             description = desc,
                             type = FinancialEventType.INSTALLMENT,
-                            amount = monthlyAmount,
+                            amount = monthlyAmount.takeIf { installmentAmountUnit != null },
+                            amountUnit = installmentAmountUnit ?: AppCurrency.TOMAN,
                             date = formattedDate,
                             time = "09:00",
                             repeatType = "MONTHLY",
@@ -176,6 +187,7 @@ class CalendarManager(private val context: Context) {
                             description = svc.description.ifBlank { "سرویس ${svc.serviceType.title}" },
                             type = FinancialEventType.VEHICLE,
                             amount = svc.cost,
+                            amountUnit = svc.costUnit,
                             date = normDate,
                             time = "09:00",
                             repeatType = "NONE",
@@ -209,6 +221,7 @@ class CalendarManager(private val context: Context) {
                             description = "شرکت ${ins.company} - بیمه‌نامه: ${ins.policyNumber}",
                             type = FinancialEventType.VEHICLE,
                             amount = ins.amount,
+                            amountUnit = ins.amountUnit,
                             date = normDate,
                             time = "09:00",
                             repeatType = "YEARLY",
@@ -241,6 +254,7 @@ class CalendarManager(private val context: Context) {
                             description = "مرکز ${insp.centerName} (${insp.status})",
                             type = FinancialEventType.VEHICLE,
                             amount = insp.cost,
+                            amountUnit = insp.costUnit,
                             date = normDate,
                             time = "09:00",
                             repeatType = "YEARLY",
@@ -273,6 +287,7 @@ class CalendarManager(private val context: Context) {
                             description = exp.description,
                             type = FinancialEventType.VEHICLE,
                             amount = exp.amount,
+                            amountUnit = exp.amountUnit,
                             date = normDate,
                             time = "09:00",
                             repeatType = "NONE",
