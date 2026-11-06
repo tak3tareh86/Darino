@@ -10,6 +10,7 @@ import java.util.UUID
 data class UpsertTransactionCommand(
     val clientId: String,
     val amount: Long,
+    val amountUnit: String = "TOMAN",
     val type: String,
     val category: String,
     val accountName: String,
@@ -43,6 +44,7 @@ class TransactionService(private val repository: TransactionRepository) {
             userId = userId,
             clientId = c.clientId,
             amount = c.amount,
+            amountUnit = c.amountUnit,
             type = c.type,
             category = c.category,
             accountName = c.accountName,

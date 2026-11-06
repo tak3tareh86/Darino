@@ -22,6 +22,9 @@ data class Transaction(
     @Column(nullable = false)
     var amount: Long,
 
+    @Column(name = "amount_unit", nullable = false, length = 16)
+    var amountUnit: String = "TOMAN",
+
     @Column(nullable = false, length = 30)
     var type: String,
 

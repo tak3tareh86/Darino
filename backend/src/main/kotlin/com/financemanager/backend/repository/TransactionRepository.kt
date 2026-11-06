@@ -18,18 +18,19 @@ interface TransactionRepository : JpaRepository<Transaction, String> {
     @Query(
         value = """
             INSERT INTO transactions (
-                id, user_id, client_id, amount, type, category, account_name,
+                id, user_id, client_id, amount, amount_unit, type, category, account_name,
                 description, occurred_at, time_formatted, title, sub_category,
                 date_persian, payment_method, source_type, source_id, is_recurring,
                 created_at, updated_at, deleted_at
             ) VALUES (
-                :id, :userId, :clientId, :amount, :type, :category, :accountName,
+                :id, :userId, :clientId, :amount, :amountUnit, :type, :category, :accountName,
                 :description, :occurredAt, :timeFormatted, :title, :subCategory,
                 :datePersian, :paymentMethod, :sourceType, :sourceId, :isRecurring,
                 CURRENT_TIMESTAMP, :updatedAt, NULL
             )
             ON CONFLICT (user_id, client_id) DO UPDATE SET
                 amount = EXCLUDED.amount,
+                amount_unit = EXCLUDED.amount_unit,
                 type = EXCLUDED.type,
                 category = EXCLUDED.category,
                 account_name = EXCLUDED.account_name,
@@ -53,6 +54,7 @@ interface TransactionRepository : JpaRepository<Transaction, String> {
         @Param("userId") userId: String,
         @Param("clientId") clientId: String,
         @Param("amount") amount: Long,
+        @Param("amountUnit") amountUnit: String,
         @Param("type") type: String,
         @Param("category") category: String,
         @Param("accountName") accountName: String,
