@@ -87,7 +87,7 @@ fun VehicleExpenseInsightsSection(
             }.fold(0L) { total, pair -> Math.addExact(total, MoneyAmount.of(pair.first.amount, pair.first.amountUnit).asRialsLongExact()) }
             val secondAmount = datedExpenses.filter {
                 it.first.category == category && it.second.year == secondYear && it.second.month == secondMonth
-            }.sumOf { it.first.amount }
+            }.fold(0L) { total, pair -> Math.addExact(total, MoneyAmount.of(pair.first.amount, pair.first.amountUnit).asRialsLongExact()) }
             Triple(category, firstAmount, secondAmount)
         }.filter { it.second > 0L || it.third > 0L }
     }
