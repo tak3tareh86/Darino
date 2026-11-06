@@ -540,18 +540,19 @@ fun InstallmentsScreen(
                 } else {
                     val defaultList = mutableListOf<PaymentHistoryItem>()
                     for (i in 1..totalInstallments) {
+                        val paymentAmount = if (i == totalInstallments) {
+                            Math.subtractExact(totalAmount, Math.multiplyExact(parsedMonthly, (totalInstallments - 1).toLong())).coerceAtLeast(1L)
+                        } else parsedMonthly
                         defaultList.add(
                             PaymentHistoryItem(
                                 id = "p_${System.currentTimeMillis()}_$i",
                                 installmentNumber = i,
                                 dueDate = com.example.util.PersianCalendarHelper.addMonthsToPersianDate(effectiveDueDate, i - 1),
                                 paidDate = null,
-                                amountFormatted = monthlyFormatted,
+                                amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(paymentAmount, AppCurrency.RIAL)),
                                 status = if (i == 1) InstallmentStatus.DUE_SOON else InstallmentStatus.PENDING,
                                 note = null,
-                                amount = if (i == totalInstallments) {
-                                    Math.subtractExact(totalAmount, Math.multiplyExact(parsedMonthly, (totalInstallments - 1).toLong())).coerceAtLeast(1L)
-                                } else parsedMonthly,
+                                amount = paymentAmount,
                                 isPaidLate = false,
                                 amountUnit = AppCurrency.RIAL
                             )
