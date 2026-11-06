@@ -157,18 +157,9 @@ sealed class VehicleTimelineEvent(
         override val subtitle: String,
         @DrawableRes override val iconRes: Int,
         override val colorHex: Long,
-        val mileage: Int
-    data class ServiceEvent(
-        override val id: String,
-        override val date: String,
-        override val title: String,
-        override val amount: Long,
-        override val subtitle: String,
-        @DrawableRes override val iconRes: Int,
-        override val colorHex: Long,
-        override val amountUnit: AppCurrency = AppCurrency.TOMAN,
-        val mileage: Int
-    ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex)
+        val mileage: Int,
+        override val amountUnit: AppCurrency = AppCurrency.TOMAN
+    ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex, amountUnit)
 
     data class ExpenseEvent(
         override val id: String,
@@ -178,18 +169,9 @@ sealed class VehicleTimelineEvent(
         override val subtitle: String,
         @DrawableRes override val iconRes: Int,
         override val colorHex: Long,
-        val category: VehicleExpenseCategory
-    data class ExpenseEvent(
-        override val id: String,
-        override val date: String,
-        override val title: String,
-        override val amount: Long,
-        override val subtitle: String,
-        @DrawableRes override val iconRes: Int,
-        override val colorHex: Long,
-        override val amountUnit: AppCurrency = AppCurrency.TOMAN,
-        val category: VehicleExpenseCategory
-    ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex)
+        val category: VehicleExpenseCategory,
+        override val amountUnit: AppCurrency = AppCurrency.TOMAN
+    ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex, amountUnit)
 
     data class InsuranceEvent(
         override val id: String,
@@ -199,18 +181,9 @@ sealed class VehicleTimelineEvent(
         override val subtitle: String,
         @DrawableRes override val iconRes: Int,
         override val colorHex: Long,
-        val company: String
-    data class InsuranceEvent(
-        override val id: String,
-        override val date: String,
-        override val title: String,
-        override val amount: Long,
-        override val subtitle: String,
-        @DrawableRes override val iconRes: Int,
-        override val colorHex: Long,
-        override val amountUnit: AppCurrency = AppCurrency.TOMAN,
-        val company: String
-    ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex)
+        val company: String,
+        override val amountUnit: AppCurrency = AppCurrency.TOMAN
+    ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex, amountUnit)
 
     data class InspectionEvent(
         override val id: String,
@@ -220,16 +193,7 @@ sealed class VehicleTimelineEvent(
         override val subtitle: String,
         @DrawableRes override val iconRes: Int,
         override val colorHex: Long,
-        val expiryDate: String
-    data class InspectionEvent(
-        override val id: String,
-        override val date: String,
-        override val title: String,
-        override val amount: Long,
-        override val subtitle: String,
-        @DrawableRes override val iconRes: Int,
-        override val colorHex: Long,
-        override val amountUnit: AppCurrency = AppCurrency.TOMAN,
-        val expiryDate: String
-    ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex)
+        val expiryDate: String,
+        override val amountUnit: AppCurrency = AppCurrency.TOMAN
+    ) : VehicleTimelineEvent(id, date, title, amount, subtitle, iconRes, colorHex, amountUnit)
 }
