@@ -89,16 +89,18 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         return PersianCalendarHelper.jalaliToEpochMillis(date.year, date.month, date.day, 0, 0)
     }
 
-    private fun scheduledAmount(items: List<InstallmentItem>, range: MonthRange, includePaid: Boolean = false): Long = items.sumOf { item ->
-        item.paymentHistory.filter { payment ->
+    private fun scheduledAmount(items: List<InstallmentItem>, range: MonthRange, includePaid: Boolean = false): Long = items.fold(0L) { itemTotal, item ->
+        val paymentTotal = item.paymentHistory.filter { payment ->
             (includePaid || isUnpaid(payment.status)) && payment.amount > 0L &&
                 dueMillis(payment.dueDate)?.let { it >= range.start && it < range.end } == true
-        }.fold(0L) { total, payment -> Math.addExact(total, MoneyAmount.of(payment.amount, item.amountUnit).asRialsLongExact()) }
+        }.fold(0L) { total, payment -> Math.addExact(total, MoneyAmount.of(payment.amount, payment.amountUnit).asRialsLongExact()) }
+        Math.addExact(itemTotal, paymentTotal)
     }
 
-    private fun scheduledVehicleExpenses(services: List<VehicleServiceEntity>, range: MonthRange): Long = services.sumOf { service ->
+    private fun scheduledVehicleExpenses(services: List<VehicleServiceEntity>, range: MonthRange): Long = services.fold(0L) { total, service ->
         val due = service.dueDate
-        if (service.status != "COMPLETED" && service.cost > 0L && due != null && due >= range.start && due < range.end) MoneyAmount.of(service.cost, runCatching { AppCurrency.valueOf(service.costUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact() else 0L
+        val costRials = if (service.status != "COMPLETED" && service.cost > 0L && due != null && due >= range.start && due < range.end) MoneyAmount.of(service.cost, runCatching { AppCurrency.valueOf(service.costUnit) }.getOrDefault(AppCurrency.TOMAN)).asRialsLongExact() else 0L
+        Math.addExact(total, costRials)
     }
 
     private fun activeItems(items: List<InstallmentItem>) =
