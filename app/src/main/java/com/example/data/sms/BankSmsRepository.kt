@@ -127,17 +127,17 @@ class BankSmsRepository(private val context: Context) {
                         buildList { for (i in 0 until values.length()) values.optLong(i).takeIf { it > 0L }?.let(::add) }
                     } ?: emptyList()
                     val rawCandidateUnits = item.optJSONArray("amountCandidateUnits")
-                    val amountCandidateUnits = rawCandidateUnits?.let { values ->
-                        buildList {
-                            for (i in 0 until values.length()) {
-                                val raw = values.optString(i)
-                                val parsed = runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(raw) }.getOrNull()
-                                    ?: continue
-                                add(parsed)
-                            }
+                    val parsedCandidateUnits = rawCandidateUnits?.let { values ->
+                        (0 until values.length()).map { index ->
+                            runCatching {
+                                com.example.ui.screens.settings.model.AppCurrency.valueOf(values.optString(index))
+                            }.getOrNull()
                         }
-                    } ?: emptyList()
-                    if (rawCandidateUnits != null && amountCandidateUnits.size != amountCandidates.size) continue
+                    }
+                    if (parsedCandidateUnits != null &&
+                        (parsedCandidateUnits.size != amountCandidates.size || parsedCandidateUnits.any { it == null })
+                    ) continue
+                    val amountCandidateUnits = parsedCandidateUnits?.filterNotNull() ?: emptyList()
                     add(
                         BankSmsSuggestion(
                             id = id,
