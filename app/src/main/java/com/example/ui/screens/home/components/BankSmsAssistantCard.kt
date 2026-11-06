@@ -924,7 +924,7 @@ private fun SmsGrantedContentView(
                     val extractedDetails = listOfNotNull(
                         item.sourceAccount?.takeIf { it.isNotBlank() }?.let { "مبدأ: $it" },
                         item.destinationAccount?.takeIf { it.isNotBlank() }?.let { "مقصد: $it" },
-                        item.balanceAmount?.let { "موجودی: $it تومان" },
+                        item.balanceAmount?.let { "موجودی: ${MoneyFormatter.formatExact(MoneyAmount.of(it, item.balanceAmountUnit ?: item.amountUnit))}" },
                         item.trackingCode?.takeIf { it.isNotBlank() }?.let { "پیگیری: $it" }
                     ).joinToString(" | ")
                     if (extractedDetails.isNotBlank()) {
@@ -1067,7 +1067,7 @@ fun EditSmsTransactionDialog(
     val validAmount = amountDecimal != null && amountDecimal.signum() > 0 && amountRials > 0L
     val amountOptions = remember(
         suggestion.id, suggestion.amount, suggestion.isAmountValid,
-        suggestion.balanceAmount, suggestion.amountCandidates
+        suggestion.balanceAmount, suggestion.balanceAmountUnit, suggestion.amountUnit, suggestion.amountCandidates
     ) {
         buildList {
             // Show every distinct grouped number extracted from the original SMS.
@@ -1079,10 +1079,11 @@ fun EditSmsTransactionDialog(
                     suggestion.amount -> "مبلغ پیشنهادی"
                     else -> "عدد گروه‌بندی‌شده"
                 }
-                add(MoneyAmount.of(candidate, suggestion.amountUnit).inUnit(appCurrency).value to label)
+                val candidateUnit = if (candidate == suggestion.balanceAmount) suggestion.balanceAmountUnit ?: suggestion.amountUnit else suggestion.amountUnit
+                add(MoneyAmount.of(candidate, candidateUnit).inUnit(appCurrency).value to label)
             }
             if (suggestion.isAmountValid && suggestion.amount > 0L) add(MoneyAmount.of(suggestion.amount, suggestion.amountUnit).inUnit(appCurrency).value to "مبلغ پیشنهادی")
-            suggestion.balanceAmount?.takeIf { it > 0L }?.let { add(MoneyAmount.of(it, suggestion.amountUnit).inUnit(appCurrency).value to "موجودی/مانده") }
+            suggestion.balanceAmount?.takeIf { it > 0L }?.let { add(MoneyAmount.of(it, suggestion.balanceAmountUnit ?: suggestion.amountUnit).inUnit(appCurrency).value to "موجودی/مانده") }
         }.distinctBy { it.first }
     }
     var category by remember(suggestion.id) { mutableStateOf(suggestion.category) }
