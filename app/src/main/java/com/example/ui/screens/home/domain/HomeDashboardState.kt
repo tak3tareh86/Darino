@@ -3,6 +3,7 @@ package com.example.ui.screens.home.domain
 import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.Color
 import com.example.ui.screens.home.components.BottomNavItem
+import com.example.ui.screens.settings.model.AppCurrency
 
 enum class ObligationType {
     INSTALLMENT,
@@ -15,6 +16,7 @@ data class UpcomingObligationItem(
     val id: String,
     val title: String,
     val amount: Long,
+    val amountUnit: AppCurrency = AppCurrency.TOMAN,
     val formattedAmount: String,
     val relativeDaysText: String,
     val dueDatePersian: String,
