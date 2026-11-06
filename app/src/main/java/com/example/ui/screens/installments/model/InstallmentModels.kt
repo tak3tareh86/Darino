@@ -19,6 +19,8 @@ import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
+import java.math.BigDecimal
+import java.math.RoundingMode
 import com.example.ui.screens.settings.model.AppCurrency
 
 enum class InstallmentCategory(
@@ -124,7 +126,12 @@ data class InstallmentItem(
         get() = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmount, amountUnit))
 
     val displayMonthlyPayment: String
-        get() = MoneyFormatter.formatExact(MoneyAmount.of(totalAmount / totalInstallments.coerceAtLeast(1), amountUnit))
+        get() {
+            val averageRials = MoneyAmount.of(totalAmount, amountUnit).asRials()
+                .divide(BigDecimal.valueOf(totalInstallments.coerceAtLeast(1).toLong()), 0, RoundingMode.HALF_UP)
+                .longValueExact()
+            return MoneyFormatter.formatExact(MoneyAmount.of(averageRials, AppCurrency.RIAL))
+        }
 }
 
 data class InstallmentSummaryData(
