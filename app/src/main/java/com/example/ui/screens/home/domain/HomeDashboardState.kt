@@ -16,7 +16,6 @@ data class UpcomingObligationItem(
     val id: String,
     val title: String,
     val amount: Long,
-    val amountUnit: AppCurrency = AppCurrency.TOMAN,
     val formattedAmount: String,
     val relativeDaysText: String,
     val dueDatePersian: String,
@@ -29,7 +28,8 @@ data class UpcomingObligationItem(
     val bankName: String = "",
     val totalInstallments: Int = 0,
     val remainingInstallments: Int = 0,
-    val scheduleItemId: String? = null
+    val scheduleItemId: String? = null,
+    val amountUnit: AppCurrency = AppCurrency.TOMAN
 )
 
 data class UpcomingReminderItem(
