@@ -60,6 +60,8 @@ import com.example.ui.theme.WarningAmberLight
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +81,7 @@ fun MaintenanceEntrySheet(
     ) -> Unit
 ) {
     var selectedType by remember { mutableStateOf(initialServiceType) }
-    var costInput by remember(MoneyFormatter.activeCurrency) { mutableStateOf(MoneyFormatter.formatTomanRaw(1_500_000L)) }
+    var costInput by remember(MoneyFormatter.activeCurrency) { mutableStateOf(IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(1_500_000L, AppCurrency.TOMAN).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString())) }
     var odometerInput by remember { mutableStateOf(currentOdometer.toString()) }
     var serviceCenterInput by remember { mutableStateOf("") }
     var partsInput by remember { mutableStateOf("") }
@@ -290,7 +292,7 @@ fun MaintenanceEntrySheet(
                 onClick = {
                     onSubmitMaintenance(
                         selectedType,
-                        MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(costInput)).toString(),
+                        IranianAmountUtils.parseAmountToBigDecimal(costInput)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }?.toString().orEmpty(),
                         odometerInput,
                         serviceCenterInput.ifBlank { "تعمیرگاه تخصصی" },
                         partsInput,
