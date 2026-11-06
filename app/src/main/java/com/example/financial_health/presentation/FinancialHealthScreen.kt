@@ -811,7 +811,7 @@ private fun NextMonthPredictionSectionCard(
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                 ) {
                     Text(
-                        text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) { if (!prediction.installmentsAmountRecorded || !prediction.fixedExpensesAmountRecorded) "مبالغ شناخته‌شده: ${MoneyFormatter.formatExact(MoneyAmount.of(prediction.total, AppCurrency.RIAL))}" else "مجموع مبالغ ثبت‌شده: ${MoneyFormatter.formatToman(prediction.total)}" } else "مبالغ آینده ثبت نشده",
+                        text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) { if (!prediction.installmentsAmountRecorded || !prediction.fixedExpensesAmountRecorded) "مبالغ شناخته‌شده: ${MoneyFormatter.formatExact(MoneyAmount.of(prediction.total, AppCurrency.RIAL))}" else "مجموع مبالغ ثبت‌شده: ${MoneyFormatter.formatExact(MoneyAmount.of(prediction.total, AppCurrency.RIAL))}" } else "مبالغ آینده ثبت نشده",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.5.sp,
@@ -900,7 +900,7 @@ private fun PredictionItemRow(
         }
 
         Text(
-            text = if (amountRecorded) MoneyFormatter.formatToman(amount) else unavailableText,
+            text = if (amountRecorded) MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.RIAL)) else unavailableText,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.5.sp
