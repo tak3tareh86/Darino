@@ -110,13 +110,19 @@ class BankSmsRepository(private val context: Context) {
                     val id = item.optString("id").takeIf { it.isNotBlank() } ?: continue
                     val type = item.optString("type").takeIf { it.isNotBlank() }
                         ?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() }
+                    // Old queue entries without a unit predate explicit-unit persistence and
+                    // are TOMAN by legacy contract. A present but unknown unit is rejected.
+                    val rawAmountUnit = if (item.has("amountUnit")) item.optString("amountUnit") else "TOMAN"
+                    val amountUnit = runCatching {
+                        com.example.ui.screens.settings.model.AppCurrency.valueOf(rawAmountUnit)
+                    }.getOrNull() ?: continue
                     add(
                         BankSmsSuggestion(
                             id = id,
                             patternId = item.optString("patternId"),
                             bankName = item.optString("bankName"),
                             amount = item.optLong("amount"),
-                            amountUnit = runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(item.optString("amountUnit", "TOMAN")) }.getOrDefault(com.example.ui.screens.settings.model.AppCurrency.TOMAN),
+                            amountUnit = amountUnit,
                             balanceAmountUnit = item.optString("balanceAmountUnit").takeIf { it.isNotBlank() }?.let { runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(it) }.getOrNull() },
                             formattedAmount = item.optString("formattedAmount"),
                             isAmountValid = item.optBoolean("isAmountValid"),
