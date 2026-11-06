@@ -13,6 +13,9 @@ import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.WarningAmberLight
+import com.example.ui.screens.settings.model.AppCurrency
+import com.example.util.MoneyAmount
+import com.example.util.MoneyFormatter
 
 enum class FinancialEventType(
     val title: String,
@@ -110,11 +113,12 @@ data class FinancialEvent(
     val isDueSoon: Boolean = false,
     val isOverdue: Boolean = false,
     val reminderLabel: String? = reminderBefore.takeUnless { it == ReminderBeforeOption.NONE || it == ReminderBeforeOption.CUSTOM }?.label,
-    val customReminderAt: Long? = null
+    val customReminderAt: Long? = null,
+    val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
     val formattedAmount: String?
         get() = amount?.let {
-            com.example.util.MoneyFormatter.formatToman(it)
+            MoneyFormatter.formatExact(MoneyAmount.of(it, amountUnit))
         }
 
     val displayDatePersian: String
