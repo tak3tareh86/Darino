@@ -77,14 +77,14 @@ class HomeDashboardRepository(
             if (!isCurrentMonth) continue
 
             when (tx.type) {
-                TransactionType.INCOME -> income += tx.amount
-                TransactionType.EXPENSE -> expense += tx.amount
+                TransactionType.INCOME -> income = Math.addExact(income, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
+                TransactionType.EXPENSE -> expense = Math.addExact(expense, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
                 TransactionType.TRANSFER -> {
                     // Transfers do not count towards income or expense
                 }
             }
         }
-        val balance = income - expense
+        val balance = Math.subtractExact(income, expense)
         return Triple(income, expense, balance)
     }
 
