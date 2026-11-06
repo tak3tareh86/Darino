@@ -113,13 +113,33 @@ object GenericBankSmsParser {
         // Preserve the exact numeric value found in the SMS. Currency labels never
         // change the extracted amount; both Rial and Toman messages keep their digits.
         val amountValue = amount
-        val amountUnit = if (Regex("""(?:ریال|ريال|rial|rials)""", RegexOption.IGNORE_CASE).containsMatchIn(normalized) && !Regex("""(?:تومان|تومن|toman|tomans)""", RegexOption.IGNORE_CASE).containsMatchIn(normalized)) AppCurrency.RIAL else AppCurrency.TOMAN
+        fun unitNear(match: MatchResult?, fallback: AppCurrency): AppCurrency {
+            if (match == null) return fallback
+            val context = normalized.substring(
+                (match.range.first - 24).coerceAtLeast(0),
+                (match.range.last + 25).coerceAtMost(normalized.length)
+            )
+            val hasRial = Regex("""(?:ریال|ريال|rial|rials)""", RegexOption.IGNORE_CASE).containsMatchIn(context)
+            val hasToman = Regex("""(?:تومان|تومن|toman|tomans)""", RegexOption.IGNORE_CASE).containsMatchIn(context)
+            return when {
+                hasRial && !hasToman -> AppCurrency.RIAL
+                hasToman && !hasRial -> AppCurrency.TOMAN
+                else -> fallback
+            }
+        }
+        val messageDefaultUnit = if (
+            Regex("""(?:ریال|ريال|rial|rials)""", RegexOption.IGNORE_CASE).containsMatchIn(normalized) &&
+            !Regex("""(?:تومان|تومن|toman|tomans)""", RegexOption.IGNORE_CASE).containsMatchIn(normalized)
+        ) AppCurrency.RIAL else AppCurrency.TOMAN
+        val amountUnit = unitNear(amountMatch, messageDefaultUnit)
         if (amountValue !in 1L..100_000_000_000_000L) return null
 
         val balanceMatch = balanceLabel.findAll(normalized).singleOrNull()
         val balanceRaw = balanceMatch?.let { parseDigits(it.groupValues[1]) }
-        // Balance values follow the same raw-number rule as transaction amounts.
+        // Balance values follow the same raw-number rule as transaction amounts,
+        // but may explicitly use a different unit in the same SMS.
         val balance = balanceRaw
+        val balanceAmountUnit = unitNear(balanceMatch, amountUnit)
 
         val bankName = forcedBankName?.takeIf { it.isNotBlank() } ?: identifyBank(normalized, sender)
         val receivedDateTime = PersianCalendarHelper.fromEpochMillis(timestampMillis)
@@ -191,7 +211,7 @@ object GenericBankSmsParser {
             timestampMillis = finalTimestamp,
             receivedAtMillis = timestampMillis,
             balanceAmount = balance,
-            balanceAmountUnit = amountUnit,
+            balanceAmountUnit = balanceAmountUnit,
             amountCandidates = (extractGroupedAmounts(body) + listOfNotNull(amountValue, balance)).distinct(),
             trackingCode = tracking
         )
