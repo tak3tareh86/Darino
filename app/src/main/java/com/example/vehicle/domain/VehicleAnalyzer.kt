@@ -11,6 +11,8 @@ import com.example.vehicle.data.VehicleServiceEntity
 import com.example.vehicle.data.VehicleTimelineEvent
 import com.example.util.IranianPhoneUtils
 import com.example.util.PersianCalendarHelper
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 /**
  * Health Status Level of a Vehicle
@@ -286,15 +288,15 @@ object VehicleAnalyzer {
         val currentMonthCost = carExpenses.filter { 
             val normalized = normalizeExpenseDate(it.date)
             normalized != null && normalized.startsWith(currentYearMonth)
-        }.sumOf { it.amount }
+        }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
         val yearlyCost = carExpenses.filter { 
             val normalized = normalizeExpenseDate(it.date)
             normalized != null && normalized.startsWith(currentYearStr)
         }.sumOf { it.amount }
 
-        val totalAll = carExpenses.sumOf { it.amount }
+        val totalAll = carExpenses.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
         val categoryTotals = VehicleExpenseCategory.values().map { cat ->
-            val total = carExpenses.filter { it.category == cat }.sumOf { it.amount }
+            val total = carExpenses.filter { it.category == cat }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
             val percentage = if (totalAll > 0) ((total.toDouble() / totalAll.toDouble()) * 100).toInt() else 0
             VehicleCostCategoryStat(cat, total, percentage)
         }.filter { it.amount > 0 }.sortedByDescending { it.amount }
@@ -321,11 +323,11 @@ object VehicleAnalyzer {
                 val normalized = normalizeExpenseDate(it.date)
                 normalized != null && normalized.startsWith(prefix)
             }
-            val fuel = monthExpenses.filter { it.category == VehicleExpenseCategory.FUEL }.sumOf { it.amount }
-            val repair = monthExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS || it.category == VehicleExpenseCategory.PARTS }.sumOf { it.amount }
-            val service = monthExpenses.filter { it.category == VehicleExpenseCategory.SERVICE }.sumOf { it.amount }
-            val insurance = monthExpenses.filter { it.category == VehicleExpenseCategory.INSURANCE }.sumOf { it.amount }
-            val total = monthExpenses.sumOf { it.amount }
+            val fuel = monthExpenses.filter { it.category == VehicleExpenseCategory.FUEL }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
+            val repair = monthExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS || it.category == VehicleExpenseCategory.PARTS }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
+            val service = monthExpenses.filter { it.category == VehicleExpenseCategory.SERVICE }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
+            val insurance = monthExpenses.filter { it.category == VehicleExpenseCategory.INSURANCE }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
+            val total = monthExpenses.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
             val name = monthNames.getOrElse(m - 1) { "ماه $m" }
 
             monthlyBars.add(
@@ -374,7 +376,8 @@ object VehicleAnalyzer {
                     subtitle = "سرویس در کیلومتر ${s.mileage}" + s.description.takeIf { it.isNotBlank() }?.let { " - $it" }.orEmpty(),
                     iconRes = s.serviceType.iconRes,
                     colorHex = 0xFF10B981,
-                    mileage = s.mileage
+                    mileage = s.mileage,
+                    amountUnit = s.costUnit
                 )
             )
         }
@@ -397,7 +400,8 @@ object VehicleAnalyzer {
                     subtitle = "${e.category.title} - ${e.description.ifEmpty { "هزینه جاری خودرو" }}",
                     iconRes = e.category.iconRes,
                     colorHex = e.category.colorHex,
-                    category = e.category
+                    category = e.category,
+                    amountUnit = e.amountUnit
                 )
             )
         }
@@ -412,7 +416,8 @@ object VehicleAnalyzer {
                     subtitle = "اعتبار تا ${ins.endDate} - شماره بیمه‌نامه: ${ins.policyNumber.ifBlank { "ثبت نشده" }}",
                     iconRes = R.drawable.img_3d_insurance,
                     colorHex = 0xFFF59E0B,
-                    company = ins.company
+                    company = ins.company,
+                    amountUnit = ins.amountUnit
                 )
             )
         }
@@ -427,7 +432,8 @@ object VehicleAnalyzer {
                     subtitle = "اعتبار تا ${inspection.expiryDate} - ${inspection.centerName.ifBlank { "مرکز ثبت نشده" }} - ${inspection.status.ifBlank { "وضعیت ثبت نشده" }}",
                     iconRes = R.drawable.img_3d_settings_gear,
                     colorHex = 0xFF0D9488,
-                    expiryDate = inspection.expiryDate
+                    expiryDate = inspection.expiryDate,
+                    amountUnit = inspection.costUnit
                 )
             )
         }
