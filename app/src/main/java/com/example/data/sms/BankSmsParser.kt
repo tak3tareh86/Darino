@@ -16,11 +16,42 @@ object BankSmsParser {
 
     private val groupedAmountRegex = Regex("""(?<!\d)[+-]?\d{1,3}(?:[,،٬٫.]\d{3})+(?![\d])""")
 
-    private fun findGroupedAmounts(body: String): List<Long> =
-        groupedAmountRegex.findAll(normalizeText(body))
-            .mapNotNull { parsePositiveNumber(it.value) }
-            .distinct()
-            .toList()
+    private val rialUnitRegex = Regex("""(?:ریال|ريال|rial|rials)""", RegexOption.IGNORE_CASE)
+    private val tomanUnitRegex = Regex("""(?:تومان|تومن|toman|tomans)""", RegexOption.IGNORE_CASE)
+
+    private fun currencyUnitNearMatch(
+        normalizedBody: String,
+        amountMatch: MatchResult,
+        fallback: AppCurrency
+    ): AppCurrency {
+        val nearbyUnits = buildList {
+            rialUnitRegex.findAll(normalizedBody).forEach { add(it to AppCurrency.RIAL) }
+            tomanUnitRegex.findAll(normalizedBody).forEach { add(it to AppCurrency.TOMAN) }
+        }
+        val closest = nearbyUnits.minByOrNull { (unitMatch, _) ->
+            when {
+                unitMatch.range.last < amountMatch.range.first -> amountMatch.range.first - unitMatch.range.last
+                unitMatch.range.first > amountMatch.range.last -> unitMatch.range.first - amountMatch.range.last
+                else -> 0
+            }
+        } ?: return fallback
+        val distance = when {
+            closest.first.range.last < amountMatch.range.first -> amountMatch.range.first - closest.first.range.last
+            closest.first.range.first > amountMatch.range.last -> closest.first.range.first - amountMatch.range.last
+            else -> 0
+        }
+        return if (distance <= 24) closest.second else fallback
+    }
+
+    private fun groupedAmountCandidates(
+        normalizedBody: String,
+        fallbackUnit: AppCurrency
+    ): List<Pair<Long, AppCurrency>> =
+        groupedAmountRegex.findAll(normalizedBody).mapNotNull { match ->
+            parsePositiveNumber(match.value)?.let { amount ->
+                amount to currencyUnitNearMatch(normalizedBody, match, fallbackUnit)
+            }
+        }.toList()
 
     fun normalizeText(input: String): String =
         IranianPhoneUtils.convertDigitsToEnglish(input)
@@ -70,6 +101,19 @@ object BankSmsParser {
                 fields.first(SmsPatternSlotKind.BALANCE_TOMAN) != null ->
                     parseNonNegativeNumber(fields.first(SmsPatternSlotKind.BALANCE_TOMAN))
                 else -> null
+            }
+            val balanceAmountUnit = when {
+                fields.first(SmsPatternSlotKind.BALANCE_RIAL) != null -> AppCurrency.RIAL
+                fields.first(SmsPatternSlotKind.BALANCE_TOMAN) != null -> AppCurrency.TOMAN
+                else -> null
+            }
+            val normalizedBody = normalizeText(body)
+            val amountCandidatePairs = buildList {
+                add(amountValue to amountUnit)
+                if (balanceAmount != null) add(balanceAmount to (balanceAmountUnit ?: amountUnit))
+                groupedAmountCandidates(normalizedBody, amountUnit).forEach { candidate ->
+                    if (none { it.first == candidate.first && it.second == candidate.second }) add(candidate)
+                }
             }
 
             val defaultDateTime = PersianCalendarHelper.fromEpochMillis(timestampMillis)
@@ -168,12 +212,9 @@ object BankSmsParser {
                 timestampMillis = finalTimestamp,
                 receivedAtMillis = timestampMillis,
                 balanceAmount = balanceAmount,
-                balanceAmountUnit = when {
-                    fields.first(SmsPatternSlotKind.BALANCE_RIAL) != null -> AppCurrency.RIAL
-                    fields.first(SmsPatternSlotKind.BALANCE_TOMAN) != null -> AppCurrency.TOMAN
-                    else -> null
-                },
-                amountCandidates = (findGroupedAmounts(body) + listOfNotNull(amountValue, balanceAmount)).distinct(),
+                balanceAmountUnit = balanceAmountUnit,
+                amountCandidates = amountCandidatePairs.map { it.first },
+                amountCandidateUnits = amountCandidatePairs.map { it.second },
                 trackingCode = fields.first(SmsPatternSlotKind.TRACKING)
                     ?.replace(Regex("""\s+"""), "")
             )
