@@ -1,5 +1,6 @@
 package com.example.util
 
+import java.math.BigDecimal
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -60,6 +61,42 @@ object IranianAmountUtils {
     fun parseAmountToLong(input: String): Long {
         val clean = cleanAmountDigits(input)
         return clean.toLongOrNull() ?: 0L
+    }
+
+    /**
+     * Parses a non-negative decimal amount without losing precision.
+     *
+     * Accepts Persian/Arabic/Latin digits, comma or Arabic thousands separators,
+     * and either "." or "٫" as the decimal separator. Commas are treated only
+     * as grouping separators; malformed or multiple decimal separators are rejected.
+     */
+    fun parseAmountToBigDecimal(input: String): BigDecimal? {
+        val normalizedDigits = IranianPhoneUtils.convertDigitsToEnglish(input)
+        val compact = normalizedDigits
+            .replace(",", "")
+            .replace("٬", "")
+            .replace(" ", "")
+            .replace("\u00A0", "")
+            .replace("٫", ".")
+        if (compact.isEmpty()) return null
+        if (compact.count { it == '.' } > 1) return null
+        if (compact.any { it != '.' && it !in '0'..'9' }) return null
+        if (compact == "." || compact.endsWith(".")) return null
+        val normalized = if (compact.startsWith(".")) "0$compact" else compact
+        return runCatching { BigDecimal(normalized) }.getOrNull()
+    }
+
+    /**
+     * Groups the integer part of a decimal amount while preserving every
+     * fractional digit and applying the active numeral display mode.
+     */
+    fun formatDecimalWithCommas(input: String): String {
+        val value = parseAmountToBigDecimal(input) ?: return ""
+        val plain = value.stripTrailingZeros().toPlainString()
+        val parts = plain.split('.', limit = 2)
+        val grouped = parts[0].reversed().chunked(3).joinToString(",").reversed()
+        val formatted = if (parts.size == 2) "$grouped.${parts[1]}" else grouped
+        return AppNumberFormatter.formatDigits(formatted, AppNumberFormatter.currentMode)
     }
 
     /**
