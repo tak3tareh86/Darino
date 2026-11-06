@@ -39,6 +39,31 @@ class MoneyAmountTest {
     }
 
     @Test
+    fun decimalParserPreservesFractionalToman() {
+        val parsed = IranianAmountUtils.parseAmountToBigDecimal("۱۲۳٫۴")
+        assertEquals(0, BigDecimal("123.4").compareTo(parsed))
+    }
+
+    @Test
+    fun decimalParserAcceptsGroupedEnglishInput() {
+        val parsed = IranianAmountUtils.parseAmountToBigDecimal("1,234.50")
+        assertEquals(0, BigDecimal("1234.50").compareTo(parsed))
+    }
+
+    @Test
+    fun decimalParserRejectsMalformedValues() {
+        assertEquals(null, IranianAmountUtils.parseAmountToBigDecimal("1.2.3"))
+        assertEquals(null, IranianAmountUtils.parseAmountToBigDecimal("۱۲۳٫"))
+    }
+
+    @Test
+    fun decimalFormatterPreservesFractionalDigits() {
+        assertEquals("۱۲۳,۴۵۶٫۷", IranianPhoneUtils.convertDigitsToPersian(
+            IranianAmountUtils.formatDecimalWithCommas("123456.7").replace(".", "٫")
+        ))
+    }
+
+    @Test
     fun bothUnitsIdentifySameIsoCurrency() {
         assertEquals("IRR", MoneyAmount.of(1L, AppCurrency.TOMAN).iso4217Code)
         assertEquals("IRR", MoneyAmount.of(1L, AppCurrency.RIAL).iso4217Code)
