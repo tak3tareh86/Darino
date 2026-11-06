@@ -200,8 +200,8 @@ fun TransactionsScreen(
         when (selectedSortOption) {
             TransactionSortOption.NEWEST -> filtered.sortedByDescending { it.dateMillis }
             TransactionSortOption.OLDEST -> filtered.sortedBy { it.dateMillis }
-            TransactionSortOption.HIGHEST_AMOUNT -> filtered.sortedByDescending { it.amount }
-            TransactionSortOption.LOWEST_AMOUNT -> filtered.sortedBy { it.amount }
+            TransactionSortOption.HIGHEST_AMOUNT -> filtered.sortedByDescending { MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact() }
+            TransactionSortOption.LOWEST_AMOUNT -> filtered.sortedBy { MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact() }
         }
     }
 
