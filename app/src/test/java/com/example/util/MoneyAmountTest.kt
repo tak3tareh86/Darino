@@ -57,6 +57,25 @@ class MoneyAmountTest {
     fun decimalParserRejectsMalformedValues() {
         assertEquals(null, IranianAmountUtils.parseAmountToBigDecimal("1.2.3"))
         assertEquals(null, IranianAmountUtils.parseAmountToBigDecimal("۱۲۳٫"))
+        assertEquals(null, IranianAmountUtils.parseAmountToBigDecimal("1,2"))
+        assertEquals(null, IranianAmountUtils.parseAmountToBigDecimal("12,34"))
+        assertEquals(null, IranianAmountUtils.parseAmountToBigDecimal("1,234,56"))
+        assertEquals(null, IranianAmountUtils.parseAmountToBigDecimal("1,234 567"))
+        assertEquals(null, IranianAmountUtils.parseAmountToBigDecimal("12abc"))
+    }
+
+    @Test
+    fun decimalParserAcceptsPersianDigitsAndArabicGrouping() {
+        val parsed = IranianAmountUtils.parseAmountToBigDecimal("۱٬۲۳۴٫۵")
+        assertNotNull(parsed)
+        assertEquals(0, BigDecimal("1234.5").compareTo(parsed!!))
+    }
+
+    @Test
+    fun decimalParserAcceptsProperSpaceGrouping() {
+        val parsed = IranianAmountUtils.parseAmountToBigDecimal("1 234 567.8")
+        assertNotNull(parsed)
+        assertEquals(0, BigDecimal("1234567.8").compareTo(parsed!!))
     }
 
     @Test
