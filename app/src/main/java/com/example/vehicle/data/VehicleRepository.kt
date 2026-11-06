@@ -223,7 +223,7 @@ class VehicleRepository {
                             vin = v.vin,
                             currentMileage = v.currentMileage,
                             estimatedValue = v.estimatedValue,
-                            estimatedValueUnit = runCatching { AppCurrency.valueOf(v.estimatedValueUnit) }.getOrDefault(AppCurrency.TOMAN),
+                            estimatedValueUnit = AppCurrency.valueOf(v.estimatedValueUnit),
                             createdAt = v.updatedAt,
                             engine = v.engine,
                             transmission = v.transmission
@@ -260,7 +260,7 @@ class VehicleRepository {
                             date = realServiceDate,
                             mileage = s.serviceMileage ?: 0,
                             cost = realCost,
-                            costUnit = runCatching { AppCurrency.valueOf(s.costUnit) }.getOrDefault(AppCurrency.TOMAN),
+                            costUnit = AppCurrency.valueOf(s.costUnit),
                             description = cleanDescription,
                             nextReminderDate = realNextReminderDate,
                             nextReminderMileage = s.dueMileage,
@@ -281,7 +281,7 @@ class VehicleRepository {
                             title = e.title,
                             category = try { VehicleExpenseCategory.valueOf(e.category) } catch (ex: Exception) { VehicleExpenseCategory.OTHER },
                             amount = e.amount,
-                            amountUnit = runCatching { AppCurrency.valueOf(e.amountUnit) }.getOrDefault(AppCurrency.TOMAN),
+                            amountUnit = AppCurrency.valueOf(e.amountUnit),
                             date = e.date,
                             description = e.description,
                             receiptImageUri = e.receiptImageUri
@@ -303,7 +303,7 @@ class VehicleRepository {
                             startDate = ins.startDate,
                             endDate = ins.endDate,
                             amount = ins.amount,
-                            amountUnit = runCatching { AppCurrency.valueOf(ins.amountUnit) }.getOrDefault(AppCurrency.TOMAN),
+                            amountUnit = AppCurrency.valueOf(ins.amountUnit),
                             policyNumber = ins.policyNumber,
                             reminderDays = if (reminder?.notificationEnabled == true && reminder.status == "ACTIVE") {
                                 ins.reminderDays.split(",").mapNotNull { it.toIntOrNull() }
@@ -335,7 +335,7 @@ class VehicleRepository {
                             lastInspectionDate = insp.lastInspectionDate,
                             expiryDate = insp.expiryDate,
                             cost = insp.cost,
-                            costUnit = runCatching { AppCurrency.valueOf(insp.costUnit) }.getOrDefault(AppCurrency.TOMAN),
+                            costUnit = AppCurrency.valueOf(insp.costUnit),
                             status = insp.status,
                             centerName = insp.centerName,
                             reminderEnabled = reminder?.notificationEnabled == true && reminder.status == "ACTIVE",
