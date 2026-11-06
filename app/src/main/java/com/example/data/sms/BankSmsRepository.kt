@@ -134,9 +134,11 @@ class BankSmsRepository(private val context: Context) {
                             }.getOrNull()
                         }
                     }
-                    if (parsedCandidateUnits != null &&
+                    if (!parsedCandidateUnits.isNullOrEmpty() &&
                         (parsedCandidateUnits.size != amountCandidates.size || parsedCandidateUnits.any { it == null })
                     ) continue
+                    // Empty candidate-unit arrays are legacy data; the UI then uses the
+                    // suggestion's validated primary unit for those candidates.
                     val amountCandidateUnits = parsedCandidateUnits?.filterNotNull() ?: emptyList()
                     add(
                         BankSmsSuggestion(
