@@ -76,15 +76,15 @@ fun VehicleExpenseInsightsSection(
     val annualMax = annualTotals.maxOfOrNull { it.second }?.coerceAtLeast(1L) ?: 1L
     val annualCount = datedExpenses.count { it.second.year == annualYear }
 
-    val firstTotal = datedExpenses.filter { it.second.year == firstYear && it.second.month == firstMonth }.sumOf { it.first.amount }
-    val secondTotal = datedExpenses.filter { it.second.year == secondYear && it.second.month == secondMonth }.sumOf { it.first.amount }
+    val firstTotal = datedExpenses.filter { it.second.year == firstYear && it.second.month == firstMonth }.fold(0L) { total, pair -> Math.addExact(total, MoneyAmount.of(pair.first.amount, pair.first.amountUnit).asRialsLongExact()) }
+    val secondTotal = datedExpenses.filter { it.second.year == secondYear && it.second.month == secondMonth }.fold(0L) { total, pair -> Math.addExact(total, MoneyAmount.of(pair.first.amount, pair.first.amountUnit).asRialsLongExact()) }
     val firstCount = datedExpenses.count { it.second.year == firstYear && it.second.month == firstMonth }
     val secondCount = datedExpenses.count { it.second.year == secondYear && it.second.month == secondMonth }
     val categoryComparison = remember(datedExpenses, firstYear, firstMonth, secondYear, secondMonth) {
         VehicleExpenseCategory.values().map { category ->
             val firstAmount = datedExpenses.filter {
                 it.first.category == category && it.second.year == firstYear && it.second.month == firstMonth
-            }.sumOf { it.first.amount }
+            }.fold(0L) { total, pair -> Math.addExact(total, MoneyAmount.of(pair.first.amount, pair.first.amountUnit).asRialsLongExact()) }
             val secondAmount = datedExpenses.filter {
                 it.first.category == category && it.second.year == secondYear && it.second.month == secondMonth
             }.sumOf { it.first.amount }
