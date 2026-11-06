@@ -36,6 +36,8 @@ import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
+import java.math.BigDecimal
+import java.math.RoundingMode
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 import java.text.DecimalFormat
@@ -472,7 +474,7 @@ private fun FinancialCommitmentsBreakdownCard(
                     decimalFormat = decimalFormat,
                     color = Color(0xFF3B82F6),
                     icon = Icons.Rounded.ReceiptLong,
-                    percentageText = if (state.hasInstallmentScheduleData && state.monthlyIncome > 0L) "${formatFinancialPercentage(((state.totalInstallments.toDouble() / state.monthlyIncome) * 100).toFloat())}٪ از درآمد" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "برنامه بعضی اقساط ناقص است",
+                    percentageText = if (state.hasInstallmentScheduleData && state.monthlyIncome > 0L) "${formatFinancialAmountRatio(state.totalInstallments, state.monthlyIncome)}٪ از درآمد" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "برنامه بعضی اقساط ناقص است",
                     amountLabelOverride = if (state.hasInstallmentScheduleData) null else if (state.activeInstallmentsCount == 0) MoneyFormatter.formatExact(MoneyAmount.of(0L, AppCurrency.RIAL)) else "اطلاعات ناقص"
                 )
 
@@ -482,7 +484,7 @@ private fun FinancialCommitmentsBreakdownCard(
                     decimalFormat = decimalFormat,
                     color = Color(0xFF8B5CF6),
                     icon = Icons.Rounded.HomeWork,
-                    percentageText = if (state.hasFixedExpensesData && state.monthlyIncome > 0L) "${formatFinancialPercentage(((state.fixedExpenses.toDouble() / state.monthlyIncome) * 100).toFloat())}٪ از درآمد" else "هزینه ثابت ثبت نشده",
+                    percentageText = if (state.hasFixedExpensesData && state.monthlyIncome > 0L) "${formatFinancialAmountRatio(state.fixedExpenses, state.monthlyIncome)}٪ از درآمد" else "هزینه ثابت ثبت نشده",
                     amountLabelOverride = if (state.hasFixedExpensesData) null else "ثبت نشده"
                 )
 
@@ -975,6 +977,15 @@ private fun SmartAlertsSection(state: FinancialHealthState) {
     }
 }
 
+
+private fun formatFinancialAmountRatio(amount: Long, total: Long): String {
+    if (total <= 0L) return "۰"
+    val percentage = BigDecimal.valueOf(amount).multiply(BigDecimal("100"))
+        .divide(BigDecimal.valueOf(total), 1, RoundingMode.HALF_UP)
+        .stripTrailingZeros()
+        .toPlainString()
+    return MoneyFormatter.toPersianDigits(percentage)
+}
 
 private fun formatFinancialPercentage(value: Float): String =
     IranianPhoneUtils.convertDigitsToPersian(DecimalFormat("0.#").format(value))
