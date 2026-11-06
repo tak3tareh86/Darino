@@ -1077,9 +1077,9 @@ fun EditSmsTransactionDialog(
                 if (candidate <= 0L) return@forEachIndexed
                 val candidateUnit = suggestion.amountCandidateUnits.getOrNull(candidateIndex)
                     ?: if (candidate == suggestion.balanceAmount) suggestion.balanceAmountUnit ?: suggestion.amountUnit else suggestion.amountUnit
-                val label = when (candidate) {
-                    suggestion.balanceAmount -> "موجودی/مانده"
-                    suggestion.amount -> "مبلغ پیشنهادی"
+                val label = when {
+                    candidate == suggestion.amount && candidateUnit == suggestion.amountUnit -> "مبلغ پیشنهادی"
+                    candidate == suggestion.balanceAmount && candidateUnit == (suggestion.balanceAmountUnit ?: suggestion.amountUnit) -> "موجودی/مانده"
                     else -> "عدد گروه‌بندی‌شده"
                 }
                 add(MoneyAmount.of(candidate, candidateUnit).inUnit(appCurrency).value to label)
