@@ -415,6 +415,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     freshlyParsed.dateText != item.dateText ||
                     freshlyParsed.timeText != item.timeText ||
                     freshlyParsed.balanceAmount != item.balanceAmount ||
+                    freshlyParsed.balanceAmountUnit != item.balanceAmountUnit ||
                     freshlyParsed.trackingCode != item.trackingCode ||
                     freshlyParsed.bankName != item.bankName
                 ) {
