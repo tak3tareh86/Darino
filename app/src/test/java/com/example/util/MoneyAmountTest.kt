@@ -5,6 +5,7 @@ import java.math.BigDecimal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MoneyAmountTest {
@@ -123,6 +124,13 @@ class MoneyAmountTest {
         assertThrows(IllegalArgumentException::class.java) {
             MoneyAmount(BigDecimal("0.1"), AppCurrency.RIAL)
         }
+    }
+
+    @Test
+    fun amountToPersianWordsHandlesMinimumLongWithoutOverflow() {
+        val words = IranianAmountUtils.amountToPersianWords(Long.MIN_VALUE, "ریال")
+        assertTrue(words.startsWith("منفی "))
+        assertTrue(words.endsWith(" ریال"))
     }
 
     @Test
