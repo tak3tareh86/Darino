@@ -215,22 +215,21 @@ object MoneyFormatter {
 
         return when {
             abs >= BigDecimal.valueOf(1_000_000_000L) -> {
-                val b = abs.divide(BigDecimal.valueOf(1_000_000_000L), 1, RoundingMode.HALF_UP).toDouble()
-                val formatted = String.format(Locale.US, "%.1f", b).trimEnd('0').trimEnd('.')
+                val formatted = abs.divide(BigDecimal.valueOf(1_000_000_000L), 1, RoundingMode.HALF_UP)
+                    .stripTrailingZeros().toPlainString()
                 val num = AppNumberFormatter.formatDigits(formatted, activeNumberMode)
                 val suffix = if (language == AppLanguage.ENGLISH) "B" else "میلیارد"
                 "$sign$num $suffix $unitShort"
             }
             abs >= BigDecimal.valueOf(1_000_000L) -> {
-                val m = abs.divide(BigDecimal.valueOf(1_000_000L), 1, RoundingMode.HALF_UP).toDouble()
-                val formatted = String.format(Locale.US, "%.1f", m).trimEnd('0').trimEnd('.')
+                val formatted = abs.divide(BigDecimal.valueOf(1_000_000L), 1, RoundingMode.HALF_UP)
+                    .stripTrailingZeros().toPlainString()
                 val num = AppNumberFormatter.formatDigits(formatted, activeNumberMode)
                 val suffix = if (language == AppLanguage.ENGLISH) "M" else "م"
                 "$sign$num $suffix $unitShort"
             }
             abs >= BigDecimal.valueOf(1_000L) -> {
-                val k = abs.divide(BigDecimal.valueOf(1_000L), 1, RoundingMode.HALF_UP).toDouble()
-                val formatted = String.format(Locale.US, "%.0f", k)
+                val formatted = abs.divide(BigDecimal.valueOf(1_000L), 0, RoundingMode.HALF_UP).toPlainString()
                 val num = AppNumberFormatter.formatDigits(formatted, activeNumberMode)
                 val suffix = if (language == AppLanguage.ENGLISH) "K" else "هـ"
                 "$sign$num $suffix $unitShort"
