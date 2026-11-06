@@ -40,6 +40,22 @@ class MoneyAmountTest {
     }
 
     @Test
+    fun exactRialStorageConversionDoesNotRoundOrOverflow() {
+        assertEquals(1234L, MoneyAmount(BigDecimal("123.4"), AppCurrency.TOMAN).asRialsLongExact())
+        assertThrows(ArithmeticException::class.java) {
+            MoneyAmount.of(Long.MAX_VALUE, AppCurrency.TOMAN).asRialsLongExact()
+        }
+    }
+
+    @Test
+    fun comparisonPreservesValueAcrossDifferentUnits() {
+        assertEquals(0, MoneyAmount.of(10L, AppCurrency.TOMAN)
+            .compareValue(MoneyAmount.of(100L, AppCurrency.RIAL)))
+        assertEquals(-1, MoneyAmount.of(99L, AppCurrency.RIAL)
+            .compareValue(MoneyAmount.of(10L, AppCurrency.TOMAN)))
+    }
+
+    @Test
     fun decimalParserPreservesFractionalToman() {
         val parsed = IranianAmountUtils.parseAmountToBigDecimal("۱۲۳٫۴")
         assertNotNull(parsed)
