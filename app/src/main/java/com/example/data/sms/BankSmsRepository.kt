@@ -117,6 +117,7 @@ class BankSmsRepository(private val context: Context) {
                             bankName = item.optString("bankName"),
                             amount = item.optLong("amount"),
                             amountUnit = runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(item.optString("amountUnit", "TOMAN")) }.getOrDefault(com.example.ui.screens.settings.model.AppCurrency.TOMAN),
+                            balanceAmountUnit = item.optString("balanceAmountUnit").takeIf { it.isNotBlank() }?.let { runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(it) }.getOrNull() },
                             formattedAmount = item.optString("formattedAmount"),
                             isAmountValid = item.optBoolean("isAmountValid"),
                             type = type,
@@ -180,6 +181,7 @@ class BankSmsRepository(private val context: Context) {
                     .put("bankName", suggestion.bankName)
                     .put("amount", suggestion.amount)
                     .put("amountUnit", suggestion.amountUnit.name)
+                    .put("balanceAmountUnit", suggestion.balanceAmountUnit?.name ?: "")
                     .put("formattedAmount", suggestion.formattedAmount)
                     .put("isAmountValid", suggestion.isAmountValid)
                     .put("type", suggestion.type?.name ?: JSONObject.NULL)
