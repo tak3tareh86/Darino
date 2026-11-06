@@ -5,6 +5,7 @@ import com.example.ui.screens.home.domain.BankSmsSuggestion
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import com.example.util.PersianCalendarHelper
 
 /**
@@ -195,10 +196,11 @@ object UserRuleSmsAmountParser {
             .find(normalized)?.groupValues?.get(1)
             ?: String.format("%02d:%02d", dateTime.hour, dateTime.minute)
         val date = String.format("%04d/%02d/%02d", dateTime.year, dateTime.month, dateTime.day)
+        val formattedValue = if (amountIsValid) MoneyFormatter.formatExact(MoneyAmount.of(amountValue, amountUnit)) else ""
         val formatted = if (!amountIsValid) "" else when (type) {
-            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountValue, isExpense = true, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
-            TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountValue, isExpense = false, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
-            TransactionType.TRANSFER, null -> MoneyFormatter.formatToman(amountValue, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
+            TransactionType.EXPENSE -> "−$formattedValue"
+            TransactionType.INCOME -> "+$formattedValue"
+            TransactionType.TRANSFER, null -> formattedValue
         }
 
         return BankSmsSuggestion(
