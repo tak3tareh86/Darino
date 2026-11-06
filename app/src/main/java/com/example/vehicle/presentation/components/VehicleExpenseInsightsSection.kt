@@ -26,7 +26,6 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import com.example.ui.screens.settings.model.AppCurrency
 import java.text.NumberFormat
-import java.util.Locale
 import kotlin.math.abs
 
 private val expenseMonthNames = listOf(
