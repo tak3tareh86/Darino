@@ -23,8 +23,13 @@ data class FinancialCalendarState(
 
     val formattedMonthlyTotal: String
         get() {
-            val formatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(monthlyTotal)
-            return com.example.util.IranianPhoneUtils.convertDigitsToPersian(formatted) + " تومان"
+            return com.example.util.MoneyFormatter.formatExact(
+                com.example.util.MoneyAmount.of(
+                    monthlyTotal,
+                    com.example.ui.screens.settings.model.AppCurrency.RIAL
+                ),
+                targetCurrency = com.example.ui.screens.settings.model.AppCurrency.TOMAN
+            )
         }
 
     val formattedEventCount: String
