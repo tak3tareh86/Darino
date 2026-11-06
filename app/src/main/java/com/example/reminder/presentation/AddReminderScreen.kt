@@ -46,6 +46,8 @@ import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.IranianAmountUtils
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.IranianDateUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.PersianCalendarHelper
@@ -155,7 +157,12 @@ fun AddReminderScreen(
             status = "ACTIVE",
             date = date.trim(),
             time = time.trim(),
-            amount = IranianAmountUtils.parseAmountToLong(amountText),
+            amount = amountText.takeIf { it.isNotBlank() }?.let { raw ->
+                IranianAmountUtils.parseAmountToBigDecimal(raw)?.let { entered ->
+                    runCatching { MoneyAmount(entered, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull()
+                }
+            },
+            amountUnit = AppCurrency.RIAL.name,
             targetKilometer = targetKmText.toLongOrNull(),
             notificationEnabled = offsetsToSave.isNotEmpty(),
             fullScreenAlarmEnabled = false
