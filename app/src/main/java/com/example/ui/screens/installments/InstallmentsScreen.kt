@@ -381,13 +381,10 @@ fun InstallmentsScreen(
                     onCreateInstallment = { cat, title, total, monthly, count ->
                         addInitialCategory = cat
                         prefillTitle = title
-                        val rawTotalToman = com.example.util.IranianAmountUtils.parseAmountToLong(total)
-                        val rawMonthlyToman = com.example.util.IranianAmountUtils.parseAmountToLong(monthly)
-                        val activeCurrency = com.example.util.MoneyFormatter.activeCurrency
-                        val displayTotal = MoneyAmount.of(rawTotalToman, AppCurrency.TOMAN).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()
-                        val displayMonthly = MoneyAmount.of(rawMonthlyToman, AppCurrency.TOMAN).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()
-                        prefillTotal = com.example.util.IranianAmountUtils.formatDecimalWithCommas(displayTotal)
-                        prefillMonthly = com.example.util.IranianAmountUtils.formatDecimalWithCommas(displayMonthly)
+                        val totalValue = com.example.util.IranianAmountUtils.parseAmountToBigDecimal(total)
+                        val monthlyValue = com.example.util.IranianAmountUtils.parseAmountToBigDecimal(monthly)
+                        prefillTotal = totalValue?.let { com.example.util.IranianAmountUtils.formatDecimalWithCommas(it.stripTrailingZeros().toPlainString()) }.orEmpty()
+                        prefillMonthly = monthlyValue?.let { com.example.util.IranianAmountUtils.formatDecimalWithCommas(it.stripTrailingZeros().toPlainString()) }.orEmpty()
                         prefillCount = count.toString()
                         showAddSheet = true
                     }
