@@ -353,6 +353,8 @@ fun VehicleProfileScreen(
                         PersianAmountInputField(
                             value = estimatedValueText,
                             onValueChange = { estimatedValueText = it },
+                            allowDecimalInput = true,
+                            onRawDecimalAmountChange = { rawValue, _ -> estimatedValueText = rawValue },
                             label = "ارزش تقریبی",
                             placeholder = "مبلغ را وارد کنید",
                             showWordsPreview = false,
