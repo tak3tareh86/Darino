@@ -27,6 +27,7 @@ import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleExpenseCategory
 
@@ -160,8 +161,11 @@ fun AddVehicleExpenseSheet(
                 PersianAmountInputField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = "مبلغ هزینه",
+                    allowDecimalInput = true,
+                    onRawDecimalAmountChange = { rawValue, _ -> amountText = rawValue },
+                    label = "مبلغ هزینه (${MoneyFormatter.getUnitLabel()})",
                     placeholder = "مبلغ را وارد کنید",
+                    unitLabel = MoneyFormatter.getUnitLabel(),
                     showWordsPreview = false,
                     modifier = Modifier.weight(1.2f),
                     testTag = "expense_amount_input"
@@ -191,7 +195,7 @@ fun AddVehicleExpenseSheet(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        val amount = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(amountText))
+                        val amount = IranianAmountUtils.parseAmountToBigDecimal(amountText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
                         onAddExpense(title, selectedCategory, amount, date, description)
                     }
                 },
