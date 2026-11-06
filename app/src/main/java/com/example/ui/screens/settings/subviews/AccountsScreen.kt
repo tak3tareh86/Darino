@@ -175,9 +175,9 @@ fun AccountsScreen(
                                 }
                             } else if (tx.type == com.example.ui.screens.finance.model.TransactionType.TRANSFER) {
                                 if (tx.transferSourceAccountId == acc.id) {
-                                    balance -= tx.amount
+                                    balance = Math.subtractExact(balance, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
                                 } else if (tx.transferDestinationAccountId == acc.id) {
-                                    balance += tx.amount
+                                    balance = Math.addExact(balance, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
                                 }
                             }
                         }
