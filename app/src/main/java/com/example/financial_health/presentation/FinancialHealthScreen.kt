@@ -35,6 +35,8 @@ import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 import java.text.DecimalFormat
 
@@ -471,7 +473,7 @@ private fun FinancialCommitmentsBreakdownCard(
                     color = Color(0xFF3B82F6),
                     icon = Icons.Rounded.ReceiptLong,
                     percentageText = if (state.hasInstallmentScheduleData && state.monthlyIncome > 0L) "${formatFinancialPercentage(((state.totalInstallments.toDouble() / state.monthlyIncome) * 100).toFloat())}٪ از درآمد" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "برنامه بعضی اقساط ناقص است",
-                    amountLabelOverride = if (state.hasInstallmentScheduleData) null else if (state.activeInstallmentsCount == 0) MoneyFormatter.formatToman(0L) else "اطلاعات ناقص"
+                    amountLabelOverride = if (state.hasInstallmentScheduleData) null else if (state.activeInstallmentsCount == 0) MoneyFormatter.formatExact(MoneyAmount.of(0L) else "اطلاعات ناقص"
                 )
 
                 CommitmentRowItem(
