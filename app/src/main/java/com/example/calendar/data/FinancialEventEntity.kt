@@ -1,5 +1,6 @@
 package com.example.calendar.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import com.example.calendar.domain.model.FinancialEvent
 import com.example.calendar.domain.model.FinancialEventStatus
@@ -26,7 +27,7 @@ data class FinancialEventEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val status: String = "PENDING",
     val customReminderAt: Long? = null,
-    val amountUnit: String = "TOMAN"
+    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN"
 ) {
     fun toDomain(): FinancialEvent {
         return FinancialEvent(

@@ -12,6 +12,8 @@ import com.example.data.security.SessionState
 import com.example.ui.screens.installments.model.*
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -159,6 +161,7 @@ class LocalInstallmentRepository private constructor() {
 
                     val duplicateNumbers = payments.groupingBy { it.installmentNumber }.eachCount().filterValues { it > 1 }
                     require(duplicateNumbers.isEmpty()) { "Duplicate installment schedule rows in DB: ${entity.id}" }
+                    require(payments.all { it.amountUnit == entity.amountUnit }) { "Installment and payment currency units differ: ${entity.id}" }
                     val paidPayments = payments.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
                     val paidAmount = paidPayments.sumOf { it.amount }
                     require(paidAmount <= entity.amount) { "Paid amount exceeds contract amount in DB: ${entity.id}" }
@@ -192,13 +195,14 @@ class LocalInstallmentRepository private constructor() {
                         category = cat,
                         providerOrPerson = entity.providerName,
                         totalAmount = entity.amount,
-                        totalAmountFormatted = MoneyFormatter.formatToman(entity.amount),
+                        amountUnit = runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN),
+                        totalAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(entity.amount, runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN))),
                         paidAmount = paidAmount,
                         amountUnit = runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN),
-                        paidAmountFormatted = MoneyFormatter.formatToman(paidAmount),
+                        paidAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(paidAmount, runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN))),
                         remainingAmount = remainingAmount,
-                        remainingAmountFormatted = MoneyFormatter.formatToman(remainingAmount),
-                        monthlyPaymentFormatted = MoneyFormatter.formatToman(monthly),
+                        remainingAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmount, runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN))),
+                        monthlyPaymentFormatted = MoneyFormatter.formatExact(MoneyAmount.of(monthly, runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN))),
                         totalInstallments = entity.totalInstallments,
                         remainingInstallments = remainingInstallmentsCount,
                         nextPaymentDate = effectiveNextPaymentDate,
@@ -256,8 +260,8 @@ class LocalInstallmentRepository private constructor() {
             activeCount = activeItems.size,
             paidAmount = totalPaid,
             remainingAmount = totalRemaining,
-            paidAmountFormatted = MoneyFormatter.formatToman(totalPaid),
-            remainingAmountFormatted = MoneyFormatter.formatToman(totalRemaining),
+            paidAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(totalPaid, AppCurrency.RIAL)),
+            remainingAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(totalRemaining, AppCurrency.RIAL)),
             nextDueText = nearestItem?.nextDueDaysText ?: "-",
             nextDueTitle = nearestItem?.title ?: "-"
         )
@@ -266,22 +270,22 @@ class LocalInstallmentRepository private constructor() {
             CategorySummaryStat(
                 InstallmentCategory.BANK_LOANS,
                 "${_bankLoans.value.count { it.remainingInstallments > 0 }} مورد",
-                MoneyFormatter.formatToman(_bankLoans.value.sumOf { it.remainingAmount })
+                MoneyFormatter.formatExact(MoneyAmount.of(_bankLoans.value.fold(0L) { total, item -> Math.addExact(total, MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }, AppCurrency.RIAL))
             ),
             CategorySummaryStat(
                 InstallmentCategory.HOME_LOANS,
                 "${_homeLoans.value.count { it.remainingInstallments > 0 }} مورد",
-                MoneyFormatter.formatToman(_homeLoans.value.sumOf { it.remainingAmount })
+                MoneyFormatter.formatExact(MoneyAmount.of(_homeLoans.value.fold(0L) { total, item -> Math.addExact(total, MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }, AppCurrency.RIAL))
             ),
             CategorySummaryStat(
                 InstallmentCategory.CAR_INSURANCE,
                 "${_carInsurance.value.count { it.remainingInstallments > 0 }} مورد",
-                MoneyFormatter.formatToman(_carInsurance.value.sumOf { it.remainingAmount })
+                MoneyFormatter.formatExact(MoneyAmount.of(_carInsurance.value.fold(0L) { total, item -> Math.addExact(total, MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }, AppCurrency.RIAL))
             ),
             CategorySummaryStat(
                 InstallmentCategory.MISC,
                 "${_miscInstallments.value.count { it.remainingInstallments > 0 }} مورد",
-                MoneyFormatter.formatToman(_miscInstallments.value.sumOf { it.remainingAmount })
+                MoneyFormatter.formatExact(MoneyAmount.of(_miscInstallments.value.fold(0L) { total, item -> Math.addExact(total, MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }, AppCurrency.RIAL))
             )
         )
     }
@@ -409,6 +413,7 @@ class LocalInstallmentRepository private constructor() {
                     if (financialTransaction.userId != userId ||
                         financialTransaction.amount <= 0L ||
                         financialTransaction.amount != target.amount ||
+                        financialTransaction.amountUnit != target.amountUnit.name ||
                         financialTransaction.type != "EXPENSE" ||
                         financialTransaction.sourceType != "INSTALLMENT" ||
                         financialTransaction.sourceId != installmentId) {
@@ -471,9 +476,9 @@ class LocalInstallmentRepository private constructor() {
 
                 val updatedItem = item.copy(
                     paidAmount = actualPaidAmount,
-                    paidAmountFormatted = MoneyFormatter.formatToman(actualPaidAmount),
+                    paidAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(actualPaidAmount, item.amountUnit)),
                     remainingAmount = actualRemainingAmount,
-                    remainingAmountFormatted = MoneyFormatter.formatToman(actualRemainingAmount),
+                    remainingAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(actualRemainingAmount, item.amountUnit)),
                     remainingInstallments = remainingCount,
                     status = newStatus,
                     nextPaymentDate = nextPaymentDateStr,
@@ -858,6 +863,7 @@ class LocalInstallmentRepository private constructor() {
         // Verify business identity
         val matchesBusinessIdentity = existingTx.userId == userId &&
                 existingTx.amount == financialTransaction.amount &&
+                existingTx.amountUnit == financialTransaction.amountUnit &&
                 existingTx.type == financialTransaction.type &&
                 existingTx.sourceType == financialTransaction.sourceType &&
                 existingTx.sourceId == financialTransaction.sourceId &&

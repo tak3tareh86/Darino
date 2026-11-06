@@ -1,5 +1,6 @@
 package com.example.loan.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.loan.domain.DurationType
@@ -20,7 +21,7 @@ data class LoanCalculationEntity(
     val totalInterest: Long,
     val realCostPercentage: Double,
     val createdAt: Long = System.currentTimeMillis(),
-    val amountUnit: String = "TOMAN"
+    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN"
 ) {
     fun toDomainModel(): LoanCalculation {
         val type = try {
@@ -46,7 +47,7 @@ data class LoanCalculationEntity(
             totalInterest = totalInterest,
             realCostPercentage = realCostPercentage,
             createdAt = createdAt,
-            amountUnit = amountUnit
+            amountUnit = runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(amountUnit) }.getOrDefault(com.example.ui.screens.settings.model.AppCurrency.TOMAN)
         )
     }
 
@@ -65,7 +66,7 @@ data class LoanCalculationEntity(
                 totalInterest = domain.totalInterest,
                 realCostPercentage = domain.realCostPercentage,
                 createdAt = domain.createdAt,
-                amountUnit = domain.amountUnit
+                amountUnit = domain.amountUnit.name
             )
         }
     }

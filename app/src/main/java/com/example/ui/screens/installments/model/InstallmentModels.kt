@@ -134,13 +134,14 @@ data class InstallmentSummaryData(
     val paidAmountFormatted: String = "۰ تومان",
     val remainingAmountFormatted: String = "۰ تومان",
     val nextDueText: String = "-",
-    val nextDueTitle: String = "-"
+    val nextDueTitle: String = "-",
+    val amountUnit: AppCurrency = AppCurrency.RIAL
 ) {
     val displayPaid: String
-        get() = MoneyFormatter.formatToman(paidAmount)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(paidAmount, amountUnit))
 
     val displayRemaining: String
-        get() = MoneyFormatter.formatToman(remainingAmount)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmount, amountUnit))
 }
 
 data class CategorySummaryStat(
