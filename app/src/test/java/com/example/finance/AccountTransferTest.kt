@@ -7,6 +7,7 @@ import com.example.data.security.SessionManager
 import com.example.ui.screens.finance.data.LocalFinanceRepository
 import com.example.ui.screens.finance.data.TransactionOperationResult
 import com.example.ui.screens.finance.model.*
+import com.example.ui.screens.settings.model.AppCurrency
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -480,4 +481,42 @@ class AccountTransferTest {
         val balance = repository.calculateAccountBalance("acc_period")
         assertEquals(1_700_000L, balance)
     }
+    @Test
+    fun `Transfer - mixed Rial and Toman values produce exact account balances`() = runBlocking {
+        val source = Account(
+            id = "mixed_src",
+            userId = userA,
+            name = "مبدأ",
+            type = AccountType.CARD,
+            initialBalance = 1_000_000L,
+            initialBalanceUnit = AppCurrency.RIAL
+        )
+        val destination = Account(
+            id = "mixed_dest",
+            userId = userA,
+            name = "مقصد",
+            type = AccountType.CARD,
+            initialBalance = 500_000L,
+            initialBalanceUnit = AppCurrency.RIAL
+        )
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addAccountResult(source))
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addAccountResult(destination))
+
+        val transfer = TransactionItemData(
+            id = "mixed_transfer",
+            title = "انتقال تومانی",
+            amount = 30_000L,
+            amountUnit = AppCurrency.TOMAN,
+            type = TransactionType.TRANSFER,
+            category = FinanceDefaultCategories.defaultExpenseCategories.first(),
+            datePersian = "امروز",
+            timePersian = "12:00",
+            transferSourceAccountId = source.id,
+            transferDestinationAccountId = destination.id
+        )
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(transfer))
+        assertEquals(700_000L, repository.calculateAccountBalance(source.id))
+        assertEquals(800_000L, repository.calculateAccountBalance(destination.id))
+    }
+
 }
