@@ -289,6 +289,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                 sourceType = suggestion.sourceType ?: "MANUAL",
                 sourceId = suggestion.sourceId,
                 amount = suggestion.amount,
+                amountUnit = suggestion.amountUnit.name,
                 date = suggestion.defaultDate,
                 time = suggestion.defaultTime,
                 targetKilometer = suggestion.targetKilometer,
