@@ -1,5 +1,7 @@
 package com.example.reminder.domain
 
+import com.example.ui.screens.settings.model.AppCurrency
+
 import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.Color
 import com.example.R
@@ -160,6 +162,7 @@ data class SmartSuggestion(
     val defaultDate: String,
     val defaultTime: String = "۰۹:۰۰",
     val amount: Long? = null,
+    val amountUnit: AppCurrency = AppCurrency.TOMAN,
     val sourceType: String? = null,
     val sourceId: String? = null,
     val targetKilometer: Long? = null
