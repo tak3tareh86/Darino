@@ -1073,8 +1073,8 @@ fun EditSmsTransactionDialog(
             // Show every distinct grouped number extracted from the original SMS.
             // The user chooses the transaction amount; do not silently preselect
             // a guessed value when the message contains multiple candidates.
-            suggestion.amountCandidates.filter { it > 0L }.forEach { candidate ->
-                val candidateIndex = suggestion.amountCandidates.indexOf(candidate)
+            suggestion.amountCandidates.forEachIndexed { candidateIndex, candidate ->
+                if (candidate <= 0L) return@forEachIndexed
                 val candidateUnit = suggestion.amountCandidateUnits.getOrNull(candidateIndex)
                     ?: if (candidate == suggestion.balanceAmount) suggestion.balanceAmountUnit ?: suggestion.amountUnit else suggestion.amountUnit
                 val label = when (candidate) {
