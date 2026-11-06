@@ -222,10 +222,7 @@ object GenericBankSmsParser {
                 val values = groupedValues.toMutableList()
                 if (amountValue !in groupedValues) values.add(amountValue)
                 if (balance != null && balance !in groupedValues &&
-                    !(balance == amountValue && balanceAmountUnit == amountUnit)
-                ) values.add(balance)
-                if (balance == amountValue && balance != null &&
-                    balanceAmountUnit != amountUnit && balance !in groupedValues
+                    (balance != amountValue || balanceAmountUnit != amountUnit)
                 ) values.add(balance)
                 values
             },
@@ -236,10 +233,9 @@ object GenericBankSmsParser {
                 val units = candidateMatches.map { match -> unitNear(match, messageDefaultUnit) }.toMutableList()
                 val groupedValues = extractGroupedAmounts(body)
                 if (amountValue !in groupedValues) units.add(amountUnit)
-                if (balance != null && balance !in groupedValues && balance != amountValue) units.add(balanceAmountUnit)
-                if (balance != null && balance == amountValue && balance !in groupedValues && balanceAmountUnit != amountUnit) {
-                    units.add(balanceAmountUnit)
-                }
+                if (balance != null && balance !in groupedValues &&
+                    (balance != amountValue || balanceAmountUnit != amountUnit)
+                ) units.add(balanceAmountUnit)
                 units
             },
             trackingCode = tracking
