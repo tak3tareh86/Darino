@@ -2,6 +2,7 @@ package com.example.data.sms
 
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.domain.BankSmsSuggestion
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
@@ -188,6 +189,7 @@ object UserRuleSmsAmountParser {
         val amount = extracted.transactionAmount ?: extractAmountLegacy(normalized)
         val amountIsValid = amount != null
         val amountValue = amount ?: 0L
+        val amountUnit = when { rialRegex.containsMatchIn(normalized) && !tomanRegex.containsMatchIn(normalized) -> AppCurrency.RIAL; else -> AppCurrency.TOMAN }
         val dateTime = PersianCalendarHelper.fromEpochMillis(receivedAtMillis)
         val time = Regex("""(?<![0-9])([0-2]?[0-9]:[0-5][0-9])""")
             .find(normalized)?.groupValues?.get(1)
@@ -204,6 +206,7 @@ object UserRuleSmsAmountParser {
             patternId = "user-rule:" + rule.id,
             bankName = rule.bankName,
             amount = amountValue,
+            amountUnit = amountUnit,
             formattedAmount = formatted,
             isAmountValid = amountIsValid,
             type = type,
