@@ -77,6 +77,11 @@ fun VehicleProfileScreen(
         mutableStateOf(if (vehicle.estimatedValue > 0) MoneyAmount.of(vehicle.estimatedValue, vehicle.estimatedValueUnit).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString() else "")
     }
     var currentMileageText by remember(vehicle) { mutableStateOf(vehicle.currentMileage.toString()) }
+    val parsedEstimatedValueRials = estimatedValueText.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() >= 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val estimatedValueInputInvalid = estimatedValueText.isNotBlank() && parsedEstimatedValueRials == null
     val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
 
     Scaffold(
@@ -357,14 +362,18 @@ fun VehicleProfileScreen(
                         )
                     }
 
+                    if (estimatedValueInputInvalid) {
+                        Text("ارزش تقریبی خودرو معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
                     Button(
                         onClick = {
-                            val estVal = IranianAmountUtils.parseAmountToBigDecimal(estimatedValueText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
+                        val estVal = parsedEstimatedValueRials ?: 0L
                             val km = IranianPhoneUtils.convertDigitsToEnglish(currentMileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onUpdateMileage(km)
                             onSaveSpecs(brand, model, year, color, plate, vin, estVal)
                             onBack()
                         },
+                        enabled = !estimatedValueInputInvalid,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp)
