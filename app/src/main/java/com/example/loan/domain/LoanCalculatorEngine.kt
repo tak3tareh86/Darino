@@ -3,6 +3,7 @@ package com.example.loan.domain
 import kotlin.math.pow
 import kotlin.math.roundToLong
 import com.example.ui.screens.settings.model.AppCurrency
+import com.example.util.MoneyAmount
 
 /**
  * Mathematical estimates for common repayment models.
@@ -134,8 +135,8 @@ class LoanCalculatorEngine {
     )
 
     fun compareLoans(loan1Input: ComparisonLoanInput, loan2Input: ComparisonLoanInput): ComparisonResult {
-        val result1 = calculate(loan1Input.amount, loan1Input.interestRate, duration = loan1Input.durationMonths, method = loan1Input.method)
-        val result2 = calculate(loan2Input.amount, loan2Input.interestRate, duration = loan2Input.durationMonths, method = loan2Input.method)
+        val result1 = calculate(MoneyAmount.of(loan1Input.amount, loan1Input.amountUnit).asRialsLongExact(), loan1Input.interestRate, duration = loan1Input.durationMonths, method = loan1Input.method, amountUnit = AppCurrency.RIAL)
+        val result2 = calculate(MoneyAmount.of(loan2Input.amount, loan2Input.amountUnit).asRialsLongExact(), loan2Input.interestRate, duration = loan2Input.durationMonths, method = loan2Input.method, amountUnit = AppCurrency.RIAL)
         return ComparisonResult(
             loan1 = result1,
             loan2 = result2,
