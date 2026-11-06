@@ -159,19 +159,19 @@ data class Budget(
     val categoryId: String? = null,
     val categoryTitle: String? = null,
     val amount: Long,
-    val amountUnit: AppCurrency = AppCurrency.TOMAN,
     val period: String = "این ماه",
     val startDate: String = "",
     val endDate: String = "",
     val spentAmount: Long = 0L,
-    val spentAmountUnit: AppCurrency = AppCurrency.RIAL,
     val remainingAmount: Long = 0L,
-    val remainingAmountUnit: AppCurrency = AppCurrency.RIAL,
     val usagePercentage: Int = 0,
     val status: BudgetStatus = BudgetStatus.SAFE,
     val isEnabled: Boolean = true,
     val enabled: Boolean = isEnabled,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val amountUnit: AppCurrency = AppCurrency.TOMAN,
+    val spentAmountUnit: AppCurrency = AppCurrency.RIAL,
+    val remainingAmountUnit: AppCurrency = AppCurrency.RIAL
 ) {
     val formattedAmount: String
         get() = MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit))
@@ -186,13 +186,13 @@ data class SavingsGoal(
     val title: String,
     val targetAmount: Long,
     val currentAmount: Long,
-    val amountUnit: AppCurrency = AppCurrency.TOMAN,
     val targetDate: String,
     val description: String = "",
     val status: SavingsGoalStatus = SavingsGoalStatus.IN_PROGRESS,
     val progressPercentage: Int = 0,
     val iconEmoji: String = "🎯",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
     val formattedTarget: String
         get() = MoneyFormatter.formatExact(MoneyAmount.of(targetAmount, amountUnit))
