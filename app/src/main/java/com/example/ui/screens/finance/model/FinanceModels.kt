@@ -200,13 +200,7 @@ data class SavingsGoal(
     val formattedCurrent: String
         get() = MoneyFormatter.formatExact(MoneyAmount.of(currentAmount, amountUnit))
     val formattedRemaining: String
-        get() {
-            val remaining = java.math.BigInteger.valueOf(targetAmount)
-                .subtract(java.math.BigInteger.valueOf(currentAmount))
-                .max(java.math.BigInteger.ZERO)
-                .longValueExact()
-            return MoneyFormatter.formatExact(MoneyAmount.of(remaining, amountUnit))
-        }
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(kotlin.math.max(0L, Math.subtractExact(targetAmount, currentAmount)), amountUnit))
 }
 
 data class FinancialState(
