@@ -626,7 +626,8 @@ class LocalInstallmentRepository private constructor() {
                 title = item.title,
                 amount = reminderAmount,
                 dueDatePersian = nextPayment?.dueDate ?: item.nextPaymentDate,
-                paymentDueDates = unpaidPayments.map { it.id to it.dueDate }
+                paymentDueDates = unpaidPayments.map { it.id to it.dueDate },
+                amountUnit = item.amountUnit
             )
         }.onFailure { error ->
             android.util.Log.e(
