@@ -74,6 +74,16 @@ class MoneyAmountTest {
     }
 
     @Test
+    fun valuesCannotRepresentFractionsSmallerThanOneRial() {
+        assertThrows(IllegalArgumentException::class.java) {
+            MoneyAmount(BigDecimal("0.01"), AppCurrency.TOMAN)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            MoneyAmount(BigDecimal("0.1"), AppCurrency.RIAL)
+        }
+    }
+
+    @Test
     fun bothUnitsIdentifySameIsoCurrency() {
         assertEquals("IRR", MoneyAmount.of(1L, AppCurrency.TOMAN).iso4217Code)
         assertEquals("IRR", MoneyAmount.of(1L, AppCurrency.RIAL).iso4217Code)
