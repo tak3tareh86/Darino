@@ -23,6 +23,7 @@ import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.VehicleTimelineEvent
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -84,7 +85,7 @@ private fun TimelineItemRow(
     event: VehicleTimelineEvent,
     isLast: Boolean
 ) {
-    val amountFormatted = MoneyFormatter.formatToman(event.amount)
+    val amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(event.amount, event.amountUnit))
     val eventColor = Color(event.colorHex)
 
     Row(
