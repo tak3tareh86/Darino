@@ -6,6 +6,7 @@ import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.util.MoneyAmount
 import com.example.ui.screens.settings.model.AppCurrency
+import java.math.BigInteger
 
 /**
  * Budget Calculation Engine.
@@ -34,7 +35,7 @@ object BudgetEngine {
         val usagePercent: Int = if (budgetInRials <= 0L) {
             if (spent > 0L) 100 else 0
         } else {
-            ((spent * 100L) / budgetInRials).toInt()
+            BigInteger.valueOf(spent).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(budgetInRials)).toInt()
         }
 
         val status = determineBudgetStatus(spent, budgetInRials)
@@ -62,8 +63,8 @@ object BudgetEngine {
         if (spentAmount >= totalBudget) {
             return BudgetStatus.EXCEEDED
         }
-        val percent = (spentAmount * 100L) / totalBudget
-        return if (percent >= 75L) {
+        val percent = BigInteger.valueOf(spentAmount).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(totalBudget))
+        return if (percent >= BigInteger.valueOf(75L)) {
             BudgetStatus.WARNING
         } else {
             BudgetStatus.SAFE
@@ -89,14 +90,14 @@ object BudgetEngine {
                 tx.type == TransactionType.EXPENSE && 
                 activeBudgetCategoryIds.contains(tx.categoryId)
             }
-            .sumOf { MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact() }
+            .fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()) }
             
-        val remaining = totalBudget - totalSpent
+        val remaining = Math.subtractExact(totalBudget, totalSpent)
 
         val usagePercentage = if (totalBudget <= 0L) {
             if (totalSpent > 0L) 100 else 0
         } else {
-            ((totalSpent * 100L) / totalBudget).toInt()
+            BigInteger.valueOf(totalSpent).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(totalBudget)).toInt()
         }
 
         val status = determineBudgetStatus(totalSpent, totalBudget)

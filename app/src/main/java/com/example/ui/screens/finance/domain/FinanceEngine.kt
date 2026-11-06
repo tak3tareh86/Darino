@@ -6,6 +6,7 @@ import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.util.MoneyAmount
 import com.example.ui.screens.settings.model.AppCurrency
+import java.math.BigInteger
 
 /**
  * Pure Domain calculation engine for Finance module.
@@ -43,7 +44,7 @@ object FinanceEngine {
      * Calculates net balance (Income - Expense).
      */
     fun calculateMonthlyBalance(income: Long, expense: Long): Long {
-        return income - expense
+        return Math.subtractExact(income, expense)
     }
 
     /**
@@ -56,9 +57,10 @@ object FinanceEngine {
         if (expense >= income) return 0
         if (expense <= 0L) return 100
 
-        val saved = income - expense
-        val rate = (saved * 100L) / income
-        return rate.toInt().coerceIn(0, 100)
+        val saved = Math.subtractExact(income, expense)
+        val rate = BigInteger.valueOf(saved).multiply(BigInteger.valueOf(100L))
+            .divide(BigInteger.valueOf(income)).toInt()
+        return rate.coerceIn(0, 100)
     }
 
     /**
@@ -96,15 +98,16 @@ object FinanceEngine {
             return if (currentAmount >= 0L) 100 else 0
         }
         if (currentAmount <= 0L) return 0
-        val percent = (currentAmount * 100L) / targetAmount
-        return percent.toInt().coerceIn(0, 100)
+        val percent = BigInteger.valueOf(currentAmount).multiply(BigInteger.valueOf(100L))
+            .divide(BigInteger.valueOf(targetAmount)).toInt()
+        return percent.coerceIn(0, 100)
     }
 
     /**
      * Calculates remaining amount for a savings goal.
      */
     fun calculateSavingsGoalRemaining(goal: SavingsGoal): Long {
-        val remaining = goal.targetAmount - goal.currentAmount
+        val remaining = Math.subtractExact(goal.targetAmount, goal.currentAmount)
         return if (remaining > 0L) remaining else 0L
     }
 }
