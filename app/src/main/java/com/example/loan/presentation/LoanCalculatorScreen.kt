@@ -223,7 +223,7 @@ fun LoanCalculatorScreen(
                             val totalFormatted = res?.let { MoneyFormatter.formatExact(MoneyAmount.of(it.totalPayment, AppCurrency.RIAL), includeUnit = false) }
                                 ?: MoneyFormatter.formatExact(MoneyAmount.of(state.amount, AppCurrency.RIAL), includeUnit = false)
                             val monthlyFormatted = res?.let { MoneyFormatter.formatExact(MoneyAmount.of(it.monthlyPayment, AppCurrency.RIAL), includeUnit = false) }.orEmpty()
-                            val title = "${state.loanType.title} (${CalculationResult.formatMoney(state.amount)})"
+                            val title = "${state.loanType.title} (${CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)})"
 
                             onCreateInstallment(cat, title, totalFormatted, monthlyFormatted, durationMonths)
                         }
