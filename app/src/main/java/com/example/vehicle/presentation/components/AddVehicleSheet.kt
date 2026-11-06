@@ -797,9 +797,12 @@ fun AddVehicleSheet(
             PersianAmountInputField(
                 value = estimatedValueText,
                 onValueChange = { estimatedValueText = it },
-                label = "ارزش تقریبی خودرو (اختیاری)",
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> estimatedValueText = rawValue },
+                label = "ارزش تقریبی خودرو (${MoneyFormatter.getUnitLabel()}) - اختیاری",
                 placeholder = "مبلغ را وارد کنید",
-                showWordsPreview = true,
+                unitLabel = MoneyFormatter.getUnitLabel(),
+                showWordsPreview = false,
                 testTag = "vehicle_estimated_value_input"
             )
 
