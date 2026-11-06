@@ -64,6 +64,7 @@ class UserRuleSmsAmountParserTest {
         assertNotNull(parsed)
         assertEquals(AppCurrency.RIAL, parsed?.amountUnit)
         assertEquals(AppCurrency.TOMAN, parsed?.balanceAmountUnit)
+        assertEquals(listOf(AppCurrency.RIAL, AppCurrency.TOMAN), parsed?.amountCandidateUnits)
     }
 
     @Test
