@@ -1,6 +1,7 @@
 package com.example.reminder.data
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 import java.util.UUID
 
@@ -23,6 +24,7 @@ data class ReminderEntity(
     val smsEnabled: Boolean = false,
     val phoneNumber: String? = null,
     val amount: Long? = null,
+    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
     val targetKilometer: Long? = null,
     val currentKilometer: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
