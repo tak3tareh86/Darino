@@ -299,7 +299,7 @@ fun VehicleInsuranceSheet(
                             }
                             showNoReminderConfirmation = true
                         } else {
-                            onSaveInspection(lastInspectionDate, inspectionExpiryDate, MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(inspectionCostText)), inspectionStatus, centerName, inspectionReminderEnabled, inspectionReminderTime, inspectionReminderDays.sortedDescending(), editingInspection?.id)
+                            onSaveInspection(lastInspectionDate, inspectionExpiryDate, IranianAmountUtils.parseAmountToBigDecimal(inspectionCostText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L, inspectionStatus, centerName, inspectionReminderEnabled, inspectionReminderTime, inspectionReminderDays.sortedDescending(), editingInspection?.id)
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_inspection_btn"),
