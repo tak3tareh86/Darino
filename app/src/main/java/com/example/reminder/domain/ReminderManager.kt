@@ -624,7 +624,8 @@ class ReminderManager(
         title: String,
         amount: Long,
         dueDatePersian: String,
-        paymentDueDates: List<Pair<String, String>>
+        paymentDueDates: List<Pair<String, String>>,
+        amountUnit: AppCurrency = AppCurrency.TOMAN
     ): Int = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(installmentId)
             ?: return@withContext 0
@@ -648,7 +649,8 @@ class ReminderManager(
             title = title,
             amount = amount,
             dueDatePersian = dueDatePersian,
-            paymentDueDates = paymentDueDates
+            paymentDueDates = paymentDueDates,
+            amountUnit = amountUnit
         )
     }
 
