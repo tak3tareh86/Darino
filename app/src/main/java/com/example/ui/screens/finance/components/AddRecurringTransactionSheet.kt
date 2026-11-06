@@ -55,6 +55,7 @@ import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import com.example.util.PersianCalendarHelper
 import java.util.UUID
 
@@ -77,7 +78,7 @@ fun AddRecurringTransactionSheet(
     val currencyUnit = MoneyFormatter.getUnitLabel(currency = activeCurrency)
     var rawAmount by remember {
         mutableStateOf(
-            initialItem?.amount?.let { MoneyFormatter.convertFromToman(it, activeCurrency).toString() } ?: ""
+            initialItem?.let { MoneyAmount.of(it.amount, it.amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString() } ?: ""
         )
     }
     var selectedType by remember { mutableStateOf(initialItem?.type ?: TransactionType.EXPENSE) }
@@ -105,7 +106,7 @@ fun AddRecurringTransactionSheet(
         )
     }
 
-    val parsedAmount = IranianAmountUtils.parseAmountToLong(rawAmount)
+    val parsedAmountRials = IranianAmountUtils.parseAmountToBigDecimal(rawAmount)?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -298,11 +299,12 @@ fun AddRecurringTransactionSheet(
             PersianAmountInputField(
                 value = rawAmount,
                 onValueChange = { rawAmount = it },
-                onRawAmountChange = { rawDigits, _ -> rawAmount = rawDigits },
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> rawAmount = rawValue },
                 label = "مبلغ هر دوره ($currencyUnit)",
                 placeholder = "مبلغ را وارد کنید",
                 unitLabel = currencyUnit,
-                showWordsPreview = true,
+                showWordsPreview = false,
                 testTag = "recurring_amount_input"
             )
 
@@ -326,7 +328,7 @@ fun AddRecurringTransactionSheet(
                         errorMessage = "لطفاً عنوان را وارد کنید."
                         return@Button
                     }
-                    if (parsedAmount <= 0L) {
+                    if (parsedAmountRials == null || parsedAmountRials <= 0L) {
                         errorMessage = "مبلغ باید بیشتر از صفر باشد."
                         return@Button
                     }
@@ -334,7 +336,8 @@ fun AddRecurringTransactionSheet(
                     val rec = RecurringTransaction(
                         id = initialItem?.id ?: UUID.randomUUID().toString(),
                         title = title,
-                        amount = MoneyFormatter.convertToToman(parsedAmount, activeCurrency),
+                        amount = parsedAmountRials,
+                        amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL,
                         type = selectedType,
                         categoryId = selectedCategory.id,
                         categoryTitle = selectedCategory.title,

@@ -82,7 +82,7 @@ object FinanceEngine {
         var total = 0L
         for (item in recurring) {
             if (item.enabled) {
-                total += item.amount
+                total = Math.addExact(total, MoneyAmount.of(item.amount, item.amountUnit).asRialsLongExact())
             }
         }
         return total

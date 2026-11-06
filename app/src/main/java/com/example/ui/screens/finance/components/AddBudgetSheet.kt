@@ -51,6 +51,7 @@ import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,7 +70,7 @@ fun AddBudgetSheet(
     val currencyUnit = MoneyFormatter.getUnitLabel(currency = activeCurrency)
     var rawAmount by remember {
         mutableStateOf(
-            initialBudget?.amount?.let { MoneyFormatter.convertFromToman(it, activeCurrency).toString() } ?: ""
+            initialBudget?.let { MoneyAmount.of(it.amount, it.amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString() } ?: ""
         )
     }
     var selectedCategoryId by remember { mutableStateOf<String?>(initialBudget?.categoryId) }
@@ -77,7 +78,7 @@ fun AddBudgetSheet(
     var isEnabled by remember { mutableStateOf(initialBudget?.isEnabled ?: true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val parsedAmount = IranianAmountUtils.parseAmountToLong(rawAmount)
+    val parsedAmountRials = IranianAmountUtils.parseAmountToBigDecimal(rawAmount)?.let { entered -> runCatching { MoneyAmount(entered, activeCurrency).asRialsLongExact() }.getOrNull() }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -212,11 +213,12 @@ fun AddBudgetSheet(
             PersianAmountInputField(
                 value = rawAmount,
                 onValueChange = { rawAmount = it },
-                onRawAmountChange = { rawDigits, _ -> rawAmount = rawDigits },
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> rawAmount = rawValue },
                 label = "مبلغ سقف بودجه ($currencyUnit)",
                 placeholder = "مبلغ را وارد کنید",
                 unitLabel = currencyUnit,
-                showWordsPreview = true,
+                showWordsPreview = false,
                 testTag = "budget_amount_input"
             )
 
@@ -265,7 +267,7 @@ fun AddBudgetSheet(
 
             Button(
                 onClick = {
-                    if (parsedAmount <= 0L) {
+                    if (parsedAmountRials == null || parsedAmountRials <= 0L) {
                         errorMessage = "مبلغ بودجه باید بزرگتر از صفر باشد."
                         return@Button
                     }
@@ -275,7 +277,8 @@ fun AddBudgetSheet(
                         title = title.ifBlank { catTitle ?: "بودجه این ماه" },
                         categoryId = selectedCategoryId,
                         categoryTitle = catTitle,
-                        amount = MoneyFormatter.convertToToman(parsedAmount, activeCurrency),
+                        amount = parsedAmountRials,
+                        amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL,
                         period = period,
                         isEnabled = isEnabled,
                         enabled = isEnabled

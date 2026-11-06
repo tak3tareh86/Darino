@@ -28,7 +28,7 @@ object BudgetEngine {
             }
             .sumOf { MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact() }
 
-        val budgetInRials = MoneyAmount.of(budget.amount, AppCurrency.TOMAN).asRialsLongExact()
+        val budgetInRials = MoneyAmount.of(budget.amount, budget.amountUnit).asRialsLongExact()
         val remaining = budgetInRials - spent
 
         val usagePercent: Int = if (budgetInRials <= 0L) {
@@ -79,7 +79,7 @@ object BudgetEngine {
         transactions: List<TransactionItemData>
     ): OverallBudgetSummary {
         val activeBudgets = budgets.filter { it.isEnabled }
-        val totalBudget = activeBudgets.sumOf { MoneyAmount.of(it.amount, AppCurrency.TOMAN).asRialsLongExact() }
+        val totalBudget = activeBudgets.sumOf { MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact() }
         
         // Only count expenses that belong to one of the active budget categories
         val activeBudgetCategoryIds = activeBudgets.mapNotNull { it.categoryId }.toSet()

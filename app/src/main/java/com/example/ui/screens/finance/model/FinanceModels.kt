@@ -144,12 +144,13 @@ data class RecurringTransaction(
     val paymentMethod: PaymentMethod = PaymentMethod.BANK_CARD,
     val accountName: String = "کارت بانکی",
     val accountId: String? = null,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
     val formattedAmount: String
-        get() = MoneyFormatter.formatToman(amount)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit))
     val amountFormatted: String
-        get() = MoneyFormatter.formatToman(amount)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit))
 }
 
 data class Budget(
@@ -158,6 +159,7 @@ data class Budget(
     val categoryId: String? = null,
     val categoryTitle: String? = null,
     val amount: Long,
+    val amountUnit: AppCurrency = AppCurrency.TOMAN,
     val period: String = "این ماه",
     val startDate: String = "",
     val endDate: String = "",
@@ -172,7 +174,7 @@ data class Budget(
     val createdAt: Long = System.currentTimeMillis()
 ) {
     val formattedAmount: String
-        get() = MoneyFormatter.formatToman(amount)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit))
     val formattedSpent: String
         get() = MoneyFormatter.formatExact(MoneyAmount.of(spentAmount, spentAmountUnit))
     val formattedRemaining: String
@@ -184,6 +186,7 @@ data class SavingsGoal(
     val title: String,
     val targetAmount: Long,
     val currentAmount: Long,
+    val amountUnit: AppCurrency = AppCurrency.TOMAN,
     val targetDate: String,
     val description: String = "",
     val status: SavingsGoalStatus = SavingsGoalStatus.IN_PROGRESS,
@@ -192,11 +195,11 @@ data class SavingsGoal(
     val createdAt: Long = System.currentTimeMillis()
 ) {
     val formattedTarget: String
-        get() = MoneyFormatter.formatToman(targetAmount)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(targetAmount, amountUnit))
     val formattedCurrent: String
-        get() = MoneyFormatter.formatToman(currentAmount)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(currentAmount, amountUnit))
     val formattedRemaining: String
-        get() = MoneyFormatter.formatToman(kotlin.math.max(0L, targetAmount - currentAmount))
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(kotlin.math.max(0L, targetAmount - currentAmount), amountUnit))
 }
 
 data class FinancialState(
