@@ -68,6 +68,26 @@ class UserRuleSmsAmountParserTest {
     }
 
     @Test
+    fun keepsUnitsDistinctWhenTransactionAndBalanceHaveTheSameNumber() {
+        val parsed = UserRuleSmsAmountParser.parse(
+            smsId = "sms-same-amount-different-units",
+            sender = "30001234",
+            body = "برداشت ۱٬۲۳۴ ریال از حساب؛ مانده ۱٬۲۳۴ تومان",
+            receivedAtMillis = 1_700_000_000_000L,
+            rule = rule,
+            type = TransactionType.EXPENSE
+        )
+
+        assertNotNull(parsed)
+        assertEquals(1_234L, parsed?.amount)
+        assertEquals(1_234L, parsed?.balanceAmount)
+        assertEquals(AppCurrency.RIAL, parsed?.amountUnit)
+        assertEquals(AppCurrency.TOMAN, parsed?.balanceAmountUnit)
+        assertEquals(listOf(1_234L, 1_234L), parsed?.amountCandidates)
+        assertEquals(listOf(AppCurrency.RIAL, AppCurrency.TOMAN), parsed?.amountCandidateUnits)
+    }
+
+    @Test
     fun exposesAllGroupedAmountsWhenMessageContainsMoreThanTwo() {
         val parsed = UserRuleSmsAmountParser.parse(
             smsId = "sms-3",
