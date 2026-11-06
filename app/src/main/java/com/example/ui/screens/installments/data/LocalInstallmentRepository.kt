@@ -151,11 +151,11 @@ class LocalInstallmentRepository private constructor() {
                             installmentNumber = p.installmentNumber,
                             dueDate = dueStr,
                             paidDate = paidStr,
-                            amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(p.amount, runCatching { AppCurrency.valueOf(p.amountUnit) }.getOrDefault(AppCurrency.TOMAN))),
+                            amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(p.amount, AppCurrency.valueOf(p.amountUnit))),
                             status = pStatus,
                             note = p.notes,
                             amount = p.amount,
-                            amountUnit = runCatching { AppCurrency.valueOf(p.amountUnit) }.getOrDefault(AppCurrency.TOMAN)
+                            amountUnit = AppCurrency.valueOf(p.amountUnit)
                         )
                     }.sortedBy { it.installmentNumber }
 
@@ -195,13 +195,13 @@ class LocalInstallmentRepository private constructor() {
                         category = cat,
                         providerOrPerson = entity.providerName,
                         totalAmount = entity.amount,
-                        totalAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(entity.amount, runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN))),
+                        totalAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(entity.amount, AppCurrency.valueOf(entity.amountUnit))),
                         paidAmount = paidAmount,
-                        amountUnit = runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN),
-                        paidAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(paidAmount, runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN))),
+                        amountUnit = AppCurrency.valueOf(entity.amountUnit),
+                        paidAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(paidAmount, AppCurrency.valueOf(entity.amountUnit))),
                         remainingAmount = remainingAmount,
-                        remainingAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmount, runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN))),
-                        monthlyPaymentFormatted = MoneyFormatter.formatExact(MoneyAmount.of(monthly, runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN))),
+                        remainingAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmount, AppCurrency.valueOf(entity.amountUnit))),
+                        monthlyPaymentFormatted = MoneyFormatter.formatExact(MoneyAmount.of(monthly, AppCurrency.valueOf(entity.amountUnit))),
                         totalInstallments = entity.totalInstallments,
                         remainingInstallments = remainingInstallmentsCount,
                         nextPaymentDate = effectiveNextPaymentDate,
