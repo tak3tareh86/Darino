@@ -2,6 +2,7 @@ package com.example.data.sms
 
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.domain.BankSmsSuggestion
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
@@ -111,6 +112,7 @@ object GenericBankSmsParser {
         // Preserve the exact numeric value found in the SMS. Currency labels never
         // change the extracted amount; both Rial and Toman messages keep their digits.
         val amountValue = amount
+        val amountUnit = if (Regex("""(?:ریال|ريال|rial|rials)""", RegexOption.IGNORE_CASE).containsMatchIn(normalized) && !Regex("""(?:تومان|تومن|toman|tomans)""", RegexOption.IGNORE_CASE).containsMatchIn(normalized)) AppCurrency.RIAL else AppCurrency.TOMAN
         if (amountValue !in 1L..100_000_000_000_000L) return null
 
         val balanceMatch = balanceLabel.findAll(normalized).singleOrNull()
@@ -169,6 +171,7 @@ object GenericBankSmsParser {
             id = smsId,
             bankName = bankName,
             amount = amountValue,
+            amountUnit = amountUnit,
             formattedAmount = formatted,
             isAmountValid = true,
             type = type,
