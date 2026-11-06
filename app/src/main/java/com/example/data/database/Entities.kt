@@ -45,7 +45,7 @@ data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val userId: String,
     val amount: Long = 0L,
-    val amountUnit: String = "TOMAN",
+    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
     val type: String = "EXPENSE", // "EXPENSE", "INCOME", "TRANSFER"
     val category: String = "",
     val accountName: String = "کارت بانکی",

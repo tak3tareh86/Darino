@@ -66,24 +66,44 @@ object IranianAmountUtils {
     /** Keeps a trailing decimal separator while the user is typing. */
     fun cleanDecimalAmountInput(input: String, maxDigits: Int = 30): String {
         val normalized = IranianPhoneUtils.convertDigitsToEnglish(input)
-        val output = StringBuilder()
-        var decimalSeen = false
-        var digitsSeen = 0
-        normalized.forEach { char ->
-            when {
-                char in '0'..'9' && digitsSeen < maxDigits -> { output.append(char); digitsSeen++ }
-                (char == '.' || char == '٫') && !decimalSeen -> {
-                    if (output.isEmpty()) output.append('0')
-                    output.append('.')
-                    decimalSeen = true
-                }
-            }
+            .replace('\u00A0', ' ')
+            .trim()
+        if (normalized.isEmpty()) return ""
+        if (normalized.any { it !in '0'..'9' && it !in setOf('.', '٫', ',', '٬', ' ') }) return ""
+
+        val decimalParts = normalized.split('.', '٫')
+        if (decimalParts.size > 2) return ""
+        val integerPart = decimalParts[0]
+        val fractionPart = decimalParts.getOrNull(1)
+        if (fractionPart != null && fractionPart.any { it !in '0'..'9' }) return ""
+
+        val groupingSeparators = setOf(',', '٬', ' ')
+        val integerDigits = if (integerPart.any { it in groupingSeparators }) {
+            val usedSeparators = integerPart.filter { it in groupingSeparators }.toSet()
+            if (usedSeparators.size != 1) return ""
+            val separator = usedSeparators.single()
+            val groups = integerPart.split(separator)
+            val hasTrailingGroupSeparator = fractionPart == null && groups.lastOrNull().isNullOrEmpty()
+            val completeGroups = if (hasTrailingGroupSeparator) groups.dropLast(1) else groups
+            if (completeGroups.isEmpty() || completeGroups.first().length !in 1..3 ||
+                completeGroups.first().any { it !in '0'..'9' } ||
+                completeGroups.drop(1).any { group -> group.length != 3 || group.any { it !in '0'..'9' } }
+            ) return ""
+            completeGroups.joinToString("")
+        } else {
+            integerPart
         }
-        if (digitsSeen == 0) return ""
-        val raw = output.toString()
-        val integer = raw.substringBefore('.').trimStart('0').ifEmpty { "0" }
-        return if (decimalSeen) integer + "." + raw.substringAfter('.', "") else integer
+
+        val digitsCount = integerDigits.length + (fractionPart?.length ?: 0)
+        if (digitsCount == 0 || digitsCount > maxDigits) return ""
+        val integer = integerDigits.trimStart('0').ifEmpty { "0" }
+        return when {
+            fractionPart != null -> "$integer.$fractionPart"
+            normalized.endsWith(',') || normalized.endsWith('٬') || normalized.endsWith(' ') -> integer
+            else -> integer
+        }
     }
+
     /**
      * Parses a non-negative decimal amount without losing precision.
      *

@@ -102,6 +102,13 @@ class MoneyAmountTest {
     }
 
     @Test
+    fun decimalInputCleanupRejectsInvalidGroupingInsteadOfJoiningDigits() {
+        assertEquals("", IranianAmountUtils.cleanDecimalAmountInput("1,2"))
+        assertEquals("", IranianAmountUtils.cleanDecimalAmountInput("12,34"))
+        assertEquals("1234.5", IranianAmountUtils.cleanDecimalAmountInput("1,234.5"))
+    }
+
+    @Test
     fun decimalInputKeepsTrailingZerosWhileEditing() {
         assertEquals("۱۲٫۰", IranianAmountUtils.formatDecimalWithCommas("12.0"))
         assertEquals("۱۲٫۰۵", IranianAmountUtils.formatDecimalWithCommas("12.05"))
