@@ -23,6 +23,7 @@ import com.example.util.IranianDateUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
+import java.math.BigInteger
 import com.example.util.PersianCalendarHelper
 import com.example.vehicle.data.VehicleRepository
 
@@ -90,8 +91,11 @@ class HomeDashboardRepository(
 
     fun getSavingsRate(income: Long, expense: Long): Int {
         if (income <= 0) return 0
-        val saved = (income - expense).coerceAtLeast(0)
-        return ((saved.toDouble() / income.toDouble()) * 100).toInt()
+        val saved = BigInteger.valueOf(income).subtract(BigInteger.valueOf(expense)).max(BigInteger.ZERO)
+        return saved.multiply(BigInteger.valueOf(100L))
+            .divide(BigInteger.valueOf(income))
+            .min(BigInteger.valueOf(100L))
+            .toInt()
     }
 
     fun calculateDaysDifference(targetDatePersian: String): Int {
