@@ -6,6 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.ui.screens.settings.model.AppLanguage
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -58,6 +60,37 @@ object MoneyFormatter {
             AppCurrency.TOMAN -> if (language == AppLanguage.ENGLISH) "Toman" else "تومان"
             AppCurrency.RIAL -> if (language == AppLanguage.ENGLISH) "IRR" else "ریال"
         }
+    }
+
+    /**
+     * Formats an exact money value after an explicit unit conversion.
+     *
+     * Unlike the legacy Long/Toman helpers, this API preserves fractional Toman
+     * values (for example, 1 Rial = 0.1 Toman) and never uses floating point.
+     */
+    fun formatExact(
+        amount: MoneyAmount,
+        targetCurrency: AppCurrency = activeCurrency,
+        includeUnit: Boolean = true,
+        language: AppLanguage = activeLanguage
+    ): String {
+        if (isPrivacyModeEnabled) return maskedAmount(includeUnit, targetCurrency, language)
+
+        val converted = amount.inUnit(targetCurrency).value
+        val absolute = converted.abs()
+        val symbols = DecimalFormatSymbols(Locale.US).apply {
+            groupingSeparator = ','
+            decimalSeparator = '.'
+        }
+        val formatter = DecimalFormat("#,##0.############################", symbols).apply {
+            maximumFractionDigits = 28
+            minimumFractionDigits = 0
+            roundingMode = RoundingMode.UNNECESSARY
+        }
+        val number = AppNumberFormatter.formatDigits(formatter.format(absolute), activeNumberMode)
+        val sign = if (converted.signum() < 0) "−" else ""
+        if (!includeUnit) return "$sign$number"
+        return "$sign$number ${getUnitLabel(targetCurrency, language)}"
     }
 
     /**
