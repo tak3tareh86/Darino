@@ -171,7 +171,8 @@ class LoanCalculatorViewModel(
             interestRate = if (current.interestRateInput.isBlank()) null else current.interestRate,
             duration = if (current.durationInput.isBlank()) null else current.duration,
             interestPeriod = current.interestPeriod,
-            durationType = current.durationType
+            durationType = current.durationType,
+            amountUnit = AppCurrency.RIAL
         )
 
         when (validation) {
@@ -195,7 +196,8 @@ class LoanCalculatorViewModel(
                     interestPeriod = current.interestPeriod,
                     duration = current.duration,
                     durationType = current.durationType,
-                    method = current.calculationType
+                    method = current.calculationType,
+                    amountUnit = AppCurrency.RIAL
                 )
                 _state.update {
                     it.copy(
