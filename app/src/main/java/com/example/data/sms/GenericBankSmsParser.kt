@@ -115,10 +115,6 @@ object GenericBankSmsParser {
         val amountValue = amount
         fun unitNear(match: MatchResult?, fallback: AppCurrency): AppCurrency {
             if (match == null) return fallback
-            val context = normalized.substring(
-                (match.range.first - 24).coerceAtLeast(0),
-                (match.range.last + 25).coerceAtMost(normalized.length)
-            )
             val unitTokens = buildList {
                 Regex("""(?:ریال|ريال|rial|rials)""", RegexOption.IGNORE_CASE)
                     .findAll(normalized, (match.range.first - 24).coerceAtLeast(0))
