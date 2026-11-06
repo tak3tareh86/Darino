@@ -127,6 +127,7 @@ data class LoanCalculation(
 data class ComparisonLoanInput(
     val name: String,
     val amount: Long,
+    val amountUnit: AppCurrency = AppCurrency.TOMAN,
     val interestRate: Double,
     val durationMonths: Int,
     val method: CalculationMethod = CalculationMethod.ANNUITY
