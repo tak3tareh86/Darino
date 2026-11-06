@@ -76,6 +76,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                         checkId = insertedId.toString(),
                         title = "${check.bankName} - ${check.checkNumber}",
                         amount = check.amount,
+                        amountUnit = check.amountUnit,
                         dueDatePersian = check.formattedDueDate,
                         type = check.type.name,
                         reminderDateTime = check.reminderDateTime
@@ -171,6 +172,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                         checkId = check.id.toString(),
                         title = "${check.bankName} - ${check.checkNumber}",
                         amount = check.amount,
+                        amountUnit = check.amountUnit,
                         dueDatePersian = check.formattedDueDate,
                         type = check.type.name,
                         reminderDateTime = check.reminderDateTime
