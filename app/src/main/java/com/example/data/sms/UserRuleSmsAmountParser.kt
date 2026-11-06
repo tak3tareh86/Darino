@@ -255,6 +255,13 @@ object UserRuleSmsAmountParser {
             balanceAmount = extracted.balanceAmount,
             balanceAmountUnit = balanceUnit,
             amountCandidates = (extracted.candidates + listOfNotNull(amount, extracted.balanceAmount)).distinct(),
+            amountCandidateUnits = (extracted.candidates + listOfNotNull(amount, extracted.balanceAmount)).distinct().map { candidate ->
+                when (candidate) {
+                    extracted.balanceAmount -> balanceUnit ?: amountUnit
+                    amountValue -> amountUnit
+                    else -> currencyUnitNearAmount(normalized, candidate, messageFallbackUnit)
+                }
+            },
             receivedAtMillis = receivedAtMillis
         )
     }
