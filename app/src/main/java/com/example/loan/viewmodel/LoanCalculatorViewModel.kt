@@ -191,7 +191,6 @@ class LoanCalculatorViewModel(
             is LoanCalculatorEngine.ValidationResult.Valid -> {
                 val res = engine.calculate(
                     amount = current.amount,
-            amountUnit = AppCurrency.RIAL,
                     interestRate = current.interestRate,
                     interestPeriod = current.interestPeriod,
                     duration = current.duration,
@@ -239,7 +238,8 @@ class LoanCalculatorViewModel(
             totalPayment = res.totalPayment,
             totalInterest = res.totalInterest,
             realCostPercentage = res.realCostPercentage,
-            createdAt = System.currentTimeMillis()
+            createdAt = System.currentTimeMillis(),
+            amountUnit = AppCurrency.RIAL
         )
 
         viewModelScope.launch {
