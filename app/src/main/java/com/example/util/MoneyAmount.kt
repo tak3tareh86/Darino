@@ -41,11 +41,20 @@ data class MoneyAmount(
         return MoneyAmount(converted, targetUnit)
     }
 
-    /** Exact value expressed in Rial, the canonical integer subdivision. */
+    /** Exact value expressed in Rial, the integer subdivision of IRR. */
     fun asRials(): BigDecimal = when (unit) {
         AppCurrency.TOMAN -> value.multiply(BigDecimal.TEN)
         AppCurrency.RIAL -> value
     }
+
+    /**
+     * Returns the exact Rial integer for persistence in integer-minor-unit stores.
+     * Throws rather than rounding or overflowing when the value cannot be represented.
+     */
+    fun asRialsLongExact(): Long = asRials().longValueExact()
+
+    /** Exact comparison across units; no implicit floating-point conversion. */
+    fun compareValue(other: MoneyAmount): Int = asRials().compareTo(other.asRials())
 
     operator fun plus(other: MoneyAmount): MoneyAmount {
         require(unit == other.unit) {
@@ -71,5 +80,11 @@ data class MoneyAmount(
 
         fun of(value: Long, unit: AppCurrency): MoneyAmount =
             MoneyAmount(BigDecimal.valueOf(value), unit)
+
+        fun of(value: BigDecimal, unit: AppCurrency): MoneyAmount =
+            MoneyAmount(value, unit)
+
+        fun fromRials(value: Long, targetUnit: AppCurrency): MoneyAmount =
+            fromRials(BigDecimal.valueOf(value), targetUnit)
     }
 }
