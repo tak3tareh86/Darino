@@ -18,6 +18,32 @@ class TransactionServiceTest {
     lateinit var repository: TransactionRepository
 
     @Test
+    fun `save rejects unsupported amount unit before persistence`() {
+        val service = TransactionService(repository)
+        val command = UpsertTransactionCommand(
+            clientId = "client-a",
+            amount = 1234,
+            amountUnit = "UNKNOWN",
+            type = "EXPENSE",
+            category = "TEST",
+            accountName = "TEST",
+            description = "",
+            occurredAt = Instant.parse("2026-01-01T00:00:00Z"),
+            timeFormatted = "",
+            title = "",
+            subCategory = null,
+            datePersian = "",
+            paymentMethod = "BANK_CARD",
+            sourceType = "MANUAL",
+            sourceId = null,
+            isRecurring = false
+        )
+
+        assertThrows(IllegalArgumentException::class.java) { service.save("user-a", command) }
+        verifyNoInteractions(repository)
+    }
+
+    @Test
     fun `getById scopes lookup to authenticated user`() {
         val service = TransactionService(repository)
         val userA = "user-a"
