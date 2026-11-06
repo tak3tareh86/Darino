@@ -115,10 +115,10 @@ object IranianAmountUtils {
         val cleaned = cleanDecimalAmountInput(input)
         if (cleaned.isEmpty()) return ""
         val trailingSeparator = cleaned.endsWith(".")
-        val value = if (trailingSeparator) null else parseAmountToBigDecimal(cleaned)
-        if (!trailingSeparator && value == null) return ""
-        val plain = value?.stripTrailingZeros()?.toPlainString() ?: cleaned
-        val parts = plain.split('.', limit = 2)
+        if (!trailingSeparator && parseAmountToBigDecimal(cleaned) == null) return ""
+        // Keep fractional trailing zeroes while editing (e.g. "12.0" must remain
+        // editable as the user continues typing "12.05").
+        val parts = cleaned.split('.', limit = 2)
         val grouped = parts[0].reversed().chunked(3).joinToString(",").reversed()
         val formatted = when {
             trailingSeparator -> "$grouped."
