@@ -40,6 +40,7 @@ import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.reminder.components.PersianTimeInputField
 import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.ServiceType
 import com.example.vehicle.data.VehicleEntity
@@ -338,8 +339,11 @@ fun AddServiceSheet(
                 PersianAmountInputField(
                     value = costText,
                     onValueChange = { costText = it },
-                    label = "هزینه سرویس",
+                    allowDecimalInput = true,
+                    onRawDecimalAmountChange = { rawValue, _ -> costText = rawValue },
+                    label = "هزینه سرویس (${MoneyFormatter.getUnitLabel()})",
                     placeholder = "مبلغ را وارد کنید",
+                    unitLabel = MoneyFormatter.getUnitLabel(),
                     showWordsPreview = false,
                     modifier = Modifier.weight(1.2f),
                     testTag = "service_cost_input"
@@ -616,7 +620,7 @@ fun AddServiceSheet(
                         if (!isReminderEnabled || (selectedOffsets.isEmpty() && calcKm <= 0)) {
                             showNoAlertConfirmation = true
                         } else {
-                            val cost = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(costText))
+                            val cost = IranianAmountUtils.parseAmountToBigDecimal(costText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
                             val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onAddService(
                                 title, selectedType, date, mileage, cost, description,
