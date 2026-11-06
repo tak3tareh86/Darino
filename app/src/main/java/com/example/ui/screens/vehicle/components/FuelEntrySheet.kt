@@ -61,6 +61,8 @@ import com.example.ui.theme.RadiusMD
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,7 +79,7 @@ fun FuelEntrySheet(
         stationNote: String
     ) -> Unit
 ) {
-    var amountInput by remember(MoneyFormatter.activeCurrency) { mutableStateOf(MoneyFormatter.formatTomanRaw(150_000L)) }
+    var amountInput by remember(MoneyFormatter.activeCurrency) { mutableStateOf(IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(150_000L, AppCurrency.TOMAN).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString())) }
     var litersInput by remember { mutableStateOf("۵۰") }
     var odometerInput by remember { mutableStateOf(currentOdometer.toString()) }
     var selectedFuelType by remember { mutableStateOf("بنزین سهمیه‌ای (۱,۵۰۰ ت)") }
@@ -267,7 +269,7 @@ fun FuelEntrySheet(
             Button(
                 onClick = {
                     onSubmitFuelEntry(
-                        MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(amountInput)).toString(),
+                        IranianAmountUtils.parseAmountToBigDecimal(amountInput)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }?.toString().orEmpty(),
                         litersInput,
                         selectedFuelType,
                         odometerInput,
