@@ -79,6 +79,7 @@ object IranianAmountUtils {
                 }
             }
         }
+        if (digitsSeen == 0) return ""
         val raw = output.toString()
         val integer = raw.substringBefore('.').trimStart('0').ifEmpty { "0" }
         return if (decimalSeen) integer + "." + raw.substringAfter('.', "") else integer
@@ -111,11 +112,19 @@ object IranianAmountUtils {
      * fractional digit and applying the active numeral display mode.
      */
     fun formatDecimalWithCommas(input: String): String {
-        val value = parseAmountToBigDecimal(input) ?: return ""
-        val plain = value.stripTrailingZeros().toPlainString()
+        val cleaned = cleanDecimalAmountInput(input)
+        if (cleaned.isEmpty()) return ""
+        val trailingSeparator = cleaned.endsWith(".")
+        val value = if (trailingSeparator) null else parseAmountToBigDecimal(cleaned)
+        if (!trailingSeparator && value == null) return ""
+        val plain = value?.stripTrailingZeros()?.toPlainString() ?: cleaned
         val parts = plain.split('.', limit = 2)
         val grouped = parts[0].reversed().chunked(3).joinToString(",").reversed()
-        val formatted = if (parts.size == 2) "$grouped.${parts[1]}" else grouped
+        val formatted = when {
+            trailingSeparator -> "$grouped."
+            parts.size == 2 -> "$grouped.${parts[1]}"
+            else -> grouped
+        }
         return AppNumberFormatter.formatDigits(formatted, AppNumberFormatter.currentMode)
     }
 
