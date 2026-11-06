@@ -149,10 +149,11 @@ class LocalInstallmentRepository private constructor() {
                             installmentNumber = p.installmentNumber,
                             dueDate = dueStr,
                             paidDate = paidStr,
-                            amountFormatted = MoneyFormatter.formatToman(p.amount),
+                            amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(p.amount, runCatching { AppCurrency.valueOf(p.amountUnit) }.getOrDefault(AppCurrency.TOMAN))),
                             status = pStatus,
                             note = p.notes,
-                            amount = p.amount
+                            amount = p.amount,
+                            amountUnit = runCatching { AppCurrency.valueOf(p.amountUnit) }.getOrDefault(AppCurrency.TOMAN)
                         )
                     }.sortedBy { it.installmentNumber }
 
@@ -193,6 +194,7 @@ class LocalInstallmentRepository private constructor() {
                         totalAmount = entity.amount,
                         totalAmountFormatted = MoneyFormatter.formatToman(entity.amount),
                         paidAmount = paidAmount,
+                        amountUnit = runCatching { AppCurrency.valueOf(entity.amountUnit) }.getOrDefault(AppCurrency.TOMAN),
                         paidAmountFormatted = MoneyFormatter.formatToman(paidAmount),
                         remainingAmount = remainingAmount,
                         remainingAmountFormatted = MoneyFormatter.formatToman(remainingAmount),
@@ -680,6 +682,7 @@ class LocalInstallmentRepository private constructor() {
             providerName = item.providerOrPerson,
             title = item.title,
             amount = item.totalAmount,
+            amountUnit = item.amountUnit.name,
             totalInstallments = item.totalInstallments,
             paidInstallments = paidCount,
             remainingInstallments = (item.totalInstallments - paidCount).coerceAtLeast(0),
@@ -712,6 +715,7 @@ class LocalInstallmentRepository private constructor() {
                     installmentId = internalId,
                     installmentNumber = payment.installmentNumber,
                     amount = payment.amount,
+                    amountUnit = payment.amountUnit.name,
                     dueDate = dueMillis,
                     paidDate = paidMillis,
                     status = payment.status.name,
@@ -759,6 +763,7 @@ class LocalInstallmentRepository private constructor() {
                 providerName = item.providerOrPerson,
                 title = item.title,
                 amount = item.totalAmount,
+                amountUnit = item.amountUnit.name,
                 totalInstallments = item.totalInstallments,
                 paidInstallments = item.paymentHistory.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED },
                 remainingInstallments = (item.totalInstallments - item.paymentHistory.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }).coerceAtLeast(0),
@@ -781,6 +786,7 @@ class LocalInstallmentRepository private constructor() {
                     installmentId = instId,
                     installmentNumber = p.installmentNumber,
                     amount = p.amount,
+                    amountUnit = p.amountUnit.name,
                     dueDate = pDueMillis,
                     paidDate = pPaidMillis,
                     status = p.status.name,

@@ -18,6 +18,8 @@ import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 enum class InstallmentCategory(
     val id: String,
@@ -77,10 +79,11 @@ data class PaymentHistoryItem(
     val status: InstallmentStatus,
     val note: String? = null,
     val amount: Long = 0L,
-    val isPaidLate: Boolean = false
+    val isPaidLate: Boolean = false,
+    val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
     val displayAmount: String
-        get() = if (amount > 0L) MoneyFormatter.formatToman(amount) else if (amountFormatted.isNotBlank()) amountFormatted else MoneyFormatter.formatToman(0L)
+        get() = if (amount > 0L) MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit)) else if (amountFormatted.isNotBlank()) amountFormatted else MoneyFormatter.formatExact(MoneyAmount.of(0L, amountUnit))
 }
 
 data class InstallmentItem(
@@ -105,22 +108,23 @@ data class InstallmentItem(
     val endDate: String,
     val status: InstallmentStatus,
     val notes: String = "",
-    val paymentHistory: List<PaymentHistoryItem> = emptyList()
+    val paymentHistory: List<PaymentHistoryItem> = emptyList(),
+    val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
     val progressPercentage: Float
         get() = if (totalAmount > 0) (paidAmount.toFloat() / totalAmount.toFloat()).coerceIn(0f, 1f) else 0f
 
     val displayTotal: String
-        get() = MoneyFormatter.formatToman(totalAmount)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, amountUnit))
 
     val displayPaid: String
-        get() = MoneyFormatter.formatToman(paidAmount)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(paidAmount, amountUnit))
 
     val displayRemaining: String
-        get() = MoneyFormatter.formatToman(remainingAmount)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmount, amountUnit))
 
     val displayMonthlyPayment: String
-        get() = MoneyFormatter.formatToman(totalAmount / totalInstallments.coerceAtLeast(1))
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(totalAmount / totalInstallments.coerceAtLeast(1), amountUnit))
 }
 
 data class InstallmentSummaryData(

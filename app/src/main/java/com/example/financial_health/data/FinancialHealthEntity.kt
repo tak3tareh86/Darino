@@ -14,5 +14,6 @@ data class FinancialHealthEntity(
     val fixedExpenses: Long = 0L,
     val financialPressure: Float = 0.0f,
     val healthStatus: String = "MEDIUM", // "SAFE", "MEDIUM", "HIGH"
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val amountUnit: String = "TOMAN"
 )

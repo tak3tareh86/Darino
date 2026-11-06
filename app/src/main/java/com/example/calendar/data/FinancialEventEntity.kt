@@ -25,7 +25,8 @@ data class FinancialEventEntity(
     val sourceId: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val status: String = "PENDING",
-    val customReminderAt: Long? = null
+    val customReminderAt: Long? = null,
+    val amountUnit: String = "TOMAN"
 ) {
     fun toDomain(): FinancialEvent {
         return FinancialEvent(
@@ -34,6 +35,7 @@ data class FinancialEventEntity(
             description = description,
             type = FinancialEventType.fromString(type),
             amount = amount,
+            amountUnit = amountUnit,
             date = date,
             time = time,
             repeatType = repeatType,
@@ -58,6 +60,7 @@ data class FinancialEventEntity(
                 description = event.description,
                 type = event.type.name,
                 amount = event.amount,
+                amountUnit = event.amountUnit,
                 date = event.date,
                 time = event.time,
                 repeatType = event.repeatType,

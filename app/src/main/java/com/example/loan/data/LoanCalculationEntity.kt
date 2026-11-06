@@ -19,7 +19,8 @@ data class LoanCalculationEntity(
     val totalPayment: Long,
     val totalInterest: Long,
     val realCostPercentage: Double,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val amountUnit: String = "TOMAN"
 ) {
     fun toDomainModel(): LoanCalculation {
         val type = try {
@@ -44,7 +45,8 @@ data class LoanCalculationEntity(
             totalPayment = totalPayment,
             totalInterest = totalInterest,
             realCostPercentage = realCostPercentage,
-            createdAt = createdAt
+            createdAt = createdAt,
+            amountUnit = amountUnit
         )
     }
 
@@ -62,7 +64,8 @@ data class LoanCalculationEntity(
                 totalPayment = domain.totalPayment,
                 totalInterest = domain.totalInterest,
                 realCostPercentage = domain.realCostPercentage,
-                createdAt = domain.createdAt
+                createdAt = domain.createdAt,
+                amountUnit = domain.amountUnit
             )
         }
     }
