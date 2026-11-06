@@ -4,6 +4,8 @@ import androidx.annotation.DrawableRes
 import com.example.R
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import java.text.DecimalFormat
 
 enum class LoanType(
@@ -80,7 +82,8 @@ data class CalculationResult(
     val totalPayment: Long,
     val totalInterest: Long,
     val realCostPercentage: Double,
-    val method: CalculationMethod
+    val method: CalculationMethod,
+    val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
     val interestRatio: Float
         get() = if (totalPayment > 0) (totalInterest.toFloat() / totalPayment.toFloat()).coerceIn(0f, 1f) else 0f
@@ -89,19 +92,19 @@ data class CalculationResult(
         get() = if (totalPayment > 0) (principalAmount.toFloat() / totalPayment.toFloat()).coerceIn(0f, 1f) else 1f
 
     val monthlyPaymentFormatted: String
-        get() = formatMoney(monthlyPayment)
+        get() = formatMoney(monthlyPayment, amountUnit)
 
     val totalPaymentFormatted: String
-        get() = formatMoney(totalPayment)
+        get() = formatMoney(totalPayment, amountUnit)
 
     val totalInterestFormatted: String
-        get() = formatMoney(totalInterest)
+        get() = formatMoney(totalInterest, amountUnit)
 
     val realCostFormatted: String
         get() = "${IranianPhoneUtils.convertDigitsToPersian(String.format("%.1f", realCostPercentage))}٪"
 
     companion object {
-        fun formatMoney(amount: Long): String = MoneyFormatter.formatToman(amount)
+        fun formatMoney(amount: Long, unit: AppCurrency = AppCurrency.TOMAN): String = MoneyFormatter.formatExact(MoneyAmount.of(amount, unit))
     }
 }
 
