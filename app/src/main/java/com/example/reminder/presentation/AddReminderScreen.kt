@@ -332,6 +332,8 @@ fun AddReminderScreen(
                 PersianAmountInputField(
                     value = amountText,
                     onValueChange = { amountText = it },
+                    allowDecimalInput = true,
+                    onRawDecimalAmountChange = { rawValue, _ -> amountText = rawValue },
                     label = "مبلغ به ${MoneyFormatter.getUnitLabel()} (اختیاری)",
                     placeholder = "مثال: ۲,۵۰۰,۰۰۰",
                     modifier = Modifier
