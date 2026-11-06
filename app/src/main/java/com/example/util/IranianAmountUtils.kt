@@ -63,6 +63,26 @@ object IranianAmountUtils {
         return clean.toLongOrNull() ?: 0L
     }
 
+    /** Keeps a trailing decimal separator while the user is typing. */
+    fun cleanDecimalAmountInput(input: String, maxDigits: Int = 30): String {
+        val normalized = IranianPhoneUtils.convertDigitsToEnglish(input)
+        val output = StringBuilder()
+        var decimalSeen = false
+        var digitsSeen = 0
+        normalized.forEach { char ->
+            when {
+                char in '0'..'9' && digitsSeen < maxDigits -> { output.append(char); digitsSeen++ }
+                (char == '.' || char == '٫') && !decimalSeen -> {
+                    if (output.isEmpty()) output.append('0')
+                    output.append('.')
+                    decimalSeen = true
+                }
+            }
+        }
+        val raw = output.toString()
+        val integer = raw.substringBefore('.').trimStart('0').ifEmpty { "0" }
+        return if (decimalSeen) integer + "." + raw.substringAfter('.', "") else integer
+    }
     /**
      * Parses a non-negative decimal amount without losing precision.
      *
