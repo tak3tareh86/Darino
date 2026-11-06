@@ -163,6 +163,7 @@ class HomeDashboardRepository(
                     id = "ob_loan_${item.id}",
                     title = item.title,
                     amount = paymentAmount,
+                    amountUnit = item.amountUnit,
                     formattedAmount = formattedAmount,
                     relativeDaysText = relativeText,
                     dueDatePersian = effectiveDueDate,
