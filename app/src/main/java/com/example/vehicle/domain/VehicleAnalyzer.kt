@@ -292,7 +292,7 @@ object VehicleAnalyzer {
         val yearlyCost = carExpenses.filter { 
             val normalized = normalizeExpenseDate(it.date)
             normalized != null && normalized.startsWith(currentYearStr)
-        }.sumOf { it.amount }
+        }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
 
         val totalAll = carExpenses.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
         val categoryTotals = VehicleExpenseCategory.values().map { cat ->
