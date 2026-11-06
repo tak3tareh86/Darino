@@ -52,6 +52,41 @@ class FinancialAnalyzerEngineTest {
     }
 
     @Test
+    fun nextMonthRialTotalsAreDisplayedAsMillionsOfToman() {
+        val insights = FinancialAnalyzerEngine.generateInsights(
+            income = 1_000_000_000L,
+            installments = 0L,
+            fixedExpenses = 0L,
+            currentPressure = null,
+            previousMonthPressure = null,
+            nextMonthPrediction = NextMonthPrediction(
+                fixedExpenses = 100_000_000L,
+                fixedExpensesAmountRecorded = true
+            ),
+            installmentDataComplete = false
+        )
+
+        val outlook = insights.single { it.id == "next_month_outlook" }
+        assertTrue(outlook.description.contains("10 میلیون تومان"))
+    }
+
+    @Test
+    fun commitmentExcessUsesExactRialToTomanScale() {
+        val insights = FinancialAnalyzerEngine.generateInsights(
+            income = 1_000_000_000L,
+            installments = 350_000_000L,
+            fixedExpenses = 50_000_000L,
+            currentPressure = null,
+            previousMonthPressure = null,
+            nextMonthPrediction = NextMonthPrediction(),
+            fixedExpensesRecorded = true
+        )
+
+        val target = insights.single { it.id == "safe_zone_target" }
+        assertTrue(target.description.contains("10 میلیون تومان"))
+    }
+
+    @Test
     fun incompleteInstallmentScheduleIsCalledOutExplicitly() {
         val insights = FinancialAnalyzerEngine.generateInsights(
             income = 10_000L,
