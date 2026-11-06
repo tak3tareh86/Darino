@@ -826,6 +826,8 @@ private fun FormDetailsStep(
                     PersianAmountInputField(
                         value = totalAmount,
                         onValueChange = onTotalAmountChange,
+                        allowDecimalInput = true,
+                        onRawDecimalAmountChange = { rawValue, _ -> onTotalAmountChange(rawValue) },
                         label = "مبلغ کل وام / تعهد",
                         useOuterHeader = false,
                         modifier = Modifier.testTag("installment_total_input")
@@ -1181,6 +1183,11 @@ private fun CustomInstallmentsDialog(
                             value = rangeAmountStr,
                             onValueChange = {
                                 rangeAmountStr = it
+                                validationError = null
+                            },
+                            allowDecimalInput = true,
+                            onRawDecimalAmountChange = { rawValue, _ ->
+                                rangeAmountStr = rawValue
                                 validationError = null
                             },
                             label = "مبلغ هر قسط در این بازه (${MoneyFormatter.getUnitLabel()})",
