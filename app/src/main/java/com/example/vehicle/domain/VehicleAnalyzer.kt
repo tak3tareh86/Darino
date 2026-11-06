@@ -12,6 +12,7 @@ import com.example.vehicle.data.VehicleTimelineEvent
 import com.example.util.IranianPhoneUtils
 import com.example.util.PersianCalendarHelper
 import com.example.util.MoneyAmount
+import java.math.BigInteger
 import com.example.ui.screens.settings.model.AppCurrency
 
 /**
@@ -297,7 +298,7 @@ object VehicleAnalyzer {
         val totalAll = carExpenses.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
         val categoryTotals = VehicleExpenseCategory.values().map { cat ->
             val total = carExpenses.filter { it.category == cat }.fold(0L) { total, expense -> Math.addExact(total, MoneyAmount.of(expense.amount, expense.amountUnit).asRialsLongExact()) }
-            val percentage = if (totalAll > 0) ((total.toDouble() / totalAll.toDouble()) * 100).toInt() else 0
+            val percentage = if (totalAll > 0L) BigInteger.valueOf(total).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(totalAll)).toInt().coerceIn(0, 100) else 0
             VehicleCostCategoryStat(cat, total, percentage)
         }.filter { it.amount > 0 }.sortedByDescending { it.amount }
 
