@@ -21,6 +21,8 @@ import com.example.util.PersianCalendarHelper
 import com.example.vehicle.data.VehicleExpenseCategory
 import com.example.vehicle.data.VehicleExpenseEntity
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.abs
@@ -60,14 +62,14 @@ fun VehicleExpenseInsightsSection(
     val previousMonth = if (currentMonth == 1) 12 else currentMonth - 1
     val previousYear = if (currentMonth == 1) currentYear - 1 else currentYear
     val previousDayLimit = minOf(currentDay, jalaliDaysInMonth(previousYear, previousMonth))
-    val currentToDate = datedExpenses.filter { it.second.year == currentYear && it.second.month == currentMonth && it.second.day <= currentDay }.sumOf { it.first.amount }
-    val previousToDate = datedExpenses.filter { it.second.year == previousYear && it.second.month == previousMonth && it.second.day <= previousDayLimit }.sumOf { it.first.amount }
+    val currentToDate = datedExpenses.filter { it.second.year == currentYear && it.second.month == currentMonth && it.second.day <= currentDay }.fold(0L) { total, pair -> Math.addExact(total, MoneyAmount.of(pair.first.amount, pair.first.amountUnit).asRialsLongExact()) }
+    val previousToDate = datedExpenses.filter { it.second.year == previousYear && it.second.month == previousMonth && it.second.day <= previousDayLimit }.fold(0L) { total, pair -> Math.addExact(total, MoneyAmount.of(pair.first.amount, pair.first.amountUnit).asRialsLongExact()) }
     val currentCount = datedExpenses.count { it.second.year == currentYear && it.second.month == currentMonth && it.second.day <= currentDay }
     val previousCount = datedExpenses.count { it.second.year == previousYear && it.second.month == previousMonth && it.second.day <= previousDayLimit }
 
     val annualTotals = remember(datedExpenses, annualYear) {
         (1..12).map { month ->
-            month to datedExpenses.filter { it.second.year == annualYear && it.second.month == month }.sumOf { it.first.amount }
+            month to datedExpenses.filter { it.second.year == annualYear && it.second.month == month }.fold(0L) { total, pair -> Math.addExact(total, MoneyAmount.of(pair.first.amount, pair.first.amountUnit).asRialsLongExact()) }
         }
     }
     val annualTotal = annualTotals.sumOf { it.second }
@@ -362,9 +364,9 @@ private fun parseExpenseDate(raw: String): ExpenseDateParts? {
 private fun jalaliDaysInMonth(year: Int, month: Int): Int =
     runCatching { PersianCalendarHelper.getDaysInMonth(year, month) }.getOrDefault(if (month <= 6) 31 else 30)
 
-private fun amountNumber(amount: Long): String = MoneyFormatter.formatToman(amount, includeUnit = false)
+private fun amountNumber(amount: Long): String = MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.RIAL), includeUnit = false)
 
-private fun money(amount: Long): String = MoneyFormatter.formatToman(amount)
+private fun money(amount: Long): String = MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.RIAL))
 
 private fun fa(value: Int): String = IranianPhoneUtils.convertDigitsToPersian(value.toString())
 private fun fa(value: String): String = IranianPhoneUtils.convertDigitsToPersian(value)
