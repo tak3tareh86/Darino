@@ -91,6 +91,8 @@ import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 enum class TransactionSortOption(val title: String) {
     NEWEST("جدیدترین"),
@@ -133,12 +135,12 @@ fun TransactionsScreen(
 
     // Calculations for All Transactions Summary Box
     val totalExpenseAmount = remember(transactions) {
-        transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+        transactions.filter { it.type == TransactionType.EXPENSE }.fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()) }
     }
     val totalIncomeAmount = remember(transactions) {
-        transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
+        transactions.filter { it.type == TransactionType.INCOME }.fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()) }
     }
-    val netBalance = totalIncomeAmount - totalExpenseAmount
+    val netBalance = Math.subtractExact(totalIncomeAmount, totalExpenseAmount)
 
     // All Expense Categories list for Dropdown
     val expenseCategories = remember(categories, transactions) {
@@ -372,7 +374,7 @@ fun TransactionsScreen(
                                             )
                                         }
                                         Text(
-                                            text = MoneyFormatter.formatToman(totalIncomeAmount),
+                                            text = MoneyFormatter.formatExact(MoneyAmount.of(totalIncomeAmount, AppCurrency.RIAL)),
                                             style = MaterialTheme.typography.titleSmall.copy(
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 13.sp
@@ -417,7 +419,7 @@ fun TransactionsScreen(
                                             )
                                         }
                                         Text(
-                                            text = MoneyFormatter.formatToman(totalExpenseAmount),
+                                            text = MoneyFormatter.formatExact(MoneyAmount.of(totalExpenseAmount, AppCurrency.RIAL)),
                                             style = MaterialTheme.typography.titleSmall.copy(
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 13.sp
@@ -443,7 +445,7 @@ fun TransactionsScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
-                                        text = MoneyFormatter.formatSignedToman(netBalance, isExpense = netBalance < 0),
+                                        text = MoneyFormatter.formatExact(MoneyAmount.of(netBalance, AppCurrency.RIAL)),
                                         style = MaterialTheme.typography.titleSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp
@@ -618,7 +620,7 @@ fun TransactionsScreen(
 
                         // Total sum card for selected expense category
                         val selectedCategoryTotal = remember(displayedTransactions) {
-                            displayedTransactions.sumOf { it.amount }
+                            displayedTransactions.fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()) }
                         }
 
                         Card(
@@ -641,7 +643,7 @@ fun TransactionsScreen(
                                     color = ExpenseRoseLight
                                 )
                                 Text(
-                                    text = MoneyFormatter.formatToman(selectedCategoryTotal),
+                                    text = MoneyFormatter.formatExact(MoneyAmount.of(selectedCategoryTotal, AppCurrency.RIAL)),
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
                                     color = ExpenseRoseLight
                                 )
@@ -693,7 +695,7 @@ fun TransactionsScreen(
                                     color = EmeraldPrimaryLight
                                 )
                                 Text(
-                                    text = MoneyFormatter.formatToman(totalFilteredIncome),
+                                    text = MoneyFormatter.formatExact(MoneyAmount.of(totalFilteredIncome, AppCurrency.RIAL)),
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
                                     color = EmeraldPrimaryLight
                                 )
@@ -745,7 +747,7 @@ fun TransactionsScreen(
                                     color = InfoIndigoLight
                                 )
                                 Text(
-                                    text = MoneyFormatter.formatToman(totalFilteredTransfer),
+                                    text = MoneyFormatter.formatExact(MoneyAmount.of(totalFilteredTransfer, AppCurrency.RIAL)),
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
                                     color = InfoIndigoLight
                                 )
