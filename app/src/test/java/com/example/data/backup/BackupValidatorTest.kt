@@ -8,6 +8,35 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BackupValidatorTest {
+    @Test
+    fun versionSevenBackupAcceptsPerRecordCurrencyMetadata() {
+        val unsigned = DarinoBackup(
+            metadata = BackupMetadata(
+                backupVersion = 7,
+                createdAt = 1L,
+                recordCount = 0,
+                currencyUnit = "PER_RECORD"
+            )
+        )
+        val valid = BackupValidator.withChecksum(unsigned)
+        assertEquals(ValidationResult.Valid, BackupValidator.validate(valid))
+    }
+
+    @Test
+    fun versionSevenBackupRejectsLegacySingleUnitMetadata() {
+        val unsigned = DarinoBackup(
+            metadata = BackupMetadata(
+                backupVersion = 7,
+                createdAt = 1L,
+                recordCount = 0,
+                currencyUnit = "TOMAN"
+            )
+        )
+        val valid = BackupValidator.withChecksum(unsigned)
+        assertTrue(BackupValidator.validate(valid) is ValidationResult.Invalid)
+    }
+
+
 
     @Test
     fun versionFourBackupWithPreferencesValidates() {

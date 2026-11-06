@@ -107,12 +107,12 @@ class LocalBackupRepository(
 
             BackupValidator.withChecksum(DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 6,
+                    backupVersion = 7,
                     appVersion = "1.0",
                     createdAt = System.currentTimeMillis(),
                     recordCount = totalRecords,
                     checksum = "",
-                    currencyUnit = "TOMAN",
+                    currencyUnit = "PER_RECORD",
                     dateSystem = "JALALI_UI"
                 ),
                 accounts = accounts,

@@ -44,14 +44,19 @@ object BackupValidator {
 
     fun validate(backup: DarinoBackup, rawJson: String? = null): ValidationResult {
         val version = backup.metadata.backupVersion
-        if (version !in 1..6) {
+        if (version !in 1..7) {
             return ValidationResult.Invalid("نسخه فایل پشتیبان پشتیبانی نمی‌شود.")
         }
         if (backup.metadata.createdAt <= 0L || backup.metadata.recordCount < 0) {
             return ValidationResult.Invalid("اطلاعات فراداده فایل پشتیبان نامعتبر است.")
         }
-        if (backup.metadata.currencyUnit != "TOMAN") {
-            return ValidationResult.Invalid("واحد پول فایل پشتیبان معتبر نیست.")
+        val validCurrencyMetadata = when (version) {
+            in 1..6 -> backup.metadata.currencyUnit == "TOMAN"
+            7 -> backup.metadata.currencyUnit == "PER_RECORD"
+            else -> false
+        }
+        if (!validCurrencyMetadata) {
+            return ValidationResult.Invalid("فراداده واحد پول فایل پشتیبان معتبر نیست.")
         }
         if (backup.metadata.checksum.isBlank()) {
             return ValidationResult.Invalid("فایل پشتیبان امضای صحت‌سنجی ندارد یا ناقص است.")
