@@ -207,7 +207,15 @@ fun CarInsuranceInstallmentsScreen(
                         }
     
                         InstallmentProgressBar(
-                            progress = if (totalAmount > 0) (filteredInstallments.sumOf { it.paidAmount }.toFloat() / totalAmount.toFloat()) else 0f,
+                            progress = run {
+                                val filteredTotalRials = filteredInstallments.fold(0L) { total, item ->
+                                    Math.addExact(total, com.example.util.MoneyAmount.of(item.totalAmount, item.amountUnit).asRialsLongExact())
+                                }
+                                val filteredPaidRials = filteredInstallments.fold(0L) { total, item ->
+                                    Math.addExact(total, com.example.util.MoneyAmount.of(item.paidAmount, item.amountUnit).asRialsLongExact())
+                                }
+                                if (filteredTotalRials > 0L) (filteredPaidRials.toFloat() / filteredTotalRials.toFloat()).coerceIn(0f, 1f) else 0f
+                            },
                             activeColor = InfoIndigoLight,
                             label = "پیشرفت پرداخت حق بیمه"
                         )
