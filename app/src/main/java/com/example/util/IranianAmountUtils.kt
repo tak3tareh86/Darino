@@ -1,6 +1,7 @@
 package com.example.util
 
 import java.math.BigDecimal
+import java.math.BigInteger
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -199,26 +200,27 @@ object IranianAmountUtils {
         val effectiveUnit = unit ?: MoneyFormatter.getUnitLabel()
         val convertedAmount = if (unit == null) MoneyFormatter.convertFromToman(amount) else amount
         if (convertedAmount == 0L) return "صفر $effectiveUnit"
-        if (convertedAmount < 0L) return "منفی " + amountToPersianWords(-convertedAmount, effectiveUnit)
-        
-        var num = convertedAmount
+        val absolute = BigInteger.valueOf(convertedAmount).abs()
+        var remaining = absolute
         val parts = mutableListOf<String>()
         var groupIndex = 0
 
-        while (num > 0) {
-            val group = (num % 1000).toInt()
+        while (remaining.signum() > 0) {
+            val division = remaining.divideAndRemainder(BigInteger.valueOf(1000L))
+            val group = division[1].toInt()
             if (group != 0) {
                 val groupWord = threeDigitsToWords(group)
                 val unitName = thousands.getOrElse(groupIndex) { "" }
                 val fullGroup = if (unitName.isNotEmpty()) "$groupWord $unitName" else groupWord
                 parts.add(0, fullGroup)
             }
-            num /= 1000
+            remaining = division[0]
             groupIndex++
         }
 
         val resultWords = parts.joinToString(" و ")
-        return if (effectiveUnit.isNotEmpty()) "$resultWords $effectiveUnit" else resultWords
+        val signedWords = if (convertedAmount < 0L) "منفی $resultWords" else resultWords
+        return if (effectiveUnit.isNotEmpty()) "$signedWords $effectiveUnit" else signedWords
     }
 
     private fun threeDigitsToWords(n: Int): String {
