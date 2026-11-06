@@ -191,11 +191,7 @@ object MoneyFormatter {
         language: AppLanguage = activeLanguage
     ): String {
         if (isPrivacyModeEnabled) return maskedAmount(false, currency, language)
-        val convertedAmount = convertFromToman(amount, currency)
-        val absAmount = kotlin.math.abs(convertedAmount)
-        val formattedNumber = formatNumberWithCommas(absAmount)
-        val displayFormatted = AppNumberFormatter.formatDigits(formattedNumber, activeNumberMode)
-        return if (convertedAmount < 0) "−$displayFormatted" else displayFormatted
+        return formatExact(MoneyAmount.of(amount, AppCurrency.TOMAN), currency, includeUnit = false, language = language)
     }
 
     /**
