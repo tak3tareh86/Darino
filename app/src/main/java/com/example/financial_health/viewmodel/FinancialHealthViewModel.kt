@@ -137,9 +137,12 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             val income = if (offset == 0 && configuredCurrentMonthIncome != null) {
                 configuredCurrentMonthIncome
             } else {
-                transactions.filter {
+                val monthIncomeTransactions = transactions.filter {
                     it.type == "INCOME" && it.deletedAt == null && it.timestamp >= range.start && it.timestamp < range.end && it.amount > 0L
-                }.fold(0L) { total, tx ->
+                }
+                // An unknown unit makes this month's income incomplete; do not publish a misleading pressure score.
+                if (monthIncomeTransactions.any { parseCurrencyUnit(it.amountUnit) == null }) continue
+                monthIncomeTransactions.fold(0L) { total, tx ->
                     val unit = parseCurrencyUnit(tx.amountUnit) ?: return@fold total
                     Math.addExact(total, MoneyAmount.of(tx.amount, unit).asRialsLongExact())
                 }
@@ -175,9 +178,11 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val nextMonthRange = monthRange(1)
         val scheduledNextMonth = if (hasCompleteInstallmentSchedule) scheduledAmount(active, nextMonthRange) else 0L
         val nextMonthVehicleExpenses = scheduledVehicleExpenses(vehicleServices, nextMonthRange)
-        val hasNextMonthVehicleExpenseAmount = vehicleServices.any { service ->
-            service.status != "COMPLETED" && service.cost > 0L && parseCurrencyUnit(service.costUnit) != null && service.dueDate?.let { it >= nextMonthRange.start && it < nextMonthRange.end } == true
+        val nextMonthVehicleServices = vehicleServices.filter { service ->
+            service.status != "COMPLETED" && service.cost > 0L && service.dueDate?.let { it >= nextMonthRange.start && it < nextMonthRange.end } == true
         }
+        val hasNextMonthVehicleExpenseAmount = nextMonthVehicleServices.isNotEmpty() &&
+            nextMonthVehicleServices.all { parseCurrencyUnit(it.costUnit) != null }
         val income = profile.monthlyIncome.coerceAtLeast(0L)
         val fixedExpenses = profile.fixedExpenses.coerceAtLeast(0L)
         val monthlyInstallments = scheduledCurrentMonth
