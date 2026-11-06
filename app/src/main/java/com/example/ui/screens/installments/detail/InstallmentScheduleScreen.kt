@@ -351,6 +351,7 @@ fun InstallmentScheduleScreen(
                                                             it.status != com.example.ui.screens.installments.model.InstallmentStatus.PAID &&
                                                                 it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED
                                                         }?.amount ?: (found.totalAmount / found.totalInstallments.coerceAtLeast(1)),
+                                                        amountUnit = found.amountUnit,
                                                         dueDatePersian = found.nextPaymentDate,
                                                         dueTimePersian = "۰۹:۰۰"
                                                     )
