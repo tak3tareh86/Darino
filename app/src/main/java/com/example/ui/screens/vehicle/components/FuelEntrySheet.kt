@@ -156,7 +156,10 @@ fun FuelEntrySheet(
             PersianAmountInputField(
                 value = amountInput,
                 onValueChange = { amountInput = it },
-                label = "مبلغ پرداختی سوخت",
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> amountInput = rawValue },
+                label = "مبلغ پرداختی سوخت (${MoneyFormatter.getUnitLabel()})",
+                unitLabel = MoneyFormatter.getUnitLabel(),
                 placeholder = "مبلغ را وارد کنید",
                 modifier = Modifier
                     .fillMaxWidth()
