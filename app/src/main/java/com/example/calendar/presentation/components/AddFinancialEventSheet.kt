@@ -66,6 +66,7 @@ fun AddFinancialEventSheet(
     var customReminderTime by remember { mutableStateOf("۰۹:۰۰") }
     var reminderDateError by remember { mutableStateOf<String?>(null) }
     var dateError by remember { mutableStateOf<String?>(null) }
+    var amountError by remember { mutableStateOf<String?>(null) }
     var showNoReminderConfirmation by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val preferences = remember { AppPreferencesRepository.getInstance(context) }
@@ -107,12 +108,24 @@ fun AddFinancialEventSheet(
             timestamp
         } else null
         reminderDateError = null
+        val parsedAmountRials = if (amountText.isBlank()) {
+            null
+        } else {
+            IranianAmountUtils.parseAmountToBigDecimal(amountText)
+                ?.takeIf { it.signum() > 0 }
+                ?.let { entered -> runCatching { MoneyAmount(entered, activeCurrency).asRialsLongExact() }.getOrNull() }
+        }
+        if (amountText.isNotBlank() && parsedAmountRials == null) {
+            amountError = "مبلغ باید معتبر، بزرگ‌تر از صفر و قابل ذخیره باشد."
+            return
+        }
+        amountError = null
         val newEvent = FinancialEvent(
             id = "user_ev_${System.currentTimeMillis()}",
             title = title.trim(),
             description = description.trim(),
             type = selectedType,
-            amount = if (amountText.isBlank()) null else IranianAmountUtils.parseAmountToBigDecimal(amountText)?.let { MoneyAmount(it, activeCurrency).asRialsLongExact() },
+            amount = parsedAmountRials,
             amountUnit = if (amountText.isBlank()) activeCurrency else AppCurrency.RIAL,
             date = CalendarDateUtils.normalizeDate(dateText),
             time = timeText.trim(),
@@ -247,7 +260,9 @@ fun AddFinancialEventSheet(
                     value = amountText,
                     onValueChange = { amountText = it },
                     allowDecimalInput = true,
-                    onRawDecimalAmountChange = { rawValue, _ -> amountText = rawValue },
+                    onRawDecimalAmountChange = { rawValue, _ -> amountText = rawValue; amountError = null },
+                    isError = amountError != null,
+                    errorMessage = amountError,
                     label = "مبلغ (${MoneyFormatter.getUnitLabel(activeCurrency)})",
                     unitLabel = MoneyFormatter.getUnitLabel(activeCurrency),
                     placeholder = "مبلغ را وارد کنید",
