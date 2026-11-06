@@ -4,6 +4,8 @@ import com.example.ui.screens.check.model.Check
 import com.example.ui.screens.check.model.CheckStatus
 import com.example.ui.screens.check.model.CheckType
 import com.example.util.PersianCalendarHelper
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import java.util.Locale
 
 /** Aggregated nominal values; these are not settlement or account-balance figures. */
@@ -72,13 +74,13 @@ object CheckReportFilter {
                     type = type,
                     status = status,
                     count = matching.size,
-                    amount = matching.sumOf { it.amount }
+                    amount = matching.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
                 )
             }
         }
         return CheckReportSummary(
             totalCount = checks.size,
-            totalNominalAmount = checks.sumOf { it.amount },
+            totalNominalAmount = checks.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) },
             statusTotals = statusTotals
         )
     }
