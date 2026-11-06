@@ -163,7 +163,10 @@ object UserRuleSmsAmountParser {
             }
         }.orEmpty()
         val selected = preferred.ifEmpty { matches }
-        return selected.firstOrNull()?.let { currencyUnitForMatch(text, it, fallback) } ?: fallback
+        // Repeated identical numbers can represent a transaction amount and a balance.
+        // If context does not isolate exactly one occurrence, retain the explicit fallback
+        // instead of borrowing the unit from an arbitrary occurrence.
+        return selected.singleOrNull()?.let { currencyUnitForMatch(text, it, fallback) } ?: fallback
     }
 
     private fun extractAmountLegacy(body: String): Long? {
