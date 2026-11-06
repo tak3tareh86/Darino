@@ -53,6 +53,11 @@ fun AddVehicleExpenseSheet(
     var amountText by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(todayJalali) }
     var description by remember { mutableStateOf("") }
+    val parsedAmountRials = amountText.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() > 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val amountInputInvalid = parsedAmountRials == null
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -191,15 +196,18 @@ fun AddVehicleExpenseSheet(
                 maxLines = 2
             )
 
+            if (amountInputInvalid) {
+                Text("مبلغ معتبر و بزرگ‌تر از صفر وارد کنید.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+
             // Submit Button
             Button(
                 onClick = {
-                    if (title.isNotBlank()) {
-                        val amount = IranianAmountUtils.parseAmountToBigDecimal(amountText)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
-                        onAddExpense(title, selectedCategory, amount, date, description)
+                    if (title.isNotBlank() && parsedAmountRials != null) {
+                        onAddExpense(title, selectedCategory, parsedAmountRials, date, description)
                     }
                 },
-                enabled = title.isNotBlank(),
+                enabled = title.isNotBlank() && !amountInputInvalid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
