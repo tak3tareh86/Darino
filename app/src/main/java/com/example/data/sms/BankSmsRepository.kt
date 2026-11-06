@@ -136,6 +136,16 @@ class BankSmsRepository(private val context: Context) {
                             amountCandidates = item.optJSONArray("amountCandidates")?.let { values ->
                                 buildList { for (i in 0 until values.length()) values.optLong(i).takeIf { it > 0L }?.let(::add) }
                             } ?: emptyList(),
+                            amountCandidateUnits = item.optJSONArray("amountCandidateUnits")?.let { values ->
+                                buildList {
+                                    for (i in 0 until values.length()) {
+                                        values.optString(i).takeIf { it.isNotBlank() }?.let { raw ->
+                                            runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(raw) }
+                                                .getOrNull()?.let(::add)
+                                        }
+                                    }
+                                }
+                            } ?: emptyList(),
                             trackingCode = item.optString("trackingCode").takeIf { it.isNotBlank() && it != "null" }
                         )
                     )
@@ -182,6 +192,7 @@ class BankSmsRepository(private val context: Context) {
                     .put("amount", suggestion.amount)
                     .put("amountUnit", suggestion.amountUnit.name)
                     .put("balanceAmountUnit", suggestion.balanceAmountUnit?.name ?: "")
+                .put("amountCandidateUnits", JSONArray(suggestion.amountCandidateUnits.map { it.name }))
                     .put("formattedAmount", suggestion.formattedAmount)
                     .put("isAmountValid", suggestion.isAmountValid)
                     .put("type", suggestion.type?.name ?: JSONObject.NULL)
