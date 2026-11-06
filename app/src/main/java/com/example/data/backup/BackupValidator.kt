@@ -76,7 +76,8 @@ object BackupValidator {
             backup.reminders.any { it.amountUnit !in validUnits } ||
             backup.financialEvents.any { it.amountUnit !in validUnits } ||
             backup.financialHealthProfiles.any { it.amountUnit !in validUnits } ||
-            backup.loanCalculations.any { it.amountUnit !in validUnits }
+            backup.loanCalculations.any { it.amountUnit !in validUnits } ||
+            (backup.appSettings?.currency?.let { it !in validUnits } ?: false)
         if (hasInvalidCurrencyUnit) {
             return ValidationResult.Invalid("فایل پشتیبان شامل رکوردی با واحد پول ناشناخته است؛ برای جلوگیری از تغییر مبلغ، بازیابی متوقف شد.")
         }
