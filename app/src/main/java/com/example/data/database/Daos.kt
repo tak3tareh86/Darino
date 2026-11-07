@@ -578,6 +578,26 @@ interface CheckDao {
         updatedAt: Long
     ): Int
 
+    @Query("UPDATE checks SET status = 'REPLACED', replacedByCheckId = :replacementId, updatedAt = :updatedAt WHERE userId = :userId AND id = :checkId AND status = 'BOUNCED' AND replacedByCheckId IS NULL AND deletedAt IS NULL")
+    suspend fun markCheckReplaced(userId: String, checkId: Int, replacementId: Int, updatedAt: Long): Int
+
+    @Transaction
+    suspend fun replaceBouncedCheck(userId: String, originalId: Int, replacement: CheckEntity): Int {
+        val original = getCheckById(userId, originalId) ?: return 0
+        if (original.userId != userId || original.deletedAt != null ||
+            original.status != "BOUNCED" || original.replacedByCheckId != null ||
+            replacement.userId != userId || replacement.type != original.type ||
+            replacement.amount != original.amount || replacement.amountUnit != original.amountUnit ||
+            replacement.checkNumber == original.checkNumber || replacement.status != "REGISTERED") {
+            return 0
+        }
+        val insertedId = insertCheck(replacement.copy(id = 0, replacedByCheckId = null))
+        if (insertedId <= 0L) throw IllegalStateException("Replacement check insert failed")
+        val updated = markCheckReplaced(userId, originalId, insertedId.toInt(), System.currentTimeMillis())
+        if (updated != 1) throw IllegalStateException("Original check state changed during replacement")
+        return insertedId.toInt()
+    }
+
     @Query("UPDATE checks SET deletedAt = :deletedAt, updatedAt = :updatedAt WHERE userId = :userId AND id = :checkId")
     suspend fun softDeleteCheck(userId: String, checkId: Int, deletedAt: Long, updatedAt: Long): Int
 
