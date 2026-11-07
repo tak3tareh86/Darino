@@ -491,7 +491,7 @@ fun AddEditCheckDialog(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            CheckStatus.entries.filter { it != CheckStatus.CLEARED }.forEach { s ->
+                            CheckStatus.entries.filter { it != CheckStatus.CLEARED && it != CheckStatus.REPLACED }.forEach { s ->
                                 FilterChip(
                                     selected = status == s,
                                     onClick = { status = s },
