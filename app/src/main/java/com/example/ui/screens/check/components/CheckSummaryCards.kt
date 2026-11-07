@@ -48,13 +48,13 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
     val countLabel = remember(totalCount) { IranianPhoneUtils.convertDigitsToPersian(totalCount.toString()) }
 
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().height(IntrinsicSize.Min),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Top
     ) {
         // In RTL layout this first card appears on the right, matching the reference composition.
         MonthChecksCard(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             monthName = monthName,
             monthCount = monthChecks.size,
             receivedAmount = receivedMonthAmount,
@@ -64,7 +64,7 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
             bouncedAmount = bouncedMonthAmount
         )
         TotalChecksCard(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             totalCount = totalCount,
             countLabel = countLabel,
             totalAmount = totalAmount
@@ -88,7 +88,7 @@ private fun TotalChecksCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f))
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 14.dp),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 12.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
@@ -140,11 +140,6 @@ private fun TotalChecksCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    "ریال",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }
@@ -170,7 +165,7 @@ private fun MonthChecksCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.58f))
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 11.dp, vertical = 14.dp),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 11.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
             Row(
@@ -201,19 +196,19 @@ private fun MonthChecksCard(
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
+                verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 MonthAmountTile(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     title = "دریافتی",
                     amount = receivedAmount,
                     count = receivedCount,
                     amountColor = MaterialTheme.colorScheme.primary
                 )
                 MonthAmountTile(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     title = "پرداختی",
                     amount = paidAmount,
                     count = paidCount,
