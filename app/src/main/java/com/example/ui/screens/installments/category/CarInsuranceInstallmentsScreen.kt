@@ -200,7 +200,7 @@ fun CarInsuranceInstallmentsScreen(
                                 )
                             }
                             Text(
-                                text = "باقیمانده: ${com.example.util.MoneyFormatter.formatExact(com.example.util.MoneyAmount.of(filteredInstallments.fold(0L) { total, item -> Math.addExact(total, com.example.util.MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }))}",
+                                text = "باقیمانده: ${com.example.util.MoneyFormatter.formatExact(com.example.util.MoneyAmount.of(filteredInstallments.fold(0L) { total, item -> Math.addExact(total, com.example.util.MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }, com.example.ui.screens.settings.model.AppCurrency.RIAL))}",
                                 style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
                                 color = InfoIndigoLight
                             )
