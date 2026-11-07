@@ -115,7 +115,7 @@ fun CheckDetailDialog(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Actions
-            if (check.status == CheckStatus.REGISTERED || check.status == CheckStatus.PENDING) {
+            if (check.status == CheckStatus.REGISTERED || check.status == CheckStatus.PENDING || check.status == CheckStatus.BOUNCED) {
                 Button(
                     onClick = { showSettleDialog = true },
                     modifier = Modifier.fillMaxWidth(),
