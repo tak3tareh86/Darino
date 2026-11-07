@@ -40,7 +40,8 @@ data class Check(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val amountUnit: AppCurrency = AppCurrency.TOMAN,
-    val replacedByCheckId: Int? = null
+    val replacedByCheckId: Int? = null,
+    val replacesCheckId: Int? = null
 ) {
     val formattedDueDate: String
         get() = PersianCalendarHelper.fromEpochMillis(dueDate).toFormattedDate()
