@@ -220,7 +220,7 @@ fun LazyListScope.checkReportSection(
                             expanded = monthMenuExpanded,
                             onDismissRequest = { monthMenuExpanded = false }
                         ) {
-                            Column(Modifier.width(280.dp).padding(8.dp)) {
+                            Column(Modifier.width(300.dp).padding(8.dp)) {
                                 TextButton(
                                     onClick = { onMonthChange(0); monthMenuExpanded = false },
                                     modifier = Modifier.fillMaxWidth(),
@@ -232,7 +232,7 @@ fun LazyListScope.checkReportSection(
                                     )
                                 }
                                 FlowRow(
-                                    maxItemsInEachRow = 3,
+                                    maxItemsInEachRow = 4,
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -240,7 +240,7 @@ fun LazyListScope.checkReportSection(
                                     CheckReportFilter.monthNames.forEachIndexed { index, name ->
                                         TextButton(
                                             onClick = { onMonthChange(index + 1); monthMenuExpanded = false },
-                                            modifier = Modifier.width(86.dp),
+                                            modifier = Modifier.width(68.dp),
                                             contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp)
                                         ) {
                                             Text(
