@@ -603,16 +603,16 @@ interface CheckDao {
     }
 
     @Transaction
-    suspend fun rollbackCheckReplacement(userId: String, originalId: Int, replacementId: Int): Boolean {
-        val originalRows = updateOriginalAfterReplacementRollback(userId, originalId, System.currentTimeMillis())
+    suspend fun rollbackCheckReplacement(userId: String, originalId: Int, replacementId: Int, originalReminderDateTime: Long?): Boolean {
+        val originalRows = updateOriginalAfterReplacementRollback(userId, originalId, originalReminderDateTime, System.currentTimeMillis())
         if (originalRows != 1) throw IllegalStateException("Original check rollback failed")
         val replacementRows = softDeleteCheck(userId, replacementId, System.currentTimeMillis(), System.currentTimeMillis())
         if (replacementRows != 1) throw IllegalStateException("Replacement check rollback failed")
         return true
     }
 
-    @Query("UPDATE checks SET status = 'BOUNCED', replacedByCheckId = NULL, updatedAt = :updatedAt WHERE userId = :userId AND id = :originalId AND status = 'REPLACED'")
-    suspend fun updateOriginalAfterReplacementRollback(userId: String, originalId: Int, updatedAt: Long): Int
+    @Query("UPDATE checks SET status = 'BOUNCED', replacedByCheckId = NULL, reminderDateTime = :reminderDateTime, updatedAt = :updatedAt WHERE userId = :userId AND id = :originalId AND status = 'REPLACED'")
+    suspend fun updateOriginalAfterReplacementRollback(userId: String, originalId: Int, reminderDateTime: Long?, updatedAt: Long): Int
 
     @Query("UPDATE checks SET deletedAt = :deletedAt, updatedAt = :updatedAt WHERE userId = :userId AND id = :checkId")
     suspend fun softDeleteCheck(userId: String, checkId: Int, deletedAt: Long, updatedAt: Long): Int
