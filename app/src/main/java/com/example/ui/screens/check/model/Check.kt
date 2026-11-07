@@ -39,7 +39,8 @@ data class Check(
     val reminderDateTime: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
-    val amountUnit: AppCurrency = AppCurrency.TOMAN
+    val amountUnit: AppCurrency = AppCurrency.TOMAN,
+    val replacedByCheckId: Int? = null
 ) {
     val formattedDueDate: String
         get() = PersianCalendarHelper.fromEpochMillis(dueDate).toFormattedDate()
