@@ -163,7 +163,7 @@ class LocalInstallmentRepository private constructor() {
 
                     val duplicateNumbers = payments.groupingBy { it.installmentNumber }.eachCount().filterValues { it > 1 }
                     require(duplicateNumbers.isEmpty()) { "Duplicate installment schedule rows in DB: ${entity.id}" }
-                    require(payments.all { it.amountUnit == entity.amountUnit }) { "Installment and payment currency units differ: ${entity.id}" }
+                    require(payments.all { it.amountUnit.name == entity.amountUnit }) { "Installment and payment currency units differ: ${entity.id}" }
                     val paidPayments = payments.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
                     val paidAmount = paidPayments.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
                     require(paidAmount <= entity.amount) { "Paid amount exceeds contract amount in DB: ${entity.id}" }
