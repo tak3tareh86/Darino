@@ -106,6 +106,35 @@ object IranianAmountUtils {
     }
 
     /**
+     * Normalizes temporarily incomplete grouping separators emitted by a formatted
+     * amount field while the user is editing. Grouping separators are presentation only:
+     * deleting or inserting a digit can temporarily produce groups such as "1,23" or
+     * "12,3456". Those must not clear the field. Final validation remains strict in
+     * parseAmountToBigDecimal().
+     */
+    fun cleanDecimalAmountInputWhileEditing(input: String, maxDigits: Int = 30): String {
+        val normalized = IranianPhoneUtils.convertDigitsToEnglish(input)
+            .replace('\u00A0', ' ')
+            .trim()
+        if (normalized.isEmpty()) return ""
+        if (normalized.any { it !in '0'..'9' && it !in setOf('.', '٫', ',', '٬', ' ') }) return ""
+
+        val decimalParts = normalized.split('.', '٫')
+        if (decimalParts.size > 2) return ""
+        val integerPart = decimalParts[0]
+        val fractionPart = decimalParts.getOrNull(1)
+        if (fractionPart != null && fractionPart.any { it !in '0'..'9' }) return ""
+
+        // Ignore grouping characters while editing; the formatter restores them after each change.
+        val integerDigits = integerPart.filter { it in '0'..'9' }
+        val digitsCount = integerDigits.length + (fractionPart?.length ?: 0)
+        if (digitsCount == 0 || digitsCount > maxDigits) return ""
+
+        val integer = integerDigits.trimStart('0').ifEmpty { "0" }
+        return if (fractionPart != null) "$integer.$fractionPart" else integer
+    }
+
+    /**
      * Parses a non-negative decimal amount without losing precision.
      *
      * Accepts Persian/Arabic/Latin digits, comma or Arabic thousands separators,
