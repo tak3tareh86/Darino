@@ -236,15 +236,8 @@ class LocalCheckRepository private constructor() : CheckRepository {
             return@withContext CheckOperationResult.PERSISTENCE_ERROR
         } ?: return@withContext CheckOperationResult.NOT_FOUND
 
-        val replacementAmountRials = runCatching {
-            com.example.util.MoneyAmount.of(replacement.amount, replacement.amountUnit).asRialsLongExact()
-        }.getOrNull()
-        val originalAmountRials = runCatching {
-            com.example.util.MoneyAmount.of(original.amount, com.example.ui.screens.settings.model.AppCurrency.valueOf(original.amountUnit)).asRialsLongExact()
-        }.getOrNull()
-
         if (original.deletedAt != null || original.status != CheckStatus.BOUNCED.name || original.replacedByCheckId != null ||
-            replacement.type.name != original.type || replacementAmountRials == null || replacementAmountRials != originalAmountRials ||
+            replacement.type.name != original.type || replacement.amount <= 0L ||
             replacement.checkNumber.trim() == original.checkNumber.trim() ||
             replacement.reminderDateTime?.let { isAfterCalendarDay(it, replacement.dueDate) || it <= System.currentTimeMillis() } == true) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
@@ -264,8 +257,6 @@ class LocalCheckRepository private constructor() : CheckRepository {
         val replacementEntity = replacement.copy(
             id = 0,
             userId = userId,
-            amount = original.amount,
-            amountUnit = com.example.ui.screens.settings.model.AppCurrency.valueOf(original.amountUnit),
             status = CheckStatus.REGISTERED,
             replacedByCheckId = null,
             accountId = null
@@ -298,6 +289,9 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 reminderManager?.onCheckSettled(originalCheckId.toString())
             } catch (e: Exception) {
                 e.printStackTrace()
+                database.checkDao().rollbackCheckReplacement(userId, originalCheckId, newId)
+                try { reminderManager?.onCheckSettled(newId.toString()) } catch (cancelError: Exception) { cancelError.printStackTrace() }
+                return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
             }
             CheckOperationResult.SUCCESS
         } catch (e: Exception) {
