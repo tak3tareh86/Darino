@@ -273,26 +273,31 @@ class LocalInstallmentRepository private constructor() {
             nextDueTitle = nearestItem?.title ?: "-"
         )
 
+        fun remainingRials(items: List<InstallmentItem>): Long =
+            items.fold(0L) { total, item ->
+                Math.addExact(total, MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact())
+            }
+
         _categorySummaries.value = listOf(
             CategorySummaryStat(
                 InstallmentCategory.BANK_LOANS,
                 "${_bankLoans.value.count { it.remainingInstallments > 0 }} مورد",
-                MoneyFormatter.formatExact(MoneyAmount.of(_bankLoans.value.fold(0L) { total, item -> Math.addExact(total, MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }, AppCurrency.RIAL))
+                remainingRials(_bankLoans.value)
             ),
             CategorySummaryStat(
                 InstallmentCategory.HOME_LOANS,
                 "${_homeLoans.value.count { it.remainingInstallments > 0 }} مورد",
-                MoneyFormatter.formatExact(MoneyAmount.of(_homeLoans.value.fold(0L) { total, item -> Math.addExact(total, MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }, AppCurrency.RIAL))
+                remainingRials(_homeLoans.value)
             ),
             CategorySummaryStat(
                 InstallmentCategory.CAR_INSURANCE,
                 "${_carInsurance.value.count { it.remainingInstallments > 0 }} مورد",
-                MoneyFormatter.formatExact(MoneyAmount.of(_carInsurance.value.fold(0L) { total, item -> Math.addExact(total, MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }, AppCurrency.RIAL))
+                remainingRials(_carInsurance.value)
             ),
             CategorySummaryStat(
                 InstallmentCategory.MISC,
                 "${_miscInstallments.value.count { it.remainingInstallments > 0 }} مورد",
-                MoneyFormatter.formatExact(MoneyAmount.of(_miscInstallments.value.fold(0L) { total, item -> Math.addExact(total, MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }, AppCurrency.RIAL))
+                remainingRials(_miscInstallments.value)
             )
         )
     }
