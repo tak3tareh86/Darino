@@ -45,6 +45,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.util.AppNumberFormatter
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.installments.components.InstallmentProgressBar
@@ -80,6 +82,7 @@ fun InstallmentDetailScreen(
     onViewScheduleClick: (InstallmentItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val numberMode by AppNumberFormatter.modeFlow.collectAsState()
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val nextUnpaidPayment = remember(item.paymentHistory) {
         item.paymentHistory
@@ -104,7 +107,7 @@ fun InstallmentDetailScreen(
             )
     }
     val nextInstallmentAmount = when {
-        nextUnpaidPayment != null -> nextUnpaidPayment.amountFormatted
+        nextUnpaidPayment != null -> nextUnpaidPayment.displayAmount
         item.remainingInstallments <= 0 -> "همه اقساط پرداخت شده‌اند"
         else -> "اطلاعات قسط موجود نیست"
     }
@@ -273,7 +276,7 @@ fun InstallmentDetailScreen(
                     InfoRow(
                         icon = Icons.Rounded.Payments,
                         label = "مبلغ قسط پیش‌رو:",
-                        value = nextInstallmentAmount
+                        value = AppNumberFormatter.formatDigits(nextInstallmentAmount, numberMode)
                     )
                     InfoRow(
                         icon = Icons.Rounded.ReceiptLong,
@@ -283,12 +286,12 @@ fun InstallmentDetailScreen(
                     InfoRow(
                         icon = Icons.Rounded.CalendarMonth,
                         label = "قسط بعدی:",
-                        value = "${item.nextPaymentDate} (${item.nextDueDaysText})"
+                        value = "${AppNumberFormatter.formatDigits(item.nextPaymentDate, numberMode)} (${AppNumberFormatter.formatDigits(item.nextDueDaysText, numberMode)})"
                     )
                     InfoRow(
                         icon = Icons.Rounded.CalendarMonth,
                         label = "دوره قرارداد:",
-                        value = "از ${item.startDate} تا ${item.endDate}"
+                        value = "از ${AppNumberFormatter.formatDigits(item.startDate, numberMode)} تا ${AppNumberFormatter.formatDigits(item.endDate, numberMode)}"
                     )
 
                     if (!item.vehicleName.isNullOrEmpty()) {
@@ -572,6 +575,7 @@ private fun InfoRow(
 
 @Composable
 private fun PaymentHistoryRow(item: PaymentHistoryItem) {
+    val numberMode by AppNumberFormatter.modeFlow.collectAsState()
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(RadiusMD),
@@ -617,13 +621,13 @@ private fun PaymentHistoryRow(item: PaymentHistoryItem) {
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "تاریخ سررسید: ${item.dueDate}",
+                            text = "تاریخ سررسید: ${AppNumberFormatter.formatDigits(item.displayDueDate, numberMode)}",
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                             color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         item.paidDate?.let { paidDate ->
                             Text(
-                                text = "تاریخ پرداخت: $paidDate",
+                                text = "تاریخ پرداخت: ${AppNumberFormatter.formatDigits(paidDate, numberMode)}",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                                 color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
