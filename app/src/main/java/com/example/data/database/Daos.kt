@@ -598,6 +598,16 @@ interface CheckDao {
         return insertedId.toInt()
     }
 
+    @Transaction
+    suspend fun rollbackCheckReplacement(userId: String, originalId: Int, replacementId: Int): Boolean {
+        val originalRows = updateOriginalAfterReplacementRollback(userId, originalId, System.currentTimeMillis())
+        val replacementRows = softDeleteCheck(userId, replacementId, System.currentTimeMillis(), System.currentTimeMillis())
+        return originalRows == 1 && replacementRows == 1
+    }
+
+    @Query("UPDATE checks SET status = 'BOUNCED', replacedByCheckId = NULL, updatedAt = :updatedAt WHERE userId = :userId AND id = :originalId AND status = 'REPLACED'")
+    suspend fun updateOriginalAfterReplacementRollback(userId: String, originalId: Int, updatedAt: Long): Int
+
     @Query("UPDATE checks SET deletedAt = :deletedAt, updatedAt = :updatedAt WHERE userId = :userId AND id = :checkId")
     suspend fun softDeleteCheck(userId: String, checkId: Int, deletedAt: Long, updatedAt: Long): Int
 
