@@ -131,7 +131,7 @@ fun CheckDetailDialog(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // A bounced check can be replaced by a new check of the same amount and type.
+            // A bounced check can be replaced by a new check of the same direction; its amount may differ.
             if (check.status == CheckStatus.BOUNCED && check.replacedByCheckId == null) {
                 OutlinedButton(
                     onClick = onReplace,
