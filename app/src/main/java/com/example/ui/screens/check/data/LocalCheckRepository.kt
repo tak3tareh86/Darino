@@ -220,6 +220,82 @@ class LocalCheckRepository private constructor() : CheckRepository {
         }
     }
 
+    override suspend fun replaceCheck(originalCheckId: Int, replacement: Check): CheckOperationResult = withContext(Dispatchers.IO) {
+        val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
+        val database = db ?: return@withContext CheckOperationResult.PERSISTENCE_ERROR
+
+        if (replacement.amount <= 0 || replacement.checkNumber.isBlank() || replacement.bankName.isBlank() ||
+            replacement.dueDate < replacement.issueDate) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR
+        }
+
+        val original = try {
+            database.checkDao().getCheckById(userId, originalCheckId)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext CheckOperationResult.PERSISTENCE_ERROR
+        } ?: return@withContext CheckOperationResult.NOT_FOUND
+
+        if (original.deletedAt != null || original.status != CheckStatus.BOUNCED.name || original.replacedByCheckId != null ||
+            replacement.type.name != original.type || replacement.amount != original.amount ||
+            replacement.amountUnit.name != original.amountUnit || replacement.checkNumber.trim() == original.checkNumber.trim() ||
+            replacement.reminderDateTime?.let { isAfterCalendarDay(it, replacement.dueDate) || it <= System.currentTimeMillis() } == true) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR
+        }
+
+        val normalizedSayadId = replacement.sayadId?.normalizeCheckDigits()?.trim().orEmpty()
+        if (normalizedSayadId.isNotBlank()) {
+            val duplicate = try {
+                database.checkDao().getCheckBySayadId(userId, normalizedSayadId)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return@withContext CheckOperationResult.PERSISTENCE_ERROR
+            }
+            if (duplicate != null && duplicate.id != originalCheckId) return@withContext CheckOperationResult.VALIDATION_ERROR
+        }
+
+        val replacementEntity = replacement.copy(
+            id = 0,
+            userId = userId,
+            status = CheckStatus.REGISTERED,
+            replacedByCheckId = null,
+            accountId = null
+        ).toEntity(userId)
+
+        try {
+            val newId = database.checkDao().replaceBouncedCheck(userId, originalCheckId, replacementEntity)
+            if (newId <= 0) return@withContext CheckOperationResult.VALIDATION_ERROR
+
+            try {
+                if (replacement.reminderDateTime != null) {
+                    (reminderManager ?: throw IllegalStateException("مدیر یادآور مقداردهی نشده است.")).syncCheckReminder(
+                        checkId = newId.toString(),
+                        title = "${replacement.bankName} - ${replacement.checkNumber}",
+                        amount = replacement.amount,
+                        amountUnit = replacement.amountUnit,
+                        dueDatePersian = replacement.formattedDueDate,
+                        type = replacement.type.name,
+                        reminderDateTime = replacement.reminderDateTime
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                database.checkDao().rollbackCheckReplacement(userId, originalCheckId, newId)
+                return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
+            }
+
+            try {
+                reminderManager?.onCheckSettled(originalCheckId.toString())
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            CheckOperationResult.SUCCESS
+        } catch (e: Exception) {
+            e.printStackTrace()
+            CheckOperationResult.PERSISTENCE_ERROR
+        }
+    }
+
     override suspend fun settleCheck(check: Check, account: com.example.ui.screens.finance.model.Account): CheckOperationResult = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
         val database = db ?: return@withContext CheckOperationResult.PERSISTENCE_ERROR
