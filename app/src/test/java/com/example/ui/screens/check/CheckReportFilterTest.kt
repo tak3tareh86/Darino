@@ -133,6 +133,30 @@ class CheckReportFilterTest {
     }
 
     @Test
+    fun replacementReportCountsOnlyTheCurrentReplacementAmount() {
+        val original = sample(1, 1405, 1, 10, "old")
+            .copy(
+                amount = 10000,
+                amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL,
+                status = CheckStatus.REPLACED,
+                replacedByCheckId = 2
+            )
+        val replacement = sample(2, 1405, 1, 11, "new")
+            .copy(
+                amount = 12000,
+                amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL,
+                status = CheckStatus.REGISTERED,
+                replacesCheckId = 1
+            )
+
+        val summary = CheckReportFilter.summarize(listOf(original, replacement))
+
+        assertEquals(1, summary.totalCount)
+        assertEquals(12000L, summary.totalNominalAmount)
+        assertEquals(1, summary.statusTotals.sumOf { it.count })
+    }
+
+    @Test
     fun directionFilterSeparatesReceivedAndPaidChecks() {
         val checks = listOf(
             sample(1, 1405, 1, 10, "received", type = CheckType.RECEIVED),
