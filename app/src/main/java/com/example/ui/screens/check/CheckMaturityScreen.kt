@@ -150,18 +150,18 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                         SegmentedButton(
                             selected = type == CheckType.RECEIVED,
                             onClick = { selectedType = CheckType.RECEIVED.name },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            icon = {}
                         ) {
-                            Icon(Icons.Rounded.CallReceived, null, modifier = Modifier.size(17.dp))
-                            Spacer(Modifier.width(6.dp)); Text("دریافتی")
+                            Text("دریافتی")
                         }
                         SegmentedButton(
                             selected = type == CheckType.PAID,
                             onClick = { selectedType = CheckType.PAID.name },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            icon = {}
                         ) {
-                            Icon(Icons.Rounded.CallMade, null, modifier = Modifier.size(17.dp))
-                            Spacer(Modifier.width(6.dp)); Text("پرداختی")
+                            Text("پرداختی")
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
