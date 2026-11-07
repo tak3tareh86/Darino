@@ -70,8 +70,8 @@ fun FinancialPressureChart(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = year?.let {
-                        "روند سهم اقساط از درآمد (${IranianPhoneUtils.convertDigitsToPersian(it.toString())} · ۱۲ ماه)"
-                    } ?: "روند سهم اقساط از درآمد (۱۲ ماه سال جاری)",
+                        "۱۲ ماه سال ${IranianPhoneUtils.convertDigitsToPersian(it.toString())}"
+                    } ?: "۱۲ ماه سال جاری",
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
