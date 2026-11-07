@@ -1,6 +1,9 @@
 package com.example.ui.screens.installments
 
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyAmount
+import com.example.util.MoneyFormatter
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
