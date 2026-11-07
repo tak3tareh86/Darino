@@ -18,6 +18,7 @@ import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.MoneyFormatter
+import com.example.util.AppNumberFormatter
 import com.example.util.MoneyAmount
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -85,7 +86,22 @@ data class PaymentHistoryItem(
     val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
     val displayAmount: String
-        get() = if (amount > 0L) MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit)) else if (amountFormatted.isNotBlank()) amountFormatted else MoneyFormatter.formatExact(MoneyAmount.of(0L, amountUnit))
+        get() {
+            val formatted = if (amount > 0L) {
+                MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit))
+            } else if (amountFormatted.isNotBlank()) {
+                amountFormatted
+            } else {
+                MoneyFormatter.formatExact(MoneyAmount.of(0L, amountUnit))
+            }
+            return AppNumberFormatter.formatDigits(formatted, AppNumberFormatter.currentMode)
+        }
+
+    val displayDueDate: String
+        get() = AppNumberFormatter.formatDigits(dueDate, AppNumberFormatter.currentMode)
+
+    val displayPaidDate: String?
+        get() = paidDate?.let { AppNumberFormatter.formatDigits(it, AppNumberFormatter.currentMode) }
 }
 
 data class InstallmentItem(
@@ -113,6 +129,18 @@ data class InstallmentItem(
     val paymentHistory: List<PaymentHistoryItem> = emptyList(),
     val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
+    val displayNextPaymentDate: String
+        get() = AppNumberFormatter.formatDigits(nextPaymentDate, AppNumberFormatter.currentMode)
+
+    val displayNextDueDaysText: String
+        get() = AppNumberFormatter.formatDigits(nextDueDaysText, AppNumberFormatter.currentMode)
+
+    val displayStartDate: String
+        get() = AppNumberFormatter.formatDigits(startDate, AppNumberFormatter.currentMode)
+
+    val displayEndDate: String
+        get() = AppNumberFormatter.formatDigits(endDate, AppNumberFormatter.currentMode)
+
     val progressPercentage: Float
         get() = if (totalAmount > 0) (paidAmount.toFloat() / totalAmount.toFloat()).coerceIn(0f, 1f) else 0f
 
@@ -160,7 +188,10 @@ data class CategorySummaryStat(
 ) {
     // Resolve the display currency at render time so Settings changes are reflected immediately.
     val remainingFormatted: String
-        get() = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmountRials, AppCurrency.RIAL))
+        get() = AppNumberFormatter.formatDigits(
+            MoneyFormatter.formatExact(MoneyAmount.of(remainingAmountRials, AppCurrency.RIAL)),
+            AppNumberFormatter.currentMode
+        )
 }
 
 /**
