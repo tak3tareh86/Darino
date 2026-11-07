@@ -950,6 +950,79 @@ class CheckManagementTest {
     }
 
     @Test
+    fun `test bounced check replacement links both records and preserves total amount`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val original = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 10000,
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.TOMAN,
+            checkNumber = "BOUNCED-ORIGINAL",
+            bankName = "Bank A",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = now,
+            dueDate = now + 86400000,
+            status = CheckStatus.BOUNCED
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(original))
+        val savedOriginal = repository.getChecks().first().single { it.checkNumber == "BOUNCED-ORIGINAL" }
+
+        // Same financial value expressed in Rial must be accepted as the replacement.
+        val replacement = savedOriginal.copy(
+            id = 0,
+            amount = 100000,
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL,
+            checkNumber = "REPLACEMENT-001",
+            bankName = "Bank B",
+            issueDate = now,
+            dueDate = now + 2 * 86400000,
+            status = CheckStatus.REGISTERED,
+            replacedByCheckId = null,
+            replacesCheckId = null
+        )
+
+        assertEquals(CheckOperationResult.SUCCESS, repository.replaceCheck(savedOriginal.id, replacement))
+
+        val updatedOriginal = repository.getCheckById(savedOriginal.id)
+        val savedReplacement = repository.getChecks().first().single { it.checkNumber == "REPLACEMENT-001" }
+        assertEquals(CheckStatus.REPLACED, updatedOriginal?.status)
+        assertEquals(savedReplacement.id, updatedOriginal?.replacedByCheckId)
+        assertEquals(CheckStatus.REGISTERED, savedReplacement.status)
+        assertEquals(savedOriginal.id, savedReplacement.replacesCheckId)
+        assertEquals(10000L, savedReplacement.amount)
+        assertEquals(com.example.ui.screens.settings.model.AppCurrency.TOMAN, savedReplacement.amountUnit)
+    }
+
+    @Test
+    fun `test replacement with different amount is rejected without changing original`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val original = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 5000,
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.TOMAN,
+            checkNumber = "BOUNCED-AMOUNT",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = now,
+            dueDate = now + 86400000,
+            status = CheckStatus.BOUNCED
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(original))
+        val saved = repository.getChecks().first().single { it.checkNumber == "BOUNCED-AMOUNT" }
+        val wrongAmount = saved.copy(id = 0, amount = 6000, checkNumber = "WRONG-AMOUNT", status = CheckStatus.REGISTERED)
+
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.replaceCheck(saved.id, wrongAmount))
+        assertEquals(CheckStatus.BOUNCED, repository.getCheckById(saved.id)?.status)
+        assertNull(repository.getCheckById(saved.id)?.replacedByCheckId)
+        assertFalse(repository.getChecks().first().any { it.checkNumber == "WRONG-AMOUNT" })
+    }
+
+    @Test
     fun `test invalid Sayad identifier is rejected`() = runBlocking {
         val now = System.currentTimeMillis()
         val invalid = Check(
