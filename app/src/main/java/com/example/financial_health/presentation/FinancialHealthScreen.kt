@@ -875,20 +875,36 @@ private fun NextMonthPredictionSectionCard(
                 }
 
                 Surface(
-                    modifier = Modifier.offset(x = (-4).dp),
+                    modifier = Modifier.widthIn(max = 124.dp),
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                 ) {
-                    Text(
-                        text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) "برآورد قابل محاسبه: ${MoneyFormatter.formatExact(MoneyAmount.of(prediction.total, AppCurrency.RIAL))}" else "اطلاعات کافی برای برآورد موجود نیست",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.5.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        ),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                    Column(
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = "برآورد قابل محاسبه",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 9.5.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            ),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            maxLines = 2
+                        )
+                        Text(
+                            text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) MoneyFormatter.formatExact(MoneyAmount.of(prediction.total, AppCurrency.RIAL)) else "اطلاعات کافی نیست",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            ),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            maxLines = 2
+                        )
+                    }
                 }
             }
 
