@@ -165,7 +165,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     Text(
                         PersianCalendarHelper.PersianDateTime(
                             baselineJalali.first, baselineJalali.second, baselineJalali.third
-                        ).toFormattedDate() + " (امروز)",
+                        ).toFormattedDate() + if (baselineMillis == todayMillis) " (امروز)" else "",
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 13.dp),
                         textAlign = TextAlign.Center, fontWeight = FontWeight.Bold,
                         maxLines = 1, style = MaterialTheme.typography.bodyMedium
