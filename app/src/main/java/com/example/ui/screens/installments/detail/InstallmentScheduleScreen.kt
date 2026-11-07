@@ -443,9 +443,9 @@ private fun ScheduleTimelineItem(
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                             color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        item.paidDate?.let { paidDate ->
+                        item.displayPaidDate?.let { paidDate ->
                             Text(
-                                text = "تاریخ پرداخت: ${com.example.util.AppNumberFormatter.formatDigits(paidDate, numberMode)}",
+                                text = "تاریخ پرداخت: $paidDate",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                 color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
