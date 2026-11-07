@@ -112,7 +112,7 @@ fun BankSmsAssistantCard(
     queue: List<BankSmsSuggestion>,
     userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
     onTypeChange: (id: String, type: TransactionType) -> Unit,
-    onAccept: (id: String, amount: Long?, type: TransactionType?, category: String?, account: String?, desc: String?, dest: String?, onResult: (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit) -> Unit = { _, _, _, _, _, _, _, _ -> },
+    onAccept: (id: String, amountRials: Long?, type: TransactionType?, category: String?, account: String?, desc: String?, dest: String?, onResult: (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit) -> Unit = { _, _, _, _, _, _, _, _ -> },
     onUpdateCustomDetails: (id: String, category: String?, account: String?, destAccount: String?) -> Unit = { _, _, _, _ -> },
     onDismiss: (id: String) -> Unit,
     onRequestPermission: () -> Unit,
