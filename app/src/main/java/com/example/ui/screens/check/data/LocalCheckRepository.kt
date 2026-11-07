@@ -52,7 +52,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             (check.sayadId != null && check.sayadId.isNotBlank() &&
                 (check.sayadId.length != 16 || !check.sayadId.all { it.isDigit() })) ||
             (check.reminderDateTime != null && (isAfterCalendarDay(check.reminderDateTime, check.dueDate) || check.reminderDateTime <= System.currentTimeMillis())) ||
-            check.status == CheckStatus.CLEARED
+            check.status == CheckStatus.CLEARED || check.status == CheckStatus.REPLACED
         ) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
@@ -131,7 +131,11 @@ class LocalCheckRepository private constructor() : CheckRepository {
         }
         // A cleared check is part of the financial ledger. Editing it without updating the
         // linked transaction would leave the check and ledger inconsistent.
-        if (currentEntity.status == CheckStatus.CLEARED.name) {
+        if (currentEntity.status == CheckStatus.CLEARED.name || currentEntity.status == CheckStatus.REPLACED.name) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR
+        }
+        // REPLACED is a system-managed lifecycle state; it cannot be assigned through edit.
+        if (check.status == CheckStatus.REPLACED) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
         // Settlement must go through settleCheck(), which creates the matching ledger transaction.
@@ -198,7 +202,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 ?: return@withContext CheckOperationResult.NOT_FOUND
             if (existing.deletedAt != null) return@withContext CheckOperationResult.NOT_FOUND
             // Do not orphan a financial transaction by deleting its settled check.
-            if (existing.status == CheckStatus.CLEARED.name) {
+            if (existing.status == CheckStatus.CLEARED.name || existing.status == CheckStatus.REPLACED.name) {
                 return@withContext CheckOperationResult.VALIDATION_ERROR
             }
             val rowsAffected = database.checkDao().softDeleteCheck(userId, id, System.currentTimeMillis(), System.currentTimeMillis())
