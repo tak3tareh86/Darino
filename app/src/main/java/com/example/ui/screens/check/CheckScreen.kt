@@ -188,7 +188,9 @@ fun CheckScreen(
         bottomBar = bottomBar
     ) { padding ->
         if (showMaturityScreen) {
-            CheckMaturityScreen(checks = uiState.checks, onBack = { showMaturityScreen = false })
+            Box(Modifier.fillMaxSize().padding(padding)) {
+                CheckMaturityScreen(checks = uiState.checks, onBack = { showMaturityScreen = false })
+            }
         } else {
         LazyColumn(
             modifier = Modifier
