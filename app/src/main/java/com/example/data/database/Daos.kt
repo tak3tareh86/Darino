@@ -591,6 +591,10 @@ interface CheckDao {
             replacement.status != "REGISTERED") {
             return 0
         }
+        val normalizedSayadId = replacement.sayadId?.trim().orEmpty()
+        if (normalizedSayadId.isNotBlank() && getCheckBySayadId(userId, normalizedSayadId) != null) {
+            return 0
+        }
         val insertedId = insertCheck(replacement.copy(id = 0, replacedByCheckId = null, replacesCheckId = originalId))
         if (insertedId <= 0L) throw IllegalStateException("Replacement check insert failed")
         val updated = markCheckReplaced(userId, originalId, insertedId.toInt(), System.currentTimeMillis())
