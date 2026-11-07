@@ -175,7 +175,7 @@ fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit
                             Box(modifier = Modifier.fillMaxWidth().height(30.dp)) {
                                 androidx.compose.material3.IconButton(
                                     onClick = { repository.delete(rule.id); rules = repository.getAll() },
-                                    modifier = Modifier.align(Alignment.TopStart).size(30.dp)
+                                    modifier = Modifier.align(Alignment.TopEnd).size(30.dp)
                                 ) {
                                     Icon(
                                         Icons.Rounded.DeleteOutline,
@@ -186,7 +186,7 @@ fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit
                                 }
                                 androidx.compose.material3.IconButton(
                                     onClick = { editing = rule; showEditor = true },
-                                    modifier = Modifier.align(Alignment.TopEnd).size(30.dp)
+                                    modifier = Modifier.align(Alignment.TopStart).size(30.dp)
                                 ) {
                                     Icon(
                                         Icons.Rounded.Edit,
