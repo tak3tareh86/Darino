@@ -54,19 +54,19 @@ object FinancialAnalyzerEngine {
             when {
                 diff > 2.0f -> insights += FinancialHealthInsight(
                     id = "trend_alert", title = "افزایش سهم اقساط از درآمد",
-                    description = "سهم اقساط ثبت‌شده از درآمد از ${previousMonthPressure}٪ به ${currentPressure}٪ رسیده است.",
+                    description = "سهم اقساط برنامه‌ریزی‌شده (شامل پرداخت‌شده و پرداخت‌نشده) از درآمد از ${previousMonthPressure}٪ به ${currentPressure}٪ رسیده است؛ این شاخص فقط اقساط را می‌سنجد، نه کل فشار مالی.",
                     type = InsightType.WARNING,
                     recommendation = "اقساط سررسیدشونده و درآمد ثبت‌شده هر دو ماه را بررسی کنید."
                 )
                 diff < -2.0f -> insights += FinancialHealthInsight(
                     id = "trend_alert", title = "کاهش سهم اقساط از درآمد",
-                    description = "سهم اقساط ثبت‌شده از درآمد ${diffAbs} واحد درصد کاهش یافته است.",
+                    description = "سهم اقساط برنامه‌ریزی‌شده (شامل پرداخت‌شده و پرداخت‌نشده) از درآمد ${diffAbs} واحد درصد کاهش یافته است؛ این شاخص فقط اقساط را می‌سنجد، نه کل فشار مالی.",
                     type = InsightType.POSITIVE,
                     recommendation = "در صورت وجود مازاد واقعی، برای هزینه‌های پیش‌بینی‌نشده ذخیره در نظر بگیرید."
                 )
                 else -> insights += FinancialHealthInsight(
                     id = "trend_alert", title = "تغییر چشمگیری در سهم اقساط دیده نمی‌شود",
-                    description = "مقایسه بر اساس درآمد و سررسیدهای ثبت‌شده در دو ماه انجام شده است.",
+                    description = "مقایسه سهم اقساط برنامه‌ریزی‌شده (پرداخت‌شده و پرداخت‌نشده) از درآمد در دو ماه است و هزینه ثابت را شامل نمی‌شود.",
                     type = InsightType.INFO
                 )
             }
@@ -96,7 +96,7 @@ object FinancialAnalyzerEngine {
         if (installmentDataComplete && installmentRatio > BigDecimal("25.0")) {
             insights += FinancialHealthInsight(
                 id = "installments_weight", title = "سهم بالای اقساط از درآمد",
-                description = "اقساط سررسیدشونده ثبت‌شده حدود ${installmentRatio.stripTrailingZeros().toPlainString()}٪ از درآمد ماهانه ثبت‌شده را تشکیل می‌دهند.",
+                description = "اقساط برنامه‌ریزی‌شده این ماه، شامل پرداخت‌شده و پرداخت‌نشده، حدود ${installmentRatio.stripTrailingZeros().toPlainString()}٪ از درآمد ماهانه ثبت‌شده را تشکیل می‌دهند؛ این نسبت فقط سهم اقساط است.",
                 type = if (installmentRatio > BigDecimal("35.0")) InsightType.ALERT else InsightType.WARNING,
                 recommendation = "پیش از ایجاد تعهد جدید، توان پرداخت پس از کسر هزینه‌های ثابت را بررسی کنید."
             )
@@ -112,7 +112,7 @@ object FinancialAnalyzerEngine {
                 .toPlainString()
             insights += FinancialHealthInsight(
                 id = "safe_zone_target", title = "مقایسه با محدوده هدف ۳۰٪",
-                description = "اقساط و هزینه‌های ثابت ثبت‌شده $excessMillionToman میلیون تومان بالاتر از ۳۰٪ درآمد ثبت‌شده هستند؛ این یک معیار راهنماست، نه ارزیابی قطعی.",
+                description = "مجموع اقساط برنامه‌ریزی‌شده این ماه (پرداخت‌شده و پرداخت‌نشده) و هزینه ثابت ثبت‌شده $excessMillionToman میلیون تومان بالاتر از ۳۰٪ درآمد ثبت‌شده است؛ این یک معیار راهنماست، نه ارزیابی قطعی.",
                 type = InsightType.INFO,
                 recommendation = "درآمد و هزینه‌های ثابت ثبت‌شده را بازبینی کنید و از ایجاد تعهد غیرضروری بپرهیزید."
             )
@@ -128,9 +128,9 @@ object FinancialAnalyzerEngine {
             insights += FinancialHealthInsight(
                 id = "next_month_outlook", title = "چشم‌انداز مبالغ ثبت‌شده ماه آینده",
                 description = if (installmentDataComplete) {
-                    "بر اساس اقساط سررسیدشونده، هزینه‌های ثابت ثبت‌شده و هزینه‌های خودروی دارای مبلغ و سررسید ثبت‌شده، مجموع مبالغ شناخته‌شده ماه آینده ${nextMonthMillionToman} میلیون تومان است${ratioText}. هزینه‌های خودرو بدون مبلغ یا تاریخ معتبر و یادآورها در جمع لحاظ نشده‌اند."
+                    "بر اساس اقساط سررسیدشونده، هزینه ثابت ثبت‌شده با فرض تکرار در ماه آینده و هزینه‌های خودروی دارای مبلغ و سررسید معتبر، مجموع مبالغ قابل محاسبه ${nextMonthMillionToman} میلیون تومان است${ratioText}. هزینه ثابت برآوردی است و مبلغ قطعی آینده نیست؛ اگر واحد پول یکی از هزینه‌های خودروی واجد شرایط نامعتبر باشد، مبلغ خودرو در جمع منظور نمی‌شود. یادآورها نیز هنوز متصل نیستند و در جمع لحاظ نشده‌اند."
                 } else {
-                    "به دلیل ناقص بودن برنامه بعضی اقساط، مبلغ اقساط در این برآورد لحاظ نشده است. مجموع مبالغ ثبت‌شده برای هزینه‌های ثابت و خودرو ${nextMonthMillionToman} میلیون تومان است${ratioText}؛ هزینه‌های ثبت‌نشده و یادآورها در جمع نیستند."
+                    "به دلیل ناقص بودن برنامه بعضی اقساط، مبلغ اقساط در این برآورد لحاظ نشده است. هزینه ثابت ثبت‌شده با فرض تکرار، صرفاً برآورد ماه آینده است؛ مجموع مبالغ قابل محاسبه برای هزینه ثابت و هزینه‌های خودروی دارای واحد پول معتبر ${nextMonthMillionToman} میلیون تومان است${ratioText}. اگر واحد پول یکی از هزینه‌های خودروی واجد شرایط نامعتبر باشد، مبلغ خودرو در جمع منظور نمی‌شود؛ هزینه‌های ثبت‌نشده و یادآورها نیز در جمع نیستند."
                 },
                 type = if ((nextMonthPressure ?: 0f) > 45f) InsightType.WARNING else InsightType.INFO
             )
