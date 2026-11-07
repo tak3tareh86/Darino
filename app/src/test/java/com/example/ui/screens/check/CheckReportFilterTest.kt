@@ -116,12 +116,14 @@ class CheckReportFilterTest {
             sample(1, 1405, 1, 10, "1", CheckStatus.CLEARED),
             sample(2, 1405, 1, 11, "2", CheckStatus.CANCELED),
             sample(3, 1405, 1, 12, "3", CheckStatus.BOUNCED, CheckType.PAID),
-            sample(4, 1405, 1, 13, "4", CheckStatus.PENDING, CheckType.PAID)
+            sample(4, 1405, 1, 13, "4", CheckStatus.PENDING, CheckType.PAID),
+            sample(5, 1405, 1, 14, "5", CheckStatus.REPLACED)
         )
         val results = CheckReportFilter.filter(checks, 1405, 1, "")
         val summary = CheckReportFilter.summarize(results)
 
-        assertEquals(setOf(1, 2, 3, 4), results.map { it.id }.toSet())
+        // The historical record remains searchable, but is excluded from all nominal totals.
+        assertEquals(setOf(1, 2, 3, 4, 5), results.map { it.id }.toSet())
         assertEquals(4, summary.totalCount)
         assertEquals(1_000L, summary.totalNominalAmount)
         assertEquals(4, summary.statusTotals.sumOf { it.count })
