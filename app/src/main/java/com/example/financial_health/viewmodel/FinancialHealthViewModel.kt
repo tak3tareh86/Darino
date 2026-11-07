@@ -300,7 +300,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             nearestDueDateDays = daysToNearest, nearestDueDateTitle = nearestTitle ?: "سررسیدی ثبت نشده",
             hasNearestDueDate = nearestDueMillis != null, largestInstallmentTitle = largest?.first?.title ?: "قسطی ثبت نشده",
             largestInstallmentAmount = largest?.let { MoneyAmount.of(it.second.amount, it.second.amountUnit).asRialsLongExact() } ?: 0L, hasLargestInstallment = largest != null,
-            nextMonthPrediction = nextMonth, previousMonthPressure = previousPressure ?: 0f, historicalPressureList = history
+            nextMonthPrediction = nextMonth, previousMonthPressure = previousPressure ?: 0f,
+            historicalPressureYear = currentMonth.year, historicalPressureList = history
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FinancialHealthState())
 
