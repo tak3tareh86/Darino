@@ -74,7 +74,8 @@ data class MonthlyPressureData(
     val monthName: String,
     val pressurePercentage: Float,
     val commitmentsAmount: Long,
-    val incomeAmount: Long
+    val incomeAmount: Long,
+    val hasData: Boolean = true
 )
 
 data class FinancialHealthProfile(
