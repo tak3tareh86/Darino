@@ -1023,6 +1023,9 @@ class CheckManagementTest {
         assertEquals(newCheck.id, updatedOriginal?.replacedByCheckId)
         assertEquals(6000L, newCheck.amount)
         assertEquals(CheckStatus.REGISTERED, newCheck.status)
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.updateCheck(updatedOriginal!!))
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.deleteCheck(saved.id))
+        assertNotNull(repository.getCheckById(saved.id))
     }
 
     @Test
