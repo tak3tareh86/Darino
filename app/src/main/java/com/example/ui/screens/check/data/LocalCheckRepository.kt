@@ -131,7 +131,8 @@ class LocalCheckRepository private constructor() : CheckRepository {
         }
         // A cleared check is part of the financial ledger. Editing it without updating the
         // linked transaction would leave the check and ledger inconsistent.
-        if (currentEntity.status == CheckStatus.CLEARED.name || currentEntity.status == CheckStatus.REPLACED.name) {
+        if (currentEntity.status == CheckStatus.CLEARED.name || currentEntity.status == CheckStatus.REPLACED.name ||
+            currentEntity.replacedByCheckId != null) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
         // REPLACED is a system-managed lifecycle state; it cannot be assigned through edit.
@@ -202,7 +203,8 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 ?: return@withContext CheckOperationResult.NOT_FOUND
             if (existing.deletedAt != null) return@withContext CheckOperationResult.NOT_FOUND
             // Do not orphan a financial transaction by deleting its settled check.
-            if (existing.status == CheckStatus.CLEARED.name || existing.status == CheckStatus.REPLACED.name) {
+            if (existing.status == CheckStatus.CLEARED.name || existing.status == CheckStatus.REPLACED.name ||
+                existing.replacedByCheckId != null || existing.replacesCheckId != null) {
                 return@withContext CheckOperationResult.VALIDATION_ERROR
             }
             val rowsAffected = database.checkDao().softDeleteCheck(userId, id, System.currentTimeMillis(), System.currentTimeMillis())
@@ -236,9 +238,11 @@ class LocalCheckRepository private constructor() : CheckRepository {
             return@withContext CheckOperationResult.PERSISTENCE_ERROR
         } ?: return@withContext CheckOperationResult.NOT_FOUND
 
+        val replacementSayadId = replacement.sayadId?.normalizeCheckDigits()?.trim().orEmpty()
         if (original.deletedAt != null || original.status != CheckStatus.BOUNCED.name || original.replacedByCheckId != null ||
             replacement.type.name != original.type || replacement.amount <= 0L ||
             replacement.checkNumber.trim() == original.checkNumber.trim() ||
+            (replacementSayadId.isNotBlank() && (replacementSayadId.length != 16 || !replacementSayadId.all(Char::isDigit))) ||
             replacement.reminderDateTime?.let { isAfterCalendarDay(it, replacement.dueDate) || it <= System.currentTimeMillis() } == true) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
