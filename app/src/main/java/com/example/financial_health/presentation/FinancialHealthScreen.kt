@@ -98,7 +98,7 @@ fun FinancialHealthScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Edit,
-                            contentDescription = "ویرایش درآمد",
+                            contentDescription = "ویرایش اطلاعات مالی",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -186,6 +186,11 @@ fun FinancialHealthScreen(
                         )
                     } else {
                         FinancialPressureChart(dataPoints = state.historicalPressureList)
+                        Text(
+                            text = "در نمودار، ماه‌های فاقد داده معتبر با — مشخص می‌شوند و بین آن‌ها خط روندی رسم نمی‌شود.",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 16.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -265,7 +270,7 @@ private fun HealthOverviewHeroCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "سهم تعهدات ثبت‌شده از درآمد شما",
+                            text = "اقساط برنامه‌ریزی‌شده این ماه (پرداخت‌شده و پرداخت‌نشده) + هزینه ثابت، نسبت به درآمد",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -430,7 +435,7 @@ private fun FinancialCommitmentsBreakdownCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "تغییر درآمد",
+                        text = "ویرایش درآمد و هزینه ثابت",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.5.sp
@@ -469,12 +474,12 @@ private fun FinancialCommitmentsBreakdownCard(
                 )
 
                 CommitmentRowItem(
-                    title = "اقساط سررسیدشونده این ماه",
+                    title = "کل اقساط برنامه‌ریزی‌شده این ماه",
                     amount = state.totalInstallments,
                     decimalFormat = decimalFormat,
                     color = Color(0xFF3B82F6),
                     icon = Icons.Rounded.ReceiptLong,
-                    percentageText = if (state.hasInstallmentScheduleData && state.monthlyIncome > 0L) "${formatFinancialAmountRatio(state.totalInstallments, state.monthlyIncome)}٪ از درآمد" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "برنامه بعضی اقساط ناقص است",
+                    percentageText = if (state.hasInstallmentScheduleData && state.monthlyIncome > 0L) "${formatFinancialAmountRatio(state.totalInstallments, state.monthlyIncome)}٪ از درآمد · شامل پرداخت‌شده و پرداخت‌نشده" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "برنامه بعضی اقساط ناقص است",
                     amountLabelOverride = if (state.hasInstallmentScheduleData) null else if (state.activeInstallmentsCount == 0) MoneyFormatter.formatExact(MoneyAmount.of(0L, AppCurrency.RIAL)) else "اطلاعات ناقص"
                 )
 
@@ -517,7 +522,7 @@ private fun FinancialCommitmentsBreakdownCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (hasCompleteFinancialData) "مجموع کل تعهدات" else "مجموع مبالغ ثبت‌شده",
+                            text = if (hasCompleteFinancialData) "مجموع تعهدات ماهانه (نه مانده بدهی)" else "مجموع مبالغ ثبت‌شده",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
@@ -538,7 +543,7 @@ private fun FinancialCommitmentsBreakdownCard(
 
                     Text(
                         text = if (hasCompleteFinancialData) {
-                            "معادل ${formatFinancialPercentage(state.pressurePercentage)}٪ درآمد"
+                            "اقساط برنامه‌ریزی‌شده این ماه (پرداخت‌شده و پرداخت‌نشده) + هزینه ثابت · معادل ${formatFinancialPercentage(state.pressurePercentage)}٪ درآمد"
                         } else {
                             missingFinancialDataMessage
                         },
@@ -700,7 +705,7 @@ private fun InstallmentsAnalysisSectionCard(
                             else -> "${IranianPhoneUtils.convertDigitsToPersian(days.toString())} روز دیگر"
                         }
                     } else "سررسید ثبت نشده",
-                    subtext = state.nearestDueDateTitle,
+                    subtext = if (state.nearestDueDateDays < 0) "قسط معوق · ${state.nearestDueDateTitle}" else state.nearestDueDateTitle,
                     modifier = Modifier.weight(1f),
                     accentColor = Color(0xFFF59E0B)
                 )
