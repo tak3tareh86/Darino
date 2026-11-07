@@ -290,6 +290,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             } catch (e: Exception) {
                 e.printStackTrace()
                 database.checkDao().rollbackCheckReplacement(userId, originalCheckId, newId)
+                try { reminderManager?.onCheckSettled(newId.toString()) } catch (cancelError: Exception) { cancelError.printStackTrace() }
                 return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
             }
 
