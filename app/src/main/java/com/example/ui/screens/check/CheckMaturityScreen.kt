@@ -79,7 +79,12 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
             baselineGregorian.get(Calendar.DAY_OF_MONTH)
         )
     }
-    val baselineGregorianDate = Triple(\n        baselineGregorian.get(Calendar.YEAR),\n        baselineGregorian.get(Calendar.MONTH) + 1,\n        baselineGregorian.get(Calendar.DAY_OF_MONTH)\n    )\n    val calculation = remember(selectedChecks, baselineGregorianDate) { calculateMaturity(selectedChecks, baselineGregorianDate) }
+    val baselineGregorianDate = Triple(
+        baselineGregorian.get(Calendar.YEAR),
+        baselineGregorian.get(Calendar.MONTH) + 1,
+        baselineGregorian.get(Calendar.DAY_OF_MONTH)
+    )
+    val calculation = remember(selectedChecks, baselineGregorianDate) { calculateMaturity(selectedChecks, baselineGregorianDate) }
     val allSelected = eligibleChecks.isNotEmpty() && selectedIds.size == eligibleChecks.size
 
     LazyColumn(
