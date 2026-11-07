@@ -272,7 +272,7 @@ fun FinancialPressureChart(
         }
 
         // X-Axis month labels & percentage badges
-        // Keep the chronological January-to-December axis aligned with the Canvas.
+        // Keep the chronological Farvardin-to-Esfand axis aligned with the Canvas.
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
