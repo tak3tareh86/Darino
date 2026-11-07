@@ -93,16 +93,23 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("محاسبه سررسید موزون", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("چک‌ها را انتخاب کن تا تاریخ راس را ببینی", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Rounded.ArrowForward, contentDescription = "بازگشت")
-                    }
-                }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    "محاسبه سررسید موزون",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    "چک‌ها را انتخاب کن تا تاریخ راس را ببینی",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
             }
         }
         item {
@@ -164,12 +171,18 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                             Text("پرداختی")
                         }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
-                            Text("تاریخ مبنا", fontWeight = FontWeight.SemiBold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("تاریخ مبنا", fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
                             Text(
                                 PersianCalendarHelper.PersianDateTime(baselineJalali.first, baselineJalali.second, baselineJalali.third).toFormattedDate(),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                textAlign = TextAlign.Center
                             )
                         }
                         FilledTonalButton(onClick = {
