@@ -103,12 +103,20 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         Math.addExact(itemTotal, paymentTotal)
     }
 
-    private fun scheduledVehicleExpenses(services: List<VehicleServiceEntity>, range: MonthRange): Long = services.fold(0L) { total, service ->
-        val due = service.dueDate
-        val costRials = if (service.status != "COMPLETED" && service.cost > 0L && due != null && due >= range.start && due < range.end) {
-            parseCurrencyUnit(service.costUnit)?.let { MoneyAmount.of(service.cost, it).asRialsLongExact() } ?: 0L
-        } else 0L
-        Math.addExact(total, costRials)
+    private fun nextMonthVehicleServices(services: List<VehicleServiceEntity>, range: MonthRange) =
+        services.filter { service ->
+            service.status != "COMPLETED" && service.cost > 0L &&
+                service.dueDate?.let { it >= range.start && it < range.end } == true
+        }
+
+    private fun validatedVehicleExpenseAmount(services: List<VehicleServiceEntity>): Long? {
+        if (services.isEmpty() || services.any { parseCurrencyUnit(it.costUnit) == null }) return null
+        return runCatching {
+            services.fold(0L) { total, service ->
+                val unit = parseCurrencyUnit(service.costUnit) ?: error("Unknown vehicle expense currency unit")
+                Math.addExact(total, MoneyAmount.of(service.cost, unit).asRialsLongExact())
+            }
+        }.getOrNull()
     }
 
     private fun activeItems(items: List<InstallmentItem>) =
@@ -120,37 +128,57 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         installments: List<InstallmentItem>,
         configuredCurrentMonthIncome: Long?
     ): List<MonthlyPressureData> {
-        if (activeItems(installments).any { !hasCompleteSchedule(it) }) return emptyList()
         val result = mutableListOf<MonthlyPressureData>()
         for (offset in -5..0) {
             val range = monthRange(offset)
-            // Historical points are omitted when an installment active during that month has an incomplete schedule.
+            // Preserve all six calendar slots. Missing or incomplete source data is represented
+            // explicitly, so the chart never connects non-consecutive months as if data existed.
             val hasIncompleteRelevantSchedule = installments.any { item ->
                 val start = dueMillis(item.startDate)
                 val end = dueMillis(item.endDate)
                 val overlapsMonth = start != null && end != null && start < range.end && end >= range.start
-                overlapsMonth && !hasCompletePaymentHistory(item)
+                val contractRangeUnknown = item.remainingInstallments > 0 && (start == null || end == null)
+                (overlapsMonth || contractRangeUnknown) && !hasCompletePaymentHistory(item)
             }
-            if (hasIncompleteRelevantSchedule) continue
-            // Use the user's configured income for the current month, matching the main dashboard.
-            // Past months continue to use actual recorded income transactions.
-            val income = if (offset == 0 && configuredCurrentMonthIncome != null) {
+            if (hasIncompleteRelevantSchedule) {
+                result += MonthlyPressureData(range.label, 0f, 0L, 0L, hasData = false)
+                continue
+            }
+
+            val income: Long? = if (offset == 0 && configuredCurrentMonthIncome != null) {
                 configuredCurrentMonthIncome
             } else {
                 val monthIncomeTransactions = transactions.filter {
-                    it.type == "INCOME" && it.deletedAt == null && it.timestamp >= range.start && it.timestamp < range.end && it.amount > 0L
+                    it.type == "INCOME" && it.deletedAt == null &&
+                        it.timestamp >= range.start && it.timestamp < range.end && it.amount > 0L
                 }
-                // An unknown unit makes this month's income incomplete; do not publish a misleading pressure score.
-                if (monthIncomeTransactions.any { parseCurrencyUnit(it.amountUnit) == null }) continue
-                monthIncomeTransactions.fold(0L) { total, tx ->
-                    val unit = parseCurrencyUnit(tx.amountUnit) ?: return@fold total
-                    Math.addExact(total, MoneyAmount.of(tx.amount, unit).asRialsLongExact())
+                if (monthIncomeTransactions.any { parseCurrencyUnit(it.amountUnit) == null }) {
+                    null
+                } else {
+                    runCatching {
+                        monthIncomeTransactions.fold(0L) { total, tx ->
+                            val unit = parseCurrencyUnit(tx.amountUnit) ?: error("Unknown income currency unit")
+                            Math.addExact(total, MoneyAmount.of(tx.amount, unit).asRialsLongExact())
+                        }
+                    }.getOrNull()
                 }
             }
-            if (income <= 0L) continue
-            val installmentDue = scheduledAmount(installments, range, includePaid = true)
-            val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(installmentDue, income) ?: continue
-            result += MonthlyPressureData(range.label, pressure, installmentDue, income)
+            if (income == null || income <= 0L) {
+                result += MonthlyPressureData(range.label, 0f, 0L, 0L, hasData = false)
+                continue
+            }
+
+            val installmentDue = runCatching {
+                scheduledAmount(installments, range, includePaid = true)
+            }.getOrNull()
+            val pressure = installmentDue?.let {
+                FinancialAnalyzerEngine.calculateFinancialPressure(it, income)
+            }
+            if (installmentDue == null || pressure == null) {
+                result += MonthlyPressureData(range.label, 0f, 0L, 0L, hasData = false)
+            } else {
+                result += MonthlyPressureData(range.label, pressure, installmentDue, income, hasData = true)
+            }
         }
         return result
     }
@@ -182,12 +210,12 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         } else 0L
         val nextMonthRange = monthRange(1)
         val scheduledNextMonth = if (hasCompleteInstallmentSchedule) scheduledAmount(active, nextMonthRange) else 0L
-        val nextMonthVehicleExpenses = scheduledVehicleExpenses(vehicleServices, nextMonthRange)
-        val nextMonthVehicleServices = vehicleServices.filter { service ->
-            service.status != "COMPLETED" && service.cost > 0L && service.dueDate?.let { it >= nextMonthRange.start && it < nextMonthRange.end } == true
-        }
-        val hasNextMonthVehicleExpenseAmount = nextMonthVehicleServices.isNotEmpty() &&
-            nextMonthVehicleServices.all { parseCurrencyUnit(it.costUnit) != null }
+        val nextMonthVehicleServices = nextMonthVehicleServices(vehicleServices, nextMonthRange)
+        // Do not publish a partial vehicle total if any eligible row has an unknown unit
+        // or if an exact conversion/aggregation overflows.
+        val validatedNextMonthVehicleExpenses = validatedVehicleExpenseAmount(nextMonthVehicleServices)
+        val nextMonthVehicleExpenses = validatedNextMonthVehicleExpenses ?: 0L
+        val hasNextMonthVehicleExpenseAmount = validatedNextMonthVehicleExpenses != null
         val income = profile.monthlyIncome.coerceAtLeast(0L)
         val fixedExpenses = profile.fixedExpenses.coerceAtLeast(0L)
         val monthlyInstallments = scheduledCurrentMonth
@@ -201,8 +229,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             installments = allInstallments,
             configuredCurrentMonthIncome = income.takeIf { profile.isConfigured }
         )
-        val currentHistoryPressure = history.lastOrNull { it.monthName == currentMonth.label }?.pressurePercentage
-        val previousPressure = history.lastOrNull { it.monthName == previousMonth.label }?.pressurePercentage
+        val currentHistoryPressure = history.lastOrNull { it.monthName == currentMonth.label && it.hasData }?.pressurePercentage
+        val previousPressure = history.lastOrNull { it.monthName == previousMonth.label && it.hasData }?.pressurePercentage
         val status = pressure?.let { FinancialAnalyzerEngine.calculateHealthStatus(it) } ?: FinancialHealthStatus.MEDIUM
 
         val unpaidPayments = active.flatMap { item ->

@@ -137,8 +137,9 @@ fun FinancialPressureChart(
                 val usableHeight = height - topPadding - bottomPadding
                 val stepX = if (dataPoints.size <= 1) width / 2f else width / (dataPoints.size - 1)
 
-                // Max scale is 60% or highest point + 10%
-                val maxPressure = maxOf(60.0f, (dataPoints.maxOfOrNull { it.pressurePercentage } ?: 0f) + 10f)
+                // Scale only from real observations; missing months keep their own x-axis slot.
+                val validValues = dataPoints.filter { it.hasData }.map { it.pressurePercentage }
+                val maxPressure = maxOf(60.0f, (validValues.maxOrNull() ?: 0f) + 10f)
                 val minPressure = 0.0f
 
                 // Draw reference lines at 30% and 50%
@@ -163,50 +164,53 @@ fun FinancialPressureChart(
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))
                 )
 
-                // Calculate animated coordinates
+                // Keep a fixed x-position for every calendar month, including missing data.
                 val points = dataPoints.mapIndexed { index, item ->
-                    val normY = ((item.pressurePercentage - minPressure) / (maxPressure - minPressure)).coerceIn(0f, 1f)
+                    val normY = if (item.hasData) {
+                        ((item.pressurePercentage - minPressure) / (maxPressure - minPressure)).coerceIn(0f, 1f)
+                    } else 0f
                     val targetY = topPadding + usableHeight * (1f - normY)
                     val initialY = topPadding + usableHeight
                     val currentY = initialY + (targetY - initialY) * animationProgress.value
                     Offset(index * stepX, currentY)
                 }
 
-                // Construct area fill path
-                val fillPath = Path().apply {
-                    moveTo(points.first().x, topPadding + usableHeight)
-                    points.forEach { lineTo(it.x, it.y) }
-                    lineTo(points.last().x, topPadding + usableHeight)
-                    close()
-                }
-
-                drawPath(
-                    path = fillPath,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            primaryColor.copy(alpha = if (isDark) 0.35f else 0.22f),
-                            primaryColor.copy(alpha = 0.02f)
-                        ),
-                        startY = topPadding,
-                        endY = topPadding + usableHeight
-                    )
-                )
-
-                // Construct line path
-                val strokePath = Path().apply {
-                    points.forEachIndexed { i, pt ->
-                        if (i == 0) moveTo(pt.x, pt.y) else lineTo(pt.x, pt.y)
+                // Draw fill and line only between adjacent months that both have real data.
+                for (index in 0 until points.lastIndex) {
+                    if (!dataPoints[index].hasData || !dataPoints[index + 1].hasData) continue
+                    val first = points[index]
+                    val second = points[index + 1]
+                    val segmentFill = Path().apply {
+                        moveTo(first.x, topPadding + usableHeight)
+                        lineTo(first.x, first.y)
+                        lineTo(second.x, second.y)
+                        lineTo(second.x, topPadding + usableHeight)
+                        close()
                     }
+                    drawPath(
+                        path = segmentFill,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                primaryColor.copy(alpha = if (isDark) 0.35f else 0.22f),
+                                primaryColor.copy(alpha = 0.02f)
+                            ),
+                            startY = topPadding,
+                            endY = topPadding + usableHeight
+                        )
+                    )
+                    drawLine(
+                        color = primaryColor,
+                        start = first,
+                        end = second,
+                        strokeWidth = 3.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
                 }
 
-                drawPath(
-                    path = strokePath,
-                    color = primaryColor,
-                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-                )
-
-                // Draw circles and values
+                // Draw only observed values; missing months remain visibly blank.
+                val lastValidIndex = dataPoints.indexOfLast { it.hasData }
                 points.forEachIndexed { index, pt ->
+                    if (!dataPoints[index].hasData) return@forEachIndexed
                     val value = dataPoints[index].pressurePercentage
                     val ptColor = when {
                         value <= 30f -> safeColor
@@ -214,8 +218,8 @@ fun FinancialPressureChart(
                         else -> alertColor
                     }
 
-                    // Outer halo for last point
-                    if (index == points.lastIndex && highlightLastPoint) {
+                    // Outer halo for the latest available observation
+                    if (index == lastValidIndex && highlightLastPoint) {
                         drawCircle(
                             color = ptColor.copy(alpha = 0.3f),
                             radius = 11.dp.toPx(),
@@ -267,7 +271,7 @@ fun FinancialPressureChart(
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
-                        text = "${IranianPhoneUtils.convertDigitsToPersian(java.text.DecimalFormat("0.#").format(item.pressurePercentage))}٪",
+                        text = if (item.hasData) "${IranianPhoneUtils.convertDigitsToPersian(java.text.DecimalFormat("0.#").format(item.pressurePercentage))}٪" else "—",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = if (isLast) FontWeight.ExtraBold else FontWeight.Medium,
                             fontSize = 10.5.sp
