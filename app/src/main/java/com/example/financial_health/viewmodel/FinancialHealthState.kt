@@ -36,5 +36,6 @@ data class FinancialHealthState(
         installmentsAmountRecorded = false, fixedExpensesAmountRecorded = false, remindersAmountRecorded = false, vehicleExpensesAmountRecorded = false
     ),
     val previousMonthPressure: Float = 0.0f,
+    val historicalPressureYear: Int = 0,
     val historicalPressureList: List<MonthlyPressureData> = emptyList()
 )
