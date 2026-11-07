@@ -1,6 +1,7 @@
 package com.example.ui.screens.check.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -112,9 +113,9 @@ private fun TotalChecksCard(
                 maxLines = 1
             )
             Spacer(Modifier.weight(1f))
-            HorizontalDivider(
-                modifier = Modifier.width(1.dp).height(26.dp),
-                color = MaterialTheme.colorScheme.outlineVariant
+            Box(
+                modifier = Modifier.width(1.dp).height(26.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
             )
             Column(
                 horizontalAlignment = Alignment.End,
@@ -232,14 +233,6 @@ private fun MonthChecksCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "برگشتی / فعال",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = scheme.onSurfaceVariant,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1
-                    )
-                    Spacer(Modifier.weight(1f))
-                    Text(
                         "${IranianPhoneUtils.convertDigitsToPersian(bouncedCount.toString())} فقره",
                         style = MaterialTheme.typography.labelMedium,
                         color = scheme.onSurface,
@@ -251,6 +244,14 @@ private fun MonthChecksCard(
                         scheme.error,
                         Modifier.weight(1.25f),
                         12f
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        "برگشتی / فعال",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = scheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
                     )
                 }
             } else {
