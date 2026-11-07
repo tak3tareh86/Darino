@@ -127,7 +127,7 @@ fun CheckDetailDialog(
                 }
             }
 
-            if (check.status != CheckStatus.CLEARED) {
+            if (check.status != CheckStatus.CLEARED && check.status != CheckStatus.REPLACED) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -155,7 +155,7 @@ fun CheckDetailDialog(
                 }
             } else {
                 Text(
-                    "این چک تسویه شده و تراکنش آن در حساب مالی ثبت است؛ برای جلوگیری از مغایرت مالی، ویرایش و حذف مستقیم غیرفعال است.",
+                    if (check.status == CheckStatus.REPLACED) "این چک با چک دیگری جایگزین شده است؛ برای جلوگیری از دوباره‌شماری مبلغ، ویرایش و حذف مستقیم آن غیرفعال است." else "این چک تسویه شده و تراکنش آن در حساب مالی ثبت است؛ برای جلوگیری از مغایرت مالی، ویرایش و حذف مستقیم غیرفعال است.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
