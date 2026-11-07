@@ -1,6 +1,8 @@
 package com.example.ui.screens.check
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -17,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
@@ -220,9 +223,19 @@ fun LazyListScope.checkReportSection(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    (listOf("همه ماه‌ها") + CheckReportFilter.monthNames).forEachIndexed { index, name ->
+                                    TextButton(
+                                    onClick = { onMonthChange(0); monthMenuExpanded = false },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        "همه ماه‌ها",
+                                        color = if (selectedMonth == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                CheckReportFilter.monthNames.forEachIndexed { index, name ->
                                         TextButton(
-                                            onClick = { onMonthChange(index); monthMenuExpanded = false },
+                                            onClick = { onMonthChange(index + 1); monthMenuExpanded = false },
                                             modifier = Modifier.width(86.dp),
                                             contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp)
                                         ) {
@@ -230,8 +243,8 @@ fun LazyListScope.checkReportSection(
                                                 name,
                                                 maxLines = 1,
                                                 style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = if (selectedMonth == index) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (selectedMonth == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                fontWeight = if (selectedMonth == index + 1) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (selectedMonth == index + 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                             )
                                         }
                                     }
