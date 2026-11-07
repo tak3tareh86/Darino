@@ -86,7 +86,6 @@ import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
-import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 
 @Composable
