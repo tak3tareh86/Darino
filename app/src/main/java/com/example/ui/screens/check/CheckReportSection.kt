@@ -166,12 +166,12 @@ fun LazyListScope.checkReportSection(
                             onDismissRequest = { yearMenuExpanded = false }
                         ) {
                             Column(
-                                Modifier.width(280.dp).heightIn(max = 280.dp)
+                                Modifier.width(300.dp).heightIn(max = 280.dp)
                                     .verticalScroll(androidx.compose.foundation.rememberScrollState())
                                     .padding(8.dp)
                             ) {
                                 FlowRow(
-                                    maxItemsInEachRow = 3,
+                                    maxItemsInEachRow = 4,
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -181,7 +181,7 @@ fun LazyListScope.checkReportSection(
                                             else IranianPhoneUtils.convertDigitsToPersian(year.toString())
                                         TextButton(
                                             onClick = { onYearChange(year); yearMenuExpanded = false },
-                                            modifier = Modifier.width(86.dp),
+                                            modifier = Modifier.width(68.dp),
                                             contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp)
                                         ) {
                                             Text(
