@@ -9,7 +9,14 @@ import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -29,10 +36,23 @@ import com.example.ui.screens.settings.model.AppCurrency
 
 @Composable
 fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
+    // Refresh the Jalali month whenever the app returns to the foreground.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var currentJalaliDate by remember { mutableStateOf(CalendarDateUtils.getCurrentJalaliDate()) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                currentJalaliDate = CalendarDateUtils.getCurrentJalaliDate()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     // Keep the existing business calculations unchanged; this component only changes presentation.
     val totalCount = checks.size
     val totalAmount = checks.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
-    val (curYear, curMonth, _) = CalendarDateUtils.getCurrentJalaliDate()
+    val (curYear, curMonth, _) = currentJalaliDate
     val startMonthMillis = PersianCalendarHelper.jalaliToEpochMillis(curYear, curMonth, 1, 0, 0)
     val (nextYear, nextMonth) = if (curMonth < 12) Pair(curYear, curMonth + 1) else Pair(curYear + 1, 1)
     val endMonthMillis = PersianCalendarHelper.jalaliToEpochMillis(nextYear, nextMonth, 1, 0, 0)
