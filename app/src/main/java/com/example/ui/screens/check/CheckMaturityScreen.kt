@@ -575,7 +575,7 @@ private fun MaturityCheckCard(check: Check, selected: Boolean, onSelectedChange:
                 Text(check.formattedAmount, color = if (selected) colors.primary else colors.onSurface,
                     fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium,
                     maxLines = 1)
-                Text(check.amountUnit.title, color = colors.onSurfaceVariant,
+                Text(MoneyFormatter.getUnitLabel(), color = colors.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall)
             }
             Box(Modifier.width(1.dp).height(58.dp).background(colors.outlineVariant))
