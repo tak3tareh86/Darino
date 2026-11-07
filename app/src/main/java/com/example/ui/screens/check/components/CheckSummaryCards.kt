@@ -51,8 +51,6 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
     }
 
     // Keep the existing business calculations unchanged; this component only changes presentation.
-    val totalCount = checks.size
-    val totalAmount = checks.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
     // Only outstanding checks contribute to these balances. Cleared and canceled
     // checks are excluded; bounced checks are excluded because they are not active receivables/payables.
     val outstandingChecks = checks.filter {
@@ -82,8 +80,6 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
     val bouncedMonthAmount = bouncedChecks.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
     val bouncedMonthCount = bouncedChecks.size
     val monthName = PersianCalendarHelper.PERSIAN_MONTH_NAMES.getOrElse(curMonth - 1) { "" }
-    val countLabel = remember(totalCount) { IranianPhoneUtils.convertDigitsToPersian(totalCount.toString()) }
-
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
