@@ -539,6 +539,9 @@ interface CheckDao {
     @Query("SELECT * FROM checks WHERE userId = :userId AND sayadId = :sayadId AND deletedAt IS NULL LIMIT 1")
     suspend fun getCheckBySayadId(userId: String, sayadId: String): CheckEntity?
 
+    @Query("SELECT EXISTS(SELECT 1 FROM transactions WHERE userId = :userId AND sourceType = 'CHECK' AND sourceId = :checkId AND deletedAt IS NULL)")
+    suspend fun hasSettlementTransactionForCheck(userId: String, checkId: String): Boolean
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCheck(check: CheckEntity): Long
 
@@ -584,6 +587,7 @@ interface CheckDao {
     @Transaction
     suspend fun replaceBouncedCheck(userId: String, originalId: Int, replacement: CheckEntity): Int {
         val original = getCheckById(userId, originalId) ?: return 0
+        if (hasSettlementTransactionForCheck(userId, originalId.toString())) return 0
         if (original.userId != userId || original.deletedAt != null ||
             original.status != "BOUNCED" || original.replacedByCheckId != null ||
             replacement.userId != userId || replacement.type != original.type ||
