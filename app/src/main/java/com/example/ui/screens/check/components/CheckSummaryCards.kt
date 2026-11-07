@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -174,10 +175,10 @@ private fun MonthChecksCard(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                Icons.Rounded.ReceiptLong,
+                                Icons.Rounded.Check,
                                 contentDescription = null,
                                 tint = scheme.onPrimary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
@@ -301,9 +302,9 @@ private fun MonthAmountRow(
                 14f
             )
             Spacer(Modifier.width(8.dp))
-            HorizontalDivider(
-                modifier = Modifier.width(1.dp).height(34.dp),
-                color = amountColor.copy(alpha = 0.42f)
+            Box(
+                modifier = Modifier.width(1.dp).height(34.dp)
+                    .background(amountColor.copy(alpha = 0.42f))
             )
             Spacer(Modifier.width(8.dp))
             Text(
