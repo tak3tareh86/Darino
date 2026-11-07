@@ -317,9 +317,10 @@ class LocalCheckRepository private constructor() : CheckRepository {
         }
         
         // A bounced check can later be recovered (cash collection or other settlement).
-        // It must remain blocked from settlement only while canceled; successful settlement
+        // Canceled and replaced instruments cannot be settled; successful settlement
         // changes it to CLEARED and creates the corresponding ledger transaction atomically.
-        if (existingCheck.status == CheckStatus.CANCELED.name) {
+        if (existingCheck.status == CheckStatus.CANCELED.name || existingCheck.status == CheckStatus.REPLACED.name ||
+            existingCheck.replacedByCheckId != null) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
         if (existingCheck.deletedAt != null) {
