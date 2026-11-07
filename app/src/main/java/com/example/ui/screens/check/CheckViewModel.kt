@@ -132,4 +132,11 @@ class CheckViewModel : ViewModel() {
             onResult(result)
         }
     }
+
+    fun replaceCheck(originalCheckId: Int, replacement: Check, onResult: (CheckOperationResult) -> Unit = {}) {
+        viewModelScope.launch {
+            val result = repository.replaceCheck(originalCheckId, replacement)
+            onResult(result)
+        }
+    }
 }
