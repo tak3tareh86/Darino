@@ -964,7 +964,8 @@ class CheckManagementTest {
             receiverName = "Receiver",
             issueDate = now,
             dueDate = now + 86400000,
-            status = CheckStatus.BOUNCED
+            status = CheckStatus.BOUNCED,
+            reminderDateTime = now + 100000
         )
         assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(original))
         val savedOriginal = repository.getChecks().first().single { it.checkNumber == "BOUNCED-ORIGINAL" }
@@ -980,7 +981,8 @@ class CheckManagementTest {
             dueDate = now + 2 * 86400000,
             status = CheckStatus.REGISTERED,
             replacedByCheckId = null,
-            replacesCheckId = null
+            replacesCheckId = null,
+            reminderDateTime = null
         )
 
         assertEquals(CheckOperationResult.SUCCESS, repository.replaceCheck(savedOriginal.id, replacement))
@@ -989,6 +991,7 @@ class CheckManagementTest {
         val savedReplacement = repository.getChecks().first().single { it.checkNumber == "REPLACEMENT-001" }
         assertEquals(CheckStatus.REPLACED, updatedOriginal?.status)
         assertEquals(savedReplacement.id, updatedOriginal?.replacedByCheckId)
+        assertNull("A replaced instrument must not retain an active reminder timestamp", updatedOriginal?.reminderDateTime)
         assertEquals(CheckStatus.REGISTERED, savedReplacement.status)
         assertEquals(savedOriginal.id, savedReplacement.replacesCheckId)
         assertEquals(125000L, savedReplacement.amount)
