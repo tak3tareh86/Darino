@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -296,16 +297,26 @@ fun FinancialPressureChart(
                             maxLines = 1,
                             softWrap = false
                         )
-                        Text(
-                            text = item.monthName.take(3),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 8.5.sp
-                            ),
-                            color = if (isLast) MaterialTheme.colorScheme.onSurface else textColor,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        Box(
+                            modifier = Modifier
+                                .width(22.dp)
+                                .height(64.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = item.monthName,
+                                modifier = Modifier
+                                    .width(64.dp)
+                                    .graphicsLayer(rotationZ = -90f),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
+                                    fontSize = 8.5.sp
+                                ),
+                                color = if (isLast) MaterialTheme.colorScheme.onSurface else textColor,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
                 }
             }
