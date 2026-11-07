@@ -155,7 +155,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
     ): List<MonthlyPressureData> {
         val result = mutableListOf<MonthlyPressureData>()
         val currentDate = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
-        // Keep a stable January-to-December Jalali year axis; future or unavailable
+        // Keep a stable Farvardin-to-Esfand Jalali year axis; future or unavailable
         // months remain explicit empty slots instead of shifting the chart window.
         for (month in 1..12) {
             val range = monthRange(currentDate.year, month)
