@@ -181,26 +181,31 @@ fun FinancialHealthScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    if (state.historicalPressureList.none { it.hasData }) {
+                    if (state.historicalPressureList.isEmpty()) {
                         Text(
-                            text = "برای سال $chartYearText هنوز داده معتبر کافی وجود ندارد. هر ۱۲ ماه سال در نمودار حفظ می‌شوند و ماه‌های فاقد داده با — مشخص خواهند شد.",
+                            text = "در حال آماده‌سازی اطلاعات سال $chartYearText...",
                             style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        FinancialPressureChart(
-                            dataPoints = state.historicalPressureList,
-                            year = chartYear
-                        )
                     } else {
+                        if (state.historicalPressureList.none { it.hasData }) {
+                            Text(
+                                text = "برای سال $chartYearText هنوز داده معتبر کافی وجود ندارد. هر ۱۲ ماه سال در نمودار حفظ می‌شوند و ماه‌های فاقد داده با — مشخص خواهند شد.",
+                                style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         FinancialPressureChart(
                             dataPoints = state.historicalPressureList,
                             year = chartYear
                         )
-                        Text(
-                            text = "نمودار فقط اطلاعات همین سال شمسی را نشان می‌دهد؛ ماه‌های فاقد داده معتبر با — مشخص می‌شوند و بین آن‌ها خط روندی رسم نمی‌شود.",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 16.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        if (state.historicalPressureList.any { it.hasData }) {
+                            Text(
+                                text = "نمودار فقط اطلاعات همین سال شمسی را نشان می‌دهد؛ ماه‌های فاقد داده معتبر با — مشخص می‌شوند و بین آن‌ها خط روندی رسم نمی‌شود.",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 16.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
