@@ -44,6 +44,7 @@ fun CheckScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var showMaturityScreen by rememberSaveable { mutableStateOf(false) }
     var selectedMainTab by rememberSaveable { mutableIntStateOf(0) }
     var reportSearchQuery by rememberSaveable { mutableStateOf("") }
     var reportSelectedYear by rememberSaveable { mutableIntStateOf(0) }
@@ -110,8 +111,9 @@ fun CheckScreen(
     val coroutineScope = rememberCoroutineScope()
     var operationErrorDialog by remember { mutableStateOf<String?>(null) }
 
-    BackHandler(enabled = showAddDialog || selectedCheckForEdit != null || selectedCheckForDetail != null || operationErrorDialog != null || showStatusFilters || tabBackStack.size > 1) {
+    BackHandler(enabled = showMaturityScreen || showAddDialog || selectedCheckForEdit != null || selectedCheckForDetail != null || operationErrorDialog != null || showStatusFilters || tabBackStack.size > 1) {
         when {
+            showMaturityScreen -> showMaturityScreen = false
             operationErrorDialog != null -> operationErrorDialog = null
             selectedCheckForDetail != null -> selectedCheckForDetail = null
             selectedCheckForEdit != null -> selectedCheckForEdit = null
@@ -143,12 +145,12 @@ fun CheckScreen(
     Scaffold(
         topBar = {
             AppSectionHeader(
-                title = "مدیریت چک‌ها",
-                subtitle = "نمای کلی چک‌های دریافتی و پرداختی",
+                title = if (showMaturityScreen) "راس‌گیری چک" else "مدیریت چک‌ها",
+                subtitle = if (showMaturityScreen) "محاسبه میانگین موزون سررسید" else "نمای کلی چک‌های دریافتی و پرداختی",
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Rounded.ReceiptLong,
-                        contentDescription = "مدیریت چک‌ها",
+                        imageVector = if (showMaturityScreen) Icons.Rounded.ArrowBack else Icons.Rounded.ReceiptLong,
+                        contentDescription = if (showMaturityScreen) "راس‌گیری چک" else "مدیریت چک‌ها",
                         tint = if (MaterialTheme.colorScheme.background.red < 0.2f) {
                             Color.White
                         } else {
@@ -156,12 +158,21 @@ fun CheckScreen(
                         },
                         modifier = Modifier.size(24.dp)
                     )
+                },
+                actions = {
+                    if (!showMaturityScreen) {
+                        TextButton(onClick = { showMaturityScreen = true }) {
+                            Icon(Icons.Rounded.Calculate, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("راس‌گیری", fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            if (!showMaturityScreen) ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
                 icon = { Icon(Icons.Rounded.Add, null) },
                 text = { Text("ثبت چک جدید", fontWeight = FontWeight.Bold) },
@@ -176,6 +187,9 @@ fun CheckScreen(
         },
         bottomBar = bottomBar
     ) { padding ->
+        if (showMaturityScreen) {
+            CheckMaturityScreen(checks = uiState.checks, onBack = { showMaturityScreen = false })
+        } else {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -363,6 +377,7 @@ fun CheckScreen(
             }
 
             item { Spacer(modifier = Modifier.height(80.dp)) }
+        }
         }
     }
 
