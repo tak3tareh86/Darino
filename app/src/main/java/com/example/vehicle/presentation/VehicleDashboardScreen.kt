@@ -81,6 +81,11 @@ fun DarinoVehicleMainDashboard(
         viewModel.selectTab(vehicleTabBackStack.last())
     }
 
+    var showVehicleHealthDetails by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = showVehicleHealthDetails) {
+        showVehicleHealthDetails = false
+    }
+
     LaunchedEffect(Unit) {
         viewModel.initRepository(context)
     }
@@ -214,6 +219,25 @@ fun DarinoVehicleMainDashboard(
         return
     }
 
+    if (showVehicleHealthDetails && state.healthReport != null) {
+        VehicleHealthDetailsScreen(
+            report = state.healthReport!!,
+            onBack = { showVehicleHealthDetails = false },
+            bottomBar = bottomBar,
+            onItemClick = { itemTitle ->
+                showVehicleHealthDetails = false
+                when {
+                    itemTitle.startsWith("بیمه‌نامه") || itemTitle == "معاینه فنی" -> viewModel.openInsuranceSheet()
+                    itemTitle == "روغن موتور" -> viewModel.openAddService(ServiceType.OIL_CHANGE)
+                    itemTitle == "فیلترها" -> viewModel.openAddService(ServiceType.FILTERS)
+                    itemTitle == "روغن گیربکس" -> viewModel.openAddService(ServiceType.TRANSMISSION_OIL_CHANGE)
+                    itemTitle == "تسمه دینام" -> viewModel.openAddService(ServiceType.ALTERNATOR_BELT_CHANGE)
+                    itemTitle == "تسمه تایم" -> viewModel.openAddService(ServiceType.TIMING_BELT_CHANGE)
+                    else -> viewModel.openAddService()
+                }
+            }
+        )
+    } else {
     Scaffold(
         modifier = modifier
             .fillMaxSize()
@@ -392,6 +416,7 @@ fun DarinoVehicleMainDashboard(
                                 onEditProfile = { viewModel.openProfile() },
                                 onMileageClick = { viewModel.openMileageDialog() },
                                 onAddService = { viewModel.openAddService() },
+                                onOpenHealthDetails = { showVehicleHealthDetails = true },
                                 onAddServiceForType = { type -> viewModel.openAddService(type) },
                                 onAddExpense = { viewModel.openAddExpense() },
                                 onInsuranceClick = { viewModel.openInsuranceSheet() },
@@ -481,6 +506,9 @@ fun DarinoVehicleMainDashboard(
                 }
             }
         }
+    }
+
+    }
     }
 
     // Bottom Sheets & Dialogs
@@ -614,6 +642,7 @@ private fun VehicleServicesTabContent(
     onEditProfile: () -> Unit,
     onMileageClick: () -> Unit,
     onAddService: () -> Unit,
+    onOpenHealthDetails: () -> Unit,
     onAddServiceForType: (ServiceType) -> Unit,
     onAddExpense: () -> Unit,
     onInsuranceClick: () -> Unit,
@@ -621,7 +650,6 @@ private fun VehicleServicesTabContent(
     onDeleteVehicle: (() -> Unit)? = null,
     onRetryReminder: ((VehicleServiceEntity) -> Unit)? = null
 ) {
-    var isHealthExpanded by remember { mutableStateOf(false) }
     var isServicesExpanded by remember { mutableStateOf(true) }
 
     LazyColumn(
@@ -676,80 +704,56 @@ private fun VehicleServicesTabContent(
             }
         }
 
-        // 3. Collapsible Vehicle Health Card
+        // 3. Vehicle Health navigation card (presentation only).
         if (healthReport != null) {
             item {
+                val statusColor = Color(healthReport.level.colorHex)
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable(onClick = onOpenHealthDetails)
+                        .testTag("vehicle_health_navigation_card"),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, statusColor.copy(alpha = 0.28f)),
+                    tonalElevation = 1.dp,
+                    shadowElevation = 2.dp
                 ) {
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(horizontal = 14.dp, vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(11.dp)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { isHealthExpanded = !isHealthExpanded }
-                                .padding(horizontal = 6.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Soft3DIcon(
+                            imageRes = R.drawable.img_3d_analytics,
+                            contentDescription = "وضعیت سلامت خودرو",
+                            size = 38.dp,
+                            accentColor = statusColor
+                        )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.HealthAndSafety,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Column {
-                                    Text(
-                                        text = "وضعیت سلامت و استهلاک خودرو",
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "شاخص نگهداری و سلامت خودرو",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            Icon(
-                                imageVector = if (isHealthExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
+                            Text(
+                                text = "وضعیت سلامت و استهلاک خودرو",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "${IranianPhoneUtils.convertDigitsToPersian(healthReport.healthScorePercent.toString())}٪ سلامت خودرو • ${healthReport.level.label}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = statusColor
                             )
                         }
-
-                        AnimatedVisibility(
-                            visible = isHealthExpanded,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut()
-                        ) {
-                            VehicleHealthCard(
-                                report = healthReport,
-                                onItemClick = { itemTitle ->
-                                    when {
-                                        itemTitle.startsWith("بیمه‌نامه") || itemTitle == "معاینه فنی" -> onInsuranceClick()
-                                        itemTitle == "روغن موتور" -> onAddServiceForType(ServiceType.OIL_CHANGE)
-                                        itemTitle == "فیلترها" -> onAddServiceForType(ServiceType.FILTERS)
-                                        itemTitle == "روغن گیربکس" -> onAddServiceForType(ServiceType.TRANSMISSION_OIL_CHANGE)
-                                        itemTitle == "تسمه دینام" -> onAddServiceForType(ServiceType.ALTERNATOR_BELT_CHANGE)
-                                        itemTitle == "تسمه تایم" -> onAddServiceForType(ServiceType.TIMING_BELT_CHANGE)
-                                        else -> onAddService()
-                                    }
-                                }
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Rounded.ChevronLeft,
+                            contentDescription = "مشاهده جزئیات",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
             }
