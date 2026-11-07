@@ -79,7 +79,12 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
             baselineGregorian.get(Calendar.DAY_OF_MONTH)
         )
     }
-    val calculation = remember(selectedChecks, baselineJalali) { calculateMaturity(selectedChecks, baselineJalali) }
+    val baselineGregorianDate = Triple(
+        baselineGregorian.get(Calendar.YEAR),
+        baselineGregorian.get(Calendar.MONTH) + 1,
+        baselineGregorian.get(Calendar.DAY_OF_MONTH)
+    )
+    val calculation = remember(selectedChecks, baselineGregorianDate) { calculateMaturity(selectedChecks, baselineGregorianDate) }
     val allSelected = eligibleChecks.isNotEmpty() && selectedIds.size == eligibleChecks.size
 
     LazyColumn(
@@ -237,7 +242,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                         Icon(Icons.Rounded.Calculate, null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(8.dp)); Text("خلاصه محاسبه", fontWeight = FontWeight.Bold)
                     }
-                    SummaryLine("مجموع مبلغ انتخاب‌شده", formatRials(calculation.totalRials))
+                    SummaryLine("مجموع مبلغ انتخاب‌شده", if (calculation.invalidAmount) "—" else formatRials(calculation.totalRials))
                     SummaryLine("تعداد چک‌های انتخاب‌شده", IranianPhoneUtils.convertDigitsToPersian(selectedChecks.size.toString()))
                     if (calculation.invalidAmount) {
                         Text("مبلغ یکی از چک‌ها به‌دلیل محدودیت واحد پول قابل تبدیل دقیق نیست؛ محاسبه انجام نشد.",
@@ -290,45 +295,95 @@ private fun SummaryLine(label: String, value: String) {
 private fun formatRials(value: BigInteger): String =
     MoneyFormatter.formatExact(MoneyAmount.of(BigDecimal(value), AppCurrency.RIAL))
 
-private fun calculateMaturity(checks: List<Check>, baselineJalali: Triple<Int, Int, Int>): MaturityCalculation {
+/**
+ * Converts a valid Gregorian civil date to an absolute day number.
+ * This avoids depending on Jalali conversion/leap-year arithmetic for day differences.
+ */
+private fun gregorianEpochDay(year: Int, month: Int, day: Int): Long {
+    val adjustedYear = year - if (month <= 2) 1 else 0
+    val era = Math.floorDiv(adjustedYear, 400)
+    val yearOfEra = adjustedYear - era * 400
+    val monthPrime = month + if (month > 2) -3 else 9
+    val dayOfYear = (153L * monthPrime + 2) / 5 + day - 1
+    val dayOfEra = yearOfEra * 365L + yearOfEra / 4 - yearOfEra / 100 + dayOfYear
+    return era * 146097L + dayOfEra
+}
+
+private fun calculateMaturity(
+    checks: List<Check>,
+    baselineGregorian: Triple<Int, Int, Int>
+): MaturityCalculation {
     if (checks.isEmpty()) return MaturityCalculation(BigInteger.ZERO, null, null)
-    val baseDay = PersianCalendarHelper.getJalaliEpochDay(baselineJalali.first, baselineJalali.second, baselineJalali.third)
+
+    val baseDay = gregorianEpochDay(
+        baselineGregorian.first, baselineGregorian.second, baselineGregorian.third
+    )
     var total = BigInteger.ZERO
     var weighted = BigInteger.ZERO
+
     for (check in checks) {
         val rials = try {
             MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()
         } catch (_: ArithmeticException) {
-            return MaturityCalculation(total, null, null, invalidAmount = true)
+            // Never expose a partial total when any selected check cannot be represented exactly.
+            return MaturityCalculation(BigInteger.ZERO, null, null, invalidAmount = true)
         }
         if (rials <= 0L) continue
-        val due = PersianCalendarHelper.fromEpochMillis(check.dueDate)
-        val days = PersianCalendarHelper.getJalaliEpochDay(due.year, due.month, due.day) - baseDay
+
+        // dueDate is a timestamp; interpret its civil date in the same local timezone
+        // used by the rest of the app to display check due dates.
+        val dueDate = Calendar.getInstance().apply { timeInMillis = check.dueDate }
+        val dueDay = gregorianEpochDay(
+            dueDate.get(Calendar.YEAR),
+            dueDate.get(Calendar.MONTH) + 1,
+            dueDate.get(Calendar.DAY_OF_MONTH)
+        )
+        val days = dueDay - baseDay
         val amount = BigInteger.valueOf(rials)
         total = total.add(amount)
         weighted = weighted.add(amount.multiply(BigInteger.valueOf(days)))
     }
+
     if (total.signum() <= 0) return MaturityCalculation(total, null, null)
+
     val division = weighted.divideAndRemainder(total)
     var rounded = division[0]
-    if (division[1].abs().shiftLeft(1) >= total) rounded = rounded.add(BigInteger.valueOf(weighted.signum().toLong()))
-    val offset = try { rounded.longValueExact() } catch (_: ArithmeticException) {
-        return MaturityCalculation(total, null, null, invalidAmount = true)
+    // Round half away from zero, consistently for dates before/after the baseline.
+    if (division[1].abs().shiftLeft(1) >= total) {
+        rounded = rounded.add(BigInteger.valueOf(weighted.signum().toLong()))
     }
-    val baseGregorian = PersianCalendarHelper.jalaliToGregorian(baselineJalali.first, baselineJalali.second, baselineJalali.third)
+
+    val offset = try {
+        rounded.longValueExact()
+    } catch (_: ArithmeticException) {
+        return MaturityCalculation(BigInteger.ZERO, null, null, invalidAmount = true)
+    }
+
     val target = try {
         val dayOffset = Math.toIntExact(offset)
         Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
             clear()
-            set(baseGregorian.first, baseGregorian.second - 1, baseGregorian.third, 12, 0, 0)
+            set(
+                baselineGregorian.first,
+                baselineGregorian.second - 1,
+                baselineGregorian.third,
+                12, 0, 0
+            )
             add(Calendar.DAY_OF_MONTH, dayOffset)
         }
     } catch (_: Exception) {
-        return MaturityCalculation(total, null, null, invalidAmount = true)
+        return MaturityCalculation(BigInteger.ZERO, null, null, invalidAmount = true)
     }
+
+    // Convert only the final Gregorian result for Persian-calendar presentation.
     val jalali = PersianCalendarHelper.gregorianToJalali(
-        target.get(Calendar.YEAR), target.get(Calendar.MONTH) + 1, target.get(Calendar.DAY_OF_MONTH)
+        target.get(Calendar.YEAR),
+        target.get(Calendar.MONTH) + 1,
+        target.get(Calendar.DAY_OF_MONTH)
     )
-    val formatted = PersianCalendarHelper.PersianDateTime(jalali.first, jalali.second, jalali.third).toFormattedDate()
+    val formatted = PersianCalendarHelper.PersianDateTime(
+        jalali.first, jalali.second, jalali.third
+    ).toFormattedDate()
+
     return MaturityCalculation(total, offset, formatted)
 }
