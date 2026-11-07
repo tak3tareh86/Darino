@@ -53,36 +53,34 @@ fun VehicleHealthDetailsScreen(
     val statusColor = Color(report.level.colorHex)
     val checklistByTitle = report.checklist.associateBy { it.title }
 
-    // Presentation-only grouping: all eight analyzer results remain visible and individually actionable.
-    // The two belt checks and two oil checks share the corresponding visual tile from the reference.
-    val displayGroups = listOf(
-        // Row one follows the reference from right to left: oil, filters, belts.
-        VehicleHealthDisplayGroup(
-            title = "روغن‌ها",
-            items = listOfNotNull(checklistByTitle["روغن موتور"], checklistByTitle["روغن گیربکس"])
-        ),
-        VehicleHealthDisplayGroup(
-            title = "فیلترها",
-            items = listOfNotNull(checklistByTitle["فیلترها"])
-        ),
-        VehicleHealthDisplayGroup(
-            title = "تسمه‌ها",
-            items = listOfNotNull(checklistByTitle["تسمه دینام"], checklistByTitle["تسمه تایم"])
-        ),
-        // Row two follows the reference from right to left: inspection, third party, body insurance.
-        VehicleHealthDisplayGroup(
-            title = "معاینه فنی",
-            items = listOfNotNull(checklistByTitle["معاینه فنی"])
-        ),
-        VehicleHealthDisplayGroup(
-            title = "بیمه شخص ثالث",
-            items = listOfNotNull(checklistByTitle["بیمه‌نامه شخص ثالث"])
-        ),
-        VehicleHealthDisplayGroup(
-            title = "بیمه بدنه",
-            items = listOfNotNull(checklistByTitle["بیمه‌نامه بدنه"])
-        )
-    ).filter { it.items.isNotEmpty() }
+    // Each analyzer checklist entry gets its own independent, actionable card.
+    // Only presentation order and layout are defined here; source items and their states remain untouched.
+    val displayGroups = listOfNotNull(
+        checklistByTitle["روغن موتور"]?.let {
+            VehicleHealthDisplayGroup(title = it.title, items = listOf(it))
+        },
+        checklistByTitle["فیلترها"]?.let {
+            VehicleHealthDisplayGroup(title = it.title, items = listOf(it))
+        },
+        checklistByTitle["روغن گیربکس"]?.let {
+            VehicleHealthDisplayGroup(title = it.title, items = listOf(it))
+        },
+        checklistByTitle["تسمه دینام"]?.let {
+            VehicleHealthDisplayGroup(title = it.title, items = listOf(it))
+        },
+        checklistByTitle["تسمه تایم"]?.let {
+            VehicleHealthDisplayGroup(title = it.title, items = listOf(it))
+        },
+        checklistByTitle["بیمه‌نامه شخص ثالث"]?.let {
+            VehicleHealthDisplayGroup(title = it.title, items = listOf(it))
+        },
+        checklistByTitle["بیمه‌نامه بدنه"]?.let {
+            VehicleHealthDisplayGroup(title = it.title, items = listOf(it))
+        },
+        checklistByTitle["معاینه فنی"]?.let {
+            VehicleHealthDisplayGroup(title = it.title, items = listOf(it))
+        }
+    )
 
     Scaffold(
         modifier = Modifier.fillMaxSize().testTag("vehicle_health_details_screen"),
