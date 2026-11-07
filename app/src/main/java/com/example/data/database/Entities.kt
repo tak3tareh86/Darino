@@ -306,11 +306,12 @@ data class CheckEntity(
     val dueDate: Long,
     val status: String, // "REGISTERED", "PENDING", "CLEARED", "BOUNCED", "CANCELED", "REPLACED"
     val notes: String? = null,
-    @ColumnInfo(defaultValue = "NULL") val replacedByCheckId: Int? = null,
-    @ColumnInfo(defaultValue = "NULL") val replacesCheckId: Int? = null,
     val accountId: String? = null, // پیوند به حساب مالی
     val reminderDateTime: Long? = null, // زمان یادآور اختصاصی
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    // Nullable replacement links are appended to preserve the legacy column order.
+    @ColumnInfo(defaultValue = "NULL") val replacedByCheckId: Int? = null,
+    @ColumnInfo(defaultValue = "NULL") val replacesCheckId: Int? = null
 )
