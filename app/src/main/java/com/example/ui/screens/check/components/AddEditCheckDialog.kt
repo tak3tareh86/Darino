@@ -78,9 +78,9 @@ fun AddEditCheckDialog(
     var issueDate by remember { mutableStateOf(check?.issueDate ?: System.currentTimeMillis()) }
     var dueDate by remember { mutableStateOf(check?.dueDate ?: (System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000)) }
     var status by remember { mutableStateOf(if (isReplacement) CheckStatus.REGISTERED else check?.status ?: CheckStatus.REGISTERED) }
-    var reminderDateTime by remember(check) { mutableStateOf(check?.reminderDateTime) }
-    var reminderEnabled by remember(check) { mutableStateOf(check?.reminderDateTime != null) }
-    var reminderTimeSelected by remember(check) { mutableStateOf(check?.reminderDateTime != null) }
+    var reminderDateTime by remember(check, isReplacement) { mutableStateOf(if (isReplacement) null else check?.reminderDateTime) }
+    var reminderEnabled by remember(check, isReplacement) { mutableStateOf(!isReplacement && check?.reminderDateTime != null) }
+    var reminderTimeSelected by remember(check, isReplacement) { mutableStateOf(!isReplacement && check?.reminderDateTime != null) }
     var showNoReminderConfirmation by remember { mutableStateOf(false) }
     var showReminderSetupError by remember { mutableStateOf(false) }
     var notes by remember { mutableStateOf(check?.notes.orEmpty()) }
@@ -475,7 +475,7 @@ fun AddEditCheckDialog(
                 ) {
                     Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("ذخیره", fontWeight = FontWeight.Bold)
+                    Text(if (isReplacement) "ثبت چک جایگزین" else "ذخیره", fontWeight = FontWeight.Bold)
                 }
 
                 if (check != null && !isReplacement) {
