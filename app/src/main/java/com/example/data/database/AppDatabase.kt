@@ -558,6 +558,7 @@ abstract class AppDatabase : RoomDatabase() {
                 // Existing checks remain unchanged; the nullable link is populated only
                 // when a user explicitly registers a replacement check.
                 db.execSQL("ALTER TABLE checks ADD COLUMN replacedByCheckId INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE checks ADD COLUMN replacesCheckId INTEGER DEFAULT NULL")
             }
         }
 
