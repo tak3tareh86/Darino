@@ -242,7 +242,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
         if (original.deletedAt != null || original.status != CheckStatus.BOUNCED.name || original.replacedByCheckId != null ||
             replacement.type.name != original.type || replacement.amount <= 0L ||
             replacement.checkNumber.trim() == original.checkNumber.trim() ||
-            (replacementSayadId.isNotBlank() && (replacementSayadId.length != 16 || !replacementSayadId.all(Char::isDigit))) ||
+            (replacementSayadId.isNotBlank() && (replacementSayadId.length != 16 || !replacementSayadId.all { it.isDigit() })) ||
             replacement.reminderDateTime?.let { isAfterCalendarDay(it, replacement.dueDate) || it <= System.currentTimeMillis() } == true) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
