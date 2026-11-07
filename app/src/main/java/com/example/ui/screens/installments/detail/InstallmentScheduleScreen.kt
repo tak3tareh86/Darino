@@ -392,6 +392,7 @@ private fun ScheduleTimelineItem(
     onEditClick: () -> Unit,
     onMarkPaidClick: () -> Unit
 ) {
+    val numberMode by com.example.util.AppNumberFormatter.modeFlow.collectAsState()
     val isPaid = item.status == com.example.ui.screens.installments.model.InstallmentStatus.PAID ||
         item.status == com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED
     Layered3DCard(
@@ -438,13 +439,13 @@ private fun ScheduleTimelineItem(
                     )
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = "تاریخ سررسید: ${item.dueDate}",
+                            text = "تاریخ سررسید: ${com.example.util.AppNumberFormatter.formatDigits(item.displayDueDate, numberMode)}",
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                             color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         item.paidDate?.let { paidDate ->
                             Text(
-                                text = "تاریخ پرداخت: $paidDate",
+                                text = "تاریخ پرداخت: ${com.example.util.AppNumberFormatter.formatDigits(paidDate, numberMode)}",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                 color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
