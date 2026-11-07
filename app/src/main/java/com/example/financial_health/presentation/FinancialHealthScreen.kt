@@ -719,6 +719,12 @@ private fun InstallmentsAnalysisSectionCard(
                     accentColor = Color(0xFFEF4444)
                 )
             }
+
+            Text(
+                text = "اگر سررسید آینده‌ای وجود نداشته باشد، نزدیک‌ترین قسط پرداخت‌نشده معوق نمایش داده می‌شود.",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp, lineHeight = 15.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
