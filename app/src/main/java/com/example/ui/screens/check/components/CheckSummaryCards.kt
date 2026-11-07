@@ -200,17 +200,6 @@ private fun MonthChecksCard(
                         maxLines = 1
                     )
                     Spacer(Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier.width(1.dp).height(30.dp)
-                            .background(scheme.outlineVariant)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Icon(
-                        androidx.compose.material.icons.Icons.Rounded.CalendarMonth,
-                        contentDescription = null,
-                        tint = scheme.primary,
-                        modifier = Modifier.size(25.dp)
-                    )
                 }
             }
             MonthAmountRow(
