@@ -509,7 +509,6 @@ fun DarinoVehicleMainDashboard(
     }
 
     }
-    }
 
     // Bottom Sheets & Dialogs
     if (state.showAddVehicleSheet) {
