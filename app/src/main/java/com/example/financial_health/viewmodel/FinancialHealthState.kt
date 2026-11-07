@@ -24,6 +24,7 @@ data class FinancialHealthState(
     val errorMessage: String? = null,
     val activeInstallmentsCount: Int = 0,
     val totalInstallmentsMonthlyFormatted: String = "اطلاعات ثبت نشده",
+    val currentMonthUnpaidInstallments: Long = 0L,
     val nearestDueDateDays: Int = 0,
     val nearestDueDateTitle: String = "سررسیدی ثبت نشده",
     val hasNearestDueDate: Boolean = false,

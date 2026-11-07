@@ -677,9 +677,9 @@ private fun InstallmentsAnalysisSectionCard(
 
                 // Metric 2: Monthly Payment
                 AnalysisMetricTile(
-                    title = "مجموع پرداخت ماهانه",
-                    value = if (state.hasInstallmentScheduleData) MoneyFormatter.formatExact(MoneyAmount.of(state.totalInstallments, AppCurrency.RIAL)) else state.totalInstallmentsMonthlyFormatted,
-                    subtext = "تعهد ماه جاری",
+                    title = "مانده اقساط پرداخت‌نشده ماه جاری",
+                    value = if (state.hasInstallmentScheduleData) MoneyFormatter.formatExact(MoneyAmount.of(state.currentMonthUnpaidInstallments, AppCurrency.RIAL)) else state.totalInstallmentsMonthlyFormatted,
+                    subtext = "سررسیدهای پرداخت‌نشده همین ماه",
                     modifier = Modifier.weight(1f),
                     accentColor = MaterialTheme.colorScheme.primary
                 )
@@ -691,7 +691,7 @@ private fun InstallmentsAnalysisSectionCard(
             ) {
                 // Metric 3: Nearest Due Date
                 AnalysisMetricTile(
-                    title = "نزدیک‌ترین سررسید",
+                    title = "نزدیک‌ترین سررسید واقعی",
                     value = if (state.hasNearestDueDate) {
                         val days = state.nearestDueDateDays
                         when {
@@ -707,7 +707,7 @@ private fun InstallmentsAnalysisSectionCard(
 
                 // Metric 4: Largest Installment
                 AnalysisMetricTile(
-                    title = "بیشترین قسط",
+                    title = "بزرگ‌ترین قسط پرداخت‌نشده",
                     value = state.largestInstallmentTitle,
                     subtext = if (state.hasLargestInstallment) MoneyFormatter.formatExact(MoneyAmount.of(state.largestInstallmentAmount, AppCurrency.RIAL)) else "مبلغ ثبت نشده",
                     modifier = Modifier.weight(1f),
