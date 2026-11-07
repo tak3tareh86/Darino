@@ -735,7 +735,10 @@ private fun AnalysisMetricTile(
         border = BorderStroke(1.dp, accentColor.copy(alpha = 0.22f))
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
@@ -752,7 +755,8 @@ private fun AnalysisMetricTile(
                     fontSize = 13.5.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 ),
-                maxLines = 1
+                maxLines = 1,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             Text(
                 text = subtext,
@@ -760,7 +764,8 @@ private fun AnalysisMetricTile(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     color = accentColor
-                )
+                ),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
     }
@@ -820,7 +825,7 @@ private fun NextMonthPredictionSectionCard(
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                 ) {
                     Text(
-                        text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) { if (!prediction.installmentsAmountRecorded || !prediction.fixedExpensesAmountRecorded) "مبالغ شناخته‌شده: ${MoneyFormatter.formatExact(MoneyAmount.of(prediction.total, AppCurrency.RIAL))}" else "مجموع مبالغ ثبت‌شده: ${MoneyFormatter.formatExact(MoneyAmount.of(prediction.total, AppCurrency.RIAL))}" } else "مبالغ آینده ثبت نشده",
+                        text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) "برآورد قابل محاسبه: ${MoneyFormatter.formatExact(MoneyAmount.of(prediction.total, AppCurrency.RIAL))}" else "اطلاعات کافی برای برآورد موجود نیست",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.5.sp,
@@ -830,6 +835,12 @@ private fun NextMonthPredictionSectionCard(
                     )
                 }
             }
+
+            Text(
+                text = "هزینه ثابت با فرض تکرار، یک برآورد است و لزوماً مبلغ قطعی ماه آینده نیست. یادآورها فعلاً در این جمع لحاظ نمی‌شوند.",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 16.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             // Predictions List
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -842,7 +853,7 @@ private fun NextMonthPredictionSectionCard(
                     unavailableText = "برنامه اقساط ناقص است"
                 )
                 PredictionItemRow(
-                    label = "هزینه ثابت (با فرض تکرار)",
+                    label = "برآورد هزینه ثابت (با فرض تکرار)",
                     amount = prediction.fixedExpenses,
                     decimalFormat = decimalFormat,
                     color = Color(0xFF8B5CF6),
@@ -855,7 +866,7 @@ private fun NextMonthPredictionSectionCard(
                     decimalFormat = decimalFormat,
                     color = Color(0xFFF59E0B),
                     amountRecorded = prediction.remindersAmountRecorded,
-                    unavailableText = "هنوز به تحلیل مالی متصل نیست"
+                    unavailableText = "در محاسبه لحاظ نمی‌شود؛ هنوز متصل نیست"
                 )
                 PredictionItemRow(
                     label = "هزینه خودرو",
