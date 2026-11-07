@@ -229,10 +229,31 @@ class LocalBackupRepository(
 
                 val restoredCheckIds = mutableMapOf<Int, Int>()
                 backup.checks.forEach { check ->
+                    // Insert without old database IDs in relationship fields. Those IDs
+                    // belong to the source installation and may collide after restore.
                     val newId = db.checkDao().insertCheck(
-                        check.copy(id = 0, userId = userId, accountId = remapAccountId(check.accountId))
+                        check.copy(
+                            id = 0,
+                            userId = userId,
+                            accountId = remapAccountId(check.accountId),
+                            replacedByCheckId = null,
+                            replacesCheckId = null
+                        )
                     ).toInt()
                     restoredCheckIds[check.id] = newId
+                }
+                // Reconnect both directions only after every new check ID is known.
+                backup.checks.forEach { check ->
+                    val restoredId = restoredCheckIds[check.id] ?: return@forEach
+                    db.checkDao().updateCheck(
+                        check.copy(
+                            id = restoredId,
+                            userId = userId,
+                            accountId = remapAccountId(check.accountId),
+                            replacedByCheckId = check.replacedByCheckId?.let { restoredCheckIds[it] },
+                            replacesCheckId = check.replacesCheckId?.let { restoredCheckIds[it] }
+                        )
+                    )
                 }
 
                 backup.transactions.forEach { transaction ->
