@@ -839,6 +839,7 @@ private fun NextMonthPredictionSectionCard(
                 }
 
                 Surface(
+                    modifier = Modifier.offset(x = (-4).dp),
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                 ) {
@@ -849,6 +850,7 @@ private fun NextMonthPredictionSectionCard(
                             fontSize = 11.5.sp,
                             color = MaterialTheme.colorScheme.primary
                         ),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
