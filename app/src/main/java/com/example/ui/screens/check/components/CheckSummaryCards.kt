@@ -1,10 +1,12 @@
 package com.example.ui.screens.check.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -42,28 +44,29 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
     val receivedMonthCount = monthChecks.count { it.type == CheckType.RECEIVED }
     val paidMonthAmount = monthChecks.filter { it.type == CheckType.PAID }.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
     val paidMonthCount = monthChecks.count { it.type == CheckType.PAID }
-    val bouncedMonthAmount = monthChecks.filter { it.status == CheckStatus.BOUNCED }.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
+    val bouncedChecks = monthChecks.filter { it.status == CheckStatus.BOUNCED }
+    val bouncedMonthAmount = bouncedChecks.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
+    val bouncedMonthCount = bouncedChecks.size
     val monthName = PersianCalendarHelper.PERSIAN_MONTH_NAMES.getOrElse(curMonth - 1) { "" }
     val countLabel = remember(totalCount) { IranianPhoneUtils.convertDigitsToPersian(totalCount.toString()) }
 
-    Row(
+    Column(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Top
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // In RTL layout this first card appears on the right, matching the reference composition.
         MonthChecksCard(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
             monthName = monthName,
             monthCount = monthChecks.size,
             receivedAmount = receivedMonthAmount,
             receivedCount = receivedMonthCount,
             paidAmount = paidMonthAmount,
             paidCount = paidMonthCount,
-            bouncedAmount = bouncedMonthAmount
+            bouncedAmount = bouncedMonthAmount,
+            bouncedCount = bouncedMonthCount
         )
         TotalChecksCard(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
             totalCount = totalCount,
             countLabel = countLabel,
             totalAmount = totalAmount
@@ -80,71 +83,57 @@ private fun TotalChecksCard(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.48f)
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f)
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 9.dp, vertical = 9.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
         ) {
+            Icon(
+                Icons.Rounded.ReceiptLong,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+            Text(
+                "تعداد کل چک‌ها",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            Text(
+                countLabel,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1
+            )
+            Spacer(Modifier.weight(1f))
+            Box(
+                modifier = Modifier.width(1.dp).height(26.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            )
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                    modifier = Modifier.size(30.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Rounded.ReceiptLong,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        "تعداد کل چک‌ها",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        countLabel,
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(5.dp)
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
                 Text(
-                    "مجموع مبلغ ثبت‌شده",
+                    "مجموع مبلغ",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    maxLines = 1
                 )
-                CompactCheckAmountText(totalAmount, MaterialTheme.colorScheme.onSurface, Modifier.fillMaxWidth(), 15f)
+                CompactCheckAmountText(
+                    totalAmount,
+                    MaterialTheme.colorScheme.onSurface,
+                    Modifier.widthIn(min = 70.dp, max = 132.dp),
+                    13f
+                )
             }
         }
     }
@@ -159,74 +148,111 @@ private fun MonthChecksCard(
     receivedCount: Int,
     paidAmount: Long,
     paidCount: Int,
-    bouncedAmount: Long
+    bouncedAmount: Long,
+    bouncedCount: Int
 ) {
+    val scheme = MaterialTheme.colorScheme
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.58f))
+        colors = CardDefaults.cardColors(containerColor = scheme.surface),
+        border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.65f))
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
-            // Compact title row keeps the month and heading on one line.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    "چک‌های ماه جاری",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    monthName,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = scheme.primary,
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Rounded.Check,
+                                contentDescription = null,
+                                tint = scheme.onPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "چک‌های ماه جاری",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = scheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        monthName,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = scheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier.width(1.dp).height(30.dp)
+                            .background(scheme.outlineVariant)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Icon(
+                        androidx.compose.material.icons.Icons.Rounded.CalendarMonth,
+                        contentDescription = null,
+                        tint = scheme.primary,
+                        modifier = Modifier.size(25.dp)
+                    )
+                }
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
             MonthAmountRow(
                 title = "دریافتی",
                 amount = receivedAmount,
                 count = receivedCount,
-                amountColor = MaterialTheme.colorScheme.primary
+                amountColor = scheme.primary,
+                rowColor = scheme.primaryContainer.copy(alpha = 0.42f)
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
             MonthAmountRow(
                 title = "پرداختی",
                 amount = paidAmount,
                 count = paidCount,
-                amountColor = MaterialTheme.colorScheme.error
+                amountColor = scheme.error,
+                rowColor = scheme.errorContainer.copy(alpha = 0.48f)
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
-            if (bouncedAmount > 0) {
+            HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.7f))
+            if (bouncedCount > 0) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 1.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "برگشتی",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.SemiBold
+                        "${IranianPhoneUtils.convertDigitsToPersian(bouncedCount.toString())} فقره",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = scheme.onSurface,
+                        maxLines = 1
                     )
-                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.width(10.dp))
                     CompactCheckAmountText(
                         bouncedAmount,
-                        MaterialTheme.colorScheme.error,
-                        Modifier.weight(1.7f),
-                        11f
+                        scheme.error,
+                        Modifier.weight(1.25f),
+                        12f
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        "برگشتی / فعال",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = scheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
                     )
                 }
             } else {
@@ -234,7 +260,7 @@ private fun MonthChecksCard(
                     "${IranianPhoneUtils.convertDigitsToPersian(monthCount.toString())} چک فعال",
                     modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = scheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     maxLines = 1
                 )
@@ -248,36 +274,44 @@ private fun MonthAmountRow(
     title: String,
     amount: Long,
     count: Int,
-    amountColor: androidx.compose.ui.graphics.Color
+    amountColor: androidx.compose.ui.graphics.Color,
+    rowColor: androidx.compose.ui.graphics.Color
 ) {
-    Row(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+        shape = RoundedCornerShape(18.dp),
+        color = rowColor
     ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.labelSmall,
-            color = amountColor,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1
-        )
-        Spacer(Modifier.weight(1f))
-        Column(
-            modifier = Modifier.weight(2.2f),
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(1.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            CompactCheckAmountText(
-                amount,
-                amountColor,
-                Modifier.fillMaxWidth(),
-                12f
-            )
+            // RTL: count on the right, amount in the middle, category on the left.
             Text(
                 "${IranianPhoneUtils.convertDigitsToPersian(count.toString())} فقره",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.End,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+            Spacer(Modifier.width(8.dp))
+            CompactCheckAmountText(
+                amount,
+                MaterialTheme.colorScheme.onSurface,
+                Modifier.weight(1f),
+                14f
+            )
+            Spacer(Modifier.width(8.dp))
+            Box(
+                modifier = Modifier.width(1.dp).height(34.dp)
+                    .background(amountColor.copy(alpha = 0.42f))
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                color = amountColor,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1
             )
         }
