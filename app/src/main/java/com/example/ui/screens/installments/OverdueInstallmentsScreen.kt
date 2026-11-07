@@ -442,7 +442,7 @@ private fun OverdueInstallmentCard(
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
-                            text = "تاریخ سررسید: ${AppNumberFormatter.formatDigits(item.displayNextPaymentDate, numberMode)}",
+                            text = "تاریخ سررسید: ${item.displayNextPaymentDate}",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Medium
@@ -656,7 +656,7 @@ private fun ManualPaymentDateDialog(
                                 )
                             }
                             Text(
-                                text = "سررسید اصلی: ${AppNumberFormatter.formatDigits(item.displayNextPaymentDate, numberMode)} (${AppNumberFormatter.formatDigits(accurateOverdueText, numberMode)})",
+                                text = "سررسید اصلی: ${item.displayNextPaymentDate} (${AppNumberFormatter.formatDigits(accurateOverdueText, numberMode)})",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontSize = 10.sp,
                                     color = ExpenseRoseLight
