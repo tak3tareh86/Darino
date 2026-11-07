@@ -175,6 +175,11 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val scheduledCurrentMonth = if (hasCompleteInstallmentSchedule) {
             scheduledAmount(allInstallments, currentMonth, includePaid = true)
         } else 0L
+        // The analysis tile shows only this month's unpaid scheduled installments;
+        // the pressure score above continues to include paid rows for month-to-month comparability.
+        val currentMonthUnpaidInstallments = if (hasCompleteInstallmentSchedule) {
+            scheduledAmount(active, currentMonth)
+        } else 0L
         val nextMonthRange = monthRange(1)
         val scheduledNextMonth = if (hasCompleteInstallmentSchedule) scheduledAmount(active, nextMonthRange) else 0L
         val nextMonthVehicleExpenses = scheduledVehicleExpenses(vehicleServices, nextMonthRange)
@@ -208,14 +213,10 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val now = System.currentTimeMillis()
         val nearest = unpaidPayments.filter { it.third >= dayStartMillis(now) }.minByOrNull { it.third }
             ?: unpaidPayments.filter { it.third < dayStartMillis(now) }.maxByOrNull { it.third }
-        val itemDueDates = active.mapNotNull { item ->
-            dueMillis(item.nextPaymentDate)?.let { item to it }
-        }
-        val todayStart = dayStartMillis(now)
-        val nearestItemFallback = itemDueDates.filter { it.second >= todayStart }.minByOrNull { it.second }
-            ?: itemDueDates.filter { it.second < todayStart }.maxByOrNull { it.second }
-        val nearestDueMillis = nearest?.third ?: nearestItemFallback?.second
-        val nearestTitle = nearest?.first?.title ?: nearestItemFallback?.first?.title
+        // Only a validated, unpaid payment-schedule row is a real due date.
+        // Contract-level nextPaymentDate is not a substitute for a missing schedule row.
+        val nearestDueMillis = nearest?.third
+        val nearestTitle = nearest?.first?.title
         // Compare Jalali calendar days directly instead of dividing epoch milliseconds,
         // which can be off by one around time-zone/DST transitions.
         val todayJalali = PersianCalendarHelper.fromEpochMillis(now)
@@ -253,6 +254,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             currentMonthComparisonPressure = currentHistoryPressure, insights = insights,
             isLoading = false, errorMessage = currentError, activeInstallmentsCount = active.size,
             totalInstallmentsMonthlyFormatted = if (hasCompleteInstallmentSchedule) MoneyFormatter.formatExact(MoneyAmount.of(scheduledCurrentMonth, AppCurrency.RIAL)) else "برنامه بعضی اقساط ناقص است",
+            currentMonthUnpaidInstallments = currentMonthUnpaidInstallments,
             nearestDueDateDays = daysToNearest, nearestDueDateTitle = nearestTitle ?: "سررسیدی ثبت نشده",
             hasNearestDueDate = nearestDueMillis != null, largestInstallmentTitle = largest?.first?.title ?: "قسطی ثبت نشده",
             largestInstallmentAmount = largest?.let { MoneyAmount.of(it.second.amount, it.second.amountUnit).asRialsLongExact() } ?: 0L, hasLargestInstallment = largest != null,
