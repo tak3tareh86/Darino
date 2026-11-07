@@ -88,26 +88,26 @@ private fun TotalChecksCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f))
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 12.dp, vertical = 14.dp),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 9.dp, vertical = 9.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(7.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                    modifier = Modifier.size(38.dp)
+                    modifier = Modifier.size(30.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Rounded.ReceiptLong,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -145,14 +145,7 @@ private fun TotalChecksCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
-                Text(
-                    MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, AppCurrency.RIAL)),
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp, fontWeight = FontWeight.ExtraBold),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
+                CompactCheckAmountText(totalAmount, MaterialTheme.colorScheme.onSurface, Modifier.fillMaxWidth(), 15f)
             }
         }
     }
@@ -178,8 +171,8 @@ private fun MonthChecksCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.58f))
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 11.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(9.dp)
+            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 8.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -212,7 +205,7 @@ private fun MonthChecksCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(7.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 MonthAmountTile(
                     modifier = Modifier.fillMaxWidth(),
@@ -230,13 +223,10 @@ private fun MonthChecksCard(
                 )
             }
             if (bouncedAmount > 0) {
-                Text(
-                    "برگشتی: ${MoneyFormatter.formatExact(MoneyAmount.of(bouncedAmount, AppCurrency.RIAL))}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("برگشتی:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                    CompactCheckAmountText(bouncedAmount, MaterialTheme.colorScheme.error, Modifier.weight(1f), 11f)
+                }
             } else {
                 Text(
                     "${IranianPhoneUtils.convertDigitsToPersian(monthCount.toString())} چک فعال",
@@ -263,7 +253,7 @@ private fun MonthAmountTile(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
     ) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 9.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 5.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -272,14 +262,7 @@ private fun MonthAmountTile(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.RIAL)),
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = amountColor,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            CompactCheckAmountText(amount, amountColor, Modifier.fillMaxWidth(), 13f)
             Text(
                 "${IranianPhoneUtils.convertDigitsToPersian(count.toString())} عدد",
                 style = MaterialTheme.typography.labelSmall,
@@ -288,5 +271,32 @@ private fun MonthAmountTile(
                 maxLines = 1
             )
         }
+    }
+}
+
+
+@Composable
+private fun CompactCheckAmountText(
+    amount: Long,
+    color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+    maximumFontSize: Float
+) {
+    val formatted = MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.RIAL))
+    BoxWithConstraints(modifier = modifier) {
+        val adaptiveFontSize = (maxWidth.value / (formatted.length.coerceAtLeast(1) * 0.58f))
+            .coerceIn(8f, maximumFontSize)
+        Text(
+            text = formatted,
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontSize = adaptiveFontSize.sp,
+                fontWeight = FontWeight.ExtraBold
+            ),
+            color = color,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false
+        )
     }
 }
