@@ -53,6 +53,8 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.util.AppNumberFormatter
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.SharedPersianDatePickerDialog
 import com.example.ui.components.Soft3DIcon
@@ -331,6 +334,7 @@ private fun OverdueInstallmentCard(
     onClick: () -> Unit,
     onPaidClick: () -> Unit
 ) {
+    val numberMode by AppNumberFormatter.modeFlow.collectAsState()
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val accurateOverdueText = remember(item.nextPaymentDate) {
         calculateAccurateOverdueText(item.nextPaymentDate)
@@ -439,7 +443,7 @@ private fun OverdueInstallmentCard(
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
-                            text = "تاریخ سررسید: ${item.nextPaymentDate}",
+                            text = "تاریخ سررسید: ${AppNumberFormatter.formatDigits(item.displayNextPaymentDate, numberMode)}",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Medium
@@ -653,7 +657,7 @@ private fun ManualPaymentDateDialog(
                                 )
                             }
                             Text(
-                                text = "سررسید اصلی: ${item.nextPaymentDate} (${calculateAccurateOverdueText(item.nextPaymentDate)})",
+                                text = "سررسید اصلی: ${AppNumberFormatter.formatDigits(item.displayNextPaymentDate, numberMode)} (${AppNumberFormatter.formatDigits(accurateOverdueText, numberMode)})",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontSize = 10.sp,
                                     color = ExpenseRoseLight
