@@ -135,6 +135,9 @@ class LocalCheckRepository private constructor() : CheckRepository {
             currentEntity.replacedByCheckId != null) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
+        if (currentEntity.replacesCheckId != null && check.type.name != currentEntity.type) {
+            return@withContext CheckOperationResult.VALIDATION_ERROR
+        }
         // REPLACED is a system-managed lifecycle state; it cannot be assigned through edit.
         if (check.status == CheckStatus.REPLACED) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
