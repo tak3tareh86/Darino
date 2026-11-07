@@ -465,6 +465,12 @@ fun CheckScreen(
                 selectedCheckForReplacement = selectedCheckForDetail
                 selectedCheckForDetail = null
             },
+            relatedCheckNumber = selectedCheckForDetail?.replacedByCheckId?.let { id ->
+                uiState.checks.firstOrNull { it.id == id }?.checkNumber
+            },
+            originalCheckNumber = selectedCheckForDetail?.replacesCheckId?.let { id ->
+                uiState.checks.firstOrNull { it.id == id }?.checkNumber
+            },
         )
     }
 
