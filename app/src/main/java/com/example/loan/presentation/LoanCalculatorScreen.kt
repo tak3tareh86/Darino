@@ -90,6 +90,9 @@ import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyAmount
+import com.example.util.MoneyFormatter
+import com.example.ui.screens.settings.model.AppCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -202,7 +205,7 @@ fun LoanCalculatorScreen(
                         state = state,
                         viewModel = viewModel,
                         onOpenSaveDialog = {
-                            saveTitleInput = "${state.loanType.title} (${CalculationResult.formatMoney(state.amount)})"
+                            saveTitleInput = "${state.loanType.title} (${CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)})"
                             showSaveDialog = true
                         },
                         onCreateInstallmentClick = {
@@ -217,9 +220,10 @@ fun LoanCalculatorScreen(
                                 DurationType.MONTHS -> state.duration
                                 DurationType.YEARS -> state.duration * 12
                             }
-                            val totalFormatted = res?.totalPaymentFormatted ?: CalculationResult.formatMoney(state.amount)
-                            val monthlyFormatted = res?.monthlyPaymentFormatted ?: ""
-                            val title = "${state.loanType.title} (${CalculationResult.formatMoney(state.amount)})"
+                            val totalFormatted = res?.let { MoneyFormatter.formatExact(MoneyAmount.of(it.totalPayment, AppCurrency.RIAL), includeUnit = false) }
+                                ?: MoneyFormatter.formatExact(MoneyAmount.of(state.amount, AppCurrency.RIAL), includeUnit = false)
+                            val monthlyFormatted = res?.let { MoneyFormatter.formatExact(MoneyAmount.of(it.monthlyPayment, AppCurrency.RIAL), includeUnit = false) }.orEmpty()
+                            val title = "${state.loanType.title} (${CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)})"
 
                             onCreateInstallment(cat, title, totalFormatted, monthlyFormatted, durationMonths)
                         }
@@ -421,8 +425,10 @@ private fun CalculatorMainTab(
                         value = state.amountInput,
                         onValueChange = { viewModel.onAmountInputChanged(it) },
                         label = null,
-                        unitLabel = "تومان",
-                        placeholder = "مثال: ۱۰۰,۰۰۰,۰۰۰",
+                        allowDecimalInput = true,
+                        onRawDecimalAmountChange = { rawValue, _ -> viewModel.onAmountInputChanged(rawValue) },
+                        unitLabel = MoneyFormatter.getUnitLabel(),
+                        placeholder = "مبلغ را وارد کنید",
                         showWordsPreview = false,
                         testTag = "loan_amount_input"
                     )
@@ -442,7 +448,7 @@ private fun CalculatorMainTab(
                             500_000_000L to "۵۰۰ میلیون"
                         )
                         presets.forEach { (amt, label) ->
-                            val isCurrent = state.amount == amt
+                            val isCurrent = state.amount == MoneyAmount.of(amt, AppCurrency.TOMAN).asRialsLongExact()
                             Surface(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(12.dp))
@@ -909,7 +915,7 @@ private fun SavedCalculationsTab(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "مبلغ: ${CalculationResult.formatMoney(calc.amount)} | سود: ${IranianPhoneUtils.convertDigitsToPersian(calc.interestRate.toString())}٪ | ${IranianPhoneUtils.convertDigitsToPersian(calc.duration.toString())} ${calc.durationType.shortTitle}",
+                                    text = "مبلغ: ${CalculationResult.formatMoney(calc.amount, calc.amountUnit)} | سود: ${IranianPhoneUtils.convertDigitsToPersian(calc.interestRate.toString())}٪ | ${IranianPhoneUtils.convertDigitsToPersian(calc.duration.toString())} ${calc.durationType.shortTitle}",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -940,7 +946,7 @@ private fun SavedCalculationsTab(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = CalculationResult.formatMoney(calc.monthlyPayment),
+                                    text = CalculationResult.formatMoney(calc.monthlyPayment, calc.amountUnit),
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp
@@ -956,7 +962,7 @@ private fun SavedCalculationsTab(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = CalculationResult.formatMoney(calc.totalInterest),
+                                    text = CalculationResult.formatMoney(calc.totalInterest, calc.amountUnit),
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp
@@ -972,7 +978,7 @@ private fun SavedCalculationsTab(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = CalculationResult.formatMoney(calc.totalPayment),
+                                    text = CalculationResult.formatMoney(calc.totalPayment, calc.amountUnit),
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp

@@ -31,7 +31,7 @@ import androidx.room.RoomDatabase
         UserPreferenceEntity::class,
         CheckEntity::class
     ],
-    version = 32,
+    version = 37,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -507,6 +507,52 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_32_33 = object : androidx.room.migration.Migration(32, 33) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Legacy transaction amounts were persisted in Toman.
+                // New records explicitly persist Rial integer subdivisions.
+                db.execSQL("ALTER TABLE transactions ADD COLUMN amountUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+            }
+        }
+
+        private val MIGRATION_33_34 = object : androidx.room.migration.Migration(33, 34) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Existing account opening balances are legacy Toman values.
+                db.execSQL("ALTER TABLE accounts ADD COLUMN initialBalanceUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+            }
+        }
+
+        private val MIGRATION_34_35 = object : androidx.room.migration.Migration(34, 35) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Existing checks were persisted as Toman amounts.
+                db.execSQL("ALTER TABLE checks ADD COLUMN amountUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+            }
+        }
+
+        private val MIGRATION_35_36 = object : androidx.room.migration.Migration(35, 36) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // All pre-existing values in these tables were persisted/displayed as Toman.
+                db.execSQL("ALTER TABLE installments ADD COLUMN amountUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+                db.execSQL("ALTER TABLE installment_payments ADD COLUMN amountUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+                db.execSQL("ALTER TABLE vehicles ADD COLUMN estimatedValueUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+                db.execSQL("ALTER TABLE vehicle_services ADD COLUMN costUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+                db.execSQL("ALTER TABLE vehicle_expenses ADD COLUMN amountUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+                db.execSQL("ALTER TABLE vehicle_insurances ADD COLUMN amountUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+                db.execSQL("ALTER TABLE vehicle_inspections ADD COLUMN costUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+                db.execSQL("ALTER TABLE loan_calculations ADD COLUMN amountUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+                db.execSQL("ALTER TABLE financial_events ADD COLUMN amountUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+                db.execSQL("ALTER TABLE financial_health_profile ADD COLUMN amountUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+            }
+        }
+
+
+        private val MIGRATION_36_37 = object : androidx.room.migration.Migration(36, 37) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Existing smart reminder amounts were historically Toman values.
+                db.execSQL("ALTER TABLE smart_reminders ADD COLUMN amountUnit TEXT NOT NULL DEFAULT 'TOMAN'")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -520,7 +566,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
                          MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
                          MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30,
-                         MIGRATION_30_31, MIGRATION_31_32
+                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37
                      )
                     .build()
                 INSTANCE = instance

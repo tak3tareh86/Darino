@@ -16,6 +16,8 @@ import com.example.ui.screens.installments.model.InstallmentItem
 import com.example.ui.screens.installments.model.InstallmentStatus
 import com.example.util.PersianCalendarHelper
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -53,6 +55,12 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
 
     private fun isUnpaid(status: InstallmentStatus) = status != InstallmentStatus.PAID && status != InstallmentStatus.COMPLETED
 
+    private fun parseCurrencyUnit(value: String): AppCurrency? = when (value) {
+        AppCurrency.TOMAN.name -> AppCurrency.TOMAN
+        AppCurrency.RIAL.name -> AppCurrency.RIAL
+        else -> null
+    }
+
     private fun hasCompletePaymentHistory(item: InstallmentItem): Boolean {
         val expectedCount = item.totalInstallments
         if (expectedCount <= 0) return false
@@ -87,16 +95,20 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         return PersianCalendarHelper.jalaliToEpochMillis(date.year, date.month, date.day, 0, 0)
     }
 
-    private fun scheduledAmount(items: List<InstallmentItem>, range: MonthRange, includePaid: Boolean = false): Long = items.sumOf { item ->
-        item.paymentHistory.filter { payment ->
+    private fun scheduledAmount(items: List<InstallmentItem>, range: MonthRange, includePaid: Boolean = false): Long = items.fold(0L) { itemTotal, item ->
+        val paymentTotal = item.paymentHistory.filter { payment ->
             (includePaid || isUnpaid(payment.status)) && payment.amount > 0L &&
                 dueMillis(payment.dueDate)?.let { it >= range.start && it < range.end } == true
-        }.sumOf { it.amount }
+        }.fold(0L) { total, payment -> Math.addExact(total, MoneyAmount.of(payment.amount, payment.amountUnit).asRialsLongExact()) }
+        Math.addExact(itemTotal, paymentTotal)
     }
 
-    private fun scheduledVehicleExpenses(services: List<VehicleServiceEntity>, range: MonthRange): Long = services.sumOf { service ->
+    private fun scheduledVehicleExpenses(services: List<VehicleServiceEntity>, range: MonthRange): Long = services.fold(0L) { total, service ->
         val due = service.dueDate
-        if (service.status != "COMPLETED" && service.cost > 0L && due != null && due >= range.start && due < range.end) service.cost else 0L
+        val costRials = if (service.status != "COMPLETED" && service.cost > 0L && due != null && due >= range.start && due < range.end) {
+            parseCurrencyUnit(service.costUnit)?.let { MoneyAmount.of(service.cost, it).asRialsLongExact() } ?: 0L
+        } else 0L
+        Math.addExact(total, costRials)
     }
 
     private fun activeItems(items: List<InstallmentItem>) =
@@ -125,9 +137,15 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             val income = if (offset == 0 && configuredCurrentMonthIncome != null) {
                 configuredCurrentMonthIncome
             } else {
-                transactions.filter {
+                val monthIncomeTransactions = transactions.filter {
                     it.type == "INCOME" && it.deletedAt == null && it.timestamp >= range.start && it.timestamp < range.end && it.amount > 0L
-                }.sumOf { it.amount }
+                }
+                // An unknown unit makes this month's income incomplete; do not publish a misleading pressure score.
+                if (monthIncomeTransactions.any { parseCurrencyUnit(it.amountUnit) == null }) continue
+                monthIncomeTransactions.fold(0L) { total, tx ->
+                    val unit = parseCurrencyUnit(tx.amountUnit) ?: return@fold total
+                    Math.addExact(total, MoneyAmount.of(tx.amount, unit).asRialsLongExact())
+                }
             }
             if (income <= 0L) continue
             val installmentDue = scheduledAmount(installments, range, includePaid = true)
@@ -160,13 +178,15 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         val nextMonthRange = monthRange(1)
         val scheduledNextMonth = if (hasCompleteInstallmentSchedule) scheduledAmount(active, nextMonthRange) else 0L
         val nextMonthVehicleExpenses = scheduledVehicleExpenses(vehicleServices, nextMonthRange)
-        val hasNextMonthVehicleExpenseAmount = vehicleServices.any { service ->
+        val nextMonthVehicleServices = vehicleServices.filter { service ->
             service.status != "COMPLETED" && service.cost > 0L && service.dueDate?.let { it >= nextMonthRange.start && it < nextMonthRange.end } == true
         }
+        val hasNextMonthVehicleExpenseAmount = nextMonthVehicleServices.isNotEmpty() &&
+            nextMonthVehicleServices.all { parseCurrencyUnit(it.costUnit) != null }
         val income = profile.monthlyIncome.coerceAtLeast(0L)
         val fixedExpenses = profile.fixedExpenses.coerceAtLeast(0L)
         val monthlyInstallments = scheduledCurrentMonth
-        val totalCommitments = (monthlyInstallments + fixedExpenses).coerceAtLeast(0L)
+        val totalCommitments = Math.addExact(monthlyInstallments, fixedExpenses).coerceAtLeast(0L)
         // Do not publish a definitive pressure score when required user data or any active schedule is missing.
         val pressure = if (income > 0L && profile.isConfigured && hasCompleteInstallmentSchedule) {
             FinancialAnalyzerEngine.calculateFinancialPressure(totalCommitments, income)
@@ -207,8 +227,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             (PersianCalendarHelper.getJalaliEpochDay(dueJalali.year, dueJalali.month, dueJalali.day) - todayEpochDay).toInt()
         } ?: 0
         val largest = active.flatMap { item ->
-            item.paymentHistory.filter { isUnpaid(it.status) && it.amount > 0L }.map { item to it }
-        }.maxByOrNull { it.second.amount }
+            item.paymentHistory.filter { isUnpaid(it.status) && it.amount > 0L && parseCurrencyUnit(it.amountUnit.name) != null }.map { item to it }
+        }.maxByOrNull { (_, payment) -> MoneyAmount.of(payment.amount, payment.amountUnit).asRialsLongExact() }
 
         val nextMonth = NextMonthPrediction(
             installments = scheduledNextMonth, fixedExpenses = fixedExpenses, reminders = 0L, vehicleExpenses = nextMonthVehicleExpenses,
@@ -232,10 +252,10 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             hasPreviousMonthData = previousPressure != null && currentHistoryPressure != null,
             currentMonthComparisonPressure = currentHistoryPressure, insights = insights,
             isLoading = false, errorMessage = currentError, activeInstallmentsCount = active.size,
-            totalInstallmentsMonthlyFormatted = if (hasCompleteInstallmentSchedule) MoneyFormatter.formatToman(scheduledCurrentMonth) else "برنامه بعضی اقساط ناقص است",
+            totalInstallmentsMonthlyFormatted = if (hasCompleteInstallmentSchedule) MoneyFormatter.formatExact(MoneyAmount.of(scheduledCurrentMonth, AppCurrency.RIAL)) else "برنامه بعضی اقساط ناقص است",
             nearestDueDateDays = daysToNearest, nearestDueDateTitle = nearestTitle ?: "سررسیدی ثبت نشده",
             hasNearestDueDate = nearestDueMillis != null, largestInstallmentTitle = largest?.first?.title ?: "قسطی ثبت نشده",
-            largestInstallmentAmount = largest?.second?.amount ?: 0L, hasLargestInstallment = largest != null,
+            largestInstallmentAmount = largest?.let { MoneyAmount.of(it.second.amount, it.second.amountUnit).asRialsLongExact() } ?: 0L, hasLargestInstallment = largest != null,
             nextMonthPrediction = nextMonth, previousMonthPressure = previousPressure ?: 0f, historicalPressureList = history
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FinancialHealthState())

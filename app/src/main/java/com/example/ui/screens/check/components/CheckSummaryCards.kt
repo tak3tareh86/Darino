@@ -23,12 +23,14 @@ import com.example.ui.screens.check.model.CheckType
 import com.example.util.IranianPhoneUtils
 import com.example.util.PersianCalendarHelper
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 @Composable
 fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
     // Keep the existing business calculations unchanged; this component only changes presentation.
     val totalCount = checks.size
-    val totalAmount = checks.sumOf { it.amount }
+    val totalAmount = checks.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
     val (curYear, curMonth, _) = CalendarDateUtils.getCurrentJalaliDate()
     val startMonthMillis = PersianCalendarHelper.jalaliToEpochMillis(curYear, curMonth, 1, 0, 0)
     val (nextYear, nextMonth) = if (curMonth < 12) Pair(curYear, curMonth + 1) else Pair(curYear + 1, 1)
@@ -37,11 +39,11 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
         it.dueDate in startMonthMillis until endMonthMillis &&
             (it.status == CheckStatus.REGISTERED || it.status == CheckStatus.PENDING || it.status == CheckStatus.BOUNCED)
     }
-    val receivedMonthAmount = monthChecks.filter { it.type == CheckType.RECEIVED }.sumOf { it.amount }
+    val receivedMonthAmount = monthChecks.filter { it.type == CheckType.RECEIVED }.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
     val receivedMonthCount = monthChecks.count { it.type == CheckType.RECEIVED }
-    val paidMonthAmount = monthChecks.filter { it.type == CheckType.PAID }.sumOf { it.amount }
+    val paidMonthAmount = monthChecks.filter { it.type == CheckType.PAID }.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
     val paidMonthCount = monthChecks.count { it.type == CheckType.PAID }
-    val bouncedMonthAmount = monthChecks.filter { it.status == CheckStatus.BOUNCED }.sumOf { it.amount }
+    val bouncedMonthAmount = monthChecks.filter { it.status == CheckStatus.BOUNCED }.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
     val monthName = PersianCalendarHelper.PERSIAN_MONTH_NAMES.getOrElse(curMonth - 1) { "" }
     val countLabel = remember(totalCount) { IranianPhoneUtils.convertDigitsToPersian(totalCount.toString()) }
 
@@ -132,7 +134,7 @@ private fun TotalChecksCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    MoneyFormatter.format(totalAmount),
+                    MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, AppCurrency.RIAL)),
                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp, fontWeight = FontWeight.ExtraBold),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
@@ -220,7 +222,7 @@ private fun MonthChecksCard(
             }
             if (bouncedAmount > 0) {
                 Text(
-                    "برگشتی: ${MoneyFormatter.format(bouncedAmount)}",
+                    "برگشتی: ${MoneyFormatter.formatExact(MoneyAmount.of(bouncedAmount, AppCurrency.RIAL))}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
                     maxLines = 2,
@@ -262,7 +264,7 @@ private fun MonthAmountTile(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                MoneyFormatter.format(amount),
+                MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.RIAL)),
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                 color = amountColor,
                 textAlign = TextAlign.Center,

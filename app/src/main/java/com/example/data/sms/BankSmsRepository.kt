@@ -110,12 +110,44 @@ class BankSmsRepository(private val context: Context) {
                     val id = item.optString("id").takeIf { it.isNotBlank() } ?: continue
                     val type = item.optString("type").takeIf { it.isNotBlank() }
                         ?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() }
+                    // Old queue entries without a unit predate explicit-unit persistence and
+                    // are TOMAN by legacy contract. A present but unknown unit is rejected.
+                    val rawAmountUnit = if (item.has("amountUnit")) item.optString("amountUnit") else "TOMAN"
+                    val amountUnit = runCatching {
+                        com.example.ui.screens.settings.model.AppCurrency.valueOf(rawAmountUnit)
+                    }.getOrNull() ?: continue
+                    val rawBalanceUnit = item.optString("balanceAmountUnit").takeIf { it.isNotBlank() }
+                    val balanceAmountUnit = rawBalanceUnit?.let { raw ->
+                        runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(raw) }.getOrNull()
+                    }
+                    // A present but unknown balance unit must not fall back to the transaction unit.
+                    if (rawBalanceUnit != null && balanceAmountUnit == null) continue
+                    val rawAmountCandidates = item.optJSONArray("amountCandidates")
+                    val amountCandidates = rawAmountCandidates?.let { values ->
+                        buildList { for (i in 0 until values.length()) values.optLong(i).takeIf { it > 0L }?.let(::add) }
+                    } ?: emptyList()
+                    val rawCandidateUnits = item.optJSONArray("amountCandidateUnits")
+                    val parsedCandidateUnits = rawCandidateUnits?.let { values ->
+                        (0 until values.length()).map { index ->
+                            runCatching {
+                                com.example.ui.screens.settings.model.AppCurrency.valueOf(values.optString(index))
+                            }.getOrNull()
+                        }
+                    }
+                    if (!parsedCandidateUnits.isNullOrEmpty() &&
+                        (parsedCandidateUnits.size != amountCandidates.size || parsedCandidateUnits.any { it == null })
+                    ) continue
+                    // Empty candidate-unit arrays are legacy data; the UI then uses the
+                    // suggestion's validated primary unit for those candidates.
+                    val amountCandidateUnits = parsedCandidateUnits?.filterNotNull() ?: emptyList()
                     add(
                         BankSmsSuggestion(
                             id = id,
                             patternId = item.optString("patternId"),
                             bankName = item.optString("bankName"),
                             amount = item.optLong("amount"),
+                            amountUnit = amountUnit,
+                            balanceAmountUnit = balanceAmountUnit,
                             formattedAmount = item.optString("formattedAmount"),
                             isAmountValid = item.optBoolean("isAmountValid"),
                             type = type,
@@ -131,9 +163,8 @@ class BankSmsRepository(private val context: Context) {
                             timestampMillis = item.optLong("timestampMillis", System.currentTimeMillis()),
                             receivedAtMillis = item.optLong("receivedAtMillis", item.optLong("timestampMillis", System.currentTimeMillis())),
                             balanceAmount = if (item.has("balanceAmount") && !item.isNull("balanceAmount")) item.optLong("balanceAmount") else null,
-                            amountCandidates = item.optJSONArray("amountCandidates")?.let { values ->
-                                buildList { for (i in 0 until values.length()) values.optLong(i).takeIf { it > 0L }?.let(::add) }
-                            } ?: emptyList(),
+                            amountCandidates = amountCandidates,
+                            amountCandidateUnits = amountCandidateUnits,
                             trackingCode = item.optString("trackingCode").takeIf { it.isNotBlank() && it != "null" }
                         )
                     )
@@ -178,6 +209,9 @@ class BankSmsRepository(private val context: Context) {
                     .put("patternId", suggestion.patternId)
                     .put("bankName", suggestion.bankName)
                     .put("amount", suggestion.amount)
+                    .put("amountUnit", suggestion.amountUnit.name)
+                    .put("balanceAmountUnit", suggestion.balanceAmountUnit?.name ?: "")
+                .put("amountCandidateUnits", JSONArray(suggestion.amountCandidateUnits.map { it.name }))
                     .put("formattedAmount", suggestion.formattedAmount)
                     .put("isAmountValid", suggestion.isAmountValid)
                     .put("type", suggestion.type?.name ?: JSONObject.NULL)

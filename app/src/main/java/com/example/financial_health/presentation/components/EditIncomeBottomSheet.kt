@@ -25,6 +25,8 @@ import com.example.ui.components.PersianAmountInputField
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,29 +39,52 @@ fun EditIncomeBottomSheet(
 ) {
     val activeCurrency = MoneyFormatter.activeCurrency
     var rawIncomeText by remember(currentIncome) {
-        mutableStateOf(if (currentIncome > 0L) MoneyFormatter.convertFromToman(currentIncome).toString() else "")
+        mutableStateOf(if (currentIncome > 0L) IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(currentIncome, AppCurrency.RIAL).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()) else "")
     }
     var rawFixedText by remember(currentFixedExpenses) {
-        mutableStateOf(if (currentFixedExpenses > 0L) MoneyFormatter.convertFromToman(currentFixedExpenses).toString() else "")
+        mutableStateOf(if (currentFixedExpenses > 0L) IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(currentFixedExpenses, AppCurrency.RIAL).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()) else "")
     }
     var previousCurrency by remember { mutableStateOf(activeCurrency) }
+    var validationError by remember { mutableStateOf<String?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
 
     // Preserve in-progress values when the selected currency changes while this sheet is open.
+    // Invalid precision is cleared rather than being reinterpreted in the newly selected unit.
     LaunchedEffect(activeCurrency) {
         if (previousCurrency != activeCurrency) {
-            val incomeInToman = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(rawIncomeText), previousCurrency)
-            val fixedInToman = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(rawFixedText), previousCurrency)
-            rawIncomeText = if (rawIncomeText.isBlank()) "" else MoneyFormatter.convertFromToman(incomeInToman, activeCurrency).toString()
-            rawFixedText = if (rawFixedText.isBlank()) "" else MoneyFormatter.convertFromToman(fixedInToman, activeCurrency).toString()
+            val incomeRials = IranianAmountUtils.parseAmountToBigDecimal(rawIncomeText)?.let { entered ->
+                runCatching { MoneyAmount(entered, previousCurrency).asRialsLongExact() }.getOrNull()
+            }
+            val fixedRials = IranianAmountUtils.parseAmountToBigDecimal(rawFixedText)?.let { entered ->
+                runCatching { MoneyAmount(entered, previousCurrency).asRialsLongExact() }.getOrNull()
+            }
+            if (rawIncomeText.isNotBlank() && incomeRials == null) {
+                rawIncomeText = ""
+                validationError = "دقت مبلغ درآمد با واحد قبلی سازگار نبود؛ لطفاً دوباره وارد کنید."
+            } else {
+                rawIncomeText = if (rawIncomeText.isBlank()) "" else incomeRials?.let {
+                    IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(it, AppCurrency.RIAL).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString())
+                }.orEmpty()
+            }
+            if (rawFixedText.isNotBlank() && fixedRials == null) {
+                rawFixedText = ""
+                validationError = "دقت مبلغ هزینه ثابت با واحد قبلی سازگار نبود؛ لطفاً دوباره وارد کنید."
+            } else {
+                rawFixedText = if (rawFixedText.isBlank()) "" else fixedRials?.let {
+                    IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(it, AppCurrency.RIAL).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString())
+                }.orEmpty()
+            }
             previousCurrency = activeCurrency
         }
     }
 
-    var validationError by remember { mutableStateOf<String?>(null) }
-    var isSaving by remember { mutableStateOf(false) }
     val unitLabel = MoneyFormatter.getUnitLabel()
-    val formattedIncomePreview = MoneyFormatter.formatRawAmount(IranianAmountUtils.parseAmountToLong(rawIncomeText))
-    val formattedFixedPreview = MoneyFormatter.formatRawAmount(IranianAmountUtils.parseAmountToLong(rawFixedText))
+    val formattedIncomePreview = IranianAmountUtils.parseAmountToBigDecimal(rawIncomeText)?.let { entered ->
+        runCatching { MoneyFormatter.formatExact(MoneyAmount(entered, activeCurrency)) }.getOrNull()
+    }.orEmpty()
+    val formattedFixedPreview = IranianAmountUtils.parseAmountToBigDecimal(rawFixedText)?.let { entered ->
+        runCatching { MoneyFormatter.formatExact(MoneyAmount(entered, activeCurrency)) }.getOrNull()
+    }.orEmpty()
 
     ModalBottomSheet(
         onDismissRequest = { if (!isSaving) onDismiss() },
@@ -146,6 +171,8 @@ fun EditIncomeBottomSheet(
                 PersianAmountInputField(
                     value = rawIncomeText,
                     onValueChange = { rawIncomeText = it },
+                    allowDecimalInput = true,
+                    onRawDecimalAmountChange = { rawValue, _ -> rawIncomeText = rawValue },
                     label = null,
                     unitLabel = unitLabel,
                     placeholder = "مثال: ۳۰,۰۰۰,۰۰۰ $unitLabel",
@@ -216,6 +243,8 @@ fun EditIncomeBottomSheet(
                 PersianAmountInputField(
                     value = rawFixedText,
                     onValueChange = { rawFixedText = it },
+                    allowDecimalInput = true,
+                    onRawDecimalAmountChange = { rawValue, _ -> rawFixedText = rawValue },
                     label = null,
                     unitLabel = unitLabel,
                     placeholder = "مثال: ۴,۰۰۰,۰۰۰ $unitLabel",
@@ -235,20 +264,22 @@ fun EditIncomeBottomSheet(
             // Save Action Button
             Button(
                 onClick = {
-                    val incomeVal = IranianAmountUtils.parseAmountToLong(rawIncomeText)
-                    val fixedVal = IranianAmountUtils.parseAmountToLong(rawFixedText)
-                    if (incomeVal <= 0L) {
-                        validationError = "درآمد ماهانه باید بیشتر از صفر باشد."
+                    val incomeVal = IranianAmountUtils.parseAmountToBigDecimal(rawIncomeText)
+                        ?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() }
+                    val fixedVal = IranianAmountUtils.parseAmountToBigDecimal(rawFixedText)
+                        ?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() }
+                    if (rawIncomeText.isBlank() || incomeVal == null || incomeVal <= 0L) {
+                        validationError = "درآمد ماهانه معتبر و بزرگ‌تر از صفر وارد کنید؛ دقت و محدوده مبلغ را بررسی کنید."
                     } else if (rawFixedText.isBlank()) {
                         validationError = "هزینه‌های ثابت را وارد کنید؛ اگر هزینه ثابتی ندارید، صفر بنویسید."
+                    } else if (fixedVal == null) {
+                        validationError = "مبلغ هزینه ثابت معتبر نیست یا خارج از محدوده قابل ذخیره است."
                     } else if (fixedVal < 0L) {
                         validationError = "هزینه ثابت نمی‌تواند منفی باشد."
                     } else {
                         validationError = null
                         isSaving = true
-                        val incomeInToman = MoneyFormatter.convertToToman(incomeVal, activeCurrency)
-                        val fixedInToman = MoneyFormatter.convertToToman(fixedVal, activeCurrency)
-                        onSave(incomeInToman, fixedInToman) { saved ->
+                        onSave(incomeVal, fixedVal) { saved ->
                             isSaving = false
                             if (saved) {
                                 onDismiss()

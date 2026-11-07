@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.firstOrNull
 import com.example.util.IranianDateUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import java.math.BigInteger
 import com.example.util.PersianCalendarHelper
 import com.example.vehicle.data.VehicleRepository
 
@@ -76,21 +78,24 @@ class HomeDashboardRepository(
             if (!isCurrentMonth) continue
 
             when (tx.type) {
-                TransactionType.INCOME -> income += tx.amount
-                TransactionType.EXPENSE -> expense += tx.amount
+                TransactionType.INCOME -> income = Math.addExact(income, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
+                TransactionType.EXPENSE -> expense = Math.addExact(expense, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
                 TransactionType.TRANSFER -> {
                     // Transfers do not count towards income or expense
                 }
             }
         }
-        val balance = income - expense
+        val balance = Math.subtractExact(income, expense)
         return Triple(income, expense, balance)
     }
 
     fun getSavingsRate(income: Long, expense: Long): Int {
         if (income <= 0) return 0
-        val saved = (income - expense).coerceAtLeast(0)
-        return ((saved.toDouble() / income.toDouble()) * 100).toInt()
+        val saved = BigInteger.valueOf(income).subtract(BigInteger.valueOf(expense)).max(BigInteger.ZERO)
+        return saved.multiply(BigInteger.valueOf(100L))
+            .divide(BigInteger.valueOf(income))
+            .min(BigInteger.valueOf(100L))
+            .toInt()
     }
 
     fun calculateDaysDifference(targetDatePersian: String): Int {
@@ -145,7 +150,7 @@ class HomeDashboardRepository(
             } else {
                 item.totalAmount / item.totalInstallments.coerceAtLeast(1)
             }
-            val formattedAmount = MoneyFormatter.formatToman(paymentAmount)
+            val formattedAmount = MoneyFormatter.formatExact(MoneyAmount.of(paymentAmount, item.amountUnit))
             val bankName = item.providerOrPerson.trim()
 
             val diff = calculateDaysDifference(effectiveDueDate)
@@ -162,6 +167,7 @@ class HomeDashboardRepository(
                     id = "ob_loan_${item.id}",
                     title = item.title,
                     amount = paymentAmount,
+                    amountUnit = item.amountUnit,
                     formattedAmount = formattedAmount,
                     relativeDaysText = relativeText,
                     dueDatePersian = effectiveDueDate,

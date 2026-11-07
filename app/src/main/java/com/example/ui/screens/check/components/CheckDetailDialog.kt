@@ -54,7 +54,7 @@ fun CheckDetailDialog(
             ) {
                 Column {
                     Text(
-                        text = MoneyFormatter.format(check.amount),
+                        text = check.formattedAmount,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = if (check.type == CheckType.RECEIVED) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error

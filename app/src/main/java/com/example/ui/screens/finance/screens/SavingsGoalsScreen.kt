@@ -65,6 +65,9 @@ import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
+import java.math.BigInteger
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,9 +83,9 @@ fun SavingsGoalsScreen(
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     var goalToDelete by remember { mutableStateOf<SavingsGoal?>(null) }
 
-    val totalTarget = goals.sumOf { it.targetAmount }
-    val totalSaved = goals.sumOf { it.currentAmount }
-    val overallProgress = if (totalTarget > 0L) ((totalSaved * 100) / totalTarget).toInt() else 0
+    val totalTarget = goals.fold(0L) { total, goal -> Math.addExact(total, MoneyAmount.of(goal.targetAmount, goal.amountUnit).asRialsLongExact()) }
+    val totalSaved = goals.fold(0L) { total, goal -> Math.addExact(total, MoneyAmount.of(goal.currentAmount, goal.amountUnit).asRialsLongExact()) }
+    val overallProgress = if (totalTarget > 0L) BigInteger.valueOf(totalSaved).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(totalTarget)).min(BigInteger.valueOf(100L)).toInt() else 0
 
     Scaffold(
         modifier = modifier.fillMaxSize().testTag("savings_goals_screen"),
@@ -149,7 +152,7 @@ fun SavingsGoalsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = MoneyFormatter.formatToman(totalSaved),
+                            text = MoneyFormatter.formatExact(MoneyAmount.of(totalSaved, AppCurrency.RIAL)),
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp
@@ -157,7 +160,7 @@ fun SavingsGoalsScreen(
                             color = Color(0xFF10B981)
                         )
                         Text(
-                            text = "از مجموع هدف: ${MoneyFormatter.formatToman(totalTarget)}",
+                            text = "از مجموع هدف: ${MoneyFormatter.formatExact(MoneyAmount.of(totalTarget, AppCurrency.RIAL))}",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

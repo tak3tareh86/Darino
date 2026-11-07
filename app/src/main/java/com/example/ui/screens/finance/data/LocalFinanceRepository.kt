@@ -19,6 +19,8 @@ import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionSourceType
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.util.PersianCalendarHelper
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -128,6 +130,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             accountNumberMasked = entity.accountNumberMasked,
             initialBalance = entity.initialBalance,
             isActive = entity.isActive,
+            initialBalanceUnit = AppCurrency.valueOf(entity.initialBalanceUnit),
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt
         )
@@ -142,6 +145,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             bankName = account.bankName,
             accountNumberMasked = account.accountNumberMasked,
             initialBalance = account.initialBalance,
+            initialBalanceUnit = account.initialBalanceUnit.name,
             isActive = account.isActive,
             createdAt = account.createdAt,
             updatedAt = account.updatedAt,
@@ -151,6 +155,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
     private fun validateTransaction(transaction: TransactionItemData): Boolean {
         if (transaction.amount <= 0L) return false
+        if (runCatching { MoneyAmount.of(transaction.amount, transaction.amountUnit).asRialsLongExact() }.isFailure) return false
         if (transaction.title.isBlank()) return false
         if (transaction.type != TransactionType.EXPENSE && transaction.type != TransactionType.INCOME && transaction.type != TransactionType.TRANSFER) return false
         if (transaction.type == TransactionType.INCOME || transaction.type == TransactionType.EXPENSE) {
@@ -443,6 +448,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 obj.put("categoryId", b.categoryId ?: "")
                 obj.put("categoryTitle", b.categoryTitle ?: "")
                 obj.put("amount", b.amount)
+                obj.put("amountUnit", b.amountUnit.name)
                 obj.put("period", b.period)
                 obj.put("startDate", b.startDate)
                 obj.put("endDate", b.endDate)
@@ -493,11 +499,15 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val index = current.indexOfFirst { it.id == goalId }
         if (index != -1) {
             val goal = current[index]
-            val newAmount = goal.currentAmount + amount
-            val progress = FinanceEngine.calculateSavingsGoalProgress(newAmount, goal.targetAmount)
-            val status = if (newAmount >= goal.targetAmount) SavingsGoalStatus.COMPLETED else goal.status
+            val targetRials = MoneyAmount.of(goal.targetAmount, goal.amountUnit).asRialsLongExact()
+            val currentRials = MoneyAmount.of(goal.currentAmount, goal.amountUnit).asRialsLongExact()
+            val newAmount = Math.addExact(currentRials, amount)
+            val progress = FinanceEngine.calculateSavingsGoalProgress(newAmount, targetRials)
+            val status = if (newAmount >= targetRials) SavingsGoalStatus.COMPLETED else goal.status
             current[index] = goal.copy(
+                targetAmount = targetRials,
                 currentAmount = newAmount,
+                amountUnit = AppCurrency.RIAL,
                 progressPercentage = progress,
                 status = status
             )
@@ -668,6 +678,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                             id = executionStringId,
                             title = item.title,
                             amount = item.amount,
+                            amountUnit = item.amountUnit,
                             type = item.type,
                             category = category,
                             categoryId = category.id,
@@ -806,6 +817,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 obj.put("categoryId", b.categoryId ?: "")
                 obj.put("categoryTitle", b.categoryTitle ?: "")
                 obj.put("amount", b.amount)
+                obj.put("amountUnit", b.amountUnit.name)
                 obj.put("period", b.period)
                 obj.put("startDate", b.startDate)
                 obj.put("endDate", b.endDate)
@@ -821,6 +833,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 obj.put("id", g.id)
                 obj.put("title", g.title)
                 obj.put("targetAmount", g.targetAmount)
+                obj.put("amountUnit", g.amountUnit.name)
                 obj.put("currentAmount", g.currentAmount)
                 obj.put("targetDate", g.targetDate)
                 obj.put("description", g.description)
@@ -837,6 +850,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 obj.put("id", r.id)
                 obj.put("title", r.title)
                 obj.put("amount", r.amount)
+                obj.put("amountUnit", r.amountUnit.name)
                 obj.put("type", r.type.name)
                 obj.put("categoryId", r.categoryId)
                 obj.put("categoryTitle", r.categoryTitle)
@@ -892,6 +906,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                             categoryId = obj.optString("categoryId").ifBlank { null },
                             categoryTitle = obj.optString("categoryTitle").ifBlank { null },
                             amount = obj.getLong("amount"),
+                            amountUnit = AppCurrency.valueOf(obj.optString("amountUnit", "TOMAN")),
                             period = obj.optString("period", "این ماه"),
                             startDate = obj.optString("startDate", ""),
                             endDate = obj.optString("endDate", ""),
@@ -923,6 +938,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                             title = obj.getString("title"),
                             targetAmount = target,
                             currentAmount = curr,
+                            amountUnit = AppCurrency.valueOf(obj.optString("amountUnit", "TOMAN")),
                             targetDate = obj.optString("targetDate", ""),
                             description = obj.optString("description", ""),
                             status = st,
@@ -947,6 +963,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                             id = obj.getString("id"),
                             title = obj.getString("title"),
                             amount = obj.getLong("amount"),
+                            amountUnit = AppCurrency.valueOf(obj.optString("amountUnit", "TOMAN")),
                             type = try { TransactionType.valueOf(obj.getString("type")) } catch (e: Exception) { TransactionType.EXPENSE },
                             categoryId = obj.getString("categoryId"),
                             categoryTitle = obj.getString("categoryTitle"),
@@ -1013,6 +1030,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             stringId = item.id,
             title = item.title,
             amount = item.amount,
+            amountUnit = item.amountUnit.name,
             type = item.type.name,
             category = item.category.title,
             accountName = item.accountName,
@@ -1061,6 +1079,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             id = if (entity.stringId.isNotBlank()) entity.stringId else entity.id.toString(),
             title = if (entity.title.isNotBlank()) entity.title else entity.description.ifBlank { entity.category },
             amount = entity.amount,
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.valueOf(entity.amountUnit),
             type = typeEnum,
             category = cat,
             categoryId = cat.id,
@@ -1148,27 +1167,31 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         
         val txs = db.transactionDao().getAllTransactionsList(userId)
         
-        var balance = account.initialBalance
+        var balance = MoneyAmount.of(account.initialBalance, AppCurrency.valueOf(account.initialBalanceUnit)).asRialsLongExact()
         for (tx in txs) {
             if (tx.deletedAt != null) continue
-            
+            val txAmountRials = MoneyAmount.of(
+                tx.amount,
+                AppCurrency.valueOf(tx.amountUnit)
+            ).asRialsLongExact()
+
             when (tx.type) {
                 "INCOME" -> {
                     if (tx.accountId == accountId) {
-                        balance += tx.amount
+                        balance = Math.addExact(balance, txAmountRials)
                     }
                 }
                 "EXPENSE" -> {
                     if (tx.accountId == accountId) {
-                        balance -= tx.amount
+                        balance = Math.subtractExact(balance, txAmountRials)
                     }
                 }
                 "TRANSFER" -> {
                     if (tx.transferSourceAccountId == accountId) {
-                        balance -= tx.amount
+                        balance = Math.subtractExact(balance, txAmountRials)
                     }
                     if (tx.transferDestinationAccountId == accountId) {
-                        balance += tx.amount
+                        balance = Math.addExact(balance, txAmountRials)
                     }
                 }
             }

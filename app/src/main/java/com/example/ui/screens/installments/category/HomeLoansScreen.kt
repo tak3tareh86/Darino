@@ -53,9 +53,16 @@ fun HomeLoansScreen(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
-    val totalAmount = loans.sumOf { it.totalAmount }
-    val paidAmount = loans.sumOf { it.paidAmount }
-    val remainingAmount = loans.sumOf { it.remainingAmount }
+    // Aggregate contract values in Rial so mixed legacy and explicitly selected units reconcile.
+    val totalAmount = loans.fold(0L) { total, item ->
+        Math.addExact(total, com.example.util.MoneyAmount.of(item.totalAmount, item.amountUnit).asRialsLongExact())
+    }
+    val paidAmount = loans.fold(0L) { total, item ->
+        Math.addExact(total, com.example.util.MoneyAmount.of(item.paidAmount, item.amountUnit).asRialsLongExact())
+    }
+    val remainingAmount = loans.fold(0L) { total, item ->
+        Math.addExact(total, com.example.util.MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact())
+    }
     val progress = if (totalAmount > 0) (paidAmount.toFloat() / totalAmount.toFloat()) else 0f
 
     Scaffold(
@@ -154,7 +161,7 @@ fun HomeLoansScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "باقیمانده: ${(remainingAmount / 1_000_000).toInt()}M تومان",
+                                text = "باقیمانده: ${com.example.util.MoneyFormatter.formatExact(com.example.util.MoneyAmount.of(remainingAmount, com.example.ui.screens.settings.model.AppCurrency.RIAL))}",
                                 style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
                                 color = WarningAmberLight
                             )

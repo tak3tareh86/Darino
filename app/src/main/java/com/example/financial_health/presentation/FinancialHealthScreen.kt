@@ -35,6 +35,10 @@ import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import java.math.BigDecimal
+import java.math.RoundingMode
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 import java.text.DecimalFormat
 
@@ -470,8 +474,8 @@ private fun FinancialCommitmentsBreakdownCard(
                     decimalFormat = decimalFormat,
                     color = Color(0xFF3B82F6),
                     icon = Icons.Rounded.ReceiptLong,
-                    percentageText = if (state.hasInstallmentScheduleData && state.monthlyIncome > 0L) "${formatFinancialPercentage(((state.totalInstallments.toDouble() / state.monthlyIncome) * 100).toFloat())}٪ از درآمد" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "برنامه بعضی اقساط ناقص است",
-                    amountLabelOverride = if (state.hasInstallmentScheduleData) null else if (state.activeInstallmentsCount == 0) MoneyFormatter.formatToman(0L) else "اطلاعات ناقص"
+                    percentageText = if (state.hasInstallmentScheduleData && state.monthlyIncome > 0L) "${formatFinancialAmountRatio(state.totalInstallments, state.monthlyIncome)}٪ از درآمد" else if (state.activeInstallmentsCount == 0) "قسط فعالی ثبت نشده" else "برنامه بعضی اقساط ناقص است",
+                    amountLabelOverride = if (state.hasInstallmentScheduleData) null else if (state.activeInstallmentsCount == 0) MoneyFormatter.formatExact(MoneyAmount.of(0L, AppCurrency.RIAL)) else "اطلاعات ناقص"
                 )
 
                 CommitmentRowItem(
@@ -480,7 +484,7 @@ private fun FinancialCommitmentsBreakdownCard(
                     decimalFormat = decimalFormat,
                     color = Color(0xFF8B5CF6),
                     icon = Icons.Rounded.HomeWork,
-                    percentageText = if (state.hasFixedExpensesData && state.monthlyIncome > 0L) "${formatFinancialPercentage(((state.fixedExpenses.toDouble() / state.monthlyIncome) * 100).toFloat())}٪ از درآمد" else "هزینه ثابت ثبت نشده",
+                    percentageText = if (state.hasFixedExpensesData && state.monthlyIncome > 0L) "${formatFinancialAmountRatio(state.fixedExpenses, state.monthlyIncome)}٪ از درآمد" else "هزینه ثابت ثبت نشده",
                     amountLabelOverride = if (state.hasFixedExpensesData) null else "ثبت نشده"
                 )
 
@@ -522,7 +526,7 @@ private fun FinancialCommitmentsBreakdownCard(
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) {
-                            MoneyFormatter.formatToman(state.totalCommitments)
+                            MoneyFormatter.formatExact(MoneyAmount.of(state.totalCommitments, AppCurrency.RIAL))
                         } else "اطلاعات ناقص",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
@@ -596,7 +600,7 @@ private fun CommitmentRowItem(
         }
 
         Text(
-            text = amountLabelOverride ?: MoneyFormatter.formatToman(amount),
+            text = amountLabelOverride ?: MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.RIAL)),
             style = MaterialTheme.typography.titleSmall.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.5.sp
@@ -667,7 +671,7 @@ private fun InstallmentsAnalysisSectionCard(
                 // Metric 2: Monthly Payment
                 AnalysisMetricTile(
                     title = "مجموع پرداخت ماهانه",
-                    value = if (state.hasInstallmentScheduleData) MoneyFormatter.formatToman(state.totalInstallments) else state.totalInstallmentsMonthlyFormatted,
+                    value = if (state.hasInstallmentScheduleData) MoneyFormatter.formatExact(MoneyAmount.of(state.totalInstallments, AppCurrency.RIAL)) else state.totalInstallmentsMonthlyFormatted,
                     subtext = "تعهد ماه جاری",
                     modifier = Modifier.weight(1f),
                     accentColor = MaterialTheme.colorScheme.primary
@@ -698,7 +702,7 @@ private fun InstallmentsAnalysisSectionCard(
                 AnalysisMetricTile(
                     title = "بیشترین قسط",
                     value = state.largestInstallmentTitle,
-                    subtext = if (state.hasLargestInstallment) MoneyFormatter.formatToman(state.largestInstallmentAmount) else "مبلغ ثبت نشده",
+                    subtext = if (state.hasLargestInstallment) MoneyFormatter.formatExact(MoneyAmount.of(state.largestInstallmentAmount, AppCurrency.RIAL)) else "مبلغ ثبت نشده",
                     modifier = Modifier.weight(1f),
                     accentColor = Color(0xFFEF4444)
                 )
@@ -809,7 +813,7 @@ private fun NextMonthPredictionSectionCard(
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                 ) {
                     Text(
-                        text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) { if (!prediction.installmentsAmountRecorded || !prediction.fixedExpensesAmountRecorded) "مبالغ شناخته‌شده: ${MoneyFormatter.formatToman(prediction.total)}" else "مجموع مبالغ ثبت‌شده: ${MoneyFormatter.formatToman(prediction.total)}" } else "مبالغ آینده ثبت نشده",
+                        text = if (prediction.total > 0L || prediction.fixedExpensesAmountRecorded) { if (!prediction.installmentsAmountRecorded || !prediction.fixedExpensesAmountRecorded) "مبالغ شناخته‌شده: ${MoneyFormatter.formatExact(MoneyAmount.of(prediction.total, AppCurrency.RIAL))}" else "مجموع مبالغ ثبت‌شده: ${MoneyFormatter.formatExact(MoneyAmount.of(prediction.total, AppCurrency.RIAL))}" } else "مبالغ آینده ثبت نشده",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.5.sp,
@@ -898,7 +902,7 @@ private fun PredictionItemRow(
         }
 
         Text(
-            text = if (amountRecorded) MoneyFormatter.formatToman(amount) else unavailableText,
+            text = if (amountRecorded) MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.RIAL)) else unavailableText,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.5.sp
@@ -973,6 +977,15 @@ private fun SmartAlertsSection(state: FinancialHealthState) {
     }
 }
 
+
+private fun formatFinancialAmountRatio(amount: Long, total: Long): String {
+    if (total <= 0L) return "۰"
+    val percentage = BigDecimal.valueOf(amount).multiply(BigDecimal("100"))
+        .divide(BigDecimal.valueOf(total), 1, RoundingMode.HALF_UP)
+        .stripTrailingZeros()
+        .toPlainString()
+    return MoneyFormatter.toPersianDigits(percentage)
+}
 
 private fun formatFinancialPercentage(value: Float): String =
     IranianPhoneUtils.convertDigitsToPersian(DecimalFormat("0.#").format(value))

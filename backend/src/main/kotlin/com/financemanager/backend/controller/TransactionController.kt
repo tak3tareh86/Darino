@@ -8,6 +8,7 @@ import com.financemanager.backend.service.UpsertTransactionCommand
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -17,6 +18,7 @@ import java.time.Instant
 data class TransactionRequest(
     @field:NotBlank @field:Size(max = 100) val clientId: String,
     @field:NotNull val amount: Long,
+    @field:Pattern(regexp = "TOMAN|RIAL") val amountUnit: String = "TOMAN",
     @field:NotBlank @field:Size(max = 30) val type: String,
     @field:NotBlank @field:Size(max = 150) val category: String,
     @field:NotBlank @field:Size(max = 150) val accountName: String,
@@ -64,6 +66,6 @@ class TransactionController(private val service: TransactionService) {
 }
 
 private fun TransactionRequest.toCommand() = UpsertTransactionCommand(
-    clientId, amount, type, category, accountName, description, occurredAt, timeFormatted,
+    clientId, amount, amountUnit, type, category, accountName, description, occurredAt, timeFormatted,
     title, subCategory, datePersian, paymentMethod, sourceType, sourceId, isRecurring
 )

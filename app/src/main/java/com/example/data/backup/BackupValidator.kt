@@ -44,14 +44,42 @@ object BackupValidator {
 
     fun validate(backup: DarinoBackup, rawJson: String? = null): ValidationResult {
         val version = backup.metadata.backupVersion
-        if (version !in 1..6) {
+        if (version !in 1..7) {
             return ValidationResult.Invalid("نسخه فایل پشتیبان پشتیبانی نمی‌شود.")
         }
         if (backup.metadata.createdAt <= 0L || backup.metadata.recordCount < 0) {
             return ValidationResult.Invalid("اطلاعات فراداده فایل پشتیبان نامعتبر است.")
         }
-        if (backup.metadata.currencyUnit != "TOMAN") {
-            return ValidationResult.Invalid("واحد پول فایل پشتیبان معتبر نیست.")
+        val validCurrencyMetadata = when (version) {
+            in 1..6 -> backup.metadata.currencyUnit == "TOMAN"
+            7 -> backup.metadata.currencyUnit == "PER_RECORD"
+            else -> false
+        }
+        if (!validCurrencyMetadata) {
+            return ValidationResult.Invalid("فراداده واحد پول فایل پشتیبان معتبر نیست.")
+        }
+
+        // Reject unknown per-record units before restore reaches Room. Silently
+        // falling back to Toman here would change the monetary value of a record.
+        val validUnits = setOf("TOMAN", "RIAL")
+        val hasInvalidCurrencyUnit =
+            backup.accounts.any { it.initialBalanceUnit !in validUnits } ||
+            backup.checks.any { it.amountUnit !in validUnits } ||
+            backup.transactions.any { it.amountUnit !in validUnits } ||
+            backup.installments.any { it.amountUnit !in validUnits } ||
+            backup.installmentPayments.any { it.amountUnit !in validUnits } ||
+            backup.vehicles.any { it.estimatedValueUnit !in validUnits } ||
+            backup.vehicleServices.any { it.costUnit !in validUnits } ||
+            backup.vehicleExpenses.any { it.amountUnit !in validUnits } ||
+            backup.vehicleInsurances.any { it.amountUnit !in validUnits } ||
+            backup.vehicleInspections.any { it.costUnit !in validUnits } ||
+            backup.reminders.any { it.amountUnit !in validUnits } ||
+            backup.financialEvents.any { it.amountUnit !in validUnits } ||
+            backup.financialHealthProfiles.any { it.amountUnit !in validUnits } ||
+            backup.loanCalculations.any { it.amountUnit !in validUnits } ||
+            (backup.appSettings?.currency?.let { it !in validUnits } ?: false)
+        if (hasInvalidCurrencyUnit) {
+            return ValidationResult.Invalid("فایل پشتیبان شامل رکوردی با واحد پول ناشناخته است؛ برای جلوگیری از تغییر مبلغ، بازیابی متوقف شد.")
         }
         if (backup.metadata.checksum.isBlank()) {
             return ValidationResult.Invalid("فایل پشتیبان امضای صحت‌سنجی ندارد یا ناقص است.")

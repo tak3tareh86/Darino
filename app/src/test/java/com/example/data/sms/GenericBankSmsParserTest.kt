@@ -79,6 +79,47 @@ class GenericBankSmsParserTest {
     }
 
     @Test
+    fun keepsCurrencyUnitsForEachAmountCandidateInMixedUnitSms() {
+        val parsed = GenericBankSmsParser.parse(
+            "sms-mixed-candidate-units",
+            "30001234",
+            "برداشت 123,456 ریال از حساب؛ مانده 789,012 تومان",
+            1_700_000_000_000L
+        )
+
+        assertNotNull(parsed)
+        assertEquals(123_456L, parsed?.amount)
+        assertEquals(789_012L, parsed?.balanceAmount)
+        assertEquals(
+            listOf(com.example.ui.screens.settings.model.AppCurrency.RIAL, com.example.ui.screens.settings.model.AppCurrency.TOMAN),
+            parsed?.amountCandidateUnits
+        )
+    }
+
+    @Test
+    fun keepsUnitsDistinctWhenTransactionAndBalanceHaveTheSameNumber() {
+        val parsed = GenericBankSmsParser.parse(
+            "sms-same-amount-different-units",
+            "30001234",
+            "برداشت 1,234 ریال از حساب؛ مانده 1,234 تومان",
+            1_700_000_000_000L
+        )
+
+        assertNotNull(parsed)
+        assertEquals(1_234L, parsed?.amount)
+        assertEquals(1_234L, parsed?.balanceAmount)
+        assertEquals(com.example.ui.screens.settings.model.AppCurrency.RIAL, parsed?.amountUnit)
+        assertEquals(com.example.ui.screens.settings.model.AppCurrency.TOMAN, parsed?.balanceAmountUnit)
+        assertEquals(
+            listOf(
+                com.example.ui.screens.settings.model.AppCurrency.RIAL,
+                com.example.ui.screens.settings.model.AppCurrency.TOMAN
+            ),
+            parsed?.amountCandidateUnits
+        )
+    }
+
+    @Test
     fun rejectsAmbiguousAmountsOtpAndFailedTransactions() {
         assertNull(
             GenericBankSmsParser.parse(

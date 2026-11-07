@@ -13,6 +13,8 @@ import com.example.ui.screens.check.model.Check
 import com.example.ui.screens.check.model.CheckStatus
 import com.example.ui.screens.check.model.CheckType
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 @Composable
 fun CheckStats(
@@ -22,8 +24,8 @@ fun CheckStats(
     val receivedChecks = checks.filter { it.type == CheckType.RECEIVED && (it.status == CheckStatus.REGISTERED || it.status == CheckStatus.PENDING || it.status == CheckStatus.BOUNCED) }
     val paidChecks = checks.filter { it.type == CheckType.PAID && (it.status == CheckStatus.REGISTERED || it.status == CheckStatus.PENDING || it.status == CheckStatus.BOUNCED) }
     
-    val totalReceivedAmount = receivedChecks.sumOf { it.amount }
-    val totalPaidAmount = paidChecks.sumOf { it.amount }
+    val totalReceivedAmount = receivedChecks.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
+    val totalPaidAmount = paidChecks.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -137,7 +139,7 @@ private fun StatItem(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = MoneyFormatter.format(amount),
+                text = MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.RIAL)),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.ExtraBold,
                 color = color

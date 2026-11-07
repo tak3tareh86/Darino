@@ -27,6 +27,7 @@ import com.example.ui.components.PersianDateInputField
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleExpenseCategory
 
@@ -52,6 +53,11 @@ fun AddVehicleExpenseSheet(
     var amountText by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(todayJalali) }
     var description by remember { mutableStateOf("") }
+    val parsedAmountRials = amountText.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() > 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val amountInputInvalid = parsedAmountRials == null
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -160,8 +166,11 @@ fun AddVehicleExpenseSheet(
                 PersianAmountInputField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = "مبلغ هزینه",
+                    allowDecimalInput = true,
+                    onRawDecimalAmountChange = { rawValue, _ -> amountText = rawValue },
+                    label = "مبلغ هزینه (${MoneyFormatter.getUnitLabel()})",
                     placeholder = "مبلغ را وارد کنید",
+                    unitLabel = MoneyFormatter.getUnitLabel(),
                     showWordsPreview = false,
                     modifier = Modifier.weight(1.2f),
                     testTag = "expense_amount_input"
@@ -187,15 +196,18 @@ fun AddVehicleExpenseSheet(
                 maxLines = 2
             )
 
+            if (amountInputInvalid) {
+                Text("مبلغ معتبر و بزرگ‌تر از صفر وارد کنید.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+
             // Submit Button
             Button(
                 onClick = {
-                    if (title.isNotBlank()) {
-                        val amount = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(amountText))
-                        onAddExpense(title, selectedCategory, amount, date, description)
+                    if (title.isNotBlank() && parsedAmountRials != null) {
+                        onAddExpense(title, selectedCategory, parsedAmountRials, date, description)
                     }
                 },
-                enabled = title.isNotBlank(),
+                enabled = title.isNotBlank() && !amountInputInvalid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)

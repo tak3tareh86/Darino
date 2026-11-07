@@ -200,7 +200,7 @@ fun TransferSheet(
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = { Text("مبلغ انتقال (تومان)") },
+                    label = { Text("مبلغ انتقال (${com.example.util.MoneyFormatter.getUnitLabel()})") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("transfer_amount_input"),
@@ -209,6 +209,7 @@ fun TransferSheet(
                         focusedBorderColor = InfoIndigoLight,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                     ),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
                     singleLine = true
                 )
 
@@ -235,8 +236,8 @@ fun TransferSheet(
                 // Submit Button
                 Button(
                     onClick = {
-                        val parsed = com.example.util.IranianAmountUtils.parseAmountToLong(amountText) ?: amountText.toLongOrNull() ?: 0L
-                        if (parsed <= 0L) {
+                        val parsed = com.example.util.IranianAmountUtils.parseAmountToBigDecimal(amountText)
+                        if (parsed == null || parsed.signum() <= 0) {
                             errorMessage = "لطفاً مبلغ معتبری وارد کنید."
                             return@Button
                         }

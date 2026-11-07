@@ -19,7 +19,7 @@ data class LoanCalculatorState(
     val currentTab: LoanScreenTab = LoanScreenTab.CALCULATOR,
     val loanType: LoanType = LoanType.BANK_LOAN,
     val amountInput: String = "100000000",
-    val amount: Long = 100_000_000L,
+    val amount: Long = 1_000_000_000L,
     val interestRateInput: String = "23",
     val interestRate: Double = 23.0,
     val interestPeriod: InterestPeriod = InterestPeriod.ANNUAL,

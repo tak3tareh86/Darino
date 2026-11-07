@@ -87,6 +87,7 @@ class SyncManager(
                         id = existing?.id ?: 0,
                         userId = userId,
                         amount = remote.amount,
+                        amountUnit = remote.amountUnit,
                         type = remote.type,
                         category = remote.category,
                         accountName = remote.accountName,
@@ -137,7 +138,8 @@ class SyncManager(
                         clientId, local.amount, local.type, local.category, local.accountName,
                         local.description, occurredAtIso,
                         local.timeFormatted, local.title, local.subCategory, local.datePersian,
-                        local.paymentMethod, local.sourceType, local.sourceId, local.isRecurring
+                        local.paymentMethod, local.sourceType, local.sourceId, local.isRecurring,
+                        amountUnit = local.amountUnit
                     )
                     val response = if (remote == null) {
                         ApiClient.transactionApi.upsertTransaction(request)

@@ -60,6 +60,9 @@ import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.IranianAmountUtils
+import com.example.util.MoneyAmount
+import com.example.util.MoneyFormatter
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.IranianPhoneUtils
 import kotlin.math.abs
 
@@ -193,11 +196,12 @@ fun LoanComparisonScreen(
                     durationMonths = loan1Input.durationMonths,
                     interestRate = loan1Input.interestRate,
                     amount = loan1Input.amount,
+                    amountUnit = loan1Input.amountUnit,
                     result = res1,
                     isEditing = isEditingLoan1,
                     onToggleEdit = { isEditingLoan1 = !isEditingLoan1 },
-                    onSaveEdit = { name, amt, rate, dur ->
-                        onUpdateLoan1(ComparisonLoanInput(name, amt, rate, dur))
+                    onSaveEdit = { name, amt, unit, rate, dur ->
+                        onUpdateLoan1(ComparisonLoanInput(name, amt, unit, rate, dur))
                         isEditingLoan1 = false
                     },
                     modifier = Modifier.weight(1f)
@@ -210,11 +214,12 @@ fun LoanComparisonScreen(
                     durationMonths = loan2Input.durationMonths,
                     interestRate = loan2Input.interestRate,
                     amount = loan2Input.amount,
+                    amountUnit = loan2Input.amountUnit,
                     result = res2,
                     isEditing = isEditingLoan2,
                     onToggleEdit = { isEditingLoan2 = !isEditingLoan2 },
-                    onSaveEdit = { name, amt, rate, dur ->
-                        onUpdateLoan2(ComparisonLoanInput(name, amt, rate, dur))
+                    onSaveEdit = { name, amt, unit, rate, dur ->
+                        onUpdateLoan2(ComparisonLoanInput(name, amt, unit, rate, dur))
                         isEditingLoan2 = false
                     },
                     modifier = Modifier.weight(1f)
@@ -269,7 +274,7 @@ fun LoanComparisonScreen(
 
                         val absInterest = abs(interestDiff)
                         val interestText = if (interestDiff > 0) {
-                            "طرح ۱: ${CalculationResult.formatMoney(absInterest)} سود کمتر"
+                            "طرح ۱: ${CalculationResult.formatMoney(absInterest, AppCurrency.RIAL)} سود کمتر"
                         } else {
                             "طرح ۲: ${CalculationResult.formatMoney(absInterest)} سود کمتر"
                         }
@@ -308,7 +313,7 @@ fun LoanComparisonScreen(
 
                         val absMonthly = abs(monthlyDiff)
                         val monthlyText = if (monthlyDiff < 0) {
-                            "طرح ۲: ${CalculationResult.formatMoney(absMonthly)} قسط سبک‌تر"
+                            "طرح ۲: ${CalculationResult.formatMoney(absMonthly, AppCurrency.RIAL)} قسط سبک‌تر"
                         } else {
                             "طرح ۱: ${CalculationResult.formatMoney(absMonthly)} قسط سبک‌تر"
                         }
@@ -356,13 +361,15 @@ private fun LoanComparisonCard(
     durationMonths: Int,
     interestRate: Double,
     amount: Long,
+    amountUnit: AppCurrency,
     result: CalculationResult,
     isEditing: Boolean,
     onToggleEdit: () -> Unit,
-    onSaveEdit: (String, Long, Double, Int) -> Unit,
+    onSaveEdit: (String, Long, AppCurrency, Double, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var editAmount by remember(amount) { mutableStateOf(amount.toString()) }
+    val activeCurrency = MoneyFormatter.activeCurrency
+    var editAmount by remember(amount, amountUnit, activeCurrency) { mutableStateOf(IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(amount, amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString())) }
     var editInterest by remember(interestRate) { mutableStateOf(interestRate.toString()) }
     var editDuration by remember(durationMonths) { mutableStateOf(durationMonths.toString()) }
 
@@ -413,9 +420,11 @@ private fun LoanComparisonCard(
                     PersianAmountInputField(
                         value = editAmount,
                         onValueChange = { editAmount = it },
-                        label = "مبلغ وام",
-                        unitLabel = "تومان",
-                        placeholder = "مثال: ۱۰۰,۰۰۰,۰۰۰",
+                        allowDecimalInput = true,
+                        onRawDecimalAmountChange = { rawValue, _ -> editAmount = rawValue },
+                        label = "مبلغ وام (${MoneyFormatter.getUnitLabel(activeCurrency)})",
+                        unitLabel = MoneyFormatter.getUnitLabel(activeCurrency),
+                        placeholder = "مبلغ را وارد کنید",
                         showWordsPreview = false
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -438,10 +447,10 @@ private fun LoanComparisonCard(
                     }
                     Button(
                         onClick = {
-                            val a = IranianAmountUtils.parseAmountToLong(editAmount)
+                            val a = IranianAmountUtils.parseAmountToBigDecimal(editAmount)?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
                             val r = IranianPhoneUtils.convertDigitsToEnglish(editInterest).replace(',', '.').toDoubleOrNull() ?: interestRate
                             val d = IranianPhoneUtils.convertDigitsToEnglish(editDuration).filter { ch -> ch.isDigit() }.toIntOrNull() ?: durationMonths
-                            onSaveEdit(title, if (a > 0L) a else amount, r, d)
+                            onSaveEdit(title, if (a > 0L) a else MoneyAmount.of(amount, amountUnit).asRialsLongExact(), AppCurrency.RIAL, r, d)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(RadiusMD)
@@ -467,7 +476,7 @@ private fun LoanComparisonCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "مبلغ: ${CalculationResult.formatMoney(amount)}",
+                        text = "مبلغ: ${CalculationResult.formatMoney(amount, amountUnit)}",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

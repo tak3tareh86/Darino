@@ -10,6 +10,7 @@ import java.util.UUID
 data class UpsertTransactionCommand(
     val clientId: String,
     val amount: Long,
+    val amountUnit: String = "TOMAN",
     val type: String,
     val category: String,
     val accountName: String,
@@ -37,12 +38,16 @@ class TransactionService(private val repository: TransactionRepository) {
 
     @Transactional
     fun save(userId: String, c: UpsertTransactionCommand): Transaction {
+        require(c.amountUnit == "TOMAN" || c.amountUnit == "RIAL") {
+            "Unsupported transaction amount unit: ${c.amountUnit}"
+        }
         val now = Instant.now()
         repository.upsertAtomically(
             id = UUID.randomUUID().toString(),
             userId = userId,
             clientId = c.clientId,
             amount = c.amount,
+            amountUnit = c.amountUnit,
             type = c.type,
             category = c.category,
             accountName = c.accountName,

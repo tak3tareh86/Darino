@@ -60,6 +60,8 @@ import com.example.ui.theme.WarningAmberLight
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,11 +81,16 @@ fun MaintenanceEntrySheet(
     ) -> Unit
 ) {
     var selectedType by remember { mutableStateOf(initialServiceType) }
-    var costInput by remember(MoneyFormatter.activeCurrency) { mutableStateOf(MoneyFormatter.formatTomanRaw(1_500_000L)) }
+    var costInput by remember(MoneyFormatter.activeCurrency) { mutableStateOf(IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(1_500_000L, AppCurrency.TOMAN).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString())) }
     var odometerInput by remember { mutableStateOf(currentOdometer.toString()) }
     var serviceCenterInput by remember { mutableStateOf("") }
     var partsInput by remember { mutableStateOf("") }
     var nextReminderKm by remember { mutableStateOf("۵,۰۰۰ کیلومتر دیگر") }
+    val parsedMaintenanceCostRials = costInput.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() >= 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val maintenanceCostInvalid = costInput.isNotBlank() && parsedMaintenanceCostRials == null
 
     val commonServices = listOf(
         "سرویس روغن و فیلتر",
@@ -196,7 +203,12 @@ fun MaintenanceEntrySheet(
             PersianAmountInputField(
                 value = costInput,
                 onValueChange = { costInput = it },
-                label = "هزینه کل سرویس / فاکتور",
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> costInput = rawValue },
+                isError = maintenanceCostInvalid,
+                errorMessage = if (maintenanceCostInvalid) "مبلغ سرویس معتبر نیست یا خارج از محدوده قابل ذخیره است." else null,
+                label = "هزینه کل سرویس / فاکتور (${MoneyFormatter.getUnitLabel()})",
+                unitLabel = MoneyFormatter.getUnitLabel(),
                 placeholder = "مبلغ را وارد کنید",
                 modifier = Modifier
                     .fillMaxWidth()
@@ -287,10 +299,11 @@ fun MaintenanceEntrySheet(
 
             // Submit Button
             Button(
+                enabled = !maintenanceCostInvalid,
                 onClick = {
                     onSubmitMaintenance(
                         selectedType,
-                        MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(costInput)).toString(),
+                        (parsedMaintenanceCostRials ?: 0L).toString(),
                         odometerInput,
                         serviceCenterInput.ifBlank { "تعمیرگاه تخصصی" },
                         partsInput,

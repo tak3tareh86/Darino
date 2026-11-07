@@ -30,6 +30,8 @@ import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.vehicle.data.VehicleEntity
 import com.example.vehicle.data.VehicleInsuranceEntity
 import com.example.vehicle.data.VehicleInspectionEntity
@@ -71,11 +73,21 @@ fun VehicleInsuranceSheet(
     var insuranceCompany by remember(editingInsurance) { mutableStateOf(editingInsurance?.company ?: "بیمه ایران") }
     var startDate by remember(editingInsurance) { mutableStateOf(editingInsurance?.startDate ?: todayJalali) }
     var endDate by remember(editingInsurance) { mutableStateOf(editingInsurance?.endDate ?: nextYearJalali) }
-    var insuranceAmountText by remember(editingInsurance, MoneyFormatter.activeCurrency) { mutableStateOf(editingInsurance?.amount?.takeIf { it > 0 }?.let { IranianPhoneUtils.convertDigitsToPersian(MoneyFormatter.convertFromToman(it).toString()) } ?: "") }
+    var insuranceAmountText by remember(editingInsurance, MoneyFormatter.activeCurrency) { mutableStateOf(editingInsurance?.amount?.takeIf { it > 0 }?.let { IranianPhoneUtils.convertDigitsToPersian(MoneyAmount.of(it, editingInsurance?.amountUnit ?: AppCurrency.TOMAN).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString()) } ?: "") }
     var policyNumber by remember(editingInsurance) { mutableStateOf(editingInsurance?.policyNumber ?: "") }
     var lastInspectionDate by remember(editingInspection) { mutableStateOf(editingInspection?.lastInspectionDate ?: todayJalali) }
     var inspectionExpiryDate by remember(editingInspection) { mutableStateOf(editingInspection?.expiryDate ?: nextYearJalali) }
-    var inspectionCostText by remember(editingInspection, MoneyFormatter.activeCurrency) { mutableStateOf(editingInspection?.cost?.takeIf { it > 0 }?.let { IranianPhoneUtils.convertDigitsToPersian(MoneyFormatter.convertFromToman(it).toString()) } ?: "") }
+    var inspectionCostText by remember(editingInspection, MoneyFormatter.activeCurrency) { mutableStateOf(editingInspection?.cost?.takeIf { it > 0 }?.let { IranianPhoneUtils.convertDigitsToPersian(MoneyAmount.of(it, editingInspection?.costUnit ?: AppCurrency.TOMAN).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString()) } ?: "") }
+    val parsedInsuranceAmountRials = insuranceAmountText.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() >= 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val invalidInsuranceAmount = insuranceAmountText.isNotBlank() && parsedInsuranceAmountRials == null
+    val parsedInspectionCostRials = inspectionCostText.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() >= 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val invalidInspectionCost = inspectionCostText.isNotBlank() && parsedInspectionCostRials == null
     var inspectionStatus by remember(editingInspection) { mutableStateOf(editingInspection?.status ?: "معتبر (گواهی معاینه فنی)") }
     var centerName by remember(editingInspection) { mutableStateOf(editingInspection?.centerName ?: "") }
     var insuranceReminderEnabled by remember(editingInsurance) { mutableStateOf(editingInsurance?.reminderEnabled ?: false) }
@@ -245,7 +257,7 @@ fun VehicleInsuranceSheet(
                     PersianDateInputField(value = endDate, onValueChange = { endDate = it }, label = "تاریخ انقضا", placeholder = "۱۴۰۶/۰۱/۰۱", dialogTitle = "انتخاب تاریخ انقضای بیمه‌نامه", modifier = Modifier.weight(1f), testTag = "insurance_end_date_input")
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PersianAmountInputField(value = insuranceAmountText, onValueChange = { insuranceAmountText = it }, label = "حق بیمه پرداختی", placeholder = "مبلغ را وارد کنید", showWordsPreview = false, modifier = Modifier.weight(1.1f), testTag = "insurance_cost_input")
+                    PersianAmountInputField(value = insuranceAmountText, onValueChange = { insuranceAmountText = it }, allowDecimalInput = true, onRawDecimalAmountChange = { rawValue, _ -> insuranceAmountText = rawValue }, label = "حق بیمه پرداختی (${MoneyFormatter.getUnitLabel()})", placeholder = "مبلغ را وارد کنید", unitLabel = MoneyFormatter.getUnitLabel(), showWordsPreview = false, modifier = Modifier.weight(1.1f), testTag = "insurance_cost_input")
                     OutlinedTextField(value = policyNumber, onValueChange = { policyNumber = it }, label = { Text("شماره بیمه‌نامه") }, modifier = Modifier.weight(1f), singleLine = true)
                 }
                 VehicleReminderSettings(
@@ -255,15 +267,17 @@ fun VehicleInsuranceSheet(
                     defaultTimeText = defaultReminderTimeText,
                     tag = "insurance_reminder"
                 )
+                if (invalidInsuranceAmount) Text("مبلغ حق بیمه معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 Button(
+                    enabled = !invalidInsuranceAmount,
                     onClick = {
                         if (!insuranceReminderEnabled || insuranceReminderDays.isEmpty() || !globalDeliveryConfigured) {
                             pendingNoReminderSave = {
-                                onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(insuranceAmountText)), policyNumber, false, insuranceReminderTime, emptyList(), editingInsurance?.id)
+                                onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, parsedInsuranceAmountRials ?: 0L, policyNumber, false, insuranceReminderTime, emptyList(), editingInsurance?.id)
                             }
                             showNoReminderConfirmation = true
                         } else {
-                            onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(insuranceAmountText)), policyNumber, insuranceReminderEnabled, insuranceReminderTime, insuranceReminderDays.sortedDescending(), editingInsurance?.id)
+                            onSaveInsurance(insuranceCompany, insuranceType, startDate, endDate, parsedInsuranceAmountRials ?: 0L, policyNumber, insuranceReminderEnabled, insuranceReminderTime, insuranceReminderDays.sortedDescending(), editingInsurance?.id)
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_insurance_btn"),
@@ -278,7 +292,7 @@ fun VehicleInsuranceSheet(
                     PersianDateInputField(value = inspectionExpiryDate, onValueChange = { inspectionExpiryDate = it }, label = "تاریخ انقضا", placeholder = "۱۴۰۶/۰۱/۰۱", dialogTitle = "انتخاب تاریخ انقضای معاینه فنی", modifier = Modifier.weight(1f), testTag = "inspection_expiry_date_input")
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PersianAmountInputField(value = inspectionCostText, onValueChange = { inspectionCostText = it }, label = "هزینه معاینه فنی", placeholder = "مبلغ را وارد کنید", showWordsPreview = false, modifier = Modifier.weight(1f).height(56.dp), testTag = "inspection_cost_input", singleLineLabel = true)
+                    PersianAmountInputField(value = inspectionCostText, onValueChange = { inspectionCostText = it }, allowDecimalInput = true, onRawDecimalAmountChange = { rawValue, _ -> inspectionCostText = rawValue }, label = "هزینه معاینه فنی (${MoneyFormatter.getUnitLabel()})", placeholder = "مبلغ را وارد کنید", unitLabel = MoneyFormatter.getUnitLabel(), showWordsPreview = false, modifier = Modifier.weight(1f).height(56.dp), testTag = "inspection_cost_input", singleLineLabel = true)
                     OutlinedTextField(value = centerName, onValueChange = { centerName = it }, label = { Text("مرکز معاینه فنی", maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) }, modifier = Modifier.weight(1f).height(56.dp), singleLine = true)
                 }
                 OutlinedTextField(value = inspectionStatus, onValueChange = { inspectionStatus = it }, label = { Text("وضعیت گواهی معاینه فنی") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
@@ -289,15 +303,17 @@ fun VehicleInsuranceSheet(
                     defaultTimeText = defaultReminderTimeText,
                     tag = "inspection_reminder"
                 )
+                if (invalidInspectionCost) Text("مبلغ معاینه فنی معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 Button(
+                    enabled = !invalidInspectionCost,
                     onClick = {
                         if (!inspectionReminderEnabled || inspectionReminderDays.isEmpty() || !globalDeliveryConfigured) {
                             pendingNoReminderSave = {
-                                onSaveInspection(lastInspectionDate, inspectionExpiryDate, MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(inspectionCostText)), inspectionStatus, centerName, false, inspectionReminderTime, emptyList(), editingInspection?.id)
+                                onSaveInspection(lastInspectionDate, inspectionExpiryDate, parsedInspectionCostRials ?: 0L, inspectionStatus, centerName, false, inspectionReminderTime, emptyList(), editingInspection?.id)
                             }
                             showNoReminderConfirmation = true
                         } else {
-                            onSaveInspection(lastInspectionDate, inspectionExpiryDate, MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(inspectionCostText)), inspectionStatus, centerName, inspectionReminderEnabled, inspectionReminderTime, inspectionReminderDays.sortedDescending(), editingInspection?.id)
+                            onSaveInspection(lastInspectionDate, inspectionExpiryDate, parsedInspectionCostRials ?: 0L, inspectionStatus, centerName, inspectionReminderEnabled, inspectionReminderTime, inspectionReminderDays.sortedDescending(), editingInspection?.id)
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_inspection_btn"),

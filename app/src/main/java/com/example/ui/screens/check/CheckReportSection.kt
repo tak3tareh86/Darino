@@ -25,6 +25,8 @@ import com.example.ui.screens.check.model.Check
 import com.example.ui.screens.check.model.CheckType
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 /**
  * Adds report controls and results directly to the screen's parent LazyColumn.
@@ -190,7 +192,7 @@ fun LazyListScope.checkReportSection(
                     Text("تعداد کل: ${IranianPhoneUtils.convertDigitsToPersian(summary.totalCount.toString())} چک")
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("جمع مبلغ اسمی همه وضعیت‌ها", fontWeight = FontWeight.SemiBold)
-                        Text(MoneyFormatter.format(summary.totalNominalAmount), fontWeight = FontWeight.Bold)
+                        Text(MoneyFormatter.formatExact(MoneyAmount.of(summary.totalNominalAmount, AppCurrency.RIAL)), fontWeight = FontWeight.Bold)
                     }
                     HorizontalDivider()
                     Text("تفکیک بر اساس نوع و وضعیت", style = MaterialTheme.typography.labelLarge)
@@ -203,7 +205,7 @@ fun LazyListScope.checkReportSection(
                                 color = if (total.type == CheckType.RECEIVED) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.error
                             )
-                            Text(MoneyFormatter.format(total.amount), style = MaterialTheme.typography.bodySmall)
+                            Text(MoneyFormatter.formatExact(MoneyAmount.of(total.amount, AppCurrency.RIAL)), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     Text(

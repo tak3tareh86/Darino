@@ -35,6 +35,8 @@ import com.example.ui.theme.RadiusMD
 import com.example.util.IranianAmountUtils
 import kotlinx.coroutines.launch
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 @Composable
 fun InstallmentScheduleScreen(
@@ -248,7 +250,8 @@ fun InstallmentScheduleScreen(
     // Edit Schedule Item Dialog
     if (editingScheduleItem != null) {
         val targetItem = editingScheduleItem!!
-        var amountStr by remember(targetItem.id) { mutableStateOf(IranianAmountUtils.formatWithCommas(targetItem.amount.toString())) }
+        val activeCurrency = MoneyFormatter.activeCurrency
+        var amountStr by remember(targetItem.id, activeCurrency) { mutableStateOf(IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(targetItem.amount, targetItem.amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString())) }
         var dueDateStr by remember(targetItem.id) { mutableStateOf(targetItem.dueDate) }
 
         Dialog(
@@ -280,7 +283,10 @@ fun InstallmentScheduleScreen(
                     PersianAmountInputField(
                         value = amountStr,
                         onValueChange = { amountStr = it },
-                        label = "مبلغ این قسط",
+                        allowDecimalInput = true,
+                        onRawDecimalAmountChange = { rawValue, _ -> amountStr = rawValue },
+                        label = "مبلغ این قسط (${MoneyFormatter.getUnitLabel(activeCurrency)})",
+                        unitLabel = MoneyFormatter.getUnitLabel(activeCurrency),
                         useOuterHeader = false
                     )
 
@@ -316,7 +322,7 @@ fun InstallmentScheduleScreen(
                         }
                         Button(
                             onClick = {
-                                val parsedLong = IranianAmountUtils.parseAmountToLong(amountStr)
+                                val parsedLong = IranianAmountUtils.parseAmountToBigDecimal(amountStr)?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() }
                                 if (parsedLong == null || parsedLong <= 0L) {
                                     scheduleEditError = "مبلغ قسط باید بیشتر از صفر باشد."
                                 } else {
@@ -327,6 +333,7 @@ fun InstallmentScheduleScreen(
                                             installmentId = currentItem.id,
                                             scheduleItemId = targetItem.id,
                                             newAmountLong = parsedLong,
+                                            newAmountUnit = AppCurrency.RIAL,
                                             newDueDate = dueDateStr,
                                             note = targetItem.note,
                                             context = context
@@ -344,6 +351,7 @@ fun InstallmentScheduleScreen(
                                                             it.status != com.example.ui.screens.installments.model.InstallmentStatus.PAID &&
                                                                 it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED
                                                         }?.amount ?: (found.totalAmount / found.totalInstallments.coerceAtLeast(1)),
+                                                        amountUnit = found.amountUnit,
                                                         dueDatePersian = found.nextPaymentDate,
                                                         dueTimePersian = "۰۹:۰۰"
                                                     )

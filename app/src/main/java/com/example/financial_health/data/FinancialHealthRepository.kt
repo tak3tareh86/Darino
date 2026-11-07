@@ -10,6 +10,8 @@ import com.example.financial_health.domain.FinancialAnalyzerEngine
 import com.example.financial_health.domain.FinancialHealthProfile
 import com.example.financial_health.domain.FinancialHealthStatus
 import com.example.util.PersianCalendarHelper
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -64,19 +66,24 @@ class FinancialHealthRepository(context: Context) {
             }
             if (userId == null) flowOf(emptyProfile())
             else dao.getProfile(userId, DEFAULT_PROFILE_ID).combine(db.transactionDao().getAllTransactions(userId)) { entity, transactions ->
-                val validProfile = entity != null &&
+                val storedUnit = entity?.amountUnit?.let { raw ->
+                    runCatching { parseStoredMoneyUnit(raw) }.getOrNull()
+                }
+                val validProfile = entity != null && storedUnit != null &&
                     entity.monthlyIncome >= 0L && entity.monthlyInstallments >= 0L && entity.fixedExpenses >= 0L &&
                     entity.financialPressure.isFinite() && entity.financialPressure >= 0f && entity.updatedAt > 0L
                 if (!validProfile) calculateProfile(userId, transactions)
                 else {
                     val saved = requireNotNull(entity)
+                    val unit = requireNotNull(storedUnit)
                     val status = runCatching { FinancialHealthStatus.valueOf(saved.healthStatus) }
                         .getOrElse { FinancialAnalyzerEngine.calculateHealthStatus(saved.financialPressure) }
                     FinancialHealthProfile(
                         id = saved.id,
-                        monthlyIncome = saved.monthlyIncome,
-                        monthlyInstallments = saved.monthlyInstallments,
-                        fixedExpenses = saved.fixedExpenses,
+                        monthlyIncome = MoneyAmount.of(saved.monthlyIncome, unit).asRialsLongExact(),
+                        monthlyInstallments = MoneyAmount.of(saved.monthlyInstallments, unit).asRialsLongExact(),
+                        fixedExpenses = MoneyAmount.of(saved.fixedExpenses, unit).asRialsLongExact(),
+                        amountUnit = AppCurrency.RIAL,
                         financialPressure = saved.financialPressure,
                         healthStatus = status, isConfigured = true, updatedAt = saved.updatedAt
                     )
@@ -89,13 +96,13 @@ class FinancialHealthRepository(context: Context) {
         val (start, end) = currentMonthRange()
         val income = transactions.filter {
             it.type == "INCOME" && it.timestamp >= start && it.timestamp < end && it.amount > 0L
-        }.sumOf { it.amount }
+        }.fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, parseStoredMoneyUnit(tx.amountUnit)).asRialsLongExact()) }
         // Fixed expenses are user-entered. Never invent a value when they are unknown.
         val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(0L, income) ?: 0f
         return FinancialHealthProfile(
             id = DEFAULT_PROFILE_ID, monthlyIncome = income, monthlyInstallments = 0L,
             fixedExpenses = 0L, financialPressure = pressure,
-            healthStatus = FinancialAnalyzerEngine.calculateHealthStatus(pressure)
+            healthStatus = FinancialAnalyzerEngine.calculateHealthStatus(pressure), amountUnit = AppCurrency.RIAL
         )
     }
 
@@ -111,12 +118,12 @@ class FinancialHealthRepository(context: Context) {
         require(monthlyIncome >= 0L) { "درآمد نمی‌تواند منفی باشد." }
         require(monthlyInstallments >= 0L) { "مبلغ اقساط نمی‌تواند منفی باشد." }
         require(fixedExpenses >= 0L) { "هزینه ثابت نمی‌تواند منفی باشد." }
-        val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(monthlyInstallments + fixedExpenses, monthlyIncome) ?: 0f
+        val pressure = FinancialAnalyzerEngine.calculateFinancialPressure(Math.addExact(monthlyInstallments, fixedExpenses), monthlyIncome) ?: 0f
         val status = FinancialAnalyzerEngine.calculateHealthStatus(pressure)
         dao.saveProfile(FinancialHealthEntity(
             id = DEFAULT_PROFILE_ID, userId = requireUserId(), monthlyIncome = monthlyIncome,
             monthlyInstallments = monthlyInstallments, fixedExpenses = fixedExpenses,
-            financialPressure = pressure, healthStatus = status.name, updatedAt = System.currentTimeMillis()
+            financialPressure = pressure, healthStatus = status.name, updatedAt = System.currentTimeMillis(), amountUnit = AppCurrency.RIAL.name
         ))
     }
 
@@ -124,13 +131,21 @@ class FinancialHealthRepository(context: Context) {
         require(newIncome >= 0L)
         val existing = dao.getProfileSync(requireUserId(), DEFAULT_PROFILE_ID)
             ?: throw IllegalStateException("ابتدا درآمد و هزینه‌های ثابت را هم‌زمان از فرم سلامت مالی ثبت کنید.")
-        saveProfile(newIncome, existing.monthlyInstallments, existing.fixedExpenses)
+        val unit = parseStoredMoneyUnit(existing.amountUnit)
+        saveProfile(newIncome, MoneyAmount.of(existing.monthlyInstallments, unit).asRialsLongExact(), MoneyAmount.of(existing.fixedExpenses, unit).asRialsLongExact())
     }
 
     suspend fun updateFixedExpenses(newFixed: Long) = withContext(Dispatchers.IO) {
         require(newFixed >= 0L)
         val existing = dao.getProfileSync(requireUserId(), DEFAULT_PROFILE_ID)
             ?: throw IllegalStateException("ابتدا درآمد و هزینه‌های ثابت را هم‌زمان از فرم سلامت مالی ثبت کنید.")
-        saveProfile(existing.monthlyIncome, existing.monthlyInstallments, newFixed)
+        val unit = parseStoredMoneyUnit(existing.amountUnit)
+        saveProfile(MoneyAmount.of(existing.monthlyIncome, unit).asRialsLongExact(), MoneyAmount.of(existing.monthlyInstallments, unit).asRialsLongExact(), newFixed)
     }
+}
+
+internal fun parseStoredMoneyUnit(value: String): AppCurrency = when (value) {
+    AppCurrency.TOMAN.name -> AppCurrency.TOMAN
+    AppCurrency.RIAL.name -> AppCurrency.RIAL
+    else -> throw IllegalArgumentException("Unsupported stored money unit: $value")
 }

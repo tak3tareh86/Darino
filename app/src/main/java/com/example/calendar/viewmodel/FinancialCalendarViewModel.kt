@@ -54,7 +54,14 @@ class FinancialCalendarViewModel(application: Application) : AndroidViewModel(ap
             CalendarDateUtils.normalizeDate(it.date).startsWith(monthPrefix)
         }
 
-        val totalAmount = monthEvents.mapNotNull { it.amount }.sum()
+        // Calendar events can originate from stores using either Rial or Toman.
+        // Aggregate in the canonical integer subdivision (Rial), never by raw-unit addition.
+        val totalAmount = monthEvents.fold(0L) { total, event ->
+            val amountRials = event.amount?.let {
+                com.example.util.MoneyAmount.of(it, event.amountUnit).asRialsLongExact()
+            } ?: 0L
+            Math.addExact(total, amountRials)
+        }
         val count = monthEvents.size
 
         // Now filter allEvents for display according to search, filterType

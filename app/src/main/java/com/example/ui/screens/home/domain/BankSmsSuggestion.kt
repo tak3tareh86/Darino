@@ -1,6 +1,7 @@
 package com.example.ui.screens.home.domain
 
 import com.example.ui.screens.finance.model.TransactionType
+import com.example.ui.screens.settings.model.AppCurrency
 
 data class BankSmsSuggestion(
     val id: String,
@@ -24,8 +25,13 @@ data class BankSmsSuggestion(
     val patternId: String = "",
     // Actual inbox receipt time; distinct from the transaction date parsed from the SMS body.
     val receivedAtMillis: Long = timestampMillis,
-    // All distinct, strictly grouped numeric amounts found in the original SMS.
-    val amountCandidates: List<Long> = emptyList()
+    // Numeric candidates paired with their units; equal values remain separate when units differ.
+    val amountCandidates: List<Long> = emptyList(),
+    val amountUnit: AppCurrency = AppCurrency.TOMAN,
+    // Balance values can use a different unit from the transaction in the same SMS.
+    val balanceAmountUnit: AppCurrency? = null,
+    // Unit for each entry in amountCandidates, kept index-aligned with that list.
+    val amountCandidateUnits: List<AppCurrency> = emptyList()
 ) {
     val isExpense: Boolean
         get() = type == TransactionType.EXPENSE

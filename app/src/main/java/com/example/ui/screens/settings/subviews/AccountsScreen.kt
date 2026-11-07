@@ -45,6 +45,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.example.ui.components.PersianAmountInputField
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import androidx.compose.runtime.collectAsState
@@ -163,19 +165,19 @@ fun AccountsScreen(
             } else {
                 val accountBalances = remember(state.accounts, state.allTransactions) {
                     state.accounts.associate { acc ->
-                        var balance = acc.initialBalance
+                        var balance = MoneyAmount.of(acc.initialBalance, acc.initialBalanceUnit).asRialsLongExact()
                         state.allTransactions.forEach { tx ->
                             if (tx.accountId == acc.id) {
                                 when (tx.type) {
-                                    com.example.ui.screens.finance.model.TransactionType.INCOME -> balance += tx.amount
-                                    com.example.ui.screens.finance.model.TransactionType.EXPENSE -> balance -= tx.amount
+                                    com.example.ui.screens.finance.model.TransactionType.INCOME -> balance = Math.addExact(balance, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
+                                    com.example.ui.screens.finance.model.TransactionType.EXPENSE -> balance = Math.subtractExact(balance, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
                                     else -> {}
                                 }
                             } else if (tx.type == com.example.ui.screens.finance.model.TransactionType.TRANSFER) {
                                 if (tx.transferSourceAccountId == acc.id) {
-                                    balance -= tx.amount
+                                    balance = Math.subtractExact(balance, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
                                 } else if (tx.transferDestinationAccountId == acc.id) {
-                                    balance += tx.amount
+                                    balance = Math.addExact(balance, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
                                 }
                             }
                         }
@@ -190,9 +192,9 @@ fun AccountsScreen(
                 ) {
                     item {
                         // Total Balance Card
-                        val totalBalance = accountBalances.values.sum()
+                        val totalBalance = accountBalances.values.fold(0L) { total, value -> Math.addExact(total, value) }
                         TotalAccountsBalanceCard(
-                            totalBalanceFormatted = com.example.util.MoneyFormatter.formatToman(totalBalance), 
+                            totalBalanceFormatted = com.example.util.MoneyFormatter.formatExact(MoneyAmount.of(totalBalance, AppCurrency.RIAL)), 
                             count = state.accounts.size
                         )
                     }
@@ -516,7 +518,7 @@ fun AccountManageCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = com.example.util.MoneyFormatter.formatToman(account.initialBalance),
+                            text = com.example.util.MoneyFormatter.formatExact(MoneyAmount.of(account.initialBalance, account.initialBalanceUnit)),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 13.5.sp
@@ -543,7 +545,7 @@ fun AccountManageCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = com.example.util.MoneyFormatter.formatToman(realBalance),
+                            text = com.example.util.MoneyFormatter.formatExact(MoneyAmount.of(realBalance, AppCurrency.RIAL)),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
@@ -572,9 +574,14 @@ fun AddEditAccountSheet(
         "سایر" to AccountType.OTHER
     )
 
+    val activeCurrency = com.example.util.MoneyFormatter.activeCurrency
     var name by remember { mutableStateOf(account?.name ?: "") }
     var bankName by remember { mutableStateOf(account?.bankName ?: "") }
-    var balance by remember { mutableStateOf(account?.initialBalance?.toString() ?: "") }
+    var balance by remember {
+        mutableStateOf(
+            account?.let { MoneyAmount.of(it.initialBalance, it.initialBalanceUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString() } ?: ""
+        )
+    }
     var accountNumber by remember { mutableStateOf(account?.accountNumberMasked ?: "") }
     var selectedType by remember { mutableStateOf(account?.type ?: AccountType.BANK) }
 
@@ -656,8 +663,12 @@ fun AddEditAccountSheet(
             PersianAmountInputField(
                 value = balance,
                 onValueChange = { balance = it },
-                label = "موجودی اولیه (تومان)",
-                placeholder = "مثال: ۵,۰۰۰,۰۰۰",
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> balance = rawValue },
+                label = "موجودی اولیه (${com.example.util.MoneyFormatter.getUnitLabel(activeCurrency)})",
+                placeholder = "مثال: ۵,۰۰۰,۰۰۰ یا ۱۲۳٫۴",
+                unitLabel = com.example.util.MoneyFormatter.getUnitLabel(activeCurrency),
+                showWordsPreview = false,
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -672,6 +683,9 @@ fun AddEditAccountSheet(
 
             Button(
                 onClick = {
+                    val initialBalanceRials = IranianAmountUtils.parseAmountToBigDecimal(balance)?.let {
+                        runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
+                    } ?: 0L
                     val saved = DomainAccount(
                         id = account?.id ?: "acc_${System.currentTimeMillis()}",
                         userId = account?.userId ?: "",
@@ -679,7 +693,8 @@ fun AddEditAccountSheet(
                         bankName = bankName.ifBlank { null },
                         accountNumberMasked = accountNumber.ifBlank { null },
                         type = selectedType,
-                        initialBalance = IranianAmountUtils.parseAmountToLong(balance) ?: 0L,
+                        initialBalance = initialBalanceRials,
+                        initialBalanceUnit = AppCurrency.RIAL,
                         isActive = account?.isActive ?: true
                     )
                     onSave(saved)

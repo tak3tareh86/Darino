@@ -381,12 +381,10 @@ fun InstallmentsScreen(
                     onCreateInstallment = { cat, title, total, monthly, count ->
                         addInitialCategory = cat
                         prefillTitle = title
-                        val rawTotalToman = com.example.util.IranianAmountUtils.parseAmountToLong(total)
-                        val rawMonthlyToman = com.example.util.IranianAmountUtils.parseAmountToLong(monthly)
-                        val displayTotal = com.example.util.MoneyFormatter.convertFromToman(rawTotalToman)
-                        val displayMonthly = com.example.util.MoneyFormatter.convertFromToman(rawMonthlyToman)
-                        prefillTotal = com.example.util.IranianAmountUtils.formatWithCommas(displayTotal.toString())
-                        prefillMonthly = com.example.util.IranianAmountUtils.formatWithCommas(displayMonthly.toString())
+                        val totalValue = com.example.util.IranianAmountUtils.parseAmountToBigDecimal(total)
+                        val monthlyValue = com.example.util.IranianAmountUtils.parseAmountToBigDecimal(monthly)
+                        prefillTotal = totalValue?.let { com.example.util.IranianAmountUtils.formatDecimalWithCommas(it.stripTrailingZeros().toPlainString()) }.orEmpty()
+                        prefillMonthly = monthlyValue?.let { com.example.util.IranianAmountUtils.formatDecimalWithCommas(it.stripTrailingZeros().toPlainString()) }.orEmpty()
                         prefillCount = count.toString()
                         showAddSheet = true
                     }
@@ -433,20 +431,25 @@ fun InstallmentsScreen(
                 prefillMonthly = ""
                 prefillCount = ""
 
-                val rawTotal = com.example.util.IranianAmountUtils.parseAmountToLong(totalStr)
-                val rawMonthly = com.example.util.IranianAmountUtils.parseAmountToLong(monthlyStr)
+                val selectedCurrency = com.example.util.MoneyFormatter.activeCurrency
+                val rawTotalRials = com.example.util.IranianAmountUtils.parseAmountToBigDecimal(totalStr)?.let {
+                    runCatching { MoneyAmount(it, selectedCurrency).asRialsLongExact() }.getOrNull()
+                } ?: 0L
+                val rawMonthlyRials = com.example.util.IranianAmountUtils.parseAmountToBigDecimal(monthlyStr)?.let {
+                    runCatching { MoneyAmount(it, selectedCurrency).asRialsLongExact() }.getOrNull()
+                } ?: 0L
                 val parsedCount = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(countStr).filter { it.isDigit() }.toIntOrNull() ?: 0
                 val requestedPaidCount = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(paidCountStr).filter { it.isDigit() }.toIntOrNull() ?: 0
 
                 if (customScheduleItems.isNullOrEmpty()) {
-                    if (rawTotal <= 0L || parsedCount <= 0 || rawMonthly <= 0L) {
+                    if (rawTotalRials <= 0L || parsedCount <= 0 || rawMonthlyRials <= 0L) {
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("مبلغ کل، مبلغ هر قسط و تعداد اقساط باید معتبر و بزرگتر از صفر باشند.")
                         }
                         return@AddInstallmentSheet
                     }
                 } else {
-                    if (customScheduleItems.isEmpty() || customScheduleItems.sumOf { it.amount } <= 0L) {
+                    if (customScheduleItems.isEmpty() || customScheduleItems.fold(0L) { total, item -> Math.addExact(total, item.amount) } <= 0L) {
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("برنامه زمان‌بندی سفارشی وارد شده نامعتبر است.")
                         }
@@ -454,32 +457,25 @@ fun InstallmentsScreen(
                     }
                 }
 
-                val isRialInput = com.example.util.MoneyFormatter.activeCurrency ==
-                    com.example.ui.screens.settings.model.AppCurrency.RIAL
-                if (!customScheduleItems.isNullOrEmpty() && isRialInput && rawTotal % 10L != 0L) {
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar("مبلغ کل وام در حالت ریال باید مضربی از ۱۰ باشد تا تبدیل دقیق انجام شود.")
-                    }
-                    return@AddInstallmentSheet
-                }
+                val parsedTotal = rawTotalRials
+                val parsedMonthly = rawMonthlyRials
 
-                val parsedTotal = com.example.util.MoneyFormatter.convertToToman(rawTotal)
-                val parsedMonthly = com.example.util.MoneyFormatter.convertToToman(rawMonthly)
-
-                val totalAmount = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.sumOf { it.amount } else parsedTotal
+                val totalAmount = if (!customScheduleItems.isNullOrEmpty()) {
+                    customScheduleItems.fold(0L) { total, item -> Math.addExact(total, item.amount) }
+                } else parsedTotal
                 val totalInstallments = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.size else parsedCount
 
                 if (!customScheduleItems.isNullOrEmpty()) {
                     val sortedNumbers = customScheduleItems.map { it.installmentNumber }.sorted()
                     val expectedNumbers = if (parsedCount > 0) (1..parsedCount).toList() else emptyList()
-                    val customTotal = customScheduleItems.sumOf { it.amount }
+                    val customTotal = customScheduleItems.fold(0L) { total, item -> Math.addExact(total, item.amount) }
                     if (parsedTotal <= 0L || customScheduleItems.size != parsedCount ||
                         sortedNumbers != expectedNumbers || customTotal != parsedTotal
                     ) {
                         coroutineScope.launch {
-                            val difference = kotlin.math.abs(parsedTotal - customTotal)
+                            val difference = Math.subtractExact(parsedTotal, customTotal).let { if (it < 0L) it.absoluteValue else it }
                             snackbarHostState.showSnackbar(
-                                "برنامه اقساط قابل ثبت نیست. تعداد و شماره اقساط باید کامل و بدون تکرار باشند و جمع اقساط دقیقاً برابر مبلغ وام باشد. اختلاف: ${com.example.util.MoneyFormatter.formatToman(difference)}"
+                                "برنامه اقساط قابل ثبت نیست. تعداد و شماره اقساط باید کامل و بدون تکرار باشند و جمع اقساط دقیقاً برابر مبلغ وام باشد. اختلاف: ${MoneyFormatter.formatExact(MoneyAmount.of(difference, AppCurrency.RIAL))}"
                             )
                         }
                         return@AddInstallmentSheet
@@ -494,7 +490,7 @@ fun InstallmentsScreen(
                 }
                 if (customScheduleItems.isNullOrEmpty() &&
                     totalInstallments > 1 &&
-                    parsedMonthly * (totalInstallments - 1L) >= totalAmount
+                    Math.multiplyExact(parsedMonthly, (totalInstallments - 1L).toLong()) >= totalAmount
                 ) {
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar("مبلغ هر قسط با مبلغ کل و تعداد اقساط سازگار نیست؛ لطفاً مبالغ را بررسی کنید.")
@@ -502,8 +498,8 @@ fun InstallmentsScreen(
                     return@AddInstallmentSheet
                 }
 
-                val monthlyFormatted = com.example.util.MoneyFormatter.formatToman(parsedMonthly)
-                val totalFormatted = com.example.util.MoneyFormatter.formatToman(totalAmount)
+                val monthlyFormatted = MoneyFormatter.formatExact(MoneyAmount.of(parsedMonthly, AppCurrency.RIAL))
+                val totalFormatted = MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, AppCurrency.RIAL))
 
                 val effectiveDueDate = if (!customScheduleItems.isNullOrEmpty()) {
                     customScheduleItems.firstOrNull()?.dueDate.orEmpty()
@@ -544,19 +540,21 @@ fun InstallmentsScreen(
                 } else {
                     val defaultList = mutableListOf<PaymentHistoryItem>()
                     for (i in 1..totalInstallments) {
+                        val paymentAmount = if (i == totalInstallments) {
+                            Math.subtractExact(totalAmount, Math.multiplyExact(parsedMonthly, (totalInstallments - 1).toLong())).coerceAtLeast(1L)
+                        } else parsedMonthly
                         defaultList.add(
                             PaymentHistoryItem(
                                 id = "p_${System.currentTimeMillis()}_$i",
                                 installmentNumber = i,
                                 dueDate = com.example.util.PersianCalendarHelper.addMonthsToPersianDate(effectiveDueDate, i - 1),
                                 paidDate = null,
-                                amountFormatted = monthlyFormatted,
+                                amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(paymentAmount, AppCurrency.RIAL)),
                                 status = if (i == 1) InstallmentStatus.DUE_SOON else InstallmentStatus.PENDING,
                                 note = null,
-                                amount = if (i == totalInstallments) {
-                                    (totalAmount - parsedMonthly * (totalInstallments - 1)).coerceAtLeast(1L)
-                                } else parsedMonthly,
-                                isPaidLate = false
+                                amount = paymentAmount,
+                                isPaidLate = false,
+                                amountUnit = AppCurrency.RIAL
                             )
                         )
                     }
@@ -596,8 +594,8 @@ fun InstallmentsScreen(
 
                 val paidAmount = paymentHistoryList
                     .filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
-                    .sumOf { it.amount }
-                val remainingAmount = (totalAmount - paidAmount).coerceAtLeast(0L)
+                    .fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
+                val remainingAmount = Math.subtractExact(totalAmount, paidAmount).coerceAtLeast(0L)
                 val remainingInstallments = (totalInstallments - requestedPaidCount).coerceAtLeast(0)
                 val nextUnpaidPayment = paymentHistoryList
                     .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
@@ -607,8 +605,8 @@ fun InstallmentsScreen(
                         } ?: Long.MAX_VALUE
                     }
                 val nextPaymentDate = nextUnpaidPayment?.dueDate ?: effectiveDueDate
-                val paidFormatted = com.example.util.MoneyFormatter.formatToman(paidAmount)
-                val remainingFormatted = com.example.util.MoneyFormatter.formatToman(remainingAmount)
+                val paidFormatted = MoneyFormatter.formatExact(MoneyAmount.of(paidAmount, AppCurrency.RIAL))
+                val remainingFormatted = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmount, AppCurrency.RIAL))
 
                 val nextPaymentTriple = com.example.calendar.domain.CalendarDateUtils.parseJalali(nextPaymentDate) ?: parsedTriple
                 val targetMillis = PersianCalendarHelper.jalaliToEpochMillis(
@@ -661,7 +659,8 @@ fun InstallmentsScreen(
                     endDate = computedEndDate,
                     status = if (remainingInstallments == 0) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING,
                     notes = noteText,
-                    paymentHistory = paymentHistoryList
+                    paymentHistory = paymentHistoryList,
+                    amountUnit = AppCurrency.RIAL
                 )
                 LocalInstallmentRepository.instance.addInstallment(newItem, context)
 
@@ -672,6 +671,7 @@ fun InstallmentsScreen(
                                 installmentId = newItem.id,
                                 title = newItem.title,
                                 amount = nextUnpaidPayment?.amount ?: parsedMonthly,
+                                amountUnit = newItem.amountUnit,
                                 dueDatePersian = newItem.nextPaymentDate,
                                 dueTimePersian = reminderTime,
                                 selectedOffsets = selectedOffsets,

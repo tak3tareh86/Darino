@@ -29,6 +29,8 @@ import com.example.ui.screens.home.domain.ObligationType
 import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import com.example.util.IranianDateUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 import com.example.vehicle.data.VehicleExpenseCategory
 import com.example.vehicle.data.VehicleRepository
@@ -405,6 +407,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }
                 if (freshlyParsed == null ||
                     freshlyParsed.amount != item.amount ||
+                    freshlyParsed.amountUnit != item.amountUnit ||
                     freshlyParsed.type != item.type ||
                     freshlyParsed.patternId != item.patternId ||
                     freshlyParsed.timestampMillis != item.timestampMillis ||
@@ -412,6 +415,9 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     freshlyParsed.dateText != item.dateText ||
                     freshlyParsed.timeText != item.timeText ||
                     freshlyParsed.balanceAmount != item.balanceAmount ||
+                    freshlyParsed.balanceAmountUnit != item.balanceAmountUnit ||
+                    freshlyParsed.amountCandidates != item.amountCandidates ||
+                    freshlyParsed.amountCandidateUnits != item.amountCandidateUnits ||
                     freshlyParsed.trackingCode != item.trackingCode ||
                     freshlyParsed.bankName != item.bankName
                 ) {
@@ -422,8 +428,8 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }
 
                 // 2. Amount validation: must be strictly positive and valid
-                val finalAmount = customAmount ?: item.amount
-                if (finalAmount <= 0L) {
+                val finalAmountRials = customAmount ?: runCatching { MoneyAmount.of(item.amount, item.amountUnit).asRialsLongExact() }.getOrNull()
+                if (finalAmountRials == null || finalAmountRials <= 0L) {
                     onResult(SmsAcceptResult.InvalidAmount)
                     return@withLock
                 }
@@ -490,16 +496,13 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }
 
                 // Single Write: Insert directly into Room database with accurate SMS timestamp and account links
-                // The review dialog accepts values in the user's selected currency.
-                // Room stores transaction amounts in the app's base unit (Toman).
-                val selectedCurrency = AppPreferencesRepository.getInstance(getApplication()).currency.value
-                val amountInBaseToman = MoneyFormatter.convertToToman(finalAmount, selectedCurrency)
 
                 val entity = TransactionEntity(
                     stringId = txId,
                     userId = userId,
                     title = txTitle,
-                    amount = amountInBaseToman,
+                    amount = finalAmountRials,
+                    amountUnit = AppCurrency.RIAL.name,
                     type = finalType.name,
                     category = finalCategory,
                     accountName = sourceAccount.name.ifBlank { item.bankName.ifBlank { "بدون حساب مشخص" } },
@@ -602,6 +605,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                                 userId = userId,
                                 title = "پرداخت قسط: ${obligation.title}",
                                 amount = obligation.amount,
+                                amountUnit = obligation.amountUnit.name,
                                 type = "EXPENSE",
                                 category = "اقساط و وام",
                                 accountName = "بدون حساب مشخص",
@@ -634,6 +638,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                                 userId = userId,
                                 title = "تمدید ${obligation.title}",
                                 amount = obligation.amount,
+                                amountUnit = obligation.amountUnit.name,
                                 type = "EXPENSE",
                                 category = "بیمه",
                                 accountName = "بدون حساب مشخص",
@@ -664,6 +669,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                                 userId = userId,
                                 title = "سرویس دوره‌ای: ${obligation.title}",
                                 amount = obligation.amount,
+                                amountUnit = obligation.amountUnit.name,
                                 type = "EXPENSE",
                                 category = "سرویس و نگهداری خودرو",
                                 accountName = "بدون حساب مشخص",

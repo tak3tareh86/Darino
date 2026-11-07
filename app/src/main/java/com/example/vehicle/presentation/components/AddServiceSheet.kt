@@ -40,6 +40,7 @@ import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.reminder.components.PersianTimeInputField
 import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.ServiceType
 import com.example.vehicle.data.VehicleEntity
@@ -88,6 +89,11 @@ fun AddServiceSheet(
     var date by remember { mutableStateOf(todayJalali) }
     var mileageText by remember { mutableStateOf(if (vehicle.currentMileage > 0) vehicle.currentMileage.toString() else "") }
     var costText by remember { mutableStateOf("") }
+    val parsedCostRials = costText.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() >= 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val costInputInvalid = costText.isNotBlank() && parsedCostRials == null
     var description by remember { mutableStateOf("") }
 
     // Custom service intervals must be entered explicitly; no universal default is assumed.
@@ -338,12 +344,19 @@ fun AddServiceSheet(
                 PersianAmountInputField(
                     value = costText,
                     onValueChange = { costText = it },
-                    label = "هزینه سرویس",
+                    allowDecimalInput = true,
+                    onRawDecimalAmountChange = { rawValue, _ -> costText = rawValue },
+                    label = "هزینه سرویس (${MoneyFormatter.getUnitLabel()})",
                     placeholder = "مبلغ را وارد کنید",
+                    unitLabel = MoneyFormatter.getUnitLabel(),
                     showWordsPreview = false,
                     modifier = Modifier.weight(1.2f),
                     testTag = "service_cost_input"
                 )
+
+                if (costInputInvalid) {
+                    Text("مبلغ هزینه سرویس معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
 
                 OutlinedTextField(
                     value = IranianPhoneUtils.convertDigitsToPersian(mileageText),
@@ -603,6 +616,10 @@ fun AddServiceSheet(
                 }
             }
 
+            if (costInputInvalid) {
+                Text("مبلغ هزینه معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+
             // Submit Button
             Button(
                 onClick = {
@@ -616,7 +633,7 @@ fun AddServiceSheet(
                         if (!isReminderEnabled || (selectedOffsets.isEmpty() && calcKm <= 0)) {
                             showNoAlertConfirmation = true
                         } else {
-                            val cost = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(costText))
+                            val cost = parsedCostRials ?: 0L
                             val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onAddService(
                                 title, selectedType, date, mileage, cost, description,
@@ -627,7 +644,7 @@ fun AddServiceSheet(
                         }
                     }
                 },
-                enabled = title.isNotBlank(),
+                enabled = title.isNotBlank() && !costInputInvalid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
@@ -661,7 +678,7 @@ fun AddServiceSheet(
             confirmButton = {
                 TextButton(onClick = {
                     showNoAlertConfirmation = false
-                    val cost = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(costText))
+                    val cost = parsedCostRials ?: 0L
                     val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                     onAddService(
                         title, selectedType, date, mileage, cost, description,

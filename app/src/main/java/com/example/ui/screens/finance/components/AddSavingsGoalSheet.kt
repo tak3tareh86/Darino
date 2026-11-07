@@ -49,6 +49,7 @@ import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,12 +67,12 @@ fun AddSavingsGoalSheet(
     val currencyUnit = MoneyFormatter.getUnitLabel(currency = activeCurrency)
     var targetAmountRaw by remember {
         mutableStateOf(
-            initialGoal?.targetAmount?.let { MoneyFormatter.convertFromToman(it, activeCurrency).toString() } ?: ""
+            initialGoal?.let { MoneyAmount.of(it.targetAmount, it.amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString() } ?: ""
         )
     }
     var currentAmountRaw by remember {
         mutableStateOf(
-            initialGoal?.currentAmount?.let { MoneyFormatter.convertFromToman(it, activeCurrency).toString() } ?: "0"
+            initialGoal?.let { MoneyAmount.of(it.currentAmount, it.amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString() } ?: "0"
         )
     }
     var targetDate by remember { mutableStateOf(initialGoal?.targetDate ?: "۱۴۰۵/۱۲/۲۹") }
@@ -81,8 +82,8 @@ fun AddSavingsGoalSheet(
 
     val emojis = listOf("🎯", "💻", "🛡️", "🚗", "🏠", "✈️", "💍", "📚", "🎁")
 
-    val parsedTarget = IranianAmountUtils.parseAmountToLong(targetAmountRaw)
-    val parsedCurrent = IranianAmountUtils.parseAmountToLong(currentAmountRaw)
+    val parsedTargetRials = IranianAmountUtils.parseAmountToBigDecimal(targetAmountRaw)?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() }
+    val parsedCurrentRials = IranianAmountUtils.parseAmountToBigDecimal(currentAmountRaw)?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -171,11 +172,12 @@ fun AddSavingsGoalSheet(
             PersianAmountInputField(
                 value = targetAmountRaw,
                 onValueChange = { targetAmountRaw = it },
-                onRawAmountChange = { rawDigits, _ -> targetAmountRaw = rawDigits },
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> targetAmountRaw = rawValue },
                 label = "مبلغ کل هدف ($currencyUnit)",
                 placeholder = "مبلغ را وارد کنید",
                 unitLabel = currencyUnit,
-                showWordsPreview = true,
+                showWordsPreview = false,
                 testTag = "goal_target_amount_input"
             )
 
@@ -183,7 +185,8 @@ fun AddSavingsGoalSheet(
             PersianAmountInputField(
                 value = currentAmountRaw,
                 onValueChange = { currentAmountRaw = it },
-                onRawAmountChange = { rawDigits, _ -> currentAmountRaw = rawDigits },
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> currentAmountRaw = rawValue },
                 label = "مبلغ پس‌اندازشده فعلی ($currencyUnit)",
                 placeholder = "۰",
                 unitLabel = currencyUnit,
@@ -227,7 +230,7 @@ fun AddSavingsGoalSheet(
                         errorMessage = "لطفاً عنوان هدف را وارد کنید."
                         return@Button
                     }
-                    if (parsedTarget <= 0L) {
+                    if (parsedTargetRials == null || parsedTargetRials <= 0L || parsedCurrentRials == null || parsedCurrentRials < 0L) {
                         errorMessage = "مبلغ کل هدف باید بیشتر از صفر باشد."
                         return@Button
                     }
@@ -235,12 +238,13 @@ fun AddSavingsGoalSheet(
                     val g = SavingsGoal(
                         id = initialGoal?.id ?: UUID.randomUUID().toString(),
                         title = title,
-                        targetAmount = MoneyFormatter.convertToToman(parsedTarget, activeCurrency),
-                        currentAmount = MoneyFormatter.convertToToman(parsedCurrent, activeCurrency),
+                        targetAmount = parsedTargetRials,
+                        currentAmount = parsedCurrentRials,
+                        amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL,
                         targetDate = targetDate,
                         description = description,
                         iconEmoji = selectedEmoji,
-                        status = if (parsedCurrent >= parsedTarget) SavingsGoalStatus.COMPLETED else SavingsGoalStatus.IN_PROGRESS
+                        status = if (parsedCurrentRials >= parsedTargetRials) SavingsGoalStatus.COMPLETED else SavingsGoalStatus.IN_PROGRESS
                     )
                     onSubmit(g)
                 },
@@ -274,9 +278,12 @@ fun DepositGoalSheet(
     onDeposit: (Long) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val activeCurrency = MoneyFormatter.activeCurrency
     var rawAmount by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    val parsedAmount = rawAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L
+    val parsedAmountRials = IranianAmountUtils.parseAmountToBigDecimal(rawAmount)?.let {
+        runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -327,11 +334,12 @@ fun DepositGoalSheet(
             PersianAmountInputField(
                 value = rawAmount,
                 onValueChange = { rawAmount = it },
-                onRawAmountChange = { rawDigits, _ -> rawAmount = rawDigits },
-                label = "مبلغ واریز (تومان)",
-                placeholder = "مثال: ۱,۰۰۰,۰۰۰",
-                unitLabel = "تومان",
-                showWordsPreview = true,
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> rawAmount = rawValue },
+                label = "مبلغ واریز (${MoneyFormatter.getUnitLabel(activeCurrency)})",
+                placeholder = "مثال: ۱,۰۰۰,۰۰۰ یا ۱۲۳٫۴",
+                unitLabel = MoneyFormatter.getUnitLabel(activeCurrency),
+                showWordsPreview = false,
                 testTag = "deposit_amount_input"
             )
 
@@ -341,11 +349,11 @@ fun DepositGoalSheet(
 
             Button(
                 onClick = {
-                    if (parsedAmount <= 0L) {
+                    if (parsedAmountRials == null || parsedAmountRials <= 0L) {
                         errorMessage = "مبلغ باید بزرگتر از صفر باشد."
                         return@Button
                     }
-                    onDeposit(parsedAmount)
+                    onDeposit(parsedAmountRials)
                 },
                 modifier = Modifier
                     .fillMaxWidth()

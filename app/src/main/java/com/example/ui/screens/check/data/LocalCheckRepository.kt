@@ -76,6 +76,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                         checkId = insertedId.toString(),
                         title = "${check.bankName} - ${check.checkNumber}",
                         amount = check.amount,
+                        amountUnit = check.amountUnit,
                         dueDatePersian = check.formattedDueDate,
                         type = check.type.name,
                         reminderDateTime = check.reminderDateTime
@@ -145,6 +146,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 userId = userId,
                 type = entity.type,
                 amount = entity.amount,
+                amountUnit = entity.amountUnit,
                 checkNumber = entity.checkNumber,
                 sayadId = entity.sayadId,
                 bankName = entity.bankName,
@@ -170,6 +172,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                         checkId = check.id.toString(),
                         title = "${check.bankName} - ${check.checkNumber}",
                         amount = check.amount,
+                        amountUnit = check.amountUnit,
                         dueDatePersian = check.formattedDueDate,
                         type = check.type.name,
                         reminderDateTime = check.reminderDateTime
@@ -257,6 +260,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             val transaction = com.example.data.database.TransactionEntity(
                 userId = userId,
                 amount = existingCheck.amount,
+                amountUnit = existingCheck.amountUnit,
                 type = if (existingCheck.type == CheckType.RECEIVED.name) "INCOME" else "EXPENSE",
                 category = "انتقال", 
                 accountName = accountEntity.name,
@@ -304,6 +308,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             userId = userId,
             type = CheckType.valueOf(type),
             amount = amount,
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.valueOf(amountUnit),
             checkNumber = checkNumber,
             sayadId = sayadId?.normalizeCheckDigits(),
             bankName = bankName,
@@ -327,6 +332,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             userId = userId,
             type = type.name,
             amount = amount,
+            amountUnit = amountUnit.name,
             checkNumber = checkNumber,
             sayadId = sayadId?.normalizeCheckDigits(),
             bankName = bankName,

@@ -3,6 +3,8 @@ package com.example.ui.screens.home.domain
 import com.example.ui.screens.home.data.HomeDashboardRepository
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 
 /**
@@ -29,11 +31,11 @@ class HomeDashboardAggregator(
             userName = userName,
             todayDate = todayPersian,
             monthlyIncome = income,
-            formattedIncome = MoneyFormatter.formatSignedToman(income, isExpense = false),
+            formattedIncome = "+" + MoneyFormatter.formatExact(MoneyAmount.of(income, AppCurrency.RIAL)),
             monthlyExpense = expense,
-            formattedExpense = MoneyFormatter.formatSignedToman(expense, isExpense = true),
+            formattedExpense = "−" + MoneyFormatter.formatExact(MoneyAmount.of(expense, AppCurrency.RIAL)),
             monthlyBalance = balance,
-            formattedBalance = MoneyFormatter.formatToman(balance),
+            formattedBalance = MoneyFormatter.formatExact(MoneyAmount.of(balance, AppCurrency.RIAL)),
             savingsRate = savingsRate,
             upcomingObligations = upcomingObligations,
             upcomingReminders = upcomingReminders,

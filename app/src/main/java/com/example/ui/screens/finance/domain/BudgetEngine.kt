@@ -4,6 +4,9 @@ import com.example.ui.screens.finance.model.Budget
 import com.example.ui.screens.finance.model.BudgetStatus
 import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionType
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
+import java.math.BigInteger
 
 /**
  * Budget Calculation Engine.
@@ -24,21 +27,27 @@ object BudgetEngine {
                 tx.type == TransactionType.EXPENSE &&
                         (budget.categoryId == null || tx.categoryId == budget.categoryId)
             }
-            .sumOf { it.amount }
+            .fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()) }
 
-        val remaining = budget.amount - spent
+        val budgetInRials = MoneyAmount.of(budget.amount, budget.amountUnit).asRialsLongExact()
+        val remaining = Math.subtractExact(budgetInRials, spent)
 
-        val usagePercent: Int = if (budget.amount <= 0L) {
+        val usagePercent: Int = if (budgetInRials <= 0L) {
             if (spent > 0L) 100 else 0
         } else {
-            ((spent * 100L) / budget.amount).toInt()
+            BigInteger.valueOf(spent).multiply(BigInteger.valueOf(100L))
+                .divide(BigInteger.valueOf(budgetInRials))
+                .min(BigInteger.valueOf(Int.MAX_VALUE.toLong()))
+                .toInt()
         }
 
-        val status = determineBudgetStatus(spent, budget.amount)
+        val status = determineBudgetStatus(spent, budgetInRials)
 
         return budget.copy(
             spentAmount = spent,
+            spentAmountUnit = AppCurrency.RIAL,
             remainingAmount = remaining,
+            remainingAmountUnit = AppCurrency.RIAL,
             usagePercentage = usagePercent,
             status = status
         )
@@ -57,8 +66,8 @@ object BudgetEngine {
         if (spentAmount >= totalBudget) {
             return BudgetStatus.EXCEEDED
         }
-        val percent = (spentAmount * 100L) / totalBudget
-        return if (percent >= 75L) {
+        val percent = BigInteger.valueOf(spentAmount).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(totalBudget))
+        return if (percent >= BigInteger.valueOf(75L)) {
             BudgetStatus.WARNING
         } else {
             BudgetStatus.SAFE
@@ -74,7 +83,7 @@ object BudgetEngine {
         transactions: List<TransactionItemData>
     ): OverallBudgetSummary {
         val activeBudgets = budgets.filter { it.isEnabled }
-        val totalBudget = activeBudgets.sumOf { it.amount }
+        val totalBudget = activeBudgets.fold(0L) { total, budget -> Math.addExact(total, MoneyAmount.of(budget.amount, budget.amountUnit).asRialsLongExact()) }
         
         // Only count expenses that belong to one of the active budget categories
         val activeBudgetCategoryIds = activeBudgets.mapNotNull { it.categoryId }.toSet()
@@ -84,14 +93,16 @@ object BudgetEngine {
                 tx.type == TransactionType.EXPENSE && 
                 activeBudgetCategoryIds.contains(tx.categoryId)
             }
-            .sumOf { it.amount }
+            .fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()) }
             
-        val remaining = totalBudget - totalSpent
+        val remaining = Math.subtractExact(totalBudget, totalSpent)
 
         val usagePercentage = if (totalBudget <= 0L) {
             if (totalSpent > 0L) 100 else 0
         } else {
-            ((totalSpent * 100L) / totalBudget).toInt()
+            BigInteger.valueOf(totalSpent).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(totalBudget))
+                .min(BigInteger.valueOf(Int.MAX_VALUE.toLong()))
+                .toInt()
         }
 
         val status = determineBudgetStatus(totalSpent, totalBudget)

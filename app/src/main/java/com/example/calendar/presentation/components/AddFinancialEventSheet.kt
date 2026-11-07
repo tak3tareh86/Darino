@@ -41,6 +41,9 @@ import com.example.ui.theme.RadiusXL
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.PersianCalendarHelper
+import com.example.util.MoneyAmount
+import com.example.util.MoneyFormatter
+import com.example.ui.screens.settings.model.AppCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,9 +66,11 @@ fun AddFinancialEventSheet(
     var customReminderTime by remember { mutableStateOf("۰۹:۰۰") }
     var reminderDateError by remember { mutableStateOf<String?>(null) }
     var dateError by remember { mutableStateOf<String?>(null) }
+    var amountError by remember { mutableStateOf<String?>(null) }
     var showNoReminderConfirmation by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val preferences = remember { AppPreferencesRepository.getInstance(context) }
+    val activeCurrency = MoneyFormatter.activeCurrency
     val globalDeliveryMode by preferences.alertDelivery.collectAsState()
     val globalNotificationsEnabled by preferences.notificationsEnabled.collectAsState()
 
@@ -103,12 +108,25 @@ fun AddFinancialEventSheet(
             timestamp
         } else null
         reminderDateError = null
+        val parsedAmountRials = if (amountText.isBlank()) {
+            null
+        } else {
+            IranianAmountUtils.parseAmountToBigDecimal(amountText)
+                ?.takeIf { it.signum() > 0 }
+                ?.let { entered -> runCatching { MoneyAmount(entered, activeCurrency).asRialsLongExact() }.getOrNull() }
+        }
+        if (amountText.isNotBlank() && parsedAmountRials == null) {
+            amountError = "مبلغ باید معتبر، بزرگ‌تر از صفر و قابل ذخیره باشد."
+            return
+        }
+        amountError = null
         val newEvent = FinancialEvent(
             id = "user_ev_${System.currentTimeMillis()}",
             title = title.trim(),
             description = description.trim(),
             type = selectedType,
-            amount = IranianAmountUtils.parseAmountToLong(amountText),
+            amount = parsedAmountRials,
+            amountUnit = if (amountText.isBlank()) activeCurrency else AppCurrency.RIAL,
             date = CalendarDateUtils.normalizeDate(dateText),
             time = timeText.trim(),
             reminderBefore = effectiveReminderBefore,
@@ -241,8 +259,13 @@ fun AddFinancialEventSheet(
                 PersianAmountInputField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = "مبلغ به تومان",
-                    placeholder = "مثال: ۳,۰۰۰,۰۰۰",
+                    allowDecimalInput = true,
+                    onRawDecimalAmountChange = { rawValue, _ -> amountText = rawValue; amountError = null },
+                    isError = amountError != null,
+                    errorMessage = amountError,
+                    label = "مبلغ (${MoneyFormatter.getUnitLabel(activeCurrency)})",
+                    unitLabel = MoneyFormatter.getUnitLabel(activeCurrency),
+                    placeholder = "مبلغ را وارد کنید",
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("event_amount_input")

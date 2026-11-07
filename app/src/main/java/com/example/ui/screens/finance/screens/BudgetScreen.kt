@@ -76,6 +76,8 @@ import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,9 +95,9 @@ fun BudgetScreen(
 
     // Aggregate values
     val activeBudgets = budgets.filter { it.enabled }
-    val totalBudgetValue = activeBudgets.sumOf { it.amount }
-    val totalSpentValue = activeBudgets.sumOf { it.spentAmount }
-    val totalRemainingValue = totalBudgetValue - totalSpentValue
+    val totalBudgetValue = activeBudgets.fold(0L) { total, budget -> Math.addExact(total, MoneyAmount.of(budget.amount, budget.amountUnit).asRialsLongExact()) }
+    val totalSpentValue = activeBudgets.fold(0L) { total, budget -> Math.addExact(total, MoneyAmount.of(budget.spentAmount, budget.spentAmountUnit).asRialsLongExact()) }
+    val totalRemainingValue = Math.subtractExact(totalBudgetValue, totalSpentValue)
 
     val overallProgress = if (totalBudgetValue <= 0L) 0f else (totalSpentValue.toFloat() / totalBudgetValue).coerceIn(0f, 1f)
     val warningBudgets = activeBudgets.filter { it.status == BudgetStatus.WARNING || it.status == BudgetStatus.EXCEEDED }
@@ -199,7 +201,7 @@ fun BudgetScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "کل بودجه ماهانه: ${MoneyFormatter.formatToman(totalBudgetValue)}",
+                            text = "کل بودجه ماهانه: ${MoneyFormatter.formatExact(MoneyAmount.of(totalBudgetValue, AppCurrency.RIAL))}",
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -248,7 +250,7 @@ fun BudgetScreen(
                                 Text("کل هزینه‌ها", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(
-                                text = MoneyFormatter.formatToman(totalSpentValue),
+                                text = MoneyFormatter.formatExact(MoneyAmount.of(totalSpentValue, AppCurrency.RIAL)),
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -263,7 +265,7 @@ fun BudgetScreen(
                                 Text("باقیمانده بودجه", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(
-                                text = MoneyFormatter.formatToman(totalRemainingValue),
+                                text = MoneyFormatter.formatExact(MoneyAmount.of(totalRemainingValue, AppCurrency.RIAL)),
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
                                 color = if (totalRemainingValue >= 0) EmeraldPrimaryLight else ExpenseRoseLight
                             )
@@ -462,7 +464,7 @@ fun BudgetDetailCard(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     // Status Badge
                     if (isEnabled) {
@@ -482,10 +484,13 @@ fun BudgetDetailCard(
                         }
                     }
 
+                    // Keep the toggle clear of the status badge in the RTL header.
+                    Spacer(modifier = Modifier.width(8.dp))
+
                     Switch(
                         checked = isEnabled,
                         onCheckedChange = onToggle,
-                        modifier = Modifier.size(width = 36.dp, height = 20.dp).padding(end = 4.dp),
+                        modifier = Modifier.size(width = 36.dp, height = 20.dp),
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
                             checkedTrackColor = MaterialTheme.colorScheme.primary,
@@ -494,41 +499,54 @@ fun BudgetDetailCard(
                             uncheckedBorderColor = Color.Transparent
                         )
                     )
-                    
-                    Spacer(modifier = Modifier.width(2.dp))
 
-                    IconButton(
-                        onClick = onEdit,
+                    // 32dp independent touch targets; the visible circular backgrounds are 14dp.
+                    Box(
                         modifier = Modifier
-                            .size(28.dp)
-                            .background(
-                                if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
-                                CircleShape
-                            )
+                            .size(32.dp)
+                            .clickable(onClick = onEdit),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Edit,
-                            contentDescription = "ویرایش",
-                            modifier = Modifier.size(13.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .background(
+                                    if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = "ویرایش",
+                                modifier = Modifier.size(9.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
-                    IconButton(
-                        onClick = onDelete,
+                    Box(
                         modifier = Modifier
-                            .size(28.dp)
-                            .background(
-                                if (isDark) Color(0xFF451A20) else Color(0xFFFEE2E2),
-                                CircleShape
-                            )
+                            .size(32.dp)
+                            .clickable(onClick = onDelete),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Delete,
-                            contentDescription = "حذف",
-                            modifier = Modifier.size(13.dp),
-                            tint = Color(0xFFEF4444)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .background(
+                                    if (isDark) Color(0xFF451A20) else Color(0xFFFEE2E2),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Delete,
+                                contentDescription = "حذف",
+                                modifier = Modifier.size(9.dp),
+                                tint = Color(0xFFEF4444)
+                            )
+                        }
                     }
                 }
             }

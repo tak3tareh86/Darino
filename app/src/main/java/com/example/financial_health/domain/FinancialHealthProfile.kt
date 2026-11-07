@@ -1,6 +1,7 @@
 package com.example.financial_health.domain
 
 import androidx.compose.ui.graphics.Color
+import com.example.ui.screens.settings.model.AppCurrency
 
 enum class FinancialHealthStatus(
     val title: String,
@@ -66,7 +67,7 @@ data class NextMonthPrediction(
     val vehicleExpensesAmountRecorded: Boolean = false
 ) {
     /** Sum of known amounts only; unrecorded categories are deliberately not guessed. */
-    val total: Long get() = installments + fixedExpenses + reminders + vehicleExpenses
+    val total: Long get() = Math.addExact(Math.addExact(installments, fixedExpenses), Math.addExact(reminders, vehicleExpenses))
 }
 
 data class MonthlyPressureData(
@@ -84,5 +85,6 @@ data class FinancialHealthProfile(
     val financialPressure: Float,
     val healthStatus: FinancialHealthStatus,
     val updatedAt: Long = System.currentTimeMillis(),
-    val isConfigured: Boolean = false
+    val isConfigured: Boolean = false,
+    val amountUnit: AppCurrency = AppCurrency.RIAL
 )

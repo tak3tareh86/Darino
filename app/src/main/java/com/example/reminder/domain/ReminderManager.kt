@@ -10,6 +10,8 @@ import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -456,7 +458,8 @@ class ReminderManager(
         dueDatePersian: String,
         dueTimePersian: String? = null,
         selectedOffsets: List<PredefinedOffset>? = null,
-        paymentDueDates: List<Pair<String, String>>? = null
+        paymentDueDates: List<Pair<String, String>>? = null,
+        amountUnit: AppCurrency = AppCurrency.TOMAN
     ): Int = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(installmentId)
         val effectiveDueTime = dueTimePersian?.takeIf { it.isNotBlank() }
@@ -489,6 +492,8 @@ class ReminderManager(
         val reminder = existing?.copy(
             title = "سررسید قسط: $title",
             amount = amount,
+            amountUnit = amountUnit.name,
+            description = "مبلغ قسط: ${MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit))}",
             date = dueDatePersian,
             time = effectiveDueTime,
             notificationEnabled = offsets.isNotEmpty(),
@@ -497,7 +502,7 @@ class ReminderManager(
         ) ?: ReminderEntity(
             id = "rem_inst_$installmentId",
             title = "سررسید قسط: $title",
-            description = "مبلغ قسط: ${MoneyFormatter.formatToman(amount)}",
+            description = "مبلغ قسط: ${MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit))}",
             type = "INSTALLMENT",
             sourceType = "INSTALLMENT",
             sourceId = installmentId,
@@ -506,6 +511,7 @@ class ReminderManager(
             date = dueDatePersian,
             time = effectiveDueTime,
             amount = amount,
+            amountUnit = amountUnit.name,
             notificationEnabled = offsets.isNotEmpty(),
             fullScreenAlarmEnabled = false,
             smsEnabled = false
@@ -618,7 +624,8 @@ class ReminderManager(
         title: String,
         amount: Long,
         dueDatePersian: String,
-        paymentDueDates: List<Pair<String, String>>
+        paymentDueDates: List<Pair<String, String>>,
+        amountUnit: AppCurrency = AppCurrency.TOMAN
     ): Int = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(installmentId)
             ?: return@withContext 0
@@ -642,7 +649,8 @@ class ReminderManager(
             title = title,
             amount = amount,
             dueDatePersian = dueDatePersian,
-            paymentDueDates = paymentDueDates
+            paymentDueDates = paymentDueDates,
+            amountUnit = amountUnit
         )
     }
 
@@ -764,7 +772,8 @@ class ReminderManager(
         amount: Long,
         dueDatePersian: String,
         type: String, // "RECEIVED" or "PAID"
-        reminderDateTime: Long? = null
+        reminderDateTime: Long? = null,
+        amountUnit: AppCurrency = AppCurrency.TOMAN
     ) = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(checkId)
         
@@ -783,6 +792,8 @@ class ReminderManager(
         val reminder = existing?.copy(
             title = if (type == "RECEIVED") "وصول چک دریافتی: $title" else "پرداخت چک: $title",
             amount = amount,
+            amountUnit = amountUnit.name,
+            description = "مبلغ چک: ${MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit))}",
             date = persianDate,
             time = persianTime,
             notificationEnabled = true,
@@ -791,7 +802,7 @@ class ReminderManager(
         ) ?: ReminderEntity(
             id = "rem_chk_$checkId",
             title = if (type == "RECEIVED") "وصول چک دریافتی: $title" else "پرداخت چک: $title",
-            description = "مبلغ چک: ${MoneyFormatter.format(amount)}",
+            description = "مبلغ چک: ${MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit))}",
             type = "CHECK",
             sourceType = "CHECK",
             sourceId = checkId,
@@ -800,6 +811,7 @@ class ReminderManager(
             date = persianDate,
             time = persianTime,
             amount = amount,
+            amountUnit = amountUnit.name,
             notificationEnabled = true,
             fullScreenAlarmEnabled = false,
             smsEnabled = false

@@ -2,8 +2,10 @@ package com.example.data.sms
 
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.domain.BankSmsSuggestion
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import com.example.util.PersianCalendarHelper
 
 /**
@@ -87,7 +89,7 @@ object UserRuleSmsAmountParser {
             Triple(value, balance, transaction)
         }.toList()
 
-        val allValues = found.map { it.first }.distinct()
+        val allValues = found.map { it.first }
         if (allValues.isEmpty()) return ExtractedAmounts(null, null, emptyList())
 
         val explicitTransaction = found.filter { !it.second && it.third }.map { it.first }.distinct()
@@ -125,6 +127,52 @@ object UserRuleSmsAmountParser {
             }
         }
         return ExtractedAmounts(inferredTransaction, inferredBalance, allValues)
+    }
+
+    private fun currencyUnitForMatch(text: String, match: MatchResult, fallback: AppCurrency): AppCurrency {
+        val start = (match.range.first - 24).coerceAtLeast(0)
+        val end = (match.range.last + 25).coerceAtMost(text.length)
+        val nearbyTokens = buildList {
+            rialRegex.findAll(text, start).filter { it.range.first < end }.forEach { add(it to AppCurrency.RIAL) }
+            tomanRegex.findAll(text, start).filter { it.range.first < end }.forEach { add(it to AppCurrency.TOMAN) }
+        }
+        val rankedUnits = nearbyTokens.map { (token, unit) ->
+            val distance = when {
+                token.range.first > match.range.last -> token.range.first - match.range.last - 1
+                token.range.last < match.range.first -> match.range.first - token.range.last - 1
+                else -> 0
+            }
+            unit to distance
+        }.sortedBy { it.second }
+        val closest = rankedUnits.firstOrNull() ?: return fallback
+        val equallyCloseDifferentUnit = rankedUnits.getOrNull(1)?.let {
+            it.second == closest.second && it.first != closest.first
+        } == true
+        return if (equallyCloseDifferentUnit) fallback else closest.first
+    }
+
+    private fun currencyUnitNearAmount(
+        body: String,
+        amount: Long,
+        fallback: AppCurrency,
+        preferredContext: Regex? = null
+    ): AppCurrency {
+        val text = normalizeBody(body)
+        val matches = groupedNumberRegex.findAll(text).filter { match ->
+            match.groupValues[1].filter { it in '0'..'9' }.toLongOrNull() == amount
+        }.toList()
+        val preferred = preferredContext?.let { context ->
+            matches.filter { match ->
+                val left = text.substring((match.range.first - 24).coerceAtLeast(0), match.range.first)
+                val right = text.substring(match.range.last + 1, (match.range.last + 25).coerceAtMost(text.length))
+                context.containsMatchIn(left) || context.containsMatchIn(right)
+            }
+        }.orEmpty()
+        val selected = preferred.ifEmpty { matches }
+        // Repeated identical numbers can represent a transaction amount and a balance.
+        // If context does not isolate exactly one occurrence, retain the explicit fallback
+        // instead of borrowing the unit from an arbitrary occurrence.
+        return selected.singleOrNull()?.let { currencyUnitForMatch(text, it, fallback) } ?: fallback
     }
 
     private fun extractAmountLegacy(body: String): Long? {
@@ -188,15 +236,45 @@ object UserRuleSmsAmountParser {
         val amount = extracted.transactionAmount ?: extractAmountLegacy(normalized)
         val amountIsValid = amount != null
         val amountValue = amount ?: 0L
+        val messageFallbackUnit = when {
+            rialRegex.containsMatchIn(normalized) && !tomanRegex.containsMatchIn(normalized) -> AppCurrency.RIAL
+            tomanRegex.containsMatchIn(normalized) && !rialRegex.containsMatchIn(normalized) -> AppCurrency.TOMAN
+            else -> AppCurrency.TOMAN
+        }
+        val amountUnit = if (amountIsValid) {
+            currencyUnitNearAmount(normalized, amountValue, messageFallbackUnit, transactionContextRegex)
+        } else messageFallbackUnit
+        val balanceUnit = extracted.balanceAmount?.let {
+            currencyUnitNearAmount(normalized, it, messageFallbackUnit, balanceContextRegex)
+        }
         val dateTime = PersianCalendarHelper.fromEpochMillis(receivedAtMillis)
         val time = Regex("""(?<![0-9])([0-2]?[0-9]:[0-5][0-9])""")
             .find(normalized)?.groupValues?.get(1)
             ?: String.format("%02d:%02d", dateTime.hour, dateTime.minute)
         val date = String.format("%04d/%02d/%02d", dateTime.year, dateTime.month, dateTime.day)
+        val formattedValue = if (amountIsValid) MoneyFormatter.formatExact(MoneyAmount.of(amountValue, amountUnit)) else ""
         val formatted = if (!amountIsValid) "" else when (type) {
-            TransactionType.EXPENSE -> MoneyFormatter.formatSignedToman(amountValue, isExpense = true, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
-            TransactionType.INCOME -> MoneyFormatter.formatSignedToman(amountValue, isExpense = false, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
-            TransactionType.TRANSFER, null -> MoneyFormatter.formatToman(amountValue, currency = com.example.ui.screens.settings.model.AppCurrency.TOMAN)
+            TransactionType.EXPENSE -> "−$formattedValue"
+            TransactionType.INCOME -> "+$formattedValue"
+            TransactionType.TRANSFER, null -> formattedValue
+        }
+        val extraCandidates = buildList {
+            if (amount != null && amount !in extracted.candidates) add(amount to amountUnit)
+            if (extracted.balanceAmount != null && extracted.balanceAmount !in extracted.candidates) {
+                add(extracted.balanceAmount to (balanceUnit ?: amountUnit))
+            }
+        }
+        val candidateValues = extracted.candidates + extraCandidates.map { it.first }
+        val candidateUnits = run {
+            val seen = mutableMapOf<Long, Int>()
+            val groupedMatches = groupedNumberRegex.findAll(normalized).toList()
+            val groupedUnits = extracted.candidates.map { candidate ->
+                val occurrence = seen.getOrDefault(candidate, 0)
+                seen[candidate] = occurrence + 1
+                val match = groupedMatches.filter { it.groupValues[1].filter { ch -> ch in '0'..'9' }.toLongOrNull() == candidate }.getOrNull(occurrence)
+                match?.let { currencyUnitForMatch(normalized, it, messageFallbackUnit) } ?: messageFallbackUnit
+            }
+            groupedUnits + extraCandidates.map { it.second }
         }
 
         return BankSmsSuggestion(
@@ -204,6 +282,7 @@ object UserRuleSmsAmountParser {
             patternId = "user-rule:" + rule.id,
             bankName = rule.bankName,
             amount = amountValue,
+            amountUnit = amountUnit,
             formattedAmount = formatted,
             isAmountValid = amountIsValid,
             type = type,
@@ -220,7 +299,9 @@ object UserRuleSmsAmountParser {
             rawSender = sender,
             timestampMillis = receivedAtMillis,
             balanceAmount = extracted.balanceAmount,
-            amountCandidates = (extracted.candidates + listOfNotNull(amount, extracted.balanceAmount)).distinct(),
+            balanceAmountUnit = balanceUnit,
+            amountCandidates = candidateValues,
+            amountCandidateUnits = candidateUnits,
             receivedAtMillis = receivedAtMillis
         )
     }

@@ -39,6 +39,7 @@ import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.VehicleModelCatalog
 
@@ -80,6 +81,11 @@ fun AddVehicleSheet(
     var vin by remember { mutableStateOf("") }
     var mileageText by remember { mutableStateOf("") }
     var estimatedValueText by remember { mutableStateOf("") }
+    val parsedEstimatedValueRials = estimatedValueText.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() >= 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val estimatedValueInputInvalid = estimatedValueText.isNotBlank() && parsedEstimatedValueRials == null
 
     val brands = listOf(
         "ایران‌خودرو", "سایپا", "مدیران‌خودرو", "کرمان‌موتور", "بهمن‌موتور",
@@ -796,23 +802,30 @@ fun AddVehicleSheet(
             PersianAmountInputField(
                 value = estimatedValueText,
                 onValueChange = { estimatedValueText = it },
-                label = "ارزش تقریبی خودرو (اختیاری)",
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> estimatedValueText = rawValue },
+                label = "ارزش تقریبی خودرو (${MoneyFormatter.getUnitLabel()}) - اختیاری",
                 placeholder = "مبلغ را وارد کنید",
-                showWordsPreview = true,
+                unitLabel = MoneyFormatter.getUnitLabel(),
+                showWordsPreview = false,
                 testTag = "vehicle_estimated_value_input"
             )
+
+            if (estimatedValueInputInvalid) {
+                Text("ارزش تقریبی خودرو معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
 
             // Submit Button
             Button(
                 onClick = {
                     if (model.isNotBlank()) {
                         val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: 0
-                        val estVal = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(estimatedValueText))
+                        val estVal = parsedEstimatedValueRials ?: 0L
                         val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
                         onAddVehicle(if (brand == "سایر") customBrand.trim() else brand, model, year, color, plate, vin, mileage, estVal, engine.trim(), transmission.trim())
                     }
                 },
-                enabled = model.isNotBlank() && (brand != "سایر" || customBrand.isNotBlank()),
+                enabled = model.isNotBlank() && (brand != "سایر" || customBrand.isNotBlank()) && !estimatedValueInputInvalid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)

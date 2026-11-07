@@ -19,6 +19,7 @@ import com.example.ui.theme.RadiusMD
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import java.math.BigDecimal
 
 /**
  * Universal Persian & English Amount Input Field with automatic 3-digit comma separation.
@@ -34,6 +35,8 @@ fun PersianAmountInputField(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     onRawAmountChange: ((rawDigits: String, amountLong: Long) -> Unit)? = null,
+    allowDecimalInput: Boolean = false,
+    onRawDecimalAmountChange: ((rawAmount: String, amount: BigDecimal?) -> Unit)? = null,
     label: String? = null,
     placeholder: String = "مثال: ۴۵۰,۰۰۰",
     unitLabel: String = MoneyFormatter.getUnitLabel(),
@@ -51,9 +54,20 @@ fun PersianAmountInputField(
     singleLineLabel: Boolean = false
 ) {
     val effectiveLabel = label ?: if (unitLabel.isNotBlank()) "مبلغ ($unitLabel)" else "مبلغ"
-    val cleanDigits = remember(value) { IranianAmountUtils.cleanAmountDigits(value) }
-    val displayFormatted = remember(value) { IranianAmountUtils.formatWithCommas(value, inPersian = true) }
-    val parsedAmount = remember(cleanDigits) { cleanDigits.toLongOrNull() ?: 0L }
+    val cleanDigits = remember(value, allowDecimalInput) {
+        if (allowDecimalInput) IranianAmountUtils.cleanDecimalAmountInput(value)
+        else IranianAmountUtils.cleanAmountDigits(value)
+    }
+    val displayFormatted = remember(value, allowDecimalInput) {
+        if (allowDecimalInput) IranianAmountUtils.formatDecimalWithCommas(value)
+        else IranianAmountUtils.formatWithCommas(value, inPersian = true)
+    }
+    val parsedAmount = remember(cleanDigits, allowDecimalInput) {
+        if (allowDecimalInput) {
+            IranianAmountUtils.parseAmountToBigDecimal(cleanDigits)
+                ?.let { runCatching { it.longValueExact() }.getOrNull() } ?: 0L
+        } else cleanDigits.toLongOrNull() ?: 0L
+    }
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -86,10 +100,25 @@ fun PersianAmountInputField(
         OutlinedTextField(
             value = displayFormatted,
             onValueChange = { input ->
-                val newClean = IranianAmountUtils.cleanAmountDigits(input)
-                val newFormatted = IranianAmountUtils.formatWithCommas(newClean, inPersian = true)
+                val newClean = if (allowDecimalInput) {
+                    IranianAmountUtils.cleanDecimalAmountInput(input)
+                } else {
+                    IranianAmountUtils.cleanAmountDigits(input)
+                }
+                val newFormatted = if (allowDecimalInput) {
+                    IranianAmountUtils.formatDecimalWithCommas(newClean)
+                } else {
+                    IranianAmountUtils.formatWithCommas(newClean, inPersian = true)
+                }
                 onValueChange(newFormatted)
-                onRawAmountChange?.invoke(newClean, newClean.toLongOrNull() ?: 0L)
+                if (allowDecimalInput) {
+                    onRawDecimalAmountChange?.invoke(
+                        newClean,
+                        IranianAmountUtils.parseAmountToBigDecimal(newClean)
+                    )
+                } else {
+                    onRawAmountChange?.invoke(newClean, newClean.toLongOrNull() ?: 0L)
+                }
             },
             label = if (!useOuterHeader && effectiveLabel.isNotBlank()) {
                 { if (singleLineLabel) Text(text = effectiveLabel, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) else Text(text = effectiveLabel) }
@@ -119,7 +148,7 @@ fun PersianAmountInputField(
                     )
                 }
             } else null,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(keyboardType = if (allowDecimalInput) KeyboardType.Decimal else KeyboardType.Number),
             singleLine = singleLine,
             enabled = enabled,
             isError = isError,
@@ -134,7 +163,7 @@ fun PersianAmountInputField(
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(start = 4.dp)
             )
-        } else if (showWordsPreview && parsedAmount > 0L) {
+        } else if (showWordsPreview && !allowDecimalInput && parsedAmount > 0L) {
             val words = remember(parsedAmount, unitLabel) {
                 IranianAmountUtils.amountToPersianWords(parsedAmount, unitLabel)
             }

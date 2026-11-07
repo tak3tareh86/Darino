@@ -1,13 +1,17 @@
 package com.example.financial_health.domain
 
 import kotlin.math.roundToInt
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 /** Deterministic rules for the commitment-to-income ratio. */
 object FinancialAnalyzerEngine {
     fun calculateFinancialPressure(commitments: Long, income: Long): Float? {
         if (income <= 0L || commitments < 0L) return null
-        return ((commitments.toDouble() / income.toDouble()) * 100.0)
-            .let { (it * 10.0).roundToInt() / 10.0f }
+        return BigDecimal.valueOf(commitments)
+            .multiply(BigDecimal("100"))
+            .divide(BigDecimal.valueOf(income), 1, RoundingMode.HALF_UP)
+            .toFloat()
     }
 
     /** A schedule is financially complete only when its positive rows add up to the contract total. */
@@ -84,21 +88,31 @@ object FinancialAnalyzerEngine {
             )
         }
 
-        val installmentRatio = installments.toDouble() / income.toDouble() * 100.0
-        if (installmentDataComplete && installmentRatio > 25.0) {
+        // All input amounts are canonical Rials. Use decimal arithmetic for ratios and
+        // convert Rials to millions of Toman with the exact 10:1 scale.
+        val installmentRatio = BigDecimal.valueOf(installments)
+            .multiply(BigDecimal("100"))
+            .divide(BigDecimal.valueOf(income), 1, RoundingMode.HALF_UP)
+        if (installmentDataComplete && installmentRatio > BigDecimal("25.0")) {
             insights += FinancialHealthInsight(
                 id = "installments_weight", title = "سهم بالای اقساط از درآمد",
-                description = "اقساط سررسیدشونده ثبت‌شده حدود ${(installmentRatio * 10).roundToInt() / 10.0}٪ از درآمد ماهانه ثبت‌شده را تشکیل می‌دهند.",
-                type = if (installmentRatio > 35.0) InsightType.ALERT else InsightType.WARNING,
+                description = "اقساط سررسیدشونده ثبت‌شده حدود ${installmentRatio.stripTrailingZeros().toPlainString()}٪ از درآمد ماهانه ثبت‌شده را تشکیل می‌دهند.",
+                type = if (installmentRatio > BigDecimal("35.0")) InsightType.ALERT else InsightType.WARNING,
                 recommendation = "پیش از ایجاد تعهد جدید، توان پرداخت پس از کسر هزینه‌های ثابت را بررسی کنید."
             )
         }
 
-        val excess = installments.toDouble() + fixedExpenses.toDouble() - income.toDouble() * 0.30
-        if (installmentDataComplete && fixedExpensesRecorded && excess > 0.0) {
+        val excessRials = BigDecimal.valueOf(installments)
+            .add(BigDecimal.valueOf(fixedExpenses))
+            .subtract(BigDecimal.valueOf(income).multiply(BigDecimal("0.30")))
+        if (installmentDataComplete && fixedExpensesRecorded && excessRials.signum() > 0) {
+            val excessMillionToman = excessRials
+                .divide(BigDecimal("10000000"), 1, RoundingMode.HALF_UP)
+                .stripTrailingZeros()
+                .toPlainString()
             insights += FinancialHealthInsight(
                 id = "safe_zone_target", title = "مقایسه با محدوده هدف ۳۰٪",
-                description = "اقساط و هزینه‌های ثابت ثبت‌شده ${excess / 1_000_000.0} میلیون تومان بالاتر از ۳۰٪ درآمد ثبت‌شده هستند؛ این یک معیار راهنماست، نه ارزیابی قطعی.",
+                description = "اقساط و هزینه‌های ثابت ثبت‌شده $excessMillionToman میلیون تومان بالاتر از ۳۰٪ درآمد ثبت‌شده هستند؛ این یک معیار راهنماست، نه ارزیابی قطعی.",
                 type = InsightType.INFO,
                 recommendation = "درآمد و هزینه‌های ثابت ثبت‌شده را بازبینی کنید و از ایجاد تعهد غیرضروری بپرهیزید."
             )
@@ -107,12 +121,16 @@ object FinancialAnalyzerEngine {
         if (nextMonthPrediction.total > 0L || nextMonthPrediction.fixedExpensesAmountRecorded) {
             val nextMonthPressure = calculateFinancialPressure(nextMonthPrediction.total, income)
             val ratioText = nextMonthPressure?.let { " (معادل ${it}٪ درآمد ماهانه ثبت‌شده)" } ?: ""
+            val nextMonthMillionToman = BigDecimal.valueOf(nextMonthPrediction.total)
+                .divide(BigDecimal("10000000"), 1, RoundingMode.HALF_UP)
+                .stripTrailingZeros()
+                .toPlainString()
             insights += FinancialHealthInsight(
                 id = "next_month_outlook", title = "چشم‌انداز مبالغ ثبت‌شده ماه آینده",
                 description = if (installmentDataComplete) {
-                    "بر اساس اقساط سررسیدشونده، هزینه‌های ثابت ثبت‌شده و هزینه‌های خودروی دارای مبلغ و سررسید ثبت‌شده، مجموع مبالغ شناخته‌شده ماه آینده ${nextMonthPrediction.total / 1_000_000.0} میلیون تومان است${ratioText}. هزینه‌های خودرو بدون مبلغ یا تاریخ معتبر و یادآورها در جمع لحاظ نشده‌اند."
+                    "بر اساس اقساط سررسیدشونده، هزینه‌های ثابت ثبت‌شده و هزینه‌های خودروی دارای مبلغ و سررسید ثبت‌شده، مجموع مبالغ شناخته‌شده ماه آینده ${nextMonthMillionToman} میلیون تومان است${ratioText}. هزینه‌های خودرو بدون مبلغ یا تاریخ معتبر و یادآورها در جمع لحاظ نشده‌اند."
                 } else {
-                    "به دلیل ناقص بودن برنامه بعضی اقساط، مبلغ اقساط در این برآورد لحاظ نشده است. مجموع مبالغ ثبت‌شده برای هزینه‌های ثابت و خودرو ${nextMonthPrediction.total / 1_000_000.0} میلیون تومان است${ratioText}؛ هزینه‌های ثبت‌نشده و یادآورها در جمع نیستند."
+                    "به دلیل ناقص بودن برنامه بعضی اقساط، مبلغ اقساط در این برآورد لحاظ نشده است. مجموع مبالغ ثبت‌شده برای هزینه‌های ثابت و خودرو ${nextMonthMillionToman} میلیون تومان است${ratioText}؛ هزینه‌های ثبت‌نشده و یادآورها در جمع نیستند."
                 },
                 type = if ((nextMonthPressure ?: 0f) > 45f) InsightType.WARNING else InsightType.INFO
             )

@@ -514,4 +514,46 @@ class BankSmsParserTest {
             )
         )
     }
+    @Test
+    fun keepsEqualTransactionAndBalanceNumbersWhenTheirCurrencyUnitsDiffer() {
+        val sample = "برداشت مبلغ 1,234 ریال مانده 1,234 تومان"
+        val pattern = SmsPattern(
+            id = "same-number-different-units",
+            name = "واحدهای متفاوت",
+            type = SmsPatternType.EXPENSE,
+            sampleMessage = sample,
+            slots = listOf(
+                slot(sample, "1,234", SmsPatternSlotKind.AMOUNT_RIAL),
+                SmsPatternSlot(
+                    sample.lastIndexOf("1,234"),
+                    sample.lastIndexOf("1,234") + "1,234".length,
+                    SmsPatternSlotKind.BALANCE_TOMAN
+                )
+            ),
+            senderAddress = "sender"
+        )
+
+        val parsed = BankSmsParser.parseMatchedPattern(
+            "same-number",
+            "sender",
+            sample,
+            1_700_000_000_000L,
+            pattern
+        )
+
+        assertNotNull(parsed)
+        assertEquals(1_234L, parsed?.amount)
+        assertEquals(com.example.ui.screens.settings.model.AppCurrency.RIAL, parsed?.amountUnit)
+        assertEquals(1_234L, parsed?.balanceAmount)
+        assertEquals(com.example.ui.screens.settings.model.AppCurrency.TOMAN, parsed?.balanceAmountUnit)
+        assertEquals(listOf(1_234L, 1_234L), parsed?.amountCandidates)
+        assertEquals(
+            listOf(
+                com.example.ui.screens.settings.model.AppCurrency.RIAL,
+                com.example.ui.screens.settings.model.AppCurrency.TOMAN
+            ),
+            parsed?.amountCandidateUnits
+        )
+    }
+
 }

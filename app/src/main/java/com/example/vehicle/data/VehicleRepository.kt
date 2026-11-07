@@ -9,6 +9,7 @@ import com.example.data.database.VehicleInsuranceRoomEntity
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
 import com.example.util.PersianCalendarHelper
+import com.example.ui.screens.settings.model.AppCurrency
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -106,6 +107,7 @@ class VehicleRepository {
                                 notes = v.color,
                                 vin = v.vin,
                                 estimatedValue = v.estimatedValue,
+                                estimatedValueUnit = v.estimatedValueUnit.name,
                                 engine = v.engine,
                                 transmission = v.transmission,
                                 updatedAt = v.createdAt
@@ -127,6 +129,7 @@ class VehicleRepository {
                                 serviceDate = serviceDateMs,
                                 dueDate = dueDateMs,
                                 cost = s.cost,
+                                costUnit = s.costUnit.name,
                                 serviceMileage = s.mileage,
                                 dueMileage = s.nextReminderMileage,
                                 status = "PENDING",
@@ -144,6 +147,7 @@ class VehicleRepository {
                                     title = s.title,
                                     category = VehicleExpenseCategory.SERVICE.name,
                                     amount = s.cost,
+                                    amountUnit = s.costUnit.name,
                                     date = s.date,
                                     description = "سرویس دوره‌ای خودرو: ${s.description}"
                                 )
@@ -159,6 +163,7 @@ class VehicleRepository {
                             title = e.title,
                             category = e.category.name,
                             amount = e.amount,
+                            amountUnit = e.amountUnit.name,
                             date = e.date,
                             description = e.description,
                             receiptImageUri = e.receiptImageUri
@@ -175,6 +180,7 @@ class VehicleRepository {
                             startDate = ins.startDate,
                             endDate = ins.endDate,
                             amount = ins.amount,
+                            amountUnit = ins.amountUnit.name,
                             policyNumber = ins.policyNumber,
                             reminderDays = ins.reminderDays.joinToString(",")
                         )
@@ -188,6 +194,7 @@ class VehicleRepository {
                             lastInspectionDate = insp.lastInspectionDate,
                             expiryDate = insp.expiryDate,
                             cost = insp.cost,
+                            costUnit = insp.costUnit.name,
                             status = insp.status,
                             centerName = insp.centerName
                         )
@@ -216,6 +223,7 @@ class VehicleRepository {
                             vin = v.vin,
                             currentMileage = v.currentMileage,
                             estimatedValue = v.estimatedValue,
+                            estimatedValueUnit = AppCurrency.valueOf(v.estimatedValueUnit),
                             createdAt = v.updatedAt,
                             engine = v.engine,
                             transmission = v.transmission
@@ -252,6 +260,7 @@ class VehicleRepository {
                             date = realServiceDate,
                             mileage = s.serviceMileage ?: 0,
                             cost = realCost,
+                            costUnit = AppCurrency.valueOf(s.costUnit),
                             description = cleanDescription,
                             nextReminderDate = realNextReminderDate,
                             nextReminderMileage = s.dueMileage,
@@ -272,6 +281,7 @@ class VehicleRepository {
                             title = e.title,
                             category = try { VehicleExpenseCategory.valueOf(e.category) } catch (ex: Exception) { VehicleExpenseCategory.OTHER },
                             amount = e.amount,
+                            amountUnit = AppCurrency.valueOf(e.amountUnit),
                             date = e.date,
                             description = e.description,
                             receiptImageUri = e.receiptImageUri
@@ -293,6 +303,7 @@ class VehicleRepository {
                             startDate = ins.startDate,
                             endDate = ins.endDate,
                             amount = ins.amount,
+                            amountUnit = AppCurrency.valueOf(ins.amountUnit),
                             policyNumber = ins.policyNumber,
                             reminderDays = if (reminder?.notificationEnabled == true && reminder.status == "ACTIVE") {
                                 ins.reminderDays.split(",").mapNotNull { it.toIntOrNull() }
@@ -324,6 +335,7 @@ class VehicleRepository {
                             lastInspectionDate = insp.lastInspectionDate,
                             expiryDate = insp.expiryDate,
                             cost = insp.cost,
+                            costUnit = AppCurrency.valueOf(insp.costUnit),
                             status = insp.status,
                             centerName = insp.centerName,
                             reminderEnabled = reminder?.notificationEnabled == true && reminder.status == "ACTIVE",
@@ -466,6 +478,7 @@ class VehicleRepository {
         // Verify business identity to prevent silent ID collisions
         val matchesBusinessIdentity = existingTx.userId == userId &&
                 existingTx.amount == financialTransaction.amount &&
+                existingTx.amountUnit == financialTransaction.amountUnit &&
                 existingTx.type == financialTransaction.type &&
                 existingTx.sourceType == financialTransaction.sourceType &&
                 existingTx.sourceId == financialTransaction.sourceId &&
@@ -633,6 +646,7 @@ class VehicleRepository {
                 notes = color.trim().ifBlank { "سفید" },
                 vin = vin.trim(),
                 estimatedValue = estimatedValue,
+                estimatedValueUnit = AppCurrency.RIAL.name,
                 engine = engine.trim(),
                 transmission = transmission.trim(),
                 updatedAt = System.currentTimeMillis()
@@ -650,6 +664,7 @@ class VehicleRepository {
                 vin = entity.vin,
                 currentMileage = entity.currentMileage,
                 estimatedValue = entity.estimatedValue,
+                estimatedValueUnit = AppCurrency.RIAL,
                 createdAt = entity.updatedAt,
                 engine = entity.engine,
                 transmission = entity.transmission
@@ -692,6 +707,7 @@ class VehicleRepository {
                 vin = updated.vin.trim(),
                 currentMileage = updated.currentMileage,
                 estimatedValue = updated.estimatedValue,
+                estimatedValueUnit = updated.estimatedValueUnit.name,
                 engine = updated.engine.trim(),
                 transmission = updated.transmission.trim(),
                 updatedAt = System.currentTimeMillis()
@@ -895,6 +911,7 @@ class VehicleRepository {
                 date = date.trim(),
                 mileage = mileage,
                 cost = cost,
+                costUnit = AppCurrency.RIAL,
                 description = description.trim(),
                 nextReminderDate = nextReminderDate?.trim(),
                 nextReminderMileage = nextReminderMileage,
@@ -913,6 +930,7 @@ class VehicleRepository {
                         serviceDate = serviceDateMs,
                         dueDate = dueDateMs,
                         cost = cost,
+                        costUnit = AppCurrency.RIAL.name,
                         serviceMileage = mileage,
                         dueMileage = nextReminderMileage,
                         status = "PENDING",
@@ -931,6 +949,7 @@ class VehicleRepository {
                             title = title.trim(),
                             category = VehicleExpenseCategory.SERVICE.name,
                             amount = cost,
+                            amountUnit = AppCurrency.RIAL.name,
                             date = date.trim(),
                             description = "سرویس دوره‌ای خودرو: ${description.trim()}"
                         )
@@ -1178,6 +1197,7 @@ class VehicleRepository {
                 date = date.trim(),
                 mileage = mileage,
                 cost = cost,
+                costUnit = AppCurrency.RIAL,
                 description = description.trim(),
                 nextReminderDate = nextReminderDate?.trim(),
                 nextReminderMileage = nextReminderMileage,
@@ -1200,6 +1220,7 @@ class VehicleRepository {
                         serviceDate = serviceDateMs,
                         dueDate = dueDateMs,
                         cost = cost,
+                        costUnit = AppCurrency.RIAL.name,
                         serviceMileage = mileage,
                         dueMileage = nextReminderMileage,
                         status = existingSvc.status,
@@ -1222,6 +1243,7 @@ class VehicleRepository {
                         title = title.trim(),
                         category = VehicleExpenseCategory.SERVICE.name,
                         amount = cost,
+                        amountUnit = AppCurrency.RIAL.name,
                         date = date.trim(),
                         description = "سرویس دوره‌ای خودرو: ${description.trim()}"
                     )
@@ -1421,6 +1443,7 @@ class VehicleRepository {
                 if (financialTransaction.userId != userId ||
                     financialTransaction.amount <= 0L ||
                     financialTransaction.amount != serviceCost ||
+                    financialTransaction.amountUnit != existing.costUnit ||
                     financialTransaction.type != "EXPENSE" ||
                     (financialTransaction.sourceType != "MAINTENANCE" && financialTransaction.sourceType != "SERVICE") ||
                     financialTransaction.sourceId != serviceId) {
@@ -1449,6 +1472,7 @@ class VehicleRepository {
                                 title = existing.title,
                                 category = VehicleExpenseCategory.SERVICE.name,
                                 amount = serviceCost,
+                            amountUnit = existing.costUnit,
                                 date = completedDate.trim(),
                                 description = "سرویس دوره‌ای خودرو: ${existing.notes ?: ""}".trim()
                             )
@@ -1502,7 +1526,8 @@ class VehicleRepository {
                     db.vehicleDao().updateExpense(
                         expense.copy(
                             date = completedDate.trim(),
-                            amount = if (serviceCost > 0L) serviceCost else expense.amount
+                            amount = if (serviceCost > 0L) serviceCost else expense.amount,
+                            amountUnit = if (serviceCost > 0L) existing.costUnit else expense.amountUnit
                         )
                     )
                 } else if (serviceCost > 0L) {
@@ -1514,6 +1539,7 @@ class VehicleRepository {
                             title = existing.title,
                             category = VehicleExpenseCategory.SERVICE.name,
                             amount = serviceCost,
+                            amountUnit = existing.costUnit,
                             date = completedDate.trim(),
                             description = "سرویس دوره‌ای خودرو: ${existing.notes ?: ""}".trim()
                         )
@@ -1622,6 +1648,7 @@ class VehicleRepository {
                 title = title.trim(),
                 category = category,
                 amount = amount,
+                amountUnit = AppCurrency.RIAL,
                 date = date.trim(),
                 description = description.trim()
             )
@@ -1634,6 +1661,7 @@ class VehicleRepository {
                     title = title.trim(),
                     category = category.name,
                     amount = amount,
+                    amountUnit = AppCurrency.RIAL.name,
                     date = date.trim(),
                     description = description.trim()
                 )
@@ -1672,6 +1700,7 @@ class VehicleRepository {
                 title = title.trim(),
                 category = category.name,
                 amount = amount,
+                amountUnit = AppCurrency.RIAL.name,
                 date = date.trim(),
                 description = description.trim()
             )
@@ -1689,7 +1718,8 @@ class VehicleRepository {
                 amount = amount,
                 date = date.trim(),
                 description = description.trim(),
-                receiptImageUri = existing.receiptImageUri
+                receiptImageUri = existing.receiptImageUri,
+                amountUnit = AppCurrency.RIAL
             )
             Result.success(updatedDomain)
         } catch (e: Exception) {
@@ -1760,6 +1790,7 @@ class VehicleRepository {
                 startDate = startDate.trim(),
                 endDate = endDate.trim(),
                 amount = amount,
+                amountUnit = AppCurrency.RIAL,
                 policyNumber = policyNumber.trim(),
                 reminderDays = reminderDays.distinct(),
                 reminderEnabled = reminderEnabled,
@@ -1777,6 +1808,7 @@ class VehicleRepository {
                         startDate = startDate.trim(),
                         endDate = endDate.trim(),
                         amount = amount,
+                        amountUnit = AppCurrency.RIAL.name,
                         policyNumber = policyNumber.trim(),
                         reminderDays = newInsurance.reminderDays.joinToString(",")
                     )
@@ -1791,6 +1823,7 @@ class VehicleRepository {
                             title = "تمدید ${type.trim()} (${company.trim()})",
                             category = VehicleExpenseCategory.INSURANCE.name,
                             amount = amount,
+                            amountUnit = AppCurrency.RIAL.name,
                             date = startDate.trim(),
                             description = "شماره بیمه‌نامه: ${policyNumber.trim()}"
                         )
@@ -1858,6 +1891,7 @@ class VehicleRepository {
                 if (financialTransaction.userId != userId ||
                     financialTransaction.amount <= 0L ||
                     financialTransaction.amount != insAmount ||
+                    financialTransaction.amountUnit != existing.amountUnit ||
                     financialTransaction.type != "EXPENSE" ||
                     financialTransaction.sourceType != "INSURANCE" ||
                     financialTransaction.sourceId != insuranceId) {
@@ -1888,6 +1922,7 @@ class VehicleRepository {
                                 title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
                                 category = VehicleExpenseCategory.INSURANCE.name,
                                 amount = insAmount,
+                            amountUnit = AppCurrency.RIAL.name,
                                 date = today,
                                 description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
                             )
@@ -1949,6 +1984,7 @@ class VehicleRepository {
                             title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
                             category = VehicleExpenseCategory.INSURANCE.name,
                             amount = if (insAmount > 0L) insAmount else expense.amount,
+                            amountUnit = existing.amountUnit,
                             date = today,
                             description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
                         )
@@ -1962,6 +1998,7 @@ class VehicleRepository {
                             title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
                             category = VehicleExpenseCategory.INSURANCE.name,
                             amount = insAmount,
+                            amountUnit = existing.amountUnit,
                             date = today,
                             description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
                         )
@@ -2077,6 +2114,7 @@ class VehicleRepository {
                 lastInspectionDate = lastInspectionDate.trim(),
                 expiryDate = expiryDate.trim(),
                 cost = cost,
+                costUnit = AppCurrency.RIAL,
                 status = status.trim(),
                 centerName = centerName.trim(),
                 reminderEnabled = reminderEnabled,
@@ -2092,6 +2130,7 @@ class VehicleRepository {
                     lastInspectionDate = lastInspectionDate.trim(),
                     expiryDate = expiryDate.trim(),
                     cost = cost,
+                    costUnit = AppCurrency.RIAL.name,
                     status = status.trim(),
                     centerName = centerName.trim()
                 )
@@ -2111,6 +2150,7 @@ class VehicleRepository {
                             title = "معاینه فنی خودرو ($centerName)",
                             category = VehicleExpenseCategory.INSPECTION.name,
                             amount = cost,
+                            amountUnit = AppCurrency.RIAL.name,
                             date = lastInspectionDate.trim(),
                             description = "مرکز معاینه فنی: $centerName"
                         )

@@ -52,6 +52,7 @@ import com.example.vehicle.presentation.components.*
 import com.example.vehicle.viewmodel.VehicleTab
 import com.example.vehicle.viewmodel.VehicleViewModel
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -850,7 +851,7 @@ private fun ServiceRecordCard(
     onDeleteService: ((VehicleServiceEntity) -> Unit)? = null,
     onRetryReminder: ((VehicleServiceEntity) -> Unit)? = null
 ) {
-    val costFormatted = MoneyFormatter.formatToman(service.cost)
+    val costFormatted = MoneyFormatter.formatExact(MoneyAmount.of(service.cost, service.costUnit))
 
     Layered3DCard(
         modifier = Modifier.fillMaxWidth(),
@@ -1165,7 +1166,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(visibleInsurances, key = { it.id }) { ins ->
-                        val costStr = MoneyFormatter.formatToman(ins.amount)
+                        val costStr = MoneyFormatter.formatExact(MoneyAmount.of(ins.amount, ins.amountUnit))
                         val normalizedExpiry = VehicleAnalyzer.parseAndValidateJalaliDate(ins.endDate)
                         val expired = normalizedExpiry != null && normalizedExpiry < today
                         Layered3DCard(

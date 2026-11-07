@@ -1,7 +1,10 @@
 package com.example.loan.domain
 
-import kotlin.math.pow
-import kotlin.math.roundToLong
+import java.math.BigDecimal
+import java.math.MathContext
+import java.math.RoundingMode
+import com.example.ui.screens.settings.model.AppCurrency
+import com.example.util.MoneyAmount
 
 /**
  * Mathematical estimates for common repayment models.
@@ -19,11 +22,14 @@ class LoanCalculatorEngine {
         interestRate: Double?,
         duration: Int?,
         interestPeriod: InterestPeriod = InterestPeriod.ANNUAL,
-        durationType: DurationType = DurationType.MONTHS
+        durationType: DurationType = DurationType.MONTHS,
+        amountUnit: AppCurrency = AppCurrency.TOMAN
     ): ValidationResult {
         if (amount == null) return ValidationResult.Invalid("لطفاً مبلغ وام را وارد کنید")
-        if (amount <= 0L || amount > MAX_PRINCIPAL) {
-            return ValidationResult.Invalid("مبلغ وام باید بین ۱ تومان تا ۱٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰ تومان باشد")
+        val maxPrincipal = if (amountUnit == AppCurrency.RIAL) Math.multiplyExact(MAX_PRINCIPAL, 10L) else MAX_PRINCIPAL
+        if (amount <= 0L || amount > maxPrincipal) {
+            val unitLabel = if (amountUnit == AppCurrency.RIAL) "ریال" else "تومان"
+            return ValidationResult.Invalid("مبلغ وام باید بین ۱ $unitLabel تا ${maxPrincipal} $unitLabel باشد")
         }
         if (interestRate == null || !interestRate.isFinite()) {
             return ValidationResult.Invalid("لطفاً نرخ سود معتبر وارد کنید")
@@ -48,49 +54,60 @@ class LoanCalculatorEngine {
         interestPeriod: InterestPeriod = InterestPeriod.ANNUAL,
         duration: Int,
         durationType: DurationType = DurationType.MONTHS,
-        method: CalculationMethod = CalculationMethod.ANNUITY
+        method: CalculationMethod = CalculationMethod.ANNUITY,
+        amountUnit: AppCurrency = AppCurrency.TOMAN
     ): CalculationResult {
-        require(validateInputs(amount, interestRate, duration, interestPeriod, durationType) is ValidationResult.Valid) {
+        require(validateInputs(amount, interestRate, duration, interestPeriod, durationType, amountUnit) is ValidationResult.Valid) {
             "ورودی‌های محاسبه تسهیلات معتبر نیستند"
         }
         val totalMonths = if (durationType == DurationType.YEARS) duration * 12 else duration
         val annualRate = if (interestPeriod == InterestPeriod.MONTHLY) interestRate * 12.0 else interestRate
         return when (method) {
-            CalculationMethod.ANNUITY -> calculateAnnuity(amount, annualRate, totalMonths)
-            CalculationMethod.SIMPLE_INTEREST -> calculateSimpleInterest(amount, annualRate, totalMonths)
-            CalculationMethod.CUSTOM -> calculateCustomFlatFee(amount, annualRate, totalMonths)
+            CalculationMethod.ANNUITY -> calculateAnnuity(amount, annualRate, totalMonths, amountUnit)
+            CalculationMethod.SIMPLE_INTEREST -> calculateSimpleInterest(amount, annualRate, totalMonths, amountUnit)
+            CalculationMethod.CUSTOM -> calculateCustomFlatFee(amount, annualRate, totalMonths, amountUnit)
         }
     }
 
     /**
      * Equal-payment amortization estimate: monthly rate = nominal annual rate / 12.
-     * The displayed installment is rounded to whole tomans; totals are derived from it
+     * The displayed installment is rounded to whole units of the selected calculation scale; totals are derived from it
      * so total payment always reconciles with the displayed monthly installment.
      */
-    private fun calculateAnnuity(principal: Long, annualRate: Double, months: Int): CalculationResult {
-        val monthlyRate = annualRate / 1200.0
-        val payment = if (monthlyRate == 0.0) {
-            (principal.toDouble() / months).roundToLong()
+    private fun calculateAnnuity(principal: Long, annualRate: Double, months: Int, amountUnit: AppCurrency): CalculationResult {
+        val monthlyRate = BigDecimal.valueOf(annualRate).divide(BigDecimal("1200"), MONEY_CONTEXT)
+        val principalValue = BigDecimal.valueOf(principal)
+        val paymentValue = if (monthlyRate.signum() == 0) {
+            principalValue.divide(BigDecimal.valueOf(months.toLong()), 0, RoundingMode.HALF_UP)
         } else {
-            val discountFactor = (1.0 + monthlyRate).pow(-months.toDouble())
-            (principal.toDouble() * monthlyRate / (1.0 - discountFactor)).roundToLong()
-        }.coerceAtLeast(1L)
+            val growth = BigDecimal.ONE.add(monthlyRate).pow(months, MONEY_CONTEXT)
+            principalValue.multiply(monthlyRate, MONEY_CONTEXT)
+                .multiply(growth, MONEY_CONTEXT)
+                .divide(growth.subtract(BigDecimal.ONE, MONEY_CONTEXT), 0, RoundingMode.HALF_UP)
+        }
+        val payment = paymentValue.longValueExact().coerceAtLeast(1L)
         val totalPayment = Math.multiplyExact(payment, months.toLong())
-        val totalInterest = (totalPayment - principal).coerceAtLeast(0L)
-        return result(principal, annualRate, months, payment, totalPayment, totalInterest, CalculationMethod.ANNUITY)
+        val totalInterest = Math.subtractExact(totalPayment, principal).coerceAtLeast(0L)
+        return result(principal, annualRate, months, payment, totalPayment, totalInterest, CalculationMethod.ANNUITY, amountUnit)
     }
 
     /**
      * Flat/simple-interest estimate. Interest is charged on the original principal
      * for the full term; this is deliberately NOT represented as standard bank amortization.
      */
-    private fun calculateSimpleInterest(principal: Long, annualRate: Double, months: Int): CalculationResult {
-        val interest = (principal.toDouble() * annualRate / 1200.0 * months).roundToLong()
+    private fun calculateSimpleInterest(principal: Long, annualRate: Double, months: Int, amountUnit: AppCurrency): CalculationResult {
+        val interest = BigDecimal.valueOf(principal)
+            .multiply(BigDecimal.valueOf(annualRate), MONEY_CONTEXT)
+            .multiply(BigDecimal.valueOf(months.toLong()), MONEY_CONTEXT)
+            .divide(BigDecimal("1200"), 0, RoundingMode.HALF_UP)
+            .longValueExact()
         val total = Math.addExact(principal, interest)
-        val payment = (total.toDouble() / months).roundToLong()
+        val payment = BigDecimal.valueOf(total)
+            .divide(BigDecimal.valueOf(months.toLong()), 0, RoundingMode.HALF_UP)
+            .longValueExact()
         val reconciledTotal = Math.multiplyExact(payment, months.toLong())
-        val reconciledInterest = (reconciledTotal - principal).coerceAtLeast(0L)
-        return result(principal, annualRate, months, payment, reconciledTotal, reconciledInterest, CalculationMethod.SIMPLE_INTEREST)
+        val reconciledInterest = Math.subtractExact(reconciledTotal, principal).coerceAtLeast(0L)
+        return result(principal, annualRate, months, payment, reconciledTotal, reconciledInterest, CalculationMethod.SIMPLE_INTEREST, amountUnit)
     }
 
     /**
@@ -98,13 +115,19 @@ class LoanCalculatorEngine {
      * fee = principal × annual fee rate × actual months / 12.
      * The applicable fee must still be taken from the specific contract/regulation.
      */
-    private fun calculateCustomFlatFee(principal: Long, annualRate: Double, months: Int): CalculationResult {
-        val fee = (principal.toDouble() * annualRate / 1200.0 * months).roundToLong()
+    private fun calculateCustomFlatFee(principal: Long, annualRate: Double, months: Int, amountUnit: AppCurrency): CalculationResult {
+        val fee = BigDecimal.valueOf(principal)
+            .multiply(BigDecimal.valueOf(annualRate), MONEY_CONTEXT)
+            .multiply(BigDecimal.valueOf(months.toLong()), MONEY_CONTEXT)
+            .divide(BigDecimal("1200"), 0, RoundingMode.HALF_UP)
+            .longValueExact()
         val total = Math.addExact(principal, fee)
-        val payment = (total.toDouble() / months).roundToLong()
+        val payment = BigDecimal.valueOf(total)
+            .divide(BigDecimal.valueOf(months.toLong()), 0, RoundingMode.HALF_UP)
+            .longValueExact()
         val reconciledTotal = Math.multiplyExact(payment, months.toLong())
-        val reconciledFee = (reconciledTotal - principal).coerceAtLeast(0L)
-        return result(principal, annualRate, months, payment, reconciledTotal, reconciledFee, CalculationMethod.CUSTOM)
+        val reconciledFee = Math.subtractExact(reconciledTotal, principal).coerceAtLeast(0L)
+        return result(principal, annualRate, months, payment, reconciledTotal, reconciledFee, CalculationMethod.CUSTOM, amountUnit)
     }
 
     private fun result(
@@ -114,7 +137,8 @@ class LoanCalculatorEngine {
         monthlyPayment: Long,
         totalPayment: Long,
         totalInterest: Long,
-        method: CalculationMethod
+        method: CalculationMethod,
+        amountUnit: AppCurrency
     ) = CalculationResult(
         principalAmount = principal,
         durationMonths = months,
@@ -123,22 +147,24 @@ class LoanCalculatorEngine {
         totalPayment = totalPayment,
         totalInterest = totalInterest,
         realCostPercentage = totalInterest.toDouble() / principal.toDouble() * 100.0,
-        method = method
+        method = method,
+        amountUnit = amountUnit
     )
 
     fun compareLoans(loan1Input: ComparisonLoanInput, loan2Input: ComparisonLoanInput): ComparisonResult {
-        val result1 = calculate(loan1Input.amount, loan1Input.interestRate, duration = loan1Input.durationMonths, method = loan1Input.method)
-        val result2 = calculate(loan2Input.amount, loan2Input.interestRate, duration = loan2Input.durationMonths, method = loan2Input.method)
+        val result1 = calculate(MoneyAmount.of(loan1Input.amount, loan1Input.amountUnit).asRialsLongExact(), loan1Input.interestRate, duration = loan1Input.durationMonths, method = loan1Input.method, amountUnit = AppCurrency.RIAL)
+        val result2 = calculate(MoneyAmount.of(loan2Input.amount, loan2Input.amountUnit).asRialsLongExact(), loan2Input.interestRate, duration = loan2Input.durationMonths, method = loan2Input.method, amountUnit = AppCurrency.RIAL)
         return ComparisonResult(
             loan1 = result1,
             loan2 = result2,
-            monthlyPaymentDiff = result2.monthlyPayment - result1.monthlyPayment,
-            totalInterestDiff = result2.totalInterest - result1.totalInterest,
-            totalPaymentDiff = result2.totalPayment - result1.totalPayment
+            monthlyPaymentDiff = Math.subtractExact(result2.monthlyPayment, result1.monthlyPayment),
+            totalInterestDiff = Math.subtractExact(result2.totalInterest, result1.totalInterest),
+            totalPaymentDiff = Math.subtractExact(result2.totalPayment, result1.totalPayment)
         )
     }
 
     companion object {
+        private val MONEY_CONTEXT = MathContext.DECIMAL128
         private const val MAX_PRINCIPAL = 1_000_000_000_000_000L
         private const val MAX_ANNUAL_RATE = 1000.0
         private const val MAX_DURATION_MONTHS = 600L

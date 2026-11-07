@@ -35,6 +35,8 @@ import com.example.ui.components.PersianAmountInputField
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianAmountUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.VehicleEntity
 import com.example.ui.components.IranianLicensePlate
@@ -72,9 +74,14 @@ fun VehicleProfileScreen(
     var plateIranCode by remember(vehicle) { mutableStateOf(initialPlateParts.iranCode) }
     var vin by remember(vehicle) { mutableStateOf(vehicle.vin) }
     var estimatedValueText by remember(vehicle, MoneyFormatter.activeCurrency) {
-        mutableStateOf(if (vehicle.estimatedValue > 0) MoneyFormatter.convertFromToman(vehicle.estimatedValue).toString() else "")
+        mutableStateOf(if (vehicle.estimatedValue > 0) MoneyAmount.of(vehicle.estimatedValue, vehicle.estimatedValueUnit).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString() else "")
     }
     var currentMileageText by remember(vehicle) { mutableStateOf(vehicle.currentMileage.toString()) }
+    val parsedEstimatedValueRials = estimatedValueText.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() >= 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val estimatedValueInputInvalid = estimatedValueText.isNotBlank() && parsedEstimatedValueRials == null
     val plate = "$platePart1 $plateLetter $platePart2 ایران $plateIranCode"
 
     Scaffold(
@@ -346,6 +353,8 @@ fun VehicleProfileScreen(
                         PersianAmountInputField(
                             value = estimatedValueText,
                             onValueChange = { estimatedValueText = it },
+                            allowDecimalInput = true,
+                            onRawDecimalAmountChange = { rawValue, _ -> estimatedValueText = rawValue },
                             label = "ارزش تقریبی",
                             placeholder = "مبلغ را وارد کنید",
                             showWordsPreview = false,
@@ -355,14 +364,18 @@ fun VehicleProfileScreen(
                         )
                     }
 
+                    if (estimatedValueInputInvalid) {
+                        Text("ارزش تقریبی خودرو معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
                     Button(
                         onClick = {
-                            val estVal = MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(estimatedValueText))
+                        val estVal = parsedEstimatedValueRials ?: 0L
                             val km = IranianPhoneUtils.convertDigitsToEnglish(currentMileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onUpdateMileage(km)
                             onSaveSpecs(brand, model, year, color, plate, vin, estVal)
                             onBack()
                         },
+                        enabled = !estimatedValueInputInvalid,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp)

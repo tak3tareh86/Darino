@@ -31,6 +31,7 @@ data class AccountEntity(
     val bankName: String? = null,
     val accountNumberMasked: String? = null,
     val initialBalance: Long = 0L,
+    @ColumnInfo(defaultValue = "'TOMAN'") val initialBalanceUnit: String = "TOMAN",
     val isActive: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
@@ -45,6 +46,7 @@ data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val userId: String,
     val amount: Long = 0L,
+    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
     val type: String = "EXPENSE", // "EXPENSE", "INCOME", "TRANSFER"
     val category: String = "",
     val accountName: String = "کارت بانکی",
@@ -77,6 +79,7 @@ data class InstallmentEntity(
     val providerName: String,
     val title: String,
     val amount: Long,
+    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
     val totalInstallments: Int,
     val paidInstallments: Int,
     val remainingInstallments: Int,
@@ -95,6 +98,7 @@ data class InstallmentPaymentEntity(
     val installmentId: Int,
     val installmentNumber: Int = 1,
     val amount: Long,
+    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
     val dueDate: Long,
     val paidDate: Long?,
     val status: String, // "PENDING", "PAID", "OVERDUE"
@@ -116,6 +120,7 @@ data class VehicleEntity(
     val notes: String?,
     val vin: String = "",
     val estimatedValue: Long = 0L,
+    @ColumnInfo(defaultValue = "'TOMAN'") val estimatedValueUnit: String = "TOMAN",
     val updatedAt: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null,
     @ColumnInfo(defaultValue = "''") val engine: String = "",
@@ -134,6 +139,7 @@ data class VehicleServiceEntity(
     val serviceDate: Long? = null,
     val dueDate: Long? = null,
     val cost: Long = 0L,
+    @ColumnInfo(defaultValue = "'TOMAN'") val costUnit: String = "TOMAN",
     val serviceMileage: Int? = null,
     val dueMileage: Int? = null,
     val status: String = "PENDING", // Service lifecycle only: "PENDING", "COMPLETED"
@@ -151,6 +157,7 @@ data class VehicleExpenseRoomEntity(
     val title: String,
     val category: String,
     val amount: Long,
+    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
     val date: String,
     val description: String = "",
     val receiptImageUri: String? = null
@@ -166,6 +173,7 @@ data class VehicleInsuranceRoomEntity(
     val startDate: String,
     val endDate: String,
     val amount: Long,
+    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
     val policyNumber: String = "",
     val reminderDays: String = "30,15,7"
 )
@@ -178,6 +186,7 @@ data class VehicleInspectionRoomEntity(
     val lastInspectionDate: String,
     val expiryDate: String,
     val cost: Long,
+    @ColumnInfo(defaultValue = "'TOMAN'") val costUnit: String = "TOMAN",
     val status: String = "معتبر",
     val centerName: String = ""
 )
@@ -286,6 +295,7 @@ data class CheckEntity(
     val userId: String,
     val type: String, // "RECEIVED", "PAID"
     val amount: Long,
+    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
     val checkNumber: String,
     val sayadId: String? = null,
     val bankName: String,

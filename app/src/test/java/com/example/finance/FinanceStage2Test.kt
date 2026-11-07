@@ -551,4 +551,30 @@ class FinanceStage2Test {
         assertEquals(3_000_000L, state.monthlyExpense)
         assertEquals(3_000_000L, state.budgetUsed)
     }
+
+    @Test
+    fun `overall budget usage percentage does not overflow Int for very large Rial totals`() {
+        val category = FinanceDefaultCategories.defaultExpenseCategories.first()
+        val budget = Budget(
+            id = "large_budget",
+            title = "Large budget",
+            amount = 1L,
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL,
+            categoryId = category.id
+        )
+        val expense = TransactionItemData(
+            id = "large_expense",
+            title = "Large expense",
+            amount = Long.MAX_VALUE,
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL,
+            type = TransactionType.EXPENSE,
+            category = category,
+            datePersian = "",
+            timePersian = ""
+        )
+
+        val summary = BudgetEngine.calculateTotalMonthlyBudgetUsage(listOf(budget), listOf(expense))
+        assertEquals(Int.MAX_VALUE, summary.usagePercentage)
+    }
+
 }

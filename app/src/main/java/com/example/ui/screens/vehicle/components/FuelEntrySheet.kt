@@ -61,6 +61,8 @@ import com.example.ui.theme.RadiusMD
 import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
+import com.example.util.MoneyAmount
+import com.example.ui.screens.settings.model.AppCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,11 +79,16 @@ fun FuelEntrySheet(
         stationNote: String
     ) -> Unit
 ) {
-    var amountInput by remember(MoneyFormatter.activeCurrency) { mutableStateOf(MoneyFormatter.formatTomanRaw(150_000L)) }
+    var amountInput by remember(MoneyFormatter.activeCurrency) { mutableStateOf(IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(150_000L, AppCurrency.TOMAN).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString())) }
     var litersInput by remember { mutableStateOf("۵۰") }
     var odometerInput by remember { mutableStateOf(currentOdometer.toString()) }
     var selectedFuelType by remember { mutableStateOf("بنزین سهمیه‌ای (۱,۵۰۰ ت)") }
     var stationInput by remember { mutableStateOf("") }
+    val parsedFuelAmountRials = amountInput.takeIf { it.isNotBlank() }?.let { raw ->
+        IranianAmountUtils.parseAmountToBigDecimal(raw)?.takeIf { it.signum() > 0 }
+            ?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() }
+    }
+    val fuelAmountInvalid = parsedFuelAmountRials == null
 
     val fuelTypes = listOf(
         "بنزین سهمیه‌ای (۱,۵۰۰ ت)",
@@ -154,7 +161,12 @@ fun FuelEntrySheet(
             PersianAmountInputField(
                 value = amountInput,
                 onValueChange = { amountInput = it },
-                label = "مبلغ پرداختی سوخت",
+                allowDecimalInput = true,
+                onRawDecimalAmountChange = { rawValue, _ -> amountInput = rawValue },
+                isError = fuelAmountInvalid,
+                errorMessage = if (fuelAmountInvalid) "مبلغ سوخت باید معتبر و بزرگ‌تر از صفر باشد." else null,
+                label = "مبلغ پرداختی سوخت (${MoneyFormatter.getUnitLabel()})",
+                unitLabel = MoneyFormatter.getUnitLabel(),
                 placeholder = "مبلغ را وارد کنید",
                 modifier = Modifier
                     .fillMaxWidth()
@@ -265,9 +277,10 @@ fun FuelEntrySheet(
 
             // Submit Button
             Button(
+                enabled = !fuelAmountInvalid,
                 onClick = {
                     onSubmitFuelEntry(
-                        MoneyFormatter.convertToToman(IranianAmountUtils.parseAmountToLong(amountInput)).toString(),
+                        requireNotNull(parsedFuelAmountRials).toString(),
                         litersInput,
                         selectedFuelType,
                         odometerInput,

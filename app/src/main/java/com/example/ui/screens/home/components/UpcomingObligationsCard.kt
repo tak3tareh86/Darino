@@ -293,7 +293,7 @@ private fun NearestObligationFlatItem(
 
         // 4. Amount
         Text(
-            text = "مبلغ قسط: ${MoneyFormatter.formatToman(item.amount)}",
+            text = "مبلغ قسط: ${item.formattedAmount}",
             style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 11.sp
