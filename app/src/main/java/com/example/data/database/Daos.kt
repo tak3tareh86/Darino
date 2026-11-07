@@ -587,8 +587,8 @@ interface CheckDao {
         if (original.userId != userId || original.deletedAt != null ||
             original.status != "BOUNCED" || original.replacedByCheckId != null ||
             replacement.userId != userId || replacement.type != original.type ||
-            replacement.amount != original.amount || replacement.amountUnit != original.amountUnit ||
-            replacement.checkNumber == original.checkNumber || replacement.status != "REGISTERED") {
+            replacement.amount <= 0L || replacement.checkNumber.trim() == original.checkNumber.trim() ||
+            replacement.status != "REGISTERED") {
             return 0
         }
         val insertedId = insertCheck(replacement.copy(id = 0, replacedByCheckId = null, replacesCheckId = originalId))
