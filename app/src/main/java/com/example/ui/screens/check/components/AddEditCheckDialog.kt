@@ -51,6 +51,7 @@ private val IRANIAN_BANK_NAMES = listOf(
 @Composable
 fun AddEditCheckDialog(
     check: Check? = null,
+    isReplacement: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (Check) -> Unit
 ) {
@@ -76,7 +77,7 @@ fun AddEditCheckDialog(
     var receiverName by remember { mutableStateOf(check?.receiverName ?: "") }
     var issueDate by remember { mutableStateOf(check?.issueDate ?: System.currentTimeMillis()) }
     var dueDate by remember { mutableStateOf(check?.dueDate ?: (System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000)) }
-    var status by remember { mutableStateOf(check?.status ?: CheckStatus.REGISTERED) }
+    var status by remember { mutableStateOf(if (isReplacement) CheckStatus.REGISTERED else check?.status ?: CheckStatus.REGISTERED) }
     var reminderDateTime by remember(check) { mutableStateOf(check?.reminderDateTime) }
     var reminderEnabled by remember(check) { mutableStateOf(check?.reminderDateTime != null) }
     var reminderTimeSelected by remember(check) { mutableStateOf(check?.reminderDateTime != null) }
@@ -128,7 +129,7 @@ fun AddEditCheckDialog(
             !isDateInvalid && (reminderAt == null || (!isReminderInvalid && reminderAt > System.currentTimeMillis())) && !isSayadIdInvalid) {
             onConfirm(
                 Check(
-                    id = check?.id ?: 0,
+                    id = if (isReplacement) 0 else check?.id ?: 0,
                     userId = check?.userId ?: "",
                     type = type,
                     amount = amountInRials,
@@ -145,7 +146,7 @@ fun AddEditCheckDialog(
                     notes = notes.trim().ifBlank { null },
                     accountId = check?.accountId,
                     reminderDateTime = reminderAt,
-                    createdAt = check?.createdAt ?: System.currentTimeMillis(),
+                    createdAt = if (isReplacement) System.currentTimeMillis() else check?.createdAt ?: System.currentTimeMillis(),
                     updatedAt = System.currentTimeMillis()
                 )
             )
@@ -164,7 +165,7 @@ fun AddEditCheckDialog(
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            text = if (check == null) "ثبت چک جدید" else "ویرایش چک",
+                            text = if (isReplacement) "ثبت چک جایگزین" else if (check == null) "ثبت چک جدید" else "ویرایش چک",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -477,29 +478,29 @@ fun AddEditCheckDialog(
                     Text("ذخیره", fontWeight = FontWeight.Bold)
                 }
 
-                if (check != null) {
-                    Text("وضعیت چک", style = MaterialTheme.typography.titleSmall)
-                    if (check.status == CheckStatus.CLEARED) {
-                        Text(
-                            "این چک تسویه شده است؛ برای جلوگیری از مغایرت حساب، وضعیت تسویه از این فرم تغییر نمی‌کند.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            CheckStatus.entries.filter { it != CheckStatus.CLEARED && it != CheckStatus.REPLACED }.forEach { s ->
-                                FilterChip(
-                                    selected = status == s,
-                                    onClick = { status = s },
-                                    label = { Text(s.title) }
-                                )
+                if (check != null && !isReplacement) {
+                        Text("وضعیت چک", style = MaterialTheme.typography.titleSmall)
+                        if (check.status == CheckStatus.CLEARED) {
+                            Text(
+                                "این چک تسویه شده است؛ برای جلوگیری از مغایرت حساب، وضعیت تسویه از این فرم تغییر نمی‌کند.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CheckStatus.entries.filter { it != CheckStatus.CLEARED && it != CheckStatus.REPLACED }.forEach { s ->
+                                    FilterChip(
+                                        selected = status == s,
+                                        onClick = { status = s },
+                                        label = { Text(s.title) }
+                                    )
+                                }
                             }
                         }
-                    }
                 }
 
             }
