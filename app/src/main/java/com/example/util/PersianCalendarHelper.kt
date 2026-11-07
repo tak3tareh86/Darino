@@ -172,6 +172,12 @@ object PersianCalendarHelper {
             }
             jDayNo -= days
         }
+        // In Jalali leap years, the final Gregorian day before Farvardin 1
+        // is 30 Esfand. The fixed month-length array above has 29 days for
+        // Esfand, so the conversion loop leaves this valid day at jm == 0.
+        // Preserve it explicitly instead of returning the invalid month zero.
+        if (jm == 0) return Triple(jy, 12, 30)
+
         val jd = jDayNo + 1
         return Triple(jy, jm, jd)
     }
