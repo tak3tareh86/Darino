@@ -157,7 +157,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                         Column {
                             Text("تاریخ مبنا", fontWeight = FontWeight.SemiBold)
                             Text(
-                                PersianCalendarHelper.fromEpochMillis(baselineGregorian.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()).toFormattedDate(),
+                                PersianCalendarHelper.PersianDateTime(baselineJalali.first, baselineJalali.second, baselineJalali.third).toFormattedDate(),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall
                             )
                         }
