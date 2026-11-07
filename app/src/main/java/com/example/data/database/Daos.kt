@@ -606,7 +606,7 @@ interface CheckDao {
     suspend fun rollbackCheckReplacement(userId: String, originalId: Int, replacementId: Int, originalReminderDateTime: Long?): Boolean {
         val originalRows = updateOriginalAfterReplacementRollback(userId, originalId, originalReminderDateTime, System.currentTimeMillis())
         if (originalRows != 1) throw IllegalStateException("Original check rollback failed")
-        val replacementRows = softDeleteCheck(userId, replacementId, System.currentTimeMillis(), System.currentTimeMillis())
+        val replacementRows = deleteCheckById(userId, replacementId)
         if (replacementRows != 1) throw IllegalStateException("Replacement check rollback failed")
         return true
     }
