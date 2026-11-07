@@ -385,7 +385,7 @@ class CheckManagementTest {
     }
 
     @Test
-    fun `test canceled or bounced check settlement forbidden`() = runBlocking {
+    fun `test canceled check settlement forbidden and bounced check can be recovered`() = runBlocking {
         SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val account = com.example.ui.screens.finance.model.Account(id = "acc_ok", userId = "user_1", name = "OK", type = com.example.ui.screens.finance.model.AccountType.BANK)
@@ -397,11 +397,17 @@ class CheckManagementTest {
         val savedCanceled = repository.getChecks().first().find { it.checkNumber == "C-1" }!!
         assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.settleCheck(savedCanceled, account))
 
-        // 2. Bounced
+        // 2. A bounced check may later be recovered and settled.
         val bouncedCheck = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "B-1", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 0, status = CheckStatus.BOUNCED)
         repository.addCheck(bouncedCheck)
         val savedBounced = repository.getChecks().first().find { it.checkNumber == "B-1" }!!
-        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.settleCheck(savedBounced, account))
+        assertEquals(CheckOperationResult.SUCCESS, repository.settleCheck(savedBounced, account))
+        assertEquals(CheckStatus.CLEARED, repository.getCheckById(savedBounced.id)?.status)
+        assertTrue(database.transactionDao().getAllTransactionsList("user_1").any {
+            it.stringId == "check_settle_${savedBounced.id}" &&
+                it.sourceType == "CHECK" &&
+                it.sourceId == savedBounced.id.toString()
+        })
     }
 
     @Test
