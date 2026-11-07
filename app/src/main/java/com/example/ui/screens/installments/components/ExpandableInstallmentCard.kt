@@ -14,9 +14,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.util.AppNumberFormatter
 import com.example.ui.screens.installments.model.InstallmentItem
 import com.example.ui.theme.RadiusMD
 
@@ -27,6 +30,7 @@ fun ExpandableInstallmentCard(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val numberMode by AppNumberFormatter.modeFlow.collectAsState()
     Column(modifier = modifier.fillMaxWidth()) {
         InstallmentCard(
             item = item,
@@ -54,7 +58,7 @@ fun ExpandableInstallmentCard(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "قسط ${history.installmentNumber}: ${history.dueDate}",
+                                text = "قسط ${history.installmentNumber}: ${AppNumberFormatter.formatDigits(history.displayDueDate, numberMode)}",
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Text(
