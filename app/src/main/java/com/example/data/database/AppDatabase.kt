@@ -31,7 +31,7 @@ import androidx.room.RoomDatabase
         UserPreferenceEntity::class,
         CheckEntity::class
     ],
-    version = 38,
+    version = 39,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -558,6 +558,13 @@ abstract class AppDatabase : RoomDatabase() {
                 // Existing checks remain unchanged; the nullable link is populated only
                 // when a user explicitly registers a replacement check.
                 db.execSQL("ALTER TABLE checks ADD COLUMN replacedByCheckId INTEGER DEFAULT NULL")
+            }
+        }
+
+        private val MIGRATION_38_39 = object : androidx.room.migration.Migration(38, 39) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Store the reverse relationship separately so both check detail pages
+                // can navigate the replacement chain without guessing from check numbers.
                 db.execSQL("ALTER TABLE checks ADD COLUMN replacesCheckId INTEGER DEFAULT NULL")
             }
         }
@@ -575,7 +582,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
                          MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
                          MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30,
-                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38
+                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39
                      )
                     .build()
                 INSTANCE = instance
