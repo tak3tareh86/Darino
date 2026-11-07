@@ -167,10 +167,35 @@ fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 11.dp),
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 9.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(7.dp)
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
+                            // Actions are moved to the top corners; callbacks remain unchanged.
+                            Box(modifier = Modifier.fillMaxWidth().height(30.dp)) {
+                                androidx.compose.material3.IconButton(
+                                    onClick = { repository.delete(rule.id); rules = repository.getAll() },
+                                    modifier = Modifier.align(Alignment.TopStart).size(30.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.DeleteOutline,
+                                        contentDescription = "حذف",
+                                        modifier = Modifier.size(17.dp),
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                                androidx.compose.material3.IconButton(
+                                    onClick = { editing = rule; showEditor = true },
+                                    modifier = Modifier.align(Alignment.TopEnd).size(30.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Edit,
+                                        contentDescription = "ویرایش",
+                                        modifier = Modifier.size(17.dp)
+                                    )
+                                }
+                            }
+
                             BankLogo(name = rule.bankName)
                             Text(
                                 rule.bankName,
@@ -193,20 +218,25 @@ fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Start
                                     )
-                                    Text(
-                                        "سرشماره:",
+                                    Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        rule.textSenderAddresses.joinToString("، "),
-                                        modifier = Modifier.fillMaxWidth(),
-                                        style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Content),
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        textAlign = TextAlign.Start,
-                                        softWrap = true
-                                    )
+                                        verticalAlignment = Alignment.Top,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    ) {
+                                        Text(
+                                            "سرشماره:",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            rule.textSenderAddresses.joinToString("، "),
+                                            modifier = Modifier.weight(1f),
+                                            style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Content),
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            textAlign = TextAlign.Start,
+                                            softWrap = true
+                                        )
+                                    }
                                 }
                             }
 
@@ -222,48 +252,29 @@ fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Start
                                     )
-                                    Text(
-                                        "سرشماره:",
+                                    Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        rule.numericSenderAddresses.joinToString("، "),
-                                        modifier = Modifier.fillMaxWidth(),
-                                        style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr),
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        textAlign = TextAlign.Start,
-                                        softWrap = true
-                                    )
+                                        verticalAlignment = Alignment.Top,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    ) {
+                                        Text(
+                                            "سرشماره:",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            rule.numericSenderAddresses.joinToString("، "),
+                                            modifier = Modifier.weight(1f),
+                                            style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr),
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            textAlign = TextAlign.Start,
+                                            softWrap = true
+                                        )
+                                    }
                                 }
                             }
 
-                            Spacer(Modifier.weight(1f))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                TextButton(
-                                    onClick = { editing = rule; showEditor = true },
-                                    modifier = Modifier.weight(1f),
-                                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                                ) {
-                                    Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(14.dp))
-                                    Spacer(Modifier.width(3.dp))
-                                    Text("ویرایش", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
-                                }
-                                TextButton(
-                                    onClick = { repository.delete(rule.id); rules = repository.getAll() },
-                                    modifier = Modifier.weight(1f),
-                                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                                ) {
-                                    Icon(Icons.Rounded.DeleteOutline, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
-                                    Spacer(Modifier.width(3.dp))
-                                    Text("حذف", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, maxLines = 1, softWrap = false)
-                                }
-                            }
+                            // Preserve the separator and the review/active information directly below sender details.
                             Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
