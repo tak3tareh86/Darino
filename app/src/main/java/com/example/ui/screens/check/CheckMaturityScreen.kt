@@ -114,162 +114,115 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        item {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Text("راس‌گیری هوشمند چک‌ها", style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
-                Text("محاسبه تاریخ میانگین موزون سررسید چک‌ها",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-            }
-        }
-
         item {
             MaturityOverviewCard(
                 count = selectedChecks.size,
-                total = if (calculation.invalidAmount) "—" else formatRials(calculation.totalRials)
-            )
-        }
-
-        item {
-            MaturityResultCard(
-                targetDate = calculation.targetDate,
-                days = formattedDays,
                 total = if (calculation.invalidAmount) "—" else formatRials(calculation.totalRials),
-                selectedCount = selectedChecks.size,
-                invalidAmount = calculation.invalidAmount
+                targetDate = calculation.targetDate,
+                days = formattedDays
             )
         }
 
         item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
-            ) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(8.dp))
-                        Text("تاریخ مبنا", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.weight(1f))
-                        TextButton(onClick = {
-                            datePickerState.selectedDateMillis = baselineMillis
-                            showDatePicker = true
-                        }) {
-                            Text("تغییر تاریخ")
-                            Spacer(Modifier.width(4.dp))
-                            Icon(Icons.Rounded.CalendarMonth, null, modifier = Modifier.size(17.dp))
-                        }
-                    }
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(15.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f)
-                    ) {
-                        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Event, null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                PersianCalendarHelper.PersianDateTime(
-                                    baselineJalali.first, baselineJalali.second, baselineJalali.third
-                                ).toFormattedDate(),
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(Modifier.weight(1f))
-                            Icon(Icons.Rounded.ChevronLeft, null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
-            ) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("نوع چک‌ها", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        SegmentedButton(
-                            selected = type == CheckType.RECEIVED,
-                            onClick = { selectedType = CheckType.RECEIVED.name },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                            icon = {}
-                        ) {
-                            Icon(Icons.Rounded.ArrowDownward, null, modifier = Modifier.size(17.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text("چک‌های دریافتی")
-                        }
-                        SegmentedButton(
-                            selected = type == CheckType.PAID,
-                            onClick = { selectedType = CheckType.PAID.name },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                            icon = {}
-                        ) {
-                            Icon(Icons.Rounded.ArrowUpward, null, modifier = Modifier.size(17.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text("چک‌های پرداختی")
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("انتخاب چک‌ها", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(
-                        "${IranianPhoneUtils.convertDigitsToPersian(selectedIds.size.toString())} انتخاب از ${IranianPhoneUtils.convertDigitsToPersian(eligibleChecks.size.toString())} چک",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                TextButton(
-                    onClick = { selectedIds = if (allSelected) emptySet() else eligibleChecks.map { it.id }.toSet() },
-                    enabled = eligibleChecks.isNotEmpty()
-                ) {
-                    Icon(
-                        if (allSelected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                        null,
-                        modifier = Modifier.size(17.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(if (allSelected) "حذف انتخاب" else "انتخاب همه")
-                }
-            }
-        }
-
-        item {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                placeholder = { Text("جست‌وجوی بانک، شماره چک، مبلغ یا تاریخ…", maxLines = 1) },
-                leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                trailingIcon = if (searchQuery.isNotEmpty()) {
-                    { IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Rounded.Close, "پاک‌کردن جست‌وجو") } }
-                } else null,
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MaturityTypePill(
+                    modifier = Modifier.weight(1f),
+                    title = "چک‌های پرداختی",
+                    selected = type == CheckType.PAID,
+                    icon = Icons.Rounded.ArrowUpward,
+                    onClick = { selectedType = CheckType.PAID.name }
                 )
-            )
+                MaturityTypePill(
+                    modifier = Modifier.weight(1f),
+                    title = "چک‌های دریافتی",
+                    selected = type == CheckType.RECEIVED,
+                    icon = Icons.Rounded.ArrowDownward,
+                    onClick = { selectedType = CheckType.RECEIVED.name }
+                )
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("تاریخ مبنا:", fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                Icon(Icons.Rounded.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary)
+                Surface(
+                    modifier = Modifier.weight(1f).clickable {
+                        datePickerState.selectedDateMillis = baselineMillis
+                        showDatePicker = true
+                    },
+                    shape = RoundedCornerShape(15.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+                ) {
+                    Text(
+                        PersianCalendarHelper.PersianDateTime(
+                            baselineJalali.first, baselineJalali.second, baselineJalali.third
+                        ).toFormattedDate() + " (امروز)",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 13.dp),
+                        textAlign = TextAlign.Center, fontWeight = FontWeight.Bold,
+                        maxLines = 1, style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                OutlinedButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis = baselineMillis
+                        showDatePicker = true
+                    },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 9.dp),
+                    shape = RoundedCornerShape(15.dp)
+                ) {
+                    Icon(Icons.Rounded.EditCalendar, null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("تغییر تاریخ", maxLines = 1)
+                }
+            }
+        }
+
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    placeholder = { Text("جست‌وجو در چک‌ها...", maxLines = 1) },
+                    trailingIcon = { Icon(Icons.Rounded.Search, null) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    )
+                )
+                OutlinedButton(
+                    onClick = { selectedIds = if (allSelected) emptySet() else eligibleChecks.map { it.id }.toSet() },
+                    enabled = eligibleChecks.isNotEmpty(),
+                    contentPadding = PaddingValues(horizontal = 9.dp, vertical = 11.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Rounded.SelectAll, null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text("انتخاب همه", maxLines = 1)
+                }
+                OutlinedButton(
+                    onClick = { selectedIds = emptySet() },
+                    enabled = selectedIds.isNotEmpty(),
+                    contentPadding = PaddingValues(horizontal = 9.dp, vertical = 11.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Rounded.DeleteOutline, null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text("پاک کردن", maxLines = 1)
+                }
+            }
         }
 
         if (eligibleChecks.isEmpty()) {
@@ -288,10 +241,9 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
             }
         } else {
             items(visibleChecks, key = { it.id }) { check ->
-                val selected = check.id in selectedIds
                 MaturityCheckCard(
                     check = check,
-                    selected = selected,
+                    selected = check.id in selectedIds,
                     onSelectedChange = { checked ->
                         selectedIds = if (checked) selectedIds + check.id else selectedIds - check.id
                     }
@@ -300,78 +252,49 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
         }
 
         item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(shape = RoundedCornerShape(11.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer) {
-                            Icon(Icons.Rounded.Calculate, null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(8.dp).size(19.dp))
+            MaturitySummaryCard(
+                total = if (calculation.invalidAmount) "—" else formatRials(calculation.totalRials),
+                count = selectedChecks.size,
+                days = formattedDays,
+                invalidAmount = calculation.invalidAmount
+            )
+        }
+
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    modifier = Modifier.weight(0.85f).height(58.dp),
+                    onClick = {
+                        val shareText = buildString {
+                            append("نتیجه راس‌گیری چک‌ها\\n")
+                            append("تاریخ راس: ${calculation.targetDate ?: "محاسبه نشده"}\\n")
+                            append("مجموع مبلغ: ${if (calculation.invalidAmount) "نامعتبر" else formatRials(calculation.totalRials)}\\n")
+                            append("تعداد چک: ${selectedChecks.size}\\n")
+                            append("فاصله از مبنا: $formattedDays")
                         }
-                        Spacer(Modifier.width(9.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("خلاصه محاسبات", fontWeight = FontWeight.Bold)
-                            Text("بر اساس میانگین موزون مبلغ و روزهای سررسید",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, shareText)
                         }
-                    }
-                    SummaryLine("مجموع مبلغ انتخاب‌شده",
-                        if (calculation.invalidAmount) "—" else formatRials(calculation.totalRials))
-                    SummaryLine("تعداد چک‌های انتخاب‌شده",
-                        IranianPhoneUtils.convertDigitsToPersian(selectedChecks.size.toString()))
-                    SummaryLine("فاصله تاریخ راس از مبنا", formattedDays)
-                    if (calculation.invalidAmount) {
-                        Text("مبلغ یکی از چک‌ها به‌دلیل محدودیت واحد پول قابل تبدیل دقیق نیست؛ محاسبه انجام نشد.",
-                            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    } else if (selectedChecks.isEmpty()) {
-                        Text("برای شروع، حداقل یک چک را انتخاب کن.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        Text("روز اعشاری حاصل از میانگین موزون به نزدیک‌ترین روز گرد می‌شود.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            modifier = Modifier.weight(1f),
-                            onClick = { calculationRevision++ },
-                            shape = RoundedCornerShape(14.dp),
-                            enabled = selectedChecks.isNotEmpty() && !calculation.invalidAmount
-                        ) {
-                            Icon(Icons.Rounded.Calculate, null, modifier = Modifier.size(17.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text("محاسبه مجدد")
-                        }
-                        Button(
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                val shareText = buildString {
-                                    append("نتیجه راس‌گیری چک‌ها\n")
-                                    append("تاریخ راس: ${calculation.targetDate ?: "محاسبه نشده"}\n")
-                                    append("مجموع مبلغ: ${if (calculation.invalidAmount) "نامعتبر" else formatRials(calculation.totalRials)}\n")
-                                    append("تعداد چک: ${selectedChecks.size}\n")
-                                    append("فاصله از مبنا: $formattedDays")
-                                }
-                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, shareText)
-                                }
-                                context.startActivity(Intent.createChooser(sendIntent, "اشتراک نتیجه راس‌گیری"))
-                            },
-                            shape = RoundedCornerShape(14.dp),
-                            enabled = selectedChecks.isNotEmpty() && !calculation.invalidAmount
-                        ) {
-                            Icon(Icons.Rounded.Share, null, modifier = Modifier.size(17.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text("اشتراک نتیجه")
-                        }
-                    }
+                        context.startActivity(Intent.createChooser(sendIntent, "اشتراک نتیجه راس‌گیری"))
+                    },
+                    enabled = selectedChecks.isNotEmpty() && !calculation.invalidAmount,
+                    shape = RoundedCornerShape(28.dp)
+                ) {
+                    Icon(Icons.Rounded.Share, null, modifier = Modifier.size(21.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("اشتراک نتیجه", fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    modifier = Modifier.weight(1.5f).height(58.dp),
+                    onClick = { calculationRevision++ },
+                    enabled = selectedChecks.isNotEmpty() && !calculation.invalidAmount,
+                    shape = RoundedCornerShape(28.dp)
+                ) {
+                    Icon(Icons.Rounded.Calculate, null, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(9.dp))
+                    Text("محاسبه مجدد", fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.titleMedium)
                 }
             }
         }
@@ -393,75 +316,143 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
 }
 
 @Composable
-private fun MaturityOverviewCard(count: Int, total: String) {
+private fun MaturityOverviewCard(count: Int, total: String, targetDate: String?, days: String) {
     val colors = MaterialTheme.colorScheme
+    val gradient = Brush.linearGradient(
+        listOf(colors.primary, colors.tertiary, colors.secondary)
+    )
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         color = colors.surface,
         border = BorderStroke(1.dp, colors.outlineVariant.copy(alpha = 0.55f))
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 15.dp),
+            modifier = Modifier.background(gradient).padding(horizontal = 12.dp, vertical = 17.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Surface(shape = RoundedCornerShape(11.dp), color = colors.primaryContainer) {
-                    Icon(
-                        Icons.Rounded.ReceiptLong,
-                        contentDescription = null,
-                        tint = colors.primary,
-                        modifier = Modifier.padding(8.dp).size(20.dp)
-                    )
-                }
-                Text(
-                    "مجموع مبلغ چک‌ها",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.onSurfaceVariant
-                )
-                Text(
-                    total,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = colors.onSurface,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2
-                )
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Icon(Icons.Rounded.CalendarMonth, null, tint = Color.White, modifier = Modifier.size(39.dp))
+                Text("تاریخ راس", color = Color.White, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium)
+                Text(targetDate ?: "—", color = Color.White, fontWeight = FontWeight.ExtraBold,
+                    style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center,
+                    maxLines = 1)
+                Text("میانگین: $days", color = Color.White, style = MaterialTheme.typography.labelMedium)
             }
-            Box(
-                modifier = Modifier.width(1.dp).height(76.dp)
-                    .background(colors.outlineVariant.copy(alpha = 0.7f))
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Surface(shape = RoundedCornerShape(11.dp), color = colors.secondaryContainer) {
-                    Icon(
-                        Icons.Rounded.Numbers,
-                        contentDescription = null,
-                        tint = colors.secondary,
-                        modifier = Modifier.padding(8.dp).size(20.dp)
-                    )
+            Box(Modifier.width(1.dp).height(116.dp).background(Color.White.copy(alpha = 0.45f)))
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Icon(Icons.Rounded.ReceiptLong, null, tint = Color.White, modifier = Modifier.size(23.dp))
+                    Column {
+                        Text("تعداد چک‌ها", color = Color.White.copy(alpha = 0.85f),
+                            style = MaterialTheme.typography.labelMedium)
+                        Text(IranianPhoneUtils.convertDigitsToPersian(count.toString()),
+                            color = Color.White, fontWeight = FontWeight.ExtraBold)
+                    }
                 }
-                Text(
-                    "تعداد چک‌ها",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.onSurfaceVariant
-                )
-                Text(
-                    IranianPhoneUtils.convertDigitsToPersian(count.toString()),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = colors.primary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Icon(Icons.Rounded.Paid, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    Column {
+                        Text("مجموع مبلغ", color = Color.White.copy(alpha = 0.85f),
+                            style = MaterialTheme.typography.labelMedium)
+                        Text(total, color = Color.White, fontWeight = FontWeight.ExtraBold,
+                            style = MaterialTheme.typography.titleSmall)
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Icon(Icons.Rounded.Schedule, null, tint = Color.White, modifier = Modifier.size(23.dp))
+                    Column {
+                        Text("میانگین فاصله", color = Color.White.copy(alpha = 0.85f),
+                            style = MaterialTheme.typography.labelMedium)
+                        Text(days, color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun MaturityTypePill(
+    modifier: Modifier,
+    title: String,
+    selected: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier.height(58.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(28.dp),
+        color = if (selected) colors.primary else colors.surface,
+        border = BorderStroke(1.dp, if (selected) colors.primary else colors.outlineVariant)
+    ) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            if (selected) Icon(Icons.Rounded.Check, null, tint = colors.onPrimary, modifier = Modifier.size(19.dp))
+            Icon(icon, null, tint = if (selected) colors.onPrimary else colors.primary,
+                modifier = Modifier.size(21.dp))
+            Spacer(Modifier.width(7.dp))
+            Text(title, color = if (selected) colors.onPrimary else colors.onSurface,
+                fontWeight = FontWeight.Bold, maxLines = 1, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun MaturitySummaryCard(total: String, count: Int, days: String, invalidAmount: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(23.dp),
+        color = colors.primaryContainer.copy(alpha = 0.48f),
+        border = BorderStroke(1.dp, colors.primary.copy(alpha = 0.28f))
+    ) {
+        Column(Modifier.padding(top = 10.dp, bottom = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Surface(Modifier.align(Alignment.CenterHorizontally),
+                color = colors.primary, shape = RoundedCornerShape(bottomStart = 18.dp, bottomEnd = 18.dp,
+                    topStart = 18.dp, topEnd = 18.dp)) {
+                Text("خلاصه محاسبات", Modifier.padding(horizontal = 22.dp, vertical = 7.dp),
+                    color = colors.onPrimary, fontWeight = FontWeight.Bold)
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 7.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                SummaryMetric(Modifier.weight(1f), "فاصله میانگین از مبنا", days,
+                    Icons.Rounded.Schedule)
+                Box(Modifier.width(1.dp).height(72.dp).background(colors.outlineVariant))
+                SummaryMetric(Modifier.weight(1f), "تعداد چک‌های انتخاب‌شده",
+                    IranianPhoneUtils.convertDigitsToPersian(count.toString()), Icons.Rounded.ReceiptLong)
+                Box(Modifier.width(1.dp).height(72.dp).background(colors.outlineVariant))
+                SummaryMetric(Modifier.weight(1.15f), "مجموع مبلغ انتخاب‌شده", total,
+                    Icons.Rounded.Paid)
+            }
+            if (invalidAmount) {
+                Text("مبلغ یکی از چک‌ها قابل تبدیل دقیق نیست؛ محاسبه انجام نشد.",
+                    Modifier.padding(horizontal = 14.dp), color = colors.error,
+                    style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryMetric(
+    modifier: Modifier,
+    label: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    Column(modifier.padding(horizontal = 5.dp), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, minLines = 2)
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
+        Text(value, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.Center, maxLines = 2)
     }
 }
 
@@ -568,51 +559,41 @@ private fun ResultMetric(modifier: Modifier, label: String, value: String) {
 }
 
 @Composable
-private fun MaturityCheckCard(
-    check: Check,
-    selected: Boolean,
-    onSelectedChange: (Boolean) -> Unit
-) {
+private fun MaturityCheckCard(check: Check, selected: Boolean, onSelectedChange: (Boolean) -> Unit) {
     val colors = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier.fillMaxWidth().clickable { onSelectedChange(!selected) },
-        shape = RoundedCornerShape(19.dp),
-        color = if (selected) colors.primaryContainer.copy(alpha = 0.48f) else colors.surface,
-        border = BorderStroke(1.dp,
-            if (selected) colors.primary.copy(alpha = 0.58f) else colors.outlineVariant.copy(alpha = 0.55f))
+        shape = RoundedCornerShape(18.dp),
+        color = colors.surface,
+        border = BorderStroke(1.dp, if (selected) colors.primary.copy(alpha = 0.55f)
+            else colors.outlineVariant.copy(alpha = 0.65f))
     ) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Checkbox(checked = selected, onCheckedChange = onSelectedChange)
-            Surface(shape = RoundedCornerShape(12.dp),
-                color = if (selected) colors.primary.copy(alpha = 0.12f) else colors.surfaceVariant) {
-                Icon(Icons.Rounded.AccountBalance, null, tint = colors.primary,
-                    modifier = Modifier.padding(9.dp).size(21.dp))
+        Row(Modifier.heightIn(min = 76.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(0.92f).padding(start = 10.dp, top = 9.dp, bottom = 9.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(check.formattedAmount, color = if (selected) colors.primary else colors.onSurface,
+                    fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1)
+                Text(check.amountUnit.title, color = colors.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall)
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(check.bankName, fontWeight = FontWeight.Bold, maxLines = 1,
-                    color = colors.onSurface)
-                Text("شماره ${check.checkNumber}", style = MaterialTheme.typography.labelSmall,
-                    color = colors.onSurfaceVariant, maxLines = 1)
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Icon(Icons.Rounded.CalendarToday, null, modifier = Modifier.size(13.dp),
-                        tint = colors.onSurfaceVariant)
-                    Text("سررسید ${check.formattedDueDate}", style = MaterialTheme.typography.bodySmall,
-                        color = colors.onSurfaceVariant, maxLines = 1)
-                }
-            }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(check.formattedAmount, fontWeight = FontWeight.ExtraBold,
-                    color = if (selected) colors.primary else colors.onSurface,
+            Box(Modifier.width(1.dp).height(58.dp).background(colors.outlineVariant))
+            Column(Modifier.weight(1.65f).padding(horizontal = 10.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(check.bankName, color = colors.onSurface, fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                Text(check.amountUnit.title, style = MaterialTheme.typography.labelSmall,
-                    color = colors.onSurfaceVariant)
-                Icon(if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                    null, tint = if (selected) colors.primary else colors.outlineVariant,
-                    modifier = Modifier.size(17.dp))
+                Text("شماره: ${check.checkNumber}  •  سررسید: ${check.formattedDueDate}",
+                    color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1)
             }
+            Surface(Modifier.size(43.dp), shape = RoundedCornerShape(50),
+                color = colors.primaryContainer.copy(alpha = 0.65f)) {
+                Icon(Icons.Rounded.AccountBalance, null, tint = colors.primary,
+                    modifier = Modifier.padding(9.dp).size(25.dp))
+            }
+            Box(Modifier.width(1.dp).height(58.dp).background(colors.outlineVariant))
+            Checkbox(checked = selected, onCheckedChange = onSelectedChange,
+                modifier = Modifier.padding(horizontal = 3.dp))
         }
     }
 }
