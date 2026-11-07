@@ -23,6 +23,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.util.AppNumberFormatter
 import com.example.ui.components.Layered3DCard
 import com.example.ui.screens.installments.model.InstallmentSummaryData
 import com.example.ui.theme.EmeraldPrimaryLight
@@ -123,7 +126,7 @@ fun InstallmentsSummaryCard(
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
-                            text = "قسط بعدی: ${summary.nextDueText}",
+                            text = "قسط بعدی: ${AppNumberFormatter.formatDigits(summary.nextDueText, numberMode)}",
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                             color = WarningAmberLight
                         )
