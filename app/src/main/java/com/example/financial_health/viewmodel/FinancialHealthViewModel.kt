@@ -31,21 +31,29 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
     private val installmentRepository = LocalInstallmentRepository.instance
     private val operationError = MutableStateFlow<String?>(null)
 
-    private data class MonthRange(val start: Long, val end: Long, val label: String)
+    private data class MonthRange(
+        val year: Int,
+        val month: Int,
+        val start: Long,
+        val end: Long,
+        val label: String
+    )
+
+    private fun monthRange(year: Int, month: Int): MonthRange {
+        require(month in 1..12) { "Persian month must be between 1 and 12." }
+        val start = PersianCalendarHelper.jalaliToEpochMillis(year, month, 1, 0, 0)
+        val nextYear = if (month == 12) year + 1 else year
+        val nextMonth = if (month == 12) 1 else month + 1
+        val end = PersianCalendarHelper.jalaliToEpochMillis(nextYear, nextMonth, 1, 0, 0)
+        return MonthRange(year, month, start, end, PersianCalendarHelper.PERSIAN_MONTH_NAMES[month - 1])
+    }
 
     private fun monthRange(offset: Int): MonthRange {
         val today = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
-        var year = today.year
-        var month = today.month + offset
-        while (month < 1) { month += 12; year -= 1 }
-        while (month > 12) { month -= 12; year += 1 }
-        val start = PersianCalendarHelper.jalaliToEpochMillis(year, month, 1, 0, 0)
-        var nextYear = year
-        var nextMonth = month + 1
-        if (nextMonth > 12) { nextMonth = 1; nextYear += 1 }
-        val end = PersianCalendarHelper.jalaliToEpochMillis(nextYear, nextMonth, 1, 0, 0)
-        val names = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
-        return MonthRange(start, end, names[month - 1])
+        val absoluteMonth = today.month - 1 + offset
+        val year = today.year + Math.floorDiv(absoluteMonth, 12)
+        val month = Math.floorMod(absoluteMonth, 12) + 1
+        return monthRange(year, month)
     }
 
     private fun dueMillis(date: String): Long? {
@@ -129,8 +137,12 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         configuredCurrentMonthIncome: Long?
     ): List<MonthlyPressureData> {
         val result = mutableListOf<MonthlyPressureData>()
-        for (offset in -5..0) {
-            val range = monthRange(offset)
+        val currentDate = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        // Keep a stable January-to-December Jalali year axis; future or unavailable
+        // months remain explicit empty slots instead of shifting the chart window.
+        for (month in 1..12) {
+            val range = monthRange(currentDate.year, month)
+            val isCurrentMonth = month == currentDate.month
             // Preserve all six calendar slots. Missing or incomplete source data is represented
             // explicitly, so the chart never connects non-consecutive months as if data existed.
             val hasIncompleteRelevantSchedule = installments.any { item ->
@@ -145,7 +157,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
                 continue
             }
 
-            val income: Long? = if (offset == 0 && configuredCurrentMonthIncome != null) {
+            val income: Long? = if (isCurrentMonth && configuredCurrentMonthIncome != null) {
                 configuredCurrentMonthIncome
             } else {
                 val monthIncomeTransactions = transactions.filter {
@@ -229,8 +241,10 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             installments = allInstallments,
             configuredCurrentMonthIncome = income.takeIf { profile.isConfigured }
         )
-        val currentHistoryPressure = history.lastOrNull { it.monthName == currentMonth.label && it.hasData }?.pressurePercentage
-        val previousPressure = history.lastOrNull { it.monthName == previousMonth.label && it.hasData }?.pressurePercentage
+        val currentHistoryPressure = history.firstOrNull { it.monthName == currentMonth.label && it.hasData }?.pressurePercentage
+        // January has no previous-month point in the current-year chart; do not
+        // accidentally compare it with an older year's January/December data.
+        val previousPressure = history.firstOrNull { it.monthName == previousMonth.label && it.hasData }?.pressurePercentage
         val status = pressure?.let { FinancialAnalyzerEngine.calculateHealthStatus(it) } ?: FinancialHealthStatus.MEDIUM
 
         val unpaidPayments = active.flatMap { item ->
