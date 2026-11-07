@@ -147,7 +147,7 @@ fun CheckScreen(
         topBar = {
             AppSectionHeader(
                 title = if (showMaturityScreen) "راس‌گیری چک" else "مدیریت چک‌ها",
-                subtitle = if (showMaturityScreen) "محاسبه میانگین موزون سررسید" else "نمای کلی چک‌های دریافتی و پرداختی",
+                subtitle = if (showMaturityScreen) "محاسبه هوشمند تاریخ راس چک‌ها" else "نمای کلی چک‌های دریافتی و پرداختی",
                 leadingIcon = {
                     if (showMaturityScreen) {
                         Box(
