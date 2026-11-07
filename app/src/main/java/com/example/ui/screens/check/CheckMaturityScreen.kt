@@ -97,7 +97,10 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
         baselineGregorian.get(Calendar.MONTH) + 1,
         baselineGregorian.get(Calendar.DAY_OF_MONTH)
     )
-    val calculation = remember(selectedChecks, baselineGregorianDate) { calculateMaturity(selectedChecks, baselineGregorianDate) }
+    var calculationRevision by rememberSaveable { mutableIntStateOf(0) }
+    val calculation = remember(selectedChecks, baselineGregorianDate, calculationRevision) {
+        calculateMaturity(selectedChecks, baselineGregorianDate)
+    }
     val allSelected = eligibleChecks.isNotEmpty() && selectedIds.size == eligibleChecks.size
     val formattedDays = calculation.roundedDays?.let {
         val dayText = IranianPhoneUtils.convertDigitsToPersian(kotlin.math.abs(it).toString())
@@ -238,8 +241,11 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     onClick = { selectedIds = if (allSelected) emptySet() else eligibleChecks.map { it.id }.toSet() },
                     enabled = eligibleChecks.isNotEmpty()
                 ) {
-                    Icon(if (allSelected) Icons.Rounded.CheckCircle else Icons.Rounded.CheckCircle,
-                        null, modifier = Modifier.size(17.dp))
+                    Icon(
+                        if (allSelected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                        null,
+                        modifier = Modifier.size(17.dp)
+                    )
                     Spacer(Modifier.width(4.dp))
                     Text(if (allSelected) "حذف انتخاب" else "انتخاب همه")
                 }
@@ -334,13 +340,13 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             modifier = Modifier.weight(1f),
-                            onClick = { selectedIds = emptySet(); searchQuery = "" },
+                            onClick = { calculationRevision++ },
                             shape = RoundedCornerShape(14.dp),
-                            enabled = selectedIds.isNotEmpty()
+                            enabled = selectedChecks.isNotEmpty() && !calculation.invalidAmount
                         ) {
-                            Icon(Icons.Rounded.Refresh, null, modifier = Modifier.size(17.dp))
+                            Icon(Icons.Rounded.Calculate, null, modifier = Modifier.size(17.dp))
                             Spacer(Modifier.width(5.dp))
-                            Text("پاک‌سازی انتخاب")
+                            Text("محاسبه مجدد")
                         }
                         Button(
                             modifier = Modifier.weight(1f),
