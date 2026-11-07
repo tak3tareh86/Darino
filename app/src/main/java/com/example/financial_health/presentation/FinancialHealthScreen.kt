@@ -167,27 +167,37 @@ fun FinancialHealthScreen(
                 SmartAlertsSection(state = state)
             }
 
-            // 6. Historical Financial Pressure Trend Chart (نمودار فشار مالی در ماه‌های گذشته)
+            // 6. Current Jalali year's financial pressure trend (all 12 months)
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val chartYear = state.historicalPressureYear.takeIf { it > 0 }
+                        ?: PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year
+                    val chartYearText = IranianPhoneUtils.convertDigitsToPersian(chartYear.toString())
                     Text(
-                        text = "روند سهم اقساط از درآمد در ماه‌های اخیر",
+                        text = "روند سهم اقساط از درآمد در سال $chartYearText",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    if (state.historicalPressureList.isEmpty()) {
+                    if (state.historicalPressureList.none { it.hasData }) {
                         Text(
-                            text = "برای نمایش روند واقعی، باید درآمد ثبت‌شده و برنامه اقساط دارای تاریخ و مبلغ در ماه‌های اخیر وجود داشته باشد. در حال حاضر داده کافی برای نمودار نداریم.",
+                            text = "برای سال $chartYearText هنوز داده معتبر کافی وجود ندارد. هر ۱۲ ماه سال در نمودار حفظ می‌شوند و ماه‌های فاقد داده با — مشخص خواهند شد.",
                             style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        FinancialPressureChart(
+                            dataPoints = state.historicalPressureList,
+                            year = chartYear
+                        )
                     } else {
-                        FinancialPressureChart(dataPoints = state.historicalPressureList)
+                        FinancialPressureChart(
+                            dataPoints = state.historicalPressureList,
+                            year = chartYear
+                        )
                         Text(
-                            text = "در نمودار، ماه‌های فاقد داده معتبر با — مشخص می‌شوند و بین آن‌ها خط روندی رسم نمی‌شود.",
+                            text = "نمودار فقط اطلاعات همین سال شمسی را نشان می‌دهد؛ ماه‌های فاقد داده معتبر با — مشخص می‌شوند و بین آن‌ها خط روندی رسم نمی‌شود.",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 16.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
