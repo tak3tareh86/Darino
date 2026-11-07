@@ -20,6 +20,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.example.util.AppNumberFormatter
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.installments.model.InstallmentItem
@@ -32,6 +35,7 @@ fun InstallmentCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val numberMode by AppNumberFormatter.modeFlow.collectAsState()
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
     Layered3DCard(
@@ -169,7 +173,7 @@ fun InstallmentCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "سررسید: ${item.nextPaymentDate}",
+                        text = "سررسید: ${AppNumberFormatter.formatDigits(item.displayNextPaymentDate, numberMode)}",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
