@@ -494,18 +494,30 @@ private fun FinancialCommitmentsBreakdownCard(
                 )
 
                 // Total commitments summary
-                Row(
+                val hasCompleteFinancialData =
+                    state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData
+                val missingFinancialDataMessage = when {
+                    !state.hasIncomeData -> "برای محاسبه دقیق فشار مالی، درآمد ماهانه را ثبت کنید."
+                    !state.hasFixedExpensesData -> "برای محاسبه دقیق فشار مالی، هزینه‌های ثابت را ثبت کنید."
+                    !state.hasInstallmentScheduleData -> "برای محاسبه دقیق فشار مالی، برنامه اقساط را کامل کنید."
+                    else -> "اقساط + هزینه‌های ثابت"
+                }
+
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
                         .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f))
                         .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = if (state.hasFixedExpensesData && state.hasInstallmentScheduleData) "مجموع کل تعهدات" else "مجموع مبالغ ثبت‌شده",
+                            text = if (hasCompleteFinancialData) "مجموع کل تعهدات" else "مجموع مبالغ ثبت‌شده",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
@@ -513,36 +525,31 @@ private fun FinancialCommitmentsBreakdownCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = when {
-                                !state.hasFixedExpensesData -> "هزینه ثابت هنوز ثبت نشده"
-                                !state.hasInstallmentScheduleData -> "برنامه اقساط ناقص است"
-                                else -> "اقساط + هزینه‌های ثابت"
-                            },
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) {
-                            MoneyFormatter.formatExact(MoneyAmount.of(state.totalCommitments, AppCurrency.RIAL))
-                        } else "اطلاعات ناقص",
+                            text = if (hasCompleteFinancialData) {
+                                MoneyFormatter.formatExact(MoneyAmount.of(state.totalCommitments, AppCurrency.RIAL))
+                            } else "اطلاعات ناقص",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 15.sp
                             ),
                             color = MaterialTheme.colorScheme.primary
                         )
-                        Text(
-                            text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) "معادل ${formatFinancialPercentage(state.pressurePercentage)}٪ درآمد" else "برای محاسبه، درآمد و هزینه ثابت را ثبت کنید و برنامه اقساط را کامل کنید",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            ),
-                            color = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) state.healthStatus.color else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
+
+                    Text(
+                        text = if (hasCompleteFinancialData) {
+                            "معادل ${formatFinancialPercentage(state.pressurePercentage)}٪ درآمد"
+                        } else {
+                            missingFinancialDataMessage
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp
+                        ),
+                        color = if (hasCompleteFinancialData) state.healthStatus.color
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
