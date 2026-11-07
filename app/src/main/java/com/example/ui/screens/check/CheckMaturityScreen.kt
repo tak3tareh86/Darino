@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -164,7 +163,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                         }) {
                             Text("تغییر تاریخ")
                             Spacer(Modifier.width(4.dp))
-                            Icon(Icons.Rounded.EditCalendar, null, modifier = Modifier.size(17.dp))
+                            Icon(Icons.Rounded.CalendarMonth, null, modifier = Modifier.size(17.dp))
                         }
                     }
                     Surface(
@@ -207,7 +206,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                             icon = {}
                         ) {
-                            Icon(Icons.Rounded.CallReceived, null, modifier = Modifier.size(17.dp))
+                            Icon(Icons.Rounded.ArrowDownward, null, modifier = Modifier.size(17.dp))
                             Spacer(Modifier.width(5.dp))
                             Text("چک‌های دریافتی")
                         }
@@ -217,7 +216,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                             icon = {}
                         ) {
-                            Icon(Icons.Rounded.CallMade, null, modifier = Modifier.size(17.dp))
+                            Icon(Icons.Rounded.ArrowUpward, null, modifier = Modifier.size(17.dp))
                             Spacer(Modifier.width(5.dp))
                             Text("چک‌های پرداختی")
                         }
@@ -239,7 +238,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     onClick = { selectedIds = if (allSelected) emptySet() else eligibleChecks.map { it.id }.toSet() },
                     enabled = eligibleChecks.isNotEmpty()
                 ) {
-                    Icon(if (allSelected) Icons.Rounded.Deselect else Icons.Rounded.SelectAll,
+                    Icon(if (allSelected) Icons.Rounded.CheckCircle else Icons.Rounded.CheckCircle,
                         null, modifier = Modifier.size(17.dp))
                     Spacer(Modifier.width(4.dp))
                     Text(if (allSelected) "حذف انتخاب" else "انتخاب همه")
@@ -399,7 +398,7 @@ private fun MaturityOverviewCard(count: Int, total: String) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = RoundedCornerShape(13.dp), color = colors.primaryContainer) {
-                Icon(Icons.Rounded.AccountBalanceWallet, null,
+                Icon(Icons.Rounded.AccountBalance, null,
                     tint = colors.primary, modifier = Modifier.padding(10.dp).size(22.dp))
             }
             Spacer(Modifier.width(12.dp))
@@ -448,7 +447,7 @@ private fun MaturityResultCard(
                     Text("میانگین موزون سررسید چک‌ها", style = MaterialTheme.typography.labelSmall,
                         color = colors.onSurfaceVariant)
                 }
-                Icon(Icons.Rounded.Insights, null, tint = colors.primary.copy(alpha = 0.8f),
+                Icon(Icons.Rounded.SsidChart, null, tint = colors.primary.copy(alpha = 0.8f),
                     modifier = Modifier.size(25.dp))
             }
             Text(
