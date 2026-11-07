@@ -950,7 +950,7 @@ class CheckManagementTest {
     }
 
     @Test
-    fun `test bounced check replacement links both records and preserves total amount`() = runBlocking {
+    fun `test bounced check replacement links both records and stores actual replacement amount`() = runBlocking {
         val now = System.currentTimeMillis()
         val original = Check(
             id = 0,
@@ -969,10 +969,10 @@ class CheckManagementTest {
         assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(original))
         val savedOriginal = repository.getChecks().first().single { it.checkNumber == "BOUNCED-ORIGINAL" }
 
-        // Same financial value expressed in Rial must be accepted as the replacement.
+        // The replacement can carry a newly agreed amount; it is stored as entered.
         val replacement = savedOriginal.copy(
             id = 0,
-            amount = 100000,
+            amount = 125000,
             amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL,
             checkNumber = "REPLACEMENT-001",
             bankName = "Bank B",
@@ -991,12 +991,12 @@ class CheckManagementTest {
         assertEquals(savedReplacement.id, updatedOriginal?.replacedByCheckId)
         assertEquals(CheckStatus.REGISTERED, savedReplacement.status)
         assertEquals(savedOriginal.id, savedReplacement.replacesCheckId)
-        assertEquals(10000L, savedReplacement.amount)
-        assertEquals(com.example.ui.screens.settings.model.AppCurrency.TOMAN, savedReplacement.amountUnit)
+        assertEquals(125000L, savedReplacement.amount)
+        assertEquals(com.example.ui.screens.settings.model.AppCurrency.RIAL, savedReplacement.amountUnit)
     }
 
     @Test
-    fun `test replacement with different amount is rejected without changing original`() = runBlocking {
+    fun `test replacement with different amount is accepted and original is excluded`() = runBlocking {
         val now = System.currentTimeMillis()
         val original = Check(
             id = 0,
@@ -1016,10 +1016,13 @@ class CheckManagementTest {
         val saved = repository.getChecks().first().single { it.checkNumber == "BOUNCED-AMOUNT" }
         val wrongAmount = saved.copy(id = 0, amount = 6000, checkNumber = "WRONG-AMOUNT", status = CheckStatus.REGISTERED)
 
-        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.replaceCheck(saved.id, wrongAmount))
-        assertEquals(CheckStatus.BOUNCED, repository.getCheckById(saved.id)?.status)
-        assertNull(repository.getCheckById(saved.id)?.replacedByCheckId)
-        assertFalse(repository.getChecks().first().any { it.checkNumber == "WRONG-AMOUNT" })
+        assertEquals(CheckOperationResult.SUCCESS, repository.replaceCheck(saved.id, wrongAmount))
+        val updatedOriginal = repository.getCheckById(saved.id)
+        val newCheck = repository.getChecks().first().single { it.checkNumber == "WRONG-AMOUNT" }
+        assertEquals(CheckStatus.REPLACED, updatedOriginal?.status)
+        assertEquals(newCheck.id, updatedOriginal?.replacedByCheckId)
+        assertEquals(6000L, newCheck.amount)
+        assertEquals(CheckStatus.REGISTERED, newCheck.status)
     }
 
     @Test
