@@ -16,7 +16,8 @@ enum class CheckStatus(val title: String, val color: Long) {
     PENDING("در انتظار", 0xFFF59E0B),
     CLEARED("وصول شده", 0xFF10B981),
     BOUNCED("برگشتی", 0xFFEF4444),
-    CANCELED("لغو شده", 0xFF94A3B8)
+    CANCELED("لغو شده", 0xFF94A3B8),
+    REPLACED("جایگزین شده", 0xFF64748B)
 }
 
 data class Check(
