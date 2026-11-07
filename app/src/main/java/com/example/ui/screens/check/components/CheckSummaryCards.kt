@@ -53,6 +53,19 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
     // Keep the existing business calculations unchanged; this component only changes presentation.
     val totalCount = checks.size
     val totalAmount = checks.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) }
+    // Only outstanding checks contribute to these balances. Cleared and canceled
+    // checks are excluded; bounced checks are excluded because they are not active receivables/payables.
+    val outstandingChecks = checks.filter {
+        it.status == CheckStatus.REGISTERED || it.status == CheckStatus.PENDING
+    }
+    val receivedOutstanding = outstandingChecks.filter { it.type == CheckType.RECEIVED }
+    val paidOutstanding = outstandingChecks.filter { it.type == CheckType.PAID }
+    val receivedOutstandingAmount = receivedOutstanding.fold(0L) { total, check ->
+        Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact())
+    }
+    val paidOutstandingAmount = paidOutstanding.fold(0L) { total, check ->
+        Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact())
+    }
     val (curYear, curMonth, _) = currentJalaliDate
     val startMonthMillis = PersianCalendarHelper.jalaliToEpochMillis(curYear, curMonth, 1, 0, 0)
     val (nextYear, nextMonth) = if (curMonth < 12) Pair(curYear, curMonth + 1) else Pair(curYear + 1, 1)
@@ -88,9 +101,10 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
         )
         TotalChecksCard(
             modifier = Modifier.fillMaxWidth(),
-            totalCount = totalCount,
-            countLabel = countLabel,
-            totalAmount = totalAmount
+            receivedCount = receivedOutstanding.size,
+            receivedAmount = receivedOutstandingAmount,
+            paidCount = paidOutstanding.size,
+            paidAmount = paidOutstandingAmount
         )
     }
 }
@@ -98,65 +112,90 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
 @Composable
 private fun TotalChecksCard(
     modifier: Modifier,
-    totalCount: Int,
-    countLabel: String,
-    totalAmount: Long
+    receivedCount: Int,
+    receivedAmount: Long,
+    paidCount: Int,
+    paidAmount: Long
 ) {
+    val scheme = MaterialTheme.colorScheme
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f)
+            containerColor = scheme.primaryContainer.copy(alpha = 0.24f)
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+        border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.65f))
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
+            modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Rounded.ReceiptLong,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp)
+            OutstandingCheckSummary(
+                modifier = Modifier.weight(1f),
+                title = "چک‌های دریافتی ثبت‌شده",
+                count = receivedCount,
+                amount = receivedAmount,
+                color = scheme.primary
             )
-            Text(
-                "تعداد کل چک‌ها",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-            Text(
-                countLabel,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1
-            )
-            Spacer(Modifier.weight(1f))
             Box(
-                modifier = Modifier.width(1.dp).height(26.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant)
+                modifier = Modifier.width(1.dp).height(48.dp)
+                    .background(scheme.outlineVariant)
             )
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(1.dp)
-            ) {
-                Text(
-                    "مجموع مبلغ",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-                CompactCheckAmountText(
-                    totalAmount,
-                    MaterialTheme.colorScheme.onSurface,
-                    Modifier.widthIn(min = 70.dp, max = 132.dp),
-                    13f
-                )
-            }
+            OutstandingCheckSummary(
+                modifier = Modifier.weight(1f),
+                title = "چک‌های پرداختی ثبت‌شده",
+                count = paidCount,
+                amount = paidAmount,
+                color = scheme.error
+            )
         }
+    }
+}
+
+@Composable
+private fun OutstandingCheckSummary(
+    modifier: Modifier,
+    title: String,
+    count: Int,
+    amount: Long,
+    color: androidx.compose.ui.graphics.Color
+) {
+    Column(
+        modifier = modifier.padding(horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                title,
+                modifier = Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.labelSmall,
+                color = color,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                "${IranianPhoneUtils.convertDigitsToPersian(count.toString())} فقره",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
+        CompactCheckAmountText(
+            amount,
+            MaterialTheme.colorScheme.onSurface,
+            Modifier.fillMaxWidth(),
+            12f
+        )
     }
 }
 
