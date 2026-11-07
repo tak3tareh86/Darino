@@ -137,7 +137,8 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
                 val start = dueMillis(item.startDate)
                 val end = dueMillis(item.endDate)
                 val overlapsMonth = start != null && end != null && start < range.end && end >= range.start
-                overlapsMonth && !hasCompletePaymentHistory(item)
+                val contractRangeUnknown = item.remainingInstallments > 0 && (start == null || end == null)
+                (overlapsMonth || contractRangeUnknown) && !hasCompletePaymentHistory(item)
             }
             if (hasIncompleteRelevantSchedule) {
                 result += MonthlyPressureData(range.label, 0f, 0L, 0L, hasData = false)
