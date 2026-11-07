@@ -259,7 +259,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
-                placeholder = { Text("جست‌وجوی بانک، شماره چک یا مبلغ…", maxLines = 1) },
+                placeholder = { Text("جست‌وجوی بانک، شماره چک، مبلغ یا تاریخ…", maxLines = 1) },
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 trailingIcon = if (searchQuery.isNotEmpty()) {
                     { IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Rounded.Close, "پاک‌کردن جست‌وجو") } }
@@ -397,29 +397,69 @@ private fun MaturityOverviewCard(count: Int, total: String) {
     val colors = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(20.dp),
         color = colors.surface,
         border = BorderStroke(1.dp, colors.outlineVariant.copy(alpha = 0.55f))
     ) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Surface(shape = RoundedCornerShape(13.dp), color = colors.primaryContainer) {
-                Icon(Icons.Rounded.AccountBalance, null,
-                    tint = colors.primary, modifier = Modifier.padding(10.dp).size(22.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 15.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(shape = RoundedCornerShape(11.dp), color = colors.primaryContainer) {
+                    Icon(
+                        Icons.Rounded.ReceiptLong,
+                        contentDescription = null,
+                        tint = colors.primary,
+                        modifier = Modifier.padding(8.dp).size(20.dp)
+                    )
+                }
+                Text(
+                    "مجموع مبلغ چک‌ها",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.onSurfaceVariant
+                )
+                Text(
+                    total,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = colors.onSurface,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
             }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("مجموع مبلغ چک‌های انتخابی", style = MaterialTheme.typography.labelMedium,
-                    color = colors.onSurfaceVariant)
-                Text(total, style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold, color = colors.onSurface)
-            }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("تعداد چک", style = MaterialTheme.typography.labelMedium,
-                    color = colors.onSurfaceVariant)
-                Text(IranianPhoneUtils.convertDigitsToPersian(count.toString()),
-                    style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold,
-                    color = colors.primary)
+            Box(
+                modifier = Modifier.width(1.dp).height(76.dp)
+                    .background(colors.outlineVariant.copy(alpha = 0.7f))
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(shape = RoundedCornerShape(11.dp), color = colors.secondaryContainer) {
+                    Icon(
+                        Icons.Rounded.Numbers,
+                        contentDescription = null,
+                        tint = colors.secondary,
+                        modifier = Modifier.padding(8.dp).size(20.dp)
+                    )
+                }
+                Text(
+                    "تعداد چک‌ها",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.onSurfaceVariant
+                )
+                Text(
+                    IranianPhoneUtils.convertDigitsToPersian(count.toString()),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = colors.primary
+                )
             }
         }
     }
@@ -436,40 +476,78 @@ private fun MaturityResultCard(
     val colors = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
-        color = colors.primaryContainer.copy(alpha = 0.62f),
-        border = BorderStroke(1.dp, colors.primary.copy(alpha = 0.22f))
+        shape = RoundedCornerShape(22.dp),
+        color = colors.primaryContainer.copy(alpha = 0.48f),
+        border = BorderStroke(1.dp, colors.primary.copy(alpha = 0.24f))
     ) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(12.dp), color = colors.primary.copy(alpha = 0.12f)) {
-                    Icon(Icons.Rounded.AutoGraph, null, tint = colors.primary,
-                        modifier = Modifier.padding(9.dp).size(21.dp))
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(11.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(shape = RoundedCornerShape(10.dp), color = colors.primary.copy(alpha = 0.12f)) {
+                    Icon(
+                        Icons.Rounded.AutoGraph,
+                        contentDescription = null,
+                        tint = colors.primary,
+                        modifier = Modifier.padding(8.dp).size(20.dp)
+                    )
                 }
                 Spacer(Modifier.width(9.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("نتیجه راس‌گیری", fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium, color = colors.onSurface)
-                    Text("میانگین موزون سررسید چک‌ها", style = MaterialTheme.typography.labelSmall,
-                        color = colors.onSurfaceVariant)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "تاریخ راس چک‌ها",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colors.onSurface
+                    )
+                    Text(
+                        "میانگین موزون سررسید چک‌های انتخاب‌شده",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.onSurfaceVariant
+                    )
                 }
-                Icon(Icons.Rounded.SsidChart, null, tint = colors.primary.copy(alpha = 0.8f),
-                    modifier = Modifier.size(25.dp))
+                Icon(
+                    Icons.Rounded.EventAvailable,
+                    contentDescription = null,
+                    tint = colors.primary,
+                    modifier = Modifier.size(22.dp)
+                )
             }
             Text(
-                targetDate ?: if (invalidAmount) "محاسبه نامعتبر" else "در انتظار انتخاب چک",
+                targetDate ?: if (invalidAmount) "محاسبه نامعتبر" else "—",
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold,
-                color = if (invalidAmount) colors.error else colors.primary
+                color = if (invalidAmount) colors.error else colors.primary,
+                textAlign = TextAlign.Center,
+                maxLines = 1
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 ResultMetric(Modifier.weight(1f), "فاصله از تاریخ مبنا", days)
-                ResultMetric(Modifier.weight(1f), "چک‌های مؤثر", IranianPhoneUtils.convertDigitsToPersian(selectedCount.toString()))
+                ResultMetric(
+                    Modifier.weight(1f),
+                    "تعداد چک مؤثر",
+                    IranianPhoneUtils.convertDigitsToPersian(selectedCount.toString())
+                )
             }
             Text(
-                if (selectedCount == 0) "با انتخاب چک‌ها، تاریخ راس به‌صورت خودکار محاسبه می‌شود."
-                else "نتیجه بر اساس مجموع مبلغ $total و میانگین موزون روزهای سررسید محاسبه شده است.",
-                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant
+                when {
+                    invalidAmount -> "به‌دلیل محدودیت تبدیل مبلغ، تاریخ راس قابل محاسبه نیست."
+                    selectedCount == 0 -> "با انتخاب چک‌ها، تاریخ راس به‌صورت خودکار محاسبه می‌شود."
+                    else -> "مجموع مبلغ مبنای محاسبه: $total"
+                },
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+                textAlign = TextAlign.Center
             )
         }
     }
