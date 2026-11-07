@@ -148,16 +148,28 @@ fun CheckScreen(
                 title = if (showMaturityScreen) "راس‌گیری چک" else "مدیریت چک‌ها",
                 subtitle = if (showMaturityScreen) "محاسبه میانگین موزون سررسید" else "نمای کلی چک‌های دریافتی و پرداختی",
                 leadingIcon = {
-                    Icon(
-                        imageVector = if (showMaturityScreen) Icons.Rounded.ArrowForward else Icons.Rounded.ReceiptLong,
-                        contentDescription = if (showMaturityScreen) "راس‌گیری چک" else "مدیریت چک‌ها",
-                        tint = if (MaterialTheme.colorScheme.background.red < 0.2f) {
-                            Color.White
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                        modifier = Modifier.size(24.dp)
-                    )
+                    if (showMaturityScreen) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable { showMaturityScreen = false },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.ArrowForward,
+                                contentDescription = "بازگشت به مدیریت چک‌ها",
+                                tint = if (MaterialTheme.colorScheme.background.red < 0.2f) Color.White else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.ReceiptLong,
+                            contentDescription = "مدیریت چک‌ها",
+                            tint = if (MaterialTheme.colorScheme.background.red < 0.2f) Color.White else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 },
                 actions = {
                     if (!showMaturityScreen) {
