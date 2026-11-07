@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.screens.check.components.CheckCard
 import com.example.ui.screens.check.model.Check
 import com.example.ui.screens.check.model.CheckType
+import com.example.ui.screens.check.model.CheckStatus
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
@@ -283,9 +284,17 @@ fun LazyListScope.checkReportSection(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
-                    Text("تعداد کل: ${IranianPhoneUtils.convertDigitsToPersian(summary.totalCount.toString())} چک")
+                    Text("تعداد چک‌های مؤثر در جمع: ${IranianPhoneUtils.convertDigitsToPersian(summary.totalCount.toString())} فقره")
+                    val replacedHistoryCount = results.count { it.status == CheckStatus.REPLACED }
+                    if (replacedHistoryCount > 0) {
+                        Text(
+                            "سوابق چک‌های جایگزین‌شده برای پیگیری: ${IranianPhoneUtils.convertDigitsToPersian(replacedHistoryCount.toString())} فقره (در جمع مبلغ محاسبه نشده‌اند)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("جمع مبلغ اسمی همه وضعیت‌ها", fontWeight = FontWeight.SemiBold)
+                        Text("جمع مبلغ اسمی بدون دوباره‌شماری جایگزین‌ها", fontWeight = FontWeight.SemiBold)
                         Text(MoneyFormatter.formatExact(MoneyAmount.of(summary.totalNominalAmount, AppCurrency.RIAL)), fontWeight = FontWeight.Bold)
                     }
                     HorizontalDivider()
@@ -303,7 +312,7 @@ fun LazyListScope.checkReportSection(
                         }
                     }
                     Text(
-                        "این ارقام جمع مبلغ اسمی چک‌های ثبت‌شده‌اند و وضعیت هر چک جداگانه مشخص شده است؛ این مبالغ به معنی مانده حساب، وجه وصول‌شده یا تعهد فعال نیستند.",
+                        "سوابق جایگزین‌شده در فهرست باقی می‌مانند، اما مبلغ آن‌ها برای جلوگیری از دوباره‌شماری از خلاصه حذف شده است. این ارقام به معنی مانده حساب، وجه وصول‌شده یا تعهد فعال نیستند.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
