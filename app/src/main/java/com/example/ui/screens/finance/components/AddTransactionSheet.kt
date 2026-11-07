@@ -441,6 +441,7 @@ fun AddTransactionSheet(
                     errorMessage = null
                 },
                 allowDecimalInput = true,
+                lenientGroupingWhileEditing = true,
                 onRawDecimalAmountChange = { rawValue, _ ->
                     rawAmount = rawValue
                     errorMessage = null
