@@ -30,9 +30,7 @@ import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import java.math.BigDecimal
 import java.math.BigInteger
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
+import java.util.TimeZone
 import java.util.Calendar
 
 private data class MaturityCalculation(
@@ -60,20 +58,26 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
         selectedIds = selectedIds.intersect(eligibleChecks.map { it.id }.toSet())
     }
 
-    val today = remember {
+    val todayMillis = remember {
         val now = Calendar.getInstance()
-        LocalDate.of(now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1, now.get(Calendar.DAY_OF_MONTH))
+        Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH), 0, 0, 0)
+        }.timeInMillis
     }
-    val todayMillis = remember(today) { today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
     var baselineMillis by rememberSaveable { mutableLongStateOf(todayMillis) }
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = baselineMillis)
     val selectedChecks = remember(eligibleChecks, selectedIds) { eligibleChecks.filter { it.id in selectedIds } }
     val baselineGregorian = remember(baselineMillis) {
-        Instant.ofEpochMilli(baselineMillis).atZone(ZoneOffset.UTC).toLocalDate()
+        Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = baselineMillis }
     }
-    val baselineJalali = remember(baselineGregorian) {
-        PersianCalendarHelper.gregorianToJalali(baselineGregorian.year, baselineGregorian.monthValue, baselineGregorian.dayOfMonth)
+    val baselineJalali = remember(baselineMillis) {
+        PersianCalendarHelper.gregorianToJalali(
+            baselineGregorian.get(Calendar.YEAR),
+            baselineGregorian.get(Calendar.MONTH) + 1,
+            baselineGregorian.get(Calendar.DAY_OF_MONTH)
+        )
     }
     val calculation = remember(selectedChecks, baselineJalali) { calculateMaturity(selectedChecks, baselineJalali) }
     val allSelected = eligibleChecks.isNotEmpty() && selectedIds.size == eligibleChecks.size
@@ -89,8 +93,10 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     Text("محاسبه سررسید موزون", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
                     Text("چک‌ها را انتخاب کن تا تاریخ راس را ببینی", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Surface(onClick = onBack, shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                    Icon(Icons.Rounded.ArrowForward, contentDescription = "بازگشت", modifier = Modifier.padding(11.dp))
+                Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Rounded.ArrowForward, contentDescription = "بازگشت")
+                    }
                 }
             }
         }
@@ -310,9 +316,19 @@ private fun calculateMaturity(checks: List<Check>, baselineJalali: Triple<Int, I
         return MaturityCalculation(total, null, null, invalidAmount = true)
     }
     val baseGregorian = PersianCalendarHelper.jalaliToGregorian(baselineJalali.first, baselineJalali.second, baselineJalali.third)
-    val target = try { LocalDate.of(baseGregorian.first, baseGregorian.second, baseGregorian.third).plusDays(offset) }
-    catch (_: Exception) { return MaturityCalculation(total, null, null, invalidAmount = true) }
-    val jalali = PersianCalendarHelper.gregorianToJalali(target.year, target.monthValue, target.dayOfMonth)
+    val target = try {
+        val dayOffset = Math.toIntExact(offset)
+        Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(baseGregorian.first, baseGregorian.second - 1, baseGregorian.third, 12, 0, 0)
+            add(Calendar.DAY_OF_MONTH, dayOffset)
+        }
+    } catch (_: Exception) {
+        return MaturityCalculation(total, null, null, invalidAmount = true)
+    }
+    val jalali = PersianCalendarHelper.gregorianToJalali(
+        target.get(Calendar.YEAR), target.get(Calendar.MONTH) + 1, target.get(Calendar.DAY_OF_MONTH)
+    )
     val formatted = PersianCalendarHelper.PersianDateTime(jalali.first, jalali.second, jalali.third).toFormattedDate()
     return MaturityCalculation(total, offset, formatted)
 }
