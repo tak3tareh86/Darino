@@ -53,7 +53,8 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
         checks.filter {
             it.type == type && it.amount > 0 &&
                 it.status != CheckStatus.CLEARED &&
-                it.status != CheckStatus.CANCELED
+                it.status != CheckStatus.CANCELED &&
+                it.status != CheckStatus.REPLACED
         }.sortedBy { it.dueDate }
     }
     var selectedIds by remember { mutableStateOf(emptySet<Int>()) }
