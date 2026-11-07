@@ -591,7 +591,7 @@ interface CheckDao {
             replacement.checkNumber == original.checkNumber || replacement.status != "REGISTERED") {
             return 0
         }
-        val insertedId = insertCheck(replacement.copy(id = 0, replacedByCheckId = null))
+        val insertedId = insertCheck(replacement.copy(id = 0, replacedByCheckId = null, replacesCheckId = originalId))
         if (insertedId <= 0L) throw IllegalStateException("Replacement check insert failed")
         val updated = markCheckReplaced(userId, originalId, insertedId.toInt(), System.currentTimeMillis())
         if (updated != 1) throw IllegalStateException("Original check state changed during replacement")
