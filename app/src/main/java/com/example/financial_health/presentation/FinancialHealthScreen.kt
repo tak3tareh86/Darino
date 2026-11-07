@@ -668,7 +668,9 @@ private fun InstallmentsAnalysisSectionCard(
 
             // 2x2 Metric Grid
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Metric 1: Count
@@ -740,7 +742,7 @@ private fun AnalysisMetricTile(
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
     Surface(
-        modifier = modifier,
+        modifier = modifier.fillMaxHeight(),
         shape = RoundedCornerShape(12.dp),
         color = if (isDark) Color(0xFF18243A) else Color(0xFFF8FAFC),
         border = BorderStroke(1.dp, accentColor.copy(alpha = 0.22f))
@@ -754,10 +756,13 @@ private fun AnalysisMetricTile(
         ) {
             Text(
                 text = title,
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                ),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                minLines = 2
             )
             Text(
                 text = value,
@@ -771,12 +776,14 @@ private fun AnalysisMetricTile(
             )
             Text(
                 text = subtext,
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     color = accentColor
                 ),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                minLines = 2
             )
         }
     }
