@@ -735,7 +735,10 @@ private fun AnalysisMetricTile(
         border = BorderStroke(1.dp, accentColor.copy(alpha = 0.22f))
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
@@ -752,7 +755,8 @@ private fun AnalysisMetricTile(
                     fontSize = 13.5.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 ),
-                maxLines = 1
+                maxLines = 1,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             Text(
                 text = subtext,
@@ -760,7 +764,8 @@ private fun AnalysisMetricTile(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     color = accentColor
-                )
+                ),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
     }
