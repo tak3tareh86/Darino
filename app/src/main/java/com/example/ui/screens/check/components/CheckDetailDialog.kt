@@ -26,7 +26,8 @@ fun CheckDetailDialog(
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onSettle: (com.example.ui.screens.finance.model.Account) -> Unit
+    onSettle: (com.example.ui.screens.finance.model.Account) -> Unit,
+    onReplace: () -> Unit
 ) {
     var showSettleDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -113,6 +114,19 @@ fun CheckDetailDialog(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // A bounced check can be replaced by a new check of the same amount and type.
+            if (check.status == CheckStatus.BOUNCED && check.replacedByCheckId == null) {
+                OutlinedButton(
+                    onClick = onReplace,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Rounded.Sync, null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("ثبت چک جایگزین", fontWeight = FontWeight.Bold)
+                }
+            }
 
             // Actions
             if (check.status == CheckStatus.REGISTERED || check.status == CheckStatus.PENDING || check.status == CheckStatus.BOUNCED) {
