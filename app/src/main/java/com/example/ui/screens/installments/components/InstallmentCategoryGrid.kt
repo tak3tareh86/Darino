@@ -11,11 +11,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.util.AppNumberFormatter
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.installments.model.CategorySummaryStat
@@ -87,6 +90,8 @@ private fun CategoryGridCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val numberMode by AppNumberFormatter.modeFlow.collectAsState()
+
     Layered3DCard(
         modifier = modifier,
         shape = RoundedCornerShape(RadiusMD),
@@ -129,7 +134,7 @@ private fun CategoryGridCard(
             )
 
             Text(
-                text = item.remainingFormatted,
+                text = AppNumberFormatter.formatDigits(item.remainingFormatted, numberMode),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp
