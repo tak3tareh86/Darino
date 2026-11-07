@@ -173,7 +173,7 @@ fun InstallmentCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "سررسید: ${AppNumberFormatter.formatDigits(item.displayNextPaymentDate, numberMode)}",
+                        text = "سررسید: ${item.displayNextPaymentDate}",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
