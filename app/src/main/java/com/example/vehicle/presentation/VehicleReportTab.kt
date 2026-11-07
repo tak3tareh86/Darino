@@ -337,7 +337,7 @@ fun VehicleReportTab(
                     )
 
                     statistics.categoryBreakdown.forEach { item ->
-                        val amountStr = MoneyFormatter.formatExact(MoneyAmount.of(item.amount, item.amountUnit), includeUnit = false)
+                        val amountStr = MoneyFormatter.formatExact(MoneyAmount.of(item.amount, AppCurrency.RIAL), includeUnit = false)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
