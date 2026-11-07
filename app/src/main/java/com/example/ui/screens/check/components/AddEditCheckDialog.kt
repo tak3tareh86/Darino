@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.ui.screens.settings.model.AlertDeliveryPreference
+import com.example.ui.screens.settings.model.AppCurrency
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +31,7 @@ import com.example.ui.screens.check.model.Check
 import com.example.ui.screens.check.model.CheckStatus
 import com.example.ui.screens.check.model.CheckType
 import com.example.util.IranianAmountUtils
+import com.example.util.MoneyAmount
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import java.util.*
