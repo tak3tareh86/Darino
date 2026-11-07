@@ -21,7 +21,9 @@ import com.example.ui.screens.settings.model.AppCurrency
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.DecimalFormat
@@ -30,6 +32,21 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
     private val repository = FinancialHealthRepository(application)
     private val installmentRepository = LocalInstallmentRepository.instance
     private val operationError = MutableStateFlow<String?>(null)
+
+    // Refresh the current Jalali year at its boundary even when the underlying
+    // database flows remain idle while this screen is open.
+    private val calendarRefresh = flow {
+        while (true) {
+            emit(Unit)
+            val now = System.currentTimeMillis()
+            val jalaliYear = PersianCalendarHelper.fromEpochMillis(now).year
+            val nextJalaliYearStart = PersianCalendarHelper.jalaliToEpochMillis(
+                jalaliYear + 1, 1, 1, 0, 0
+            )
+            delay((nextJalaliYearStart - now).coerceIn(1L, 24L * 60L * 60L * 1000L))
+        }
+    }
+    private val refreshedOperationError = combine(operationError, calendarRefresh) { error, _ -> error }
 
     private data class MonthRange(
         val year: Int,
@@ -143,7 +160,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         for (month in 1..12) {
             val range = monthRange(currentDate.year, month)
             val isCurrentMonth = month == currentDate.month
-            // Preserve all six calendar slots. Missing or incomplete source data is represented
+            // Preserve all twelve calendar slots. Missing or incomplete source data is represented
             // explicitly, so the chart never connects non-consecutive months as if data existed.
             val hasIncompleteRelevantSchedule = installments.any { item ->
                 val start = dueMillis(item.startDate)
@@ -201,7 +218,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
 
     val uiState: StateFlow<FinancialHealthState> = combine(
         repository.profileFlow, repository.transactionsFlow, installmentSnapshotFlow,
-        repository.vehicleServicesFlow, operationError
+        repository.vehicleServicesFlow, refreshedOperationError
     ) { profile, transactions, installmentSnapshot, vehicleServices, currentError ->
         val allInstallments = installmentSnapshot.first
         val installmentDataAvailable = installmentSnapshot.second
