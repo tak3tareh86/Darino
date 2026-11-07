@@ -225,7 +225,7 @@ fun AddEditCheckDialog(
                     SegmentedButton(
                         selected = type == CheckType.RECEIVED,
                         onClick = { type = CheckType.RECEIVED },
-                        enabled = check?.status != CheckStatus.CLEARED,
+                        enabled = !isReplacement && check?.status != CheckStatus.CLEARED,
                         shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                         icon = { Icon(Icons.Rounded.CallReceived, null) }
                     ) {
@@ -240,6 +240,14 @@ fun AddEditCheckDialog(
                     ) {
                         Text(CheckType.PAID.title)
                     }
+                }
+
+                if (isReplacement) {
+                    Text(
+                        "مبلغ را مطابق مبلغ واقعی چک جدید وارد کنید؛ ممکن است با چک برگشتی قبلی متفاوت باشد.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 PersianAmountInputField(
