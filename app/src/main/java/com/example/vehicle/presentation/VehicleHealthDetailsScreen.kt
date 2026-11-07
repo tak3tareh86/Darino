@@ -118,10 +118,10 @@ fun VehicleHealthDetailsScreen(
                             )
                         )
                         Column(
-                            modifier = Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 14.dp)
+                            modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 14.dp)
                                 .widthIn(max = 180.dp),
                             horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
                             Text(
                                 "امتیاز سلامت خودرو",
@@ -131,7 +131,7 @@ fun VehicleHealthDetailsScreen(
                             SemiCircularHealthGauge(
                                 score = report.healthScorePercent,
                                 color = statusColor,
-                                modifier = Modifier.width(145.dp).height(62.dp)
+                                modifier = Modifier.width(145.dp).height(72.dp)
                             )
                             Text(
                                 text = IranianPhoneUtils.convertDigitsToPersian(report.healthScorePercent.toString()) + "٪",
