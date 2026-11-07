@@ -144,18 +144,24 @@ data class InstallmentSummaryData(
     val nextDueTitle: String = "-",
     val amountUnit: AppCurrency = AppCurrency.RIAL
 ) {
+    // Aggregate summary values are stored in canonical Rials; MoneyFormatter applies the active Settings currency.
     val displayPaid: String
-        get() = MoneyFormatter.formatExact(MoneyAmount.of(paidAmount, amountUnit))
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(paidAmount, AppCurrency.RIAL))
 
     val displayRemaining: String
-        get() = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmount, amountUnit))
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmount, AppCurrency.RIAL))
 }
 
 data class CategorySummaryStat(
     val category: InstallmentCategory,
     val countText: String,
+    // Canonical aggregate value; installment summaries are normalized to Rials.
+    val remainingAmountRials: Long
+) {
+    // Resolve the display currency at render time so Settings changes are reflected immediately.
     val remainingFormatted: String
-)
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(remainingAmountRials, AppCurrency.RIAL))
+}
 
 /**
  * Facade delegating directly to [com.example.ui.screens.installments.data.LocalInstallmentRepository]
@@ -188,7 +194,7 @@ object InstallmentMockDataSource {
             CategorySummaryStat(
                 category = it.category,
                 countText = it.countText,
-                remainingFormatted = it.remainingFormatted
+                remainingAmountRials = it.remainingAmountRials
             )
         }
 
