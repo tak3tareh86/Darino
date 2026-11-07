@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.screens.check.components.CheckBankLogo
 import com.example.ui.screens.check.model.Check
 import com.example.ui.screens.check.model.CheckStatus
 import com.example.ui.screens.check.model.CheckType
@@ -586,11 +587,10 @@ private fun MaturityCheckCard(check: Check, selected: Boolean, onSelectedChange:
                     color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
                     maxLines = 1)
             }
-            Surface(Modifier.size(43.dp), shape = RoundedCornerShape(50),
-                color = colors.primaryContainer.copy(alpha = 0.65f)) {
-                Icon(Icons.Rounded.AccountBalance, null, tint = colors.primary,
-                    modifier = Modifier.padding(9.dp).size(25.dp))
-            }
+            CheckBankLogo(
+                bankName = check.bankName,
+                modifier = Modifier.size(48.dp)
+            )
             Box(Modifier.width(1.dp).height(58.dp).background(colors.outlineVariant))
             Checkbox(checked = selected, onCheckedChange = onSelectedChange,
                 modifier = Modifier.padding(horizontal = 3.dp))
