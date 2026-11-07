@@ -24,6 +24,10 @@ import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -131,8 +135,8 @@ fun LazyListScope.checkReportSection(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
             )
         ) {
-            var yearMenuExpanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-            var monthMenuExpanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            var yearMenuExpanded by remember { mutableStateOf(false) }
+            var monthMenuExpanded by remember { mutableStateOf(false) }
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -217,13 +221,7 @@ fun LazyListScope.checkReportSection(
                             onDismissRequest = { monthMenuExpanded = false }
                         ) {
                             Column(Modifier.width(280.dp).padding(8.dp)) {
-                                FlowRow(
-                                    maxItemsInEachRow = 3,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    TextButton(
+                                TextButton(
                                     onClick = { onMonthChange(0); monthMenuExpanded = false },
                                     modifier = Modifier.fillMaxWidth(),
                                     contentPadding = PaddingValues(vertical = 4.dp)
@@ -233,7 +231,13 @@ fun LazyListScope.checkReportSection(
                                         color = if (selectedMonth == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                     )
                                 }
-                                CheckReportFilter.monthNames.forEachIndexed { index, name ->
+                                FlowRow(
+                                    maxItemsInEachRow = 3,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    CheckReportFilter.monthNames.forEachIndexed { index, name ->
                                         TextButton(
                                             onClick = { onMonthChange(index + 1); monthMenuExpanded = false },
                                             modifier = Modifier.width(86.dp),
