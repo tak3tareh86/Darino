@@ -53,8 +53,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
         checks.filter {
             it.type == type && it.amount > 0 &&
                 it.status != CheckStatus.CLEARED &&
-                it.status != CheckStatus.CANCELED &&
-                it.status != CheckStatus.BOUNCED
+                it.status != CheckStatus.CANCELED
         }.sortedBy { it.dueDate }
     }
     var selectedIds by remember { mutableStateOf(emptySet<Int>()) }
@@ -230,7 +229,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
             item {
                 EmptyMaturityState(
                     title = "چک واجد شرایطی پیدا نشد",
-                    message = "چک‌های تسویه‌شده، لغوشده و برگشتی در راس‌گیری وارد نمی‌شوند."
+                    message = "چک‌های وصول‌شده و لغوشده در راس‌گیری وارد نمی‌شوند؛ چک‌های برگشتیِ تسویه‌نشده محاسبه می‌شوند."
                 )
             }
         } else if (visibleChecks.isEmpty()) {
