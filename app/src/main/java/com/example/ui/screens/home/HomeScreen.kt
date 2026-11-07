@@ -335,10 +335,10 @@ fun HomeScreen(
                             onTypeChange = { id, type ->
                                 viewModel.updateSmsTransactionType(id, type)
                             },
-                            onUpdateCustomDetails = { id, amount, type, cat, acc, dest ->
-                                viewModel.updateSmsCustomDetails(id, amount, type, cat, acc, dest)
+                            onUpdateCustomDetails = { id, cat, acc, dest ->
+                                viewModel.updateSmsCustomDetails(id, cat, acc, dest)
                             },
-                            onAccept = { id, amount, type, cat, acc, desc, dest, onResult ->
+                            onAccept = { id, amountRials, type, cat, acc, desc, dest, onResult ->
                                 viewModel.acceptSmsSuggestion(
                                     id = id,
                                     customType = type,
@@ -346,7 +346,7 @@ fun HomeScreen(
                                     customAccount = acc,
                                     customDescription = desc,
                                     destAccount = dest,
-                                    customAmount = amount
+                                    customAmountRials = amountRials
                                 ) { result ->
                                     scope.launch {
                                         when (result) {

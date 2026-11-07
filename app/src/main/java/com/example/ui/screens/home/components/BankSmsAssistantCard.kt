@@ -112,8 +112,8 @@ fun BankSmsAssistantCard(
     queue: List<BankSmsSuggestion>,
     userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
     onTypeChange: (id: String, type: TransactionType) -> Unit,
-    onAccept: (id: String, amount: Long?, type: TransactionType?, category: String?, account: String?, desc: String?, dest: String?, onResult: (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit) -> Unit = { _, _, _, _, _, _, _, _ -> },
-    onUpdateCustomDetails: (id: String, amount: Long?, type: TransactionType?, category: String?, account: String?, destAccount: String?) -> Unit = { _, _, _, _, _, _ -> },
+    onAccept: (id: String, amountRials: Long?, type: TransactionType?, category: String?, account: String?, desc: String?, dest: String?, onResult: (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit) -> Unit = { _, _, _, _, _, _, _, _ -> },
+    onUpdateCustomDetails: (id: String, category: String?, account: String?, destAccount: String?) -> Unit = { _, _, _, _ -> },
     onDismiss: (id: String) -> Unit,
     onRequestPermission: () -> Unit,
     liveSmsEnabled: Boolean = true,
@@ -134,9 +134,9 @@ fun BankSmsAssistantCard(
             suggestion = editingSuggestion,
             userAccounts = userAccounts,
             onDismiss = { editingSuggestionId = null },
-            onConfirm = { amount, type, cat, acc, desc, dest, onResult ->
-                onUpdateCustomDetails(editingSuggestion.id, amount, type, cat, acc, dest)
-                onAccept(editingSuggestion.id, amount, type, cat, acc, desc, dest) { result ->
+            onConfirm = { amountRials, type, cat, acc, desc, dest, onResult ->
+                onUpdateCustomDetails(editingSuggestion.id, cat, acc, dest)
+                onAccept(editingSuggestion.id, amountRials, type, cat, acc, desc, dest) { result ->
                     if (result == com.example.ui.screens.home.viewmodel.SmsAcceptResult.Success ||
                         result == com.example.ui.screens.home.viewmodel.SmsAcceptResult.AlreadyExists
                     ) {
@@ -795,12 +795,17 @@ private fun SmsGrantedContentView(
                             }
                         }
 
+                        val convertedAmount = MoneyFormatter.formatExact(
+                            MoneyAmount.of(item.amount, item.amountUnit),
+                            targetCurrency = appCurrency
+                        )
+                        val signedAmount = when (item.type) {
+                            TransactionType.EXPENSE -> "−$convertedAmount"
+                            TransactionType.INCOME -> "+$convertedAmount"
+                            TransactionType.TRANSFER, null -> convertedAmount
+                        }
                         Text(
-                            text = when (item.type) {
-                                TransactionType.EXPENSE -> MoneyFormatter.formatRawSignedAmount(item.amount, isExpense = true, currency = appCurrency)
-                                TransactionType.INCOME -> MoneyFormatter.formatRawSignedAmount(item.amount, isExpense = false, currency = appCurrency)
-                                TransactionType.TRANSFER, null -> MoneyFormatter.formatRawAmount(item.amount, currency = appCurrency)
-                            },
+                            text = signedAmount,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
@@ -1063,7 +1068,11 @@ fun EditSmsTransactionDialog(
         )
     }
     val amountDecimal = remember(amountText) { IranianAmountUtils.parseAmountToBigDecimal(amountText) }
-    val amountRials = remember(amountDecimal, appCurrency) { amountDecimal?.let { runCatching { MoneyAmount(it, appCurrency).asRialsLongExact() }.getOrNull() } ?: 0L }
+    // Convert the user's app-currency entry to canonical Rials exactly.
+    // Fractional Rials and overflow are rejected rather than rounded.
+    val amountRials = remember(amountDecimal, appCurrency) {
+        amountDecimal?.let { runCatching { MoneyAmount(it, appCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
+    }
     val validAmount = amountDecimal != null && amountDecimal.signum() > 0 && amountRials > 0L
     val amountOptions = remember(
         suggestion.id, suggestion.amount, suggestion.isAmountValid,
@@ -1336,7 +1345,7 @@ fun EditSmsTransactionDialog(
                             val dst=if(t==TransactionType.TRANSFER)destinationId else null
                             if(t==TransactionType.TRANSFER&&dst.isNullOrBlank()){error="لطفاً حساب مقصد را انتخاب کنید.";return@Button}
                             submitting=true;error=null
-                            onConfirm(amountRials,t,category.trim().ifEmpty{suggestion.category},src,"ثبت از پیامک " + suggestion.bankName,dst){result->
+                            onConfirm(amountRials, t, category.trim().ifEmpty { suggestion.category }, src, "ثبت از پیامک " + suggestion.bankName, dst) { result ->
                                 submitting=false
                                 when(result){
                                     com.example.ui.screens.home.viewmodel.SmsAcceptResult.Success,com.example.ui.screens.home.viewmodel.SmsAcceptResult.AlreadyExists->onDismiss()

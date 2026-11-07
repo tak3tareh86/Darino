@@ -301,11 +301,11 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     // Transaction type is immutable after parsing; configured templates and the generic parser both determine it.
     fun updateSmsTransactionType(id: String, newType: TransactionType) = Unit
 
-    /** Persist user-selected category and account links while keeping the original SMS evidence intact. */
+    /** Persist user-selected category and account links while keeping original SMS evidence intact.
+     * Amount overrides are applied only to the final transaction after exact currency conversion.
+     */
     fun updateSmsCustomDetails(
         id: String,
-        amount: Long? = null,
-        type: TransactionType? = null,
         category: String? = null,
         account: String? = null,
         destAccount: String? = null
@@ -358,7 +358,7 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
         customAccount: String? = null,
         customDescription: String? = null,
         destAccount: String? = null,
-        customAmount: Long? = null,
+        customAmountRials: Long? = null,
         onResult: (SmsAcceptResult) -> Unit = {}
     ) {
         viewModelScope.launch {
@@ -428,7 +428,10 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                 }
 
                 // 2. Amount validation: must be strictly positive and valid
-                val finalAmountRials = customAmount ?: runCatching { MoneyAmount.of(item.amount, item.amountUnit).asRialsLongExact() }.getOrNull()
+                // TransactionEntity stores canonical Rials regardless of the app display currency.
+                // The review dialog converts user input to Rials exactly before passing it here.
+                val finalAmountRials = customAmountRials
+                    ?: runCatching { MoneyAmount.of(item.amount, item.amountUnit).asRialsLongExact() }.getOrNull()
                 if (finalAmountRials == null || finalAmountRials <= 0L) {
                     onResult(SmsAcceptResult.InvalidAmount)
                     return@withLock
