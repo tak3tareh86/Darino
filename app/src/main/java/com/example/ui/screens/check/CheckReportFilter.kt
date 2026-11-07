@@ -30,6 +30,7 @@ object CheckReportFilter {
         checks.asSequence()
             .filter { type == null || it.type == type }
             .map { PersianCalendarHelper.fromEpochMillis(it.dueDate).year }
+            .plus(PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).year)
             .distinct()
             .sortedDescending()
             .toList()

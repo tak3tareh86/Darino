@@ -1,11 +1,17 @@
 package com.example.ui.screens.check
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
@@ -13,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
@@ -124,43 +131,126 @@ fun LazyListScope.checkReportSection(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
             )
         ) {
+            var yearMenuExpanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            var monthMenuExpanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("سال شمسیِ سررسید", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                 ) {
-                    FilterChip(
-                        selected = selectedYear == 0,
-                        onClick = { onYearChange(0) },
-                        label = { Text("همه سال‌ها") }
-                    )
-                    availableYears.forEach { year ->
-                        FilterChip(
-                            selected = selectedYear == year,
-                            onClick = { onYearChange(year) },
-                            label = { Text(IranianPhoneUtils.convertDigitsToPersian(year.toString())) }
-                        )
+                    Box(Modifier.weight(1f)) {
+                        OutlinedButton(
+                            onClick = { yearMenuExpanded = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+                        ) {
+                            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                                Text("سال سررسید", style = MaterialTheme.typography.labelSmall)
+                                Text(
+                                    if (selectedYear == 0) "همه سال‌ها"
+                                    else IranianPhoneUtils.convertDigitsToPersian(selectedYear.toString()),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب سال")
+                        }
+                        DropdownMenu(
+                            expanded = yearMenuExpanded,
+                            onDismissRequest = { yearMenuExpanded = false }
+                        ) {
+                            Column(
+                                Modifier.width(280.dp).heightIn(max = 280.dp)
+                                    .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                                    .padding(8.dp)
+                            ) {
+                                FlowRow(
+                                    maxItemsInEachRow = 3,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    (listOf(0) + availableYears).forEach { year ->
+                                        val label = if (year == 0) "همه سال‌ها"
+                                            else IranianPhoneUtils.convertDigitsToPersian(year.toString())
+                                        TextButton(
+                                            onClick = { onYearChange(year); yearMenuExpanded = false },
+                                            modifier = Modifier.width(86.dp),
+                                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp)
+                                        ) {
+                                            Text(
+                                                label,
+                                                maxLines = 1,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = if (selectedYear == year) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (selectedYear == year) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
-                }
-
-                Text("ماه شمسی", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    FilterChip(
-                        selected = selectedMonth == 0,
-                        onClick = { onMonthChange(0) },
-                        label = { Text("همه ماه‌ها") }
-                    )
-                    CheckReportFilter.monthNames.forEachIndexed { index, name ->
-                        FilterChip(
-                            selected = selectedMonth == index + 1,
+                    Box(Modifier.weight(1f)) {
+                        OutlinedButton(
+                            onClick = { if (selectedYear != 0) monthMenuExpanded = true },
                             enabled = selectedYear != 0,
-                            onClick = { onMonthChange(index + 1) },
-                            label = { Text(name) }
-                        )
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+                        ) {
+                            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                                Text("ماه سررسید", style = MaterialTheme.typography.labelSmall)
+                                Text(
+                                    if (selectedMonth == 0) "همه ماه‌ها" else CheckReportFilter.monthNames[selectedMonth - 1],
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                            Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب ماه")
+                        }
+                        DropdownMenu(
+                            expanded = monthMenuExpanded,
+                            onDismissRequest = { monthMenuExpanded = false }
+                        ) {
+                            Column(Modifier.width(280.dp).padding(8.dp)) {
+                                FlowRow(
+                                    maxItemsInEachRow = 3,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    TextButton(
+                                    onClick = { onMonthChange(0); monthMenuExpanded = false },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        "همه ماه‌ها",
+                                        color = if (selectedMonth == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                CheckReportFilter.monthNames.forEachIndexed { index, name ->
+                                        TextButton(
+                                            onClick = { onMonthChange(index + 1); monthMenuExpanded = false },
+                                            modifier = Modifier.width(86.dp),
+                                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp)
+                                        ) {
+                                            Text(
+                                                name,
+                                                maxLines = 1,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = if (selectedMonth == index + 1) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (selectedMonth == index + 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 if (selectedYear == 0) {
