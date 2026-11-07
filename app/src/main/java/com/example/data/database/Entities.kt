@@ -306,7 +306,7 @@ data class CheckEntity(
     val dueDate: Long,
     val status: String, // "REGISTERED", "PENDING", "CLEARED", "BOUNCED", "CANCELED", "REPLACED"
     val notes: String? = null,
-    val replacedByCheckId: Int? = null,
+    @ColumnInfo(defaultValue = "NULL") val replacedByCheckId: Int? = null,
     val accountId: String? = null, // پیوند به حساب مالی
     val reminderDateTime: Long? = null, // زمان یادآور اختصاصی
     val createdAt: Long = System.currentTimeMillis(),
