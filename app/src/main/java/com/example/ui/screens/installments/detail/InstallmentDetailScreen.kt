@@ -286,12 +286,12 @@ fun InstallmentDetailScreen(
                     InfoRow(
                         icon = Icons.Rounded.CalendarMonth,
                         label = "قسط بعدی:",
-                        value = "${AppNumberFormatter.formatDigits(item.nextPaymentDate, numberMode)} (${AppNumberFormatter.formatDigits(item.nextDueDaysText, numberMode)})"
+                        value = "${item.displayNextPaymentDate} (${item.displayNextDueDaysText})"
                     )
                     InfoRow(
                         icon = Icons.Rounded.CalendarMonth,
                         label = "دوره قرارداد:",
-                        value = "از ${AppNumberFormatter.formatDigits(item.startDate, numberMode)} تا ${AppNumberFormatter.formatDigits(item.endDate, numberMode)}"
+                        value = "از ${item.displayStartDate} تا ${item.displayEndDate}"
                     )
 
                     if (!item.vehicleName.isNullOrEmpty()) {
@@ -625,9 +625,9 @@ private fun PaymentHistoryRow(item: PaymentHistoryItem) {
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                             color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        item.paidDate?.let { paidDate ->
+                        item.displayPaidDate?.let { paidDate ->
                             Text(
-                                text = "تاریخ پرداخت: ${AppNumberFormatter.formatDigits(paidDate, numberMode)}",
+                                text = "تاریخ پرداخت: $paidDate",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                                 color = if (item.isPaidLate) ExpenseRoseLight.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
