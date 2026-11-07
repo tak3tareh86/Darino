@@ -578,7 +578,7 @@ interface CheckDao {
         updatedAt: Long
     ): Int
 
-    @Query("UPDATE checks SET status = 'REPLACED', replacedByCheckId = :replacementId, updatedAt = :updatedAt WHERE userId = :userId AND id = :checkId AND status = 'BOUNCED' AND replacedByCheckId IS NULL AND deletedAt IS NULL")
+    @Query("UPDATE checks SET status = 'REPLACED', replacedByCheckId = :replacementId, reminderDateTime = NULL, updatedAt = :updatedAt WHERE userId = :userId AND id = :checkId AND status = 'BOUNCED' AND replacedByCheckId IS NULL AND deletedAt IS NULL")
     suspend fun markCheckReplaced(userId: String, checkId: Int, replacementId: Int, updatedAt: Long): Int
 
     @Transaction
