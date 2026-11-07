@@ -158,29 +158,46 @@ fun CheckDetailDialog(
             }
 
             if (check.status != CheckStatus.CLEARED && check.status != CheckStatus.REPLACED) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                if (check.replacesCheckId != null) {
                     OutlinedButton(
                         onClick = onEdit,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("ویرایش")
+                        Text("ویرایش چک جایگزین")
                     }
-
-                    OutlinedButton(
-                        onClick = { showDeleteConfirmation = true },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    Text(
+                        "برای حفظ سابقه ارتباط با چک قبلی، حذف مستقیم این چک غیرفعال است؛ در صورت نیاز می‌توانید وضعیت آن را لغو کنید.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("حذف")
+                        OutlinedButton(
+                            onClick = onEdit,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("ویرایش")
+                        }
+
+                        OutlinedButton(
+                            onClick = { showDeleteConfirmation = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("حذف")
+                        }
                     }
                 }
             } else {
