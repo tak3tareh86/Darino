@@ -27,7 +27,9 @@ fun CheckDetailDialog(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onSettle: (com.example.ui.screens.finance.model.Account) -> Unit,
-    onReplace: () -> Unit
+    onReplace: () -> Unit,
+    relatedCheckNumber: String? = null,
+    originalCheckNumber: String? = null
 ) {
     var showSettleDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -74,6 +76,20 @@ fun CheckDetailDialog(
 
             // Info Grid
             InfoRow(label = "شماره چک", value = check.checkNumber, icon = Icons.Rounded.Tag)
+            if (check.replacedByCheckId != null) {
+                InfoRow(
+                    label = "جایگزین شده با چک",
+                    value = relatedCheckNumber ?: "شناسه ${check.replacedByCheckId}",
+                    icon = Icons.Rounded.Sync
+                )
+            }
+            if (check.replacesCheckId != null) {
+                InfoRow(
+                    label = "جایگزین چک قبلی",
+                    value = originalCheckNumber ?: "شناسه ${check.replacesCheckId}",
+                    icon = Icons.Rounded.Link
+                )
+            }
             if (check.sayadId != null) {
                 InfoRow(label = "شناسه صیادی", value = check.sayadId, icon = Icons.Rounded.QrCode)
             }
