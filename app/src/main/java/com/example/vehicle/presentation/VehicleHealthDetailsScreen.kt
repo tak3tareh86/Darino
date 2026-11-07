@@ -64,20 +64,23 @@ fun VehicleHealthDetailsScreen(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onBack, modifier = Modifier.size(44.dp)) {
-                        Icon(Icons.Rounded.ArrowBack, contentDescription = "بازگشت",
-                            tint = MaterialTheme.colorScheme.onSurface)
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterLeft).size(44.dp)) {
+                            Icon(Icons.Rounded.ArrowBack, contentDescription = "بازگشت",
+                                tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        Text(
+                            text = "وضعیت سلامت و استهلاک خودرو",
+                            modifier = Modifier.align(Alignment.Center).padding(horizontal = 46.dp),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2
+                        )
+                        Icon(Icons.Rounded.HealthAndSafety, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.align(Alignment.CenterRight).size(30.dp))
                     }
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "وضعیت سلامت و استهلاک خودرو",
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center
-                    )
-                    Icon(Icons.Rounded.HealthAndSafety, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
                 }
             }
 
@@ -102,7 +105,7 @@ fun VehicleHealthDetailsScreen(
                         Image(
                             painter = painterResource(id = R.drawable.img_3d_car),
                             contentDescription = "تصویر خودرو",
-                            modifier = Modifier.align(Alignment.CenterStart).fillMaxHeight().fillMaxWidth(0.58f),
+                            modifier = Modifier.align(Alignment.CenterLeft).fillMaxHeight().fillMaxWidth(0.58f),
                             contentScale = ContentScale.Crop
                         )
                         Box(
@@ -115,8 +118,8 @@ fun VehicleHealthDetailsScreen(
                             )
                         )
                         Column(
-                            modifier = Modifier.align(Alignment.TopEnd).padding(top = 15.dp, end = 16.dp)
-                                .widthIn(max = 190.dp),
+                            modifier = Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 14.dp)
+                                .widthIn(max = 180.dp),
                             horizontalAlignment = Alignment.End,
                             verticalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
@@ -128,12 +131,12 @@ fun VehicleHealthDetailsScreen(
                             SemiCircularHealthGauge(
                                 score = report.healthScorePercent,
                                 color = statusColor,
-                                modifier = Modifier.width(150.dp).height(78.dp)
+                                modifier = Modifier.width(145.dp).height(62.dp)
                             )
                             Text(
                                 text = IranianPhoneUtils.convertDigitsToPersian(report.healthScorePercent.toString()) + "٪",
                                 style = MaterialTheme.typography.headlineLarge.copy(
-                                    fontWeight = FontWeight.ExtraBold, fontSize =  thirtySp
+                                    fontWeight = FontWeight.ExtraBold, fontSize = 27.sp
                                 ),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -163,14 +166,14 @@ fun VehicleHealthDetailsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Rounded.CheckCircle, contentDescription = null,
-                                tint = statusColor, modifier = Modifier.size(22.dp))
                             Text(
                                 text = report.level.summaryText,
                                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 2
                             )
+                            Icon(Icons.Rounded.CheckCircle, contentDescription = null,
+                                tint = statusColor, modifier = Modifier.size(22.dp))
                         }
                     }
                 }
@@ -209,7 +212,6 @@ fun VehicleHealthDetailsScreen(
     }
 }
 
-private val thirtySp = 30.sp
 
 @Composable
 private fun SemiCircularHealthGauge(
