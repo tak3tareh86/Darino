@@ -61,7 +61,7 @@ fun CheckCard(check: Check, onClick: () -> Unit, modifier: Modifier = Modifier) 
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -94,7 +94,7 @@ fun CheckCard(check: Check, onClick: () -> Unit, modifier: Modifier = Modifier) 
                 }
 
                 Box(
-                    Modifier.width(1.dp).fillMaxHeight()
+                    Modifier.width(1.dp).height(72.dp)
                         .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f))
                 )
 

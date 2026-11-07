@@ -48,13 +48,13 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
     val countLabel = remember(totalCount) { IranianPhoneUtils.convertDigitsToPersian(totalCount.toString()) }
 
     Row(
-        modifier = modifier.fillMaxWidth().height(IntrinsicSize.Min),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Top
     ) {
         // In RTL layout this first card appears on the right, matching the reference composition.
         MonthChecksCard(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
+            modifier = Modifier.weight(1f),
             monthName = monthName,
             monthCount = monthChecks.size,
             receivedAmount = receivedMonthAmount,
@@ -64,7 +64,7 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
             bouncedAmount = bouncedMonthAmount
         )
         TotalChecksCard(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
+            modifier = Modifier.weight(1f),
             totalCount = totalCount,
             countLabel = countLabel,
             totalAmount = totalAmount
