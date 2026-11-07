@@ -1083,6 +1083,47 @@ class CheckManagementTest {
     }
 
     @Test
+    fun `test bounced check with existing ledger transaction cannot be replaced`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val original = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 5000,
+            checkNumber = "BOUNCED-WITH-LEDGER",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = now,
+            dueDate = now + 86400000,
+            status = CheckStatus.BOUNCED
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(original))
+        val saved = repository.getChecks().first().single { it.checkNumber == "BOUNCED-WITH-LEDGER" }
+        database.transactionDao().insertTransaction(
+            com.example.data.database.TransactionEntity(
+                userId = "user_1",
+                amount = saved.amount,
+                amountUnit = saved.amountUnit.name,
+                type = "INCOME",
+                stringId = "legacy_check_transaction_${saved.id}",
+                sourceType = "CHECK",
+                sourceId = saved.id.toString()
+            )
+        )
+
+        val replacement = saved.copy(
+            id = 0,
+            checkNumber = "SHOULD-NOT-REPLACE",
+            amount = 7000,
+            status = CheckStatus.REGISTERED
+        )
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.replaceCheck(saved.id, replacement))
+        assertEquals(CheckStatus.BOUNCED, repository.getCheckById(saved.id)?.status)
+        assertFalse(repository.getChecks().first().any { it.checkNumber == "SHOULD-NOT-REPLACE" })
+    }
+
+    @Test
     fun `test invalid Sayad identifier is rejected`() = runBlocking {
         val now = System.currentTimeMillis()
         val invalid = Check(
