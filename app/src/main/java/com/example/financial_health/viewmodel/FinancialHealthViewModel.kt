@@ -92,6 +92,9 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
 
         // Every expected installment must have exactly one valid dated, positive-amount schedule row.
         // Counting distinct numbers alone can incorrectly accept out-of-range or duplicate rows.
+        // Reject extra as well as missing rows: otherwise an out-of-range or malformed
+        // row could be ignored by validation but still counted by the monthly aggregation.
+        if (item.paymentHistory.size != expectedCount) return false
         val validPayments = item.paymentHistory.filter { payment ->
             payment.amount > 0L &&
                 payment.installmentNumber in 1..expectedCount &&
@@ -122,7 +125,9 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
 
     private fun scheduledAmount(items: List<InstallmentItem>, range: MonthRange, includePaid: Boolean = false): Long = items.fold(0L) { itemTotal, item ->
         val paymentTotal = item.paymentHistory.filter { payment ->
-            (includePaid || isUnpaid(payment.status)) && payment.amount > 0L &&
+            (includePaid || isUnpaid(payment.status)) &&
+                payment.installmentNumber in 1..item.totalInstallments &&
+                payment.amount > 0L &&
                 dueMillis(payment.dueDate)?.let { it >= range.start && it < range.end } == true
         }.fold(0L) { total, payment -> Math.addExact(total, MoneyAmount.of(payment.amount, payment.amountUnit).asRialsLongExact()) }
         Math.addExact(itemTotal, paymentTotal)
