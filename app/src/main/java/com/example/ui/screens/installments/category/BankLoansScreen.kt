@@ -166,7 +166,7 @@ fun BankLoansScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "باقیمانده: ${com.example.util.MoneyFormatter.formatExact(com.example.util.MoneyAmount.of(remainingAmount))}",
+                                text = "باقیمانده: ${com.example.util.MoneyFormatter.formatExact(com.example.util.MoneyAmount.of(remainingAmount, com.example.ui.screens.settings.model.AppCurrency.RIAL))}",
                                 style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
                                 color = Color(0xFF2563EB)
                             )
