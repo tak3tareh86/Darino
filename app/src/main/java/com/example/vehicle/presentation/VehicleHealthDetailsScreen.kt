@@ -56,29 +56,31 @@ fun VehicleHealthDetailsScreen(
     // Presentation-only grouping: all eight analyzer results remain visible and individually actionable.
     // The two belt checks and two oil checks share the corresponding visual tile from the reference.
     val displayGroups = listOf(
+        // Row one follows the reference from right to left: oil, filters, belts.
         VehicleHealthDisplayGroup(
-            title = "تسمه‌ها",
-            items = listOfNotNull(checklistByTitle["تسمه دینام"], checklistByTitle["تسمه تایم"])
+            title = "روغن‌ها",
+            items = listOfNotNull(checklistByTitle["روغن موتور"], checklistByTitle["روغن گیربکس"])
         ),
         VehicleHealthDisplayGroup(
             title = "فیلترها",
             items = listOfNotNull(checklistByTitle["فیلترها"])
         ),
         VehicleHealthDisplayGroup(
-            title = "روغن‌ها",
-            items = listOfNotNull(checklistByTitle["روغن موتور"], checklistByTitle["روغن گیربکس"])
+            title = "تسمه‌ها",
+            items = listOfNotNull(checklistByTitle["تسمه دینام"], checklistByTitle["تسمه تایم"])
         ),
+        // Row two follows the reference from right to left: inspection, third party, body insurance.
         VehicleHealthDisplayGroup(
-            title = "بیمه بدنه",
-            items = listOfNotNull(checklistByTitle["بیمه‌نامه بدنه"])
+            title = "معاینه فنی",
+            items = listOfNotNull(checklistByTitle["معاینه فنی"])
         ),
         VehicleHealthDisplayGroup(
             title = "بیمه شخص ثالث",
             items = listOfNotNull(checklistByTitle["بیمه‌نامه شخص ثالث"])
         ),
         VehicleHealthDisplayGroup(
-            title = "معاینه فنی",
-            items = listOfNotNull(checklistByTitle["معاینه فنی"])
+            title = "بیمه بدنه",
+            items = listOfNotNull(checklistByTitle["بیمه‌نامه بدنه"])
         )
     ).filter { it.items.isNotEmpty() }
 
@@ -356,6 +358,10 @@ private fun VehicleHealthGroupCard(
 ) {
     Surface(
         modifier = modifier.height(166.dp).clip(RoundedCornerShape(18.dp))
+            .then(
+                if (group.items.size == 1) Modifier.clickable { onItemClick(group.items.first().title) }
+                else Modifier
+            )
             .testTag("vehicle_health_group_${group.title}"),
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -387,10 +393,7 @@ private fun VehicleHealthGroupCard(
 
             if (group.items.size == 1) {
                 val item = group.items.first()
-                HealthStatusChip(
-                    item = item,
-                    modifier = Modifier.clickable { onItemClick(item.title) }
-                )
+                HealthStatusChip(item = item)
             } else {
                 group.items.forEach { item ->
                     Row(
