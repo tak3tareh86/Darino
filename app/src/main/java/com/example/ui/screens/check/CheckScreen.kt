@@ -106,17 +106,19 @@ fun CheckScreen(
 
     var selectedCheckForEdit by remember { mutableStateOf<Check?>(null) }
     var selectedCheckForDetail by remember { mutableStateOf<Check?>(null) }
+    var selectedCheckForReplacement by remember { mutableStateOf<Check?>(null) }
 
     val accounts by viewModel.accounts.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     var operationErrorDialog by remember { mutableStateOf<String?>(null) }
 
-    BackHandler(enabled = showMaturityScreen || showAddDialog || selectedCheckForEdit != null || selectedCheckForDetail != null || operationErrorDialog != null || showStatusFilters || tabBackStack.size > 1) {
+    BackHandler(enabled = showMaturityScreen || showAddDialog || selectedCheckForEdit != null || selectedCheckForDetail != null || selectedCheckForReplacement != null || operationErrorDialog != null || showStatusFilters || tabBackStack.size > 1) {
         when {
             showMaturityScreen -> showMaturityScreen = false
             operationErrorDialog != null -> operationErrorDialog = null
             selectedCheckForDetail != null -> selectedCheckForDetail = null
+            selectedCheckForReplacement != null -> selectedCheckForReplacement = null
             selectedCheckForEdit != null -> selectedCheckForEdit = null
             showAddDialog -> showAddDialog = false
             showStatusFilters -> showStatusFilters = false
@@ -421,6 +423,23 @@ fun CheckScreen(
         )
     }
 
+    if (selectedCheckForReplacement != null) {
+        AddEditCheckDialog(
+            check = selectedCheckForReplacement,
+            isReplacement = true,
+            onDismiss = { selectedCheckForReplacement = null },
+            onConfirm = { replacementCheck ->
+                val originalId = selectedCheckForReplacement!!.id
+                viewModel.replaceCheck(originalId, replacementCheck) { result ->
+                    showOperationResult(result, "چک جایگزین ثبت شد و چک برگشتی قبلی از راس‌گیری خارج شد.")
+                    if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) {
+                        selectedCheckForReplacement = null
+                    }
+                }
+            }
+        )
+    }
+
     if (selectedCheckForDetail != null) {
         com.example.ui.screens.check.components.CheckDetailDialog(
             check = selectedCheckForDetail!!,
@@ -441,6 +460,10 @@ fun CheckScreen(
                     showOperationResult(result, "تسویه ثبت شد و تراکنش مالی به حساب اضافه شد.")
                     if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) selectedCheckForDetail = null
                 }
+            },
+            onReplace = {
+                selectedCheckForReplacement = selectedCheckForDetail
+                selectedCheckForDetail = null
             },
         )
     }
