@@ -6,15 +6,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Build
-import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.*
@@ -224,11 +220,10 @@ private fun SemiCircularHealthGauge(
     Canvas(modifier = modifier) {
         val stroke = 10.dp.toPx()
         val diameter = size.width - stroke
-        val arcHeight = size.height * 2f
         drawArc(
             color = color.copy(alpha = 0.18f),
             startAngle = 180f,
-            sweepAngle = 180f,
+            sweepAngle = -180f,
             useCenter = false,
             topLeft = androidx.compose.ui.geometry.Offset(stroke / 2f, size.height - diameter / 2f),
             size = androidx.compose.ui.geometry.Size(diameter, diameter),
@@ -237,7 +232,7 @@ private fun SemiCircularHealthGauge(
         drawArc(
             color = color,
             startAngle = 180f,
-            sweepAngle = 180f * (score.coerceIn(0, 100) / 100f),
+            sweepAngle = -180f * (score.coerceIn(0, 100) / 100f),
             useCenter = false,
             topLeft = androidx.compose.ui.geometry.Offset(stroke / 2f, size.height - diameter / 2f),
             size = androidx.compose.ui.geometry.Size(diameter, diameter),
