@@ -199,9 +199,9 @@ private fun MonthChecksCard(
                         maxLines = 1
                     )
                     Spacer(Modifier.width(8.dp))
-                    HorizontalDivider(
-                        modifier = Modifier.width(1.dp).height(30.dp),
-                        color = scheme.outlineVariant
+                    Box(
+                        modifier = Modifier.width(1.dp).height(30.dp)
+                            .background(scheme.outlineVariant)
                     )
                     Spacer(Modifier.width(8.dp))
                     Icon(
