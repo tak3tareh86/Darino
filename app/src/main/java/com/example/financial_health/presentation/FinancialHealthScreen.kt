@@ -285,29 +285,50 @@ private fun HealthOverviewHeroCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "اقساط برنامه‌ریزی‌شده این ماه (پرداخت‌شده و پرداخت‌نشده) + هزینه ثابت، نسبت به درآمد",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                            text = "اقساط برنامه‌ریزی‌شده این ماه + هزینه ثابت، نسبت به درآمد",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 10.5.sp,
+                                lineHeight = 14.sp
+                            ),
+                            maxLines = 2,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(9.dp),
-                    color = if (isDark) status.darkContainerColor.copy(alpha = 0.7f) else status.lightContainerColor,
-                    border = BorderStroke(1.dp, statusColor.copy(alpha = 0.5f))
-                ) {
-                    Text(
-                        text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) status.badgeText else "⚪ تکمیل اطلاعات مالی",
-                        maxLines = 1,
-                        softWrap = false,
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.5.sp
-                        ),
-                        color = if (isDark) Color.White else statusColor,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                if (hasValidPressure) {
+                    Surface(
+                        shape = RoundedCornerShape(9.dp),
+                        color = if (isDark) status.darkContainerColor.copy(alpha = 0.7f) else status.lightContainerColor,
+                        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.5f))
+                    ) {
+                        Text(
+                            text = status.badgeText,
+                            maxLines = 1,
+                            softWrap = false,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.5.sp
+                            ),
+                            color = if (isDark) Color.White else statusColor,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                } else {
+                    TextButton(
+                        onClick = onEditIncomeClick,
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "تکمیل اطلاعات مالی",
+                            maxLines = 1,
+                            softWrap = false,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        )
+                    }
                 }
             }
 
