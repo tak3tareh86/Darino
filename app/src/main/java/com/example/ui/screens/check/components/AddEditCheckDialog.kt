@@ -234,7 +234,7 @@ fun AddEditCheckDialog(
                     SegmentedButton(
                         selected = type == CheckType.PAID,
                         onClick = { type = CheckType.PAID },
-                        enabled = check?.status != CheckStatus.CLEARED,
+                        enabled = !isReplacement && check?.status != CheckStatus.CLEARED,
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                         icon = { Icon(Icons.Rounded.CallMade, null) }
                     ) {
