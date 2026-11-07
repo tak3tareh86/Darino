@@ -67,9 +67,12 @@ object CheckReportFilter {
 
     /** Breaks nominal totals down by both direction and persisted check status. */
     fun summarize(checks: List<Check>): CheckReportSummary {
+        // Keep replaced records visible in the report list for audit, but never count
+        // the old instrument again in nominal totals after its replacement is registered.
+        val countedChecks = checks.filter { it.status != CheckStatus.REPLACED }
         val statusTotals = CheckType.values().flatMap { type ->
             CheckStatus.values().mapNotNull { status ->
-                val matching = checks.filter { it.type == type && it.status == status }
+                val matching = countedChecks.filter { it.type == type && it.status == status }
                 if (matching.isEmpty()) null
                 else CheckReportStatusTotal(
                     type = type,
@@ -80,8 +83,8 @@ object CheckReportFilter {
             }
         }
         return CheckReportSummary(
-            totalCount = checks.size,
-            totalNominalAmount = checks.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) },
+            totalCount = countedChecks.size,
+            totalNominalAmount = countedChecks.fold(0L) { total, check -> Math.addExact(total, MoneyAmount.of(check.amount, check.amountUnit).asRialsLongExact()) },
             statusTotals = statusTotals
         )
     }
