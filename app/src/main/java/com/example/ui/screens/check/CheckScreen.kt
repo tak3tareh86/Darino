@@ -149,7 +149,7 @@ fun CheckScreen(
                 subtitle = if (showMaturityScreen) "محاسبه میانگین موزون سررسید" else "نمای کلی چک‌های دریافتی و پرداختی",
                 leadingIcon = {
                     Icon(
-                        imageVector = if (showMaturityScreen) Icons.Rounded.ArrowBack else Icons.Rounded.ReceiptLong,
+                        imageVector = if (showMaturityScreen) Icons.Rounded.ArrowForward else Icons.Rounded.ReceiptLong,
                         contentDescription = if (showMaturityScreen) "راس‌گیری چک" else "مدیریت چک‌ها",
                         tint = if (MaterialTheme.colorScheme.background.red < 0.2f) {
                             Color.White
