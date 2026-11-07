@@ -36,6 +36,7 @@ fun PersianAmountInputField(
     modifier: Modifier = Modifier,
     onRawAmountChange: ((rawDigits: String, amountLong: Long) -> Unit)? = null,
     allowDecimalInput: Boolean = false,
+    lenientGroupingWhileEditing: Boolean = false,
     onRawDecimalAmountChange: ((rawAmount: String, amount: BigDecimal?) -> Unit)? = null,
     label: String? = null,
     placeholder: String = "مثال: ۴۵۰,۰۰۰",
@@ -101,7 +102,11 @@ fun PersianAmountInputField(
             value = displayFormatted,
             onValueChange = { input ->
                 val newClean = if (allowDecimalInput) {
-                    IranianAmountUtils.cleanDecimalAmountInput(input)
+                    if (lenientGroupingWhileEditing) {
+                        IranianAmountUtils.cleanDecimalAmountInputWhileEditing(input)
+                    } else {
+                        IranianAmountUtils.cleanDecimalAmountInput(input)
+                    }
                 } else {
                     IranianAmountUtils.cleanAmountDigits(input)
                 }
