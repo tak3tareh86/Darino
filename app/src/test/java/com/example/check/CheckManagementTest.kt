@@ -1026,6 +1026,55 @@ class CheckManagementTest {
     }
 
     @Test
+    fun `test replaced original cannot be settled or create a ledger transaction`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val original = Check(
+            id = 0,
+            userId = "user_1",
+            type = CheckType.RECEIVED,
+            amount = 5000,
+            checkNumber = "REPLACED-SETTLEMENT-OLD",
+            bankName = "Bank",
+            holderName = "Holder",
+            receiverName = "Receiver",
+            issueDate = now,
+            dueDate = now + 86400000,
+            status = CheckStatus.BOUNCED
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(original))
+        val saved = repository.getChecks().first().single { it.checkNumber == "REPLACED-SETTLEMENT-OLD" }
+        val replacement = saved.copy(
+            id = 0,
+            amount = 6500,
+            checkNumber = "REPLACED-SETTLEMENT-NEW",
+            status = CheckStatus.REGISTERED
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.replaceCheck(saved.id, replacement))
+
+        val account = com.example.ui.screens.finance.model.Account(
+            id = "replace_guard_account",
+            userId = "user_1",
+            name = "Main",
+            type = com.example.ui.screens.finance.model.AccountType.BANK
+        )
+        database.accountDao().insertAccount(
+            com.example.data.database.AccountEntity(
+                userId = "user_1",
+                stringId = account.id,
+                name = account.name,
+                type = "BANK"
+            )
+        )
+
+        val replacedOriginal = repository.getCheckById(saved.id)!!
+        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.settleCheck(replacedOriginal, account))
+        assertEquals(CheckStatus.REPLACED, repository.getCheckById(saved.id)?.status)
+        assertFalse(database.transactionDao().getAllTransactionsList("user_1").any {
+            it.stringId == "check_settle_${saved.id}"
+        })
+    }
+
+    @Test
     fun `test invalid Sayad identifier is rejected`() = runBlocking {
         val now = System.currentTimeMillis()
         val invalid = Check(
