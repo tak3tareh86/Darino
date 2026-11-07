@@ -11,6 +11,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -26,6 +28,7 @@ import com.example.util.IranianPhoneUtils
 @Composable
 fun FinancialPressureChart(
     dataPoints: List<MonthlyPressureData>,
+    year: Int? = null,
     modifier: Modifier = Modifier,
     highlightLastPoint: Boolean = true
 ) {
@@ -66,7 +69,9 @@ fun FinancialPressureChart(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "روند سهم اقساط از درآمد (۶ ماه اخیر)",
+                    text = year?.let {
+                        "۱۲ ماه سال ${IranianPhoneUtils.convertDigitsToPersian(it.toString())}"
+                    } ?: "۱۲ ماه سال جاری",
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
@@ -267,33 +272,41 @@ fun FinancialPressureChart(
         }
 
         // X-Axis month labels & percentage badges
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            dataPoints.forEachIndexed { index, item ->
-                val isLast = index == dataPoints.lastIndex
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = if (item.hasData) "${IranianPhoneUtils.convertDigitsToPersian(java.text.DecimalFormat("0.#").format(item.pressurePercentage))}٪" else "—",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = if (isLast) FontWeight.ExtraBold else FontWeight.Medium,
-                            fontSize = 10.5.sp
-                        ),
-                        color = if (isLast) MaterialTheme.colorScheme.primary else textColor
-                    )
-                    Text(
-                        text = item.monthName,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
-                            fontSize = 11.sp
-                        ),
-                        color = if (isLast) MaterialTheme.colorScheme.onSurface else textColor
-                    )
+        // Keep the chronological Farvardin-to-Esfand axis aligned with the Canvas.
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                dataPoints.forEachIndexed { index, item ->
+                    val isLast = index == dataPoints.lastIndex
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = if (item.hasData) "${IranianPhoneUtils.convertDigitsToPersian(java.text.DecimalFormat("0.#").format(item.pressurePercentage))}٪" else "—",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = if (isLast) FontWeight.ExtraBold else FontWeight.Medium,
+                                fontSize = 8.5.sp
+                            ),
+                            color = if (isLast) MaterialTheme.colorScheme.primary else textColor,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Text(
+                            text = item.monthName.take(3),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 8.5.sp
+                            ),
+                            color = if (isLast) MaterialTheme.colorScheme.onSurface else textColor,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
             }
         }
