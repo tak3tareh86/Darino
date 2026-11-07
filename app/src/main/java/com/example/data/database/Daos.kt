@@ -601,8 +601,10 @@ interface CheckDao {
     @Transaction
     suspend fun rollbackCheckReplacement(userId: String, originalId: Int, replacementId: Int): Boolean {
         val originalRows = updateOriginalAfterReplacementRollback(userId, originalId, System.currentTimeMillis())
+        if (originalRows != 1) throw IllegalStateException("Original check rollback failed")
         val replacementRows = softDeleteCheck(userId, replacementId, System.currentTimeMillis(), System.currentTimeMillis())
-        return originalRows == 1 && replacementRows == 1
+        if (replacementRows != 1) throw IllegalStateException("Replacement check rollback failed")
+        return true
     }
 
     @Query("UPDATE checks SET status = 'BOUNCED', replacedByCheckId = NULL, updatedAt = :updatedAt WHERE userId = :userId AND id = :originalId AND status = 'REPLACED'")
