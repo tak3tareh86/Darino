@@ -464,7 +464,7 @@ fun BudgetDetailCard(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     // Status Badge
                     if (isEnabled) {
@@ -484,10 +484,13 @@ fun BudgetDetailCard(
                         }
                     }
 
+                    // Keep the toggle clear of the status badge in the RTL header.
+                    Spacer(modifier = Modifier.width(8.dp))
+
                     Switch(
                         checked = isEnabled,
                         onCheckedChange = onToggle,
-                        modifier = Modifier.size(width = 36.dp, height = 20.dp).padding(end = 4.dp),
+                        modifier = Modifier.size(width = 36.dp, height = 20.dp),
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
                             checkedTrackColor = MaterialTheme.colorScheme.primary,
@@ -496,41 +499,54 @@ fun BudgetDetailCard(
                             uncheckedBorderColor = Color.Transparent
                         )
                     )
-                    
-                    Spacer(modifier = Modifier.width(2.dp))
 
-                    IconButton(
-                        onClick = onEdit,
+                    // 32dp independent touch targets; the visible circular backgrounds are 14dp.
+                    Box(
                         modifier = Modifier
-                            .size(28.dp)
-                            .background(
-                                if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
-                                CircleShape
-                            )
+                            .size(32.dp)
+                            .clickable(onClick = onEdit),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Edit,
-                            contentDescription = "ویرایش",
-                            modifier = Modifier.size(13.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .background(
+                                    if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = "ویرایش",
+                                modifier = Modifier.size(9.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
-                    IconButton(
-                        onClick = onDelete,
+                    Box(
                         modifier = Modifier
-                            .size(28.dp)
-                            .background(
-                                if (isDark) Color(0xFF451A20) else Color(0xFFFEE2E2),
-                                CircleShape
-                            )
+                            .size(32.dp)
+                            .clickable(onClick = onDelete),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Delete,
-                            contentDescription = "حذف",
-                            modifier = Modifier.size(13.dp),
-                            tint = Color(0xFFEF4444)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .background(
+                                    if (isDark) Color(0xFF451A20) else Color(0xFFFEE2E2),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Delete,
+                                contentDescription = "حذف",
+                                modifier = Modifier.size(9.dp),
+                                tint = Color(0xFFEF4444)
+                            )
+                        }
                     }
                 }
             }
