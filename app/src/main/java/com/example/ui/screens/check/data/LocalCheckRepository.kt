@@ -284,7 +284,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                database.checkDao().rollbackCheckReplacement(userId, originalCheckId, newId)
+                database.checkDao().rollbackCheckReplacement(userId, originalCheckId, newId, original.reminderDateTime)
                 try { reminderManager?.onCheckSettled(newId.toString()) } catch (cancelError: Exception) { cancelError.printStackTrace() }
                 return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
             }
@@ -293,7 +293,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 reminderManager?.onCheckSettled(originalCheckId.toString())
             } catch (e: Exception) {
                 e.printStackTrace()
-                database.checkDao().rollbackCheckReplacement(userId, originalCheckId, newId)
+                database.checkDao().rollbackCheckReplacement(userId, originalCheckId, newId, original.reminderDateTime)
                 try { reminderManager?.onCheckSettled(newId.toString()) } catch (cancelError: Exception) { cancelError.printStackTrace() }
                 return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
             }
