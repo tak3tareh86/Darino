@@ -203,10 +203,6 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                     shape = RoundedCornerShape(16.dp),
-                    contentPadding = OutlinedTextFieldDefaults.contentPadding(
-                        top = 0.dp,
-                        bottom = 0.dp
-                    ),
                     placeholder = {
                         Text(
                             "جست و جو",
