@@ -355,7 +355,7 @@ private fun VehicleHealthGroupCard(
     onItemClick: (String) -> Unit
 ) {
     Surface(
-        modifier = modifier.height(166.dp).clip(RoundedCornerShape(18.dp))
+        modifier = modifier.heightIn(min = 104.dp).clip(RoundedCornerShape(18.dp))
             .then(
                 if (group.items.size == 1) Modifier.clickable { onItemClick(group.items.first().title) }
                 else Modifier
@@ -370,14 +370,14 @@ private fun VehicleHealthGroupCard(
         shadowElevation = 2.dp
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 5.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 5.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Soft3DIcon(
                 imageRes = group.items.first().iconRes,
                 contentDescription = group.title,
-                size = 35.dp,
+                size = 30.dp,
                 accentColor = group.items.first().let(::healthItemColor)
             )
             Text(
