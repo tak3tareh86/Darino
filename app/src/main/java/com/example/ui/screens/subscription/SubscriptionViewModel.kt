@@ -32,7 +32,6 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
         observeSubscription()
         syncWithMarketOnStartup()
         startEntitlementClock()
-        loadAnnualSubscriptionPrice()
     }
 
     /**
@@ -113,6 +112,7 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
                     )
                 }
             }
+            loadAnnualSubscriptionPrice()
         }
     }
 
