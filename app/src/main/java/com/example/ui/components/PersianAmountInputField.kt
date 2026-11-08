@@ -5,12 +5,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -70,6 +73,37 @@ fun PersianAmountInputField(
         } else cleanDigits.toLongOrNull() ?: 0L
     }
 
+    // Keep the editing selection while the displayed value is reformatted with grouping.
+    var textFieldValue by remember {
+        mutableStateOf(TextFieldValue(displayFormatted, TextRange(displayFormatted.length)))
+    }
+
+    LaunchedEffect(value, allowDecimalInput) {
+        if (textFieldValue.text != displayFormatted) {
+            textFieldValue = TextFieldValue(
+                text = displayFormatted,
+                selection = TextRange(displayFormatted.length)
+            )
+        }
+    }
+
+    fun logicalOffset(text: String, offset: Int): Int =
+        text.take(offset.coerceIn(0, text.length)).count {
+            it.isDigit() || (allowDecimalInput && (it == '.' || it == '٫'))
+        }
+
+    fun formattedOffset(text: String, logicalPosition: Int): Int {
+        if (logicalPosition <= 0) return 0
+        var seen = 0
+        text.forEachIndexed { index, char ->
+            if (char.isDigit() || (allowDecimalInput && (char == '.' || char == '٫'))) {
+                seen++
+                if (seen >= logicalPosition) return index + 1
+            }
+        }
+        return text.length
+    }
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -99,22 +133,29 @@ fun PersianAmountInputField(
         }
 
         OutlinedTextField(
-            value = displayFormatted,
+            value = textFieldValue,
             onValueChange = { input ->
                 val newClean = if (allowDecimalInput) {
                     if (lenientGroupingWhileEditing) {
-                        IranianAmountUtils.cleanDecimalAmountInputWhileEditing(input)
+                        IranianAmountUtils.cleanDecimalAmountInputWhileEditing(input.text)
                     } else {
-                        IranianAmountUtils.cleanDecimalAmountInput(input)
+                        IranianAmountUtils.cleanDecimalAmountInput(input.text)
                     }
                 } else {
-                    IranianAmountUtils.cleanAmountDigits(input)
+                    IranianAmountUtils.cleanAmountDigits(input.text)
                 }
                 val newFormatted = if (allowDecimalInput) {
                     IranianAmountUtils.formatDecimalWithCommas(newClean)
                 } else {
                     IranianAmountUtils.formatWithCommas(newClean, inPersian = true)
                 }
+
+                val start = formattedOffset(newFormatted, logicalOffset(input.text, input.selection.start))
+                val end = formattedOffset(newFormatted, logicalOffset(input.text, input.selection.end))
+                textFieldValue = TextFieldValue(
+                    text = newFormatted,
+                    selection = TextRange(start, end)
+                )
                 onValueChange(newFormatted)
                 if (allowDecimalInput) {
                     onRawDecimalAmountChange?.invoke(
