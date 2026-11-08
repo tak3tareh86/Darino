@@ -157,6 +157,12 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1
                 )
+                Icon(
+                    Icons.Rounded.CalendarMonth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
@@ -174,12 +180,6 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-                Icon(
-                    Icons.Rounded.CalendarMonth,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
                 OutlinedButton(
                     onClick = { showPersianDatePicker = true },
                     modifier = Modifier.height(40.dp),
