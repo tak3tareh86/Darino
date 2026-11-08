@@ -194,7 +194,7 @@ fun AppNavigationContainer(
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = remember(context) { context as? android.app.Activity }
-    val localSessionManager = remember(context) { AuthSessionManager(context) }
+    val localSessionManager = remember(context) { AuthSessionManager.getInstance(context) }
 
     val prefsRepo = remember(context) { com.example.data.preferences.AppPreferencesRepository.getInstance(context) }
     val currentNavTransition by prefsRepo.navTransition.collectAsState()
