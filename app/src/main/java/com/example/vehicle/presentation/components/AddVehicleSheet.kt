@@ -517,9 +517,12 @@ fun AddVehicleSheet(
                                     Text("مدلی پیدا نشد؛ می‌توانید نام آن را دستی وارد کنید.")
                                 }
                             } else {
-                                LazyColumn(
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
                                     modifier = Modifier.fillMaxWidth().height(224.dp).testTag("vehicle_model_options"),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    contentPadding = PaddingValues(2.dp)
                                 ) {
                                     items(filteredModels) { option ->
                                         Surface(
@@ -719,12 +722,12 @@ fun AddVehicleSheet(
                         singleLine = true
                     )
                     var showLetterMenu by remember { mutableStateOf(false) }
-                    val letters = remember { listOf("الف", "ب", "ت", "ج", "د", "ژ", "س", "ص", "ط", "ع", "ق", "گ", "ل", "م", "ن", "و", "ه", "ی") }
+                    val letters = remember { listOf("الف", "ب", "پ", "ت", "ث", "ج", "چ", "ح", "خ", "د", "ذ", "ر", "ز", "ژ", "س", "ش", "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ک", "گ", "ل", "م", "ن", "و", "ه", "ی") }
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                         ExposedDropdownMenuBox(
                             expanded = showLetterMenu,
                             onExpandedChange = { showLetterMenu = it },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1.25f)
                         ) {
                             OutlinedTextField(
                                 value = plateLetter,
@@ -740,7 +743,7 @@ fun AddVehicleSheet(
                                     )
                                 },
                                 singleLine = true,
-                                textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+                                textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center, fontSize = 14.sp),
                                 modifier = Modifier
                                     .menuAnchor()
                                     .fillMaxWidth()
@@ -748,24 +751,31 @@ fun AddVehicleSheet(
                             )
                             ExposedDropdownMenu(
                                 expanded = showLetterMenu,
-                                onDismissRequest = { showLetterMenu = false },
-                                modifier = Modifier.heightIn(max = 240.dp)
+                                onDismissRequest = { showLetterMenu = false }
                             ) {
-                                letters.forEach { letter ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                text = letter,
-                                                modifier = Modifier.fillMaxWidth(),
-                                                textAlign = TextAlign.Center,
-                                                fontWeight = if (plateLetter == letter) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
-                                        onClick = {
-                                            plateLetter = letter
-                                            showLetterMenu = false
-                                        }
-                                    )
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
+                                    modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
+                                    contentPadding = PaddingValues(4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    items(letters) { letter ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    text = letter,
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    textAlign = TextAlign.Center,
+                                                    fontWeight = if (plateLetter == letter) FontWeight.Bold else FontWeight.Normal
+                                                )
+                                            },
+                                            onClick = {
+                                                plateLetter = letter
+                                                showLetterMenu = false
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
