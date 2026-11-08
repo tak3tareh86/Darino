@@ -339,39 +339,53 @@ fun AddServiceSheet(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Top
             ) {
-                PersianAmountInputField(
-                    value = costText,
-                    onValueChange = { costText = it },
-                    allowDecimalInput = true,
-                    onRawDecimalAmountChange = { rawValue, _ -> costText = rawValue },
-                    label = "هزینه سرویس (${MoneyFormatter.getUnitLabel()})",
-                    placeholder = "مبلغ را وارد کنید",
-                    unitLabel = MoneyFormatter.getUnitLabel(),
-                    showWordsPreview = false,
-                    useOuterHeader = true,
-                    fieldHeight = 56.dp,
+                Column(
                     modifier = Modifier.weight(1.2f),
-                    testTag = "service_cost_input"
-                )
-
-                if (costInputInvalid) {
-                    Text("مبلغ هزینه سرویس معتبر نیست یا خارج از محدوده قابل ذخیره است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    PersianAmountInputField(
+                        value = costText,
+                        onValueChange = { costText = it },
+                        allowDecimalInput = true,
+                        onRawDecimalAmountChange = { rawValue, _ -> costText = rawValue },
+                        label = "هزینه سرویس",
+                        placeholder = "مبلغ را وارد کنید",
+                        unitLabel = MoneyFormatter.getUnitLabel(),
+                        showWordsPreview = false,
+                        useOuterHeader = false,
+                        fieldHeight = 56.dp,
+                        testTag = "service_cost_input"
+                    )
                 }
 
-                OutlinedTextField(
-                    value = IranianPhoneUtils.convertDigitsToPersian(mileageText),
-                    onValueChange = {
-                        val digits = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
-                        mileageText = digits
-                    },
-                    label = { Text("کیلومتر خودرو") },
-                    placeholder = { Text("۴۵۰۰۰") },
+                Column(
                     modifier = Modifier.weight(0.9f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    OutlinedTextField(
+                        value = IranianPhoneUtils.convertDigitsToPersian(mileageText),
+                        onValueChange = {
+                            val digits = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
+                            mileageText = digits
+                        },
+                        label = { Text("کیلومتر خودرو") },
+                        placeholder = { Text("۴۵۰۰۰") },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+                }
+            }
+
+            if (costInputInvalid) {
+                Text(
+                    "مبلغ هزینه سرویس معتبر نیست یا خارج از محدوده قابل ذخیره است.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
 
