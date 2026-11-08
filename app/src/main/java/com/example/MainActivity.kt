@@ -96,6 +96,7 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
 
         // Initialize local data sources; Darino operates without a backend.
+        com.example.data.security.SessionManager.init(this)
         com.example.util.MoneyFormatter.setPrivacyModeEnabled(
             getSharedPreferences("darino_security_prefs", MODE_PRIVATE).getBoolean("privacy_mode_enabled", false)
         )
