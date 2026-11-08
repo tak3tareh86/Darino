@@ -1,8 +1,6 @@
 package com.example.domain.subscription
 
-import com.example.data.subscription.MarketConfig
 import com.example.util.PersianCalendarHelper
-import java.util.Date
 
 object SubscriptionValidator {
 
@@ -54,15 +52,6 @@ object SubscriptionValidator {
             } else {
                 SubscriptionStatus.LOCKED
             }
-        }
-
-        // Legacy local expiry is retained only for records that were not marked as a
-        // Market-confirmed subscription. Current paid entitlements are Market-authoritative.
-        if (info.subscriptionEndAt != null && info.subscriptionEndAt > currentTimeMillis &&
-            info.marketAccountState != "REFUNDED" &&
-            info.marketAccountState != "NO_PURCHASE_FOUND"
-        ) {
-            return SubscriptionStatus.ACTIVE
         }
 
         // Trial Check
