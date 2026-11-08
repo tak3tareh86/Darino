@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     product_id VARCHAR(150) NOT NULL,
-    purchase_token TEXT NOT NULL,
+    purchase_token_encrypted TEXT NOT NULL,
     initiation_timestamp_msec BIGINT NOT NULL,
     valid_until_timestamp_msec BIGINT NOT NULL,
     auto_renewing BOOLEAN NOT NULL DEFAULT FALSE,
