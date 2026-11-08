@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.SharedPersianDatePickerDialog
 import com.example.ui.screens.check.components.CheckBankLogo
 import com.example.ui.screens.check.model.Check
 import com.example.ui.screens.check.model.CheckStatus
@@ -69,8 +70,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
         }.timeInMillis
     }
     var baselineMillis by rememberSaveable { mutableLongStateOf(todayMillis) }
-    var showDatePicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = baselineMillis)
+    var showPersianDatePicker by remember { mutableStateOf(false) }
     val selectedChecks = remember(eligibleChecks, selectedIds) { eligibleChecks.filter { it.id in selectedIds } }
     val visibleChecks = remember(eligibleChecks, searchQuery) {
         val query = searchQuery.trim()
@@ -155,8 +155,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                 Icon(Icons.Rounded.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary)
                 Surface(
                     modifier = Modifier.weight(1f).clickable {
-                        datePickerState.selectedDateMillis = baselineMillis
-                        showDatePicker = true
+                        showPersianDatePicker = true
                     },
                     shape = RoundedCornerShape(15.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
@@ -172,10 +171,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     )
                 }
                 OutlinedButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis = baselineMillis
-                        showDatePicker = true
-                    },
+                    onClick = { showPersianDatePicker = true },
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 9.dp),
                     shape = RoundedCornerShape(15.dp)
                 ) {
@@ -283,17 +279,21 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
         item { Spacer(Modifier.height(10.dp)) }
     }
 
-    if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { baselineMillis = it }
-                    showDatePicker = false
-                }) { Text("تأیید") }
-            },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("انصراف") } }
-        ) { DatePicker(state = datePickerState, showModeToggle = false) }
+    if (showPersianDatePicker) {
+        SharedPersianDatePickerDialog(
+            initialYear = baselineJalali.first,
+            initialMonth = baselineJalali.second,
+            initialDay = baselineJalali.third,
+            title = "انتخاب تاریخ مبنا (شمسی)",
+            onDismiss = { showPersianDatePicker = false },
+            onConfirm = { year, month, day ->
+                val (gy, gm, gd) = PersianCalendarHelper.jalaliToGregorian(year, month, day)
+                baselineMillis = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                    clear()
+                    set(gy, gm - 1, gd, 0, 0, 0)
+                }.timeInMillis
+            }
+        )
     }
 }
 
