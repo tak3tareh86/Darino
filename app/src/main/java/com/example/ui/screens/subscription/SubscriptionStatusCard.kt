@@ -67,7 +67,7 @@ fun SubscriptionStatusCard(
     val isTrial = info.subscriptionStatus == SubscriptionStatus.TRIAL
 
     if (isActive) {
-        // Compact active-subscription card. Keep Market-confirmed dates clearly marked as estimates.
+        // Compact active-subscription card. Never invent an expiry date that Market does not provide.
         val activeGradient = if (isDark) {
             Brush.horizontalGradient(
                 colors = listOf(Color(0xFF064E3B), Color(0xFF047857), Color(0xFF0F766E))
