@@ -66,15 +66,6 @@ fun SubscriptionStatusCard(
     val isActive = info.subscriptionStatus == SubscriptionStatus.ACTIVE
     val isTrial = info.subscriptionStatus == SubscriptionStatus.TRIAL
 
-    val remainingDays = if (isActive) state.subscriptionDaysRemaining else state.trialDaysRemaining
-
-    // Formatted expiration date
-    val endDateTime = if (info.subscriptionEndAt != null) {
-        com.example.util.PersianCalendarHelper.fromEpochMillis(info.subscriptionEndAt).toFormattedDate()
-    } else {
-        state.subscriptionEndJalaliDate
-    }
-
     if (isActive) {
         // Compact active-subscription card. Keep Market-confirmed dates clearly marked as estimates.
         val activeGradient = if (isDark) {
@@ -159,7 +150,7 @@ fun SubscriptionStatusCard(
                         )
                     }
                     Text(
-                        text = if (marketConfirmedActive) "در اطلاعات بازار موجود نیست" else "نامشخص",
+                        text = if (marketConfirmedActive) "تاریخ دقیق اعلام نشده" else "نامشخص",
                         color = cardTextColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
