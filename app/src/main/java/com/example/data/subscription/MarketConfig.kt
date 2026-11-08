@@ -16,11 +16,6 @@ object MarketConfig {
     const val YEARLY_PRODUCT_ID = "darino_yearly_subscription"
 
     /**
-     * Official UI Display Price in Toman (500,000 Toman)
-     */
-    const val DISPLAY_PRICE_TOMAN = 500_000L
-
-    /**
      * Free Trial Duration in Days (7 Days)
      */
     const val TRIAL_DURATION_DAYS = 7L
