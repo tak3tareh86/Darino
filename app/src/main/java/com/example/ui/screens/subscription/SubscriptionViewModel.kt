@@ -86,6 +86,7 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
         val trialJalali = SubscriptionValidator.formatEndJalaliDate(evaluatedInfo.trialEndAt)
         val subDays = SubscriptionValidator.calculateSubscriptionDaysRemaining(evaluatedInfo, now)
         val subJalali = SubscriptionValidator.formatEndJalaliDate(evaluatedInfo.subscriptionEndAt ?: 0L)
+        val purchaseJalali = evaluatedInfo.subscriptionPurchaseAt?.takeIf { it > 0L }?.let { SubscriptionValidator.formatEndJalaliDate(it) }.orEmpty()
 
         _uiState.update { current ->
             current.copy(
@@ -93,7 +94,8 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
                 trialDaysRemaining = trialDays,
                 trialEndJalaliDate = trialJalali,
                 subscriptionDaysRemaining = subDays,
-                subscriptionEndJalaliDate = subJalali
+                subscriptionEndJalaliDate = subJalali,
+                subscriptionPurchaseJalaliDate = purchaseJalali
             )
         }
     }

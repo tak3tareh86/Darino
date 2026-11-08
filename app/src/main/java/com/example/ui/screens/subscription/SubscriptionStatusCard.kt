@@ -103,7 +103,7 @@ fun SubscriptionStatusCard(
                     .padding(horizontal = 12.dp, vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Right side: active status and Jalali expiration date.
+                // Right side: active status and Jalali purchase date.
                 Column(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -143,14 +143,14 @@ fun SubscriptionStatusCard(
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
-                            text = "تاریخ انقضا",
+                            text = "تاریخ خرید",
                             color = cardMutedTextColor,
                             fontSize = 9.5.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
                     Text(
-                        text = if (marketConfirmedActive && info.subscriptionEndAt != null) state.subscriptionEndJalaliDate else "نامشخص",
+                        text = if (marketConfirmedActive && info.subscriptionPurchaseAt != null) state.subscriptionPurchaseJalaliDate else "نامشخص",
                         color = cardTextColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -207,16 +207,7 @@ fun SubscriptionStatusCard(
                             textAlign = TextAlign.Center,
                             maxLines = 1
                         )
-                        if (marketConfirmedActive && info.subscriptionEndAt != null) {
-                            Text(
-                                text = "${IranianPhoneUtils.convertDigitsToPersian(state.subscriptionDaysRemaining.toString())} روز باقی‌مانده",
-                                color = cardMutedTextColor,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Medium,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1
-                            )
-                        }
+
                     }
 
                     androidx.compose.foundation.Image(

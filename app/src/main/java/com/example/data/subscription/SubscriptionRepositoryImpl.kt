@@ -66,6 +66,7 @@ class SubscriptionRepositoryImpl(
                         val now = System.currentTimeMillis()
                         val cleared = currentLocal.copy(
                             subscriptionStartAt = null,
+                            subscriptionPurchaseAt = null,
                             subscriptionEndAt = null,
                             productId = "",
                             purchaseTokenReference = null,
@@ -92,6 +93,7 @@ class SubscriptionRepositoryImpl(
                     } else {
                         val updated = currentLocal.copy(
                             subscriptionStartAt = snapshot.initiationTimestampMillis,
+                            subscriptionPurchaseAt = darinoPurchase?.purchaseTime ?: currentLocal.subscriptionPurchaseAt,
                             subscriptionEndAt = snapshot.validUntilTimestampMillis,
                             productId = snapshot.productId,
                             purchaseTokenReference = darinoPurchase?.purchaseToken ?: currentLocal.purchaseTokenReference,
@@ -196,6 +198,7 @@ class SubscriptionRepositoryImpl(
         val snapshot = verifyWithBackend(purchaseInfo.productId, purchaseInfo.purchaseToken)
         val candidate = currentLocal.copy(
             subscriptionStartAt = snapshot.initiationTimestampMillis,
+            subscriptionPurchaseAt = purchaseInfo.purchaseTime,
             subscriptionEndAt = snapshot.validUntilTimestampMillis,
             productId = snapshot.productId,
             purchaseTokenReference = purchaseInfo.purchaseToken,

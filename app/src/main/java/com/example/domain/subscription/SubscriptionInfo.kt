@@ -5,6 +5,7 @@ data class SubscriptionInfo(
     val trialStartAt: Long = 0L,
     val trialEndAt: Long = 0L,
     val subscriptionStartAt: Long? = null,
+    val subscriptionPurchaseAt: Long? = null,
     val subscriptionEndAt: Long? = null,
     val subscriptionStatus: SubscriptionStatus = SubscriptionStatus.CHECKING,
     val productId: String = "",
