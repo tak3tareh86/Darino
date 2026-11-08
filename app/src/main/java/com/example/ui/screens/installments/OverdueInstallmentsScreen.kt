@@ -517,6 +517,7 @@ private fun ManualPaymentDateDialog(
     var showCalendarDialog by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val scrollState = rememberScrollState()
+    val numberMode by AppNumberFormatter.modeFlow.collectAsState()
 
     val baseMonthlyAmount = remember(item) {
         item.totalAmount / item.totalInstallments.coerceAtLeast(1)
