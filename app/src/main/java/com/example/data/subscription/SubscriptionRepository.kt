@@ -10,8 +10,6 @@ interface SubscriptionRepository {
     suspend fun getSubscriptionInfo(): SubscriptionInfo
     suspend fun ensureTrialStarted(userId: String): SubscriptionInfo
     suspend fun syncWithMarket(): Result<SubscriptionInfo>
-    suspend fun getAnnualSubscriptionPrice(): Result<String> =
-        Result.failure(UnsupportedOperationException("دریافت قیمت اشتراک پشتیبانی نمی‌شود."))
     suspend fun recordSuccessfulPurchase(purchaseInfo: PurchaseInfo): SubscriptionInfo
     fun launchPurchaseFlow(
         registry: ActivityResultRegistry,
