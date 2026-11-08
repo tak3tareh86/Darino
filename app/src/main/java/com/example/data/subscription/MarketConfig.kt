@@ -20,8 +20,4 @@ object MarketConfig {
      */
     const val TRIAL_DURATION_DAYS = 7L
 
-    /**
-     * Subscription Validity Duration in Days (365 Days)
-     */
-    const val SUBSCRIPTION_DURATION_DAYS = 365L
 }
