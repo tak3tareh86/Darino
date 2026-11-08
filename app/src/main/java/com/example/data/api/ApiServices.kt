@@ -3,6 +3,14 @@ package com.example.data.api
 import retrofit2.Response
 import retrofit2.http.*
 
+interface BazaarSubscriptionApi {
+    @POST("api/v1/subscriptions/verify")
+    suspend fun verifySubscription(@Body request: NetworkVerifyBazaarSubscriptionRequest): Response<NetworkApiResponse<NetworkBazaarSubscriptionDto>>
+
+    @GET("api/v1/subscriptions/current")
+    suspend fun getCurrentSubscription(): Response<NetworkApiResponse<NetworkBazaarSubscriptionDto>>
+}
+
 interface HealthApi {
     @GET("api/v1/health")
     suspend fun checkHealth(): Response<Map<String, String>>
