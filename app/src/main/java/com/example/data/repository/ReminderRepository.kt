@@ -2,6 +2,7 @@ package com.example.data.repository
 
 import android.content.Context
 import android.util.Log
+import com.example.data.api.ApiClient
 import com.example.data.api.SyncManager
 import com.example.data.database.AppDatabase
 import com.example.data.database.ReminderEntity
@@ -171,13 +172,33 @@ class ReminderRepository(
         reminderDao.updateReminder(updated)
         reminderScheduler.schedule(updated)
 
+        if (existing.serverId != null) {
+            backgroundScope.launch {
+                try {
+                    ApiClient.reminderApi.snoozeReminder(existing.serverId, mapOf("durationMinutes" to snoozeMinutes))
+                } catch (e: Exception) {
+                    // Handled during normal sync
+                }
+            }
+        }
     }
 
     suspend fun refreshSmsStatus(reminderId: Int): String? = withContext(Dispatchers.IO) {
-        val reminder = reminderDao.getReminderById(requireUserId(), reminderId)
-            ?: return@withContext null
+        val reminder = reminderDao.getReminderById(requireUserId(), reminderId) ?: return@withContext null
         if (reminder.serverId == null || !reminder.smsEnabled) return@withContext null
-        // Delivery state is read from the locally stored reminder record.
+
+        try {
+            val response = ApiClient.reminderApi.getReminderSmsStatus(reminder.serverId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                val status = response.body()?.data?.status
+                if (status != null) {
+                    reminderDao.updateSmsStatus(requireUserId(), reminderId, status)
+                    return@withContext status
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to refresh SMS status: ${e.message}")
+        }
         reminder.smsDeliveryStatus
     }
 
