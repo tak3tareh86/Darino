@@ -241,7 +241,7 @@ fun SubscriptionLockedScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = MoneyFormatter.formatToman(MarketConfig.DISPLAY_PRICE_TOMAN),
+                        text = uiState.priceDisplay ?: "قیمت اشتراک از بازار دریافت می‌شود",
                         color = ExpiredAccent,
                         fontSize = 27.sp,
                         fontWeight = FontWeight.ExtraBold,
