@@ -7,7 +7,6 @@ import ir.cafebazaar.poolakey.Payment
 import ir.cafebazaar.poolakey.config.PaymentConfiguration
 import ir.cafebazaar.poolakey.config.SecurityCheck
 import ir.cafebazaar.poolakey.entity.PurchaseInfo
-import ir.cafebazaar.poolakey.entity.SkuDetails
 import ir.cafebazaar.poolakey.request.PurchaseRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -85,43 +84,6 @@ class PoolakeySubscriptionDataSource(private val context: Context) {
                         continuation.resume(
                             PoolakeyResult.Error(
                                 "امکان اتصال به حساب بازار وجود ندارد: ${throwable.message}",
-                                throwable
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    suspend fun getSubscriptionSkuDetails(): PoolakeyResult<List<SkuDetails>> = withContext(Dispatchers.IO) {
-        suspendCancellableCoroutine { continuation ->
-            val p = getOrCreatePayment()
-            p.connect {
-                connectionSucceed {
-                    p.getSubscriptionSkuDetails(listOf(MarketConfig.YEARLY_PRODUCT_ID)) {
-                        getSkuDetailsSucceed { details ->
-                            if (continuation.isActive) {
-                                continuation.resume(PoolakeyResult.Success(details))
-                            }
-                        }
-                        getSkuDetailsFailed { throwable ->
-                            if (continuation.isActive) {
-                                continuation.resume(
-                                    PoolakeyResult.Error(
-                                        "خطا در دریافت قیمت اشتراک از بازار: ${throwable.message}",
-                                        throwable
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-                connectionFailed { throwable ->
-                    if (continuation.isActive) {
-                        continuation.resume(
-                            PoolakeyResult.Error(
-                                "امکان اتصال به بازار برای دریافت قیمت وجود ندارد: ${throwable.message}",
                                 throwable
                             )
                         )

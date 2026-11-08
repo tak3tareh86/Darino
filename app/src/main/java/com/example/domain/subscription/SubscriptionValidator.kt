@@ -1,8 +1,12 @@
 package com.example.domain.subscription
 
+import com.example.data.subscription.MarketConfig
 import com.example.util.PersianCalendarHelper
+import java.util.Date
 
 object SubscriptionValidator {
+
+    private const val MARKET_VERIFICATION_MAX_AGE_MILLIS = 24 * 60 * 60 * 1000L
 
     fun calculateTrialDaysRemaining(info: SubscriptionInfo, currentTimeMillis: Long = System.currentTimeMillis()): Long {
         if (info.trialEndAt <= 0L) return 0L
@@ -13,7 +17,7 @@ object SubscriptionValidator {
     fun calculateSubscriptionDaysRemaining(info: SubscriptionInfo, currentTimeMillis: Long = System.currentTimeMillis()): Long {
         val endAt = info.subscriptionEndAt ?: return 0L
         val diffMillis = endAt - currentTimeMillis
-        return if (diffMillis <= 0L) 0L else (diffMillis + 86_400_000L - 1L) / 86_400_000L
+        return if (diffMillis <= 0L) 0L else (diffMillis / (1000 * 60 * 60 * 24))
     }
 
     fun formatEndJalaliDate(timestampMillis: Long): String {
@@ -38,17 +42,22 @@ object SubscriptionValidator {
             return SubscriptionStatus.LOCKED
         }
 
-        // The current PURCHASED state returned by Bazaar/Poolakey is authoritative.
-        // No remote verification server or synthetic expiry timestamp is used.
-        if (info.marketAccountState == "MARKET_ACTIVE") {
-            val verifiedExpiry = info.subscriptionEndAt
-            return when {
-                verifiedExpiry != null && verifiedExpiry > 0L && currentTimeMillis >= verifiedExpiry -> SubscriptionStatus.EXPIRED
-                else -> SubscriptionStatus.ACTIVE
-            }
+        // Poolakey getSubscribedProducts() reports currently active subscriptions.
+        // Trust that Market confirmation for a bounded cache window, even if purchaseTime
+        // still points to the original cycle and its locally estimated 365-day end has passed.
+        val marketVerificationFresh =
+            info.marketAccountState == "MARKET_ACTIVE" &&
+                currentTimeMillis - info.lastSyncAt <= MARKET_VERIFICATION_MAX_AGE_MILLIS
+        if (marketVerificationFresh) {
+            return SubscriptionStatus.ACTIVE
         }
 
-        // Trial Check
+        // 1. Active Paid Subscription Check (local fallback when Market is unavailable)
+        if (info.subscriptionEndAt != null && info.subscriptionEndAt > currentTimeMillis) {
+            return SubscriptionStatus.ACTIVE
+        }
+
+        // 2. Trial Check
         if (info.trialEndAt > currentTimeMillis) {
             return SubscriptionStatus.TRIAL
         }

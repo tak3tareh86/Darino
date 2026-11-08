@@ -4,7 +4,7 @@ import android.content.Context
 
 /**
  * Singleton provider for AuthRepository.
- * Provides device-local authentication with no remote account dependency.
+ * Provides real [RemoteAuthRepository] for production authentication.
  */
 object AuthRepositoryProvider {
     @Volatile
@@ -12,7 +12,7 @@ object AuthRepositoryProvider {
 
     fun get(context: Context): AuthRepository {
         return instance ?: synchronized(this) {
-            val created = MockAuthRepository(context.applicationContext)
+            val created = RemoteAuthRepository(context.applicationContext)
             instance = created
             created
         }

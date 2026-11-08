@@ -35,8 +35,8 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /**
-     * Re-evaluates cached Market verification and trial time while the app remains open.
-     * A paid entitlement is no longer extended using a locally estimated expiry date.
+     * Re-evaluates the locally stored expiry while the app remains open.
+     * This makes the access gate close even when Market emits no new purchase event.
      */
     private fun startEntitlementClock() {
         viewModelScope.launch {
@@ -48,16 +48,6 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
                 ) {
                     updateStateWithInfo(latestInfo)
                 }
-            }
-        }
-    }
-
-    private fun loadAnnualSubscriptionPrice() {
-        viewModelScope.launch {
-            manager.getAnnualSubscriptionPrice().onSuccess { price ->
-                _uiState.update { it.copy(priceDisplay = price) }
-            }.onFailure {
-                _uiState.update { it.copy(priceDisplay = null) }
             }
         }
     }
@@ -86,7 +76,6 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
         val trialJalali = SubscriptionValidator.formatEndJalaliDate(evaluatedInfo.trialEndAt)
         val subDays = SubscriptionValidator.calculateSubscriptionDaysRemaining(evaluatedInfo, now)
         val subJalali = SubscriptionValidator.formatEndJalaliDate(evaluatedInfo.subscriptionEndAt ?: 0L)
-        val purchaseJalali = evaluatedInfo.subscriptionPurchaseAt?.takeIf { it > 0L }?.let { SubscriptionValidator.formatEndJalaliDate(it) }.orEmpty()
 
         _uiState.update { current ->
             current.copy(
@@ -94,8 +83,7 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
                 trialDaysRemaining = trialDays,
                 trialEndJalaliDate = trialJalali,
                 subscriptionDaysRemaining = subDays,
-                subscriptionEndJalaliDate = subJalali,
-                subscriptionPurchaseJalaliDate = purchaseJalali
+                subscriptionEndJalaliDate = subJalali
             )
         }
     }
@@ -114,7 +102,6 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
                     )
                 }
             }
-            loadAnnualSubscriptionPrice()
         }
     }
 

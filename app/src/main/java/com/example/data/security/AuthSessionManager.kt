@@ -87,6 +87,15 @@ class AuthSessionManager(context: Context) {
             lastLoginAt = now
         )
         _sessionState.value = AuthSessionState.Authenticated(session)
+        SessionManager.setAuthenticatedUser(
+            com.example.data.api.NetworkUserDto(
+                id = userId,
+                fullName = resolvedFullName,
+                email = null,
+                phoneNumber = phoneNumber,
+                phoneVerified = true
+            )
+        )
         return session
     }
 
@@ -109,6 +118,7 @@ class AuthSessionManager(context: Context) {
             .remove(KEY_LAST_LOGIN_AT)
             .apply()
         _sessionState.value = AuthSessionState.LoggedOut
+        SessionManager.logout()
     }
 
     fun hasValidSession(): Boolean {
@@ -124,15 +134,6 @@ class AuthSessionManager(context: Context) {
     }
 
     companion object {
-        @Volatile
-        private var INSTANCE: AuthSessionManager? = null
-
-        fun getInstance(context: Context): AuthSessionManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: AuthSessionManager(context.applicationContext).also { INSTANCE = it }
-            }
-        }
-
         private const val PREFS_NAME = "darino_persistent_auth_session"
         private const val KEY_USER_ID = "auth_user_id"
         private const val KEY_USERNAME = "auth_username"

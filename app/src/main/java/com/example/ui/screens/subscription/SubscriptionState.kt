@@ -1,5 +1,6 @@
 package com.example.ui.screens.subscription
 
+import com.example.data.subscription.MarketConfig
 import com.example.domain.subscription.SubscriptionInfo
 import com.example.domain.subscription.SubscriptionStatus
 
@@ -11,8 +12,7 @@ data class SubscriptionState(
     val trialEndJalaliDate: String = "",
     val subscriptionDaysRemaining: Long = 0L,
     val subscriptionEndJalaliDate: String = "",
-    val subscriptionPurchaseJalaliDate: String = "",
-    val priceDisplay: String? = null,
+    val priceDisplayToman: Long = MarketConfig.DISPLAY_PRICE_TOMAN,
     val userMessage: String? = null,
     val isError: Boolean = false
 ) {
