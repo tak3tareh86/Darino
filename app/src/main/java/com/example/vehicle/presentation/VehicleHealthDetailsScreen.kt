@@ -1,7 +1,6 @@
 package com.example.vehicle.presentation
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,9 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -139,48 +136,46 @@ fun VehicleHealthDetailsScreen(
                         modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp))
                             .background(
                                 Brush.linearGradient(
-                                    listOf(
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f),
-                                        MaterialTheme.colorScheme.surface,
-                                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.30f)
-                                    )
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.96f),
+                                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.62f),
+                                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.48f)
+                                    ),
+                                    start = Offset.Zero,
+                                    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
                                 )
                             )
                     ) {
-                        // A soft theme-colored glow adds depth without competing with the score.
+                        // Layered theme-colored glows create a refined dashboard-style backdrop.
                         Box(
                             modifier = Modifier.align(Alignment.CenterEnd)
-                                .offset(x = 28.dp, y = 2.dp)
-                                .size(220.dp)
+                                .offset(x = 34.dp, y = 4.dp)
+                                .size(230.dp)
                                 .clip(CircleShape)
                                 .background(
                                     Brush.radialGradient(
                                         listOf(
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
-                                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f),
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.24f),
+                                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
                                             Color.Transparent
                                         )
                                     )
                                 )
                         )
-                        // Keep the score side calm and readable while allowing the vehicle to remain visible.
                         Box(
-                            modifier = Modifier.fillMaxSize().background(
-                                Brush.horizontalGradient(
-                                    0f to MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                                    0.42f to MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-                                    0.68f to MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
-                                    1f to Color.Transparent
+                            modifier = Modifier.align(Alignment.BottomStart)
+                                .offset(x = (-54).dp, y = 58.dp)
+                                .size(176.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.radialGradient(
+                                        listOf(
+                                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                                            Color.Transparent
+                                        )
+                                    )
                                 )
-                            )
-                        )
-                        Image(
-                            painter = painterResource(id = R.drawable.img_3d_car),
-                            contentDescription = "تصویر خودرو",
-                            modifier = Modifier.align(Alignment.CenterEnd)
-                                .fillMaxHeight().fillMaxWidth(0.60f)
-                                .padding(end = 8.dp, top = 14.dp, bottom = 38.dp),
-                            contentScale = ContentScale.Fit
                         )
 
                         Surface(
