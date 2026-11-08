@@ -298,7 +298,7 @@ fun SubscriptionStatusCard(
                                     contentColor = Color(0xFF451A03)
                                 ) {
                                     Text(
-                                        text = if (isTrial) "${IranianPhoneUtils.convertDigitsToPersian(state.trialDaysRemaining.toString())} روز مانده" else "ویژه ۳۶۵ روز",
+                                        text = if (isTrial) "${IranianPhoneUtils.convertDigitsToPersian(state.trialDaysRemaining.toString())} روز مانده" else "اشتراک سالیانه",
                                         fontSize = 9.5.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
