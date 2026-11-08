@@ -201,8 +201,19 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     onValueChange = { searchQuery = it },
                     modifier = Modifier.weight(1f).height(48.dp),
                     singleLine = true,
+                    textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                     shape = RoundedCornerShape(16.dp),
-                    placeholder = { Text("جست‌وجو در چک‌ها...", maxLines = 1) },
+                    contentPadding = OutlinedTextFieldDefaults.contentPadding(
+                        top = 0.dp,
+                        bottom = 0.dp
+                    ),
+                    placeholder = {
+                        Text(
+                            "جست و جو",
+                            maxLines = 1,
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
+                        )
+                    },
                     trailingIcon = { Icon(Icons.Rounded.Search, null) },
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
