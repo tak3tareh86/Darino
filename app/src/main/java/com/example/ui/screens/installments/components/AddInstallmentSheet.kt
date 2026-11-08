@@ -104,9 +104,8 @@ fun AddInstallmentSheet(
     var installmentsCount by remember(initialInstallmentsCount) { mutableStateOf(initialInstallmentsCount.ifBlank { "۱۲" }) }
     var paidInstallmentsCount by remember { mutableStateOf("۰") }
     var submitValidationError by remember { mutableStateOf<String?>(null) }
-    var dueDate by remember {
-        mutableStateOf(PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate())
-    }
+    // The first installment date must be explicitly provided by the user.
+    var dueDate by remember { mutableStateOf("") }
     var providerOrPerson by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
 
@@ -234,7 +233,10 @@ fun AddInstallmentSheet(
                     },
                     submitValidationError = submitValidationError,
                     dueDate = dueDate,
-                    onDueDateChange = { dueDate = it },
+                    onDueDateChange = {
+                        dueDate = it
+                        submitValidationError = null
+                    },
                     notes = notes,
                     onNotesChange = { notes = it },
                     reminderEnabled = reminderEnabled,
@@ -245,7 +247,14 @@ fun AddInstallmentSheet(
                     remind2DaysBefore = remind2DaysBefore,
                     remind1WeekBefore = remind1WeekBefore,
                     onOpenReminderModal = { showReminderModal = true },
-                    onOpenCustomSchedule = { showCustomScheduleDialog = true },
+                    onOpenCustomSchedule = {
+                        if (dueDate.isBlank() || !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(dueDate)) {
+                            submitValidationError = "ابتدا تاریخ واقعی اولین قسط را وارد یا از تقویم انتخاب کنید."
+                        } else {
+                            submitValidationError = null
+                            showCustomScheduleDialog = true
+                        }
+                    },
                     isCustomScheduleActive = customScheduleItems != null,
                     onBackToCategories = { currentStep = 1 },
                     onDismiss = onDismiss,
@@ -265,6 +274,10 @@ fun AddInstallmentSheet(
                         val parsedMonthlyForValidation = IranianAmountUtils.parseAmountToBigDecimal(installmentAmount)?.let {
                             runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
                         } ?: 0L
+                        if (dueDate.isBlank() || !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(dueDate)) {
+                            submitValidationError = "ابتدا تاریخ واقعی اولین قسط را وارد یا از تقویم انتخاب کنید."
+                            return@FormDetailsStep
+                        }
                         if (paidCountValue > totalCountValue) {
                             submitValidationError = "تعداد اقساط پرداخت‌شده نمی‌تواند از تعداد کل اقساط بیشتر باشد."
                             return@FormDetailsStep
