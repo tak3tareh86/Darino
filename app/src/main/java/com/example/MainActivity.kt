@@ -47,8 +47,10 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.calendar.presentation.FinancialCalendarScreen
+import com.example.data.network.NetworkStateMonitor
 import com.example.data.security.AppLockState
-import com.example.data.security.AuthSessionManager
+import com.example.data.security.SessionManager
+import com.example.data.sync.SyncWorker
 import com.example.data.backup.WeeklyBackupWorker
 import com.example.ui.screens.auth.AuthBottomSheet
 import com.example.ui.screens.auth.AuthViewModel
@@ -91,12 +93,14 @@ class MainActivity : FragmentActivity() {
         super.onStop()
     }
 
+    private var networkMonitor: NetworkStateMonitor? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Initialize local data sources; Darino operates without a backend.
-        com.example.data.security.SessionManager.init(this)
+        // 1. Initialize secure session manager and persistent data sources
+        SessionManager.init(this)
         com.example.util.MoneyFormatter.setPrivacyModeEnabled(
             getSharedPreferences("darino_security_prefs", MODE_PRIVATE).getBoolean("privacy_mode_enabled", false)
         )
@@ -106,6 +110,8 @@ class MainActivity : FragmentActivity() {
         com.example.ui.screens.check.data.LocalCheckRepository.instance.init(this)
         com.example.vehicle.data.VehicleRepository.instance.initDatabase(this)
 
+        // 2. Schedule periodic background sync worker with network constraints
+        SyncWorker.enqueuePeriodic(this)
         // Automatic backups have been removed from the app. Disable legacy preferences
         // and cancel any periodic jobs that may have been scheduled by older versions.
         getSharedPreferences("darino_backup_prefs", MODE_PRIVATE).edit()
@@ -115,6 +121,11 @@ class MainActivity : FragmentActivity() {
         WeeklyBackupWorker.cancelWeekly(this)
         WeeklyBackupWorker.cancelDaily(this)
         com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(this)
+
+        // 3. Monitor network connectivity and auto-trigger sync when back online
+        networkMonitor = NetworkStateMonitor(this) {
+            SyncWorker.enqueueOneTime(this)
+        }
 
         setContent {
             val preferencesRepository = remember {
@@ -162,6 +173,10 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        networkMonitor?.unregister()
+    }
 
     companion object {
         @Volatile
@@ -194,7 +209,6 @@ fun AppNavigationContainer(
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = remember(context) { context as? android.app.Activity }
-    val localSessionManager = remember(context) { AuthSessionManager.getInstance(context) }
 
     val prefsRepo = remember(context) { com.example.data.preferences.AppPreferencesRepository.getInstance(context) }
     val currentNavTransition by prefsRepo.navTransition.collectAsState()
@@ -221,7 +235,7 @@ fun AppNavigationContainer(
         }
     }
 
-    val currentUserId = authUiState.loggedInUser?.id ?: localSessionManager.getActiveSession()?.userId
+    val currentUserId = authUiState.loggedInUser?.id ?: SessionManager.userId
     LaunchedEffect(currentUserId) {
         if (!currentUserId.isNullOrBlank()) {
             prefsRepo.loadUserPreferences(currentUserId)
