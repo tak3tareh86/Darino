@@ -486,8 +486,8 @@ private fun MaturitySummaryCard(total: String, count: Int, days: String, invalid
         color = colors.primaryContainer.copy(alpha = 0.48f),
         border = BorderStroke(1.dp, colors.primary.copy(alpha = 0.28f))
     ) {
-        Column(Modifier.padding(top = 10.dp, bottom = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(top = 7.dp, bottom = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Surface(Modifier.align(Alignment.CenterHorizontally),
                 color = colors.primary, shape = RoundedCornerShape(bottomStart = 18.dp, bottomEnd = 18.dp,
                     topStart = 18.dp, topEnd = 18.dp)) {
@@ -498,7 +498,7 @@ private fun MaturitySummaryCard(total: String, count: Int, days: String, invalid
                 verticalAlignment = Alignment.CenterVertically) {
                 SummaryMetric(Modifier.weight(1f), "فاصله میانگین از مبنا", days,
                     Icons.Rounded.Schedule)
-                Box(Modifier.width(1.dp).height(72.dp).background(colors.outlineVariant))
+                Box(Modifier.width(1.dp).height(54.dp).background(colors.outlineVariant))
                 SummaryMetric(Modifier.weight(1f), "تعداد چک‌های انتخاب‌شده",
                     IranianPhoneUtils.convertDigitsToPersian(count.toString()), Icons.Rounded.ReceiptLong)
                 Box(Modifier.width(1.dp).height(72.dp).background(colors.outlineVariant))
@@ -521,11 +521,18 @@ private fun SummaryMetric(
     value: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
-    Column(modifier.padding(horizontal = 5.dp), horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, minLines = 2)
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
+    Column(modifier.padding(horizontal = 3.dp), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(3.dp))
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, maxLines = 2)
+        }
         Text(value, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.Center, maxLines = 2)
     }
