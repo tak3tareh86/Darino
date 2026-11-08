@@ -32,6 +32,7 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
         observeSubscription()
         syncWithMarketOnStartup()
         startEntitlementClock()
+        loadAnnualSubscriptionPrice()
     }
 
     /**
@@ -48,6 +49,16 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
                 ) {
                     updateStateWithInfo(latestInfo)
                 }
+            }
+        }
+    }
+
+    private fun loadAnnualSubscriptionPrice() {
+        viewModelScope.launch {
+            manager.getAnnualSubscriptionPrice().onSuccess { price ->
+                _uiState.update { it.copy(priceDisplay = price) }
+            }.onFailure {
+                _uiState.update { it.copy(priceDisplay = null) }
             }
         }
     }
