@@ -2,6 +2,9 @@ package com.example.data.subscription
 
 import android.content.Context
 import androidx.activity.result.ActivityResultRegistry
+import com.example.data.api.ApiClient
+import com.example.data.api.NetworkBazaarSubscriptionDto
+import com.example.data.api.NetworkVerifyBazaarSubscriptionRequest
 import com.example.domain.subscription.SubscriptionInfo
 import com.example.domain.subscription.SubscriptionStatus
 import com.example.domain.subscription.SubscriptionValidator
@@ -44,75 +47,128 @@ class SubscriptionRepositoryImpl(
 
     override suspend fun syncWithMarket(): Result<SubscriptionInfo> = withContext(Dispatchers.IO) {
         val currentLocal = localDataSource.getSubscriptionInfo()
-
         when (val poolakeyResult = poolakeyDataSource.getSubscribedProducts()) {
             is PoolakeyResult.Success -> {
                 val purchases = poolakeyResult.data
-                val now = System.currentTimeMillis()
-                val darinoPurchases = purchases.filter {
-                    it.productId == MarketConfig.YEARLY_PRODUCT_ID
-                }
-                // Prefer a purchased item; a refunded item must never grant access.
+                val darinoPurchases = purchases.filter { it.productId == MarketConfig.YEARLY_PRODUCT_ID }
                 val darinoPurchase = darinoPurchases.firstOrNull {
                     it.purchaseState == PurchaseState.PURCHASED && it.purchaseToken.isNotBlank()
-                } ?: darinoPurchases.firstOrNull {
-                    it.purchaseState == PurchaseState.REFUNDED
-                }
+                } ?: darinoPurchases.firstOrNull { it.purchaseState == PurchaseState.REFUNDED }
 
-                if (darinoPurchase?.purchaseState == PurchaseState.PURCHASED) {
-                    // Poolakey's active subscription result is authoritative. PurchaseInfo.purchaseTime
-                    // is the original signup time and does not advance on renewal; it cannot be used
-                    // to calculate a reliable expiry date. Keep expiry unknown unless Market provides it.
-                    val purchaseTime = darinoPurchase.purchaseTime.takeIf { it > 0L }
-                    val candidate = currentLocal.copy(
-                        subscriptionStartAt = purchaseTime ?: currentLocal.subscriptionStartAt,
-                        subscriptionEndAt = null,
-                        productId = MarketConfig.YEARLY_PRODUCT_ID,
-                        purchaseTokenReference = darinoPurchase.purchaseToken,
-                        marketAccountState = "MARKET_ACTIVE",
-                        lastSyncAt = now
+                try {
+                    val snapshot = when (darinoPurchase?.purchaseState) {
+                        PurchaseState.PURCHASED -> verifyWithBackend(darinoPurchase.productId, darinoPurchase.purchaseToken)
+                        PurchaseState.REFUNDED -> null
+                        else -> getCurrentFromBackend()
+                    }
+
+                    if (snapshot == null) {
+                        val now = System.currentTimeMillis()
+                        val cleared = currentLocal.copy(
+                            subscriptionStartAt = null,
+                            subscriptionEndAt = null,
+                            productId = "",
+                            purchaseTokenReference = null,
+                            marketAccountState = if (darinoPurchase?.purchaseState == PurchaseState.REFUNDED) "REFUNDED" else "NO_PURCHASE_FOUND",
+                            lastSyncAt = now,
+                            subscriptionStatus = if (darinoPurchase?.purchaseState == PurchaseState.REFUNDED) {
+                                SubscriptionStatus.EXPIRED
+                            } else {
+                                SubscriptionValidator.evaluateStatus(
+                                    currentLocal.copy(
+                                        subscriptionStartAt = null,
+                                        subscriptionEndAt = null,
+                                        productId = "",
+                                        purchaseTokenReference = null,
+                                        marketAccountState = "NO_PURCHASE_FOUND",
+                                        lastSyncAt = now
+                                    ), now
+                                )
+                            }
+                        )
+                        localDataSource.saveSubscriptionInfo(cleared)
+                        _subscriptionFlow.value = cleared
+                        Result.success(cleared)
+                    } else {
+                        val updated = currentLocal.copy(
+                            subscriptionStartAt = snapshot.initiationTimestampMillis,
+                            subscriptionEndAt = snapshot.validUntilTimestampMillis,
+                            productId = snapshot.productId,
+                            purchaseTokenReference = darinoPurchase?.purchaseToken ?: currentLocal.purchaseTokenReference,
+                            marketAccountState = if (snapshot.active) "MARKET_ACTIVE" else "MARKET_EXPIRED",
+                            lastSyncAt = snapshot.verifiedAtMillis
+                        ).let { candidate ->
+                            candidate.copy(subscriptionStatus = SubscriptionValidator.evaluateStatus(candidate, snapshot.serverTimeMillis))
+                        }
+                        localDataSource.saveSubscriptionInfo(updated)
+                        _subscriptionFlow.value = updated
+                        Result.success(updated)
+                    }
+                } catch (error: Exception) {
+                    val evaluated = currentLocal.copy(
+                        subscriptionStatus = SubscriptionValidator.evaluateStatus(currentLocal)
                     )
-                    val updatedInfo = candidate.copy(
-                        subscriptionStatus = SubscriptionValidator.evaluateStatus(candidate, now)
-                    )
-                    localDataSource.saveSubscriptionInfo(updatedInfo)
-                    _subscriptionFlow.value = updatedInfo
-                    Result.success(updatedInfo)
-                } else {
-                    // A successful Market query is authoritative: revoke the cached entitlement.
-                    val withoutSubscription = currentLocal.copy(
-                        subscriptionStartAt = null,
-                        subscriptionEndAt = null,
-                        productId = "",
-                        purchaseTokenReference = null,
-                        marketAccountState = if (darinoPurchase?.purchaseState == PurchaseState.REFUNDED) {
-                            "REFUNDED"
-                        } else {
-                            "NO_PURCHASE_FOUND"
-                        },
-                        lastSyncAt = now
-                    )
-                    val revoked = withoutSubscription.copy(
-                        subscriptionStatus = SubscriptionValidator.evaluateStatus(withoutSubscription, now)
-                    )
-                    localDataSource.saveSubscriptionInfo(revoked)
-                    _subscriptionFlow.value = revoked
-                    Result.success(revoked)
+                    localDataSource.saveSubscriptionInfo(evaluated)
+                    _subscriptionFlow.value = evaluated
+                    Result.failure(error)
                 }
             }
             is PoolakeyResult.Error -> {
-                // Connection failed or market offline, evaluate using safe local cache
-                val evaluated = SubscriptionValidator.evaluateStatus(currentLocal)
-                val updatedInfo = currentLocal.copy(
-                    subscriptionStatus = evaluated,
-                    // A failed query must not refresh the age of the last successful Market verification.
-                    lastSyncAt = currentLocal.lastSyncAt
-                )
-                localDataSource.saveSubscriptionInfo(updatedInfo)
-                _subscriptionFlow.value = updatedInfo
-                Result.failure(Exception(poolakeyResult.message))
+                try {
+                    val snapshot = getCurrentFromBackend()
+                    if (snapshot != null) {
+                        val updated = currentLocal.copy(
+                            subscriptionStartAt = snapshot.initiationTimestampMillis,
+                            subscriptionEndAt = snapshot.validUntilTimestampMillis,
+                            productId = snapshot.productId,
+                            marketAccountState = if (snapshot.active) "MARKET_ACTIVE" else "MARKET_EXPIRED",
+                            lastSyncAt = snapshot.verifiedAtMillis
+                        ).let { candidate ->
+                            candidate.copy(subscriptionStatus = SubscriptionValidator.evaluateStatus(candidate, snapshot.serverTimeMillis))
+                        }
+                        localDataSource.saveSubscriptionInfo(updated)
+                        _subscriptionFlow.value = updated
+                        Result.success(updated)
+                    } else {
+                        val evaluated = currentLocal.copy(
+                            subscriptionStartAt = null,
+                            subscriptionEndAt = null,
+                            productId = "",
+                            purchaseTokenReference = null,
+                            marketAccountState = "NO_PURCHASE_FOUND",
+                            lastSyncAt = System.currentTimeMillis(),
+                            subscriptionStatus = SubscriptionStatus.EXPIRED
+                        )
+                        localDataSource.saveSubscriptionInfo(evaluated)
+                        _subscriptionFlow.value = evaluated
+                        Result.success(evaluated)
+                    }
+                } catch (backendError: Exception) {
+                    val evaluated = currentLocal.copy(subscriptionStatus = SubscriptionValidator.evaluateStatus(currentLocal))
+                    localDataSource.saveSubscriptionInfo(evaluated)
+                    _subscriptionFlow.value = evaluated
+                    Result.failure(Exception("${poolakeyResult.message}; ${backendError.message}", backendError))
+                }
             }
         }
+    }
+
+    private suspend fun verifyWithBackend(productId: String, purchaseToken: String): NetworkBazaarSubscriptionDto {
+        val response = ApiClient.bazaarSubscriptionApi.verifySubscription(
+            NetworkVerifyBazaarSubscriptionRequest(productId, purchaseToken)
+        )
+        if (!response.isSuccessful) throw IllegalStateException("اعتبارسنجی اشتراک در سرور دارینو ناموفق بود (HTTP ${response.code()}).")
+        val envelope = response.body() ?: throw IllegalStateException("پاسخ سرور دارینو خالی است.")
+        if (!envelope.success) throw IllegalStateException("سرور دارینو نتوانست اشتراک را تأیید کند.")
+        return envelope.data ?: throw IllegalStateException("اطلاعات تاریخ اعتبار از سرور دریافت نشد.")
+    }
+
+    private suspend fun getCurrentFromBackend(): NetworkBazaarSubscriptionDto? {
+        val response = ApiClient.bazaarSubscriptionApi.getCurrentSubscription()
+        if (!response.isSuccessful) throw IllegalStateException("دریافت وضعیت اشتراک از سرور دارینو ناموفق بود (HTTP ${response.code()}).")
+        val envelope = response.body() ?: throw IllegalStateException("پاسخ سرور دارینو خالی است.")
+        if (!envelope.success) throw IllegalStateException("سرور دارینو نتوانست وضعیت اشتراک را دریافت کند.")
+        return envelope.data
     }
 
     override suspend fun getAnnualSubscriptionPrice(): Result<String> = withContext(Dispatchers.IO) {
@@ -137,28 +193,21 @@ class SubscriptionRepositoryImpl(
             "اطلاعات خرید معتبر نیست."
         }
         val currentLocal = localDataSource.getSubscriptionInfo()
-        val now = System.currentTimeMillis()
-        val purchaseStart = purchaseInfo.purchaseTime.takeIf { it > 0L }
-        val verifiedPurchase = currentLocal.copy(
-            subscriptionStartAt = purchaseStart ?: currentLocal.subscriptionStartAt,
-            subscriptionEndAt = null,
-            productId = purchaseInfo.productId,
+        val snapshot = verifyWithBackend(purchaseInfo.productId, purchaseInfo.purchaseToken)
+        val candidate = currentLocal.copy(
+            subscriptionStartAt = snapshot.initiationTimestampMillis,
+            subscriptionEndAt = snapshot.validUntilTimestampMillis,
+            productId = snapshot.productId,
             purchaseTokenReference = purchaseInfo.purchaseToken,
-            marketAccountState = "MARKET_ACTIVE",
-            lastSyncAt = now
+            marketAccountState = if (snapshot.active) "MARKET_ACTIVE" else "MARKET_EXPIRED",
+            lastSyncAt = snapshot.verifiedAtMillis
         )
-
-        val updatedInfo = verifiedPurchase.copy(
-            subscriptionStatus = SubscriptionValidator.evaluateStatus(verifiedPurchase, now),
-            productId = purchaseInfo.productId,
-            purchaseTokenReference = purchaseInfo.purchaseToken,
-            marketAccountState = "MARKET_ACTIVE",
-            lastSyncAt = now
+        val updated = candidate.copy(
+            subscriptionStatus = SubscriptionValidator.evaluateStatus(candidate, snapshot.serverTimeMillis)
         )
-
-        localDataSource.saveSubscriptionInfo(updatedInfo)
-        _subscriptionFlow.value = updatedInfo
-        updatedInfo
+        localDataSource.saveSubscriptionInfo(updated)
+        _subscriptionFlow.value = updated
+        updated
     }
 
     override fun launchPurchaseFlow(

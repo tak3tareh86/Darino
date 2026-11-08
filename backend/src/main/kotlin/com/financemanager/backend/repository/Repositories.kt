@@ -100,4 +100,9 @@ interface InstallmentRepository : JpaRepository<Installment, String> {
 }
 
 @Repository
+interface BazaarSubscriptionRepository : JpaRepository<BazaarSubscription, String> {
+    fun findByUserId(userId: String): Optional<BazaarSubscription>
+}
+
+@Repository
 interface AuditLogRepository : JpaRepository<AuditLog, String>

@@ -4,6 +4,23 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
+data class NetworkVerifyBazaarSubscriptionRequest(
+    @Json(name = "productId") val productId: String,
+    @Json(name = "purchaseToken") val purchaseToken: String
+)
+
+@JsonClass(generateAdapter = true)
+data class NetworkBazaarSubscriptionDto(
+    @Json(name = "productId") val productId: String,
+    @Json(name = "initiationTimestampMillis") val initiationTimestampMillis: Long,
+    @Json(name = "validUntilTimestampMillis") val validUntilTimestampMillis: Long,
+    @Json(name = "autoRenewing") val autoRenewing: Boolean,
+    @Json(name = "active") val active: Boolean,
+    @Json(name = "verifiedAtMillis") val verifiedAtMillis: Long,
+    @Json(name = "serverTimeMillis") val serverTimeMillis: Long
+)
+
+@JsonClass(generateAdapter = true)
 data class NetworkApiResponse<T>(
     @Json(name = "success") val success: Boolean,
     @Json(name = "data") val data: T? = null,
