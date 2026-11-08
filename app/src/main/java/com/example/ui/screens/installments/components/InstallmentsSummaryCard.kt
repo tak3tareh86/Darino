@@ -46,6 +46,7 @@ fun InstallmentsSummaryCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
+    val numberMode by AppNumberFormatter.modeFlow.collectAsState()
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
     val cardGradient = Brush.linearGradient(
