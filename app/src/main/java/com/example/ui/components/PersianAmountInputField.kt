@@ -179,7 +179,7 @@ fun PersianAmountInputField(
                 )
             },
             leadingIcon = leadingIcon,
-            trailingIcon = if (unitLabel.isNotBlank()) {
+            trailingIcon = if (unitLabel.isNotBlank() && !useOuterHeader) {
                 {
                     Text(
                         text = unitLabel,
