@@ -988,7 +988,20 @@ class VehicleRepository {
             var alarmFailed = false
             var alarmErrorMsg: String? = null
 
-            // Register system alarms AFTER successful database transaction commit
+            // Enabling a reminder in this new-service form is an explicit opt-in.
+            // Configure global Android delivery for both date- and mileage-based alerts.
+            if (isReminderEnabled) {
+                val preferences = com.example.data.preferences.AppPreferencesRepository.getInstance(context)
+                if (!preferences.notificationsEnabled.value ||
+                    preferences.alertDelivery.value == com.example.ui.screens.settings.model.AlertDeliveryPreference.NONE
+                ) {
+                    preferences.setAlertDelivery(
+                        com.example.ui.screens.settings.model.AlertDeliveryPreference.NOTIFICATION_ONLY
+                    )
+                }
+            }
+
+            // Register a calendar alarm only when a date and future offsets exist.
             if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
                 try {
                     val reminderManager = com.example.reminder.domain.ReminderManager(context)
