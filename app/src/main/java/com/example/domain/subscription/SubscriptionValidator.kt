@@ -4,8 +4,6 @@ import com.example.util.PersianCalendarHelper
 
 object SubscriptionValidator {
 
-    private const val MARKET_VERIFICATION_MAX_AGE_MILLIS = 24 * 60 * 60 * 1000L
-
     fun calculateTrialDaysRemaining(info: SubscriptionInfo, currentTimeMillis: Long = System.currentTimeMillis()): Long {
         if (info.trialEndAt <= 0L) return 0L
         val diffMillis = info.trialEndAt - currentTimeMillis
@@ -40,16 +38,13 @@ object SubscriptionValidator {
             return SubscriptionStatus.LOCKED
         }
 
-        // Only a recent Poolakey-verified purchase or subscription query can confirm paid access.
-        // Never infer an annual subscription's expiry from purchaseTime: it remains the
-        // original signup timestamp after renewals.
+        // The current PURCHASED state returned by Bazaar/Poolakey is authoritative.
+        // No remote verification server or synthetic expiry timestamp is used.
         if (info.marketAccountState == "MARKET_ACTIVE") {
             val verificationAge = currentTimeMillis - info.lastSyncAt
             val verifiedExpiry = info.subscriptionEndAt
             return when {
-                verifiedExpiry == null || verifiedExpiry <= 0L -> SubscriptionStatus.LOCKED
-                currentTimeMillis >= verifiedExpiry -> SubscriptionStatus.EXPIRED
-                info.lastSyncAt <= 0L || verificationAge !in 0..MARKET_VERIFICATION_MAX_AGE_MILLIS -> SubscriptionStatus.LOCKED
+                verifiedExpiry != null && verifiedExpiry > 0L && currentTimeMillis >= verifiedExpiry -> SubscriptionStatus.EXPIRED
                 else -> SubscriptionStatus.ACTIVE
             }
         }
