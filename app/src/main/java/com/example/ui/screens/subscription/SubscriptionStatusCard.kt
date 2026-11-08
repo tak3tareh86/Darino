@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.subscription.SubscriptionStatus
 import com.example.util.IranianPhoneUtils
-import com.example.util.MoneyFormatter
 
 @Composable
 fun SubscriptionStatusCard(
@@ -90,9 +89,6 @@ fun SubscriptionStatusCard(
         val cardTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
         val cardMutedTextColor = if (isDark) Color(0xFFE2E8F0) else MaterialTheme.colorScheme.onSurfaceVariant
         val marketConfirmedActive = info.marketAccountState == "MARKET_ACTIVE"
-        val hasEstimatedEndDate = info.subscriptionEndAt != null && info.subscriptionEndAt > 0L
-        val daysText = IranianPhoneUtils.convertDigitsToPersian(remainingDays.toString())
-        val dateText = endDateTime.takeUnless { it == "-" }.orEmpty().ifBlank { "نامشخص" }
 
         Card(
             modifier = modifier
@@ -156,14 +152,14 @@ fun SubscriptionStatusCard(
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
-                            text = if (marketConfirmedActive && hasEstimatedEndDate) "تاریخ تخمینی انقضا" else "تاریخ انقضا",
+                            text = "تاریخ انقضا",
                             color = cardMutedTextColor,
                             fontSize = 9.5.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
                     Text(
-                        text = if (marketConfirmedActive && !hasEstimatedEndDate) "نامشخص" else dateText,
+                        text = if (marketConfirmedActive) "در اطلاعات بازار موجود نیست" else "نامشخص",
                         color = cardTextColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -213,7 +209,7 @@ fun SubscriptionStatusCard(
                             )
                         }
                         Text(
-                            text = if (marketConfirmedActive) "فعال طبق تأیید بازار" else "$daysText روز باقی‌مانده",
+                            text = if (marketConfirmedActive) "تأییدشده توسط بازار" else "وضعیت محلی اشتراک",
                             color = if (marketConfirmedActive) cardMutedTextColor else if (isDark) Color(0xFFA7F3D0) else Color(0xFF047857),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -401,7 +397,7 @@ fun SubscriptionStatusCard(
                                 )
                             )
                             Text(
-                                text = MoneyFormatter.formatToman(state.priceDisplayToman),
+                                text = state.priceDisplay ?: "قیمت در بازار دریافت نشد",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
