@@ -77,7 +77,7 @@ fun SubscriptionStatusCard(
     }
 
     if (isActive) {
-        // Active annual subscription card. Keep the same minimum dimensions as the trial card.
+        // Compact active-subscription card. Keep Market-confirmed dates clearly marked as estimates.
         val activeGradient = if (isDark) {
             Brush.horizontalGradient(
                 colors = listOf(Color(0xFF064E3B), Color(0xFF047857), Color(0xFF0F766E))
@@ -89,16 +89,15 @@ fun SubscriptionStatusCard(
         }
         val cardTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
         val cardMutedTextColor = if (isDark) Color(0xFFE2E8F0) else MaterialTheme.colorScheme.onSurfaceVariant
-        val marketConfirmedActive = isActive && info.marketAccountState == "MARKET_ACTIVE"
-        // Market confirms entitlement, but purchaseTime only gives an estimated end date:
-        // renewals can make that estimate older than the actual active subscription.
+        val marketConfirmedActive = info.marketAccountState == "MARKET_ACTIVE"
         val hasEstimatedEndDate = info.subscriptionEndAt != null && info.subscriptionEndAt > 0L
         val daysText = IranianPhoneUtils.convertDigitsToPersian(remainingDays.toString())
+        val dateText = endDateTime.takeUnless { it == "-" }.orEmpty().ifBlank { "نامشخص" }
 
         Card(
             modifier = modifier
                 .fillMaxWidth()
-                .heightIn(min = 140.dp)
+                .heightIn(min = 112.dp)
                 .testTag("active_subscription_card")
                 .shadow(
                     elevation = 5.dp,
@@ -110,150 +109,126 @@ fun SubscriptionStatusCard(
             elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
             colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
-            Box(
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .background(activeGradient)
-                    .padding(14.dp)
+                    .padding(horizontal = 12.dp, vertical = 13.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Right side: active status and Jalali expiration date.
                 Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.SpaceBetween
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    // App mark on the upper-right; remaining-time counter on the upper-left.
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        androidx.compose.foundation.Image(
-                            painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.img_darino_logo),
-                            contentDescription = "لوگوی دارینو",
-                            modifier = Modifier.size(34.dp).clip(RoundedCornerShape(9.dp))
-                        )
-
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFF59E0B),
-                            contentColor = Color(0xFF451A03)
-                        ) {
-                            Text(
-                                text = if (marketConfirmedActive) "فعال طبق تأیید بازار" else "$daysText روز باقی‌مانده",
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "دوست خوبم سلام",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = cardTextColor
-                            )
-                        )
-                        Text(
-                            text = "به جمع ما خوش اومدی",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = cardTextColor
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(5.dp))
-                        Text(
-                            text = "از اینکه اشتراک سالانه رو انتخاب کردی ممنونیم. حالا می‌تونی با خیال راحت",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Justify,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 10.5.sp,
-                                lineHeight = 15.sp,
-                                color = cardMutedTextColor
-                            )
-                        )
-                        Text(
-                            text = "از تمام امکانات برنامه استفاده کنی. امیدواریم همراه خوبی برای مدیریت بهتر",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Justify,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 10.5.sp,
-                                lineHeight = 15.sp,
-                                color = cardMutedTextColor
-                            )
-                        )
-                        Text(
-                            text = "امور مالی و زندگی روزمره شما باشیم.",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 10.5.sp,
-                                lineHeight = 15.sp,
-                                color = cardMutedTextColor
-                            )
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF059669).copy(alpha = if (isDark) 0.35f else 0.16f),
+                        contentColor = if (isDark) Color(0xFFA7F3D0) else Color(0xFF047857)
                     ) {
                         Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(
                                 imageVector = androidx.compose.material.icons.Icons.Default.WorkspacePremium,
                                 contentDescription = null,
-                                tint = Color(0xFFFFD54F),
-                                modifier = Modifier.size(19.dp)
+                                modifier = Modifier.size(14.dp)
                             )
                             Text(
                                 text = "فعال",
-                                color = Color(0xFFFFD54F),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-
-                        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                            Text(
-                                text = when {
-                                    marketConfirmedActive && hasEstimatedEndDate -> "تاریخ تخمینی انقضا"
-                                    marketConfirmedActive -> "وضعیت اشتراک"
-                                    else -> "تاریخ انقضا"
-                                },
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 9.5.sp,
-                                    color = if (isDark) Color(0xFFA7F3D0) else MaterialTheme.colorScheme.primary
-                                )
-                            )
-                            Text(
-                                text = when {
-                                    marketConfirmedActive && !hasEstimatedEndDate -> "فعال طبق تأیید بازار"
-                                    marketConfirmedActive -> endDateTime.takeUnless { it == "-" }.orEmpty().ifBlank { "تاریخ نامشخص" }
-                                    else -> endDateTime.takeUnless { it == "-" }.orEmpty().ifBlank { "نامشخص" }
-                                },
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp,
-                                    color = cardTextColor
-                                )
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.CalendarToday,
+                            contentDescription = null,
+                            tint = if (isDark) Color(0xFFA7F3D0) else Color(0xFF047857),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = if (marketConfirmedActive && hasEstimatedEndDate) "تاریخ تخمینی انقضا" else "تاریخ انقضا",
+                            color = cardMutedTextColor,
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Text(
+                        text = if (marketConfirmedActive && !hasEstimatedEndDate) "نامشخص" else dateText,
+                        color = cardTextColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 10.dp)
+                        .width(1.dp)
+                        .height(70.dp)
+                        .background(
+                            if (isDark) Color.White.copy(alpha = 0.28f)
+                            else Color(0xFF047857).copy(alpha = 0.25f)
+                        )
+                )
+
+                // Left side: Darino logo, centered active-subscription title and remaining time.
+                Row(
+                    modifier = Modifier.weight(1.25f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Text(
+                                text = "اشتراک فعال",
+                                color = cardTextColor,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.CheckCircle,
+                                contentDescription = "اشتراک فعال",
+                                tint = Color(0xFF22C55E),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Text(
+                            text = if (marketConfirmedActive) "فعال طبق تأیید بازار" else "$daysText روز باقی‌مانده",
+                            color = if (marketConfirmedActive) cardMutedTextColor else if (isDark) Color(0xFFA7F3D0) else Color(0xFF047857),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1
+                        )
+                    }
+
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.img_darino_logo),
+                        contentDescription = "لوگوی دارینو",
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                    )
                 }
             }
         }
