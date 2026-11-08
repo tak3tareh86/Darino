@@ -13,6 +13,12 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.Base64
+import javax.crypto.Cipher
+import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.SecretKeySpec
 import java.util.concurrent.TimeUnit
 
 data class BazaarSubscriptionSnapshot(
@@ -33,7 +39,8 @@ class BazaarSubscriptionService(
     @Value("${app.bazaar.client-secret:}") private val clientSecret: String,
     @Value("${app.bazaar.refresh-token:}") private val refreshToken: String,
     @Value("${app.bazaar.package-name:}") private val packageName: String,
-    @Value("${app.bazaar.subscription-id:darino_yearly_subscription}") private val subscriptionId: String
+    @Value("${app.bazaar.subscription-id:darino_yearly_subscription}") private val subscriptionId: String,
+    @Value("${app.jwt.secret}") private val encryptionSecret: String
 ) {
     private val http = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -65,7 +72,7 @@ class BazaarSubscriptionService(
         val existing = repository.findByUserId(userId).orElse(null)
         val entity = existing?.apply {
             this.productId = productId
-            this.purchaseToken = purchaseToken
+            this.purchaseTokenEncrypted = encryptToken(purchaseToken)
             this.initiationTimestampMillis = initiation
             this.validUntilTimestampMillis = validUntil
             this.autoRenewing = result.path("autoRenewing").asBoolean(false)
@@ -74,7 +81,7 @@ class BazaarSubscriptionService(
         } ?: BazaarSubscription(
             userId = userId,
             productId = productId,
-            purchaseToken = purchaseToken,
+            purchaseTokenEncrypted = encryptToken(purchaseToken),
             initiationTimestampMillis = initiation,
             validUntilTimestampMillis = validUntil,
             autoRenewing = result.path("autoRenewing").asBoolean(false),
@@ -87,7 +94,7 @@ class BazaarSubscriptionService(
     fun getCurrent(userId: String): BazaarSubscriptionSnapshot? {
         val saved = repository.findByUserId(userId).orElse(null) ?: return null
         // Revalidate against Bazaar on every explicit refresh; never extend validity locally.
-        return verifyAndSave(userId, saved.productId, saved.purchaseToken)
+        return verifyAndSave(userId, saved.productId, decryptToken(saved.purchaseTokenEncrypted))
     }
 
     private fun fetchSubscription(token: String): com.fasterxml.jackson.databind.JsonNode {
@@ -152,6 +159,33 @@ class BazaarSubscriptionService(
             cachedAccessToken = token
             accessTokenExpiresAtMillis = now + expiresIn.coerceAtLeast(60L) * 1000L
             return token
+        }
+    }
+
+    private fun encryptionKey(): SecretKeySpec {
+        val digest = MessageDigest.getInstance("SHA-256").digest(encryptionSecret.toByteArray(Charsets.UTF_8))
+        return SecretKeySpec(digest, "AES")
+    }
+
+    private fun encryptToken(token: String): String {
+        val iv = ByteArray(12).also { SecureRandom().nextBytes(it) }
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, encryptionKey(), GCMParameterSpec(128, iv))
+        val encrypted = cipher.doFinal(token.toByteArray(Charsets.UTF_8))
+        return Base64.getEncoder().encodeToString(iv + encrypted)
+    }
+
+    private fun decryptToken(encoded: String): String {
+        try {
+            val payload = Base64.getDecoder().decode(encoded)
+            require(payload.size > 12) { "Stored purchase token is invalid." }
+            val iv = payload.copyOfRange(0, 12)
+            val ciphertext = payload.copyOfRange(12, payload.size)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, encryptionKey(), GCMParameterSpec(128, iv))
+            return String(cipher.doFinal(ciphertext), Charsets.UTF_8)
+        } catch (error: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "بازیابی امن توکن اشتراک امکان‌پذیر نیست.")
         }
     }
 
