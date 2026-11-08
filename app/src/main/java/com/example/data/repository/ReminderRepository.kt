@@ -176,7 +176,7 @@ class ReminderRepository(
     suspend fun refreshSmsStatus(reminderId: Int): String? = withContext(Dispatchers.IO) {
         val reminder = reminderDao.getReminderById(requireUserId(), reminderId)
             ?: return@withContext null
-        if (!reminder.smsEnabled) return@withContext null
+        if (reminder.serverId == null || !reminder.smsEnabled) return@withContext null
         // Delivery state is read from the locally stored reminder record.
         reminder.smsDeliveryStatus
     }
