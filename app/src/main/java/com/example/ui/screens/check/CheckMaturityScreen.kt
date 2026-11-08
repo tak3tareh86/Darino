@@ -745,7 +745,10 @@ private fun MaturityCheckCard(check: Check, selected: Boolean, onSelectedChange:
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        check.formattedAmount,
+                        MoneyFormatter.formatExact(
+                            MoneyAmount.of(check.amount, check.amountUnit),
+                            includeUnit = false
+                        ),
                         color = if (selected) colors.primary else colors.onSurface,
                         fontWeight = FontWeight.ExtraBold,
                         style = MaterialTheme.typography.titleMedium.copy(fontSize = amountFontSize),
