@@ -628,30 +628,59 @@ private fun MaturityCheckCard(check: Check, selected: Boolean, onSelectedChange:
             else colors.outlineVariant.copy(alpha = 0.65f))
     ) {
         Row(Modifier.heightIn(min = 76.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(0.92f).padding(start = 10.dp, top = 9.dp, bottom = 9.dp),
-                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(check.formattedAmount, color = if (selected) colors.primary else colors.onSurface,
-                    fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1)
-                Text(MoneyFormatter.getUnitLabel(), color = colors.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelSmall)
-            }
-            Box(Modifier.width(1.dp).height(58.dp).background(colors.outlineVariant))
-            Column(Modifier.weight(1.65f).padding(horizontal = 10.dp, vertical = 8.dp),
-                horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(check.bankName, color = colors.onSurface, fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                Text("شماره: ${check.checkNumber}  •  سررسید: ${check.formattedDueDate}",
-                    color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1)
-            }
-            CheckBankLogo(
-                bankName = check.bankName,
-                modifier = Modifier.size(48.dp)
+            // Right side: selection checkbox, followed immediately by its divider.
+            Checkbox(
+                checked = selected,
+                onCheckedChange = onSelectedChange,
+                modifier = Modifier.padding(horizontal = 3.dp)
             )
             Box(Modifier.width(1.dp).height(58.dp).background(colors.outlineVariant))
-            Checkbox(checked = selected, onCheckedChange = onSelectedChange,
-                modifier = Modifier.padding(horizontal = 3.dp))
+
+            // Bank identity and check details occupy the middle section.
+            CheckBankLogo(
+                bankName = check.bankName,
+                modifier = Modifier.padding(horizontal = 7.dp).size(44.dp)
+            )
+            Column(
+                Modifier.weight(1.65f).padding(horizontal = 5.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    check.bankName,
+                    color = colors.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1
+                )
+                Text(
+                    "شماره: ${check.checkNumber}  •  سررسید: ${check.formattedDueDate}",
+                    color = colors.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1
+                )
+            }
+
+            // Left side: check amount, separated from the bank details.
+            Box(Modifier.width(1.dp).height(58.dp).background(colors.outlineVariant))
+            Column(
+                Modifier.weight(0.92f).padding(start = 10.dp, end = 8.dp, top = 9.dp, bottom = 9.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    check.formattedAmount,
+                    color = if (selected) colors.primary else colors.onSurface,
+                    fontWeight = FontWeight.ExtraBold,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1
+                )
+                Text(
+                    MoneyFormatter.getUnitLabel(),
+                    color = colors.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
         }
     }
 }
