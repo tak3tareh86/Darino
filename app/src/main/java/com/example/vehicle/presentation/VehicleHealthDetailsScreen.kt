@@ -195,8 +195,8 @@ fun VehicleHealthDetailsScreen(
                         }
 
                         Column(
-                            modifier = Modifier.align(Alignment.TopStart)
-                                .padding(top = 13.dp, start = 12.dp, end = 12.dp)
+                            modifier = Modifier.align(Alignment.Center)
+                                .padding(horizontal = 12.dp)
                                 .widthIn(max = 178.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(1.dp)
