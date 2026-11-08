@@ -40,6 +40,12 @@ spring:
         size: 5
 
 app:
+  bazaar:
+    client-id: ${BAZAAR_CLIENT_ID:}
+    client-secret: ${BAZAAR_CLIENT_SECRET:}
+    refresh-token: ${BAZAAR_REFRESH_TOKEN:}
+    package-name: ${BAZAAR_PACKAGE_NAME:com.aistudio.financemanager.vkqjxp}
+    subscription-id: ${BAZAAR_SUBSCRIPTION_ID:darino_yearly_subscription}
   jwt:
     secret: ${JWT_SECRET}
     access-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000} # 15 minutes
