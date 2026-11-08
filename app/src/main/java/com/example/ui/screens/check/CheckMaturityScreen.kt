@@ -692,7 +692,7 @@ private fun MaturityCheckCard(check: Check, selected: Boolean, onSelectedChange:
             )
             Column(
                 Modifier.weight(1.55f).padding(horizontal = 4.dp, vertical = 7.dp),
-                horizontalAlignment = Alignment.End,
+                horizontalAlignment = Alignment.Start,
                 verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Text(
@@ -701,7 +701,7 @@ private fun MaturityCheckCard(check: Check, selected: Boolean, onSelectedChange:
                     color = colors.onSurface,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleSmall,
-                    textAlign = TextAlign.End,
+                    textAlign = TextAlign.Start,
                     maxLines = 1
                 )
                 Text(
@@ -709,7 +709,7 @@ private fun MaturityCheckCard(check: Check, selected: Boolean, onSelectedChange:
                     modifier = Modifier.fillMaxWidth(),
                     color = colors.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.End,
+                    textAlign = TextAlign.Start,
                     maxLines = 1
                 )
                 Text(
@@ -717,7 +717,7 @@ private fun MaturityCheckCard(check: Check, selected: Boolean, onSelectedChange:
                     modifier = Modifier.fillMaxWidth(),
                     color = colors.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.End,
+                    textAlign = TextAlign.Start,
                     maxLines = 1
                 )
             }
