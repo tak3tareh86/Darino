@@ -463,16 +463,37 @@ private fun MaturitySummaryCard(total: String, count: Int, days: String, invalid
         color = colors.primaryContainer.copy(alpha = 0.48f),
         border = BorderStroke(1.dp, colors.primary.copy(alpha = 0.28f))
     ) {
-        Column(Modifier.padding(top = 7.dp, bottom = 9.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Surface(Modifier.align(Alignment.CenterHorizontally),
-                color = colors.primary, shape = RoundedCornerShape(bottomStart = 18.dp, bottomEnd = 18.dp,
-                    topStart = 18.dp, topEnd = 18.dp)) {
-                Text("خلاصه محاسبات", Modifier.padding(horizontal = 22.dp, vertical = 7.dp),
-                    color = colors.onPrimary, fontWeight = FontWeight.Bold)
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(top = 5.dp, bottom = 7.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // Center the section label on the card's top edge, with the border
+            // continuing visibly on both sides of the label.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(Modifier.weight(1f).height(1.dp).background(colors.primary.copy(alpha = 0.45f)))
+                Surface(
+                    modifier = Modifier.padding(horizontal = 9.dp),
+                    color = colors.primary,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        "خلاصه محاسبات",
+                        Modifier.padding(horizontal = 18.dp, vertical = 4.dp),
+                        color = colors.onPrimary,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+                Box(Modifier.weight(1f).height(1.dp).background(colors.primary.copy(alpha = 0.45f)))
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 7.dp),
-                verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 7.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 SummaryMetric(Modifier.weight(1f), "فاصله میانگین از مبنا", days,
                     Icons.Rounded.Schedule)
                 Box(Modifier.width(1.dp).height(54.dp).background(colors.outlineVariant))
@@ -483,9 +504,12 @@ private fun MaturitySummaryCard(total: String, count: Int, days: String, invalid
                     Icons.Rounded.Paid)
             }
             if (invalidAmount) {
-                Text("مبلغ یکی از چک‌ها قابل تبدیل دقیق نیست؛ محاسبه انجام نشد.",
-                    Modifier.padding(horizontal = 14.dp), color = colors.error,
-                    style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "مبلغ یکی از چک‌ها قابل تبدیل دقیق نیست؛ محاسبه انجام نشد.",
+                    Modifier.padding(horizontal = 14.dp),
+                    color = colors.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }
