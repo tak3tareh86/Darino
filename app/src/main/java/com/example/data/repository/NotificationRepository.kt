@@ -1,6 +1,7 @@
 package com.example.data.repository
 
 import android.content.Context
+import com.example.data.api.ApiClient
 import com.example.data.api.SyncManager
 import com.example.data.database.AppDatabase
 import com.example.data.database.NotificationLogEntity
@@ -39,6 +40,13 @@ class NotificationRepository(
 
     suspend fun markAllAsRead() = withContext(Dispatchers.IO) {
         notificationLogDao.markAllAsRead(SessionManager.userId ?: return@withContext)
+        backgroundScope.launch {
+            try {
+                ApiClient.notificationApi.markAllAsRead()
+            } catch (e: Exception) {
+                // Handled in sync
+            }
+        }
     }
 
     suspend fun deleteNotification(id: Int) = withContext(Dispatchers.IO) {
