@@ -667,6 +667,13 @@ private fun ResultMetric(modifier: Modifier, label: String, value: String) {
 @Composable
 private fun MaturityCheckCard(check: Check, selected: Boolean, onSelectedChange: (Boolean) -> Unit) {
     val colors = MaterialTheme.colorScheme
+    val amountFontSize = when {
+        check.formattedAmount.length >= 18 -> 9.sp
+        check.formattedAmount.length >= 15 -> 10.sp
+        check.formattedAmount.length >= 12 -> 12.sp
+        check.formattedAmount.length >= 10 -> 14.sp
+        else -> MaterialTheme.typography.titleMedium.fontSize
+    }
     Surface(
         modifier = Modifier.fillMaxWidth().clickable { onSelectedChange(!selected) },
         shape = RoundedCornerShape(18.dp),
@@ -675,71 +682,79 @@ private fun MaturityCheckCard(check: Check, selected: Boolean, onSelectedChange:
             else colors.outlineVariant.copy(alpha = 0.65f))
     ) {
         Row(Modifier.heightIn(min = 76.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Right side: selection checkbox, followed immediately by its divider.
+            // مستقل نگه‌داشتن فضای چک‌باکس از فضای اطلاعات چک.
             Checkbox(
                 checked = selected,
                 onCheckedChange = onSelectedChange,
                 modifier = Modifier.padding(horizontal = 0.dp)
             )
-            // Keep the divider close to the checkbox.
-            Box(Modifier.width(1.dp).height(58.dp).background(colors.outlineVariant))
-
-            // Bank logo and its name share the first line; check details are
-            // stacked below and aligned to the right.
-            CheckBankLogo(
-                bankName = check.bankName,
-                modifier = Modifier.padding(horizontal = 5.dp).size(42.dp)
+            // خط جداکننده کمی به چک‌باکس نزدیک‌تر شده تا فضای اطلاعات بیشتر شود.
+            Box(
+                Modifier.offset(x = 3.dp).width(1.dp).height(58.dp)
+                    .background(colors.outlineVariant)
             )
-            Column(
-                Modifier.weight(1.55f).padding(horizontal = 4.dp, vertical = 7.dp),
-                horizontalAlignment = Alignment.Start,
-                verticalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Text(
-                    check.bankName,
-                    modifier = Modifier.fillMaxWidth(),
-                    color = colors.onSurface,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleSmall,
-                    textAlign = TextAlign.Start,
-                    maxLines = 1
-                )
-                Text(
-                    "شماره: ${check.checkNumber}",
-                    modifier = Modifier.fillMaxWidth(),
-                    color = colors.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Start,
-                    maxLines = 1
-                )
-                Text(
-                    "سررسید: ${check.formattedDueDate}",
-                    modifier = Modifier.fillMaxWidth(),
-                    color = colors.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Start,
-                    maxLines = 1
-                )
-            }
 
-            // Remove the amount divider and give the amount column more room.
-            Column(
-                Modifier.weight(1.05f).padding(start = 8.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            // همه اطلاعات چک در یک بخش مشترک قرار دارند؛ مبلغ عرض موردنیازش
+            // را می‌گیرد و ستون مشخصات، فضای باقی‌مانده را استفاده می‌کند.
+            Row(
+                modifier = Modifier.weight(1f).fillMaxWidth()
+                    .padding(start = 6.dp, end = 4.dp, top = 7.dp, bottom = 7.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    check.formattedAmount,
-                    color = if (selected) colors.primary else colors.onSurface,
-                    fontWeight = FontWeight.ExtraBold,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1
+                CheckBankLogo(
+                    bankName = check.bankName,
+                    modifier = Modifier.padding(end = 5.dp).size(42.dp)
                 )
-                Text(
-                    MoneyFormatter.getUnitLabel(),
-                    color = colors.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelSmall
-                )
+                Column(
+                    Modifier.weight(1f).padding(horizontal = 3.dp),
+                    horizontalAlignment = Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(
+                        check.bankName,
+                        modifier = Modifier.fillMaxWidth(),
+                        color = colors.onSurface,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmall,
+                        textAlign = TextAlign.Start,
+                        maxLines = 1
+                    )
+                    Text(
+                        "شماره: ${check.checkNumber}",
+                        modifier = Modifier.fillMaxWidth(),
+                        color = colors.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Start,
+                        maxLines = 1
+                    )
+                    Text(
+                        "سررسید: ${check.formattedDueDate}",
+                        modifier = Modifier.fillMaxWidth(),
+                        color = colors.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Start,
+                        maxLines = 1
+                    )
+                }
+                Column(
+                    modifier = Modifier.wrapContentWidth().padding(start = 4.dp, end = 2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        check.formattedAmount,
+                        color = if (selected) colors.primary else colors.onSurface,
+                        fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = amountFontSize),
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    Text(
+                        MoneyFormatter.getUnitLabel(),
+                        color = colors.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
         }
     }
