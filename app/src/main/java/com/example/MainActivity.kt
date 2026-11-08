@@ -96,6 +96,7 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
 
         // Initialize local data sources; Darino operates without a backend.
+        com.example.data.security.SessionManager.init(this)
         com.example.util.MoneyFormatter.setPrivacyModeEnabled(
             getSharedPreferences("darino_security_prefs", MODE_PRIVATE).getBoolean("privacy_mode_enabled", false)
         )
@@ -193,7 +194,7 @@ fun AppNavigationContainer(
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = remember(context) { context as? android.app.Activity }
-    val localSessionManager = remember(context) { AuthSessionManager(context) }
+    val localSessionManager = remember(context) { AuthSessionManager.getInstance(context) }
 
     val prefsRepo = remember(context) { com.example.data.preferences.AppPreferencesRepository.getInstance(context) }
     val currentNavTransition by prefsRepo.navTransition.collectAsState()

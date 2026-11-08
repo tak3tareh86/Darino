@@ -119,6 +119,8 @@ dependencies {
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.poolakey)
   implementation(libs.coil.compose)
+  // Moshi remains required by the versioned local backup format.
+  implementation(libs.moshi.kotlin)
   implementation(libs.android.svg)
   implementation(libs.firebase.ai)
   // Uncomment to use Firestore:
