@@ -614,6 +614,11 @@ fun AddVehicleSheet(
                                 Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب مدل خودرو")
                             }
                         }
+                        Text(
+                            text = "مدل و تیپ را از فهرست آفلاین انتخاب کنید",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 
