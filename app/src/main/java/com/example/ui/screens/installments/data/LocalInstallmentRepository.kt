@@ -119,7 +119,7 @@ class LocalInstallmentRepository private constructor() {
                     require(entity.totalInstallments > 0) { "Invalid totalInstallments in DB: ${entity.id}" }
                     require(entity.amount > 0L) { "Invalid installment amount in DB: ${entity.id}" }
 
-                    val startJalali = if (entity.startDate > 0L) {
+                    val storedStartJalali = if (entity.startDate > 0L) {
                         PersianCalendarHelper.fromEpochMillis(entity.startDate).toFormattedDate()
                     } else {
                         throw IllegalStateException("Invalid installment startDate in DB: ${entity.startDate}")
@@ -132,7 +132,6 @@ class LocalInstallmentRepository private constructor() {
                     }
 
                     val nextDueJalali = PersianCalendarHelper.fromEpochMillis(nextDueMillis).toFormattedDate()
-                    val endJalali = PersianCalendarHelper.addMonthsToPersianDate(startJalali, entity.totalInstallments)
 
                     val payments = dbPayments.filter { it.installmentId == entity.id }.map { p ->
                         val dueStr = if (p.dueDate > 0L) {
@@ -160,6 +159,15 @@ class LocalInstallmentRepository private constructor() {
                             amountUnit = AppCurrency.valueOf(p.amountUnit)
                         )
                     }.sortedBy { it.installmentNumber }
+
+                    // The persisted payment schedule is the source of truth for contract boundaries.
+                    // This prevents a stale/default entity startDate from overriding the first entered due date.
+                    val startJalali = payments.minByOrNull {
+                        parseJalaliStringToMillis(it.dueDate) ?: Long.MAX_VALUE
+                    }?.dueDate ?: storedStartJalali
+                    val endJalali = payments.maxByOrNull {
+                        parseJalaliStringToMillis(it.dueDate) ?: Long.MIN_VALUE
+                    }?.dueDate ?: PersianCalendarHelper.addMonthsToPersianDate(startJalali, entity.totalInstallments)
 
                     val duplicateNumbers = payments.groupingBy { it.installmentNumber }.eachCount().filterValues { it > 1 }
                     require(duplicateNumbers.isEmpty()) { "Duplicate installment schedule rows in DB: ${entity.id}" }
@@ -686,8 +694,11 @@ class LocalInstallmentRepository private constructor() {
         // Prefer an active row; only restore a soft-deleted row when no active copy exists.
         val existing = existingRows.firstOrNull { it.deletedAt == null } ?: existingRows.firstOrNull()
         val now = System.currentTimeMillis()
-        val startMillis = parseJalaliStringToMillis(item.startDate)
-            ?: throw IllegalArgumentException("Invalid start date: ${item.startDate}")
+        val contractStartDate = item.paymentHistory.minByOrNull {
+            parseJalaliStringToMillis(it.dueDate) ?: Long.MAX_VALUE
+        }?.dueDate ?: item.startDate
+        val startMillis = parseJalaliStringToMillis(contractStartDate)
+            ?: throw IllegalArgumentException("Invalid start date: $contractStartDate")
         val nextDueMillis = parseJalaliStringToMillis(item.nextPaymentDate)
             ?: throw IllegalArgumentException("Invalid next payment date: ${item.nextPaymentDate}")
         val dueDayNum = CalendarDateUtils.parseJalali(item.nextPaymentDate)?.third
@@ -769,8 +780,11 @@ class LocalInstallmentRepository private constructor() {
         dao.clearAllPayments(userId)
 
         items.forEach { item ->
-            val startMillis = parseJalaliStringToMillis(item.startDate) 
-                ?: throw IllegalArgumentException("Invalid start date: ${item.startDate}")
+            val contractStartDate = item.paymentHistory.minByOrNull {
+                parseJalaliStringToMillis(it.dueDate) ?: Long.MAX_VALUE
+            }?.dueDate ?: item.startDate
+            val startMillis = parseJalaliStringToMillis(contractStartDate)
+                ?: throw IllegalArgumentException("Invalid start date: $contractStartDate")
             val nextDueMillis = parseJalaliStringToMillis(item.nextPaymentDate) 
                 ?: throw IllegalArgumentException("Invalid next payment date: ${item.nextPaymentDate}")
             val dueDayNum = CalendarDateUtils.parseJalali(item.nextPaymentDate)?.third
