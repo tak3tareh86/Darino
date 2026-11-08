@@ -460,7 +460,7 @@ private fun MaturityTypePill(
 ) {
     val colors = MaterialTheme.colorScheme
     Surface(
-        modifier = modifier.height(58.dp).clickable(onClick = onClick),
+        modifier = modifier.height(48.dp).clickable(onClick = onClick),
         shape = RoundedCornerShape(28.dp),
         color = if (selected) colors.primary else colors.surface,
         border = BorderStroke(1.dp, if (selected) colors.primary else colors.outlineVariant)
