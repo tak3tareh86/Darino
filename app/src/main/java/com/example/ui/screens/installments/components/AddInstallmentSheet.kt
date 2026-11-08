@@ -270,10 +270,10 @@ fun AddInstallmentSheet(
                             return@FormDetailsStep
                         }
                         if (currentCustomScheduleItems.isNullOrEmpty() &&
-                            totalCountValue > 1 &&
-                            Math.multiplyExact(parsedMonthlyForValidation, (totalCountValue - 1L).toLong()) >= parsedTotalForValidation
+                            totalCountValue > 0 &&
+                            Math.multiplyExact(parsedMonthlyForValidation, totalCountValue.toLong()) < parsedTotalForValidation
                         ) {
-                            submitValidationError = "مبلغ هر قسط با مبلغ کل و تعداد اقساط سازگار نیست؛ لطفاً مبالغ را بررسی کنید."
+                            submitValidationError = "مجموع مبلغ اقساط نمی‌تواند از مبلغ کل وام کمتر باشد؛ لطفاً مبالغ را بررسی کنید."
                             return@FormDetailsStep
                         }
                         submitValidationError = null
@@ -1315,9 +1315,9 @@ private fun CustomInstallmentsDialog(
                                 validationError = "شماره اقساط باید از ۱ تا ${IranianPhoneUtils.convertDigitsToPersian(countInt.toString())} کامل و بدون تکرار باشد."
                             } else if (invalidItem != null) {
                                 validationError = "تمام اقساط باید شماره معتبر، مبلغ بیشتر از صفر و تاریخ سررسید معتبر شمسی داشته باشند."
-                            } else if (expectedTotal <= 0L || actualTotal != expectedTotal) {
-                                val difference = kotlin.math.abs(expectedTotal - actualTotal)
-                                validationError = "جمع اقساط باید دقیقاً برابر مبلغ کل وام باشد. مبلغ کل: ${MoneyFormatter.formatExact(MoneyAmount.of(expectedTotal, AppCurrency.RIAL))}، جمع اقساط: ${MoneyFormatter.formatExact(MoneyAmount.of(actualTotal, AppCurrency.RIAL))}، اختلاف: ${MoneyFormatter.formatExact(MoneyAmount.of(difference, AppCurrency.RIAL))}"
+                            } else if (expectedTotal <= 0L || actualTotal < expectedTotal) {
+                                val difference = expectedTotal - actualTotal
+                                validationError = "جمع اقساط نمی‌تواند از مبلغ کل وام کمتر باشد. مبلغ کل: ${MoneyFormatter.formatExact(MoneyAmount.of(expectedTotal, AppCurrency.RIAL))}، جمع اقساط: ${MoneyFormatter.formatExact(MoneyAmount.of(actualTotal, AppCurrency.RIAL))}، کسری: ${MoneyFormatter.formatExact(MoneyAmount.of(difference, AppCurrency.RIAL))}"
                             } else {
                                 validationError = null
                                 onConfirm(scheduleList)
