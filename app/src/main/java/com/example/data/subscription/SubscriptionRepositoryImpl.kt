@@ -2,8 +2,6 @@ package com.example.data.subscription
 
 import android.content.Context
 import androidx.activity.result.ActivityResultRegistry
-import com.example.domain.subscription.MarketPurchaseVerifier
-import com.example.domain.subscription.ProductionMarketPurchaseVerifier
 import com.example.domain.subscription.SubscriptionInfo
 import com.example.domain.subscription.SubscriptionStatus
 import com.example.domain.subscription.SubscriptionValidator
@@ -18,8 +16,7 @@ import kotlinx.coroutines.withContext
 class SubscriptionRepositoryImpl(
     private val context: Context,
     private val localDataSource: LocalSubscriptionDataSource = LocalSubscriptionDataSource(context),
-    private val poolakeyDataSource: PoolakeySubscriptionDataSource = PoolakeySubscriptionDataSource(context),
-    private val verifier: MarketPurchaseVerifier = ProductionMarketPurchaseVerifier()
+    private val poolakeyDataSource: PoolakeySubscriptionDataSource = PoolakeySubscriptionDataSource(context)
 ) : SubscriptionRepository {
 
     private val _subscriptionFlow = MutableStateFlow(localDataSource.getSubscriptionInfo())
@@ -156,7 +153,7 @@ class SubscriptionRepositoryImpl(
             productId = purchaseInfo.productId,
             purchaseTokenReference = purchaseInfo.purchaseToken,
             marketAccountState = "MARKET_ACTIVE",
-            lastSyncAt = maxOf(currentLocal.lastSyncAt, now)
+            lastSyncAt = now
         )
 
         localDataSource.saveSubscriptionInfo(updatedInfo)
