@@ -521,6 +521,9 @@ private fun ManualPaymentDateDialog(
     val baseMonthlyAmount = remember(item) {
         item.totalAmount / item.totalInstallments.coerceAtLeast(1)
     }
+    val accurateOverdueText = remember(item.nextPaymentDate) {
+        calculateAccurateOverdueText(item.nextPaymentDate)
+    }
     val baseMonthlyRials = remember(item, baseMonthlyAmount) {
         MoneyAmount.of(baseMonthlyAmount, item.amountUnit).asRialsLongExact()
     }
