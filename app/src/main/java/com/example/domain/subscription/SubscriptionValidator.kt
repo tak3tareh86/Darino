@@ -45,12 +45,12 @@ object SubscriptionValidator {
         // original signup timestamp after renewals.
         if (info.marketAccountState == "MARKET_ACTIVE") {
             val verificationAge = currentTimeMillis - info.lastSyncAt
-            return if (info.lastSyncAt > 0L &&
-                verificationAge in 0..MARKET_VERIFICATION_MAX_AGE_MILLIS
-            ) {
-                SubscriptionStatus.ACTIVE
-            } else {
-                SubscriptionStatus.LOCKED
+            val verifiedExpiry = info.subscriptionEndAt
+            return when {
+                verifiedExpiry == null || verifiedExpiry <= 0L -> SubscriptionStatus.LOCKED
+                currentTimeMillis >= verifiedExpiry -> SubscriptionStatus.EXPIRED
+                info.lastSyncAt <= 0L || verificationAge !in 0..MARKET_VERIFICATION_MAX_AGE_MILLIS -> SubscriptionStatus.LOCKED
+                else -> SubscriptionStatus.ACTIVE
             }
         }
 
