@@ -1,8 +1,6 @@
 package com.example.domain.subscription
 
-import com.example.data.subscription.MarketConfig
 import com.example.util.PersianCalendarHelper
-import java.util.Date
 
 object SubscriptionValidator {
 
@@ -42,22 +40,21 @@ object SubscriptionValidator {
             return SubscriptionStatus.LOCKED
         }
 
-        // Poolakey getSubscribedProducts() reports currently active subscriptions.
-        // Trust that Market confirmation for a bounded cache window, even if purchaseTime
-        // still points to the original cycle and its locally estimated 365-day end has passed.
-        val marketVerificationFresh =
-            info.marketAccountState == "MARKET_ACTIVE" &&
-                currentTimeMillis - info.lastSyncAt <= MARKET_VERIFICATION_MAX_AGE_MILLIS
-        if (marketVerificationFresh) {
-            return SubscriptionStatus.ACTIVE
+        // Only a recent Poolakey-verified purchase or subscription query can confirm paid access.
+        // Never infer an annual subscription's expiry from purchaseTime: it remains the
+        // original signup timestamp after renewals.
+        if (info.marketAccountState == "MARKET_ACTIVE") {
+            val verificationAge = currentTimeMillis - info.lastSyncAt
+            return if (info.lastSyncAt > 0L &&
+                verificationAge in 0..MARKET_VERIFICATION_MAX_AGE_MILLIS
+            ) {
+                SubscriptionStatus.ACTIVE
+            } else {
+                SubscriptionStatus.LOCKED
+            }
         }
 
-        // 1. Active Paid Subscription Check (local fallback when Market is unavailable)
-        if (info.subscriptionEndAt != null && info.subscriptionEndAt > currentTimeMillis) {
-            return SubscriptionStatus.ACTIVE
-        }
-
-        // 2. Trial Check
+        // Trial Check
         if (info.trialEndAt > currentTimeMillis) {
             return SubscriptionStatus.TRIAL
         }

@@ -2,8 +2,6 @@ package com.example.data.subscription
 
 import android.content.Context
 import androidx.activity.result.ActivityResultRegistry
-import com.example.domain.subscription.MarketPurchaseVerifier
-import com.example.domain.subscription.ProductionMarketPurchaseVerifier
 import com.example.domain.subscription.SubscriptionInfo
 import com.example.domain.subscription.SubscriptionStatus
 import com.example.domain.subscription.SubscriptionValidator
@@ -18,8 +16,7 @@ import kotlinx.coroutines.withContext
 class SubscriptionRepositoryImpl(
     private val context: Context,
     private val localDataSource: LocalSubscriptionDataSource = LocalSubscriptionDataSource(context),
-    private val poolakeyDataSource: PoolakeySubscriptionDataSource = PoolakeySubscriptionDataSource(context),
-    private val verifier: MarketPurchaseVerifier = ProductionMarketPurchaseVerifier()
+    private val poolakeyDataSource: PoolakeySubscriptionDataSource = PoolakeySubscriptionDataSource(context)
 ) : SubscriptionRepository {
 
     private val _subscriptionFlow = MutableStateFlow(localDataSource.getSubscriptionInfo())
@@ -57,28 +54,23 @@ class SubscriptionRepositoryImpl(
                 }
                 // Prefer a purchased item; a refunded item must never grant access.
                 val darinoPurchase = darinoPurchases.firstOrNull {
-                    it.purchaseState == PurchaseState.PURCHASED
+                    it.purchaseState == PurchaseState.PURCHASED && it.purchaseToken.isNotBlank()
                 } ?: darinoPurchases.firstOrNull {
                     it.purchaseState == PurchaseState.REFUNDED
                 }
 
                 if (darinoPurchase?.purchaseState == PurchaseState.PURCHASED) {
-                    // Poolakey's getSubscribedProducts() returns the user's currently active
-                    // subscriptions. Its presence is the authoritative current entitlement signal.
-                    // purchaseTime is not an expiry timestamp and may refer to the original
-                    // subscription even after renewals, so never use it to override Market's
-                    // active-subscription result.
+                    // Poolakey's active subscription result is authoritative. PurchaseInfo.purchaseTime
+                    // is the original signup time and does not advance on renewal; it cannot be used
+                    // to calculate a reliable expiry date. Keep expiry unknown unless Market provides it.
                     val purchaseTime = darinoPurchase.purchaseTime.takeIf { it > 0L }
-                    val subEnd = purchaseTime?.let {
-                        it + MarketConfig.SUBSCRIPTION_DURATION_DAYS * 86_400_000L
-                    } ?: currentLocal.subscriptionEndAt
                     val candidate = currentLocal.copy(
                         subscriptionStartAt = purchaseTime ?: currentLocal.subscriptionStartAt,
-                        subscriptionEndAt = subEnd,
+                        subscriptionEndAt = null,
                         productId = MarketConfig.YEARLY_PRODUCT_ID,
                         purchaseTokenReference = darinoPurchase.purchaseToken,
                         marketAccountState = "MARKET_ACTIVE",
-                        lastSyncAt = maxOf(currentLocal.lastSyncAt, now)
+                        lastSyncAt = now
                     )
                     val updatedInfo = candidate.copy(
                         subscriptionStatus = SubscriptionValidator.evaluateStatus(candidate, now)
@@ -98,7 +90,7 @@ class SubscriptionRepositoryImpl(
                         } else {
                             "NO_PURCHASE_FOUND"
                         },
-                        lastSyncAt = maxOf(currentLocal.lastSyncAt, now)
+                        lastSyncAt = now
                     )
                     val revoked = withoutSubscription.copy(
                         subscriptionStatus = SubscriptionValidator.evaluateStatus(withoutSubscription, now)
@@ -123,6 +115,20 @@ class SubscriptionRepositoryImpl(
         }
     }
 
+    override suspend fun getAnnualSubscriptionPrice(): Result<String> = withContext(Dispatchers.IO) {
+        when (val result = poolakeyDataSource.getSubscriptionSkuDetails()) {
+            is PoolakeyResult.Success -> {
+                val price = result.data
+                    .firstOrNull { it.sku == MarketConfig.YEARLY_PRODUCT_ID }
+                    ?.price
+                    ?.takeIf { it.isNotBlank() }
+                if (price != null) Result.success(price)
+                else Result.failure(IllegalStateException("قیمت اشتراک سالیانه در بازار ثبت نشده است."))
+            }
+            is PoolakeyResult.Error -> Result.failure(Exception(result.message, result.throwable))
+        }
+    }
+
     override suspend fun recordSuccessfulPurchase(purchaseInfo: PurchaseInfo): SubscriptionInfo = withContext(Dispatchers.IO) {
         require(purchaseInfo.productId == MarketConfig.YEARLY_PRODUCT_ID) {
             "شناسه محصول خرید با اشتراک سالیانه دارینو مطابقت ندارد."
@@ -132,20 +138,22 @@ class SubscriptionRepositoryImpl(
         }
         val currentLocal = localDataSource.getSubscriptionInfo()
         val now = System.currentTimeMillis()
-        val purchaseStart = purchaseInfo.purchaseTime.takeIf { it > 0L } ?: now
-        val subEnd = purchaseStart + MarketConfig.SUBSCRIPTION_DURATION_DAYS * 86_400_000L
-
-        val updatedInfo = currentLocal.copy(
-            subscriptionStartAt = purchaseStart,
-            subscriptionEndAt = subEnd,
-            subscriptionStatus = SubscriptionValidator.evaluateStatus(
-                currentLocal.copy(subscriptionStartAt = purchaseStart, subscriptionEndAt = subEnd),
-                now
-            ),
+        val purchaseStart = purchaseInfo.purchaseTime.takeIf { it > 0L }
+        val verifiedPurchase = currentLocal.copy(
+            subscriptionStartAt = purchaseStart ?: currentLocal.subscriptionStartAt,
+            subscriptionEndAt = null,
             productId = purchaseInfo.productId,
             purchaseTokenReference = purchaseInfo.purchaseToken,
             marketAccountState = "MARKET_ACTIVE",
-            lastSyncAt = maxOf(currentLocal.lastSyncAt, now)
+            lastSyncAt = now
+        )
+
+        val updatedInfo = verifiedPurchase.copy(
+            subscriptionStatus = SubscriptionValidator.evaluateStatus(verifiedPurchase, now),
+            productId = purchaseInfo.productId,
+            purchaseTokenReference = purchaseInfo.purchaseToken,
+            marketAccountState = "MARKET_ACTIVE",
+            lastSyncAt = now
         )
 
         localDataSource.saveSubscriptionInfo(updatedInfo)

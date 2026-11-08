@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.subscription.SubscriptionStatus
 import com.example.util.IranianPhoneUtils
-import com.example.util.MoneyFormatter
 
 @Composable
 fun SubscriptionStatusCard(
@@ -67,17 +66,8 @@ fun SubscriptionStatusCard(
     val isActive = info.subscriptionStatus == SubscriptionStatus.ACTIVE
     val isTrial = info.subscriptionStatus == SubscriptionStatus.TRIAL
 
-    val remainingDays = if (isActive) state.subscriptionDaysRemaining else state.trialDaysRemaining
-
-    // Formatted expiration date
-    val endDateTime = if (info.subscriptionEndAt != null) {
-        com.example.util.PersianCalendarHelper.fromEpochMillis(info.subscriptionEndAt).toFormattedDate()
-    } else {
-        state.subscriptionEndJalaliDate
-    }
-
     if (isActive) {
-        // Compact active-subscription card. Keep Market-confirmed dates clearly marked as estimates.
+        // Compact active-subscription card. Never invent an expiry date that Market does not provide.
         val activeGradient = if (isDark) {
             Brush.horizontalGradient(
                 colors = listOf(Color(0xFF064E3B), Color(0xFF047857), Color(0xFF0F766E))
@@ -90,9 +80,6 @@ fun SubscriptionStatusCard(
         val cardTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
         val cardMutedTextColor = if (isDark) Color(0xFFE2E8F0) else MaterialTheme.colorScheme.onSurfaceVariant
         val marketConfirmedActive = info.marketAccountState == "MARKET_ACTIVE"
-        val hasEstimatedEndDate = info.subscriptionEndAt != null && info.subscriptionEndAt > 0L
-        val daysText = IranianPhoneUtils.convertDigitsToPersian(remainingDays.toString())
-        val dateText = endDateTime.takeUnless { it == "-" }.orEmpty().ifBlank { "نامشخص" }
 
         Card(
             modifier = modifier
@@ -156,14 +143,14 @@ fun SubscriptionStatusCard(
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
-                            text = if (marketConfirmedActive && hasEstimatedEndDate) "تاریخ تخمینی انقضا" else "تاریخ انقضا",
+                            text = "تاریخ انقضا",
                             color = cardMutedTextColor,
                             fontSize = 9.5.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
                     Text(
-                        text = if (marketConfirmedActive && !hasEstimatedEndDate) "نامشخص" else dateText,
+                        text = if (marketConfirmedActive) "تاریخ دقیق اعلام نشده" else "نامشخص",
                         color = cardTextColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -213,7 +200,7 @@ fun SubscriptionStatusCard(
                             )
                         }
                         Text(
-                            text = if (marketConfirmedActive) "فعال طبق تأیید بازار" else "$daysText روز باقی‌مانده",
+                            text = if (marketConfirmedActive) "تأییدشده توسط بازار" else "وضعیت محلی اشتراک",
                             color = if (marketConfirmedActive) cardMutedTextColor else if (isDark) Color(0xFFA7F3D0) else Color(0xFF047857),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -311,7 +298,7 @@ fun SubscriptionStatusCard(
                                     contentColor = Color(0xFF451A03)
                                 ) {
                                     Text(
-                                        text = if (isTrial) "${IranianPhoneUtils.convertDigitsToPersian(state.trialDaysRemaining.toString())} روز مانده" else "ویژه ۳۶۵ روز",
+                                        text = if (isTrial) "${IranianPhoneUtils.convertDigitsToPersian(state.trialDaysRemaining.toString())} روز مانده" else "اشتراک سالیانه",
                                         fontSize = 9.5.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
@@ -401,7 +388,7 @@ fun SubscriptionStatusCard(
                                 )
                             )
                             Text(
-                                text = MoneyFormatter.formatToman(state.priceDisplayToman),
+                                text = state.priceDisplay ?: "قیمت در بازار دریافت نشد",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,

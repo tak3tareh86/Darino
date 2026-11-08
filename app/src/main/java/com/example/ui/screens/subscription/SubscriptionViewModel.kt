@@ -35,8 +35,8 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /**
-     * Re-evaluates the locally stored expiry while the app remains open.
-     * This makes the access gate close even when Market emits no new purchase event.
+     * Re-evaluates cached Market verification and trial time while the app remains open.
+     * A paid entitlement is no longer extended using a locally estimated expiry date.
      */
     private fun startEntitlementClock() {
         viewModelScope.launch {
@@ -48,6 +48,16 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
                 ) {
                     updateStateWithInfo(latestInfo)
                 }
+            }
+        }
+    }
+
+    private fun loadAnnualSubscriptionPrice() {
+        viewModelScope.launch {
+            manager.getAnnualSubscriptionPrice().onSuccess { price ->
+                _uiState.update { it.copy(priceDisplay = price) }
+            }.onFailure {
+                _uiState.update { it.copy(priceDisplay = null) }
             }
         }
     }
@@ -102,6 +112,7 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
                     )
                 }
             }
+            loadAnnualSubscriptionPrice()
         }
     }
 
