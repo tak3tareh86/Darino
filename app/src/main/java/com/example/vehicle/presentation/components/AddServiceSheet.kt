@@ -350,6 +350,8 @@ fun AddServiceSheet(
                     placeholder = "مبلغ را وارد کنید",
                     unitLabel = MoneyFormatter.getUnitLabel(),
                     showWordsPreview = false,
+                    useOuterHeader = true,
+                    fieldHeight = 56.dp,
                     modifier = Modifier.weight(1.2f),
                     testTag = "service_cost_input"
                 )
