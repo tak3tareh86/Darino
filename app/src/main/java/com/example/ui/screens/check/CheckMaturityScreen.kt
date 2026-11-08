@@ -632,39 +632,52 @@ private fun MaturityCheckCard(check: Check, selected: Boolean, onSelectedChange:
             Checkbox(
                 checked = selected,
                 onCheckedChange = onSelectedChange,
-                modifier = Modifier.padding(horizontal = 3.dp)
+                modifier = Modifier.padding(horizontal = 0.dp)
             )
+            // Keep the divider close to the checkbox.
             Box(Modifier.width(1.dp).height(58.dp).background(colors.outlineVariant))
 
-            // Bank identity and check details occupy the middle section.
+            // Bank logo and its name share the first line; check details are
+            // stacked below and aligned to the right.
             CheckBankLogo(
                 bankName = check.bankName,
-                modifier = Modifier.padding(horizontal = 7.dp).size(44.dp)
+                modifier = Modifier.padding(horizontal = 5.dp).size(42.dp)
             )
             Column(
-                Modifier.weight(1.65f).padding(horizontal = 5.dp, vertical = 8.dp),
+                Modifier.weight(1.55f).padding(horizontal = 4.dp, vertical = 7.dp),
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Text(
                     check.bankName,
+                    modifier = Modifier.fillMaxWidth(),
                     color = colors.onSurface,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleSmall,
+                    textAlign = TextAlign.End,
                     maxLines = 1
                 )
                 Text(
-                    "شماره: ${check.checkNumber}  •  سررسید: ${check.formattedDueDate}",
+                    "شماره: ${check.checkNumber}",
+                    modifier = Modifier.fillMaxWidth(),
                     color = colors.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.End,
+                    maxLines = 1
+                )
+                Text(
+                    "سررسید: ${check.formattedDueDate}",
+                    modifier = Modifier.fillMaxWidth(),
+                    color = colors.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.End,
                     maxLines = 1
                 )
             }
 
-            // Left side: check amount, separated from the bank details.
-            Box(Modifier.width(1.dp).height(58.dp).background(colors.outlineVariant))
+            // Remove the amount divider and give the amount column more room.
             Column(
-                Modifier.weight(0.92f).padding(start = 10.dp, end = 8.dp, top = 9.dp, bottom = 9.dp),
+                Modifier.weight(1.05f).padding(start = 8.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
