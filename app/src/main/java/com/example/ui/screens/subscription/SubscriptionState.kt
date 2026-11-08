@@ -1,6 +1,5 @@
 package com.example.ui.screens.subscription
 
-import com.example.data.subscription.MarketConfig
 import com.example.domain.subscription.SubscriptionInfo
 import com.example.domain.subscription.SubscriptionStatus
 
