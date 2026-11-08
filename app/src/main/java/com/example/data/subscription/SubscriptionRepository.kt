@@ -10,6 +10,7 @@ interface SubscriptionRepository {
     suspend fun getSubscriptionInfo(): SubscriptionInfo
     suspend fun ensureTrialStarted(userId: String): SubscriptionInfo
     suspend fun syncWithMarket(): Result<SubscriptionInfo>
+    suspend fun getAnnualSubscriptionPrice(): Result<String>
     suspend fun recordSuccessfulPurchase(purchaseInfo: PurchaseInfo): SubscriptionInfo
     fun launchPurchaseFlow(
         registry: ActivityResultRegistry,
