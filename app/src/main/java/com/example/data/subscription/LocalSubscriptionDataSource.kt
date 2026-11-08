@@ -15,6 +15,7 @@ class LocalSubscriptionDataSource(context: Context) {
         private const val KEY_TRIAL_START_AT = "trial_start_at"
         private const val KEY_TRIAL_END_AT = "trial_end_at"
         private const val KEY_SUB_START_AT = "sub_start_at"
+        private const val KEY_SUB_PURCHASE_AT = "sub_purchase_at"
         private const val KEY_SUB_END_AT = "sub_end_at"
         private const val KEY_SUB_STATUS = "sub_status"
         private const val KEY_PRODUCT_ID = "product_id"
@@ -64,6 +65,7 @@ class LocalSubscriptionDataSource(context: Context) {
         val trialEnd = prefs.getLong(KEY_TRIAL_END_AT, 0L)
         val subStart = prefs.getLong(KEY_SUB_START_AT, -1L).let { if (it == -1L) null else it }
         val subEnd = prefs.getLong(KEY_SUB_END_AT, -1L).let { if (it == -1L) null else it }
+        val purchaseAt = prefs.getLong(KEY_SUB_PURCHASE_AT, -1L).let { if (it == -1L) null else it }
         val statusName = prefs.getString(KEY_SUB_STATUS, SubscriptionStatus.CHECKING.name) ?: SubscriptionStatus.CHECKING.name
         val status = try { SubscriptionStatus.valueOf(statusName) } catch (e: Exception) { SubscriptionStatus.CHECKING }
         val productId = prefs.getString(KEY_PRODUCT_ID, MarketConfig.YEARLY_PRODUCT_ID) ?: MarketConfig.YEARLY_PRODUCT_ID
@@ -76,6 +78,7 @@ class LocalSubscriptionDataSource(context: Context) {
             trialStartAt = trialStart,
             trialEndAt = trialEnd,
             subscriptionStartAt = subStart,
+            subscriptionPurchaseAt = purchaseAt,
             subscriptionEndAt = subEnd,
             subscriptionStatus = status,
             productId = productId,
@@ -91,6 +94,7 @@ class LocalSubscriptionDataSource(context: Context) {
             .putLong(KEY_TRIAL_START_AT, info.trialStartAt)
             .putLong(KEY_TRIAL_END_AT, info.trialEndAt)
             .putLong(KEY_SUB_START_AT, info.subscriptionStartAt ?: -1L)
+            .putLong(KEY_SUB_PURCHASE_AT, info.subscriptionPurchaseAt ?: -1L)
             .putLong(KEY_SUB_END_AT, info.subscriptionEndAt ?: -1L)
             .putString(KEY_SUB_STATUS, info.subscriptionStatus.name)
             .putString(KEY_PRODUCT_ID, info.productId)
