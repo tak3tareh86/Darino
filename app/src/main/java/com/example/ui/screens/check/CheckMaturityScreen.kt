@@ -192,7 +192,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    modifier = Modifier.weight(1f).height(56.dp),
+                    modifier = Modifier.weight(1f).height(48.dp),
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
                     placeholder = { Text("جست‌وجو در چک‌ها...", maxLines = 1) },
@@ -203,10 +203,10 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     )
                 )
                 OutlinedButton(
-                    modifier = Modifier.height(56.dp),
+                    modifier = Modifier.height(48.dp),
                     onClick = { selectedIds = if (allSelected) emptySet() else eligibleChecks.map { it.id }.toSet() },
                     enabled = eligibleChecks.isNotEmpty(),
-                    contentPadding = PaddingValues(horizontal = 9.dp, vertical = 11.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 5.dp),
                     shape = RoundedCornerShape(14.dp)
                 ) {
                     Icon(Icons.Rounded.SelectAll, null, modifier = Modifier.size(17.dp))
@@ -214,10 +214,10 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     Text("انتخاب همه", maxLines = 1)
                 }
                 OutlinedButton(
-                    modifier = Modifier.height(56.dp),
+                    modifier = Modifier.height(48.dp),
                     onClick = { selectedIds = emptySet() },
                     enabled = selectedIds.isNotEmpty(),
-                    contentPadding = PaddingValues(horizontal = 9.dp, vertical = 11.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 5.dp),
                     shape = RoundedCornerShape(14.dp)
                 ) {
                     Icon(Icons.Rounded.DeleteOutline, null, modifier = Modifier.size(17.dp))
@@ -494,13 +494,13 @@ private fun MaturitySummaryCard(total: String, count: Int, days: String, invalid
                 Modifier.fillMaxWidth().padding(horizontal = 7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SummaryMetric(Modifier.weight(1f), "فاصله میانگین از مبنا", days,
+                SummaryMetric(Modifier.weight(0.9f), "فاصله میانگین از مبنا", days,
                     Icons.Rounded.Schedule)
                 Box(Modifier.width(1.dp).height(54.dp).background(colors.outlineVariant))
-                SummaryMetric(Modifier.weight(1f), "تعداد چک‌های انتخاب‌شده",
+                SummaryMetric(Modifier.weight(1.35f), "تعداد چک‌های انتخاب‌شده",
                     IranianPhoneUtils.convertDigitsToPersian(count.toString()), Icons.Rounded.ReceiptLong)
                 Box(Modifier.width(1.dp).height(54.dp).background(colors.outlineVariant))
-                SummaryMetric(Modifier.weight(1.15f), "مجموع مبلغ انتخاب‌شده", total,
+                SummaryMetric(Modifier.weight(1.05f), "مجموع مبلغ انتخاب‌شده", total,
                     Icons.Rounded.Paid)
             }
             if (invalidAmount) {
@@ -529,10 +529,11 @@ private fun SummaryMetric(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(3.dp))
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(2.dp))
             Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, maxLines = 2)
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                textAlign = TextAlign.Center, maxLines = 1, softWrap = false)
         }
         Text(value, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.Center, maxLines = 2)
