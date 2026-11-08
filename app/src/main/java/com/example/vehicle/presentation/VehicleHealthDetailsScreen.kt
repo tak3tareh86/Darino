@@ -100,7 +100,7 @@ fun VehicleHealthDetailsScreen(
                     Box(modifier = Modifier.fillMaxWidth()) {
                         IconButton(
                             onClick = onBack,
-                            modifier = Modifier.align(Alignment.CenterLeft)
+                            modifier = Modifier.align(Alignment.CenterEnd)
                                 .size(44.dp).clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f))
                         ) {
@@ -122,7 +122,7 @@ fun VehicleHealthDetailsScreen(
                             Icons.Rounded.DirectionsCar,
                             contentDescription = "سلامت خودرو",
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.align(Alignment.CenterRight).size(34.dp)
+                            modifier = Modifier.align(Alignment.CenterStart).size(34.dp)
                         )
                     }
                 }
@@ -150,7 +150,7 @@ fun VehicleHealthDetailsScreen(
                         Image(
                             painter = painterResource(id = R.drawable.img_3d_car),
                             contentDescription = "تصویر خودرو",
-                            modifier = Modifier.align(Alignment.CenterLeft)
+                            modifier = Modifier.align(Alignment.CenterEnd)
                                 .fillMaxHeight().fillMaxWidth(0.61f),
                             contentScale = ContentScale.Crop
                         )
