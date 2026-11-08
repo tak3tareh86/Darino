@@ -23,7 +23,7 @@ class MockAuthRepository(
 ) : AuthRepository {
 
     private val userDao = database.userDao()
-    private val sessionManager = AuthSessionManager.getInstance(context)
+    private val sessionManager = AuthSessionManager(context)
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.LoggedOut)
     private val _currentUser = MutableStateFlow<UserProfile?>(null)
