@@ -19,8 +19,8 @@ data class BazaarSubscription(
     @Column(name = "product_id", nullable = false, length = 150)
     var productId: String,
 
-    @Column(name = "purchase_token", nullable = false, columnDefinition = "TEXT")
-    var purchaseToken: String,
+    @Column(name = "purchase_token_encrypted", nullable = false, columnDefinition = "TEXT")
+    var purchaseTokenEncrypted: String,
 
     @Column(name = "initiation_timestamp_msec", nullable = false)
     var initiationTimestampMillis: Long,
