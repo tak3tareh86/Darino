@@ -119,7 +119,15 @@ class ReminderScheduler(private val context: Context) {
                     )
                     Log.i("ReminderScheduler", "Set exact alarm for ${reminder.title} (Schedule ${schedule.id}) at $triggerTime")
                 } else {
-                    throw SecurityException("مجوز دسترسی به آلارم دقیق (SCHEDULE_EXACT_ALARM) در اندروید ۱۲ به بالا فعال نیست. لطفاً از تنظیمات دستگاه این دسترسی را به برنامه بدهید.")
+                    // Exact-alarm access may be denied by default. Keep the reminder
+                    // functional with a best-effort inexact alarm rather than dropping it.
+                    // Android may defer delivery under Doze and battery restrictions.
+                    manager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerTime,
+                        pendingIntent
+                    )
+                    Log.w("ReminderScheduler", "Exact-alarm access unavailable; registered inexact fallback for ${reminder.title} at $triggerTime")
                 }
             } else {
                 manager.setExactAndAllowWhileIdle(
