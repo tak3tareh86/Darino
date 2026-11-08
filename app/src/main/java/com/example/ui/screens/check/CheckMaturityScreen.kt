@@ -154,9 +154,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                 Icon(Icons.Rounded.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary)
                 Surface(
-                    modifier = Modifier.weight(1f).clickable {
-                        showPersianDatePicker = true
-                    },
+                    modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(15.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
