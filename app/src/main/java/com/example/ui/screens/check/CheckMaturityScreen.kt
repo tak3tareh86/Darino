@@ -148,14 +148,18 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                Text("تاریخ مبنا:", fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                Icon(Icons.Rounded.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    "تاریخ مبنا:",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1
+                )
                 Surface(
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(15.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
                 ) {
@@ -163,19 +167,28 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                         PersianCalendarHelper.PersianDateTime(
                             baselineJalali.first, baselineJalali.second, baselineJalali.third
                         ).toFormattedDate() + if (baselineMillis == todayMillis) " (امروز)" else "",
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 13.dp),
-                        textAlign = TextAlign.Center, fontWeight = FontWeight.Bold,
-                        maxLines = 1, style = MaterialTheme.typography.bodyMedium
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 9.dp),
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
+                Icon(
+                    Icons.Rounded.CalendarMonth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
                 OutlinedButton(
                     onClick = { showPersianDatePicker = true },
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 9.dp),
-                    shape = RoundedCornerShape(15.dp)
+                    modifier = Modifier.height(40.dp),
+                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Rounded.EditCalendar, null, modifier = Modifier.size(17.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("تغییر تاریخ", maxLines = 1)
+                    Icon(Icons.Rounded.EditCalendar, null, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text("تغییر تاریخ", maxLines = 1, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
