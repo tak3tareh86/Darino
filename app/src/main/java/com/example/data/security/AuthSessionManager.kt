@@ -124,6 +124,15 @@ class AuthSessionManager(context: Context) {
     }
 
     companion object {
+        @Volatile
+        private var INSTANCE: AuthSessionManager? = null
+
+        fun getInstance(context: Context): AuthSessionManager {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: AuthSessionManager(context.applicationContext).also { INSTANCE = it }
+            }
+        }
+
         private const val PREFS_NAME = "darino_persistent_auth_session"
         private const val KEY_USER_ID = "auth_user_id"
         private const val KEY_USERNAME = "auth_username"
