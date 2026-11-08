@@ -28,15 +28,19 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.CameraAlt
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +61,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.R
 import com.example.data.security.AuthSessionManager
 import com.example.ui.theme.EmeraldPrimaryDark
@@ -93,6 +98,8 @@ fun UserAccountCard(
             profilePhotoFile.takeIf { it.isFile && it.length() > 0L }?.let(Uri::fromFile)
         )
     }
+    var photoRevision by remember(profileKey) { mutableStateOf(0) }
+    var showRemovePhotoDialog by remember { mutableStateOf(false) }
     // Android zero-permission Photo Picker
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -110,10 +117,42 @@ fun UserAccountCard(
                     temporaryFile.delete()
                 }
                 selectedImageUri = Uri.fromFile(profilePhotoFile)
+                photoRevision++
             } catch (error: Exception) {
                 Log.e("UserAccountCard", "Could not save profile photo", error)
             }
         }
+    }
+
+    if (showRemovePhotoDialog) {
+        AlertDialog(
+            onDismissRequest = { showRemovePhotoDialog = false },
+            title = { Text("حذف عکس پروفایل") },
+            text = { Text("آیا می‌خواهید عکس پروفایل حذف و آواتار پیش‌فرض جایگزین شود؟") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRemovePhotoDialog = false
+                        try {
+                            if (profilePhotoFile.exists() && !profilePhotoFile.delete()) {
+                                throw IllegalStateException("Could not delete profile photo")
+                            }
+                            selectedImageUri = null
+                            photoRevision++
+                        } catch (error: Exception) {
+                            Log.e("UserAccountCard", "Could not remove profile photo", error)
+                        }
+                    }
+                ) {
+                    Text("حذف", color = ExpenseRoseLight)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemovePhotoDialog = false }) {
+                    Text("انصراف")
+                }
+            }
+        )
     }
 
     val cardBgGradient = if (isDark) {
@@ -187,7 +226,12 @@ fun UserAccountCard(
                     ) {
                         if (selectedImageUri != null) {
                             AsyncImage(
-                                model = selectedImageUri,
+                                model = ImageRequest.Builder(context)
+                                    .data(selectedImageUri)
+                                    .memoryCacheKey("$profileKey-profile-$photoRevision")
+                                    .diskCacheKey("$profileKey-profile-$photoRevision")
+                                    .crossfade(true)
+                                    .build(),
                                 contentDescription = "عکس انتخابی کاربر",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
@@ -199,6 +243,24 @@ fun UserAccountCard(
                                 modifier = Modifier.size(46.dp),
                                 contentScale = ContentScale.Fit
                             )
+                        }
+
+                        if (selectedImageUri != null) {
+                            IconButton(
+                                onClick = { showRemovePhotoDialog = true },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(25.dp)
+                                    .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                                    .testTag("remove_profile_photo")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.DeleteOutline,
+                                    contentDescription = "حذف عکس پروفایل",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
                         }
 
                         // Small camera badge at bottom
