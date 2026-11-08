@@ -1,6 +1,5 @@
 package com.example.ui.screens.check
 
-import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,7 +45,6 @@ private data class MaturityCalculation(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
-    val context = LocalContext.current
     var selectedType by rememberSaveable { mutableStateOf(CheckType.RECEIVED.name) }
     val type = if (selectedType == CheckType.RECEIVED.name) CheckType.RECEIVED else CheckType.PAID
     val eligibleChecks = remember(checks, type) {
@@ -266,32 +263,12 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
         }
 
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(
-                    modifier = Modifier.weight(0.85f).height(58.dp),
-                    onClick = {
-                        val shareText = buildString {
-                            append("نتیجه راس‌گیری چک‌ها\\n")
-                            append("تاریخ راس: ${calculation.targetDate ?: "محاسبه نشده"}\\n")
-                            append("مجموع مبلغ: ${if (calculation.invalidAmount) "نامعتبر" else formatRials(calculation.totalRials)}\\n")
-                            append("تعداد چک: ${selectedChecks.size}\\n")
-                            append("فاصله از مبنا: $formattedDays")
-                        }
-                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                            setType("text/plain")
-                            putExtra(Intent.EXTRA_TEXT, shareText)
-                        }
-                        context.startActivity(Intent.createChooser(sendIntent, "اشتراک نتیجه راس‌گیری"))
-                    },
-                    enabled = selectedChecks.isNotEmpty() && !calculation.invalidAmount,
-                    shape = RoundedCornerShape(28.dp)
-                ) {
-                    Icon(Icons.Rounded.Share, null, modifier = Modifier.size(21.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("اشتراک نتیجه", fontWeight = FontWeight.Bold)
-                }
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
                 Button(
-                    modifier = Modifier.weight(1.5f).height(58.dp),
+                    modifier = Modifier.width(220.dp).height(58.dp),
                     onClick = { calculationRevision++ },
                     enabled = selectedChecks.isNotEmpty() && !calculation.invalidAmount,
                     shape = RoundedCornerShape(28.dp)
