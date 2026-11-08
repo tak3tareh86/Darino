@@ -39,7 +39,7 @@ fun PersianAmountInputField(
     modifier: Modifier = Modifier,
     onRawAmountChange: ((rawDigits: String, amountLong: Long) -> Unit)? = null,
     allowDecimalInput: Boolean = false,
-    lenientGroupingWhileEditing: Boolean = false,
+    @Suppress("UNUSED_PARAMETER") lenientGroupingWhileEditing: Boolean = false,
     onRawDecimalAmountChange: ((rawAmount: String, amount: BigDecimal?) -> Unit)? = null,
     label: String? = null,
     placeholder: String = "مثال: ۴۵۰,۰۰۰",
@@ -135,12 +135,10 @@ fun PersianAmountInputField(
         OutlinedTextField(
             value = textFieldValue,
             onValueChange = { input ->
+                // Grouping separators are presentation-only during editing. A temporarily
+                // incomplete group (for example "1,23" after backspace) must retain its digits.
                 val newClean = if (allowDecimalInput) {
-                    if (lenientGroupingWhileEditing) {
-                        IranianAmountUtils.cleanDecimalAmountInputWhileEditing(input.text)
-                    } else {
-                        IranianAmountUtils.cleanDecimalAmountInput(input.text)
-                    }
+                    IranianAmountUtils.cleanDecimalAmountInputWhileEditing(input.text)
                 } else {
                     IranianAmountUtils.cleanAmountDigits(input.text)
                 }
