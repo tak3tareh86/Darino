@@ -506,7 +506,11 @@ fun InstallmentsScreen(
                 val totalFormatted = MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, AppCurrency.RIAL))
 
                 val effectiveDueDate = if (!customScheduleItems.isNullOrEmpty()) {
-                    customScheduleItems.firstOrNull()?.dueDate.orEmpty()
+                    customScheduleItems.minByOrNull { payment ->
+                        com.example.calendar.domain.CalendarDateUtils.parseJalali(payment.dueDate)?.let {
+                            PersianCalendarHelper.jalaliToEpochMillis(it.first, it.second, it.third, 9, 0)
+                        } ?: Long.MAX_VALUE
+                    }?.dueDate.orEmpty()
                 } else {
                     dueDateStr
                 }
@@ -659,7 +663,11 @@ fun InstallmentsScreen(
                     remainingInstallments = remainingInstallments,
                     nextPaymentDate = nextPaymentDate,
                     nextDueDaysText = computedDueDaysText,
-                    startDate = effectiveDueDate,
+                    startDate = paymentHistoryList.minByOrNull { payment ->
+                        com.example.calendar.domain.CalendarDateUtils.parseJalali(payment.dueDate)?.let {
+                            PersianCalendarHelper.jalaliToEpochMillis(it.first, it.second, it.third, 9, 0)
+                        } ?: Long.MAX_VALUE
+                    }?.dueDate ?: effectiveDueDate,
                     endDate = computedEndDate,
                     status = if (remainingInstallments == 0) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING,
                     notes = noteText,
