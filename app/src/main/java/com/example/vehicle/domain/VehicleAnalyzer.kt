@@ -182,60 +182,60 @@ object VehicleAnalyzer {
             }
         }
 
-        fun insuranceStatus(title: String, typeMatch: (String) -> Boolean): VehicleHealthCheckItem {
+        fun insuranceStatus(title: String, iconRes: Int, typeMatch: (String) -> Boolean): VehicleHealthCheckItem {
             val insurance = carInsurances.filter { typeMatch(it.type) }
                 .maxByOrNull { parseAndValidateJalaliDate(it.startDate) ?: "" }
-                ?: return VehicleHealthCheckItem(title, "ثبت نشده", false, true, R.drawable.img_3d_insurance)
+                ?: return VehicleHealthCheckItem(title, "ثبت نشده", false, true, iconRes)
 
             val expiry = parseAndValidateJalaliDate(insurance.endDate)
             return if (expiry != null && expiry >= today) {
-                VehicleHealthCheckItem(title, "دارای اعتبار", true, false, R.drawable.img_3d_insurance)
+                VehicleHealthCheckItem(title, "دارای اعتبار", true, false, iconRes)
             } else {
-                VehicleHealthCheckItem(title, "فاقد اعتبار", false, true, R.drawable.img_3d_insurance)
+                VehicleHealthCheckItem(title, "فاقد اعتبار", false, true, iconRes)
             }
         }
 
         val checklist = listOf(
-            insuranceStatus("بیمه‌نامه شخص ثالث") { it.contains("ثالث") },
-            insuranceStatus("بیمه‌نامه بدنه") { it.contains("بدنه") },
+            insuranceStatus("بیمه‌نامه شخص ثالث", R.drawable.img_health_third_party) { it.contains("ثالث") },
+            insuranceStatus("بیمه‌نامه بدنه", R.drawable.img_health_body_insurance) { it.contains("بدنه") },
             run {
                 val inspection = carInspections.maxByOrNull { parseAndValidateJalaliDate(it.lastInspectionDate) ?: "" }
                 if (inspection == null) {
-                    VehicleHealthCheckItem("معاینه فنی", "ثبت نشده", false, true, R.drawable.img_3d_check)
+                    VehicleHealthCheckItem("معاینه فنی", "ثبت نشده", false, true, R.drawable.img_health_inspection)
                 } else {
                     val expiry = parseAndValidateJalaliDate(inspection.expiryDate)
                     if (expiry != null && expiry >= today) {
-                        VehicleHealthCheckItem("معاینه فنی", "دارای اعتبار", true, false, R.drawable.img_3d_check)
+                        VehicleHealthCheckItem("معاینه فنی", "دارای اعتبار", true, false, R.drawable.img_health_inspection)
                     } else {
-                        VehicleHealthCheckItem("معاینه فنی", "فاقد اعتبار", false, true, R.drawable.img_3d_check)
+                        VehicleHealthCheckItem("معاینه فنی", "فاقد اعتبار", false, true, R.drawable.img_health_inspection)
                     }
                 }
             },
             serviceStatus(
                 "روغن موتور",
                 listOf(ServiceType.OIL_CHANGE),
-                R.drawable.img_3d_oil,
+                R.drawable.img_health_engine_oil,
                 defaultIntervalKm = 5000
             ),
             serviceStatus(
                 "فیلترها",
                 listOf(ServiceType.FILTERS),
-                R.drawable.img_3d_settings_gear
+                R.drawable.img_health_filters
             ),
             serviceStatus(
                 "روغن گیربکس",
                 listOf(ServiceType.TRANSMISSION_OIL_CHANGE),
-                R.drawable.img_3d_oil
+                R.drawable.img_health_gearbox
             ),
             serviceStatus(
                 "تسمه دینام",
                 listOf(ServiceType.ALTERNATOR_BELT_CHANGE),
-                R.drawable.img_3d_settings_gear
+                R.drawable.img_health_alternator_belt
             ),
             serviceStatus(
                 "تسمه تایم",
                 listOf(ServiceType.TIMING_BELT_CHANGE),
-                R.drawable.img_3d_settings_gear
+                R.drawable.img_health_timing_belt
             )
         )
 
@@ -415,7 +415,7 @@ object VehicleAnalyzer {
                     title = "بیمه‌نامه ${ins.type} (${ins.company})",
                     amount = ins.amount,
                     subtitle = "اعتبار تا ${ins.endDate} - شماره بیمه‌نامه: ${ins.policyNumber.ifBlank { "ثبت نشده" }}",
-                    iconRes = R.drawable.img_3d_insurance,
+                    iconRes = R.drawable.img_health_third_party,
                     colorHex = 0xFFF59E0B,
                     company = ins.company,
                     amountUnit = ins.amountUnit
