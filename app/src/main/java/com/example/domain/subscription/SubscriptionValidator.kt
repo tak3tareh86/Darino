@@ -42,22 +42,30 @@ object SubscriptionValidator {
             return SubscriptionStatus.LOCKED
         }
 
-        // Poolakey getSubscribedProducts() reports currently active subscriptions.
-        // Trust that Market confirmation for a bounded cache window, even if purchaseTime
-        // still points to the original cycle and its locally estimated 365-day end has passed.
-        val marketVerificationFresh =
-            info.marketAccountState == "MARKET_ACTIVE" &&
-                currentTimeMillis - info.lastSyncAt <= MARKET_VERIFICATION_MAX_AGE_MILLIS
-        if (marketVerificationFresh) {
+        // Only a recent successful Poolakey query can confirm a paid entitlement.
+        // Never infer an annual subscription's expiry from purchaseTime: it remains the
+        // original signup timestamp after renewals.
+        if (info.marketAccountState == "MARKET_ACTIVE") {
+            val verificationAge = currentTimeMillis - info.lastSyncAt
+            return if (info.lastSyncAt > 0L &&
+                verificationAge in 0..MARKET_VERIFICATION_MAX_AGE_MILLIS
+            ) {
+                SubscriptionStatus.ACTIVE
+            } else {
+                SubscriptionStatus.LOCKED
+            }
+        }
+
+        // Legacy local expiry is retained only for records that were not marked as a
+        // Market-confirmed subscription. Current paid entitlements are Market-authoritative.
+        if (info.subscriptionEndAt != null && info.subscriptionEndAt > currentTimeMillis &&
+            info.marketAccountState != "REFUNDED" &&
+            info.marketAccountState != "NO_PURCHASE_FOUND"
+        ) {
             return SubscriptionStatus.ACTIVE
         }
 
-        // 1. Active Paid Subscription Check (local fallback when Market is unavailable)
-        if (info.subscriptionEndAt != null && info.subscriptionEndAt > currentTimeMillis) {
-            return SubscriptionStatus.ACTIVE
-        }
-
-        // 2. Trial Check
+        // Trial Check
         if (info.trialEndAt > currentTimeMillis) {
             return SubscriptionStatus.TRIAL
         }
