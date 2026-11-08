@@ -501,7 +501,7 @@ private fun MaturitySummaryCard(total: String, count: Int, days: String, invalid
                 Box(Modifier.width(1.dp).height(54.dp).background(colors.outlineVariant))
                 SummaryMetric(Modifier.weight(1f), "تعداد چک‌های انتخاب‌شده",
                     IranianPhoneUtils.convertDigitsToPersian(count.toString()), Icons.Rounded.ReceiptLong)
-                Box(Modifier.width(1.dp).height(72.dp).background(colors.outlineVariant))
+                Box(Modifier.width(1.dp).height(54.dp).background(colors.outlineVariant))
                 SummaryMetric(Modifier.weight(1.15f), "مجموع مبلغ انتخاب‌شده", total,
                     Icons.Rounded.Paid)
             }
