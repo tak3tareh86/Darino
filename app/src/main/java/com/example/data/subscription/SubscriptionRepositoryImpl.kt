@@ -54,7 +54,7 @@ class SubscriptionRepositoryImpl(
                 }
                 // Prefer a purchased item; a refunded item must never grant access.
                 val darinoPurchase = darinoPurchases.firstOrNull {
-                    it.purchaseState == PurchaseState.PURCHASED
+                    it.purchaseState == PurchaseState.PURCHASED && it.purchaseToken.isNotBlank()
                 } ?: darinoPurchases.firstOrNull {
                     it.purchaseState == PurchaseState.REFUNDED
                 }
