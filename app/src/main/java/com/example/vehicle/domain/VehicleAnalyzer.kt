@@ -196,46 +196,46 @@ object VehicleAnalyzer {
         }
 
         val checklist = listOf(
-            insuranceStatus("بیمه‌نامه شخص ثالث", R.drawable.img_health_third_party) { it.contains("ثالث") },
-            insuranceStatus("بیمه‌نامه بدنه", R.drawable.img_health_body_insurance) { it.contains("بدنه") },
+            insuranceStatus("بیمه‌نامه شخص ثالث", R.drawable.sales) { it.contains("ثالث") },
+            insuranceStatus("بیمه‌نامه بدنه", R.drawable.badaneh) { it.contains("بدنه") },
             run {
                 val inspection = carInspections.maxByOrNull { parseAndValidateJalaliDate(it.lastInspectionDate) ?: "" }
                 if (inspection == null) {
-                    VehicleHealthCheckItem("معاینه فنی", "ثبت نشده", false, true, R.drawable.img_health_inspection)
+                    VehicleHealthCheckItem("معاینه فنی", "ثبت نشده", false, true, R.drawable.fani)
                 } else {
                     val expiry = parseAndValidateJalaliDate(inspection.expiryDate)
                     if (expiry != null && expiry >= today) {
-                        VehicleHealthCheckItem("معاینه فنی", "دارای اعتبار", true, false, R.drawable.img_health_inspection)
+                        VehicleHealthCheckItem("معاینه فنی", "دارای اعتبار", true, false, R.drawable.fani)
                     } else {
-                        VehicleHealthCheckItem("معاینه فنی", "فاقد اعتبار", false, true, R.drawable.img_health_inspection)
+                        VehicleHealthCheckItem("معاینه فنی", "فاقد اعتبار", false, true, R.drawable.fani)
                     }
                 }
             },
             serviceStatus(
                 "روغن موتور",
                 listOf(ServiceType.OIL_CHANGE),
-                R.drawable.img_health_engine_oil,
+                R.drawable.motor,
                 defaultIntervalKm = 5000
             ),
             serviceStatus(
                 "فیلترها",
                 listOf(ServiceType.FILTERS),
-                R.drawable.img_health_filters
+                R.drawable.filter
             ),
             serviceStatus(
                 "روغن گیربکس",
                 listOf(ServiceType.TRANSMISSION_OIL_CHANGE),
-                R.drawable.img_health_gearbox
+                R.drawable.girbox
             ),
             serviceStatus(
                 "تسمه دینام",
                 listOf(ServiceType.ALTERNATOR_BELT_CHANGE),
-                R.drawable.img_health_alternator_belt
+                R.drawable.dinam
             ),
             serviceStatus(
                 "تسمه تایم",
                 listOf(ServiceType.TIMING_BELT_CHANGE),
-                R.drawable.img_health_timing_belt
+                R.drawable.time
             )
         )
 
