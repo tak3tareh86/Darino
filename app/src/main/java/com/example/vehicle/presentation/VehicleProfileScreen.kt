@@ -3,6 +3,9 @@ package com.example.vehicle.presentation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -244,7 +247,7 @@ fun VehicleProfileScreen(
 
                             var showPlateLetterMenu by remember { mutableStateOf(false) }
                             val plateLetters = remember {
-                                listOf("الف", "ب", "ت", "ج", "د", "ژ", "س", "ص", "ط", "ع", "ق", "گ", "ل", "م", "ن", "و", "ه", "ی")
+listOf("الف", "ب", "پ", "ت", "ث", "ج", "چ", "ح", "خ", "د", "ذ", "ر", "ز", "ژ", "س", "ش", "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ک", "گ", "ل", "م", "ن", "و", "ه", "ی")
                             }
                             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                                 ExposedDropdownMenuBox(
@@ -266,7 +269,7 @@ fun VehicleProfileScreen(
                                             )
                                         },
                                         singleLine = true,
-                                        textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+                                        textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center, fontSize = 14.sp),
                                         modifier = Modifier
                                             .menuAnchor()
                                             .fillMaxWidth()
@@ -274,24 +277,31 @@ fun VehicleProfileScreen(
                                     )
                                     ExposedDropdownMenu(
                                         expanded = showPlateLetterMenu,
-                                        onDismissRequest = { showPlateLetterMenu = false },
-                                        modifier = Modifier.heightIn(max = 240.dp)
+                                        onDismissRequest = { showPlateLetterMenu = false }
                                     ) {
-                                        plateLetters.forEach { letter ->
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Text(
-                                                        text = letter,
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        textAlign = TextAlign.Center,
-                                                        fontWeight = if (plateLetter == letter) FontWeight.Bold else FontWeight.Normal
-                                                    )
-                                                },
-                                                onClick = {
-                                                    plateLetter = letter
-                                                    showPlateLetterMenu = false
-                                                }
-                                            )
+                                        LazyVerticalGrid(
+                                            columns = GridCells.Fixed(2),
+                                            modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
+                                            contentPadding = PaddingValues(4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            items(plateLetters) { letter ->
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text(
+                                                            text = letter,
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            textAlign = TextAlign.Center,
+                                                            fontWeight = if (plateLetter == letter) FontWeight.Bold else FontWeight.Normal
+                                                        )
+                                                    },
+                                                    onClick = {
+                                                        plateLetter = letter
+                                                        showPlateLetterMenu = false
+                                                    }
+                                                )
+                                            }
                                         }
                                     }
                                 }
