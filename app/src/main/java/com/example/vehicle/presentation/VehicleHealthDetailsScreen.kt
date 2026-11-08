@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.components.AppSectionHeader
 import com.example.ui.components.Layered3DCard
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.domain.VehicleHealthCheckItem
@@ -85,49 +87,41 @@ fun VehicleHealthDetailsScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize().testTag("vehicle_health_details_screen"),
         containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0),
         bottomBar = bottomBar
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(innerPadding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(13.dp)
+        Column(
+            modifier = Modifier.fillMaxSize().padding(innerPadding)
         ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        IconButton(
-                            onClick = onBack,
-                            modifier = Modifier.align(Alignment.CenterStart)
-                                .size(44.dp).clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f))
-                        ) {
-                            Icon(
-                                Icons.Rounded.ArrowBack,
-                                contentDescription = "بازگشت",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                        Text(
-                            text = "وضعیت سلامت و استهلاک خودرو",
-                            modifier = Modifier.align(Alignment.Center).padding(horizontal = 48.dp),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2
-                        )
-                        Icon(
-                            Icons.Rounded.DirectionsCar,
-                            contentDescription = "سلامت خودرو",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.align(Alignment.CenterEnd).size(34.dp)
-                        )
-                    }
+            AppSectionHeader(
+                title = "وضعیت سلامت و استهلاک خودرو",
+                subtitle = " ",
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.ArrowBack,
+                        contentDescription = "بازگشت",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable(onClick = onBack)
+                            .padding(7.dp)
+                    )
+                },
+                actions = {
+                    Icon(
+                        imageVector = Icons.Rounded.DirectionsCar,
+                        contentDescription = "سلامت خودرو",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(34.dp)
+                    )
                 }
-            }
+            )
 
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(13.dp)
+            ) {
             item {
                 Layered3DCard(
                     modifier = Modifier.fillMaxWidth().height(244.dp)
@@ -307,6 +301,7 @@ fun VehicleHealthDetailsScreen(
 
             item {
                 MaintenanceGuidancePanel()
+            }
             }
         }
     }
