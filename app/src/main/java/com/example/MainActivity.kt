@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.calendar.presentation.FinancialCalendarScreen
 import com.example.data.security.AppLockState
+import com.example.data.security.AuthSessionManager
 import com.example.data.backup.WeeklyBackupWorker
 import com.example.ui.screens.auth.AuthBottomSheet
 import com.example.ui.screens.auth.AuthViewModel
@@ -160,10 +161,6 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        networkMonitor?.unregister()
-    }
 
     companion object {
         @Volatile
@@ -196,6 +193,7 @@ fun AppNavigationContainer(
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = remember(context) { context as? android.app.Activity }
+    val localSessionManager = remember(context) { AuthSessionManager(context) }
 
     val prefsRepo = remember(context) { com.example.data.preferences.AppPreferencesRepository.getInstance(context) }
     val currentNavTransition by prefsRepo.navTransition.collectAsState()
@@ -222,7 +220,7 @@ fun AppNavigationContainer(
         }
     }
 
-    val currentUserId = authUiState.loggedInUser?.id ?: SessionManager.userId
+    val currentUserId = authUiState.loggedInUser?.id ?: localSessionManager.getActiveSession()?.userId
     LaunchedEffect(currentUserId) {
         if (!currentUserId.isNullOrBlank()) {
             prefsRepo.loadUserPreferences(currentUserId)

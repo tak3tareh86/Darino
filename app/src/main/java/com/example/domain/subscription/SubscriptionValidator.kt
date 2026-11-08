@@ -41,7 +41,6 @@ object SubscriptionValidator {
         // The current PURCHASED state returned by Bazaar/Poolakey is authoritative.
         // No remote verification server or synthetic expiry timestamp is used.
         if (info.marketAccountState == "MARKET_ACTIVE") {
-            val verificationAge = currentTimeMillis - info.lastSyncAt
             val verifiedExpiry = info.subscriptionEndAt
             return when {
                 verifiedExpiry != null && verifiedExpiry > 0L && currentTimeMillis >= verifiedExpiry -> SubscriptionStatus.EXPIRED
