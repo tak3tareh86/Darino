@@ -15,7 +15,7 @@ object SubscriptionValidator {
     fun calculateSubscriptionDaysRemaining(info: SubscriptionInfo, currentTimeMillis: Long = System.currentTimeMillis()): Long {
         val endAt = info.subscriptionEndAt ?: return 0L
         val diffMillis = endAt - currentTimeMillis
-        return if (diffMillis <= 0L) 0L else (diffMillis / (1000 * 60 * 60 * 24))
+        return if (diffMillis <= 0L) 0L else (diffMillis + 86_400_000L - 1L) / 86_400_000L
     }
 
     fun formatEndJalaliDate(timestampMillis: Long): String {
