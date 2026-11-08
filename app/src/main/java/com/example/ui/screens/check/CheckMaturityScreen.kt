@@ -40,7 +40,8 @@ private data class MaturityCalculation(
     val totalRials: BigInteger,
     val roundedDays: Long?,
     val targetDate: String?,
-    val invalidAmount: Boolean = false
+    val invalidAmount: Boolean = false,
+    val targetWeekday: String? = null
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,7 +123,8 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                 count = selectedChecks.size,
                 total = if (calculation.invalidAmount) "—" else formatRials(calculation.totalRials),
                 targetDate = calculation.targetDate,
-                days = formattedDays
+                days = formattedDays,
+                weekday = calculation.targetWeekday
             )
         }
 
@@ -317,62 +319,132 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
 }
 
 @Composable
-private fun MaturityOverviewCard(count: Int, total: String, targetDate: String?, days: String) {
+private fun MaturityOverviewCard(
+    count: Int,
+    total: String,
+    targetDate: String?,
+    days: String,
+    weekday: String?
+) {
     val colors = MaterialTheme.colorScheme
     val gradient = Brush.linearGradient(
         listOf(colors.primary, colors.tertiary, colors.secondary)
     )
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         color = colors.surface,
-        border = BorderStroke(1.dp, colors.outlineVariant.copy(alpha = 0.55f))
+        border = BorderStroke(1.dp, colors.outlineVariant.copy(alpha = 0.5f))
     ) {
         Row(
-            modifier = Modifier.background(gradient).padding(horizontal = 12.dp, vertical = 17.dp),
+            modifier = Modifier
+                .background(gradient)
+                .padding(horizontal = 11.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Icon(Icons.Rounded.CalendarMonth, null, tint = Color.White, modifier = Modifier.size(39.dp))
-                Text("تاریخ راس", color = Color.White, fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium)
-                Text(targetDate ?: "—", color = Color.White, fontWeight = FontWeight.ExtraBold,
-                    style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center,
-                    maxLines = 1)
-                Text("میانگین: $days", color = Color.White, style = MaterialTheme.typography.labelMedium)
+            // Right section: compact, consistently right-aligned calculation metrics.
+            Column(
+                modifier = Modifier.weight(1.35f),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                OverviewMetricRow(
+                    label = "تعداد چک‌ها",
+                    value = IranianPhoneUtils.convertDigitsToPersian(count.toString())
+                )
+                OverviewMetricRow(label = "مجموع مبلغ", value = total)
+                OverviewMetricRow(label = "میانگین فاصله", value = days)
             }
-            Box(Modifier.width(1.dp).height(116.dp).background(Color.White.copy(alpha = 0.45f)))
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(13.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Icon(Icons.Rounded.ReceiptLong, null, tint = Color.White, modifier = Modifier.size(23.dp))
-                    Column {
-                        Text("تعداد چک‌ها", color = Color.White.copy(alpha = 0.85f),
-                            style = MaterialTheme.typography.labelMedium)
-                        Text(IranianPhoneUtils.convertDigitsToPersian(count.toString()),
-                            color = Color.White, fontWeight = FontWeight.ExtraBold)
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Icon(Icons.Rounded.Paid, null, tint = Color.White, modifier = Modifier.size(24.dp))
-                    Column {
-                        Text("مجموع مبلغ", color = Color.White.copy(alpha = 0.85f),
-                            style = MaterialTheme.typography.labelMedium)
-                        Text(total, color = Color.White, fontWeight = FontWeight.ExtraBold,
-                            style = MaterialTheme.typography.titleSmall)
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Icon(Icons.Rounded.Schedule, null, tint = Color.White, modifier = Modifier.size(23.dp))
-                    Column {
-                        Text("میانگین فاصله", color = Color.White.copy(alpha = 0.85f),
-                            style = MaterialTheme.typography.labelMedium)
-                        Text(days, color = Color.White, fontWeight = FontWeight.Bold)
-                    }
+
+            Box(
+                Modifier
+                    .padding(horizontal = 9.dp)
+                    .width(1.dp)
+                    .height(76.dp)
+                    .background(Color.White.copy(alpha = 0.42f))
+            )
+
+            // Center section: date and its Persian weekday.
+            Column(
+                modifier = Modifier.weight(1.15f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Text(
+                    "تاریخ راس",
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Text(
+                    targetDate ?: "—",
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    style = MaterialTheme.typography.titleLarge,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+                Text(
+                    weekday ?: "—",
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            Box(
+                Modifier
+                    .padding(horizontal = 9.dp)
+                    .width(1.dp)
+                    .height(76.dp)
+                    .background(Color.White.copy(alpha = 0.42f))
+            )
+
+            // Left section: a restrained, modern calendar emblem.
+            Box(
+                modifier = Modifier.weight(0.62f),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(17.dp),
+                    color = Color.White.copy(alpha = 0.17f),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.32f))
+                ) {
+                    Icon(
+                        Icons.Rounded.CalendarMonth,
+                        contentDescription = "تقویم تاریخ راس",
+                        tint = Color.White,
+                        modifier = Modifier.padding(11.dp).size(35.dp)
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun OverviewMetricRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            color = Color.White.copy(alpha = 0.88f),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            value,
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.ExtraBold,
+            textAlign = TextAlign.End,
+            maxLines = 1
+        )
     }
 }
 
@@ -717,5 +789,16 @@ private fun calculateMaturity(
         jalali.first, jalali.second, jalali.third
     ).toFormattedDate()
 
-    return MaturityCalculation(total, offset, formatted)
+    val weekday = when (target.get(Calendar.DAY_OF_WEEK)) {
+        Calendar.SATURDAY -> "شنبه"
+        Calendar.SUNDAY -> "یکشنبه"
+        Calendar.MONDAY -> "دوشنبه"
+        Calendar.TUESDAY -> "سه‌شنبه"
+        Calendar.WEDNESDAY -> "چهارشنبه"
+        Calendar.THURSDAY -> "پنجشنبه"
+        Calendar.FRIDAY -> "جمعه"
+        else -> null
+    }
+
+    return MaturityCalculation(total, offset, formatted, targetWeekday = weekday)
 }
