@@ -260,39 +260,21 @@ fun VehicleHealthDetailsScreen(
                             }
                         }
 
-                        Row(
-                            modifier = Modifier.align(Alignment.BottomEnd)
-                                .fillMaxWidth(0.61f)
-                                .background(
-                                    Brush.horizontalGradient(
-                                        listOf(
-                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
-                                        )
-                                    )
-                                )
-                                .padding(horizontal = 9.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(7.dp)
-                        ) {
-                            Text(
-                                text = report.level.summaryText,
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 10.sp
-                                ),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 2,
-                                textAlign = TextAlign.Start
-                            )
-                            Icon(
-                                Icons.Rounded.CheckCircle,
-                                contentDescription = null,
-                                tint = Color(0xFF16A34A),
-                                modifier = Modifier.size(25.dp)
-                            )
-                        }
+                        Text(
+                            text = report.level.summaryText,
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 10.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
