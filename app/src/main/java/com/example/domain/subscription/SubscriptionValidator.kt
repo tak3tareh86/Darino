@@ -40,7 +40,7 @@ object SubscriptionValidator {
             return SubscriptionStatus.LOCKED
         }
 
-        // Only a recent successful Poolakey query can confirm a paid entitlement.
+        // Only a recent Poolakey-verified purchase or subscription query can confirm paid access.
         // Never infer an annual subscription's expiry from purchaseTime: it remains the
         // original signup timestamp after renewals.
         if (info.marketAccountState == "MARKET_ACTIVE") {
