@@ -12,7 +12,7 @@ data class SubscriptionState(
     val trialEndJalaliDate: String = "",
     val subscriptionDaysRemaining: Long = 0L,
     val subscriptionEndJalaliDate: String = "",
-    val priceDisplayToman: Long = MarketConfig.DISPLAY_PRICE_TOMAN,
+    val priceDisplay: String? = null,
     val userMessage: String? = null,
     val isError: Boolean = false
 ) {
