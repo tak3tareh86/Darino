@@ -130,7 +130,11 @@ data class InstallmentItem(
     val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
     val displayNextPaymentDate: String
-        get() = AppNumberFormatter.formatDigits(nextPaymentDate, AppNumberFormatter.currentMode)
+        get() = when {
+            status == InstallmentStatus.COMPLETED || remainingInstallments == 0 -> "تسویه شده"
+            nextPaymentDate.isBlank() -> "نامشخص"
+            else -> AppNumberFormatter.formatDigits(nextPaymentDate, AppNumberFormatter.currentMode)
+        }
 
     val displayNextDueDaysText: String
         get() = AppNumberFormatter.formatDigits(nextDueDaysText, AppNumberFormatter.currentMode)
