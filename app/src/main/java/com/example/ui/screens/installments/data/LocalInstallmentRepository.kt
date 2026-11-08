@@ -191,7 +191,9 @@ class LocalInstallmentRepository private constructor() {
                     val firstUnpaid = payments
                         .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
                         .minByOrNull { parseJalaliStringToMillis(it.dueDate) ?: Long.MAX_VALUE }
-                    val effectiveNextPaymentDate = firstUnpaid?.dueDate ?: nextDueJalali
+                    // Do not fall back to a stale persisted date when there is no unpaid schedule row.
+                    // The model displays settled contracts as "تسویه شده" and incomplete schedules as "نامشخص".
+                    val effectiveNextPaymentDate = firstUnpaid?.dueDate.orEmpty()
 
                     val monthlyAmount = if (payments.isNotEmpty()) {
                         MoneyAmount.of(payments.first().amount, payments.first().amountUnit)
