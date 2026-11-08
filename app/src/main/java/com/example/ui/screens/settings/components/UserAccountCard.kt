@@ -58,7 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.R
-import com.example.data.security.SessionManager
+import com.example.data.security.AuthSessionManager
 import com.example.ui.theme.EmeraldPrimaryDark
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
@@ -76,10 +76,11 @@ fun UserAccountCard(
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-    val currentUser = SessionManager.currentUser
     val context = LocalContext.current
+    val sessionManager = remember(context) { AuthSessionManager(context) }
+    val currentUser = sessionManager.getActiveSession()
     // Keep each account's image in private app storage under a stable account-specific name.
-    val profileKey = currentUser?.id?.takeIf { it.isNotBlank() } ?: "local_profile"
+    val profileKey = currentUser?.userId?.takeIf { it.isNotBlank() } ?: "local_profile"
     val profilePhotoFile = remember(profileKey) {
         val stableId = UUID.nameUUIDFromBytes(profileKey.toByteArray(Charsets.UTF_8)).toString()
         File(File(context.filesDir, "profile_photos"), "$stableId.img")
@@ -230,7 +231,7 @@ fun UserAccountCard(
                             value = userNameInput,
                             onValueChange = {
                                 userNameInput = it
-                                SessionManager.updateFullName(it)
+                                sessionManager.updateFullName(it)
                             },
                             label = { Text("نام و نام خانوادگی", fontSize = 11.sp) },
                             placeholder = { Text("نام خود را وارد کنید", fontSize = 12.sp) },
