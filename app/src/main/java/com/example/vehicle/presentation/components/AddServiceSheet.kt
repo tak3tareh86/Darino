@@ -355,7 +355,7 @@ fun AddServiceSheet(
                         placeholder = "مبلغ را وارد کنید",
                         unitLabel = MoneyFormatter.getUnitLabel(),
                         showWordsPreview = false,
-                        useOuterHeader = true,
+                        useOuterHeader = false,
                         fieldHeight = 56.dp,
                         testTag = "service_cost_input"
                     )
@@ -365,17 +365,13 @@ fun AddServiceSheet(
                     modifier = Modifier.weight(0.9f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text(
-                        text = "کیلومتر خودرو",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                     OutlinedTextField(
                         value = IranianPhoneUtils.convertDigitsToPersian(mileageText),
                         onValueChange = {
                             val digits = IranianPhoneUtils.convertDigitsToEnglish(it).filter { ch -> ch in '0'..'9' }
                             mileageText = digits
                         },
+                        label = { Text("کیلومتر خودرو") },
                         placeholder = { Text("۴۵۰۰۰") },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
