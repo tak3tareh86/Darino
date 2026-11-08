@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import com.example.ui.screens.settings.model.AppCurrency
+import com.example.ui.screens.reminder.components.PersianTimePickerDialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -609,7 +610,7 @@ fun AddEditCheckDialog(
 
         if (showReminderTimePicker) {
             val current = PersianCalendarHelper.fromEpochMillis(reminderDateTime ?: System.currentTimeMillis())
-            SimpleTimePickerDialog(
+            PersianTimePickerDialog(
                 initialHour = current.hour,
                 initialMinute = current.minute,
                 onDismiss = { showReminderTimePicker = false },
