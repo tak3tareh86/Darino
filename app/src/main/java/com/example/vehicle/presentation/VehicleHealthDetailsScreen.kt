@@ -1,6 +1,7 @@
 package com.example.vehicle.presentation
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -31,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.ui.components.Layered3DCard
-import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.domain.VehicleHealthCheckItem
 import com.example.vehicle.domain.VehicleHealthReport
@@ -389,11 +391,11 @@ private fun VehicleHealthGroupCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            Soft3DIcon(
-                imageRes = group.items.first().iconRes,
+            Image(
+                painter = painterResource(id = group.items.first().iconRes),
                 contentDescription = group.title,
-                size = 30.dp,
-                accentColor = group.items.first().let(::healthItemColor)
+                modifier = Modifier.size(56.dp),
+                contentScale = ContentScale.Fit
             )
             Text(
                 text = group.title,
