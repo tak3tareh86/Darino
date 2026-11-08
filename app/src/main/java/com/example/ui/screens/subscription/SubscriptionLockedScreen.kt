@@ -47,8 +47,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.data.subscription.MarketConfig
-import com.example.util.MoneyFormatter
 
 private val ExpiredBackgroundTop = Color(0xFF111A30)
 private val ExpiredBackgroundBottom = Color(0xFF080F20)
@@ -241,7 +239,7 @@ fun SubscriptionLockedScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = MoneyFormatter.formatToman(MarketConfig.DISPLAY_PRICE_TOMAN),
+                        text = uiState.priceDisplay ?: "قیمت اشتراک از بازار دریافت می‌شود",
                         color = ExpiredAccent,
                         fontSize = 27.sp,
                         fontWeight = FontWeight.ExtraBold,
