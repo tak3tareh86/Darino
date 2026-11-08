@@ -195,7 +195,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).height(56.dp),
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
                     placeholder = { Text("جست‌وجو در چک‌ها...", maxLines = 1) },
@@ -206,6 +206,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     )
                 )
                 OutlinedButton(
+                    modifier = Modifier.height(56.dp),
                     onClick = { selectedIds = if (allSelected) emptySet() else eligibleChecks.map { it.id }.toSet() },
                     enabled = eligibleChecks.isNotEmpty(),
                     contentPadding = PaddingValues(horizontal = 9.dp, vertical = 11.dp),
@@ -216,6 +217,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                     Text("انتخاب همه", maxLines = 1)
                 }
                 OutlinedButton(
+                    modifier = Modifier.height(56.dp),
                     onClick = { selectedIds = emptySet() },
                     enabled = selectedIds.isNotEmpty(),
                     contentPadding = PaddingValues(horizontal = 9.dp, vertical = 11.dp),
