@@ -201,13 +201,13 @@ object VehicleAnalyzer {
             run {
                 val inspection = carInspections.maxByOrNull { parseAndValidateJalaliDate(it.lastInspectionDate) ?: "" }
                 if (inspection == null) {
-                    VehicleHealthCheckItem("معاینه فنی", "ثبت نشده", false, true, R.drawable.img_3d_settings_gear)
+                    VehicleHealthCheckItem("معاینه فنی", "ثبت نشده", false, true, R.drawable.img_3d_check)
                 } else {
                     val expiry = parseAndValidateJalaliDate(inspection.expiryDate)
                     if (expiry != null && expiry >= today) {
-                        VehicleHealthCheckItem("معاینه فنی", "دارای اعتبار", true, false, R.drawable.img_3d_settings_gear)
+                        VehicleHealthCheckItem("معاینه فنی", "دارای اعتبار", true, false, R.drawable.img_3d_check)
                     } else {
-                        VehicleHealthCheckItem("معاینه فنی", "فاقد اعتبار", false, true, R.drawable.img_3d_settings_gear)
+                        VehicleHealthCheckItem("معاینه فنی", "فاقد اعتبار", false, true, R.drawable.img_3d_check)
                     }
                 }
             },
@@ -220,7 +220,7 @@ object VehicleAnalyzer {
             serviceStatus(
                 "فیلترها",
                 listOf(ServiceType.FILTERS),
-                R.drawable.img_3d_oil
+                R.drawable.img_3d_settings_gear
             ),
             serviceStatus(
                 "روغن گیربکس",
