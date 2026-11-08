@@ -274,7 +274,7 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
                             append("فاصله از مبنا: $formattedDays")
                         }
                         val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
+                            setType("text/plain")
                             putExtra(Intent.EXTRA_TEXT, shareText)
                         }
                         context.startActivity(Intent.createChooser(sendIntent, "اشتراک نتیجه راس‌گیری"))
