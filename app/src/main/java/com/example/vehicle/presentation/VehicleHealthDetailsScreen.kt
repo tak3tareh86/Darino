@@ -140,28 +140,47 @@ fun VehicleHealthDetailsScreen(
                             .background(
                                 Brush.linearGradient(
                                     listOf(
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.96f),
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f),
                                         MaterialTheme.colorScheme.surface,
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.30f)
                                     )
                                 )
                             )
                     ) {
+                        // A soft theme-colored glow adds depth without competing with the score.
+                        Box(
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                                .offset(x = 28.dp, y = 2.dp)
+                                .size(220.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.radialGradient(
+                                        listOf(
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f),
+                                            Color.Transparent
+                                        )
+                                    )
+                                )
+                        )
+                        // Keep the score side calm and readable while allowing the vehicle to remain visible.
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(
+                                Brush.horizontalGradient(
+                                    0f to MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                                    0.42f to MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                                    0.68f to MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                    1f to Color.Transparent
+                                )
+                            )
+                        )
                         Image(
                             painter = painterResource(id = R.drawable.img_3d_car),
                             contentDescription = "تصویر خودرو",
                             modifier = Modifier.align(Alignment.CenterEnd)
-                                .fillMaxHeight().fillMaxWidth(0.61f),
-                            contentScale = ContentScale.Crop
-                        )
-                        Box(
-                            modifier = Modifier.fillMaxSize().background(
-                                Brush.horizontalGradient(
-                                    0f to Color.Transparent,
-                                    0.40f to MaterialTheme.colorScheme.surface.copy(alpha = 0.12f),
-                                    1f to MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
-                                )
-                            )
+                                .fillMaxHeight().fillMaxWidth(0.60f)
+                                .padding(end = 8.dp, top = 14.dp, bottom = 38.dp),
+                            contentScale = ContentScale.Fit
                         )
 
                         Surface(
@@ -330,7 +349,7 @@ private fun SemiCircularHealthGauge(
         drawArc(
             color = color.copy(alpha = 0.18f),
             startAngle = 180f,
-            sweepAngle = -180f,
+            sweepAngle = 180f,
             useCenter = false,
             topLeft = androidx.compose.ui.geometry.Offset(stroke / 2f, size.height - diameter / 2f),
             size = androidx.compose.ui.geometry.Size(diameter, diameter),
@@ -339,7 +358,7 @@ private fun SemiCircularHealthGauge(
         drawArc(
             color = color,
             startAngle = 180f,
-            sweepAngle = -180f * (score.coerceIn(0, 100) / 100f),
+            sweepAngle = 180f * (score.coerceIn(0, 100) / 100f),
             useCenter = false,
             topLeft = androidx.compose.ui.geometry.Offset(stroke / 2f, size.height - diameter / 2f),
             size = androidx.compose.ui.geometry.Size(diameter, diameter),
