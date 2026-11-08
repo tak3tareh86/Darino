@@ -338,9 +338,9 @@ private fun MaturityOverviewCard(
                 .padding(horizontal = 11.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Right section: compact, consistently right-aligned calculation metrics.
+            // Right section: keep all calculation metrics right-aligned.
             Column(
-                modifier = Modifier.weight(1.35f),
+                modifier = Modifier.weight(1.6f),
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(9.dp)
             ) {
@@ -360,9 +360,9 @@ private fun MaturityOverviewCard(
                     .background(Color.White.copy(alpha = 0.42f))
             )
 
-            // Center section: date and its Persian weekday.
+            // Center section: date and weekday remain centered.
             Column(
-                modifier = Modifier.weight(1.15f),
+                modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
@@ -384,35 +384,9 @@ private fun MaturityOverviewCard(
                     weekday ?: "—",
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
                 )
-            }
-
-            Box(
-                Modifier
-                    .padding(horizontal = 9.dp)
-                    .width(1.dp)
-                    .height(76.dp)
-                    .background(Color.White.copy(alpha = 0.42f))
-            )
-
-            // Left section: a restrained, modern calendar emblem.
-            Box(
-                modifier = Modifier.weight(0.62f),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(17.dp),
-                    color = Color.White.copy(alpha = 0.17f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.32f))
-                ) {
-                    Icon(
-                        Icons.Rounded.CalendarMonth,
-                        contentDescription = "تقویم تاریخ راس",
-                        tint = Color.White,
-                        modifier = Modifier.padding(11.dp).size(35.dp)
-                    )
-                }
             }
         }
     }
