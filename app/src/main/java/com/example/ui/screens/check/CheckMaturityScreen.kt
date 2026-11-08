@@ -274,7 +274,6 @@ fun CheckMaturityScreen(checks: List<Check>, onBack: () -> Unit) {
         item {
             MaturitySummaryCard(
                 total = if (calculation.invalidAmount) "—" else formatRials(calculation.totalRials),
-                count = selectedChecks.size,
                 days = formattedDays,
                 invalidAmount = calculation.invalidAmount
             )
@@ -477,7 +476,7 @@ private fun MaturityTypePill(
 }
 
 @Composable
-private fun MaturitySummaryCard(total: String, count: Int, days: String, invalidAmount: Boolean) {
+private fun MaturitySummaryCard(total: String, days: String, invalidAmount: Boolean) {
     val colors = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -513,17 +512,25 @@ private fun MaturitySummaryCard(total: String, count: Int, days: String, invalid
                 Box(Modifier.weight(1f).height(1.dp).background(colors.primary.copy(alpha = 0.45f)))
             }
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 7.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SummaryMetric(Modifier.weight(0.9f), "فاصله میانگین از مبنا", days,
-                    Icons.Rounded.Schedule)
-                Box(Modifier.width(1.dp).height(54.dp).background(colors.outlineVariant))
-                SummaryMetric(Modifier.weight(1.35f), "تعداد چک‌های انتخاب‌شده",
-                    IranianPhoneUtils.convertDigitsToPersian(count.toString()), Icons.Rounded.ReceiptLong)
-                Box(Modifier.width(1.dp).height(54.dp).background(colors.outlineVariant))
-                SummaryMetric(Modifier.weight(1.05f), "مجموع مبلغ انتخاب‌شده", total,
-                    Icons.Rounded.Paid)
+                SummaryMetric(
+                    Modifier.weight(1f),
+                    "فاصله میانگین از مبنا",
+                    days,
+                    Icons.Rounded.Schedule
+                )
+                Box(
+                    Modifier.width(1.dp).height(54.dp)
+                        .background(colors.outlineVariant)
+                )
+                SummaryMetric(
+                    Modifier.weight(1f),
+                    "مجموع مبالغ انتخاب‌شده",
+                    total,
+                    Icons.Rounded.Paid
+                )
             }
             if (invalidAmount) {
                 Text(
