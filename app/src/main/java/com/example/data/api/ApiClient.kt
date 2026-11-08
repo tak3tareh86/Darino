@@ -187,7 +187,7 @@ object ApiClient {
         }
     }
 
-    val healthApi: HealthApi
+    val bazaarSubscriptionApi: BazaarSubscriptionApi\n        get() = getRetrofit().create(BazaarSubscriptionApi::class.java)\n\n    val healthApi: HealthApi
         get() = getRetrofit().create(HealthApi::class.java)
 
     val authApi: AuthApi
