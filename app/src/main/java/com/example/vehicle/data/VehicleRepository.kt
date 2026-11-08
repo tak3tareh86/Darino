@@ -988,8 +988,17 @@ class VehicleRepository {
             var alarmFailed = false
             var alarmErrorMsg: String? = null
 
-            // Register system alarms AFTER successful database transaction commit
+            // Enabling the reminder in this new-service form is an explicit opt-in.
+            // Configure global Android delivery first; fresh installs default to NONE.
             if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
+                val preferences = com.example.data.preferences.AppPreferencesRepository.getInstance(context)
+                if (!preferences.notificationsEnabled.value ||
+                    preferences.alertDelivery.value == com.example.ui.screens.settings.model.AlertDeliveryPreference.NONE
+                ) {
+                    preferences.setAlertDelivery(
+                        com.example.ui.screens.settings.model.AlertDeliveryPreference.NOTIFICATION_ONLY
+                    )
+                }
                 try {
                     val reminderManager = com.example.reminder.domain.ReminderManager(context)
                     reminderManager.enableReminder(serviceId)
