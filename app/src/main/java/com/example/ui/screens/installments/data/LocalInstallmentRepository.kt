@@ -212,6 +212,7 @@ class LocalInstallmentRepository private constructor() {
                         title = entity.title,
                         category = cat,
                         providerOrPerson = entity.providerName,
+                        insuranceType = entity.insuranceType,
                         totalAmount = entity.amount,
                         totalAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(entity.amount, AppCurrency.valueOf(entity.amountUnit))),
                         paidAmount = paidAmount,
@@ -727,6 +728,7 @@ class LocalInstallmentRepository private constructor() {
             status = item.status.name,
             notes = item.notes,
             updatedAt = now,
+            insuranceType = item.insuranceType,
             deletedAt = null
         )
 
@@ -809,7 +811,8 @@ class LocalInstallmentRepository private constructor() {
                 dueDay = dueDayNum,
                 nextDueDate = nextDueMillis,
                 status = item.status.name,
-                notes = item.notes
+                notes = item.notes,
+                insuranceType = item.insuranceType
             )
             val instId = dao.insertInstallment(entity).toInt()
 
