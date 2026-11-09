@@ -1394,7 +1394,7 @@ class VehicleRepository {
 
         try {
             val reminderManager = com.example.reminder.domain.ReminderManager(context)
-            reminderManager.enableReminder(serviceId)
+            reminderManager.enableReminder("rem_veh_$serviceId")
 
             // Successfully enabled! Clear the error in Room database notes
             val parsed = parseServiceNotes(svc.notes)
