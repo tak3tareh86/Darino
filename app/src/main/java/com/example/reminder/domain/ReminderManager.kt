@@ -600,19 +600,9 @@ class ReminderManager(
             return@withContext 0
         }
 
-        // A newly created installment reminder with its reminder switch enabled is an
-        // explicit user opt-in. Fresh installs otherwise default to global delivery NONE.
-        // Do not override a global choice while editing an existing reminder.
-        if (existing == null && (reminder.notificationEnabled || reminder.fullScreenAlarmEnabled)) {
-            val preferences = AppPreferencesRepository.getInstance(context)
-            if (!preferences.notificationsEnabled.value ||
-                preferences.alertDelivery.value == com.example.ui.screens.settings.model.AlertDeliveryPreference.NONE
-            ) {
-                preferences.setAlertDelivery(
-                    com.example.ui.screens.settings.model.AlertDeliveryPreference.NOTIFICATION_ONLY
-                )
-            }
-        }
+        // Reminder opt-in only controls whether this installment has active schedules.
+        // The global alert-delivery preference remains the single source of truth for
+        // notification vs. full-screen alarm behavior; never change it from this flow.
 
         val futureSchedules = schedules.filter { it.enabled && it.triggerDateTime > now }
         if (futureSchedules.isEmpty()) {
