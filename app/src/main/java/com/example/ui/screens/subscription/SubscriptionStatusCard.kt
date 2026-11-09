@@ -398,6 +398,16 @@ fun SubscriptionStatusCard(
                                     color = Color(0xFFFEF08A)
                                 )
                             )
+                            if (state.isPriceCached) {
+                                Text(
+                                    text = "آخرین قیمت دریافت‌شده از بازار؛ خرید با قیمت روز تأیید می‌شود",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 8.sp,
+                                        lineHeight = 11.sp,
+                                        color = offerMutedTextColor
+                                    )
+                                )
+                            }
                         }
 
                         Row(
