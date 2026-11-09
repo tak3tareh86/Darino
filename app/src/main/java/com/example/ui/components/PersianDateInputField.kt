@@ -297,3 +297,6 @@ fun PersianDateInputField(
                 val newDate = IranianDateUtils.createFormattedDate(y, m, d, inPersian = true)
                 onValueChange(newDate)
             }
+        )
+    }
+}
