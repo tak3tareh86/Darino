@@ -18,7 +18,7 @@ class ReminderScheduler(private val context: Context) {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
 
-    private fun hasConfiguredDelivery(reminder: ReminderEntity): Boolean {
+    fun hasConfiguredDelivery(reminder: ReminderEntity): Boolean {
         val preferences = AppPreferencesRepository.getInstance(context)
         val reminderOptedIn = reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
         val androidDeliveryEnabled = reminderOptedIn &&
