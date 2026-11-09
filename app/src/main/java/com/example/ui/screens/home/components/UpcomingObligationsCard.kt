@@ -164,7 +164,7 @@ fun UpcomingObligationsCard(
                                 )
                             }
                             Text(
-                                text = "تعهد بانکی فعالی نیست",
+                                text = "تعهد فعالی ثبت نشده است",
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.5.sp
@@ -174,7 +174,7 @@ fun UpcomingObligationsCard(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "همه اقساط بانکی پرداخت شده‌اند.",
+                                text = "در حال حاضر قسط پرداخت‌نشده‌ای وجود ندارد.",
                                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1
@@ -272,7 +272,7 @@ private fun NearestObligationFlatItem(
         // 2. Bank / Provider Name
         if (item.bankName.isNotBlank()) {
             Text(
-                text = "بانک: ${item.bankName}",
+                text = "مرجع: ${item.bankName}",
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium
