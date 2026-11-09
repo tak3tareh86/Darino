@@ -958,29 +958,38 @@ private fun FormDetailsStep(
                                 onDismissRequest = { installmentsDropdownExpanded = false },
                                 modifier = Modifier.heightIn(max = 280.dp)
                             ) {
-                                LazyVerticalGrid(
-                                    columns = GridCells.Fixed(4),
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .heightIn(max = 260.dp)
-                                        .padding(horizontal = 6.dp),
-                                    userScrollEnabled = true
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(horizontal = 6.dp)
                                 ) {
-                                    items((4..60).toList()) { count ->
-                                        TextButton(
-                                            onClick = {
-                                                onInstallmentsCountChange(
-                                                    IranianPhoneUtils.convertDigitsToPersian(count.toString())
-                                                )
-                                                installmentsDropdownExpanded = false
-                                            },
+                                    (4..60).toList().chunked(4).forEach { rowCounts ->
+                                        Row(
                                             modifier = Modifier.fillMaxWidth(),
-                                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
+                                            horizontalArrangement = Arrangement.spacedBy(2.dp)
                                         ) {
-                                            Text(
-                                                text = IranianPhoneUtils.convertDigitsToPersian(count.toString()),
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
+                                            rowCounts.forEach { count ->
+                                                TextButton(
+                                                    onClick = {
+                                                        onInstallmentsCountChange(
+                                                            IranianPhoneUtils.convertDigitsToPersian(count.toString())
+                                                        )
+                                                        installmentsDropdownExpanded = false
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = IranianPhoneUtils.convertDigitsToPersian(count.toString()),
+                                                        style = MaterialTheme.typography.bodyMedium
+                                                    )
+                                                }
+                                            }
+                                            repeat(4 - rowCounts.size) {
+                                                Spacer(modifier = Modifier.weight(1f))
+                                            }
                                         }
                                     }
                                 }
