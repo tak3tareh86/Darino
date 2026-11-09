@@ -207,23 +207,27 @@ fun UserAccountCard(
                 ) {
                     // Profile Photo Avatar with Photo Picker overlay
                     Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .shadow(4.dp, CircleShape)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(EmeraldPrimaryLight, EmeraldPrimaryDark)
-                                )
-                            )
-                            .clickable {
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            }
-                            .testTag("profile_photo_picker"),
+                        modifier = Modifier.size(72.dp),
                         contentAlignment = Alignment.Center
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .shadow(4.dp, CircleShape)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(EmeraldPrimaryLight, EmeraldPrimaryDark)
+                                    )
+                                )
+                                .clickable {
+                                    photoPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                }
+                                .testTag("profile_photo_picker"),
+                            contentAlignment = Alignment.Center
+                        ) {
                         if (selectedImageUri != null) {
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
@@ -245,24 +249,6 @@ fun UserAccountCard(
                             )
                         }
 
-                        if (selectedImageUri != null) {
-                            IconButton(
-                                onClick = { showRemovePhotoDialog = true },
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .size(25.dp)
-                                    .background(Color.Black.copy(alpha = 0.65f), CircleShape)
-                                    .testTag("remove_profile_photo")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.DeleteOutline,
-                                    contentDescription = "حذف عکس پروفایل",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            }
-                        }
-
                         // Small camera badge at bottom
                         Box(
                             modifier = Modifier
@@ -278,6 +264,27 @@ fun UserAccountCard(
                                 tint = Color.White,
                                 modifier = Modifier.size(13.dp)
                             )
+                        }
+                        }
+
+                        if (selectedImageUri != null) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-1).dp, y = 1.dp)
+                                    .size(20.dp)
+                                    .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                                    .clickable { showRemovePhotoDialog = true }
+                                    .testTag("remove_profile_photo"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.DeleteOutline,
+                                    contentDescription = "حذف عکس پروفایل",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                            }
                         }
                     }
 
