@@ -382,31 +382,54 @@ fun SubscriptionStatusCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                text = "هزینه اشتراک یکساله",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 9.5.sp,
-                                    color = offerMutedTextColor
-                                )
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(34.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isDark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.62f),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isDark) Color.White.copy(alpha = 0.18f) else Color(0xFF94A3B8).copy(alpha = 0.45f)
                             )
-                            Text(
-                                text = state.priceDisplay ?: "قیمت در بازار دریافت نشد",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = Color(0xFFFEF08A)
-                                )
-                            )
-                            if (state.isPriceCached) {
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 7.dp, vertical = 1.dp),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.Start
+                            ) {
                                 Text(
-                                    text = "آخرین قیمت دریافت‌شده از بازار؛ خرید با قیمت روز تأیید می‌شود",
+                                    text = "هزینه اشتراک یکساله",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontSize = 8.sp,
-                                        lineHeight = 11.sp,
+                                        lineHeight = 9.sp,
                                         color = offerMutedTextColor
-                                    )
+                                    ),
+                                    maxLines = 1
                                 )
+                                Text(
+                                    text = state.priceDisplay ?: "قیمت از بازار دریافت نشد",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = if (state.priceDisplay == null) 8.5.sp else 11.sp,
+                                        lineHeight = 12.sp,
+                                        color = Color(0xFFFEF08A)
+                                    ),
+                                    maxLines = 1
+                                )
+                                if (state.isPriceCached) {
+                                    Text(
+                                        text = "آخرین قیمت دریافت‌شده از بازار؛ خرید با قیمت روز تأیید می‌شود",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 6.5.sp,
+                                            lineHeight = 7.sp,
+                                            color = offerMutedTextColor
+                                        ),
+                                        maxLines = 1
+                                    )
+                                }
                             }
                         }
 
