@@ -165,7 +165,7 @@ fun AddInstallmentSheet(
             reminderTime,
             offsets,
             scheduleItems,
-            insuranceType
+            insuranceType.takeIf { selectedCategory == InstallmentCategory.CAR_INSURANCE }
         )
         onDismiss()
     }
@@ -205,6 +205,7 @@ fun AddInstallmentSheet(
                 CategorySelectionStep(
                     onSelectCategory = { category ->
                         selectedCategory = category
+                        if (category != InstallmentCategory.CAR_INSURANCE) insuranceType = null
                         currentStep = 2
                     },
                     onDismiss = onDismiss
