@@ -69,6 +69,12 @@ fun CheckCard(check: Check, onClick: () -> Unit, modifier: Modifier = Modifier) 
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (!check.sayadId.isNullOrBlank()) {
+                        InfoLine(
+                            icon = { Icon(Icons.Rounded.Tag, null) },
+                            text = "شماره صیادی: ${check.sayadId}"
+                        )
+                    }
                     InfoLine(
                         icon = { Icon(Icons.Rounded.Tag, null) },
                         text = "شماره چک: ${check.checkNumber}"
