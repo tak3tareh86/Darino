@@ -97,6 +97,11 @@ fun PersianDateInputField(
             } else {
                 MaterialTheme.colorScheme.outline
             }
+            val labelColor = if (isError) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
 
             Box(
                 modifier = Modifier
@@ -155,7 +160,7 @@ fun PersianDateInputField(
                         maxLines = 1,
                         softWrap = false,
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                        color = borderColor,
+                        color = labelColor,
                         onTextLayout = { labelWidthPx = it.size.width.toFloat() },
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -211,7 +216,7 @@ fun PersianDateInputField(
                     }
                 }
             }
-        }else {
+        } else {
             OutlinedTextField(
                 value = formattedDisplay,
                 onValueChange = { input ->
