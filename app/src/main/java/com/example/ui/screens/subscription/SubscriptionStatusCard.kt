@@ -324,7 +324,7 @@ fun SubscriptionStatusCard(
                         Surface(
                             modifier = Modifier
                                 .weight(0.85f)
-                                .height(30.dp),
+                                .height(34.dp),
                             shape = RoundedCornerShape(10.dp),
                             color = if (isDark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.62f),
                             border = BorderStroke(
