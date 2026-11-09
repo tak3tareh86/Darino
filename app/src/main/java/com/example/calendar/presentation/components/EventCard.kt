@@ -35,6 +35,7 @@ import com.example.calendar.domain.model.FinancialEvent
 import com.example.calendar.domain.model.FinancialEventStatus
 import com.example.calendar.domain.model.FinancialEventType
 import com.example.util.IranianPhoneUtils
+import com.example.calendar.domain.CalendarEventDescriptionUtils
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.theme.EmeraldPrimaryLight
@@ -179,21 +180,16 @@ fun EventCard(
                         )
                     }
 
-                    // Avoid showing a check amount twice when the description only repeats
-                    // the same amount already displayed in the dedicated amount line.
-                    val normalizedDescription = IranianPhoneUtils
-                        .convertDigitsToEnglish(event.description)
-                    val descriptionDigits = normalizedDescription.filter { it.isDigit() }
-                    val amountDigits = event.amount?.toString()
-                    val hasMonetaryContext = listOf("مبلغ", "چک", "قسط", "تومان", "ریال")
-                        .any { normalizedDescription.contains(it) }
-                    val repeatsDisplayedAmount = !amountDigits.isNullOrBlank() &&
-                        descriptionDigits.contains(amountDigits) &&
-                        hasMonetaryContext
+                    // Remove only the exact duplicated amount phrase. Keep the rest of
+                    // the user's description intact (including unrelated numbers and dates).
+                    val displayDescription = CalendarEventDescriptionUtils.removeDuplicateAmount(
+                        description = event.description,
+                        amount = event.amount
+                    )
 
-                    if (event.description.isNotBlank() && !repeatsDisplayedAmount) {
+                    if (displayDescription.isNotBlank()) {
                         Text(
-                            text = event.description,
+                            text = displayDescription,
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
