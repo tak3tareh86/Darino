@@ -35,6 +35,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -252,14 +254,27 @@ private fun ReminderAlarmContent(
                     }
                     if (checkNumber.isNotBlank()) {
                         Spacer(Modifier.height(10.dp))
-                        Text(
-                            text = "شماره چک: $checkNumber",
-                            modifier = Modifier.fillMaxWidth(),
-                            color = Color(0xFFD0D9E4),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center
-                        )
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "شماره چک:",
+                                    color = Color(0xFFD0D9E4),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = checkNumber,
+                                    color = Color(0xFFD0D9E4),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                     if (cardDetail.isNotBlank()) {
                         Spacer(Modifier.height(10.dp))
