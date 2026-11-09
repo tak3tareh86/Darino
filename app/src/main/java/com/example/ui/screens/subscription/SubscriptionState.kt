@@ -13,6 +13,7 @@ data class SubscriptionState(
     val subscriptionEndJalaliDate: String = "",
     val subscriptionPurchaseJalaliDate: String = "",
     val priceDisplay: String? = null,
+    val isPriceCached: Boolean = false,
     val userMessage: String? = null,
     val isError: Boolean = false
 ) {
