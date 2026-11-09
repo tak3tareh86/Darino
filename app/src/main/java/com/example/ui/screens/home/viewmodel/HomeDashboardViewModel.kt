@@ -530,7 +530,8 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     // Remove from local queue
                     removePendingSmsSuggestion(id, userId)
 
-                    // Synchronize LocalFinanceRepository caches
+                    // Publish the newly inserted Room transaction to the finance screen immediately.
+                    LocalFinanceRepository.instance.refreshTransactionsForCurrentUser(getApplication())
                     LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
 
                     // Refresh dashboard
