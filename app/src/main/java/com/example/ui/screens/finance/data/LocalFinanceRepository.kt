@@ -233,6 +233,33 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         }
     }
 
+    /**
+     * Reload the transaction StateFlow from Room after writes performed outside
+     * this repository (for example, the bank-SMS acceptance path).
+     */
+    suspend fun refreshTransactionsForCurrentUser() {
+        val currentUserId = SessionManager.userId
+        val appCtx = appContext
+        if (currentUserId.isNullOrBlank() || appCtx == null) {
+            if (currentUserId.isNullOrBlank()) {
+                _transactions.value = emptyList()
+                recalculateBudgets()
+            }
+            return
+        }
+
+        val db = AppDatabase.getDatabase(appCtx)
+        val latestTransactions = db.transactionDao()
+            .getAllTransactionsList(currentUserId)
+            .map { toItemData(it, _categories.value) }
+
+        // Avoid publishing data if the active account changed while the query ran.
+        if (SessionManager.userId != currentUserId) return
+
+        _transactions.value = latestTransactions
+        recalculateBudgets()
+    }
+
     override suspend fun addTransactionResult(transaction: TransactionItemData): TransactionOperationResult {
         val userId = SessionManager.userId ?: return TransactionOperationResult.NO_AUTHENTICATED_USER
         
