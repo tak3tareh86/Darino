@@ -304,6 +304,18 @@ class ReminderManager(
             )
             throw IllegalStateException("تمام زمان‌های انتخاب‌شده گذشته‌اند؛ تاریخ سررسید یا ساعت اعلان را اصلاح کنید.")
         }
+        // Keep the reminder active and its future schedules enabled even when the
+        // app-wide delivery preference is NONE. A later global opt-in rebuilds these
+        // persisted schedules; lack of a delivery channel is not an alarm failure.
+        if (!scheduler.hasConfiguredDelivery(enabledReminder)) {
+            repository.updateReminderWithSchedules(enabledReminder, enabledSchedules)
+            Log.i(
+                "ReminderManager",
+                "Reminder $reminderId remains active with saved schedules; global delivery is currently disabled."
+            )
+            return@withContext
+        }
+
         repository.updateReminderWithSchedules(enabledReminder, enabledSchedules)
         try {
             val scheduledCount = scheduler.schedule(enabledReminder, enabledSchedules)
