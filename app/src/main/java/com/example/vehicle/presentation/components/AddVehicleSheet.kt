@@ -247,8 +247,7 @@ fun AddVehicleSheet(
                                     .testTag("brand_search_input"),
                                 label = { Text("جست‌وجوی برند") },
                                 placeholder = { Text("نام برند را وارد کنید") },
-                                leadingIcon = {
-                                    Icon(
+                                leadingIcon = {                                    Icon(
                                         imageVector = Icons.Rounded.DirectionsCar,
                                         contentDescription = null
                                     )
@@ -497,8 +496,7 @@ fun AddVehicleSheet(
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = modelSearchQuery,
-                                onValueChange = { modelSearchQuery = it },
-                                modifier = Modifier.fillMaxWidth().testTag("vehicle_model_search"),
+                                onValueChange = { modelSearchQuery = it },                                modifier = Modifier.fillMaxWidth().testTag("vehicle_model_search"),
                                 label = { Text("جست‌وجوی مدل یا تیپ") },
                                 singleLine = true,
                                 trailingIcon = {
@@ -573,7 +571,8 @@ fun AddVehicleSheet(
             // Model & Year
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1.5f)) {
                     if (modelManualEntry || brand == "سایر" || availableModels.isEmpty()) {
@@ -582,7 +581,7 @@ fun AddVehicleSheet(
                             onValueChange = { model = it },
                             label = { Text("مدل / تیپ خودرو") },
                             placeholder = { Text("نام مدل و تیپ را وارد کنید") },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
                             singleLine = true,
                             trailingIcon = {
                                 if (availableModels.isNotEmpty() && brand != "سایر") {
@@ -622,7 +621,7 @@ fun AddVehicleSheet(
                     onValueChange = { year = it },
                     label = { Text("سال ساخت") },
                     placeholder = { Text("1402") },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).height(56.dp),
                     trailingIcon = {
                         IconButton(onClick = { showYearDialog = true }) {
                             Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب سال ساخت")
@@ -747,8 +746,7 @@ fun AddVehicleSheet(
                             ExposedDropdownMenu(
                                 expanded = showLetterMenu,
                                 onDismissRequest = { showLetterMenu = false }
-                            ) {
-                                Column(
+                            ) {                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .heightIn(max = 240.dp)
