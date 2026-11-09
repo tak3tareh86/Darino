@@ -35,7 +35,6 @@ import com.example.calendar.domain.CalendarEventDescriptionUtils
 import com.example.calendar.domain.model.FinancialEvent
 import com.example.calendar.domain.model.FinancialEventStatus
 import com.example.calendar.domain.model.FinancialEventType
-import com.example.calendar.domain.CalendarEventDescriptionUtils
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.theme.EmeraldPrimaryLight
