@@ -121,7 +121,8 @@ fun PersianDateInputField(
                         val gapEnd: Float
 
                         if (layoutDirection == LayoutDirection.Rtl) {
-                            gapEnd = right - cornerRadius
+                            // Nudge the Persian fixed label and its border gap slightly left.
+                            gapEnd = right - cornerRadius - 4.dp.toPx()
                             gapStart = (gapEnd - labelGap).coerceAtLeast(left + cornerRadius)
                         } else {
                             gapStart = left + cornerRadius
@@ -147,8 +148,7 @@ fun PersianDateInputField(
                             lineTo(left, top + cornerRadius)
                             quadraticTo(left, top, left + cornerRadius, top)
                         }
-                        drawPath(
-                            path = outline,
+                        drawPath(                            path = outline,
                             color = borderColor,
                             style = Stroke(width = strokeWidth)
                         )
@@ -166,7 +166,7 @@ fun PersianDateInputField(
                         modifier = Modifier
                             .align(Alignment.TopStart)
                             .offset(
-                                x = if (layoutDirection == LayoutDirection.Rtl) (-RadiusMD) else RadiusMD,
+                                x = if (layoutDirection == LayoutDirection.Rtl) (-RadiusMD - 4.dp) else RadiusMD,
                                 y = (-8).dp
                             )
                             .padding(horizontal = 4.dp)
@@ -298,6 +298,3 @@ fun PersianDateInputField(
                 val newDate = IranianDateUtils.createFormattedDate(y, m, d, inPersian = true)
                 onValueChange(newDate)
             }
-        )
-    }
-}
