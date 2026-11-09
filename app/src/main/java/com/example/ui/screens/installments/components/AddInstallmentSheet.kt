@@ -939,6 +939,8 @@ private fun FormDetailsStep(
                             label = "تاریخ اولین قسط",
                             useOuterHeader = false,
                             showSubLabel = false,
+                            fieldHeight = 56.dp,
+                            fixedLabel = true,
                             modifier = Modifier
                                 .testTag("installment_date_input")
                         )
