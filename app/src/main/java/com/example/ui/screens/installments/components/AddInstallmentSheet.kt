@@ -257,10 +257,6 @@ fun AddInstallmentSheet(
                     remind1WeekBefore = remind1WeekBefore,
                     onOpenReminderModal = { showReminderModal = true },
                     onOpenCustomSchedule = {
-                        if (selectedCategory == InstallmentCategory.CAR_INSURANCE && insuranceType == null) {
-                            submitValidationError = "نوع بیمه را انتخاب کنید."
-                            return@FormDetailsStep
-                        }
                         if (dueDate.isBlank() || !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(dueDate)) {
                             submitValidationError = "ابتدا تاریخ واقعی اولین قسط را وارد یا از تقویم انتخاب کنید."
                         } else {
@@ -287,6 +283,10 @@ fun AddInstallmentSheet(
                         val parsedMonthlyForValidation = IranianAmountUtils.parseAmountToBigDecimal(installmentAmount)?.let {
                             runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
                         } ?: 0L
+                        if (selectedCategory == InstallmentCategory.CAR_INSURANCE && insuranceType == null) {
+                            submitValidationError = "نوع بیمه را انتخاب کنید."
+                            return@FormDetailsStep
+                        }
                         if (dueDate.isBlank() || !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(dueDate)) {
                             submitValidationError = "ابتدا تاریخ واقعی اولین قسط را وارد یا از تقویم انتخاب کنید."
                             return@FormDetailsStep
