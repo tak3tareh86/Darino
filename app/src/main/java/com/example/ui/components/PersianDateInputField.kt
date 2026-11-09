@@ -121,8 +121,7 @@ fun PersianDateInputField(
                         val gapEnd: Float
 
                         if (layoutDirection == LayoutDirection.Rtl) {
-                            // Nudge the Persian fixed label and its border gap slightly left.
-                            gapEnd = right - cornerRadius - 4.dp.toPx()
+                            gapEnd = right - cornerRadius
                             gapStart = (gapEnd - labelGap).coerceAtLeast(left + cornerRadius)
                         } else {
                             gapStart = left + cornerRadius
