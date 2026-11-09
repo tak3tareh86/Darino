@@ -61,6 +61,11 @@ enum class InstallmentCategory(
     )
 }
 
+enum class VehicleInsuranceType(val title: String) {
+    THIRD_PARTY("بیمه شخص ثالث"),
+    BODY("بیمه بدنه")
+}
+
 enum class InstallmentStatus(
     val title: String,
     val color: Color,

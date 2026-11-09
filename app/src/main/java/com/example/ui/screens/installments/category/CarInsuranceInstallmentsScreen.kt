@@ -76,8 +76,8 @@ fun CarInsuranceInstallmentsScreen(
     
     val filteredInstallments = remember(installments, selectedTabIndex) {
         when (selectedTabIndex) {
-            0 -> installments.filter { it.insuranceType?.contains("شخص ثالث") == true }
-            1 -> installments.filter { it.insuranceType?.contains("بدنه") == true }
+            0 -> installments.filter { it.insuranceType == com.example.ui.screens.installments.model.VehicleInsuranceType.THIRD_PARTY.name }
+            1 -> installments.filter { it.insuranceType == com.example.ui.screens.installments.model.VehicleInsuranceType.BODY.name }
             else -> installments
         }
     }

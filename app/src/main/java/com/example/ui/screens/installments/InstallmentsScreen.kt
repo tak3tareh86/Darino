@@ -429,7 +429,7 @@ fun InstallmentsScreen(
                 prefillMonthly = ""
                 prefillCount = ""
             },
-            onAddConfirm = { cat, title, totalStr, monthlyStr, countStr, paidCountStr, dueDateStr, provider, itemNotes, reminderEnabled, reminderDays, reminderTime, selectedOffsets, customScheduleItems ->
+            onAddConfirm = { cat, title, totalStr, monthlyStr, countStr, paidCountStr, dueDateStr, provider, itemNotes, reminderEnabled, reminderDays, reminderTime, selectedOffsets, customScheduleItems, insuranceType ->
                 prefillTitle = ""
                 prefillTotal = ""
                 prefillMonthly = ""
@@ -652,6 +652,7 @@ fun InstallmentsScreen(
                     title = title,
                     category = cat,
                     providerOrPerson = provider,
+                    insuranceType = insuranceType?.name,
                     totalAmount = totalAmount,
                     totalAmountFormatted = totalFormatted,
                     paidAmount = paidAmount,

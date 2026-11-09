@@ -89,7 +89,9 @@ data class InstallmentEntity(
     val status: String, // "ACTIVE", "PAID", "OVERDUE"
     val notes: String?,
     val updatedAt: Long = System.currentTimeMillis(),
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    // Nullable for legacy records created before insurance classification was available.
+    val insuranceType: String? = null
 )
 
 @Entity(tableName = "installment_payments")
