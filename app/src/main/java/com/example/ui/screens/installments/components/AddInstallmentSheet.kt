@@ -948,7 +948,7 @@ private fun FormDetailsStep(
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier
-                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable)
+                                    .menuAnchor()
                                     .fillMaxWidth()
                                     .testTag("installment_count_input"),
                                 shape = RoundedCornerShape(10.dp)
