@@ -389,6 +389,12 @@ class NotificationDispatcher(private val context: Context) {
                 putExtra(ReminderAlarmActivity.EXTRA_CARD_HEADING, reminderCategory)
                 putExtra(ReminderAlarmActivity.EXTRA_CARD_SUBTITLE, reminderKind)
                 putExtra(ReminderAlarmActivity.EXTRA_CARD_DETAIL, reminderDetail)
+                putExtra(
+                    ReminderAlarmActivity.EXTRA_CHECK_NUMBER,
+                    if (reminder.sourceType.equals("CHECK", ignoreCase = true)) {
+                        reminder.title.substringAfterLast(" - ", "").trim()
+                    } else ""
+                )
             }.also { alarmIntent ->
                 val fullScreenPendingIntent = PendingIntent.getActivity(
                     context,

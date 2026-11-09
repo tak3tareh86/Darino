@@ -70,6 +70,7 @@ class ReminderAlarmActivity : ComponentActivity() {
         val cardHeading = intent.getStringExtra(EXTRA_CARD_HEADING).orEmpty().ifBlank { title }
         val cardSubtitle = intent.getStringExtra(EXTRA_CARD_SUBTITLE).orEmpty()
         val cardDetail = intent.getStringExtra(EXTRA_CARD_DETAIL).orEmpty().ifBlank { body }
+        val checkNumber = intent.getStringExtra(EXTRA_CHECK_NUMBER).orEmpty()
 
         setContent {
             MaterialTheme {
@@ -77,6 +78,7 @@ class ReminderAlarmActivity : ComponentActivity() {
                     cardHeading = cardHeading,
                     cardSubtitle = cardSubtitle,
                     cardDetail = cardDetail,
+                    checkNumber = checkNumber,
                     onComplete = { completeReminder() },
                     onSnoozeFive = { snoozeReminder(5) },
                     onSnoozeFifteen = { snoozeReminder(15) },
@@ -179,6 +181,7 @@ class ReminderAlarmActivity : ComponentActivity() {
         const val EXTRA_CARD_HEADING = "alarm_extra_card_heading"
         const val EXTRA_CARD_SUBTITLE = "alarm_extra_card_subtitle"
         const val EXTRA_CARD_DETAIL = "alarm_extra_card_detail"
+        const val EXTRA_CHECK_NUMBER = "alarm_extra_check_number"
     }
 }
 
@@ -187,6 +190,7 @@ private fun ReminderAlarmContent(
     cardHeading: String,
     cardSubtitle: String,
     cardDetail: String,
+    checkNumber: String,
     onComplete: () -> Unit,
     onSnoozeFive: () -> Unit,
     onSnoozeFifteen: () -> Unit,
@@ -239,6 +243,17 @@ private fun ReminderAlarmContent(
                         Spacer(Modifier.height(10.dp))
                         Text(
                             text = cardSubtitle,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color(0xFFD0D9E4),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    if (checkNumber.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = "شماره چک: $checkNumber",
                             modifier = Modifier.fillMaxWidth(),
                             color = Color(0xFFD0D9E4),
                             style = MaterialTheme.typography.bodyLarge,
