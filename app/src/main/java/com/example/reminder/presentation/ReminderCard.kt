@@ -181,10 +181,29 @@ fun ReminderCard(
 
             }
 
-            // Row 2: Description if exists
-            if (reminder.description.isNotBlank()) {
+            // Keep the amount in the dedicated amount row; hide it from the description when duplicated.
+            val formattedReminderAmount = reminder.amount?.takeIf { it > 0L }?.let { amount ->
+                runCatching {
+                    MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.valueOf(reminder.amountUnit)))
+                }.getOrNull()
+            }
+            val displayDescription = if (
+                formattedReminderAmount != null && reminder.description.contains(formattedReminderAmount)
+            ) {
+                reminder.description
+                    .replace(formattedReminderAmount, "")
+                    .replace(Regex("^\\s*مبلغ\\s*(?:قسط|چک)\\s*[:：]?\\s*"), "")
+                    .trim()
+                    .trim('•', '-', '،', ':', '：')
+                    .trim()
+            } else {
+                reminder.description
+            }
+
+            // Row 2: Description if exists and contains information beyond the amount.
+            if (displayDescription.isNotBlank()) {
                 Text(
-                    text = reminder.description,
+                    text = displayDescription,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -249,11 +268,6 @@ fun ReminderCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val formattedReminderAmount = reminder.amount?.takeIf { it > 0L }?.let { amount ->
-                        runCatching {
-                            MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.valueOf(reminder.amountUnit)))
-                        }.getOrNull()
-                    }
                     if (formattedReminderAmount != null) {
                         Text(
                             text = formattedReminderAmount,
