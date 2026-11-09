@@ -323,7 +323,7 @@ fun SubscriptionStatusCard(
                     ) {
                         Surface(
                             modifier = Modifier
-                                .weight(1f)
+                                .weight(0.85f)
                                 .height(34.dp),
                             shape = RoundedCornerShape(10.dp),
                             color = if (isDark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.62f),
@@ -337,10 +337,12 @@ fun SubscriptionStatusCard(
                                     .fillMaxSize()
                                     .padding(horizontal = 7.dp, vertical = 1.dp),
                                 verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.Start
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
                                     text = "هزینه اشتراک یکساله",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontSize = 8.sp,
                                         lineHeight = 9.sp,
@@ -350,6 +352,8 @@ fun SubscriptionStatusCard(
                                 )
                                 Text(
                                     text = state.priceDisplay ?: "قیمت از بازار دریافت نشد",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = if (state.priceDisplay == null) 8.5.sp else 11.sp,
@@ -361,6 +365,8 @@ fun SubscriptionStatusCard(
                                 if (state.isPriceCached) {
                                     Text(
                                         text = "آخرین قیمت دریافت‌شده از بازار؛ خرید با قیمت روز تأیید می‌شود",
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Center,
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             fontSize = 6.5.sp,
                                             lineHeight = 7.sp,
