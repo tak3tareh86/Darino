@@ -353,7 +353,8 @@ class NotificationDispatcher(private val context: Context) {
                 .substringAfter("سررسید انقضای بیمه‌نامه", "")
                 .trim()
                 .ifBlank { reminder.title.substringAfter(":", reminder.title).trim() }
-            "VEHICLE", "CHECK", "CALENDAR" -> reminder.title
+            "VEHICLE", "CALENDAR" -> reminder.title
+            "CHECK" -> reminder.title.substringBeforeLast(" - ", reminder.title).trim()
             else -> reminder.title
         }.ifBlank { reminderCategory.removePrefix("سررسید ").trim() }
         val reminderDetail = amountText.removePrefix(" • ").ifBlank {
