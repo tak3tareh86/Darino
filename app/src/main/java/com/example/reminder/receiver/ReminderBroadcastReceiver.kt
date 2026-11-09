@@ -181,7 +181,11 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
 
         when (decision) {
             DispatchDecision.DeliverNow -> {
-                if (reminder.notificationEnabled || reminder.fullScreenAlarmEnabled) {
+                // Vehicle reminders use the app-wide delivery preference; their per-reminder
+                // notification/full-screen flags are intentionally not used as an opt-in gate.
+                if (reminder.sourceType.equals("VEHICLE", ignoreCase = true) ||
+                    reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
+                ) {
                     NotificationDispatcher(context).dispatchNotification(reminder, schedule)
                 }
 
