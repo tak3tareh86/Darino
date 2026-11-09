@@ -1074,7 +1074,9 @@ class VehicleRepository {
                 .thresholdKilometer(targetMileage, leadKilometers)
             try {
                 val storedReminder = dao.getReminderById(userId, reminderId) ?: return@forEach
-                if (!storedReminder.status.equals("ACTIVE", ignoreCase = true) || !storedReminder.notificationEnabled) {
+                if (!storedReminder.status.equals("ACTIVE", ignoreCase = true) ||
+                    (!storedReminder.notificationEnabled && !storedReminder.sourceType.equals("VEHICLE", ignoreCase = true))
+                ) {
                     return@forEach
                 }
                 val now = System.currentTimeMillis()

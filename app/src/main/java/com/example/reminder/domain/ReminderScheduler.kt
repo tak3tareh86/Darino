@@ -20,7 +20,10 @@ class ReminderScheduler(private val context: Context) {
 
     fun hasConfiguredDelivery(reminder: ReminderEntity): Boolean {
         val preferences = AppPreferencesRepository.getInstance(context)
-        val reminderOptedIn = reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
+        // Vehicle service reminders follow the app-wide alert mode directly.
+        // Other reminder categories retain their existing per-reminder opt-in.
+        val reminderOptedIn = reminder.sourceType.equals("VEHICLE", ignoreCase = true) ||
+            reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
         val androidDeliveryEnabled = reminderOptedIn &&
             preferences.notificationsEnabled.value &&
             preferences.alertDelivery.value != AlertDeliveryPreference.NONE
