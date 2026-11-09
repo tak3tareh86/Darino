@@ -87,7 +87,8 @@ fun AddInstallmentSheet(
         reminderDays: String,
         reminderTime: String,
         selectedOffsets: List<PredefinedOffset>,
-        customScheduleItems: List<com.example.ui.screens.installments.model.PaymentHistoryItem>?
+        customScheduleItems: List<com.example.ui.screens.installments.model.PaymentHistoryItem>?,
+        insuranceType: com.example.ui.screens.installments.model.VehicleInsuranceType?
     ) -> Unit,
     initialCategory: InstallmentCategory = InstallmentCategory.BANK_LOANS,
     initialTitle: String = "",
@@ -110,6 +111,7 @@ fun AddInstallmentSheet(
     // The first installment date must be explicitly provided by the user.
     var dueDate by remember { mutableStateOf("") }
     var providerOrPerson by remember { mutableStateOf("") }
+    var insuranceType by remember { mutableStateOf<com.example.ui.screens.installments.model.VehicleInsuranceType?>(null) }
     var notes by remember { mutableStateOf("") }
 
     // Reminder state
@@ -162,7 +164,8 @@ fun AddInstallmentSheet(
             daysSummary,
             reminderTime,
             offsets,
-            scheduleItems
+            scheduleItems,
+            insuranceType
         )
         onDismiss()
     }
@@ -214,6 +217,8 @@ fun AddInstallmentSheet(
                     onTitleChange = { title = it },
                     provider = providerOrPerson,
                     onProviderChange = { providerOrPerson = it },
+                    insuranceType = insuranceType,
+                    onInsuranceTypeChange = { insuranceType = it },
                     totalAmount = totalAmount,
                     onTotalAmountChange = {
                         totalAmount = it
@@ -251,6 +256,10 @@ fun AddInstallmentSheet(
                     remind1WeekBefore = remind1WeekBefore,
                     onOpenReminderModal = { showReminderModal = true },
                     onOpenCustomSchedule = {
+                        if (selectedCategory == InstallmentCategory.CAR_INSURANCE && insuranceType == null) {
+                            submitValidationError = "نوع بیمه را انتخاب کنید."
+                            return@FormDetailsStep
+                        }
                         if (dueDate.isBlank() || !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(dueDate)) {
                             submitValidationError = "ابتدا تاریخ واقعی اولین قسط را وارد یا از تقویم انتخاب کنید."
                         } else {
@@ -719,6 +728,8 @@ private fun FormDetailsStep(
     onTitleChange: (String) -> Unit,
     provider: String,
     onProviderChange: (String) -> Unit,
+    insuranceType: com.example.ui.screens.installments.model.VehicleInsuranceType?,
+    onInsuranceTypeChange: (com.example.ui.screens.installments.model.VehicleInsuranceType) -> Unit,
     totalAmount: String,
     onTotalAmountChange: (String) -> Unit,
     installmentAmount: String,
@@ -834,6 +845,38 @@ private fun FormDetailsStep(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp)
                     )
+                }
+                if (category == InstallmentCategory.CAR_INSURANCE) {
+                    var insuranceTypeExpanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(
+                        expanded = insuranceTypeExpanded,
+                        onExpandedChange = { insuranceTypeExpanded = !insuranceTypeExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = insuranceType?.title.orEmpty(),
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("نوع بیمه *") },
+                            placeholder = { Text("شخص ثالث یا بدنه را انتخاب کنید") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = insuranceTypeExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = insuranceTypeExpanded,
+                            onDismissRequest = { insuranceTypeExpanded = false }
+                        ) {
+                            com.example.ui.screens.installments.model.VehicleInsuranceType.values().forEach { type ->
+                                DropdownMenuItem(
+                                    text = { Text(type.title) },
+                                    onClick = {
+                                        onInsuranceTypeChange(type)
+                                        insuranceTypeExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
