@@ -1046,7 +1046,7 @@ private fun FormDetailsStep(
                             useOuterHeader = false,
                             showSubLabel = false,
                             fieldHeight = 56.dp,
-                            fixedLabel = true,
+                            singleLineLabel = true,
                             modifier = Modifier
                                 .testTag("installment_date_input")
                         )
