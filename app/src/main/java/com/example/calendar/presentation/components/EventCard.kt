@@ -153,11 +153,16 @@ fun EventCard(
                     containerShape = RoundedCornerShape(RadiusMD)
                 )
 
-                // Title + Description / Type tag
-                Column(
+                // Keep title and status in one shared section. The status chip remains
+                // at the same trailing position and vertically centered as before.
+                Row(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -176,13 +181,15 @@ fun EventCard(
 
                     // Avoid showing a check amount twice when the description only repeats
                     // the same amount already displayed in the dedicated amount line.
-                    val descriptionDigits = IranianPhoneUtils
+                    val normalizedDescription = IranianPhoneUtils
                         .convertDigitsToEnglish(event.description)
-                        .filter { it.isDigit() }
+                    val descriptionDigits = normalizedDescription.filter { it.isDigit() }
                     val amountDigits = event.amount?.toString()
-                    val repeatsDisplayedAmount = event.description.contains("مبلغ چک") &&
-                        !amountDigits.isNullOrBlank() &&
-                        descriptionDigits == amountDigits
+                    val hasMonetaryContext = listOf("مبلغ", "چک", "قسط", "تومان", "ریال")
+                        .any { normalizedDescription.contains(it) }
+                    val repeatsDisplayedAmount = !amountDigits.isNullOrBlank() &&
+                        descriptionDigits.contains(amountDigits) &&
+                        hasMonetaryContext
 
                     if (event.description.isNotBlank() && !repeatsDisplayedAmount) {
                         Text(
@@ -238,12 +245,12 @@ fun EventCard(
                     }
                 }
 
-                // Status Action
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    // Interactive Status Chip
+                    // Status Action stays in its original position within the shared section.
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // Interactive Status Chip
                     Surface(
                         onClick = onToggleStatus,
                         shape = RoundedCornerShape(20.dp),
@@ -281,6 +288,7 @@ fun EventCard(
                                 ),
                                 color = event.status.color
                             )
+                        }
                         }
                     }
                 }
