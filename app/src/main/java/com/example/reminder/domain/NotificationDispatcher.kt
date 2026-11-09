@@ -330,6 +330,35 @@ class NotificationDispatcher(private val context: Context) {
             "سررسید یادآوری: ${reminder.date} ساعت ${reminder.time}$amountText"
         }
 
+        // Prepare dedicated, structured values for the full-screen reminder card.
+        // Standard notification title/body and reminder scheduling remain unchanged.
+        val reminderCategory = when (reminder.sourceType.uppercase()) {
+            "INSTALLMENT" -> "سررسید قسط"
+            "INSURANCE" -> "سررسید بیمه"
+            "VEHICLE" -> "سررسید سرویس خودرو"
+            "CHECK" -> "سررسید چک"
+            "CALENDAR" -> "سررسید رویداد"
+            else -> when (reminder.type.uppercase()) {
+                "INSTALLMENT" -> "سررسید قسط"
+                "INSURANCE" -> "سررسید بیمه"
+                "VEHICLE", "MAINTENANCE" -> "سررسید سرویس خودرو"
+                "CHECK" -> "سررسید چک"
+                else -> "سررسید یادآوری"
+            }
+        }
+        val reminderKind = when (reminder.sourceType.uppercase()) {
+            "INSTALLMENT" -> reminder.title.substringAfter("سررسید قسط:", "").trim().ifBlank { "قسط" }
+            "INSURANCE" -> reminder.description
+                .substringAfter("سررسید انقضای بیمه‌نامه", "")
+                .trim()
+                .ifBlank { reminder.title.substringAfter(":", reminder.title).trim() }
+            "VEHICLE", "CHECK", "CALENDAR" -> reminder.title
+            else -> reminder.title
+        }.ifBlank { reminderCategory.removePrefix("سررسید ").trim() }
+        val reminderDetail = amountText.removePrefix(" • ").ifBlank {
+            reminder.description.ifBlank { "تاریخ: ${reminder.date} • ساعت: ${reminder.time}" }
+        }
+
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.img_3d_bell_notification)
             .setContentTitle(reminder.title)
@@ -357,6 +386,9 @@ class NotificationDispatcher(private val context: Context) {
                 putExtra(ReminderAlarmActivity.EXTRA_SECONDARY_NOTIFICATION_ID, standardNotificationId)
                 putExtra(ReminderAlarmActivity.EXTRA_TITLE, reminder.title)
                 putExtra(ReminderAlarmActivity.EXTRA_BODY, bodyText)
+                putExtra(ReminderAlarmActivity.EXTRA_CARD_HEADING, reminderCategory)
+                putExtra(ReminderAlarmActivity.EXTRA_CARD_SUBTITLE, reminderKind)
+                putExtra(ReminderAlarmActivity.EXTRA_CARD_DETAIL, reminderDetail)
             }.also { alarmIntent ->
                 val fullScreenPendingIntent = PendingIntent.getActivity(
                     context,

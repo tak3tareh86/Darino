@@ -67,12 +67,16 @@ class ReminderAlarmActivity : ComponentActivity() {
         startAlarmSound()
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "یادآوری دارینو" }
         val body = intent.getStringExtra(EXTRA_BODY).orEmpty()
+        val cardHeading = intent.getStringExtra(EXTRA_CARD_HEADING).orEmpty().ifBlank { title }
+        val cardSubtitle = intent.getStringExtra(EXTRA_CARD_SUBTITLE).orEmpty()
+        val cardDetail = intent.getStringExtra(EXTRA_CARD_DETAIL).orEmpty().ifBlank { body }
 
         setContent {
             MaterialTheme {
                 ReminderAlarmContent(
-                    title = title,
-                    body = body,
+                    cardHeading = cardHeading,
+                    cardSubtitle = cardSubtitle,
+                    cardDetail = cardDetail,
                     onComplete = { completeReminder() },
                     onSnoozeFive = { snoozeReminder(5) },
                     onSnoozeFifteen = { snoozeReminder(15) },
@@ -172,13 +176,17 @@ class ReminderAlarmActivity : ComponentActivity() {
         const val EXTRA_SECONDARY_NOTIFICATION_ID = "alarm_extra_secondary_notification_id"
         const val EXTRA_TITLE = "alarm_extra_title"
         const val EXTRA_BODY = "alarm_extra_body"
+        const val EXTRA_CARD_HEADING = "alarm_extra_card_heading"
+        const val EXTRA_CARD_SUBTITLE = "alarm_extra_card_subtitle"
+        const val EXTRA_CARD_DETAIL = "alarm_extra_card_detail"
     }
 }
 
 @Composable
 private fun ReminderAlarmContent(
-    title: String,
-    body: String,
+    cardHeading: String,
+    cardSubtitle: String,
+    cardDetail: String,
     onComplete: () -> Unit,
     onSnoozeFive: () -> Unit,
     onSnoozeFifteen: () -> Unit,
@@ -220,18 +228,32 @@ private fun ReminderAlarmContent(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = title,
+                        text = cardHeading,
+                        modifier = Modifier.fillMaxWidth(),
                         color = Color.White,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
-                    if (body.isNotBlank()) {
-                        Spacer(Modifier.height(12.dp))
+                    if (cardSubtitle.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
                         Text(
-                            text = body,
+                            text = cardSubtitle,
+                            modifier = Modifier.fillMaxWidth(),
                             color = Color(0xFFD0D9E4),
                             style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    if (cardDetail.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = cardDetail,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color(0xFF8FE7DC),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center
                         )
                     }
