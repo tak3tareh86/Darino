@@ -106,18 +106,67 @@ class SubscriptionRepositoryImpl(
         }
     }
 
-    override suspend fun getAnnualSubscriptionPrice(): Result<String> = withContext(Dispatchers.IO) {
+    /**
+     * Cache-first price retrieval with Bazaar as the sole source of truth.
+     * A cached value is used only when Poolakey cannot establish a connection.
+     * A successful SKU query that omits the product invalidates the old cache.
+     * Cached prices are display-only; purchase is always initiated and verified by Bazaar.
+     */
+    override suspend fun getAnnualSubscriptionPrice(): Result<AnnualSubscriptionPrice> = withContext(Dispatchers.IO) {
         when (val result = poolakeyDataSource.getSubscriptionSkuDetails()) {
             is PoolakeyResult.Success -> {
                 val price = result.data
                     .firstOrNull { it.sku == MarketConfig.YEARLY_PRODUCT_ID }
                     ?.price
                     ?.takeIf { it.isNotBlank() }
-                if (price != null) Result.success(price)
-                else Result.failure(IllegalStateException("قیمت اشتراک سالیانه در بازار ثبت نشده است."))
+
+                if (price == null) {
+                    clearCachedAnnualPrice()
+                    Result.failure(IllegalStateException("قیمت اشتراک سالیانه در بازار ثبت نشده است."))
+                } else {
+                    val now = System.currentTimeMillis()
+                    // commit() makes the last known-good price durable before returning to the UI.
+                    cachedAnnualPricePreferences().edit()
+                        .putString(KEY_CACHED_PRICE_PRODUCT_ID, MarketConfig.YEARLY_PRODUCT_ID)
+                        .putString(KEY_CACHED_ANNUAL_PRICE, price)
+                        .putLong(KEY_CACHED_ANNUAL_PRICE_AT, now)
+                        .commit()
+                    Result.success(AnnualSubscriptionPrice(price, isCached = false, fetchedAtMillis = now))
+                }
             }
-            is PoolakeyResult.Error -> Result.failure(Exception(result.message, result.throwable))
+            is PoolakeyResult.Error -> {
+                val cached = if (result.connectionFailure) readCachedAnnualPrice() else null
+                if (cached != null) {
+                    Result.success(cached)
+                } else {
+                    Result.failure(Exception(result.message, result.throwable))
+                }
+            }
         }
+    }
+
+    private fun cachedAnnualPricePreferences() = context.getSharedPreferences(
+        PREFS_ANNUAL_PRICE_CACHE,
+        Context.MODE_PRIVATE
+    )
+
+    private fun readCachedAnnualPrice(): AnnualSubscriptionPrice? {
+        val prefs = cachedAnnualPricePreferences()
+        val productId = prefs.getString(KEY_CACHED_PRICE_PRODUCT_ID, null)
+        val price = prefs.getString(KEY_CACHED_ANNUAL_PRICE, null)?.takeIf { it.isNotBlank() }
+        val fetchedAt = prefs.getLong(KEY_CACHED_ANNUAL_PRICE_AT, 0L)
+        if (productId != MarketConfig.YEARLY_PRODUCT_ID || price == null || fetchedAt <= 0L) {
+            return null
+        }
+        return AnnualSubscriptionPrice(price, isCached = true, fetchedAtMillis = fetchedAt)
+    }
+
+    private fun clearCachedAnnualPrice() {
+        cachedAnnualPricePreferences().edit()
+            .remove(KEY_CACHED_PRICE_PRODUCT_ID)
+            .remove(KEY_CACHED_ANNUAL_PRICE)
+            .remove(KEY_CACHED_ANNUAL_PRICE_AT)
+            .apply()
     }
 
     override suspend fun recordSuccessfulPurchase(purchaseInfo: PurchaseInfo): SubscriptionInfo = withContext(Dispatchers.IO) {
@@ -174,6 +223,11 @@ class SubscriptionRepositoryImpl(
     }
 
     companion object {
+        private const val PREFS_ANNUAL_PRICE_CACHE = "bazaar_annual_price_cache"
+        private const val KEY_CACHED_PRICE_PRODUCT_ID = "product_id"
+        private const val KEY_CACHED_ANNUAL_PRICE = "display_price"
+        private const val KEY_CACHED_ANNUAL_PRICE_AT = "fetched_at"
+
         @Volatile
         private var INSTANCE: SubscriptionRepositoryImpl? = null
 

@@ -16,7 +16,7 @@ import kotlin.coroutines.resume
 
 sealed class PoolakeyResult<out T> {
     data class Success<T>(val data: T) : PoolakeyResult<T>()
-    data class Error(val message: String, val throwable: Throwable? = null) : PoolakeyResult<Nothing>()
+    data class Error(val message: String, val throwable: Throwable? = null, val connectionFailure: Boolean = false) : PoolakeyResult<Nothing>()
 }
 
 class PoolakeySubscriptionDataSource(private val context: Context) {
@@ -122,7 +122,8 @@ class PoolakeySubscriptionDataSource(private val context: Context) {
                         continuation.resume(
                             PoolakeyResult.Error(
                                 "امکان اتصال به بازار برای دریافت قیمت وجود ندارد: ${throwable.message}",
-                                throwable
+                                throwable,
+                                connectionFailure = true
                             )
                         )
                     }

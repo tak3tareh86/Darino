@@ -2,6 +2,7 @@ package com.example.domain.subscription
 
 import androidx.activity.result.ActivityResultRegistry
 import com.example.data.subscription.SubscriptionRepository
+import com.example.data.subscription.AnnualSubscriptionPrice
 import ir.cafebazaar.poolakey.entity.PurchaseInfo
 import kotlinx.coroutines.flow.Flow
 
@@ -15,7 +16,7 @@ class SubscriptionManager(private val repository: SubscriptionRepository) {
 
     suspend fun syncWithMarket(): Result<SubscriptionInfo> = repository.syncWithMarket()
 
-    suspend fun getAnnualSubscriptionPrice(): Result<String> = repository.getAnnualSubscriptionPrice()
+    suspend fun getAnnualSubscriptionPrice(): Result<AnnualSubscriptionPrice> = repository.getAnnualSubscriptionPrice()
 
     suspend fun recordSuccessfulPurchase(purchaseInfo: PurchaseInfo): SubscriptionInfo =
         repository.recordSuccessfulPurchase(purchaseInfo)
