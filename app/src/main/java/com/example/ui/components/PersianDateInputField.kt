@@ -50,7 +50,8 @@ fun PersianDateInputField(
     colors: TextFieldColors = OutlinedTextFieldDefaults.colors(),
     fieldHeight: androidx.compose.ui.unit.Dp? = null,
     singleLineLabel: Boolean = false,
-    fixedLabel: Boolean = false
+    fixedLabel: Boolean = false,
+    contentStartPadding: androidx.compose.ui.unit.Dp = 10.dp
 ) {
     var showCalendarDialog by remember { mutableStateOf(false) }
 
@@ -174,7 +175,7 @@ fun PersianDateInputField(
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = 10.dp, end = 6.dp, top = 2.dp),
+                        .padding(start = contentStartPadding, end = 6.dp, top = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     BasicTextField(
