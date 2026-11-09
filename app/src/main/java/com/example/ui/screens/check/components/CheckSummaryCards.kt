@@ -96,9 +96,7 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
         )
         TotalChecksCard(
             modifier = Modifier.fillMaxWidth(),
-            receivedCount = receivedOutstanding.size,
             receivedAmount = receivedOutstandingAmount,
-            paidCount = paidOutstanding.size,
             paidAmount = paidOutstandingAmount
         )
     }
@@ -107,9 +105,7 @@ fun CheckSummaryCards(checks: List<Check>, modifier: Modifier = Modifier) {
 @Composable
 private fun TotalChecksCard(
     modifier: Modifier,
-    receivedCount: Int,
     receivedAmount: Long,
-    paidCount: Int,
     paidAmount: Long
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -128,7 +124,6 @@ private fun TotalChecksCard(
             OutstandingCheckSummary(
                 modifier = Modifier.weight(1f),
                 title = "چک‌های دریافتی ثبت‌شده",
-                count = receivedCount,
                 amount = receivedAmount,
                 color = scheme.primary
             )
@@ -139,7 +134,6 @@ private fun TotalChecksCard(
             OutstandingCheckSummary(
                 modifier = Modifier.weight(1f),
                 title = "چک‌های پرداختی ثبت‌شده",
-                count = paidCount,
                 amount = paidAmount,
                 color = scheme.error
             )
@@ -151,7 +145,6 @@ private fun TotalChecksCard(
 private fun OutstandingCheckSummary(
     modifier: Modifier,
     title: String,
-    count: Int,
     amount: Long,
     color: androidx.compose.ui.graphics.Color
 ) {
@@ -160,31 +153,17 @@ private fun OutstandingCheckSummary(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
-        Row(
+        Text(
+            title,
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                title,
-                modifier = Modifier.weight(1f, fill = false),
-                style = MaterialTheme.typography.labelSmall,
-                color = color,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                "${IranianPhoneUtils.convertDigitsToPersian(count.toString())} فقره",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                softWrap = false
-            )
-        }
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
         CompactCheckAmountText(
             amount,
             MaterialTheme.colorScheme.onSurface,
