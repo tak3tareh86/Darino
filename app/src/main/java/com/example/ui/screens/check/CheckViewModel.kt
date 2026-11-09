@@ -47,6 +47,9 @@ class CheckViewModel : ViewModel() {
             ) { checks, accounts, query, type, status ->
                 val filtered = checks.filter { check ->
                     val matchesQuery = check.checkNumber.contains(query, ignoreCase = true) ||
+                            (check.sayadId?.contains(query, ignoreCase = true) ?: false) ||
+                            check.amount.toString().contains(query, ignoreCase = true) ||
+                            check.formattedAmount.contains(query, ignoreCase = true) ||
                             check.holderName.contains(query, ignoreCase = true) ||
                             check.receiverName.contains(query, ignoreCase = true) ||
                             check.bankName.contains(query, ignoreCase = true) ||
