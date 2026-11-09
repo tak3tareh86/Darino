@@ -105,92 +105,25 @@ fun SubscriptionStatusCard(
                     .padding(horizontal = 12.dp, vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Right side: active status and Jalali purchase date.
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF059669).copy(alpha = if (isDark) 0.35f else 0.16f),
-                        contentColor = if (isDark) Color(0xFFA7F3D0) else Color(0xFF047857)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.WorkspacePremium,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "فعال",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.CalendarToday,
-                            contentDescription = null,
-                            tint = if (isDark) Color(0xFFA7F3D0) else Color(0xFF047857),
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Text(
-                            text = "تاریخ خرید",
-                            color = cardMutedTextColor,
-                            fontSize = 9.5.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    Text(
-                        text = if (marketConfirmedActive && info.subscriptionPurchaseAt != null) state.subscriptionPurchaseJalaliDate else "نامشخص",
-                        color = cardTextColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 10.dp)
-                        .width(1.dp)
-                        .height(70.dp)
-                        .background(
-                            if (isDark) Color.White.copy(alpha = 0.28f)
-                            else Color(0xFF047857).copy(alpha = 0.25f)
-                        )
-                )
-
-                // Left side: Darino logo, centered active-subscription title and remaining time.
+                // Single centered content area with the enlarged logo kept on the left in RTL.
                 Row(
-                    modifier = Modifier.weight(1.25f),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Column(
                         modifier = Modifier.weight(1f),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
                                 text = "اشتراک فعال",
                                 color = cardTextColor,
-                                fontSize = 11.5.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1
                             )
@@ -198,26 +131,32 @@ fun SubscriptionStatusCard(
                                 imageVector = androidx.compose.material.icons.Icons.Default.CheckCircle,
                                 contentDescription = "اشتراک فعال",
                                 tint = Color(0xFF22C55E),
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                         Text(
-                            text = if (marketConfirmedActive) "تأییدشده توسط بازار" else "وضعیت محلی اشتراک",
-                            color = if (marketConfirmedActive) cardMutedTextColor else if (isDark) Color(0xFFA7F3D0) else Color(0xFF047857),
+                            text = "تاریخ خرید",
+                            color = cardMutedTextColor,
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = if (marketConfirmedActive && info.subscriptionPurchaseAt != null) state.subscriptionPurchaseJalaliDate else "نامشخص",
+                            color = cardTextColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
                             maxLines = 1
                         )
-
                     }
 
                     androidx.compose.foundation.Image(
                         painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.img_darino_logo),
                         contentDescription = "لوگوی دارینو",
                         modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .size(54.dp)
+                            .clip(RoundedCornerShape(12.dp))
                     )
                 }
             }
