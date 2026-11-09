@@ -748,28 +748,40 @@ fun AddVehicleSheet(
                                 expanded = showLetterMenu,
                                 onDismissRequest = { showLetterMenu = false }
                             ) {
-                                LazyVerticalGrid(
-                                    columns = GridCells.Fixed(2),
-                                    modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
-                                    contentPadding = PaddingValues(4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 240.dp)
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(4.dp)
                                 ) {
-                                    items(letters) { letter ->
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(
-                                                    text = letter,
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    textAlign = TextAlign.Center,
-                                                    fontWeight = if (plateLetter == letter) FontWeight.Bold else FontWeight.Normal
-                                                )
-                                            },
-                                            onClick = {
-                                                plateLetter = letter
-                                                showLetterMenu = false
+                                    letters.chunked(2).forEach { rowLetters ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            rowLetters.forEach { letter ->
+                                                Box(modifier = Modifier.weight(1f)) {
+                                                    DropdownMenuItem(
+                                                        text = {
+                                                            Text(
+                                                                text = letter,
+                                                                modifier = Modifier.fillMaxWidth(),
+                                                                textAlign = TextAlign.Center,
+                                                                fontWeight = if (plateLetter == letter) FontWeight.Bold else FontWeight.Normal
+                                                            )
+                                                        },
+                                                        onClick = {
+                                                            plateLetter = letter
+                                                            showLetterMenu = false
+                                                        }
+                                                    )
+                                                }
                                             }
-                                        )
+                                            if (rowLetters.size == 1) {
+                                                Spacer(modifier = Modifier.weight(1f))
+                                            }
+                                        }
                                     }
                                 }
                             }
