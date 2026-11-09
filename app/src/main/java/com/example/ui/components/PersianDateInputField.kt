@@ -1,6 +1,9 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -43,7 +46,8 @@ fun PersianDateInputField(
     testTag: String = "date_input_field",
     colors: TextFieldColors = OutlinedTextFieldDefaults.colors(),
     fieldHeight: androidx.compose.ui.unit.Dp? = null,
-    singleLineLabel: Boolean = false
+    singleLineLabel: Boolean = false,
+    fixedLabel: Boolean = false
 ) {
     var showCalendarDialog by remember { mutableStateOf(false) }
 
@@ -82,56 +86,129 @@ fun PersianDateInputField(
             }
         }
 
-        OutlinedTextField(
-            value = formattedDisplay,
-            onValueChange = { input ->
-                val formatted = IranianDateUtils.formatWithSlashes(input, inPersian = true)
-                onValueChange(formatted)
-            },
-            label = if (!useOuterHeader && !label.isNullOrBlank()) {
-                {
-                    if (singleLineLabel) {
-                        Text(
-                            text = label,
-                            maxLines = 1,
-                            softWrap = false,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
-                        )
-                    } else {
-                        Text(text = label)
-                    }
-                }
-            } else null,
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(if (fieldHeight != null) Modifier.height(fieldHeight) else Modifier)
-                .testTag(testTag),
-            placeholder = {
-                Text(
-                    text = placeholder,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                )
-            },
-            trailingIcon = {
-                IconButton(
-                    onClick = { showCalendarDialog = true },
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.CalendarMonth,
-                        contentDescription = "انتخاب تاریخ از تقویم",
-                        tint = MaterialTheme.colorScheme.primary
+        if (fixedLabel) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(fieldHeight ?: 56.dp)
+                    .border(
+                        width = 1.dp,
+                        color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                        shape = shape
+                    )
+                    .testTag(testTag)
+            ) {
+                if (!label.isNullOrBlank()) {
+                    Text(
+                        text = label,
+                        maxLines = 1,
+                        softWrap = false,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                        color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .offset(y = (-8).dp)
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(horizontal = 4.dp)
                     )
                 }
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true,
-            enabled = enabled,
-            isError = isError,
-            shape = shape,
-            colors = colors
-        )
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 10.dp, end = 6.dp, top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BasicTextField(
+                        value = formattedDisplay,
+                        onValueChange = { input ->
+                            val formatted = IranianDateUtils.formatWithSlashes(input, inPersian = true)
+                            onValueChange(formatted)
+                        },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        enabled = enabled,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        decorationBox = { innerTextField ->
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                if (formattedDisplay.isEmpty()) {
+                                    Text(
+                                        text = placeholder,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
+                    )
+                    IconButton(
+                        onClick = { showCalendarDialog = true },
+                        enabled = enabled,
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.CalendarMonth,
+                            contentDescription = "انتخاب تاریخ از تقویم",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        } else {
+            OutlinedTextField(
+                value = formattedDisplay,
+                onValueChange = { input ->
+                    val formatted = IranianDateUtils.formatWithSlashes(input, inPersian = true)
+                    onValueChange(formatted)
+                },
+                label = if (!useOuterHeader && !label.isNullOrBlank()) {
+                    {
+                        if (singleLineLabel) {
+                            Text(
+                                text = label,
+                                maxLines = 1,
+                                softWrap = false,
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
+                            )
+                        } else {
+                            Text(text = label)
+                        }
+                    }
+                } else null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(if (fieldHeight != null) Modifier.height(fieldHeight) else Modifier)
+                    .testTag(testTag),
+                placeholder = {
+                    Text(
+                        text = placeholder,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                },
+                trailingIcon = {
+                    IconButton(
+                        onClick = { showCalendarDialog = true },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.CalendarMonth,
+                            contentDescription = "انتخاب تاریخ از تقویم",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                enabled = enabled,
+                isError = isError,
+                shape = shape,
+                colors = colors
+            )
+        }
 
         if (isError && !errorMessage.isNullOrBlank()) {
             Text(
