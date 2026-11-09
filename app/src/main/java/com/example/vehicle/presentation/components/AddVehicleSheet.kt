@@ -247,7 +247,8 @@ fun AddVehicleSheet(
                                     .testTag("brand_search_input"),
                                 label = { Text("جست‌وجوی برند") },
                                 placeholder = { Text("نام برند را وارد کنید") },
-                                leadingIcon = {                                    Icon(
+                                leadingIcon = {
+                                    Icon(
                                         imageVector = Icons.Rounded.DirectionsCar,
                                         contentDescription = null
                                     )
@@ -496,7 +497,8 @@ fun AddVehicleSheet(
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = modelSearchQuery,
-                                onValueChange = { modelSearchQuery = it },                                modifier = Modifier.fillMaxWidth().testTag("vehicle_model_search"),
+                                onValueChange = { modelSearchQuery = it },
+                                modifier = Modifier.fillMaxWidth().testTag("vehicle_model_search"),
                                 label = { Text("جست‌وجوی مدل یا تیپ") },
                                 singleLine = true,
                                 trailingIcon = {
@@ -746,7 +748,8 @@ fun AddVehicleSheet(
                             ExposedDropdownMenu(
                                 expanded = showLetterMenu,
                                 onDismissRequest = { showLetterMenu = false }
-                            ) {                                Column(
+                            ) {
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .heightIn(max = 240.dp)
