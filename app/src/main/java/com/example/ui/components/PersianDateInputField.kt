@@ -1,10 +1,13 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -87,15 +90,68 @@ fun PersianDateInputField(
         }
 
         if (fixedLabel) {
+            var labelWidthPx by remember(label) { mutableStateOf(0f) }
+            val layoutDirection = LocalLayoutDirection.current
+            val borderColor = if (isError) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.outline
+            }
+            val labelColor = if (isError) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(fieldHeight ?: 56.dp)
-                    .border(
-                        width = 1.dp,
-                        color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-                        shape = shape
-                    )
+                    .drawBehind {
+                        val strokeWidth = 1.dp.toPx()
+                        val cornerRadius = RadiusMD.toPx().coerceAtMost(size.height / 2f)
+                        val inset = strokeWidth / 2f
+                        val left = inset
+                        val right = size.width - inset
+                        val top = inset
+                        val bottom = size.height - inset
+                        val labelGap = if (label.isNullOrBlank()) 0f else labelWidthPx + 8.dp.toPx()
+                        val gapStart: Float
+                        val gapEnd: Float
+
+                        if (layoutDirection == LayoutDirection.Rtl) {
+                            gapEnd = right - cornerRadius
+                            gapStart = (gapEnd - labelGap).coerceAtLeast(left + cornerRadius)
+                        } else {
+                            gapStart = left + cornerRadius
+                            gapEnd = (gapStart + labelGap).coerceAtMost(right - cornerRadius)
+                        }
+
+                        val outline = Path().apply {
+                            moveTo(left + cornerRadius, top)
+                            if (gapStart > left + cornerRadius) {
+                                lineTo(gapStart, top)
+                            }
+                            if (gapEnd < right - cornerRadius) {
+                                moveTo(gapEnd, top)
+                                lineTo(right - cornerRadius, top)
+                            } else {
+                                moveTo(right - cornerRadius, top)
+                            }
+                            quadraticTo(right, top, right, top + cornerRadius)
+                            lineTo(right, bottom - cornerRadius)
+                            quadraticTo(right, bottom, right - cornerRadius, bottom)
+                            lineTo(left + cornerRadius, bottom)
+                            quadraticTo(left, bottom, left, bottom - cornerRadius)
+                            lineTo(left, top + cornerRadius)
+                            quadraticTo(left, top, left + cornerRadius, top)
+                        }
+                        drawPath(
+                            path = outline,
+                            color = borderColor,
+                            style = Stroke(width = strokeWidth)
+                        )
+                    }
                     .testTag(testTag)
             ) {
                 if (!label.isNullOrBlank()) {
@@ -104,11 +160,14 @@ fun PersianDateInputField(
                         maxLines = 1,
                         softWrap = false,
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                        color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = labelColor,
+                        onTextLayout = { labelWidthPx = it.size.width.toFloat() },
                         modifier = Modifier
                             .align(Alignment.TopStart)
-                            .offset(y = (-8).dp)
-                            .background(MaterialTheme.colorScheme.surface)
+                            .offset(
+                                x = if (layoutDirection == LayoutDirection.Rtl) (-RadiusMD) else RadiusMD,
+                                y = (-8).dp
+                            )
                             .padding(horizontal = 4.dp)
                     )
                 }
