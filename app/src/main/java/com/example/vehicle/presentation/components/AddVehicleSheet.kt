@@ -573,7 +573,8 @@ fun AddVehicleSheet(
             // Model & Year
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1.5f)) {
                     if (modelManualEntry || brand == "سایر" || availableModels.isEmpty()) {
@@ -582,7 +583,7 @@ fun AddVehicleSheet(
                             onValueChange = { model = it },
                             label = { Text("مدل / تیپ خودرو") },
                             placeholder = { Text("نام مدل و تیپ را وارد کنید") },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
                             singleLine = true,
                             trailingIcon = {
                                 if (availableModels.isNotEmpty() && brand != "سایر") {
@@ -622,7 +623,7 @@ fun AddVehicleSheet(
                     onValueChange = { year = it },
                     label = { Text("سال ساخت") },
                     placeholder = { Text("1402") },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).height(56.dp),
                     trailingIcon = {
                         IconButton(onClick = { showYearDialog = true }) {
                             Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب سال ساخت")
