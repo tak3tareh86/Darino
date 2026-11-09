@@ -722,6 +722,7 @@ private fun CategoryCardItem(
 /**
  * STEP 2: FORM DETAILS SCREEN (Compact single-screen layout without vertical scrolling)
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FormDetailsStep(
     category: InstallmentCategory,
