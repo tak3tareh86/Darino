@@ -116,14 +116,20 @@ class HomeDashboardRepository(
     fun getUpcomingObligations(): List<UpcomingObligationItem> {
         val list = mutableListOf<UpcomingObligationItem>()
 
-        // 1. Only Real Bank Installments from LocalInstallmentRepository
-        val realBankInstallments = installmentRepository.installments.value.filter {
-            it.category == InstallmentCategory.BANK_LOANS &&
+        // Include every installment category managed by the installments module.
+        // The dashboard still displays only the single nearest unpaid installment.
+        val activeInstallments = installmentRepository.installments.value.filter {
+            it.category in setOf(
+                InstallmentCategory.BANK_LOANS,
+                InstallmentCategory.HOME_LOANS,
+                InstallmentCategory.CAR_INSURANCE,
+                InstallmentCategory.MISC
+            ) &&
             it.remainingInstallments > 0 &&
             it.status != InstallmentStatus.COMPLETED &&
             it.status != InstallmentStatus.PAID
         }
-        for (item in realBankInstallments) {
+        for (item in activeInstallments) {
             val unpaidPayments = item.paymentHistory.filter {
                 it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
             }
