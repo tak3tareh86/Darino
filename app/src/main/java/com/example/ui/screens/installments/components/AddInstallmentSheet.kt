@@ -8,6 +8,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -878,17 +881,66 @@ private fun FormDetailsStep(
                             shape = RoundedCornerShape(10.dp)
                         )
 
-                        OutlinedTextField(
-                            value = installmentsCount,
-                            onValueChange = onInstallmentsCountChange,
-                            label = { Text("تعداد اقساط", maxLines = 1, softWrap = false) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier
-                                .weight(0.8f)
-                                .testTag("installment_count_input"),
-                            shape = RoundedCornerShape(10.dp)
-                        )
+                        var installmentsDropdownExpanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = installmentsDropdownExpanded,
+                            onExpandedChange = { installmentsDropdownExpanded = !installmentsDropdownExpanded },
+                            modifier = Modifier.weight(0.8f)
+                        ) {
+                            OutlinedTextField(
+                                value = installmentsCount,
+                                onValueChange = { input ->
+                                    onInstallmentsCountChange(
+                                        IranianPhoneUtils.convertDigitsToPersian(
+                                            IranianPhoneUtils.convertDigitsToEnglish(input).filter { it.isDigit() }
+                                        )
+                                    )
+                                },
+                                label = { Text("تعداد اقساط", maxLines = 1, softWrap = false) },
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = installmentsDropdownExpanded)
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier
+                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                                    .fillMaxWidth()
+                                    .testTag("installment_count_input"),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            ExposedDropdownMenu(
+                                expanded = installmentsDropdownExpanded,
+                                onDismissRequest = { installmentsDropdownExpanded = false },
+                                modifier = Modifier.heightIn(max = 280.dp)
+                            ) {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(4),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 260.dp)
+                                        .padding(horizontal = 6.dp),
+                                    userScrollEnabled = true
+                                ) {
+                                    items((4..60).toList()) { count ->
+                                        TextButton(
+                                            onClick = {
+                                                onInstallmentsCountChange(
+                                                    IranianPhoneUtils.convertDigitsToPersian(count.toString())
+                                                )
+                                                installmentsDropdownExpanded = false
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = IranianPhoneUtils.convertDigitsToPersian(count.toString()),
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     OutlinedButton(
