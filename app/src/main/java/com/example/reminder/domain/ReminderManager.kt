@@ -289,8 +289,11 @@ class ReminderManager(
             throw IllegalStateException("هیچ زمان‌بندی‌ای برای این یادآور ذخیره نشده است.")
         }
 
-        // Preserve the user's per-reminder delivery choices when re-arming a disabled reminder.
-        if (!reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled && !reminder.smsEnabled) {
+        // Vehicle reminders use the app-wide delivery mode; other categories keep
+        // their existing per-reminder delivery opt-in requirement.
+        if (!reminder.sourceType.equals("VEHICLE", ignoreCase = true) &&
+            !reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled && !reminder.smsEnabled
+        ) {
             throw IllegalStateException("برای فعال‌سازی یادآور، حداقل یکی از روش‌های اعلان، آلارم تمام‌صفحه یا پیامک باید فعال باشد.")
         }
         val now = System.currentTimeMillis()
