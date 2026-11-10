@@ -194,9 +194,9 @@ class LoanCalculatorViewModel(
                 val res = engine.calculate(
                     amount = current.amount,
                     interestRate = current.interestRate,
-                    interestPeriod = current.interestPeriod,
+                    interestPeriod = interestPeriod,
                     duration = current.duration,
-                    durationType = current.durationType ?: DurationType.MONTHS,
+                    durationType = durationType,
                     method = method,
                     amountUnit = AppCurrency.RIAL
                 )
