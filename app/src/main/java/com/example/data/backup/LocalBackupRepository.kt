@@ -138,9 +138,10 @@ class LocalBackupRepository(
         val snapshot = createBackup()
         val json = BackupFileCodec.encode(snapshot)
         val encrypted = DeviceBackupEncryption.encrypt(json.toByteArray(Charsets.UTF_8))
+        val userTag = Integer.toHexString(getEffectiveUserId().hashCode())
         val directory = File(context.filesDir, "emergency_backups")
         check(directory.exists() || directory.mkdirs()) { "ساخت پوشه پشتیبان اضطراری ناموفق بود." }
-        val destination = File(directory, "before-restore-${System.currentTimeMillis()}.darino")
+        val destination = File(directory, "before-restore-$userTag-${System.currentTimeMillis()}.darino")
         val temporary = File(directory, "${destination.name}.tmp")
         FileOutputStream(temporary).use { stream ->
             stream.write(encrypted)
@@ -150,17 +151,19 @@ class LocalBackupRepository(
             temporary.delete()
             throw IllegalStateException("ذخیره پشتیبان اضطراری پیش از بازیابی ناموفق بود.")
         }
-        directory.listFiles()?.filter { it.isFile && it.name.endsWith(".darino") }
-            ?.sortedByDescending { it.lastModified() }
-            ?.drop(3)
-            ?.forEach { it.delete() }
+        directory.listFiles()?.filter {
+            it.isFile && it.name.startsWith("before-restore-$userTag-") && it.name.endsWith(".darino")
+        }?.sortedByDescending { it.lastModified() }?.drop(3)?.forEach { it.delete() }
     }
 
     /** Restores the newest device-bound emergency snapshot, retaining another snapshot first. */
     suspend fun restoreLatestEmergencyBackup() {
+        val userTag = Integer.toHexString(getEffectiveUserId().hashCode())
         val latest = withContext(Dispatchers.IO) {
             File(context.filesDir, "emergency_backups")
-                .listFiles { file -> file.isFile && file.name.endsWith(".darino") }
+                .listFiles { file ->
+                    file.isFile && file.name.startsWith("before-restore-$userTag-") && file.name.endsWith(".darino")
+                }
                 ?.maxByOrNull { it.lastModified() }
                 ?: throw IllegalStateException("نسخه اضطراری قابل بازیابی پیدا نشد.")
         }
@@ -286,6 +289,7 @@ class LocalBackupRepository(
             val smsRulesJson = smsRuleRepository.exportForBackup(userId)
             val smsPatternsJson = smsPatternRepository.exportForBackup(userId)
             val smsRecognitionStart = smsPatternRepository.getStoredRecognitionStartMillis(userId)
+            val bankSmsState = com.example.data.sms.BankSmsRepository.getInstance(context).exportStateForBackup(userId)
 
             val totalRecords =
                 accounts.size + checks.size + transactions.size +
@@ -308,11 +312,13 @@ class LocalBackupRepository(
                         BackupValidator.countJsonArrayItems(financeMetadata.recurringTransactionsJson) +
                         BackupValidator.countJsonArrayItems(financeMetadata.categoriesJson) +
                         BackupValidator.countJsonArrayItems(smsRulesJson) +
-                        BackupValidator.countJsonArrayItems(smsPatternsJson)
+                        BackupValidator.countJsonArrayItems(smsPatternsJson) +
+                        bankSmsState.processedSmsIds.size + bankSmsState.dismissedSmsIds.size +
+                        BackupValidator.countJsonArrayItems(bankSmsState.pendingSuggestionsJson)
 
             DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 8,
+                    backupVersion = 9,
                     appVersion = "1.0",
                     createdAt = System.currentTimeMillis(),
                     recordCount = totalRecords,
@@ -346,7 +352,8 @@ class LocalBackupRepository(
                 financeMetadata = financeMetadata,
                 userBankSmsRulesJson = smsRulesJson,
                 smsPatternsJson = smsPatternsJson,
-                smsRecognitionStartMillis = smsRecognitionStart
+                smsRecognitionStartMillis = smsRecognitionStart,
+                bankSmsState = bankSmsState
             )
             }
             // File I/O is deliberately outside the SQLite transaction to avoid holding
@@ -391,6 +398,8 @@ class LocalBackupRepository(
             val previousSmsRules = smsRuleRepository.exportForBackup(userId)
             val previousSmsPatterns = smsPatternRepository.exportForBackup(userId)
             val previousSmsRecognitionStart = smsPatternRepository.getStoredRecognitionStartMillis(userId)
+            val bankSmsRepository = com.example.data.sms.BankSmsRepository.getInstance(context)
+            val previousBankSmsState = bankSmsRepository.exportStateForBackup(userId)
             try {
                 backup.appSettings?.let { settings ->
                     val editor = generalPrefs.edit()
@@ -439,6 +448,13 @@ class LocalBackupRepository(
                         backup.smsRecognitionStartMillis,
                         userId
                     )
+                    if (backup.metadata.backupVersion >= 9) {
+                        bankSmsRepository.restoreStateFromBackup(
+                            backup.bankSmsState
+                                ?: throw IllegalArgumentException("سوابق پیامک بانکی در فایل پشتیبان وجود ندارد."),
+                            userId
+                        )
+                    }
                 }
 
                 db.withTransaction {
@@ -784,6 +800,10 @@ class LocalBackupRepository(
                     .exceptionOrNull()?.let(error::addSuppressed)
                 runCatching { restoreSharedPreferencesSnapshot(backupPrefs, backupPrefsSnapshot) }
                     .exceptionOrNull()?.let(error::addSuppressed)
+                if (backup.metadata.backupVersion >= 9) {
+                    runCatching { bankSmsRepository.restoreStateFromBackup(previousBankSmsState, userId) }
+                        .exceptionOrNull()?.let(error::addSuppressed)
+                }
                 if (backup.metadata.backupVersion >= 8) {
                     runCatching { smsRuleRepository.restoreFromBackup(previousSmsRules, userId) }
                         .exceptionOrNull()?.let(error::addSuppressed)
