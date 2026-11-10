@@ -201,4 +201,52 @@ class BackupValidatorTest {
         assertTrue(result.isFailure)
     }
 
+    @Test
+    fun versionEightCountsCustomFinanceAndSmsConfiguration() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 4,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(
+                    budgetsJson = """[{"id":"budget-1"}]""",
+                    savingsGoalsJson = "[]",
+                    recurringTransactionsJson = "[]",
+                    categoriesJson = "[]"
+                ),
+                userBankSmsRulesJson = """[{"id":"rule-1"}]""",
+                smsPatternsJson = """[{"id":"pattern-1"}]"""
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Valid)
+    }
+
+    @Test
+    fun versionEightRejectsMalformedCustomConfigurationJson() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 1,
+                    currencyUnit = "PER_RECORD"
+                ),
+                userBankSmsRulesJson = "{not-an-array"
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
 }
