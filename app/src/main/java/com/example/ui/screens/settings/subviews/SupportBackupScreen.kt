@@ -132,6 +132,7 @@ fun SupportBackupScreen(
     var pendingBackupPassphrase by remember { mutableStateOf<String?>(null) }
     var restorePassphrase by remember { mutableStateOf("") }
     var pendingEncryptedRestorePayload by remember { mutableStateOf<ByteArray?>(null) }
+    var shareAfterEncryption by remember { mutableStateOf(false) }
     var showRestoreConfirmation by remember { mutableStateOf(false) }
     var pendingRestoreBackup by remember { mutableStateOf<com.example.data.backup.DarinoBackup?>(null) }
     var backupSummaryInfo by remember { mutableStateOf("") }
@@ -139,7 +140,7 @@ fun SupportBackupScreen(
     var pendingBackupChecksum by remember { mutableStateOf<String?>(null) }
     var pendingBackupSummary by remember { mutableStateOf("") }
     var showShareNameDialog by remember { mutableStateOf(false) }
-    var shareFilename by remember { mutableStateOf(buildBackupFilename().removeSuffix(".json")) }
+    var shareFilename by remember { mutableStateOf(buildBackupFilename().removeSuffix(".darino")) }
     var pendingSharePayload by remember { mutableStateOf<String?>(null) }
 
     fun updateBackupTimestamp(summary: String) {
@@ -298,11 +299,19 @@ fun SupportBackupScreen(
                                 check(decoded.metadata.checksum == backup.metadata.checksum) {
                                     "بررسی صحت نسخه رمزگذاری‌شده پشتیبان ناموفق بود."
                                 }
-                                pendingBackupPayload = payload
-                                pendingBackupChecksum = backup.metadata.checksum
-                                pendingBackupPassphrase = secret
-                                pendingBackupSummary = "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
-                                backupFileLauncher.launch(buildBackupFilename())
+                                if (shareAfterEncryption) {
+                                    pendingSharePayload = android.util.Base64.encodeToString(payload, android.util.Base64.NO_WRAP)
+                                    shareFilename = buildBackupFilename().removeSuffix(".darino")
+                                    shareAfterEncryption = false
+                                    showShareNameDialog = true
+                                    isBackingUp = false
+                                } else {
+                                    pendingBackupPayload = payload
+                                    pendingBackupChecksum = backup.metadata.checksum
+                                    pendingBackupPassphrase = secret
+                                    pendingBackupSummary = "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
+                                    backupFileLauncher.launch(buildBackupFilename())
+                                }
                             } catch (e: Exception) {
                                 isBackingUp = false
                                 pendingBackupPayload = null
@@ -392,7 +401,7 @@ fun SupportBackupScreen(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     label = { Text("نام فایل") },
-                    supportingText = { Text("پسوند .json به‌صورت خودکار اضافه می‌شود.") }
+                    supportingText = { Text("پسوند .darino به‌صورت خودکار اضافه می‌شود.") }
                 )
             },
             confirmButton = {
@@ -400,11 +409,11 @@ fun SupportBackupScreen(
                     enabled = shareFilename.isNotBlank() && shareFilename.trim() !in setOf(".", "..") &&
                         shareFilename.none { it in charArrayOf('/', '\\', ':', '*', '?', '"', '<', '>', '|') },
                     onClick = {
-                        val json = pendingSharePayload
-                        val safeName = shareFilename.trim().removeSuffix(".json").ifBlank { "Darino backup" } + ".json"
+                        val encodedPayload = pendingSharePayload
+                        val safeName = shareFilename.trim().removeSuffix(".darino").ifBlank { "Darino backup" } + ".darino"
                         showShareNameDialog = false
                         pendingSharePayload = null
-                        if (json != null) {
+                        if (encodedPayload != null) {
                             scope.launch {
                                 try {
                                     val shareRoot = java.io.File(context.cacheDir, "shared_backups").apply { mkdirs() }
@@ -416,19 +425,20 @@ fun SupportBackupScreen(
                                     }
                                     val cacheFile = java.io.File(shareDir, safeName)
                                     withContext(Dispatchers.IO) {
-                                        cacheFile.outputStream().buffered().use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                                        val encryptedBytes = android.util.Base64.decode(encodedPayload, android.util.Base64.NO_WRAP)
+                                        check(com.example.data.backup.BackupEncryption.isEncrypted(encryptedBytes)) {
+                                            "فایل اشتراک‌گذاری‌شده رمزگذاری‌شده نیست."
+                                        }
+                                        cacheFile.outputStream().buffered().use { it.write(encryptedBytes) }
                                         if (!cacheFile.isFile || cacheFile.length() <= 0L) {
                                             throw java.io.IOException("فایل پشتیبان برای اشتراک‌گذاری خالی است.")
                                         }
-                                        com.example.data.backup.BackupFileCodec.decode(
-                                            cacheFile.inputStream().bufferedReader(Charsets.UTF_8).use { it.readText() }
-                                        )
                                     }
                                     val contentUri = androidx.core.content.FileProvider.getUriForFile(
                                         context, "com.example.fileprovider", cacheFile
                                     )
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "application/json"
+                                        type = "application/octet-stream"
                                         putExtra(Intent.EXTRA_STREAM, contentUri)
                                         clipData = android.content.ClipData.newUri(context.contentResolver, safeName, contentUri)
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -456,7 +466,7 @@ fun SupportBackupScreen(
         SettingsConfirmationDialog(
             isOpen = true,
             title = "پشتیبان‌گیری موفق",
-            message = "نسخه پشتیبان شامل حساب‌ها، چک‌ها، تراکنش‌ها، اقساط، خودروها، یادآورها و رویدادهای مالی ذخیره و دوباره بررسی شد. فایل JSON رمزگذاری نشده است؛ آن را در محل امن نگه دارید.\n$backupSummaryInfo",
+            message = "فایل پشتیبان با رمز عبوری که تعیین کردید رمزگذاری و پس از ذخیره دوباره بررسی شد. برای بازیابی، همان رمز لازم است.\n$backupSummaryInfo",
             confirmButtonText = "متوجه شدم",
             isDanger = false,
             onConfirm = { showBackupSuccessDialog = false },
@@ -652,21 +662,10 @@ fun SupportBackupScreen(
                             OutlinedButton(
                                 onClick = {
                                     if (!isBackingUp) {
-                                        isBackingUp = true
-                                        scope.launch {
-                                            try {
-                                                val backup = backupManager.createBackup()
-                                                val jsonString = com.example.data.backup.BackupFileCodec.encode(backup)
-                                                pendingSharePayload = jsonString
-                                                shareFilename = buildBackupFilename().removeSuffix(".json")
-                                                showShareNameDialog = true
-                                            } catch (e: Exception) {
-                                                Log.e("SupportBackupScreen", "Backup preparation for sharing failed", e)
-                                                Toast.makeText(context, "خطا در آماده‌سازی پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
-                                            } finally {
-                                                isBackingUp = false
-                                            }
-                                        }
+                                        shareAfterEncryption = true
+                                        backupPassphrase = ""
+                                        backupPassphraseConfirm = ""
+                                        showBackupPasswordDialog = true
                                     }
                                 },
                                 modifier = Modifier
