@@ -483,7 +483,9 @@ class LocalBackupRepository(
      */
     suspend fun recoverInterruptedRestore() = withContext(Dispatchers.IO) {
         restoreRecoveryMutex.withLock {
-            val userId = getEffectiveUserId()
+            val userId = SessionManager.userId
+                ?: com.example.data.security.AuthSessionManager(context).getActiveSession()?.userId
+            if (userId.isNullOrBlank()) return@withLock
             val journal = restoreJournalFile(userId)
             if (!journal.isFile) return@withLock
             Log.w("LocalBackupRepository", "Recovering an interrupted backup restore for the active user.")
