@@ -14,6 +14,7 @@ import com.example.data.database.VehicleServiceEntity
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.data.ReminderScheduleEntity
 import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.security.MessageDigest
 
@@ -21,6 +22,15 @@ object BackupValidator {
 
     private val moshi: Moshi by lazy {
         Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    }
+    private val jsonArrayAdapter by lazy {
+        moshi.adapter<List<Any>>(Types.newParameterizedType(List::class.java, Any::class.java))
+    }
+
+    /** Returns -1 for malformed JSON; null represents an intentionally empty collection. */
+    fun countJsonArrayItems(rawJson: String?): Int {
+        if (rawJson == null) return 0
+        return runCatching { jsonArrayAdapter.fromJson(rawJson)?.size ?: -1 }.getOrDefault(-1)
     }
 
     fun calculateChecksum(content: String): String {
@@ -107,7 +117,22 @@ object BackupValidator {
                 (if (version >= 5) backup.reminderDeliveryLogs.size + (if (backup.vehicleStore != null) 1 else 0) else 0) +
                 (if (version >= 6) backup.legacyReminders.size + backup.legacyReminderSchedules.size else 0)
         }
-        if (backup.metadata.recordCount != expectedCount) {
+        val extraConfigurationRecords = if (version >= 8) {
+            listOf(
+                backup.financeMetadata?.budgetsJson,
+                backup.financeMetadata?.savingsGoalsJson,
+                backup.financeMetadata?.recurringTransactionsJson,
+                backup.financeMetadata?.categoriesJson,
+                backup.userBankSmsRulesJson,
+                backup.smsPatternsJson
+            ).sumOf(::countJsonArrayItems)
+        } else 0
+        if (extraConfigurationRecords < 0 ||
+            (backup.smsRecognitionStartMillis != null && backup.smsRecognitionStartMillis <= 0L)
+        ) {
+            return ValidationResult.Invalid("تنظیمات سفارشی فایل پشتیبان ساختار معتبر ندارند.")
+        }
+        if (backup.metadata.recordCount != expectedCount + extraConfigurationRecords) {
             return ValidationResult.Invalid("تعداد رکوردهای فایل با اطلاعات ثبت‌شده در سربرگ آن مطابقت ندارد.")
         }
 
