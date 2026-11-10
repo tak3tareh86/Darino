@@ -194,7 +194,7 @@ fun SupportBackupScreen(
             scope.launch {
                 try {
                     val payload = context.contentResolver.openInputStream(uri)?.use { input ->
-                        readBoundedBytes(input, 64 * 1024 * 1024)
+                        readBoundedBytes(input, MAX_PORTABLE_BACKUP_BYTES + 1024)
                     } ?: throw java.io.IOException("امکان خواندن فایل انتخاب‌شده وجود ندارد.")
                     if (com.example.data.backup.BackupEncryption.isEncrypted(payload)) {
                         pendingEncryptedRestorePayload = payload
@@ -286,9 +286,13 @@ fun SupportBackupScreen(
                             try {
                                 val backup = backupManager.createBackup()
                                 val json = com.example.data.backup.BackupFileCodec.encode(backup)
+                                val jsonBytes = json.toByteArray(Charsets.UTF_8)
+                                require(jsonBytes.size <= MAX_PORTABLE_BACKUP_BYTES) {
+                                    "حجم پشتیبان از حد مجاز فایل قابل‌بازیابی بیشتر است."
+                                }
                                 val payload = withContext(Dispatchers.Default) {
                                     com.example.data.backup.BackupEncryption.encrypt(
-                                        json.toByteArray(Charsets.UTF_8),
+                                        jsonBytes,
                                         secret.toCharArray()
                                     )
                                 }
@@ -737,6 +741,8 @@ fun SupportBackupScreen(
         }
     }
 }
+
+private const val MAX_PORTABLE_BACKUP_BYTES = 64 * 1024 * 1024
 
 private fun readBoundedBytes(input: java.io.InputStream, maxBytes: Int): ByteArray {
     val output = java.io.ByteArrayOutputStream()
