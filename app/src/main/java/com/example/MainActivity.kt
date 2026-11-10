@@ -106,14 +106,19 @@ class MainActivity : FragmentActivity() {
         com.example.ui.screens.check.data.LocalCheckRepository.instance.init(this)
         com.example.vehicle.data.VehicleRepository.instance.initDatabase(this)
 
-        // Automatic backups have been removed from the app. Disable legacy preferences
-        // and cancel any periodic jobs that may have been scheduled by older versions.
-        getSharedPreferences("darino_backup_prefs", MODE_PRIVATE).edit()
-            .putBoolean("auto_backup_weekly", false)
-            .putBoolean("auto_backup_daily", false)
-            .apply()
-        WeeklyBackupWorker.cancelWeekly(this)
-        WeeklyBackupWorker.cancelDaily(this)
+        // Reconcile each local automatic-backup schedule independently with its saved setting.
+        val automaticBackupPreferences =
+            getSharedPreferences("darino_backup_prefs", MODE_PRIVATE)
+        if (automaticBackupPreferences.getBoolean("auto_backup_daily", false)) {
+            WeeklyBackupWorker.enqueueDaily(this)
+        } else {
+            WeeklyBackupWorker.cancelDaily(this)
+        }
+        if (automaticBackupPreferences.getBoolean("auto_backup_weekly", false)) {
+            WeeklyBackupWorker.enqueueWeekly(this)
+        } else {
+            WeeklyBackupWorker.cancelWeekly(this)
+        }
         com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(this)
 
         setContent {
