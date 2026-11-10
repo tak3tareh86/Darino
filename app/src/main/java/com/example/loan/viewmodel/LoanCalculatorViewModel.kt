@@ -61,7 +61,7 @@ class LoanCalculatorViewModel(
                 durationInput = "",
                 duration = 0,
                 durationType = DurationType.MONTHS,
-                calculationType = if (type == LoanType.PERSONAL_LOAN) CalculationMethod.CUSTOM else CalculationMethod.ANNUITY,
+                calculationType = null,
                 errorMessage = null
             )
         }
