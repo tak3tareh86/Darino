@@ -106,17 +106,17 @@ class LocalBackupRepository(
                         .joinToString("") { "%02x".format(it) }
                 } else null
                 if (existingHash != attachment.sha256) {
-                    if (destination.exists() && !destination.delete()) {
-                        throw IllegalStateException("جایگزینی فایل پیوست خراب‌شده ناموفق بود.")
-                    }
                     val temporary = File(directory, "${destination.name}.tmp")
                     FileOutputStream(temporary).use { stream ->
                         stream.write(bytes)
                         stream.fd.sync()
                     }
-                    if (!temporary.renameTo(destination)) {
+                    try {
+                        // Atomic same-filesystem replacement: a crash cannot leave a half-written receipt.
+                        android.system.Os.rename(temporary.absolutePath, destination.absolutePath)
+                    } catch (error: Exception) {
                         temporary.delete()
-                        throw IllegalStateException("ذخیره فایل پیوست بازیابی‌شده ناموفق بود.")
+                        throw IllegalStateException("ذخیره فایل پیوست بازیابی‌شده ناموفق بود.", error)
                     }
                     createdFiles.add(destination)
                 }
@@ -154,6 +154,27 @@ class LocalBackupRepository(
         directory.listFiles()?.filter {
             it.isFile && it.name.startsWith("before-restore-$userTag-") && it.name.endsWith(".darino")
         }?.sortedByDescending { it.lastModified() }?.drop(3)?.forEach { it.delete() }
+    }
+
+    /** Restores the newest daily or weekly device-bound automatic backup for the active user. */
+    suspend fun restoreLatestAutomaticBackup() {
+        val userTag = Integer.toHexString(getEffectiveUserId().hashCode())
+        val latest = withContext(Dispatchers.IO) {
+            File(context.filesDir, "auto_backups")
+                .listFiles { file ->
+                    file.isFile &&
+                        (file.name.startsWith("daily_auto_backup_${userTag}_") ||
+                            file.name.startsWith("weekly_auto_backup_${userTag}_")) &&
+                        file.extension == "darino"
+                }
+                ?.maxByOrNull { it.lastModified() }
+                ?: throw IllegalStateException("نسخه پشتیبان خودکار برای این حساب پیدا نشد.")
+        }
+        val backup = withContext(Dispatchers.IO) {
+            val json = DeviceBackupEncryption.decrypt(latest.readBytes()).toString(Charsets.UTF_8)
+            BackupFileCodec.decode(json)
+        }
+        restoreBackup(backup, RestoreMode.REPLACE)
     }
 
     /** Restores the newest device-bound emergency snapshot, retaining another snapshot first. */
