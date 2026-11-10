@@ -82,6 +82,33 @@ class LocalBackupRepository(
     companion object {
         private const val MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
         private const val MAX_TOTAL_ATTACHMENT_BYTES = 30 * 1024 * 1024
+        // Matches the portable backup payload ceiling, with room for device-encryption framing.
+        private const val MAX_LOCAL_BACKUP_FILE_BYTES = 64L * 1024 * 1024 + 1024L
+    }
+
+    /** Reads device-local backups with both a preflight and streaming size limit. */
+    private fun readBoundedLocalBackup(file: File): ByteArray {
+        require(file.isFile) { "فایل پشتیبان محلی معتبر نیست." }
+        val initialLength = file.length()
+        require(initialLength in 1..MAX_LOCAL_BACKUP_FILE_BYTES) {
+            "حجم فایل پشتیبان محلی خالی یا بیشتر از حد مجاز است."
+        }
+        val output = ByteArrayOutputStream(initialLength.toInt())
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8 * 1024)
+            var totalBytes = 0L
+            while (true) {
+                val count = input.read(buffer)
+                if (count == -1) break
+                totalBytes += count
+                require(totalBytes <= MAX_LOCAL_BACKUP_FILE_BYTES) {
+                    "حجم فایل پشتیبان محلی از حد مجاز بیشتر است."
+                }
+                output.write(buffer, 0, count)
+            }
+        }
+        require(output.size() > 0) { "فایل پشتیبان محلی خالی است." }
+        return output.toByteArray()
     }
 
     private data class RestoredAttachments(
@@ -171,7 +198,7 @@ class LocalBackupRepository(
                 ?: throw IllegalStateException("نسخه پشتیبان خودکار برای این حساب پیدا نشد.")
         }
         val backup = withContext(Dispatchers.IO) {
-            val json = DeviceBackupEncryption.decrypt(latest.readBytes()).toString(Charsets.UTF_8)
+            val json = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(latest)).toString(Charsets.UTF_8)
             BackupFileCodec.decode(json)
         }
         restoreBackup(backup, RestoreMode.REPLACE)
@@ -189,7 +216,7 @@ class LocalBackupRepository(
                 ?: throw IllegalStateException("نسخه اضطراری قابل بازیابی پیدا نشد.")
         }
         val backup = withContext(Dispatchers.IO) {
-            val json = DeviceBackupEncryption.decrypt(latest.readBytes()).toString(Charsets.UTF_8)
+            val json = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(latest)).toString(Charsets.UTF_8)
             BackupFileCodec.decode(json)
         }
         restoreBackup(backup, RestoreMode.REPLACE)
