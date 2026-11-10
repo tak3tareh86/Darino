@@ -222,8 +222,9 @@ class LocalBackupRepository(
             val financialHealthProfiles =
                 db.financialHealthDao().getAllProfilesForUser(userId)
 
+            db.loanCalculationDao().claimLegacyCalculations(userId)
             val loanCalculations =
-                db.loanCalculationDao().getAllCalculationsList()
+                db.loanCalculationDao().getAllCalculationsList(userId)
 
             val userPreference =
                 db.userPreferenceDao().getPreference(userId)
@@ -366,7 +367,7 @@ class LocalBackupRepository(
                 db.withTransaction {
                 if (mode == RestoreMode.REPLACE) {
                     if (backup.metadata.backupVersion >= 3) {
-                        db.loanCalculationDao().clearAllCalculations()
+                        db.loanCalculationDao().clearAllCalculations(userId)
                     }
                     db.installmentDao().clearAllPayments(userId)
                     db.installmentDao().clearAllInstallments(userId)
@@ -685,15 +686,9 @@ class LocalBackupRepository(
                     backup.financialHealthProfiles.forEach { profile ->
                         db.financialHealthDao().saveProfile(profile.copy(userId = userId))
                     }
-                    // Keep stable IDs: REPLACE clears this global table first, while MERGE
-                    // skips IDs already present so importing the same file twice is idempotent.
-                    val existingLoanCalculationIds = if (mode == RestoreMode.MERGE) {
-                        db.loanCalculationDao().getAllCalculationsList().map { it.id }.toSet()
-                    } else emptySet()
+                    // Calculation IDs remain stable within the owning user's table.
                     backup.loanCalculations.forEach { calculation ->
-                        if (calculation.id !in existingLoanCalculationIds) {
-                            db.loanCalculationDao().insertCalculation(calculation)
-                        }
+                        db.loanCalculationDao().insertCalculation(calculation.copy(userId = userId))
                     }
                     backup.userPreference?.let { preference ->
                         db.userPreferenceDao().insertOrUpdate(preference.copy(userId = userId))
