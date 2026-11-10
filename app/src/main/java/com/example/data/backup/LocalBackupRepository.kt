@@ -708,7 +708,7 @@ class LocalBackupRepository(
                             ?.let { restoredInstallmentReferenceIds[it] ?: it }
                         "CHECK" -> reminder.sourceId?.toIntOrNull()
                             ?.let { restoredCheckIds[it]?.toString() } ?: reminder.sourceId
-                        "VEHICLE" -> reminder.sourceId?.let { restoredVehicleIds[it] ?: it }
+                        "VEHICLE" -> reminder.sourceId?.let { restoredServiceIds[it] ?: restoredVehicleIds[it] ?: it }
                         "VEHICLE_SERVICE" -> reminder.sourceId?.let { restoredServiceIds[it] ?: it }
                         else -> reminder.sourceId
                     }
