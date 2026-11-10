@@ -135,6 +135,7 @@ fun SupportBackupScreen(
     var pendingEncryptedRestorePayload by remember { mutableStateOf<ByteArray?>(null) }
     var shareAfterEncryption by remember { mutableStateOf(false) }
     var showRestoreConfirmation by remember { mutableStateOf(false) }
+    var showEmergencyRestoreConfirmation by remember { mutableStateOf(false) }
     var pendingRestoreBackup by remember { mutableStateOf<com.example.data.backup.DarinoBackup?>(null) }
     var backupSummaryInfo by remember { mutableStateOf("") }
     var pendingBackupPayload by remember { mutableStateOf<ByteArray?>(null) }
@@ -482,6 +483,31 @@ fun SupportBackupScreen(
         )
     }
 
+    if (showEmergencyRestoreConfirmation) {
+        SettingsConfirmationDialog(
+            isOpen = true,
+            title = "بازیابی نسخه اضطراری",
+            message = "آخرین نسخه اضطراری رمزگذاری‌شده‌ای که پیش از جایگزینی اطلاعات ذخیره شده است، روی حساب فعلی بازیابی می‌شود. این نسخه فقط روی همین دستگاه قابل بازیابی است.",
+            confirmButtonText = "بازیابی نسخه اضطراری",
+            isDanger = true,
+            onConfirm = {
+                showEmergencyRestoreConfirmation = false
+                scope.launch {
+                    isRestoring = true
+                    try {
+                        com.example.data.backup.LocalBackupRepository(context).restoreLatestEmergencyBackup()
+                        Toast.makeText(context, "نسخه اضطراری با موفقیت بازیابی شد.", Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "خطا در بازیابی نسخه اضطراری: ${e.message}", Toast.LENGTH_LONG).show()
+                    } finally {
+                        isRestoring = false
+                    }
+                }
+            },
+            onDismiss = { showEmergencyRestoreConfirmation = false }
+        )
+    }
+
     if (showRestoreConfirmation && pendingRestoreBackup != null) {
         SettingsConfirmationDialog(
             isOpen = true,
@@ -662,6 +688,29 @@ fun SupportBackupScreen(
                                 Text(
                                     text = "بازیابی از فایل پشتیبان قبلی (Restore)",
                                     color = EmeraldPrimaryLight,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            OutlinedButton(
+                                onClick = { showEmergencyRestoreConfirmation = true },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                enabled = !isRestoring,
+                                shape = RoundedCornerShape(RadiusMD),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CloudDownload,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "بازیابی آخرین نسخه اضطراری دستگاه",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
