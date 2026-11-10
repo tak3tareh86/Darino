@@ -138,6 +138,21 @@ class LocalBackupRepository(
             ?.forEach { it.delete() }
     }
 
+    /** Restores the newest device-bound emergency snapshot, retaining another snapshot first. */
+    suspend fun restoreLatestEmergencyBackup() {
+        val latest = withContext(Dispatchers.IO) {
+            File(context.filesDir, "emergency_backups")
+                .listFiles { file -> file.isFile && file.name.endsWith(".darino") }
+                ?.maxByOrNull { it.lastModified() }
+                ?: throw IllegalStateException("نسخه اضطراری قابل بازیابی پیدا نشد.")
+        }
+        val backup = withContext(Dispatchers.IO) {
+            val json = DeviceBackupEncryption.decrypt(latest.readBytes()).toString(Charsets.UTF_8)
+            BackupFileCodec.decode(json)
+        }
+        restoreBackup(backup, RestoreMode.REPLACE)
+    }
+
     private fun remapAttachmentUris(json: String, uriMap: Map<String, String>): String =
         uriMap.entries.fold(json) { value, (oldUri, newUri) -> value.replace(oldUri, newUri) }
 
