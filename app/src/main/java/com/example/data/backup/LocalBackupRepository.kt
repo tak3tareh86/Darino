@@ -146,7 +146,7 @@ class LocalBackupRepository(
             val userId = getEffectiveUserId()
 
             // Keep all table reads in one SQLite snapshot so related records cannot drift mid-backup.
-            db.withTransaction {
+            val snapshot = db.withTransaction {
             val accounts = db.accountDao().getAllAccountsRaw(userId)
 
             val checks = db.checkDao().getAllChecksList(userId)
@@ -168,7 +168,6 @@ class LocalBackupRepository(
 
             val expenses =
                 db.vehicleDao().getAllExpensesList(userId)
-            val attachments = captureAttachments(expenses)
 
             val insurances =
                 db.vehicleDao().getAllInsurancesList(userId)
@@ -257,10 +256,9 @@ class LocalBackupRepository(
                         BackupValidator.countJsonArrayItems(financeMetadata.recurringTransactionsJson) +
                         BackupValidator.countJsonArrayItems(financeMetadata.categoriesJson) +
                         BackupValidator.countJsonArrayItems(smsRulesJson) +
-                        BackupValidator.countJsonArrayItems(smsPatternsJson) +
-                        attachments.size
+                        BackupValidator.countJsonArrayItems(smsPatternsJson)
 
-            BackupValidator.withChecksum(DarinoBackup(
+            DarinoBackup(
                 metadata = BackupMetadata(
                     backupVersion = 8,
                     appVersion = "1.0",
@@ -296,10 +294,18 @@ class LocalBackupRepository(
                 financeMetadata = financeMetadata,
                 userBankSmsRulesJson = smsRulesJson,
                 smsPatternsJson = smsPatternsJson,
-                smsRecognitionStartMillis = smsRecognitionStart,
-                attachments = attachments
-            ))
+                smsRecognitionStartMillis = smsRecognitionStart
+            )
             }
+            // File I/O is deliberately outside the SQLite transaction to avoid holding
+            // database write locks while large receipt images are read.
+            val attachments = captureAttachments(snapshot.vehicleExpenses)
+            BackupValidator.withChecksum(
+                snapshot.copy(
+                    metadata = snapshot.metadata.copy(recordCount = snapshot.metadata.recordCount + attachments.size),
+                    attachments = attachments
+                )
+            )
         }
 
     override suspend fun restoreBackup(
