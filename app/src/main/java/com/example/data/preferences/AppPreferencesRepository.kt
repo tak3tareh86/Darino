@@ -122,7 +122,10 @@ class AppPreferencesRepository private constructor(context: Context) {
         }
     }
 
-    private fun loadLanguage(): AppLanguage = AppLanguage.PERSIAN
+    private fun loadLanguage(): AppLanguage {
+        val storedName = prefs.getString(KEY_LANGUAGE, AppLanguage.PERSIAN.name) ?: AppLanguage.PERSIAN.name
+        return runCatching { AppLanguage.valueOf(storedName) }.getOrDefault(AppLanguage.PERSIAN)
+    }
 
     private fun loadCurrency(): AppCurrency {
         val name = prefs.getString(KEY_CURRENCY, AppCurrency.TOMAN.name) ?: AppCurrency.TOMAN.name
