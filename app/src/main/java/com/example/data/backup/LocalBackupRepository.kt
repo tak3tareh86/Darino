@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.security.MessageDigest
 
 class LocalBackupRepository(
@@ -71,6 +72,74 @@ class LocalBackupRepository(
         private const val MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
         private const val MAX_TOTAL_ATTACHMENT_BYTES = 100 * 1024 * 1024
     }
+
+    private data class RestoredAttachments(
+        val uriMap: Map<String, String>,
+        val createdFiles: List<File>
+    )
+
+    private fun restoreAttachments(attachments: List<BackupAttachment>): RestoredAttachments {
+        if (attachments.isEmpty()) return RestoredAttachments(emptyMap(), emptyList())
+        val directory = File(context.filesDir, "backup_attachments")
+        check(directory.exists() || directory.mkdirs()) { "ساخت پوشه فایل‌های پیوست ناموفق بود." }
+        val uriMap = linkedMapOf<String, String>()
+        val createdFiles = mutableListOf<File>()
+        try {
+            attachments.forEach { attachment ->
+                val bytes = Base64.decode(attachment.base64Data, Base64.DEFAULT)
+                val extension = attachment.fileName.substringAfterLast('.', "bin")
+                    .lowercase().filter { it.isLetterOrDigit() }.take(8).ifBlank { "bin" }
+                val destination = File(directory, "${attachment.sha256}.$extension")
+                if (!destination.exists()) {
+                    val temporary = File(directory, "${destination.name}.tmp")
+                    FileOutputStream(temporary).use { stream ->
+                        stream.write(bytes)
+                        stream.fd.sync()
+                    }
+                    if (!temporary.renameTo(destination)) {
+                        temporary.delete()
+                        throw IllegalStateException("ذخیره فایل پیوست بازیابی‌شده ناموفق بود.")
+                    }
+                    createdFiles.add(destination)
+                }
+                val contentUri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "com.example.fileprovider",
+                    destination
+                ).toString()
+                uriMap[attachment.originalUri] = contentUri
+            }
+            return RestoredAttachments(uriMap, createdFiles)
+        } catch (error: Exception) {
+            createdFiles.forEach { it.delete() }
+            throw error
+        }
+    }
+
+    private fun writeEmergencyBackup() {
+        val snapshot = createBackup()
+        val json = BackupFileCodec.encode(snapshot)
+        val encrypted = DeviceBackupEncryption.encrypt(json.toByteArray(Charsets.UTF_8))
+        val directory = File(context.filesDir, "emergency_backups")
+        check(directory.exists() || directory.mkdirs()) { "ساخت پوشه پشتیبان اضطراری ناموفق بود." }
+        val destination = File(directory, "before-restore-${System.currentTimeMillis()}.darino")
+        val temporary = File(directory, "${destination.name}.tmp")
+        FileOutputStream(temporary).use { stream ->
+            stream.write(encrypted)
+            stream.fd.sync()
+        }
+        if (!temporary.renameTo(destination)) {
+            temporary.delete()
+            throw IllegalStateException("ذخیره پشتیبان اضطراری پیش از بازیابی ناموفق بود.")
+        }
+        directory.listFiles()?.filter { it.isFile && it.name.endsWith(".darino") }
+            ?.sortedByDescending { it.lastModified() }
+            ?.drop(3)
+            ?.forEach { it.delete() }
+    }
+
+    private fun remapAttachmentUris(json: String, uriMap: Map<String, String>): String =
+        uriMap.entries.fold(json) { value, (oldUri, newUri) -> value.replace(oldUri, newUri) }
 
     override suspend fun createBackup(): DarinoBackup =
         withContext(Dispatchers.IO) {
@@ -250,7 +319,10 @@ class LocalBackupRepository(
                 db.reminderDao().getActiveRemindersSnapshot(userId)
             } else emptyList()
 
-            db.withTransaction {
+            if (mode == RestoreMode.REPLACE) writeEmergencyBackup()
+            val restoredAttachments = restoreAttachments(backup.attachments)
+            try {
+                db.withTransaction {
                 if (mode == RestoreMode.REPLACE) {
                     db.installmentDao().clearAllPayments(userId)
                     db.installmentDao().clearAllInstallments(userId)
@@ -409,7 +481,13 @@ class LocalBackupRepository(
                 if (backup.vehicleExpenses.isNotEmpty()) {
                     db.vehicleDao().insertExpensesForBackup(
                         backup.vehicleExpenses.map {
-                            it.copy(userId = userId, vehicleId = remapVehicleId(it.vehicleId))
+                            it.copy(
+                                userId = userId,
+                                vehicleId = remapVehicleId(it.vehicleId),
+                                receiptImageUri = it.receiptImageUri?.let { oldUri ->
+                                    restoredAttachments.uriMap[oldUri] ?: oldUri
+                                }
+                            )
                         }
                     )
                 }
@@ -496,7 +574,14 @@ class LocalBackupRepository(
                 }
 
                 if (backup.metadata.backupVersion >= 5) {
-                    backup.vehicleStore?.let { db.vehicleDao().insertVehicleStoreForBackup(it.copy(userId = userId)) }
+                    backup.vehicleStore?.let { store ->
+                        db.vehicleDao().insertVehicleStoreForBackup(
+                            store.copy(
+                                userId = userId,
+                                expensesJson = remapAttachmentUris(store.expensesJson, restoredAttachments.uriMap)
+                            )
+                        )
+                    }
                     backup.reminderDeliveryLogs.forEach { log ->
                         val newReminderId = restoredSmartReminderIds[log.reminderId]
                             ?: throw IllegalStateException("سوابق ارسال به یادآور موجود در فایل پشتیبان متصل نیست")
@@ -551,6 +636,10 @@ class LocalBackupRepository(
                         db.userPreferenceDao().insertOrUpdate(preference.copy(userId = userId))
                     }
                 }
+                }
+            } catch (error: Exception) {
+                restoredAttachments.createdFiles.forEach { it.delete() }
+                throw error
             }
 
             if (backup.metadata.backupVersion >= 8) {
