@@ -137,9 +137,8 @@ object SmsPatternMatcher {
             if (compactNumber.length >= 8 && !hasCurrency && nearestLabel == null) return@forEach
 
             val kind = when {
-                isBalance -> if (hasRial) SmsPatternSlotKind.BALANCE_RIAL else SmsPatternSlotKind.BALANCE_TOMAN
-                isAmount || isTransactionAmount || hasCurrency ->
-                    if (hasRial) SmsPatternSlotKind.AMOUNT_RIAL else SmsPatternSlotKind.AMOUNT_TOMAN
+                isBalance -> SmsPatternSlotKind.BALANCE_RIAL
+                isAmount || isTransactionAmount || hasCurrency -> SmsPatternSlotKind.AMOUNT_RIAL
                 isTracking -> SmsPatternSlotKind.TRACKING
                 else -> SmsPatternSlotKind.NUMBER
             }
@@ -170,7 +169,7 @@ object SmsPatternMatcher {
                 candidate.kind == SmsPatternSlotKind.AMOUNT_RIAL ||
                     candidate.kind == SmsPatternSlotKind.AMOUNT_TOMAN
             val storedKind = when {
-                candidate == amount && !isAmountCandidate -> SmsPatternSlotKind.AMOUNT_TOMAN
+                candidate == amount && !isAmountCandidate -> SmsPatternSlotKind.AMOUNT_RIAL
                 candidate == amount -> candidate.kind
                 isAmountCandidate -> SmsPatternSlotKind.NUMBER
                 else -> candidate.kind
