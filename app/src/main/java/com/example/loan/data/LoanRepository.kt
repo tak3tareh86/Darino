@@ -17,7 +17,11 @@ class LoanRepository(private val context: Context? = null) {
 
     suspend fun loadSavedCalculations() = withContext(Dispatchers.IO) {
         val ctx = context ?: return@withContext
-        val userId = SessionManager.userId ?: return@withContext
+        val userId = SessionManager.userId
+        if (userId.isNullOrBlank()) {
+            inMemoryList.value = emptyList()
+            return@withContext
+        }
         runCatching {
             val dao = AppDatabase.getDatabase(ctx).loanCalculationDao()
             dao.claimLegacyCalculations(userId)
