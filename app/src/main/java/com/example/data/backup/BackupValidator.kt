@@ -48,6 +48,7 @@ object BackupValidator {
             3 -> legacyV3Checksum(unsignedBackup)
             4 -> legacyV4Checksum(unsignedBackup)
             5 -> legacyV5Checksum(unsignedBackup)
+            6, 7 -> legacyV6Checksum(unsignedBackup)
             else -> calculateChecksum(moshi.adapter(DarinoBackup::class.java).toJson(unsignedBackup))
         }
         return unsignedBackup.copy(metadata = unsignedBackup.metadata.copy(checksum = checksum))
@@ -171,6 +172,7 @@ object BackupValidator {
             3 -> legacyV3Checksum(backup)
             4 -> legacyV4Checksum(backup)
             5 -> legacyV5Checksum(backup)
+            6, 7 -> legacyV6Checksum(backup)
             else -> withChecksum(backup).metadata.checksum
         }
         if (!backup.metadata.checksum.equals(expectedChecksum, ignoreCase = true)) {
@@ -211,6 +213,36 @@ object BackupValidator {
         }
 
         return ValidationResult.Valid
+    }
+
+    private fun legacyV6Checksum(backup: DarinoBackup): String {
+        val legacy = LegacyDarinoBackupV6(
+            metadata = backup.metadata.copy(checksum = ""),
+            accounts = backup.accounts,
+            checks = backup.checks,
+            transactions = backup.transactions,
+            installments = backup.installments,
+            installmentPayments = backup.installmentPayments,
+            vehicles = backup.vehicles,
+            vehicleServices = backup.vehicleServices,
+            vehicleExpenses = backup.vehicleExpenses,
+            vehicleInsurances = backup.vehicleInsurances,
+            vehicleInspections = backup.vehicleInspections,
+            reminders = backup.reminders,
+            reminderSchedules = backup.reminderSchedules,
+            financialEvents = backup.financialEvents,
+            financialHealthProfiles = backup.financialHealthProfiles,
+            loanCalculations = backup.loanCalculations,
+            userPreference = backup.userPreference,
+            appSettings = backup.appSettings,
+            notificationLogs = backup.notificationLogs,
+            smsLogs = backup.smsLogs,
+            vehicleStore = backup.vehicleStore,
+            reminderDeliveryLogs = backup.reminderDeliveryLogs,
+            legacyReminders = backup.legacyReminders,
+            legacyReminderSchedules = backup.legacyReminderSchedules
+        )
+        return calculateChecksum(moshi.adapter(LegacyDarinoBackupV6::class.java).toJson(legacy))
     }
 
     private fun legacyV5Checksum(backup: DarinoBackup): String {
@@ -329,6 +361,33 @@ object BackupValidator {
         return calculateChecksum(moshi.adapter(LegacyDarinoBackupV1::class.java).toJson(legacy))
     }
 }
+
+private data class LegacyDarinoBackupV6(
+    val metadata: BackupMetadata,
+    val accounts: List<AccountEntity> = emptyList(),
+    val checks: List<CheckEntity> = emptyList(),
+    val transactions: List<TransactionEntity> = emptyList(),
+    val installments: List<InstallmentEntity> = emptyList(),
+    val installmentPayments: List<InstallmentPaymentEntity> = emptyList(),
+    val vehicles: List<VehicleEntity> = emptyList(),
+    val vehicleServices: List<VehicleServiceEntity> = emptyList(),
+    val vehicleExpenses: List<VehicleExpenseRoomEntity> = emptyList(),
+    val vehicleInsurances: List<VehicleInsuranceRoomEntity> = emptyList(),
+    val vehicleInspections: List<VehicleInspectionRoomEntity> = emptyList(),
+    val reminders: List<ReminderEntity> = emptyList(),
+    val reminderSchedules: List<ReminderScheduleEntity> = emptyList(),
+    val financialEvents: List<FinancialEventEntity> = emptyList(),
+    val financialHealthProfiles: List<com.example.financial_health.data.FinancialHealthEntity> = emptyList(),
+    val loanCalculations: List<com.example.loan.data.LoanCalculationEntity> = emptyList(),
+    val userPreference: com.example.data.database.UserPreferenceEntity? = null,
+    val appSettings: AppSettingsBackup? = null,
+    val notificationLogs: List<com.example.data.database.NotificationLogEntity> = emptyList(),
+    val smsLogs: List<com.example.data.database.SmsLogEntity> = emptyList(),
+    val vehicleStore: com.example.data.database.VehicleStoreEntity? = null,
+    val reminderDeliveryLogs: List<com.example.reminder.data.ReminderDeliveryLogEntity> = emptyList(),
+    val legacyReminders: List<com.example.data.database.ReminderEntity> = emptyList(),
+    val legacyReminderSchedules: List<com.example.data.database.ReminderScheduleEntity> = emptyList()
+)
 
 private data class LegacyDarinoBackupV5(
     val metadata: BackupMetadata,
