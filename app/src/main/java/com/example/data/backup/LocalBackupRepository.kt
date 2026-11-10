@@ -80,13 +80,40 @@ class LocalBackupRepository(
             val vehicleStore = db.vehicleDao().getVehicleStore(userId)
             val reminderDeliveryLogs = db.smartReminderDao().getAllDeliveryLogsForBackup(userId)
             val appPreferences = AppPreferencesRepository.getInstance(context)
+            val generalPrefs = context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
+            val backupPrefs = context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+            val userSuffix = "_$userId"
             val appSettings = AppSettingsBackup(
                 themeMode = appPreferences.themeMode.value.name,
                 language = appPreferences.language.value.name,
                 currency = appPreferences.currency.value.name,
                 alertDelivery = appPreferences.alertDelivery.value.name,
-                navigationTransition = appPreferences.navTransition.value.name
+                navigationTransition = appPreferences.navTransition.value.name,
+                notificationsEnabled = generalPrefs.getBoolean("pref_notifications_enabled", false),
+                smsNotificationsEnabled = generalPrefs.getBoolean("pref_sms_notifications_enabled", false),
+                notificationSoundEnabled = generalPrefs.getBoolean("pref_notification_sound_enabled", false),
+                notificationVibrationEnabled = generalPrefs.getBoolean("pref_notification_vibration_enabled", false),
+                quietHoursEnabled = generalPrefs.getBoolean("pref_quiet_hours_enabled", false),
+                quietHoursStartMinute = generalPrefs.getInt("pref_quiet_hours_start_minute", 23 * 60),
+                quietHoursEndMinute = generalPrefs.getInt("pref_quiet_hours_end_minute", 7 * 60),
+                allowHighPriorityInQuietHours = generalPrefs.getBoolean("pref_allow_high_priority_quiet_hours", false),
+                defaultReminderTimeMinute = generalPrefs.getInt("pref_default_reminder_time_minute", 9 * 60),
+                installmentReminderDays = generalPrefs.getInt("pref_installment_reminder_days", 0),
+                vehicleReminderKilometers = generalPrefs.getInt("pref_vehicle_reminder_kilometers", 0),
+                autoBackupDailyEnabled = backupPrefs.getBoolean("auto_backup_daily", false),
+                autoBackupWeeklyEnabled = backupPrefs.getBoolean("auto_backup_weekly", true)
             )
+            val financeMetadata = FinanceMetadataBackup(
+                budgetsJson = generalPrefs.getString("pref_persisted_budgets$userSuffix", null),
+                savingsGoalsJson = generalPrefs.getString("pref_persisted_savings_goals$userSuffix", null),
+                recurringTransactionsJson = generalPrefs.getString("pref_persisted_recurring_txs$userSuffix", null),
+                categoriesJson = generalPrefs.getString("pref_persisted_categories$userSuffix", null)
+            )
+            val smsRuleRepository = com.example.data.sms.UserBankSmsRuleRepository(context)
+            val smsPatternRepository = com.example.data.sms.SmsPatternRepository(context)
+            val smsRulesJson = smsRuleRepository.exportForBackup(userId)
+            val smsPatternsJson = smsPatternRepository.exportForBackup(userId)
+            val smsRecognitionStart = smsPatternRepository.getStoredRecognitionStartMillis(userId)
 
             val totalRecords =
                 accounts.size + checks.size + transactions.size +
@@ -107,7 +134,7 @@ class LocalBackupRepository(
 
             BackupValidator.withChecksum(DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 7,
+                    backupVersion = 8,
                     appVersion = "1.0",
                     createdAt = System.currentTimeMillis(),
                     recordCount = totalRecords,
@@ -137,7 +164,11 @@ class LocalBackupRepository(
                 vehicleStore = vehicleStore,
                 reminderDeliveryLogs = reminderDeliveryLogs,
                 legacyReminders = legacyReminders,
-                legacyReminderSchedules = legacyReminderSchedules
+                legacyReminderSchedules = legacyReminderSchedules,
+                financeMetadata = financeMetadata,
+                userBankSmsRulesJson = smsRulesJson,
+                smsPatternsJson = smsPatternsJson,
+                smsRecognitionStartMillis = smsRecognitionStart
             ))
             }
         }
