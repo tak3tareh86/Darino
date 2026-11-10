@@ -17,6 +17,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.security.MessageDigest
+import okio.ByteString
 
 object BackupValidator {
 
@@ -132,7 +133,32 @@ object BackupValidator {
         ) {
             return ValidationResult.Invalid("تنظیمات سفارشی فایل پشتیبان ساختار معتبر ندارند.")
         }
-        if (backup.metadata.recordCount != expectedCount + extraConfigurationRecords) {
+        val attachmentUris = mutableSetOf<String>()
+        var totalAttachmentBytes = 0L
+        for (attachment in backup.attachments) {
+            if (version < 8 || attachment.originalUri.isBlank() ||
+                attachment.fileName.isBlank() || attachment.mediaType.isBlank() ||
+                !attachment.sha256.matches(Regex("[a-fA-F0-9]{64}")) ||
+                !attachmentUris.add(attachment.originalUri)
+            ) {
+                return ValidationResult.Invalid("اطلاعات یکی از فایل‌های پیوست معتبر نیست.")
+            }
+            val bytes = ByteString.decodeBase64(attachment.base64Data)?.toByteArray()
+                ?: return ValidationResult.Invalid("کدگذاری یکی از فایل‌های پیوست معتبر نیست.")
+            if (bytes.isEmpty() || bytes.size > 20 * 1024 * 1024) {
+                return ValidationResult.Invalid("حجم یکی از فایل‌های پیوست معتبر نیست.")
+            }
+            totalAttachmentBytes += bytes.size
+            if (totalAttachmentBytes > 100L * 1024 * 1024) {
+                return ValidationResult.Invalid("حجم کل فایل‌های پیوست بیش از حد مجاز است.")
+            }
+            val actualHash = MessageDigest.getInstance("SHA-256").digest(bytes)
+                .joinToString("") { "%02x".format(it) }
+            if (!actualHash.equals(attachment.sha256, ignoreCase = true)) {
+                return ValidationResult.Invalid("صحت یکی از فایل‌های پیوست تأیید نشد.")
+            }
+        }
+        if (backup.metadata.recordCount != expectedCount + extraConfigurationRecords + backup.attachments.size) {
             return ValidationResult.Invalid("تعداد رکوردهای فایل با اطلاعات ثبت‌شده در سربرگ آن مطابقت ندارد.")
         }
 
