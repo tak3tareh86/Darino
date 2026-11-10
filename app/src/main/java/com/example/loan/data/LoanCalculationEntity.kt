@@ -24,7 +24,7 @@ data class LoanCalculationEntity(
     val realCostPercentage: Double,
     val createdAt: Long = System.currentTimeMillis(),
     @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
-    @Json(ignore = true)
+    @field:Json(ignore = true)
     @ColumnInfo(defaultValue = "'legacy_unassigned'") val userId: String = "legacy_unassigned"
 ) {
     fun toDomainModel(): LoanCalculation {
