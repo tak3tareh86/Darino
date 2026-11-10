@@ -242,6 +242,58 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun legacyVersionsOneThroughThreeRemainImportableAsJson() {
+        for (version in 1..3) {
+            val legacyBackup = BackupValidator.withChecksum(
+                DarinoBackup(
+                    metadata = BackupMetadata(
+                        backupVersion = version,
+                        createdAt = 1_800_000_000_000L,
+                        recordCount = 0,
+                        currencyUnit = "TOMAN"
+                    )
+                )
+            )
+
+            val json = BackupFileCodec.encode(legacyBackup)
+            val restored = BackupFileCodec.decode(json)
+
+            assertEquals(version, restored.metadata.backupVersion)
+            assertEquals(ValidationResult.Valid, BackupValidator.validate(restored, json))
+        }
+    }
+
+    @Test
+    fun versionEightLegacyJsonWithoutVersionNineSmsStateRemainsImportable() {
+        val legacyBackup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 1,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup()
+            )
+        )
+
+        val json = BackupFileCodec.encode(legacyBackup)
+        assertFalse(json.contains("bankSmsState"))
+
+        val restored = BackupFileCodec.decode(json)
+        assertEquals(8, restored.metadata.backupVersion)
+        assertEquals(null, restored.bankSmsState)
+        assertEquals(ValidationResult.Valid, BackupValidator.validate(restored, json))
+    }
+
+    @Test
     fun backupJsonCodecRejectsEmptyFiles() {
         val result = runCatching { BackupFileCodec.decode("") }
         assertTrue(result.isFailure)
