@@ -133,7 +133,7 @@ class LocalBackupRepository(
         }
     }
 
-    private fun writeEmergencyBackup() {
+    private suspend fun writeEmergencyBackup() {
         val snapshot = createBackup()
         val json = BackupFileCodec.encode(snapshot)
         val encrypted = DeviceBackupEncryption.encrypt(json.toByteArray(Charsets.UTF_8))
