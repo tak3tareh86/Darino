@@ -54,6 +54,80 @@ object BackupValidator {
             .filter(String::isNotBlank)
     }
 
+    private fun jsonObjectList(rawJson: String?): List<Map<*, *>>? {
+        if (rawJson.isNullOrBlank()) return emptyList()
+        val values = runCatching { jsonArrayAdapter.fromJson(rawJson) }.getOrNull() ?: return null
+        if (values.any { it !is Map<*, *> }) return null
+        return values.map { it as Map<*, *> }
+    }
+
+    private fun isFinanceMetadataValid(finance: FinanceMetadataBackup?): Boolean {
+        if (finance == null) return false
+        val budgets = jsonObjectList(finance.budgetsJson) ?: return false
+        val savings = jsonObjectList(finance.savingsGoalsJson) ?: return false
+        val recurring = jsonObjectList(finance.recurringTransactionsJson) ?: return false
+        val categories = jsonObjectList(finance.categoriesJson) ?: return false
+        val units = setOf("TOMAN", "RIAL")
+        val transactionTypes = com.example.ui.screens.finance.model.TransactionType.values().map { it.name }.toSet()
+        val frequencies = com.example.ui.screens.finance.model.RecurringFrequency.values().map { it.name }.toSet()
+        val paymentMethods = com.example.ui.screens.finance.model.PaymentMethod.values().map { it.name }.toSet()
+        val goalStatuses = com.example.ui.screens.finance.model.SavingsGoalStatus.values().map { it.name }.toSet()
+
+        fun requiredString(item: Map<*, *>, key: String): Boolean =
+            (item[key] as? String)?.isNotBlank() == true
+        fun optionalStrings(item: Map<*, *>, vararg keys: String): Boolean =
+            keys.all { item[it] == null || item[it] is String }
+        fun optionalBoolean(item: Map<*, *>, key: String): Boolean =
+            item[key] == null || item[key] is Boolean
+        fun optionalUnit(item: Map<*, *>, key: String): Boolean =
+            item[key] == null || (item[key] is String && item[key] in units)
+        fun uniqueIds(items: List<Map<*, *>>): Boolean {
+            val ids = items.map { it["id"] as? String ?: return false }
+            return ids.all(String::isNotBlank) && ids.size == ids.toSet().size
+        }
+
+        if (!uniqueIds(budgets) || budgets.any {
+                !requiredString(it, "id") || !requiredString(it, "title") ||
+                    it["amount"] !is Number || !optionalUnit(it, "amountUnit") ||
+                    !optionalStrings(it, "categoryId", "categoryTitle", "period", "startDate", "endDate") ||
+                    !optionalBoolean(it, "isEnabled")
+            }) return false
+
+        if (!uniqueIds(savings) || savings.any {
+                !requiredString(it, "id") || !requiredString(it, "title") ||
+                    it["targetAmount"] !is Number || it["currentAmount"] !is Number ||
+                    !optionalUnit(it, "amountUnit") ||
+                    !optionalStrings(it, "targetDate", "description", "iconEmoji") ||
+                    (it["status"] != null && (it["status"] !is String || it["status"] !in goalStatuses))
+            }) return false
+
+        if (!uniqueIds(recurring) || recurring.any {
+                !requiredString(it, "id") || !requiredString(it, "title") ||
+                    it["amount"] !is Number || !optionalUnit(it, "amountUnit") ||
+                    (it["type"] !is String || it["type"] !in transactionTypes) ||
+                    !requiredString(it, "categoryId") || !requiredString(it, "categoryTitle") ||
+                    (it["frequency"] !is String || it["frequency"] !in frequencies) ||
+                    !requiredString(it, "startDate") || !requiredString(it, "nextExecutionDate") ||
+                    !optionalStrings(it, "endDate", "accountName", "accountId") ||
+                    !optionalBoolean(it, "enabled") ||
+                    (it["paymentMethod"] != null &&
+                        (it["paymentMethod"] !is String || it["paymentMethod"] !in paymentMethods))
+            }) return false
+
+        if (!uniqueIds(categories) || categories.any {
+                !requiredString(it, "id") || !requiredString(it, "title") ||
+                    !requiredString(it, "iconEmoji") ||
+                    (it["type"] !is String || it["type"] !in transactionTypes) ||
+                    (it["accentColor"] != null && it["accentColor"] !is Number) ||
+                    !optionalBoolean(it, "isDefault") || !optionalBoolean(it, "isActive") ||
+                    (it["subCategories"] != null &&
+                        (it["subCategories"] !is List<*> ||
+                            (it["subCategories"] as List<*>).any { child -> child !is String }))
+            }) return false
+
+        return true
+    }
+
     private fun isPendingBankSmsQueueValid(rawJson: String?): Boolean {
         if (rawJson.isNullOrBlank()) return true
         val values = runCatching { jsonArrayAdapter.fromJson(rawJson) }.getOrNull() ?: return false
@@ -252,10 +326,7 @@ object BackupValidator {
                 ).all(::hasUniqueJsonIds)
         )
         val customCollectionsValid = version < 8 || (
-            isJsonObjectArray(finance?.budgetsJson, setOf("id", "title", "amount")) &&
-                isJsonObjectArray(finance?.savingsGoalsJson, setOf("id", "title", "targetAmount", "currentAmount")) &&
-                isJsonObjectArray(finance?.recurringTransactionsJson, setOf("id", "title", "amount", "type", "frequency", "startDate", "nextExecutionDate")) &&
-                isJsonObjectArray(finance?.categoriesJson, setOf("id", "title", "iconEmoji", "type")) &&
+            isFinanceMetadataValid(finance) &&
                 isJsonObjectArray(backup.userBankSmsRulesJson, setOf("bankName")) &&
                 isJsonObjectArray(backup.smsPatternsJson, setOf("name", "type", "sampleMessage"))
         )
@@ -452,6 +523,11 @@ object BackupValidator {
                 add(it.id.toString())
                 if (it.stringId.isNotBlank()) add(it.stringId)
             }
+        }
+        val recurringAccountIds = jsonArrayStringValues(finance?.recurringTransactionsJson, "accountId")
+            ?: return ValidationResult.Invalid("شناسه حساب در تراکنش‌های تکرارشونده معتبر نیست.")
+        if (recurringAccountIds.any { it !in accountReferences }) {
+            return ValidationResult.Invalid("یکی از تراکنش‌های تکرارشونده به حساب مالی موجود در فایل پشتیبان متصل نیست.")
         }
         if (backup.checks.any { !it.accountId.isNullOrBlank() && it.accountId !in accountReferences } ||
             backup.transactions.any {
