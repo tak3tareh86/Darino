@@ -327,7 +327,8 @@ class LocalBackupRepository(
                 installmentReminderDays = generalPrefs.getInt("pref_installment_reminder_days", 0),
                 vehicleReminderKilometers = generalPrefs.getInt("pref_vehicle_reminder_kilometers", 0),
                 autoBackupDailyEnabled = backupPrefs.getBoolean("auto_backup_daily", false),
-                autoBackupWeeklyEnabled = backupPrefs.getBoolean("auto_backup_weekly", true)
+                autoBackupWeeklyEnabled = backupPrefs.getBoolean("auto_backup_weekly", true),
+                cleanSlatePerformed = appPreferences.isCleanSlatePerformed()
             )
             val financeMetadata = FinanceMetadataBackup(
                 budgetsJson = generalPrefs.getString("pref_persisted_budgets$userSuffix", null),
@@ -469,6 +470,7 @@ class LocalBackupRepository(
                     settings.defaultReminderTimeMinute?.let { editor.putInt("pref_default_reminder_time_minute", it) }
                     settings.installmentReminderDays?.let { editor.putInt("pref_installment_reminder_days", it) }
                     settings.vehicleReminderKilometers?.let { editor.putInt("pref_vehicle_reminder_kilometers", it) }
+                    settings.cleanSlatePerformed?.let { editor.putBoolean("pref_is_clean_slate", it) }
                     check(editor.commit()) { "ذخیره تنظیمات برنامه بازیابی‌شده انجام نشد." }
 
                     settings.autoBackupDailyEnabled?.let {
@@ -901,6 +903,7 @@ class LocalBackupRepository(
                 settings.installmentReminderDays?.let { runCatching { appPreferences.setInstallmentReminderDays(it) } }
                 settings.vehicleReminderKilometers?.let { runCatching { appPreferences.setVehicleReminderKilometers(it) } }
                 settings.notificationsEnabled?.let(appPreferences::setNotificationsEnabled)
+                settings.cleanSlatePerformed?.let(appPreferences::setCleanSlatePerformed)
 
                 settings.autoBackupDailyEnabled?.let { enabled ->
                     context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
