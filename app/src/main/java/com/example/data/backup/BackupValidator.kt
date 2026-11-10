@@ -365,6 +365,50 @@ object BackupValidator {
             return ValidationResult.Invalid("فایل پشتیبان دارای اطلاعات خودرو بدون خودروی مرتبط است.")
         }
 
+        val installmentReferenceIds = buildSet {
+            backup.installments.forEach {
+                add(it.id.toString())
+                it.serverId?.takeIf(String::isNotBlank)?.let(::add)
+            }
+        }
+        val vehicleServiceReferenceIds = buildSet {
+            backup.vehicleServices.forEach {
+                add(it.id.toString())
+                it.serverId?.takeIf(String::isNotBlank)?.let(::add)
+            }
+            jsonArrayStringValues(vehicleStore?.servicesJson, "id")?.forEach(::add)
+        }
+        val vehicleReferenceIds = buildSet {
+            addAll(vehicleIds)
+            addAll(vehicleServiceReferenceIds)
+            backup.vehicleInsurances.forEach { add(it.id) }
+            backup.vehicleInspections.forEach { add(it.id) }
+            jsonArrayStringValues(vehicleStore?.insurancesJson, "id")?.forEach(::add)
+            jsonArrayStringValues(vehicleStore?.inspectionsJson, "id")?.forEach(::add)
+        }
+        val brokenSmartReminderSources = backup.reminders.any { reminder ->
+            val sourceId = reminder.sourceId ?: return@any false
+            when (reminder.sourceType?.uppercase()) {
+                "INSTALLMENT" -> sourceId !in installmentReferenceIds
+                "CHECK" -> sourceId !in checkIds.map { it.toString() }.toSet()
+                "VEHICLE" -> sourceId !in vehicleReferenceIds
+                "VEHICLE_SERVICE" -> sourceId !in vehicleServiceReferenceIds
+                else -> false
+            }
+        }
+        val brokenLegacyReminderSources = backup.legacyReminders.any { reminder ->
+            val sourceId = reminder.sourceId?.toString() ?: return@any false
+            when (reminder.sourceType?.uppercase()) {
+                "INSTALLMENT" -> sourceId !in installmentReferenceIds
+                "VEHICLE" -> sourceId !in vehicleIds
+                "VEHICLE_SERVICE" -> sourceId !in vehicleServiceReferenceIds
+                else -> false
+            }
+        }
+        if (brokenSmartReminderSources || brokenLegacyReminderSources) {
+            return ValidationResult.Invalid("یکی از یادآورها به قسط، چک یا رکورد خودرویی موجود در فایل پشتیبان متصل نیست.")
+        }
+
         fun <T, K> hasDuplicates(items: List<T>, key: (T) -> K): Boolean =
             items.map(key).size != items.map(key).toSet().size
 
