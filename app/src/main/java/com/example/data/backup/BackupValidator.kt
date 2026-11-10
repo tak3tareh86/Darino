@@ -73,7 +73,7 @@ object BackupValidator {
 
     fun validate(backup: DarinoBackup, rawJson: String? = null): ValidationResult {
         val version = backup.metadata.backupVersion
-        if (version !in 1..9 {
+        if (version !in 1..9) {
             return ValidationResult.Invalid("نسخه فایل پشتیبان پشتیبانی نمی‌شود.")
         }
         if (backup.metadata.createdAt <= 0L || backup.metadata.recordCount < 0) {
