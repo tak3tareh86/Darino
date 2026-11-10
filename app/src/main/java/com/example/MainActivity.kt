@@ -156,16 +156,16 @@ class MainActivity : FragmentActivity() {
             alarmManager?.canScheduleExactAlarms() == true
         // Always inspect the durable restore journal, even when exact-alarm access is denied.
         lifecycleScope.launch {
-                val appContext = applicationContext
-                // Complete any interrupted cross-store restore before rebuilding alarms
-                // or allowing the user to interact with potentially mixed persisted state.
+            val appContext = applicationContext
+            // Attempt recovery before rebuilding alarms. If recovery fails, the journal
+            // remains durable and the next app resume will retry it.
                 runCatching {
                     com.example.data.backup.LocalBackupRepository(appContext).recoverInterruptedRestore()
                 }.onFailure { error ->
                     android.util.Log.e("MainActivity", "Interrupted backup restore recovery failed", error)
                 }
 
-                if (exactAlarmAllowed) {
+            if (exactAlarmAllowed) {
                 runCatching {
                     com.example.data.security.SessionManager.init(appContext)
                     com.example.reminder.domain.ReminderScheduler(appContext).rebuildAllSchedules()
