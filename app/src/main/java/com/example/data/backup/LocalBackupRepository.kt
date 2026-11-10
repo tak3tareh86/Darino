@@ -613,7 +613,7 @@ class LocalBackupRepository(
                 }
 
                 backup.transactions.forEach { transaction ->
-                    val remappedSourceId = if (transaction.sourceType == "CHECK") {
+                    val remappedSourceId = if (transaction.sourceType.equals("CHECK", ignoreCase = true)) {
                         transaction.sourceId?.toIntOrNull()?.let { restoredCheckIds[it]?.toString() }
                             ?: transaction.sourceId
                     } else transaction.sourceId
@@ -708,7 +708,7 @@ class LocalBackupRepository(
                 backup.reminders.forEach { reminder ->
                     val newReminderId = java.util.UUID.randomUUID().toString()
                     restoredSmartReminderIds[reminder.id] = newReminderId
-                    val remappedSourceId = when (reminder.sourceType) {
+                    val remappedSourceId = when (reminder.sourceType?.uppercase()) {
                         "INSTALLMENT" -> reminder.sourceId
                             ?.let { restoredInstallmentReferenceIds[it] ?: it }
                         "CHECK" -> reminder.sourceId?.toIntOrNull()
