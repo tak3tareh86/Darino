@@ -249,4 +249,56 @@ class BackupValidatorTest {
         assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
     }
 
+    @Test
+    fun versionEightValidatesReceiptAttachmentHashAndCount() {
+        val bytes = "receipt-image".toByteArray()
+        val hash = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+            .joinToString("") { "%02x".format(it) }
+        val attachment = BackupAttachment(
+            originalUri = "content://receipts/1",
+            fileName = "receipt.png",
+            mediaType = "image/png",
+            sha256 = hash,
+            base64Data = okio.ByteString.of(*bytes).base64()
+        )
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 1,
+                    currencyUnit = "PER_RECORD"
+                ),
+                attachments = listOf(attachment)
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Valid)
+    }
+
+    @Test
+    fun versionEightRejectsTamperedReceiptAttachment() {
+        val bytes = "receipt-image".toByteArray()
+        val attachment = BackupAttachment(
+            originalUri = "content://receipts/1",
+            fileName = "receipt.png",
+            mediaType = "image/png",
+            sha256 = "0".repeat(64),
+            base64Data = okio.ByteString.of(*bytes).base64()
+        )
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 1,
+                    currencyUnit = "PER_RECORD"
+                ),
+                attachments = listOf(attachment)
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
 }
