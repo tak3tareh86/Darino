@@ -353,9 +353,9 @@ private fun LoanComparisonCard(
     modifier: Modifier = Modifier
 ) {
     val activeCurrency = MoneyFormatter.activeCurrency
-    var editAmount by remember(amount, amountUnit, activeCurrency) { mutableStateOf(IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(amount, amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString())) }
-    var editInterest by remember(interestRate) { mutableStateOf(interestRate.toString()) }
-    var editDuration by remember(durationMonths) { mutableStateOf(durationMonths.toString()) }
+    var editAmount by remember(amount, amountUnit, activeCurrency) { mutableStateOf(if (amount > 0L) IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(amount, amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()) else "") }
+    var editInterest by remember(interestRate) { mutableStateOf(if (interestRate > 0.0) interestRate.toString() else "") }
+    var editDuration by remember(durationMonths) { mutableStateOf(if (durationMonths > 0) durationMonths.toString() else "") }
 
     Surface(
         modifier = modifier
@@ -460,12 +460,12 @@ private fun LoanComparisonCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "مبلغ: ${CalculationResult.formatMoney(amount, amountUnit)}",
+                        text = if (amount > 0L) "مبلغ: ${CalculationResult.formatMoney(amount, amountUnit)}" else "مبلغ: —",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "مدت: ${IranianPhoneUtils.convertDigitsToPersian(durationMonths.toString())} ماه | سود: ${IranianPhoneUtils.convertDigitsToPersian(interestRate.toString())}٪",
+                        text = if (durationMonths > 0 && interestRate > 0.0) "مدت: ${IranianPhoneUtils.convertDigitsToPersian(durationMonths.toString())} ماه | سود: ${IranianPhoneUtils.convertDigitsToPersian(interestRate.toString())}٪" else "مدت و نرخ سود: —",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
