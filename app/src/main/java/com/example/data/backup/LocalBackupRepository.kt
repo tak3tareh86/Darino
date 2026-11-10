@@ -1057,7 +1057,10 @@ class LocalBackupRepository(
             if (mode == RestoreMode.REPLACE) {
                 // Keep the journal until preferences, Room, attachments, repositories,
                 // and OS schedulers have all been reconciled.
-                restoreJournalFile(userId).delete()
+                val journal = restoreJournalFile(userId)
+                check(!journal.exists() || journal.delete()) {
+                    "پاک‌سازی نشانگر بازیابی پس از تکمیل عملیات ناموفق بود."
+                }
             }
         }
     }
