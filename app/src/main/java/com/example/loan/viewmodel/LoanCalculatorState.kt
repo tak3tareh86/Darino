@@ -22,10 +22,10 @@ data class LoanCalculatorState(
     val amount: Long = 0L,
     val interestRateInput: String = "",
     val interestRate: Double = 0.0,
-    val interestPeriod: InterestPeriod = InterestPeriod.ANNUAL,
+    val interestPeriod: InterestPeriod? = null,
     val durationInput: String = "",
     val duration: Int = 0,
-    val durationType: DurationType = DurationType.MONTHS,
+    val durationType: DurationType? = null,
     val calculationType: CalculationMethod? = null,
     
     // Outputs
