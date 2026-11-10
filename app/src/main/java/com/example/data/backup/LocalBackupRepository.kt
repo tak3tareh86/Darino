@@ -90,7 +90,14 @@ class LocalBackupRepository(
                 val extension = attachment.fileName.substringAfterLast('.', "bin")
                     .lowercase().filter { it.isLetterOrDigit() }.take(8).ifBlank { "bin" }
                 val destination = File(directory, "${attachment.sha256}.$extension")
-                if (!destination.exists()) {
+                val existingHash = if (destination.isFile) {
+                    MessageDigest.getInstance("SHA-256").digest(destination.readBytes())
+                        .joinToString("") { "%02x".format(it) }
+                } else null
+                if (existingHash != attachment.sha256) {
+                    if (destination.exists() && !destination.delete()) {
+                        throw IllegalStateException("جایگزینی فایل پیوست خراب‌شده ناموفق بود.")
+                    }
                     val temporary = File(directory, "${destination.name}.tmp")
                     FileOutputStream(temporary).use { stream ->
                         stream.write(bytes)
