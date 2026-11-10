@@ -309,6 +309,57 @@ object BackupValidator {
             return ValidationResult.Invalid("فایل پشتیبان دارای اطلاعات خودرو بدون خودروی مرتبط است.")
         }
 
+        fun <T, K> hasDuplicates(items: List<T>, key: (T) -> K): Boolean =
+            items.map(key).size != items.map(key).toSet().size
+
+        if (hasDuplicates(backup.accounts) { it.stringId } ||
+            hasDuplicates(backup.transactions) { it.stringId } ||
+            hasDuplicates(backup.checks) { it.id } ||
+            hasDuplicates(backup.installments) { it.id } ||
+            hasDuplicates(backup.vehicles) { it.id } ||
+            hasDuplicates(backup.vehicleServices) { it.id } ||
+            hasDuplicates(backup.vehicleExpenses) { it.id } ||
+            hasDuplicates(backup.vehicleInsurances) { it.id } ||
+            hasDuplicates(backup.vehicleInspections) { it.id } ||
+            hasDuplicates(backup.reminders) { it.id } ||
+            hasDuplicates(backup.reminderSchedules) { it.id } ||
+            hasDuplicates(backup.legacyReminders) { it.id } ||
+            hasDuplicates(backup.financialEvents) { it.id } ||
+            hasDuplicates(backup.financialHealthProfiles) { it.id } ||
+            hasDuplicates(backup.loanCalculations) { it.id }
+        ) {
+            return ValidationResult.Invalid("فایل پشتیبان دارای شناسه‌های تکراری است و بازیابی ایمن نیست.")
+        }
+        if (hasDuplicates(backup.vehicles.filter { !it.serverId.isNullOrBlank() }) { it.serverId!! } ||
+            hasDuplicates(backup.vehicleServices.filter { !it.serverId.isNullOrBlank() }) { it.serverId!! }
+        ) {
+            return ValidationResult.Invalid("شناسه‌های سروری خودرو یا سرویس در فایل پشتیبان تکراری هستند.")
+        }
+
+        val accountReferences = buildSet {
+            backup.accounts.forEach {
+                add(it.id.toString())
+                if (it.stringId.isNotBlank()) add(it.stringId)
+            }
+        }
+        if (backup.checks.any { !it.accountId.isNullOrBlank() && it.accountId !in accountReferences } ||
+            backup.transactions.any {
+                (!it.accountId.isNullOrBlank() && it.accountId !in accountReferences) ||
+                    (!it.transferSourceAccountId.isNullOrBlank() && it.transferSourceAccountId !in accountReferences) ||
+                    (!it.transferDestinationAccountId.isNullOrBlank() && it.transferDestinationAccountId !in accountReferences)
+            }
+        ) {
+            return ValidationResult.Invalid("یکی از تراکنش‌ها یا چک‌ها به حساب مالی موجود در فایل پشتیبان متصل نیست.")
+        }
+        if (backup.transactions.any {
+                it.sourceType == "CHECK" &&
+                    !it.sourceId.isNullOrBlank() &&
+                    it.sourceId !in checkIds.map(Int::toString).toSet()
+            }
+        ) {
+            return ValidationResult.Invalid("تراکنش تسویه به چک موجود در فایل پشتیبان متصل نیست.")
+        }
+
         return ValidationResult.Valid
     }
 
