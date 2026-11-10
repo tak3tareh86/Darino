@@ -243,14 +243,14 @@ class BackupValidatorTest {
 
     @Test
     fun legacyVersionsOneThroughThreeRemainImportableAsJson() {
-        for (version in 1..3) {
+        for (version in 1..7) {
             val legacyBackup = BackupValidator.withChecksum(
                 DarinoBackup(
                     metadata = BackupMetadata(
                         backupVersion = version,
                         createdAt = 1_800_000_000_000L,
                         recordCount = 0,
-                        currencyUnit = "TOMAN"
+                        currencyUnit = if (version == 7) "PER_RECORD" else "TOMAN"
                     )
                 )
             )
