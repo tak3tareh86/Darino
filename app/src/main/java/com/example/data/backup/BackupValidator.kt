@@ -55,6 +55,7 @@ object BackupValidator {
     }
 
     private fun hasUniqueJsonIds(rawJson: String?): Boolean {
+        if (rawJson.isNullOrBlank()) return true
         val ids = jsonArrayStringValues(rawJson, "id") ?: return false
         return ids.size == countJsonArrayItems(rawJson) && ids.size == ids.toSet().size
     }
@@ -195,7 +196,7 @@ object BackupValidator {
         val vehicleStoreJsonValid = vehicleStore == null || (
             isJsonObjectArray(vehicleStore.vehiclesJson, setOf("id", "brand", "model", "year", "color", "plate", "currentMileage")) &&
                 isJsonObjectArray(vehicleStore.servicesJson, setOf("id", "vehicleId", "title", "date", "mileage", "cost")) &&
-                isJsonObjectArray(vehicleStore.expensesJson, setOf("id", "vehicleId", "title", "category", "amount", "date")) &&
+                isJsonObjectArray(vehicleStore.expensesJson, setOf("id", "vehicleId", "title", "amount", "date")) &&
                 isJsonObjectArray(vehicleStore.insurancesJson, setOf("id", "vehicleId", "company", "type", "startDate", "endDate", "amount")) &&
                 isJsonObjectArray(vehicleStore.inspectionsJson, setOf("id", "vehicleId", "lastInspectionDate", "expiryDate", "cost")) &&
                 listOf(
@@ -325,7 +326,7 @@ object BackupValidator {
                 vehicleStore?.expensesJson,
                 vehicleStore?.insurancesJson,
                 vehicleStore?.inspectionsJson
-            ).forEach { raw -> jsonArrayStringValues(raw, "vehicleId")?.let(::addAll) }
+            ).forEach { raw -> jsonArrayStringValues(raw, "vehicleId")?.let { addAll(it) } }
         }
         if (referencedVehicleIds.any { it !in vehicleIds }) {
             return ValidationResult.Invalid("فایل پشتیبان دارای اطلاعات خودرو بدون خودروی مرتبط است.")
