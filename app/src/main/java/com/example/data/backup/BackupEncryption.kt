@@ -40,7 +40,7 @@ object BackupEncryption {
             cipher.updateAAD(header)
             return header + cipher.doFinal(plainText)
         } finally {
-            passphrase.fill('\\u0000')
+            passphrase.fill('\u0000')
         }
     }
 
