@@ -219,13 +219,13 @@ class LoanCalculatorViewModel(
             customTitle
         } else {
             val amountFormatted = CalculationResult.formatMoney(current.amount, AppCurrency.RIAL)
-            "${current.loanType.title} ($amountFormatted)"
+            "${current.loanType?.title ?: "وام"} ($amountFormatted)"
         }
 
         val calculation = LoanCalculation(
             id = "calc_${UUID.randomUUID()}",
             title = title,
-            loanType = current.loanType,
+            loanType = current.loanType ?: LoanType.CUSTOM,
             amount = current.amount,
             interestRate = current.interestRate,
             duration = current.duration,
