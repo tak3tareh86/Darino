@@ -936,7 +936,7 @@ private fun writeAndVerifyBackup(
     }
 
     val savedPayload = context.contentResolver.openInputStream(destinationUri)
-        ?.use { it.readBytes() }
+        ?.use { readBoundedBytes(it, MAX_PORTABLE_BACKUP_BYTES + 1024) }
         ?: throw java.io.IOException("فایل ذخیره شد اما امکان بررسی مجدد آن وجود ندارد.")
     val savedJson = com.example.data.backup.BackupEncryption.decrypt(savedPayload, passphrase)
         .toString(Charsets.UTF_8)
