@@ -158,7 +158,7 @@ class LocalBackupRepository(
 
     /** Restores the newest daily or weekly device-bound automatic backup for the active user. */
     suspend fun restoreLatestAutomaticBackup() {
-        val userTag = Integer.toHexString(getEffectiveUserId().hashCode())
+        val userTag = BackupUserScope.tag(getEffectiveUserId())
         val latest = withContext(Dispatchers.IO) {
             File(context.filesDir, "auto_backups")
                 .listFiles { file ->
@@ -179,7 +179,7 @@ class LocalBackupRepository(
 
     /** Restores the newest device-bound emergency snapshot, retaining another snapshot first. */
     suspend fun restoreLatestEmergencyBackup() {
-        val userTag = Integer.toHexString(getEffectiveUserId().hashCode())
+        val userTag = BackupUserScope.tag(getEffectiveUserId())
         val latest = withContext(Dispatchers.IO) {
             File(context.filesDir, "emergency_backups")
                 .listFiles { file ->
@@ -1041,7 +1041,7 @@ class LocalBackupRepository(
                 Context.MODE_PRIVATE
             )
 
-            val userTag = Integer.toHexString(getEffectiveUserId().hashCode())
+            val userTag = BackupUserScope.tag(getEffectiveUserId())
             preferences
                 .getLong("last_backup_time_$userTag", preferences.getLong("last_backup_time", 0L))
                 .takeIf { it != 0L }
