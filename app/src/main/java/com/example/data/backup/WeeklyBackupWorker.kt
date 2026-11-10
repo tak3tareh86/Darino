@@ -17,7 +17,7 @@ class WeeklyBackupWorker(
         val prefs = applicationContext.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
         val frequency = inputData.getString(KEY_FREQUENCY) ?: FREQUENCY_WEEKLY
         val preferenceKey = if (frequency == FREQUENCY_DAILY) "auto_backup_daily" else "auto_backup_weekly"
-        val isEnabled = prefs.getBoolean(preferenceKey, frequency == FREQUENCY_WEEKLY)
+        val isEnabled = prefs.getBoolean(preferenceKey, false)
 
         if (!isEnabled) {
             Log.i(TAG, "$frequency auto-backup is disabled in settings. Skipping.")

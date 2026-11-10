@@ -42,6 +42,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -91,6 +92,32 @@ fun SupportBackupScreen(
 
     // Backup state
     val prefs = remember { context.getSharedPreferences("darino_backup_prefs", android.content.Context.MODE_PRIVATE) }
+    var dailyAutoBackupEnabled by remember { mutableStateOf(prefs.getBoolean("auto_backup_daily", false)) }
+    var weeklyAutoBackupEnabled by remember { mutableStateOf(prefs.getBoolean("auto_backup_weekly", false)) }
+
+    fun setAutomaticBackupEnabled(frequency: String, enabled: Boolean) {
+        val preferenceKey = if (frequency == "daily") "auto_backup_daily" else "auto_backup_weekly"
+        try {
+            check(prefs.edit().putBoolean(preferenceKey, enabled).commit()) {
+                "ذخیره تنظیم پشتیبان‌گیری خودکار ناموفق بود."
+            }
+            if (frequency == "daily") {
+                if (enabled) com.example.data.backup.WeeklyBackupWorker.enqueueDaily(context)
+                else com.example.data.backup.WeeklyBackupWorker.cancelDaily(context)
+                dailyAutoBackupEnabled = enabled
+            } else {
+                if (enabled) com.example.data.backup.WeeklyBackupWorker.enqueueWeekly(context)
+                else com.example.data.backup.WeeklyBackupWorker.cancelWeekly(context)
+                weeklyAutoBackupEnabled = enabled
+            }
+            val frequencyLabel = if (frequency == "daily") "روزانه" else "هفتگی"
+            val statusLabel = if (enabled) "فعال" else "غیرفعال"
+            Toast.makeText(context, "پشتیبان‌گیری خودکار $frequencyLabel $statusLabel شد.", Toast.LENGTH_SHORT).show()
+        } catch (error: Exception) {
+            Log.e("SupportBackupScreen", "Could not update $frequency automatic backup setting", error)
+            Toast.makeText(context, error.message ?: "تغییر تنظیم پشتیبان‌گیری ناموفق بود.", Toast.LENGTH_LONG).show()
+        }
+    }
     fun currentBackupTimestampKey(): String {
         val userId = com.example.data.security.SessionManager.userId
             ?: com.example.data.security.AuthSessionManager(context).getActiveSession()?.userId
@@ -126,7 +153,11 @@ fun SupportBackupScreen(
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) refreshLastBackupDate()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshLastBackupDate()
+                dailyAutoBackupEnabled = prefs.getBoolean("auto_backup_daily", false)
+                weeklyAutoBackupEnabled = prefs.getBoolean("auto_backup_weekly", false)
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -623,6 +654,55 @@ fun SupportBackupScreen(
             ) {
                 if (selectedTabIndex == 0) {
                     // TAB 1: BACKUP & RESTORE
+
+                    // Independent local automatic-backup schedules
+                    item {
+                        SettingsSectionCard(title = "پشتیبان‌گیری خودکار محلی") {
+                            Text(
+                                text = "نسخه‌های پشتیبان روی حافظه داخلی همین دستگاه و بدون نیاز به اینترنت یا سرور ذخیره می‌شوند.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("بک‌آپ خودکار روزانه", fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        "برنامه‌ریزی روزانه؛ زمان اجرا ممکن است با محدودیت‌های اندروید کمی جابه‌جا شود (۳۰ نسخه)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = dailyAutoBackupEnabled,
+                                    onCheckedChange = { enabled -> setAutomaticBackupEnabled("daily", enabled) },
+                                    modifier = Modifier.testTag("auto_backup_daily_switch")
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("بک‌آپ خودکار هفتگی", fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        "برنامه‌ریزی هفتگی؛ زمان اجرا ممکن است با محدودیت‌های اندروید کمی جابه‌جا شود (۱۲ نسخه)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = weeklyAutoBackupEnabled,
+                                    onCheckedChange = { enabled -> setAutomaticBackupEnabled("weekly", enabled) },
+                                    modifier = Modifier.testTag("auto_backup_weekly_switch")
+                                )
+                            }
+                        }
+                    }
 
                     // Backup Actions Card
                     item {
