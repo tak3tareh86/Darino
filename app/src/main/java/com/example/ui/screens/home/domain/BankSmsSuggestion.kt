@@ -27,7 +27,7 @@ data class BankSmsSuggestion(
     val receivedAtMillis: Long = timestampMillis,
     // Numeric candidates paired with their units; equal values remain separate when units differ.
     val amountCandidates: List<Long> = emptyList(),
-    val amountUnit: AppCurrency = AppCurrency.TOMAN,
+    val amountUnit: AppCurrency = AppCurrency.RIAL,
     // Balance values can use a different unit from the transaction in the same SMS.
     val balanceAmountUnit: AppCurrency? = null,
     // Unit for each entry in amountCandidates, kept index-aligned with that list.
