@@ -164,7 +164,6 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             val src = transaction.transferSourceAccountId
             val dest = transaction.transferDestinationAccountId
             if (src.isNullOrBlank() || dest.isNullOrBlank()) return false
-            if (src == dest) return false
         }
         return true
     }
@@ -176,7 +175,6 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             val srcId = tx.transferSourceAccountId ?: return false
             val destId = tx.transferDestinationAccountId ?: return false
             if (srcId.isBlank() || destId.isBlank()) return false
-            if (srcId == destId) return false
 
             val srcAcc = db.accountDao().getAccountByStringId(userId, srcId) ?: return false
             val destAcc = db.accountDao().getAccountByStringId(userId, destId) ?: return false
