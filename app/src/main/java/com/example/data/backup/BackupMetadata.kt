@@ -18,6 +18,6 @@ object BackupUserScope {
         return java.security.MessageDigest.getInstance("SHA-256")
             .digest(userId.toByteArray(Charsets.UTF_8))
             .take(12)
-            .joinToString("") { "%02x".format(it) }
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
     }
 }
