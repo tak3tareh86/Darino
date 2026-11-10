@@ -454,9 +454,6 @@ private fun CalculatorMainTab(
                     )
             }
         }
-
-            }
-        }
         }
 
         // 3. Interest Rate & Period Field
@@ -541,9 +538,6 @@ private fun CalculatorMainTab(
                     )
             }
         }
-
-            }
-        }
         }
 
         // 4. Repayment Duration Field
@@ -626,9 +620,6 @@ private fun CalculatorMainTab(
                             )
                         }
                     )
-            }
-        }
-
             }
         }
         }
