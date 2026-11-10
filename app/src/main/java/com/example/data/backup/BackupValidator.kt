@@ -150,11 +150,11 @@ object BackupValidator {
             }
             val bytes = ByteString.decodeBase64(attachment.base64Data)?.toByteArray()
                 ?: return ValidationResult.Invalid("کدگذاری یکی از فایل‌های پیوست معتبر نیست.")
-            if (bytes.isEmpty() || bytes.size > 20 * 1024 * 1024) {
+            if (bytes.isEmpty() || bytes.size > 10 * 1024 * 1024) {
                 return ValidationResult.Invalid("حجم یکی از فایل‌های پیوست معتبر نیست.")
             }
             totalAttachmentBytes += bytes.size
-            if (totalAttachmentBytes > 100L * 1024 * 1024) {
+            if (totalAttachmentBytes > 30L * 1024 * 1024) {
                 return ValidationResult.Invalid("حجم کل فایل‌های پیوست بیش از حد مجاز است.")
             }
             val actualHash = MessageDigest.getInstance("SHA-256").digest(bytes)
