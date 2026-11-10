@@ -744,6 +744,11 @@ class LocalBackupRepository(
                     .LocalInstallmentRepository
                     .instance
                     .reloadFromDatabase(context)
+                com.example.ui.screens.finance.data.LocalFinanceRepository
+                    .instance
+                    .refreshMetadataForCurrentUser()
+                com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(context)
+                com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(context)
             } catch (e: Exception) {
                 Log.e(
                     "LocalBackupRepository",
