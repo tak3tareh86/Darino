@@ -47,7 +47,11 @@ object DeviceBackupEncryption {
     }
 
     private fun getOrCreateKey(): SecretKey {
-        runCatching { getExistingKey() }.getOrNull()?.let { return it }
+        val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
+        if (keyStore.containsAlias(KEY_ALIAS)) {
+            return keyStore.getKey(KEY_ALIAS, null) as? SecretKey
+                ?: throw IllegalStateException("Automatic backup encryption key exists but cannot be loaded")
+        }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEY_STORE)
         generator.init(
             KeyGenParameterSpec.Builder(
