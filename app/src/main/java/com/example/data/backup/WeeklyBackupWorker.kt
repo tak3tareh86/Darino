@@ -37,7 +37,14 @@ class WeeklyBackupWorker(
             val backup = backupRepo.createBackup()
 
             val jsonString = BackupFileCodec.encode(backup)
-            val encryptedPayload = DeviceBackupEncryption.encrypt(jsonString.toByteArray(Charsets.UTF_8), applicationContext)
+            val jsonPayload = jsonString.toByteArray(Charsets.UTF_8)
+            require(jsonPayload.size.toLong() <= MAX_BACKUP_JSON_BYTES) {
+                "حجم داده‌های پشتیبان خودکار از حد مجاز بیشتر است."
+            }
+            val encryptedPayload = DeviceBackupEncryption.encrypt(jsonPayload, applicationContext)
+            require(encryptedPayload.size.toLong() <= MAX_LOCAL_BACKUP_FILE_BYTES) {
+                "حجم فایل پشتیبان خودکار رمزگذاری‌شده از حد مجاز بیشتر است."
+            }
 
             val userTag = BackupUserScope.tag(userId)
             val (y, m, d) = CalendarDateUtils.getCurrentJalaliDate()
@@ -97,6 +104,9 @@ class WeeklyBackupWorker(
         private const val FREQUENCY_DAILY = "daily"
         private const val DAILY_RETENTION_COUNT = 30
         private const val WEEKLY_RETENTION_COUNT = 12
+        private const val MAX_BACKUP_JSON_BYTES = 64L * 1024 * 1024
+        // Keep device-encrypted automatic backups within the same ceiling used by local restore.
+        private const val MAX_LOCAL_BACKUP_FILE_BYTES = MAX_BACKUP_JSON_BYTES + 1024L
         const val UNIQUE_WORK_NAME = "weekly_auto_backup_work"
         const val DAILY_UNIQUE_WORK_NAME = "daily_auto_backup_work"
 
