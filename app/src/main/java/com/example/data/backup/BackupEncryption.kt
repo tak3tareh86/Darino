@@ -3,10 +3,11 @@ package com.example.data.backup
 import java.nio.ByteBuffer
 import java.security.SecureRandom
 import javax.crypto.Cipher
-import javax.crypto.SecretKeyFactory
+import javax.crypto.Mac
 import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
+import java.nio.CharBuffer
+import java.nio.charset.StandardCharsets
 
 /**
  * Portable authenticated encryption for user-exported backups.
@@ -78,7 +79,7 @@ object BackupEncryption {
         payload.size >= magic.size && payload.copyOfRange(0, magic.size).contentEquals(magic)
 
     private fun supportsSha256Pbkdf2(): Boolean =
-        runCatching { SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256") }.isSuccess
+        runCatching { Mac.getInstance("HmacSHA256") }.isSuccess
 
     private fun deriveKey(
         passphrase: CharArray,
@@ -86,17 +87,34 @@ object BackupEncryption {
         iterations: Int,
         kdfId: Byte
     ): SecretKeySpec {
-        val algorithm = if (kdfId == KDF_PBKDF2_SHA256) {
-            "PBKDF2WithHmacSHA256"
-        } else {
-            "PBKDF2WithHmacSHA1"
-        }
-        val spec = PBEKeySpec(passphrase, salt, iterations, 256)
-        return try {
-            val encoded = SecretKeyFactory.getInstance(algorithm).generateSecret(spec).encoded
-            SecretKeySpec(encoded, "AES")
+        val hmacAlgorithm = if (kdfId == KDF_PBKDF2_SHA256) "HmacSHA256" else "HmacSHA1"
+        val encodedPassword = StandardCharsets.UTF_8.newEncoder().encode(CharBuffer.wrap(passphrase))
+        val passwordBytes = ByteArray(encodedPassword.remaining()).also(encodedPassword::get)
+        try {
+            val mac = Mac.getInstance(hmacAlgorithm)
+            mac.init(SecretKeySpec(passwordBytes, hmacAlgorithm))
+            val hashLength = mac.macLength
+            val derived = ByteArray(32)
+            val blockCount = (derived.size + hashLength - 1) / hashLength
+            for (blockIndex in 1..blockCount) {
+                val blockInput = ByteBuffer.allocate(salt.size + 4).put(salt).putInt(blockIndex).array()
+                var u = mac.doFinal(blockInput)
+                val accumulator = u.copyOf()
+                repeat(iterations - 1) {
+                    u = mac.doFinal(u)
+                    for (index in accumulator.indices) {
+                        accumulator[index] = (accumulator[index].toInt() xor u[index].toInt()).toByte()
+                    }
+                }
+                val offset = (blockIndex - 1) * hashLength
+                val copyLength = minOf(hashLength, derived.size - offset)
+                accumulator.copyInto(derived, offset, 0, copyLength)
+                u.fill(0)
+                accumulator.fill(0)
+            }
+            return SecretKeySpec(derived, "AES").also { derived.fill(0) }
         } finally {
-            spec.clearPassword()
+            passwordBytes.fill(0)
         }
     }
 }
