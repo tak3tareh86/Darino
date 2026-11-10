@@ -5,6 +5,7 @@ import com.example.data.database.TransactionEntity
 import com.example.data.database.VehicleStoreEntity
 import com.example.reminder.data.ReminderDeliveryLogEntity
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -383,6 +384,51 @@ class BackupValidatorTest {
         )
 
         assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
+    @Test
+    fun portableBackupDoesNotExposeLocalLoanOwnerId() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
+                loanCalculations = listOf(
+                    com.example.loan.data.LoanCalculationEntity(
+                        id = "loan-1",
+                        title = "Loan",
+                        loanType = "BANK_LOAN",
+                        amount = 100_000L,
+                        interestRate = 10.0,
+                        duration = 12,
+                        durationType = "MONTHS",
+                        monthlyPayment = 9_000L,
+                        totalPayment = 108_000L,
+                        totalInterest = 8_000L,
+                        realCostPercentage = 8.0,
+                        userId = "private-user-id"
+                    )
+                )
+            )
+        )
+
+        val json = BackupFileCodec.encode(backup)
+        assertFalse(json.contains("private-user-id"))
+        assertEquals(
+            "legacy_unassigned",
+            BackupFileCodec.decode(json).loanCalculations.single().userId
+        )
     }
 
 }
