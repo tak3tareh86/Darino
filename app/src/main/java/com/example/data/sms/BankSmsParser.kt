@@ -87,7 +87,7 @@ object BankSmsParser {
             // Preserve the exact extracted number. Rial/Toman is descriptive metadata,
             // not a reason to scale the transaction amount.
             val amountValue = rawAmount.takeIf { it in 1L..1_000_000_000_000_000L } ?: return null
-            val amountUnit = if (amountKind == SmsPatternSlotKind.AMOUNT_RIAL) AppCurrency.RIAL else AppCurrency.TOMAN
+            val amountUnit = AppCurrency.RIAL
 
             val configuredType = when (pattern.type) {
                 SmsPatternType.INCOME -> TransactionType.INCOME
@@ -102,19 +102,15 @@ object BankSmsParser {
                     parseNonNegativeNumber(fields.first(SmsPatternSlotKind.BALANCE_TOMAN))
                 else -> null
             }
-            val balanceAmountUnit = when {
-                fields.first(SmsPatternSlotKind.BALANCE_RIAL) != null -> AppCurrency.RIAL
-                fields.first(SmsPatternSlotKind.BALANCE_TOMAN) != null -> AppCurrency.TOMAN
-                else -> null
-            }
+            val balanceAmountUnit = balanceAmount?.let { AppCurrency.RIAL }
             val normalizedBody = normalizeText(body)
             val amountCandidatePairs = buildList {
                 add(amountValue to amountUnit)
                 if (balanceAmount != null && (balanceAmount != amountValue || balanceAmountUnit != amountUnit)) {
                     add(balanceAmount to (balanceAmountUnit ?: amountUnit))
                 }
-                groupedAmountCandidates(normalizedBody, amountUnit).forEach { candidate ->
-                    if (none { it.first == candidate.first && it.second == candidate.second }) add(candidate)
+                groupedAmountCandidates(normalizedBody, AppCurrency.RIAL).forEach { candidate ->
+                    if (none { it.first == candidate.first && it.second == candidate.second }) add(candidate.first to AppCurrency.RIAL)
                 }
             }
 
