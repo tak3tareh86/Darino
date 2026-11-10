@@ -122,7 +122,7 @@ object BackupValidator {
                 (if (version >= 5) backup.reminderDeliveryLogs.size + (if (backup.vehicleStore != null) 1 else 0) else 0) +
                 (if (version >= 6) backup.legacyReminders.size + backup.legacyReminderSchedules.size else 0)
         }
-        val extraConfigurationRecords = if (version >= 8) {
+        val configurationRecordCounts = if (version >= 8) {
             listOf(
                 backup.financeMetadata?.budgetsJson,
                 backup.financeMetadata?.savingsGoalsJson,
@@ -130,13 +130,14 @@ object BackupValidator {
                 backup.financeMetadata?.categoriesJson,
                 backup.userBankSmsRulesJson,
                 backup.smsPatternsJson
-            ).sumOf(::countJsonArrayItems)
-        } else 0
-        if (extraConfigurationRecords < 0 ||
+            ).map(::countJsonArrayItems)
+        } else emptyList()
+        if (configurationRecordCounts.any { it < 0 } ||
             (backup.smsRecognitionStartMillis != null && backup.smsRecognitionStartMillis <= 0L)
         ) {
             return ValidationResult.Invalid("تنظیمات سفارشی فایل پشتیبان ساختار معتبر ندارند.")
         }
+        val extraConfigurationRecords = configurationRecordCounts.sum()
         val attachmentUris = mutableSetOf<String>()
         var totalAttachmentBytes = 0L
         for (attachment in backup.attachments) {
