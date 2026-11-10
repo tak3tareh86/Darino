@@ -31,7 +31,7 @@ import androidx.room.RoomDatabase
         UserPreferenceEntity::class,
         CheckEntity::class
     ],
-    version = 41,
+    version = 42,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -587,6 +587,34 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_41_42 = object : androidx.room.migration.Migration(41, 42) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // vehicle_store was keyed only by "vehicle_data", so one account could
+                // overwrite another account's legacy vehicle snapshot. Rebuild it with
+                // a composite owner key while preserving every existing row.
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS vehicle_store_new (
+                        key TEXT NOT NULL,
+                        userId TEXT NOT NULL,
+                        vehiclesJson TEXT NOT NULL,
+                        servicesJson TEXT NOT NULL,
+                        expensesJson TEXT NOT NULL,
+                        insurancesJson TEXT NOT NULL,
+                        inspectionsJson TEXT NOT NULL,
+                        PRIMARY KEY(key, userId)
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT OR REPLACE INTO vehicle_store_new
+                    (key, userId, vehiclesJson, servicesJson, expensesJson, insurancesJson, inspectionsJson)
+                    SELECT key, userId, vehiclesJson, servicesJson, expensesJson, insurancesJson, inspectionsJson
+                    FROM vehicle_store
+                """.trimIndent())
+                db.execSQL("DROP TABLE vehicle_store")
+                db.execSQL("ALTER TABLE vehicle_store_new RENAME TO vehicle_store")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -600,7 +628,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
                          MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
                          MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30,
-                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41
+                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42
                      )
                     .build()
                 INSTANCE = instance
