@@ -16,46 +16,60 @@ class LoanRepository(private val context: Context? = null) {
     val savedCalculations: Flow<List<LoanCalculation>> = inMemoryList.asStateFlow()
 
     suspend fun loadSavedCalculations() = withContext(Dispatchers.IO) {
-        val ctx = context ?: return@withContext
+        val ctx = context ?: run {
+            inMemoryList.value = emptyList()
+            return@withContext
+        }
         val userId = SessionManager.userId
         if (userId.isNullOrBlank()) {
             inMemoryList.value = emptyList()
             return@withContext
         }
-        runCatching {
+        try {
             val dao = AppDatabase.getDatabase(ctx).loanCalculationDao()
             dao.claimLegacyCalculations(userId)
             inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            // Never leave another user's cached calculations visible after a failed account switch.
+            inMemoryList.value = emptyList()
+            android.util.Log.e("LoanRepository", "Unable to load saved calculations for the active user", error)
         }
     }
 
     suspend fun saveCalculation(calculation: LoanCalculation) = withContext(Dispatchers.IO) {
-        val updated = listOf(calculation) + inMemoryList.value.filterNot { it.id == calculation.id }
-        inMemoryList.value = updated
-
-        context?.let { ctx ->
-            val userId = SessionManager.userId ?: return@let
-            try {
-                val dao = AppDatabase.getDatabase(ctx).loanCalculationDao()
-                dao.claimLegacyCalculations(userId)
-                dao.insertCalculation(LoanCalculationEntity.fromDomainModel(calculation).copy(userId = userId))
-            } catch (e: Exception) {
-                // Keep safe in memory; a later backup will report only durable database records.
-            }
+        val ctx = context ?: return@withContext
+        val userId = SessionManager.userId?.takeIf { it.isNotBlank() } ?: run {
+            inMemoryList.value = emptyList()
+            return@withContext
+        }
+        try {
+            val dao = AppDatabase.getDatabase(ctx).loanCalculationDao()
+            dao.claimLegacyCalculations(userId)
+            dao.insertCalculation(LoanCalculationEntity.fromDomainModel(calculation).copy(userId = userId))
+            inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            android.util.Log.e("LoanRepository", "Unable to save calculation for the active user", error)
         }
     }
 
     suspend fun deleteCalculation(id: String) = withContext(Dispatchers.IO) {
-        val updated = inMemoryList.value.filterNot { it.id == id }
-        inMemoryList.value = updated
-
-        context?.let { ctx ->
-            val userId = SessionManager.userId ?: return@let
-            try {
-                AppDatabase.getDatabase(ctx).loanCalculationDao().deleteCalculation(userId, id)
-            } catch (e: Exception) {
-                // Ignored
-            }
+        val ctx = context ?: return@withContext
+        val userId = SessionManager.userId?.takeIf { it.isNotBlank() } ?: run {
+            inMemoryList.value = emptyList()
+            return@withContext
+        }
+        try {
+            val dao = AppDatabase.getDatabase(ctx).loanCalculationDao()
+            dao.deleteCalculation(userId, id)
+            inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            android.util.Log.e("LoanRepository", "Unable to delete calculation for the active user", error)
         }
     }
 }
