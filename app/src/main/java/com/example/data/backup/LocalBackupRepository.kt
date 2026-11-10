@@ -990,13 +990,17 @@ class LocalBackupRepository(
                 settings.cleanSlatePerformed?.let(appPreferences::setCleanSlatePerformed)
 
                 settings.autoBackupDailyEnabled?.let { enabled ->
-                    context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
-                        .edit().putBoolean("auto_backup_daily", enabled).commit()
+                    check(context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+                        .edit().putBoolean("auto_backup_daily", enabled).commit()) {
+                        "ذخیره تنظیم پشتیبان‌گیری روزانه ناموفق بود."
+                    }
                     if (enabled) WeeklyBackupWorker.enqueueDaily(context) else WeeklyBackupWorker.cancelDaily(context)
                 }
                 settings.autoBackupWeeklyEnabled?.let { enabled ->
-                    context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
-                        .edit().putBoolean("auto_backup_weekly", enabled).commit()
+                    check(context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+                        .edit().putBoolean("auto_backup_weekly", enabled).commit()) {
+                        "ذخیره تنظیم پشتیبان‌گیری هفتگی ناموفق بود."
+                    }
                     if (enabled) WeeklyBackupWorker.enqueueWeekly(context) else WeeklyBackupWorker.cancelWeekly(context)
                 }
             }
@@ -1039,9 +1043,10 @@ class LocalBackupRepository(
             } catch (e: Exception) {
                 Log.e(
                     "LocalBackupRepository",
-                    "Failed to reload restored data",
+                    "Failed to reload restored data; keeping the restore journal for startup replay",
                     e
                 )
+                throw e
             }
             if (mode == RestoreMode.REPLACE) {
                 // Keep the journal until preferences, Room, attachments, repositories,
