@@ -199,7 +199,11 @@ fun TransferSheet(
                 // Amount Field
                 OutlinedTextField(
                     value = amountText,
-                    onValueChange = { amountText = it },
+                    onValueChange = { input ->
+                        amountText = com.example.util.IranianAmountUtils.formatDecimalWithCommas(
+                            com.example.util.IranianAmountUtils.cleanDecimalAmountInputWhileEditing(input)
+                        )
+                    },
                     label = { Text("مبلغ انتقال (${com.example.util.MoneyFormatter.getUnitLabel()})") },
                     modifier = Modifier
                         .fillMaxWidth()
