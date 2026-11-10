@@ -95,26 +95,38 @@ object BackupEncryption {
             mac.init(SecretKeySpec(passwordBytes, hmacAlgorithm))
             val hashLength = mac.macLength
             val derived = ByteArray(32)
-            val blockCount = (derived.size + hashLength - 1) / hashLength
-            for (blockIndex in 1..blockCount) {
-                val blockInput = ByteBuffer.allocate(salt.size + 4).put(salt).putInt(blockIndex).array()
-                var u = mac.doFinal(blockInput)
-                val accumulator = u.copyOf()
-                repeat(iterations - 1) {
-                    u = mac.doFinal(u)
-                    for (index in accumulator.indices) {
-                        accumulator[index] = (accumulator[index].toInt() xor u[index].toInt()).toByte()
+            try {
+                val blockCount = (derived.size + hashLength - 1) / hashLength
+                for (blockIndex in 1..blockCount) {
+                    val blockInput = ByteBuffer.allocate(salt.size + 4).put(salt).putInt(blockIndex).array()
+                    var u = mac.doFinal(blockInput)
+                    val accumulator = u.copyOf()
+                    try {
+                        repeat(iterations - 1) {
+                            val next = mac.doFinal(u)
+                            u.fill(0)
+                            u = next
+                            for (index in accumulator.indices) {
+                                accumulator[index] = (accumulator[index].toInt() xor u[index].toInt()).toByte()
+                            }
+                        }
+                        val offset = (blockIndex - 1) * hashLength
+                        val copyLength = minOf(hashLength, derived.size - offset)
+                        accumulator.copyInto(derived, offset, 0, copyLength)
+                    } finally {
+                        blockInput.fill(0)
+                        u.fill(0)
+                        accumulator.fill(0)
                     }
                 }
-                val offset = (blockIndex - 1) * hashLength
-                val copyLength = minOf(hashLength, derived.size - offset)
-                accumulator.copyInto(derived, offset, 0, copyLength)
-                u.fill(0)
-                accumulator.fill(0)
+                return SecretKeySpec(derived, "AES")
+            } finally {
+                derived.fill(0)
             }
-            return SecretKeySpec(derived, "AES").also { derived.fill(0) }
         } finally {
             passwordBytes.fill(0)
+            if (encodedPassword.hasArray()) encodedPassword.array().fill(0)
         }
     }
+}
 }
