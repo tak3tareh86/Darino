@@ -7,13 +7,11 @@ import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 
 /** Device-bound encryption for private automatic snapshots; portable exports use BackupEncryption. */
 object DeviceBackupEncryption {
     private const val ANDROID_KEY_STORE = "AndroidKeyStore"
     private const val KEY_ALIAS = "darino_auto_backup_v1"
-    private const val NONCE_SIZE = 12
     private const val TAG_BITS = 128
 
     fun encrypt(plainText: ByteArray): ByteArray {
