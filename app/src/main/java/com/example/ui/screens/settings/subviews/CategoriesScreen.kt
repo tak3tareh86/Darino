@@ -366,7 +366,6 @@ fun AddEditCategorySheet(
     onSave: (com.example.ui.screens.finance.model.TransactionCategory) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val availableEmojis = listOf("🍔", "🚗", "🏠", "🛒", "💊", "🎓", "🎮", "💳", "🎁", "✈️", "☕", "📱")
     val availableColors = listOf(
         Color(0xFFF97316), Color(0xFF3B82F6), Color(0xFF8B5CF6),
         Color(0xFF10B981), Color(0xFFEC4899), Color(0xFF06B6D4),
@@ -374,7 +373,6 @@ fun AddEditCategorySheet(
     )
 
     var title by remember { mutableStateOf(category?.title ?: "") }
-    var selectedEmoji by remember { mutableStateOf(category?.iconEmoji ?: "🛍️") }
     var selectedColor by remember { mutableStateOf(category?.accentColor ?: Color(0xFFF97316)) }
 
     ModalBottomSheet(
@@ -398,34 +396,6 @@ fun AddEditCategorySheet(
                 ),
                 color = MaterialTheme.colorScheme.onSurface
             )
-
-            // Icon Picker
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "انتخاب آیکون",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(availableEmojis) { emoji ->
-                        val isSelected = emoji == selectedEmoji
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(RoundedCornerShape(RadiusSM))
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant
-                                )
-                                .clickable { selectedEmoji = emoji },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = emoji, fontSize = 20.sp)
-                        }
-                    }
-                }
-            }
 
             // Color Picker
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -474,7 +444,7 @@ fun AddEditCategorySheet(
                     val saved = com.example.ui.screens.finance.model.TransactionCategory(
                         id = category?.id ?: "cat_${System.currentTimeMillis()}",
                         title = title.ifBlank { "دسته جدید" },
-                        iconEmoji = selectedEmoji,
+                        iconEmoji = category?.iconEmoji ?: "🛍️",
                         accentColor = selectedColor,
                         type = if (isExpense) com.example.ui.screens.finance.model.TransactionType.EXPENSE else com.example.ui.screens.finance.model.TransactionType.INCOME,
                         isDefault = category?.isDefault ?: false,
