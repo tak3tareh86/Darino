@@ -235,7 +235,7 @@ class LoanCalculatorViewModel(
             amount = current.amount,
             interestRate = current.interestRate,
             duration = current.duration,
-            durationType = current.durationType,
+            durationType = current.durationType ?: DurationType.MONTHS,
             monthlyPayment = res.monthlyPayment,
             totalPayment = res.totalPayment,
             totalInterest = res.totalInterest,
