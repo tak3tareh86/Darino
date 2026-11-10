@@ -1060,7 +1060,7 @@ fun EditSmsTransactionDialog(
     val appCurrency = LocalAppCurrency.current
     val amountUnit = MoneyFormatter.getUnitLabel(appCurrency)
     var selectedType by remember(suggestion.id) { mutableStateOf(suggestion.type) }
-    var amountText by remember(suggestion.id) {
+    var amountText by remember(suggestion.id, appCurrency) {
         mutableStateOf(
             if (suggestion.amountCandidates.filter { it > 0L }.distinct().size > 1) ""
             else if (suggestion.isAmountValid && suggestion.amount > 0L) IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(suggestion.amount, suggestion.amountUnit).inUnit(appCurrency).value.stripTrailingZeros().toPlainString())
@@ -1075,7 +1075,7 @@ fun EditSmsTransactionDialog(
     }
     val validAmount = amountDecimal != null && amountDecimal.signum() > 0 && amountRials > 0L
     val amountOptions = remember(
-        suggestion.id, suggestion.amount, suggestion.isAmountValid,
+        suggestion.id, appCurrency, suggestion.amount, suggestion.isAmountValid,
         suggestion.balanceAmount, suggestion.balanceAmountUnit, suggestion.amountUnit, suggestion.amountCandidates, suggestion.amountCandidateUnits
     ) {
         buildList {
