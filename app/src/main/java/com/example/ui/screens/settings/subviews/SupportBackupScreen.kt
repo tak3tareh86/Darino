@@ -750,6 +750,27 @@ fun SupportBackupScreen(
                                 )
                             }
 
+                            OutlinedButton(
+                                onClick = { showAutomaticRestoreConfirmation = true },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                enabled = !isRestoring,
+                                shape = RoundedCornerShape(RadiusMD),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CloudDownload,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "بازیابی آخرین پشتیبان خودکار روزانه/هفتگی",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
                             // Share Backup File
                             OutlinedButton(
                                 onClick = {
