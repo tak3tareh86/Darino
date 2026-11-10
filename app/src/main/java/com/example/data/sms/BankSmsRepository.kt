@@ -169,7 +169,8 @@ class BankSmsRepository(private val context: Context) {
                             balanceAmount = if (item.has("balanceAmount") && !item.isNull("balanceAmount")) item.optLong("balanceAmount") else null,
                             amountCandidates = amountCandidates,
                             amountCandidateUnits = amountCandidateUnits,
-                            trackingCode = item.optString("trackingCode").takeIf { it.isNotBlank() && it != "null" }
+                            trackingCode = item.optString("trackingCode").takeIf { it.isNotBlank() && it != "null" },
+                            preserveAfterRestore = item.optBoolean("preserveAfterRestore", false)
                         )
                     )
                 }
@@ -234,6 +235,7 @@ class BankSmsRepository(private val context: Context) {
                     .put("balanceAmount", suggestion.balanceAmount ?: JSONObject.NULL)
                     .put("amountCandidates", JSONArray(suggestion.amountCandidates))
                     .put("trackingCode", suggestion.trackingCode ?: JSONObject.NULL)
+                    .put("preserveAfterRestore", suggestion.preserveAfterRestore)
             )
         }
         pendingQueuePreferences.edit().putString(key, array.toString()).apply()
