@@ -311,6 +311,9 @@ class LocalBackupRepository(
                 is ValidationResult.Valid -> Unit
                 is ValidationResult.Invalid -> throw IllegalArgumentException(validation.reason)
             }
+            require(mode == RestoreMode.REPLACE) {
+                "ادغام پشتیبان تا زمان پیاده‌سازی تطبیق امن شناسه‌ها در دسترس نیست؛ برای جلوگیری از ایجاد رکوردهای تکراری، فقط جایگزینی کامل مجاز است."
+            }
             val userId = getEffectiveUserId()
             val previousSmartSchedules = if (mode == RestoreMode.REPLACE) {
                 db.smartReminderDao().getAllSchedulesList(userId)
