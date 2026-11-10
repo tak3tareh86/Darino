@@ -528,7 +528,7 @@ object BackupValidator {
             items.map(key).size != items.map(key).toSet().size
 
         if (hasDuplicates(backup.accounts) { it.stringId } ||
-            hasDuplicates(backup.transactions) { it.stringId } ||
+            hasDuplicates(backup.transactions.filter { it.stringId.isNotBlank() }) { it.stringId } ||
             hasDuplicates(backup.checks) { it.id } ||
             hasDuplicates(backup.installments) { it.id } ||
             hasDuplicates(backup.vehicles) { it.id } ||
