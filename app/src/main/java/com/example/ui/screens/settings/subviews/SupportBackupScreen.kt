@@ -198,19 +198,14 @@ fun SupportBackupScreen(
 
 
 
-    // Support state
-    var ticketSubject by remember { mutableStateOf("") }
-    var ticketMessage by remember { mutableStateOf("") }
+    // Support contact
+    val defaultSupportGmail = "support.apkapp@gmail.com"
 
-    // Single source of truth for the support mailbox used by every contact action.
-    val defaultSupportGmail = "support.financeapp@gmail.com"
-
-    fun openSupportEmail(subject: String, message: String = "") {
+    fun openSupportEmail(subject: String) {
         val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
             data = Uri.fromParts("mailto", defaultSupportGmail, null)
             putExtra(Intent.EXTRA_EMAIL, arrayOf(defaultSupportGmail))
             putExtra(Intent.EXTRA_SUBJECT, subject)
-            if (message.isNotBlank()) putExtra(Intent.EXTRA_TEXT, message)
         }
         try {
             context.startActivity(Intent.createChooser(emailIntent, "انتخاب برنامه ایمیل"))
@@ -576,54 +571,27 @@ fun SupportBackupScreen(
                     }
 
                 } else {
-                    // TAB 2: SUPPORT (فقط جیمیل پیش‌فرض)
+                    // TAB 2: SUPPORT
                     item {
                         SettingsSectionCard(title = "ارتباط با پشتیبانی از طریق ایمیل") {
                             SupportContactRow(
                                 title = "نشانی ایمیل پشتیبانی",
                                 subtitle = defaultSupportGmail,
                                 icon = Icons.Rounded.Mail,
-                                iconColor = Color(0xFFEA4335),
-                                actionText = "ارسال ایمیل",
-                                onClick = {
-                                    openSupportEmail("درخواست پشتیبانی - نرم‌افزار حسابداری و مدیریت خودرو")
-                                }
+                                iconColor = Color(0xFFEA4335)
                             )
                         }
                     }
 
-                    // Ticket / Direct Message Form
                     item {
-                        SettingsSectionCard(title = "ارسال پیام به ایمیل پشتیبانی") {
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                OutlinedTextField(
-                                    value = ticketSubject,
-                                    onValueChange = { ticketSubject = it },
-                                    label = { Text("موضوع پیام") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(RadiusMD)
-                                )
-
-                                OutlinedTextField(
-                                    value = ticketMessage,
-                                    onValueChange = { ticketMessage = it },
-                                    label = { Text("متن پیام یا گزارش شما") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    minLines = 3,
-                                    maxLines = 5,
-                                    shape = RoundedCornerShape(RadiusMD)
-                                )
-
+                        SettingsSectionCard(title = "ارسال ایمیل") {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Button(
                                     onClick = {
-                                        val subject = ticketSubject.trim()
-                                        val message = ticketMessage.trim()
-                                        if (subject.isNotEmpty() && message.isNotEmpty()) {
-                                            openSupportEmail(subject, message)
-                                        } else {
-                                            Toast.makeText(context, "لطفاً موضوع و متن پیام را وارد کنید.", Toast.LENGTH_SHORT).show()
-                                        }
+                                        openSupportEmail("درخواست پشتیبانی - نرم‌افزار حسابداری و مدیریت خودرو")
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -631,7 +599,7 @@ fun SupportBackupScreen(
                                     shape = RoundedCornerShape(RadiusMD),
                                     colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimaryLight)
                                 ) {
-                                    Text("باز کردن پیش‌نویس ایمیل", fontWeight = FontWeight.Bold)
+                                    Text("ارسال ایمیل", fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -732,18 +700,13 @@ private fun SupportContactRow(
     title: String,
     subtitle: String,
     icon: ImageVector,
-    iconColor: Color,
-    actionText: String,
-    onClick: () -> Unit
+    iconColor: Color
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(RadiusMD))
-            .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
             modifier = Modifier.weight(1f),
@@ -777,19 +740,6 @@ private fun SupportContactRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
-
-        Surface(
-            shape = RoundedCornerShape(RadiusSM),
-            color = iconColor.copy(alpha = 0.15f)
-        ) {
-            Text(
-                text = actionText,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = iconColor
-            )
         }
     }
 }
