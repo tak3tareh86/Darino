@@ -37,7 +37,7 @@ class WeeklyBackupWorker(
             val backup = backupRepo.createBackup()
 
             val jsonString = BackupFileCodec.encode(backup)
-            val encryptedPayload = DeviceBackupEncryption.encrypt(jsonString.toByteArray(Charsets.UTF_8))
+            val encryptedPayload = DeviceBackupEncryption.encrypt(jsonString.toByteArray(Charsets.UTF_8), applicationContext)
 
             val userTag = BackupUserScope.tag(userId)
             val (y, m, d) = CalendarDateUtils.getCurrentJalaliDate()
