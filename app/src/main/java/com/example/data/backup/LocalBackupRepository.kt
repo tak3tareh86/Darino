@@ -496,7 +496,9 @@ class LocalBackupRepository(
     override suspend fun restoreBackup(
         backup: DarinoBackup,
         mode: RestoreMode
-    ) = restoreBackupInternal(backup, mode, recovering = false)
+    ) = restoreRecoveryMutex.withLock {
+        restoreBackupInternal(backup, mode, recovering = false)
+    }
 
     private suspend fun restoreBackupInternal(
         backup: DarinoBackup,
