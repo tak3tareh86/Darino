@@ -84,8 +84,9 @@ class LocalBackupRepository(
         private val restoreRecoveryMutex = kotlinx.coroutines.sync.Mutex()
         private const val MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
         private const val MAX_TOTAL_ATTACHMENT_BYTES = 30 * 1024 * 1024
+        private const val MAX_BACKUP_JSON_BYTES = 64L * 1024 * 1024
         // Matches the portable backup payload ceiling, with room for device-encryption framing.
-        private const val MAX_LOCAL_BACKUP_FILE_BYTES = 64L * 1024 * 1024 + 1024L
+        private const val MAX_LOCAL_BACKUP_FILE_BYTES = MAX_BACKUP_JSON_BYTES + 1024L
     }
 
     /** Reads device-local backups with both a preflight and streaming size limit. */
@@ -166,7 +167,14 @@ class LocalBackupRepository(
     private suspend fun writeEmergencyBackup() {
         val snapshot = createBackup()
         val json = BackupFileCodec.encode(snapshot)
-        val encrypted = DeviceBackupEncryption.encrypt(json.toByteArray(Charsets.UTF_8), context)
+        val jsonPayload = json.toByteArray(Charsets.UTF_8)
+        require(jsonPayload.size.toLong() <= MAX_BACKUP_JSON_BYTES) {
+            "حجم داده‌های پشتیبان اضطراری از حد مجاز بیشتر است."
+        }
+        val encrypted = DeviceBackupEncryption.encrypt(jsonPayload, context)
+        require(encrypted.size.toLong() <= MAX_LOCAL_BACKUP_FILE_BYTES) {
+            "حجم فایل پشتیبان اضطراری رمزگذاری‌شده از حد مجاز بیشتر است."
+        }
         val userTag = BackupUserScope.tag(getEffectiveUserId())
         val directory = File(context.filesDir, "emergency_backups")
         check(directory.exists() || directory.mkdirs()) { "ساخت پوشه پشتیبان اضطراری ناموفق بود." }
