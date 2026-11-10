@@ -14,6 +14,8 @@ interface LoanCalculationDao {
 
     @Query("SELECT * FROM loan_calculations ORDER BY createdAt DESC")
     suspend fun getAllCalculationsList(): List<LoanCalculationEntity>
+    @Query("SELECT * FROM loan_calculations WHERE id = :id LIMIT 1")
+    suspend fun getCalculationById(id: String): LoanCalculationEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCalculation(entity: LoanCalculationEntity)
