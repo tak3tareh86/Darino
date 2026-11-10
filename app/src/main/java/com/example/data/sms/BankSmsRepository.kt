@@ -80,6 +80,8 @@ class BankSmsRepository(private val context: Context) {
     }
 
     fun markSmsProcessed(smsId: String, userId: String? = null) {
+        // Restored suggestion IDs are not Android SMS-provider row IDs.
+        if (smsId.startsWith("restored_backup_")) return
         val key = userKey(KEY_PROCESSED_SMS_IDS, userId) ?: return
         val current = (prefs.getStringSet(key, emptySet()) ?: emptySet()).toMutableSet()
         current.add(smsId)
@@ -87,6 +89,7 @@ class BankSmsRepository(private val context: Context) {
     }
 
     fun markSmsDismissed(smsId: String, userId: String? = null) {
+        if (smsId.startsWith("restored_backup_")) return
         val key = userKey(KEY_DISMISSED_SMS_IDS, userId) ?: return
         val current = (prefs.getStringSet(key, emptySet()) ?: emptySet()).toMutableSet()
         current.add(smsId)
@@ -262,7 +265,10 @@ class BankSmsRepository(private val context: Context) {
                 if (!item.has("receivedAtMillis") || item.isNull("receivedAtMillis")) {
                     item.put("receivedAtMillis", item.optLong("timestampMillis", System.currentTimeMillis()))
                 }
-                if (markPreserved) item.put("preserveAfterRestore", true)
+                if (markPreserved) {
+                    item.put("id", "restored_backup_${java.util.UUID.randomUUID()}")
+                    item.put("preserveAfterRestore", true)
+                }
             }
             array.toString()
         }.getOrElse { raw }
