@@ -74,7 +74,8 @@ data class AppSettingsBackup(
     val installmentReminderDays: Int? = null,
     val vehicleReminderKilometers: Int? = null,
     val autoBackupDailyEnabled: Boolean? = null,
-    val autoBackupWeeklyEnabled: Boolean? = null
+    val autoBackupWeeklyEnabled: Boolean? = null,
+    val cleanSlatePerformed: Boolean? = null
 )
 
 /** JSON snapshots of custom finance preferences stored in darino_general_preferences. */
