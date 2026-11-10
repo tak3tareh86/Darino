@@ -222,7 +222,7 @@ fun LoanCalculatorScreen(
                 LoanScreenTab.CALCULATOR -> {
                     CalculatorMainTab(
                         state = state,
-                        viewModel = activeViewModel,
+                        activeViewModel = activeViewModel,
                         onOpenSaveDialog = {
                             saveTitleInput = "${state.loanType?.title ?: "محاسبه وام"} (${CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)})"
                             showSaveDialog = true
