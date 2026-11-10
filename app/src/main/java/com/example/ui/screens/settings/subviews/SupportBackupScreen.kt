@@ -94,11 +94,11 @@ fun SupportBackupScreen(
     fun currentBackupTimestampKey(): String {
         val userId = com.example.data.security.SessionManager.userId
             ?: com.example.data.security.AuthSessionManager(context).getActiveSession()?.userId
-        return userId?.let { "last_backup_time_${Integer.toHexString(it.hashCode())}" } ?: "last_backup_time"
+        return userId?.let { "last_backup_time_${com.example.data.backup.BackupUserScope.tag(it)}" } ?: "last_backup_time"
     }
     fun readLastBackupTimestamp(): Long {
         val key = currentBackupTimestampKey()
-        return prefs.getLong(key, if (key == "last_backup_time") 0L else prefs.getLong("last_backup_time", 0L))
+        return prefs.getLong(key, 0L)
     }
     var lastBackupDate by remember {
         val lastTime = readLastBackupTimestamp()
