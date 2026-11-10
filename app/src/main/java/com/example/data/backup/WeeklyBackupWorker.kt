@@ -50,16 +50,16 @@ class WeeklyBackupWorker(
 
             val backupFile = File(autoBackupsDir, filename)
             val temporaryFile = File(autoBackupsDir, "$filename.tmp")
-            temporaryFile.outputStream().buffered().use { stream ->
+            java.io.FileOutputStream(temporaryFile).use { stream ->
                 stream.write(encryptedPayload)
-                stream.flush()
+                stream.fd.sync()
             }
-            if (backupFile.exists() && !backupFile.delete()) {
-                throw java.io.IOException("Could not replace previous automatic backup")
-            }
-            if (!temporaryFile.renameTo(backupFile)) {
+            try {
+                // Atomic replacement preserves the last known-good snapshot if writing fails.
+                android.system.Os.rename(temporaryFile.absolutePath, backupFile.absolutePath)
+            } catch (error: Exception) {
                 temporaryFile.delete()
-                throw java.io.IOException("Could not finalize automatic backup file")
+                throw java.io.IOException("Could not finalize automatic backup file", error)
             }
 
             // Keep bounded local history so daily backups cannot grow without limit.
