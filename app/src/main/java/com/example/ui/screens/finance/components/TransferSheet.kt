@@ -48,12 +48,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.RadiusMD
+import com.example.ui.components.PersianDateInputField
+import com.example.util.PersianCalendarHelper
 
 @Composable
 fun TransferSheet(
     accounts: List<com.example.ui.screens.finance.model.Account> = emptyList(),
     onDismiss: () -> Unit,
-    onSubmitTransfer: (from: String, to: String, amount: String, desc: String) -> Unit,
+    onSubmitTransfer: (from: String, to: String, amount: String, desc: String, datePersian: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val activeAccounts = remember(accounts) { accounts.filter { it.isActive } }
@@ -77,6 +79,7 @@ fun TransferSheet(
         }
     }
     var amountText by remember { mutableStateOf("") }
+    var transferDate by remember { mutableStateOf(PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()) }
     var descText by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -196,26 +199,42 @@ fun TransferSheet(
                     }
                 }
 
-                // Amount Field
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = { input ->
-                        amountText = com.example.util.IranianAmountUtils.formatDecimalWithCommas(
-                            com.example.util.IranianAmountUtils.cleanDecimalAmountInputWhileEditing(input)
-                        )
-                    },
-                    label = { Text("مبلغ انتقال (${com.example.util.MoneyFormatter.getUnitLabel()})") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("transfer_amount_input"),
-                    shape = RoundedCornerShape(RadiusMD),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = InfoIndigoLight,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                    ),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
-                    singleLine = true
-                )
+                // Amount and Persian transfer date fields (equal width and height)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = amountText,
+                        onValueChange = { input ->
+                            amountText = com.example.util.IranianAmountUtils.formatDecimalWithCommas(
+                                com.example.util.IranianAmountUtils.cleanDecimalAmountInputWhileEditing(input)
+                            )
+                        },
+                        label = { Text("مبلغ انتقال (${com.example.util.MoneyFormatter.getUnitLabel()})", maxLines = 1) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp)
+                            .testTag("transfer_amount_input"),
+                        shape = RoundedCornerShape(RadiusMD),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = InfoIndigoLight,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                        ),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                        singleLine = true
+                    )
+                    PersianDateInputField(
+                        value = transferDate,
+                        onValueChange = { transferDate = it },
+                        modifier = Modifier.weight(1f),
+                        label = "تاریخ انتقال",
+                        fieldHeight = 56.dp,
+                        singleLineLabel = true,
+                        testTag = "transfer_date_input"
+                    )
+                }
 
                 // Description Field
                 OutlinedTextField(
@@ -252,7 +271,7 @@ fun TransferSheet(
                             return@Button
                         }
                         errorMessage = null
-                        onSubmitTransfer(src.id, dest.id, amountText, descText)
+                        onSubmitTransfer(src.id, dest.id, amountText, descText, transferDate)
                     },
                     modifier = Modifier
                         .fillMaxWidth()

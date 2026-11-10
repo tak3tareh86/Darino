@@ -419,12 +419,17 @@ fun FinancialScreen(
         TransferSheet(
             accounts = state.accounts,
             onDismiss = { showTransferSheet = false },
-            onSubmitTransfer = { srcId, destId, amountStr, desc ->
+            onSubmitTransfer = { srcId, destId, amountStr, desc, transferDate ->
                 val parsedAmtRials = com.example.util.IranianAmountUtils.parseAmountToBigDecimal(amountStr)?.let { entered ->
                     runCatching { com.example.util.MoneyAmount(entered, com.example.util.MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull()
                 }
                 if (parsedAmtRials != null && parsedAmtRials > 0L) {
                     val now = System.currentTimeMillis()
+                    val currentTime = PersianCalendarHelper.fromEpochMillis(now)
+                    val (transferYear, transferMonth, transferDay) = com.example.util.IranianDateUtils.parsePersianDate(transferDate)
+                    val transferDateMillis = PersianCalendarHelper.jalaliToEpochMillis(
+                        transferYear, transferMonth, transferDay, currentTime.hour, currentTime.minute
+                    )
                     val transferTx = TransactionItemData(
                         id = java.util.UUID.randomUUID().toString(),
                         title = "انتقال وجه",
@@ -432,8 +437,8 @@ fun FinancialScreen(
                         amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL,
                         type = TransactionType.TRANSFER,
                         category = FinanceDefaultCategories.transferCategory,
-                        dateMillis = now,
-                        datePersian = PersianCalendarHelper.fromEpochMillis(now).toFormattedDate(),
+                        dateMillis = transferDateMillis,
+                        datePersian = PersianCalendarHelper.fromEpochMillis(transferDateMillis).toFormattedDate(),
                         timePersian = PersianCalendarHelper.fromEpochMillis(now).toFormattedTime(),
                         description = desc,
                         transferSourceAccountId = srcId,
