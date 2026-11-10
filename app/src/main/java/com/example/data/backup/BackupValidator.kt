@@ -17,7 +17,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.security.MessageDigest
-import okio.decodeBase64
+import okio.ByteString
 
 object BackupValidator {
 
@@ -355,7 +355,8 @@ object BackupValidator {
             ) {
                 return ValidationResult.Invalid("اطلاعات یکی از فایل‌های پیوست معتبر نیست.")
             }
-            val bytes = attachment.base64Data.decodeBase64()?.toByteArray()
+            @Suppress("DEPRECATION")
+            val bytes = ByteString.decodeBase64(attachment.base64Data)?.toByteArray()
                 ?: return ValidationResult.Invalid("کدگذاری یکی از فایل‌های پیوست معتبر نیست.")
             if (bytes.isEmpty() || bytes.size > 10 * 1024 * 1024) {
                 return ValidationResult.Invalid("حجم یکی از فایل‌های پیوست معتبر نیست.")
