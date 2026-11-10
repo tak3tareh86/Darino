@@ -31,7 +31,7 @@ import androidx.room.RoomDatabase
         UserPreferenceEntity::class,
         CheckEntity::class
     ],
-    version = 40,
+    version = 41,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -576,6 +576,17 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_40_41 = object : androidx.room.migration.Migration(40, 41) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Existing saved calculations belonged to the only active local profile.
+                // Claim them lazily for the first authenticated user without exposing them
+                // to every account after the schema becomes user-scoped.
+                db.execSQL(
+                    "ALTER TABLE loan_calculations ADD COLUMN userId TEXT NOT NULL DEFAULT 'legacy_unassigned'"
+                )
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -589,7 +600,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
                          MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
                          MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30,
-                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40
+                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41
                      )
                     .build()
                 INSTANCE = instance
