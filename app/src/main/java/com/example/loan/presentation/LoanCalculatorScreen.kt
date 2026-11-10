@@ -66,11 +66,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
+import com.example.loan.data.LoanRepository
 import com.example.loan.domain.CalculationMethod
 import com.example.loan.domain.CalculationResult
 import com.example.loan.domain.DurationType
@@ -100,9 +104,24 @@ fun LoanCalculatorScreen(
     onBackClick: () -> Unit,
     onCreateInstallment: (InstallmentCategory, String, String, String, Int) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: LoanCalculatorViewModel = viewModel()
+    viewModel: LoanCalculatorViewModel? = null
 ) {
-    val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    val viewModelFactory = remember(context) {
+        object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                if (!modelClass.isAssignableFrom(LoanCalculatorViewModel::class.java)) {
+                    throw IllegalArgumentException("Unsupported ViewModel type: ${modelClass.name}")
+                }
+                @Suppress("UNCHECKED_CAST")
+                return LoanCalculatorViewModel(
+                    repository = LoanRepository(context.applicationContext)
+                ) as T
+            }
+        }
+    }
+    val activeViewModel = viewModel ?: composeViewModel(factory = viewModelFactory)
+    val state by activeViewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
@@ -112,7 +131,7 @@ fun LoanCalculatorScreen(
     LaunchedEffect(state.successFeedbackMessage) {
         state.successFeedbackMessage?.let { msg ->
             snackbarHostState.showSnackbar(msg)
-            viewModel.clearFeedback()
+            activeViewModel.clearFeedback()
         }
     }
 
