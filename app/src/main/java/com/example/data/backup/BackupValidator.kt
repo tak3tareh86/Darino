@@ -38,16 +38,25 @@ object BackupValidator {
         if (rawJson.isNullOrBlank()) return true
         val values = runCatching { jsonArrayAdapter.fromJson(rawJson) }.getOrNull() ?: return false
         return values.all { value ->
-            value is Map<*, *> && requiredKeys.all { it in value.keys }
+            value is Map<*, *> && requiredKeys.all { key -> value.containsKey(key) && value[key] != null }
         }
     }
 
     private fun jsonArrayStringValues(rawJson: String?, key: String): List<String>? {
         if (rawJson.isNullOrBlank()) return emptyList()
         val values = runCatching { jsonArrayAdapter.fromJson(rawJson) }.getOrNull() ?: return null
-        if (values.any { it !is Map<*, *> }) return null
+        if (values.any { value ->
+                value !is Map<*, *> ||
+                    (value as Map<*, *>).let { it.containsKey(key) && it[key] != null && it[key] !is String }
+            }
+        ) return null
         return values.mapNotNull { (it as Map<*, *>)[key] as? String }
             .filter(String::isNotBlank)
+    }
+
+    private fun hasUniqueJsonIds(rawJson: String?): Boolean {
+        val ids = jsonArrayStringValues(rawJson, "id") ?: return false
+        return ids.size == countJsonArrayItems(rawJson) && ids.size == ids.toSet().size
     }
 
     fun calculateChecksum(content: String): String {
@@ -84,7 +93,7 @@ object BackupValidator {
         }
         val validCurrencyMetadata = when (version) {
             in 1..6 -> backup.metadata.currencyUnit == "TOMAN"
-            in 7..8 -> backup.metadata.currencyUnit == "PER_RECORD"
+            in 7..9 -> backup.metadata.currencyUnit == "PER_RECORD"
             else -> false
         }
         if (!validCurrencyMetadata) {
@@ -182,21 +191,31 @@ object BackupValidator {
                 } ?: false)
         )
         val finance = backup.financeMetadata
+        val vehicleStore = backup.vehicleStore
+        val vehicleStoreJsonValid = vehicleStore == null || (
+            isJsonObjectArray(vehicleStore.vehiclesJson, setOf("id", "brand", "model", "year", "color", "plate", "currentMileage")) &&
+                isJsonObjectArray(vehicleStore.servicesJson, setOf("id", "vehicleId", "title", "date", "mileage", "cost")) &&
+                isJsonObjectArray(vehicleStore.expensesJson, setOf("id", "vehicleId", "title", "category", "amount", "date")) &&
+                isJsonObjectArray(vehicleStore.insurancesJson, setOf("id", "vehicleId", "company", "type", "startDate", "endDate", "amount")) &&
+                isJsonObjectArray(vehicleStore.inspectionsJson, setOf("id", "vehicleId", "lastInspectionDate", "expiryDate", "cost")) &&
+                listOf(
+                    vehicleStore.vehiclesJson,
+                    vehicleStore.servicesJson,
+                    vehicleStore.expensesJson,
+                    vehicleStore.insurancesJson,
+                    vehicleStore.inspectionsJson
+                ).all(::hasUniqueJsonIds)
+        )
         val customCollectionsValid = version < 8 || (
             isJsonObjectArray(finance?.budgetsJson, setOf("id", "title", "amount")) &&
                 isJsonObjectArray(finance?.savingsGoalsJson, setOf("id", "title", "targetAmount", "currentAmount")) &&
                 isJsonObjectArray(finance?.recurringTransactionsJson, setOf("id", "title", "amount", "type", "frequency", "startDate", "nextExecutionDate")) &&
                 isJsonObjectArray(finance?.categoriesJson, setOf("id", "title", "iconEmoji", "type")) &&
                 isJsonObjectArray(backup.userBankSmsRulesJson, setOf("bankName")) &&
-                isJsonObjectArray(backup.smsPatternsJson, setOf("name", "type", "sampleMessage")) &&
-                isJsonObjectArray(backup.vehicleStore?.vehiclesJson) &&
-                isJsonObjectArray(backup.vehicleStore?.servicesJson) &&
-                isJsonObjectArray(backup.vehicleStore?.expensesJson) &&
-                isJsonObjectArray(backup.vehicleStore?.insurancesJson) &&
-                isJsonObjectArray(backup.vehicleStore?.inspectionsJson)
+                isJsonObjectArray(backup.smsPatternsJson, setOf("name", "type", "sampleMessage"))
         )
         if (configurationRecordCounts.any { it < 0 } || pendingBankSmsCount < 0 ||
-            !customCollectionsValid || !bankSmsStateValid ||
+            !customCollectionsValid || !vehicleStoreJsonValid || !bankSmsStateValid ||
             (backup.smsRecognitionStartMillis != null && backup.smsRecognitionStartMillis <= 0L)
         ) {
             return ValidationResult.Invalid("تنظیمات سفارشی فایل پشتیبان ساختار معتبر ندارند.")
@@ -287,17 +306,26 @@ object BackupValidator {
             }
         }
 
+        val legacyVehicleIds = jsonArrayStringValues(vehicleStore?.vehiclesJson, "id")
+            ?: return ValidationResult.Invalid("شناسه خودروهای قدیمی در فایل پشتیبان معتبر نیست.")
         val vehicleIds = buildSet {
             backup.vehicles.forEach { vehicle ->
                 add(vehicle.id.toString())
                 vehicle.serverId?.takeIf { it.isNotBlank() }?.let { add(it) }
             }
+            legacyVehicleIds.forEach(::add)
         }
         val referencedVehicleIds = buildList {
             backup.vehicleServices.forEach { add(it.vehicleId) }
             backup.vehicleExpenses.forEach { add(it.vehicleId) }
             backup.vehicleInsurances.forEach { add(it.vehicleId) }
             backup.vehicleInspections.forEach { add(it.vehicleId) }
+            listOf(
+                vehicleStore?.servicesJson,
+                vehicleStore?.expensesJson,
+                vehicleStore?.insurancesJson,
+                vehicleStore?.inspectionsJson
+            ).forEach { raw -> jsonArrayStringValues(raw, "vehicleId")?.let(::addAll) }
         }
         if (referencedVehicleIds.any { it !in vehicleIds }) {
             return ValidationResult.Invalid("فایل پشتیبان دارای اطلاعات خودرو بدون خودروی مرتبط است.")
