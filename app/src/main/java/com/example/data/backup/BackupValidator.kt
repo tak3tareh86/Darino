@@ -43,7 +43,7 @@ object BackupValidator {
     }
 
     private fun jsonArrayStringValues(rawJson: String?, key: String): List<String>? {
-        if (rawJson == null) return emptyList()
+        if (rawJson.isNullOrBlank()) return emptyList()
         val values = runCatching { jsonArrayAdapter.fromJson(rawJson) }.getOrNull() ?: return null
         if (values.any { it !is Map<*, *> }) return null
         return values.mapNotNull { (it as Map<*, *>)[key] as? String }
