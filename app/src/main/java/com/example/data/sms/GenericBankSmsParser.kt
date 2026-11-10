@@ -142,7 +142,7 @@ object GenericBankSmsParser {
             Regex("""(?:ریال|ريال|rial|rials)""", RegexOption.IGNORE_CASE).containsMatchIn(normalized) &&
             !Regex("""(?:تومان|تومن|toman|tomans)""", RegexOption.IGNORE_CASE).containsMatchIn(normalized)
         ) AppCurrency.RIAL else AppCurrency.TOMAN
-        val amountUnit = unitNear(amountMatch, messageDefaultUnit)
+        val amountUnit = AppCurrency.RIAL
         if (amountValue !in 1L..100_000_000_000_000L) return null
 
         val balanceMatch = balanceLabel.findAll(normalized).singleOrNull()
@@ -150,7 +150,7 @@ object GenericBankSmsParser {
         // Balance values follow the same raw-number rule as transaction amounts,
         // but may explicitly use a different unit in the same SMS.
         val balance = balanceRaw
-        val balanceAmountUnit = unitNear(balanceMatch, amountUnit)
+        val balanceAmountUnit = balance?.let { AppCurrency.RIAL }
 
         val bankName = forcedBankName?.takeIf { it.isNotBlank() } ?: identifyBank(normalized, sender)
         val receivedDateTime = PersianCalendarHelper.fromEpochMillis(timestampMillis)
@@ -232,18 +232,15 @@ object GenericBankSmsParser {
                 ) values.add(balance)
                 values
             },
-            amountCandidateUnits = run {
-                val candidateMatches = groupedAmountRegex.findAll(normalize(body))
-                    .filter { parseDigits(it.value)?.let { value -> value in 1L..100_000_000_000_000L } == true }
-                    .toList()
-                val units = candidateMatches.map { match -> unitNear(match, messageDefaultUnit) }.toMutableList()
-                val groupedValues = extractGroupedAmounts(body)
-                if (amountValue !in groupedValues) units.add(amountUnit)
-                if (balance != null && balance !in groupedValues &&
-                    (balance != amountValue || balanceAmountUnit != amountUnit)
-                ) units.add(balanceAmountUnit)
-                units
-            },
+            amountCandidateUnits = List(
+                run {
+                    val groupedValues = extractGroupedAmounts(body)
+                    groupedValues.size +
+                        (if (amountValue !in groupedValues) 1 else 0) +
+                        (if (balance != null && balance !in groupedValues &&
+                            (balance != amountValue || balanceAmountUnit != amountUnit)) 1 else 0)
+                }
+            ) { AppCurrency.RIAL },
             trackingCode = tracking
         )
     }
