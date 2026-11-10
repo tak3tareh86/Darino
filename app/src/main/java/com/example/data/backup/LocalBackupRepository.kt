@@ -343,7 +343,6 @@ class LocalBackupRepository(
                         BackupValidator.countJsonArrayItems(financeMetadata.categoriesJson) +
                         BackupValidator.countJsonArrayItems(smsRulesJson) +
                         BackupValidator.countJsonArrayItems(smsPatternsJson) +
-                        bankSmsState.processedSmsIds.size + bankSmsState.dismissedSmsIds.size +
                         BackupValidator.countJsonArrayItems(bankSmsState.pendingSuggestionsJson)
 
             DarinoBackup(
