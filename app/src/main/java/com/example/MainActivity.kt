@@ -155,9 +155,44 @@ class MainActivity : FragmentActivity() {
         val exactAlarmAllowed = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S ||
             alarmManager?.canScheduleExactAlarms() == true
         if (exactAlarmAllowed) {
-            // Re-arm persisted reminders after returning from system settings or process recreation.
+            // Room is the durable source of truth; rebuild every alarm family on app
+            // resume so a process death between restore commit and OS registration is recoverable.
             lifecycleScope.launch {
-                com.example.reminder.domain.ReminderScheduler(applicationContext).rebuildAllSchedules()
+                val appContext = applicationContext
+                runCatching {
+                    com.example.data.security.SessionManager.init(appContext)
+                    com.example.reminder.domain.ReminderScheduler(appContext).rebuildAllSchedules()
+                }.onFailure { error ->
+                    android.util.Log.e("MainActivity", "Failed to rebuild smart reminder alarms", error)
+                }
+
+                runCatching {
+                    val userId = com.example.data.security.SessionManager.userId
+                        ?: com.example.data.security.AuthSessionManager(appContext).getActiveSession()?.userId
+                    if (!userId.isNullOrBlank()) {
+                        val database = com.example.data.database.AppDatabase.getDatabase(appContext)
+                        val legacyScheduler = com.example.data.receiver.ReminderScheduler(appContext)
+                        database.reminderDao().getActiveRemindersSnapshot(userId).forEach { reminder ->
+                            legacyScheduler.schedule(reminder)
+                        }
+                    }
+                }.onFailure { error ->
+                    android.util.Log.e("MainActivity", "Failed to rebuild legacy reminder alarms", error)
+                }
+
+                runCatching {
+                    val userId = com.example.data.security.SessionManager.userId
+                        ?: com.example.data.security.AuthSessionManager(appContext).getActiveSession()?.userId
+                    if (!userId.isNullOrBlank()) {
+                        val database = com.example.data.database.AppDatabase.getDatabase(appContext)
+                        val scheduler = com.example.calendar.reminder.CalendarEventReminderScheduler(appContext)
+                        database.financialEventDao().getAllEventsList(userId).forEach { event ->
+                            scheduler.schedule(event.toDomain())
+                        }
+                    }
+                }.onFailure { error ->
+                    android.util.Log.e("MainActivity", "Failed to rebuild calendar event alarms", error)
+                }
             }
         }
     }
