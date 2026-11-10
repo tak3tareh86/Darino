@@ -169,15 +169,9 @@ object BackupValidator {
         val pendingBankSmsCount = if (version >= 9) {
             countJsonArrayItems(bankSmsState?.pendingSuggestionsJson)
         } else 0
-        val bankSmsStateRecordCount = if (version >= 9 && bankSmsState != null) {
-            bankSmsState.processedSmsIds.size + bankSmsState.dismissedSmsIds.size + pendingBankSmsCount
-        } else 0
+        val bankSmsStateRecordCount = if (version >= 9) pendingBankSmsCount else 0
         val bankSmsStateValid = version < 9 || (
             bankSmsState != null &&
-                bankSmsState.processedSmsIds.none(String::isBlank) &&
-                bankSmsState.processedSmsIds.size == bankSmsState.processedSmsIds.toSet().size &&
-                bankSmsState.dismissedSmsIds.none(String::isBlank) &&
-                bankSmsState.dismissedSmsIds.size == bankSmsState.dismissedSmsIds.toSet().size &&
                 pendingBankSmsCount in 0..50 &&
                 isJsonObjectArray(
                     bankSmsState.pendingSuggestionsJson,
@@ -354,7 +348,7 @@ object BackupValidator {
         if (backup.transactions.any {
                 it.sourceType == "CHECK" &&
                     !it.sourceId.isNullOrBlank() &&
-                    it.sourceId !in checkIds.map(Int::toString).toSet()
+                    it.sourceId !in checkIds.map { checkId -> checkId.toString() }.toSet()
             }
         ) {
             return ValidationResult.Invalid("تراکنش تسویه به چک موجود در فایل پشتیبان متصل نیست.")
