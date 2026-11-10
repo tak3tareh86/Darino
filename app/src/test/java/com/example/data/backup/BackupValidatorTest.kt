@@ -219,13 +219,13 @@ class BackupValidatorTest {
                     navigationTransition = "DYNAMIC"
                 ),
                 financeMetadata = FinanceMetadataBackup(
-                    budgetsJson = """[{"id":"budget-1"}]""",
+                    budgetsJson = """[{"id":"budget-1","title":"Budget","amount":100}]""",
                     savingsGoalsJson = "[]",
                     recurringTransactionsJson = "[]",
                     categoriesJson = "[]"
                 ),
-                userBankSmsRulesJson = """[{"id":"rule-1"}]""",
-                smsPatternsJson = """[{"id":"pattern-1"}]"""
+                userBankSmsRulesJson = """[{"bankName":"Bank","senders":["100"],"incomeMarkers":"income","expenseMarkers":"","transferMarkers":""}]""",
+                smsPatternsJson = """[{"name":"Sample","type":"INCOME","sampleMessage":"SMS"}]"""
             )
         )
 
