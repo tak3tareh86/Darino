@@ -80,6 +80,7 @@ class LocalBackupRepository(
     }
 
     companion object {
+        private val restoreRecoveryMutex = kotlinx.coroutines.sync.Mutex()
         private const val MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
         private const val MAX_TOTAL_ATTACHMENT_BYTES = 30 * 1024 * 1024
         // Matches the portable backup payload ceiling, with room for device-encryption framing.
@@ -480,13 +481,15 @@ class LocalBackupRepository(
      * The operation is idempotent because REPLACE clears the active user's restored rows first.
      */
     suspend fun recoverInterruptedRestore() = withContext(Dispatchers.IO) {
-        val userId = getEffectiveUserId()
-        val journal = restoreJournalFile(userId)
-        if (!journal.isFile) return@withContext
-        Log.w("LocalBackupRepository", "Recovering an interrupted backup restore for the active user.")
-        val json = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(journal)).toString(Charsets.UTF_8)
-        val backup = BackupFileCodec.decode(json)
-        restoreBackupInternal(backup, RestoreMode.REPLACE, recovering = true)
+        restoreRecoveryMutex.withLock {
+            val userId = getEffectiveUserId()
+            val journal = restoreJournalFile(userId)
+            if (!journal.isFile) return@withLock
+            Log.w("LocalBackupRepository", "Recovering an interrupted backup restore for the active user.")
+            val json = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(journal)).toString(Charsets.UTF_8)
+            val backup = BackupFileCodec.decode(json)
+            restoreBackupInternal(backup, RestoreMode.REPLACE, recovering = true)
+        }
     }
 
     override suspend fun restoreBackup(
@@ -508,6 +511,11 @@ class LocalBackupRepository(
                 "ادغام پشتیبان تا زمان پیاده‌سازی تطبیق امن شناسه‌ها در دسترس نیست؛ برای جلوگیری از ایجاد رکوردهای تکراری، فقط جایگزینی کامل مجاز است."
             }
             val userId = getEffectiveUserId()
+            if (!recovering) {
+                check(!restoreJournalFile(userId).isFile) {
+                    "بازیابی قبلی هنوز کامل نشده است؛ ابتدا برنامه را دوباره باز کنید تا فرایند بازیابی ادامه پیدا کند."
+                }
+            }
             val previousSmartSchedules = if (mode == RestoreMode.REPLACE) {
                 db.smartReminderDao().getAllSchedulesList(userId)
             } else emptyList()
