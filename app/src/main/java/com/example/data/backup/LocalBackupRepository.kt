@@ -976,16 +976,11 @@ class LocalBackupRepository(
 
             backup.appSettings?.let { settings ->
                 val appPreferences = AppPreferencesRepository.getInstance(context)
-                runCatching { com.example.ui.screens.settings.model.AppThemeMode.valueOf(settings.themeMode) }
-                    .getOrNull()?.let { appPreferences.setThemeMode(it) }
-                runCatching { com.example.ui.screens.settings.model.AppLanguage.valueOf(settings.language) }
-                    .getOrNull()?.let { appPreferences.setLanguage(it) }
-                runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(settings.currency) }
-                    .getOrNull()?.let { appPreferences.setCurrency(it) }
-                runCatching { com.example.ui.screens.settings.model.AlertDeliveryPreference.valueOf(settings.alertDelivery) }
-                    .getOrNull()?.let { appPreferences.setAlertDelivery(it) }
-                runCatching { com.example.ui.screens.settings.model.NavigationTransitionAnimation.valueOf(settings.navigationTransition) }
-                    .getOrNull()?.let { appPreferences.setNavTransition(it) }
+                appPreferences.setThemeMode(com.example.ui.screens.settings.model.AppThemeMode.valueOf(settings.themeMode))
+                appPreferences.setLanguage(com.example.ui.screens.settings.model.AppLanguage.valueOf(settings.language))
+                appPreferences.setCurrency(com.example.ui.screens.settings.model.AppCurrency.valueOf(settings.currency))
+                appPreferences.setAlertDelivery(com.example.ui.screens.settings.model.AlertDeliveryPreference.valueOf(settings.alertDelivery))
+                appPreferences.setNavTransition(com.example.ui.screens.settings.model.NavigationTransitionAnimation.valueOf(settings.navigationTransition))
                 settings.smsNotificationsEnabled?.let(appPreferences::setSmsNotificationsEnabled)
                 settings.notificationSoundEnabled?.let(appPreferences::setNotificationSoundEnabled)
                 settings.notificationVibrationEnabled?.let(appPreferences::setNotificationVibrationEnabled)
@@ -995,8 +990,8 @@ class LocalBackupRepository(
                 }
                 settings.allowHighPriorityInQuietHours?.let(appPreferences::setAllowHighPriorityInQuietHours)
                 settings.defaultReminderTimeMinute?.let(appPreferences::setDefaultReminderTimeMinute)
-                settings.installmentReminderDays?.let { runCatching { appPreferences.setInstallmentReminderDays(it) } }
-                settings.vehicleReminderKilometers?.let { runCatching { appPreferences.setVehicleReminderKilometers(it) } }
+                settings.installmentReminderDays?.let(appPreferences::setInstallmentReminderDays)
+                settings.vehicleReminderKilometers?.let(appPreferences::setVehicleReminderKilometers)
                 settings.notificationsEnabled?.let(appPreferences::setNotificationsEnabled)
                 settings.cleanSlatePerformed?.let(appPreferences::setCleanSlatePerformed)
 
