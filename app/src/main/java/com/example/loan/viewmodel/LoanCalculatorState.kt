@@ -26,7 +26,7 @@ data class LoanCalculatorState(
     val durationInput: String = "",
     val duration: Int = 0,
     val durationType: DurationType = DurationType.MONTHS,
-    val calculationType: CalculationMethod = CalculationMethod.ANNUITY,
+    val calculationType: CalculationMethod? = null,
     
     // Outputs
     val monthlyPayment: Long = 0L,
