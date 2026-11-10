@@ -96,7 +96,6 @@ data class BackupAttachment(
 
 /** User-scoped bank-SMS review state; message bodies remain inside the encrypted backup. */
 data class BankSmsStateBackup(
-    val processedSmsIds: List<String> = emptyList(),
-    val dismissedSmsIds: List<String> = emptyList(),
+    // SMS provider row IDs are device-local and deliberately are not transferred.
     val pendingSuggestionsJson: String? = null
 )
