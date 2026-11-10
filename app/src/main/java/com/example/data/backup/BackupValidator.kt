@@ -183,6 +183,8 @@ object BackupValidator {
         return ids.size == countJsonArrayItems(rawJson) && ids.size == ids.toSet().size
     }
 
+    private fun <T> List<T>.hasDuplicates(): Boolean = size != toSet().size
+
     fun calculateChecksum(content: String): String {
         val bytes = MessageDigest.getInstance("SHA-256")
             .digest(content.toByteArray(Charsets.UTF_8))
@@ -393,6 +395,31 @@ object BackupValidator {
         }
         if (!backup.metadata.checksum.equals(expectedChecksum, ignoreCase = true)) {
             return ValidationResult.Invalid("صحت فایل پشتیبان تأیید نشد؛ فایل ممکن است ناقص یا تغییر داده شده باشد.")
+        }
+
+        // Primary-key collisions must be rejected before Room starts a replacement transaction.
+        val duplicatePrimaryKeys =
+            backup.accounts.map { it.id }.hasDuplicates() ||
+                backup.checks.map { it.id }.hasDuplicates() ||
+                backup.transactions.map { it.id }.hasDuplicates() ||
+                backup.installments.map { it.id }.hasDuplicates() ||
+                backup.installmentPayments.map { it.id }.hasDuplicates() ||
+                backup.vehicles.map { it.id }.hasDuplicates() ||
+                backup.vehicleServices.map { it.id }.hasDuplicates() ||
+                backup.vehicleExpenses.map { it.id }.hasDuplicates() ||
+                backup.vehicleInsurances.map { it.id }.hasDuplicates() ||
+                backup.vehicleInspections.map { it.id }.hasDuplicates() ||
+                backup.reminders.map { it.id }.hasDuplicates() ||
+                backup.reminderSchedules.map { it.id }.hasDuplicates() ||
+                backup.financialEvents.map { it.id }.hasDuplicates() ||
+                backup.financialHealthProfiles.map { it.id }.hasDuplicates() ||
+                backup.notificationLogs.map { it.id }.hasDuplicates() ||
+                backup.smsLogs.map { it.id }.hasDuplicates() ||
+                backup.reminderDeliveryLogs.map { it.id }.hasDuplicates() ||
+                backup.legacyReminders.map { it.id }.hasDuplicates() ||
+                backup.legacyReminderSchedules.map { it.id }.hasDuplicates()
+        if (duplicatePrimaryKeys) {
+            return ValidationResult.Invalid("فایل پشتیبان دارای شناسه تکراری در یکی از بخش‌ها است.")
         }
 
         // Basic relationship checks prevent malformed files from reaching database writes.
