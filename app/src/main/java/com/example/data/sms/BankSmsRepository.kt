@@ -172,6 +172,7 @@ class BankSmsRepository(private val context: Context) {
                 }
             }
         }.getOrDefault(emptyList()).mapNotNull { saved ->
+            if (saved.preserveAfterRestore) return@mapNotNull saved
             // Restore configured-template suggestions only while their own rolling window is active.
             val eligiblePatterns = currentPatterns.filter {
                 saved.receivedAtMillis >= System.currentTimeMillis() - it.lookbackMillis
@@ -247,7 +248,7 @@ class BankSmsRepository(private val context: Context) {
         )
     }
 
-    private fun normalizePendingSuggestionsJson(raw: String?): String? {
+    private fun normalizePendingSuggestionsJson(raw: String?, markPreserved: Boolean = false): String? {
         if (raw == null) return null
         return runCatching {
             val array = JSONArray(raw)
@@ -261,6 +262,7 @@ class BankSmsRepository(private val context: Context) {
                 if (!item.has("receivedAtMillis") || item.isNull("receivedAtMillis")) {
                     item.put("receivedAtMillis", item.optLong("timestampMillis", System.currentTimeMillis()))
                 }
+                if (markPreserved) item.put("preserveAfterRestore", true)
             }
             array.toString()
         }.getOrElse { raw }
@@ -272,14 +274,13 @@ class BankSmsRepository(private val context: Context) {
         require(userId.isNotBlank())
         val queueKey = userKey(KEY_PENDING_SMS_QUEUE, userId)!!
         val previousQueue = pendingQueuePreferences.getString(queueKey, null)
+        val restoredQueue = normalizePendingSuggestionsJson(state.pendingSuggestionsJson, markPreserved = true)
         try {
             val editor = pendingQueuePreferences.edit()
-            if (state.pendingSuggestionsJson == null) editor.remove(queueKey)
-            else editor.putString(queueKey, state.pendingSuggestionsJson)
+            if (restoredQueue == null) editor.remove(queueKey)
+            else editor.putString(queueKey, restoredQueue)
             check(editor.commit()) { "ذخیره پیشنهادهای پیامکی بازیابی‌شده ناموفق بود." }
-            val expectedState = state.copy(
-                pendingSuggestionsJson = normalizePendingSuggestionsJson(state.pendingSuggestionsJson)
-            )
+            val expectedState = state.copy(pendingSuggestionsJson = restoredQueue)
             check(exportStateForBackup(userId) == expectedState) {
                 "تطبیق پیشنهادهای پیامکی پس از بازیابی ناموفق بود."
             }
