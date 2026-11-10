@@ -54,6 +54,38 @@ object BackupValidator {
             .filter(String::isNotBlank)
     }
 
+    private fun isPendingBankSmsQueueValid(rawJson: String?): Boolean {
+        if (rawJson.isNullOrBlank()) return true
+        val values = runCatching { jsonArrayAdapter.fromJson(rawJson) }.getOrNull() ?: return false
+        val validUnits = setOf("TOMAN", "RIAL")
+        val validTypes = setOf("INCOME", "EXPENSE", "TRANSFER")
+        val seenIds = mutableSetOf<String>()
+        for (value in values) {
+            val item = value as? Map<*, *> ?: return false
+            val id = item["id"] as? String ?: return false
+            val patternId = item["patternId"] as? String ?: return false
+            val bankName = item["bankName"] as? String ?: return false
+            val smsText = item["smsText"] as? String ?: return false
+            val amountUnit = item["amountUnit"] as? String ?: return false
+            if (id.isBlank() || !seenIds.add(id) || patternId.isBlank() ||
+                bankName.isBlank() || smsText.isBlank() || amountUnit !in validUnits ||
+                item["amount"] !is Number || item["receivedAtMillis"] !is Number
+            ) return false
+
+            val balanceUnit = item["balanceAmountUnit"] as? String
+            if (!balanceUnit.isNullOrBlank() && balanceUnit !in validUnits) return false
+            val amountCandidates = item["amountCandidates"] as? List<*> ?: emptyList<Any>()
+            if (amountCandidates.any { it !is Number || it.toDouble() <= 0.0 }) return false
+            val candidateUnits = item["amountCandidateUnits"] as? List<*> ?: emptyList<Any>()
+            if (candidateUnits.isNotEmpty() &&
+                (candidateUnits.size != amountCandidates.size || candidateUnits.any { it !is String || it !in validUnits })
+            ) return false
+            val type = item["type"] as? String
+            if (type != null && type !in validTypes) return false
+        }
+        return values.size <= 50
+    }
+
     private fun hasUniqueJsonIds(rawJson: String?): Boolean {
         if (rawJson.isNullOrBlank()) return true
         val ids = jsonArrayStringValues(rawJson, "id") ?: return false
@@ -187,6 +219,7 @@ object BackupValidator {
                     bankSmsState.pendingSuggestionsJson,
                     setOf("id", "patternId", "bankName", "amount", "amountUnit", "smsText", "receivedAtMillis")
                 ) &&
+                isPendingBankSmsQueueValid(bankSmsState.pendingSuggestionsJson) &&
                 (jsonArrayStringValues(bankSmsState.pendingSuggestionsJson, "id")?.let {
                     it.size == pendingBankSmsCount && it.size == it.toSet().size
                 } ?: false)
