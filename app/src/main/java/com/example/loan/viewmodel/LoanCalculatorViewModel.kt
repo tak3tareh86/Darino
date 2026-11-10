@@ -60,7 +60,7 @@ class LoanCalculatorViewModel(
                 interestRate = 0.0,
                 durationInput = "",
                 duration = 0,
-                durationType = DurationType.MONTHS,
+                durationType = null,
                 calculationType = null,
                 errorMessage = null
             )
@@ -166,12 +166,14 @@ class LoanCalculatorViewModel(
             _state.update { it.copy(result = null, monthlyPayment = 0L, totalPayment = 0L, totalInterest = 0L, realCostPercentage = 0.0) }
             return
         }
+        val interestPeriod = current.interestPeriod ?: return
+        val durationType = current.durationType ?: return
         val validation = engine.validateInputs(
             amount = if (current.amountInput.isBlank()) null else current.amount,
             interestRate = if (current.interestRateInput.isBlank()) null else current.interestRate,
             duration = if (current.durationInput.isBlank()) null else current.duration,
-            interestPeriod = current.interestPeriod,
-            durationType = current.durationType,
+            interestPeriod = interestPeriod,
+            durationType = durationType,
             amountUnit = AppCurrency.RIAL
         )
 
@@ -194,7 +196,7 @@ class LoanCalculatorViewModel(
                     interestRate = current.interestRate,
                     interestPeriod = current.interestPeriod,
                     duration = current.duration,
-                    durationType = current.durationType,
+                    durationType = current.durationType ?: DurationType.MONTHS,
                     method = method,
                     amountUnit = AppCurrency.RIAL
                 )
