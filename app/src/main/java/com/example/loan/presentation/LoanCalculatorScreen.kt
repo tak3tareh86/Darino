@@ -454,6 +454,7 @@ private fun CalculatorMainTab(
                     )
             }
         }
+        }
 
         // 3. Interest Rate & Period Field
         item {
@@ -537,6 +538,7 @@ private fun CalculatorMainTab(
                     )
             }
         }
+        }
 
         // 4. Repayment Duration Field
         item {
@@ -619,6 +621,7 @@ private fun CalculatorMainTab(
                         }
                     )
             }
+        }
         }
 
         // 5. Calculation Method Selector (Annuity, Simple Interest, Custom)
