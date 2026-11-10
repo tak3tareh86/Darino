@@ -1021,8 +1021,9 @@ class LocalBackupRepository(
                 Context.MODE_PRIVATE
             )
 
+            val userTag = Integer.toHexString(getEffectiveUserId().hashCode())
             preferences
-                .getLong("last_backup_time", 0L)
+                .getLong("last_backup_time_$userTag", preferences.getLong("last_backup_time", 0L))
                 .takeIf { it != 0L }
         }
 
