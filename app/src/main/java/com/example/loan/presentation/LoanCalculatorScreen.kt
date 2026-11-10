@@ -219,6 +219,7 @@ fun LoanCalculatorScreen(
                             val durationMonths = when (state.durationType) {
                                 DurationType.MONTHS -> state.duration
                                 DurationType.YEARS -> state.duration * 12
+                                null -> state.duration
                             }
                             val totalFormatted = res?.let { MoneyFormatter.formatExact(MoneyAmount.of(it.totalPayment, AppCurrency.RIAL), includeUnit = false) }
                                 ?: MoneyFormatter.formatExact(MoneyAmount.of(state.amount, AppCurrency.RIAL), includeUnit = false)
@@ -588,7 +589,7 @@ private fun CalculatorMainTab(
                         singleLine = true,
                         trailingIcon = {
                             Text(
-                                text = state.durationType.shortTitle,
+                                text = state.durationType?.shortTitle ?: "واحد",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.sp
