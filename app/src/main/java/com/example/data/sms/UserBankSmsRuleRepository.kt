@@ -140,7 +140,10 @@ class UserBankSmsRuleRepository(context: Context) {
     fun restoreFromBackup(rawJson: String?, userId: String) {
         val storageKey = key(userId)
         if (rawJson == null) {
-            prefs.edit().remove(storageKey).commit()
+            check(prefs.edit().remove(storageKey).commit()) {
+                "پاک‌سازی قوانین پیامک قبلی هنگام بازیابی ناموفق بود."
+            }
+            SmsPatternChangeNotifier.changes.tryEmit(Unit)
             return
         }
         val array = JSONArray(rawJson)
@@ -151,9 +154,10 @@ class UserBankSmsRuleRepository(context: Context) {
         if (getAll(userId).size != array.length()) {
             val rollback = prefs.edit()
             if (previous == null) rollback.remove(storageKey) else rollback.putString(storageKey, previous)
-            rollback.commit()
+            check(rollback.commit()) { "بازگردانی قوانین پیامک قبلی پس از خطا ناموفق بود." }
             throw IllegalArgumentException("قوانین پیامک فایل پشتیبان معتبر نیستند.")
         }
+        SmsPatternChangeNotifier.changes.tryEmit(Unit)
     }
 
 }
