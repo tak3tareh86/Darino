@@ -1,6 +1,8 @@
 package com.example.data.backup
 
 import android.content.Context
+import android.net.Uri
+import android.util.Base64
 import android.util.Log
 import androidx.room.withTransaction
 import com.example.data.database.AppDatabase
@@ -8,6 +10,9 @@ import com.example.data.security.SessionManager
 import com.example.data.preferences.AppPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.security.MessageDigest
 
 class LocalBackupRepository(
     private val context: Context
@@ -19,6 +24,52 @@ class LocalBackupRepository(
         return SessionManager.userId
             ?: com.example.data.security.AuthSessionManager(context).getActiveSession()?.userId
             ?: throw IllegalStateException("Authenticated user is required")
+    }
+
+    private fun captureAttachments(
+        expenses: List<com.example.data.database.VehicleExpenseRoomEntity>
+    ): List<BackupAttachment> {
+        val uniqueUris = expenses.mapNotNull { it.receiptImageUri?.takeIf(String::isNotBlank) }.distinct()
+        var totalBytes = 0L
+        return uniqueUris.map { rawUri ->
+            val uri = Uri.parse(rawUri)
+            val input = if (uri.scheme == null) {
+                File(rawUri).takeIf { it.isFile }?.inputStream()
+            } else {
+                context.contentResolver.openInputStream(uri)
+            } ?: throw IllegalStateException("فایل پیوست رسید قابل خواندن نیست: $rawUri")
+            val bytes = input.use { stream ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(8 * 1024)
+                var read: Int
+                var size = 0
+                while (stream.read(buffer).also { read = it } != -1) {
+                    size += read
+                    require(size <= MAX_ATTACHMENT_BYTES) { "حجم یکی از فایل‌های پیوست از حد مجاز بیشتر است." }
+                    output.write(buffer, 0, read)
+                }
+                output.toByteArray()
+            }
+            totalBytes += bytes.size
+            require(totalBytes <= MAX_TOTAL_ATTACHMENT_BYTES) { "حجم کل فایل‌های پیوست برای پشتیبان‌گیری بیش از حد مجاز است." }
+            val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
+                .joinToString("") { "%02x".format(it) }
+            val rawName = uri.lastPathSegment?.substringAfterLast('/')?.takeIf(String::isNotBlank)
+                ?: "receipt-$digest.bin"
+            val safeName = rawName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(120)
+            BackupAttachment(
+                originalUri = rawUri,
+                fileName = safeName,
+                mediaType = context.contentResolver.getType(uri) ?: "application/octet-stream",
+                sha256 = digest,
+                base64Data = Base64.encodeToString(bytes, Base64.NO_WRAP)
+            )
+        }
+    }
+
+    companion object {
+        private const val MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
+        private const val MAX_TOTAL_ATTACHMENT_BYTES = 100 * 1024 * 1024
     }
 
     override suspend fun createBackup(): DarinoBackup =
@@ -48,6 +99,7 @@ class LocalBackupRepository(
 
             val expenses =
                 db.vehicleDao().getAllExpensesList(userId)
+            val attachments = captureAttachments(expenses)
 
             val insurances =
                 db.vehicleDao().getAllInsurancesList(userId)
@@ -136,7 +188,8 @@ class LocalBackupRepository(
                         BackupValidator.countJsonArrayItems(financeMetadata.recurringTransactionsJson) +
                         BackupValidator.countJsonArrayItems(financeMetadata.categoriesJson) +
                         BackupValidator.countJsonArrayItems(smsRulesJson) +
-                        BackupValidator.countJsonArrayItems(smsPatternsJson)
+                        BackupValidator.countJsonArrayItems(smsPatternsJson) +
+                        attachments.size
 
             BackupValidator.withChecksum(DarinoBackup(
                 metadata = BackupMetadata(
@@ -174,7 +227,8 @@ class LocalBackupRepository(
                 financeMetadata = financeMetadata,
                 userBankSmsRulesJson = smsRulesJson,
                 smsPatternsJson = smsPatternsJson,
-                smsRecognitionStartMillis = smsRecognitionStart
+                smsRecognitionStartMillis = smsRecognitionStart,
+                attachments = attachments
             ))
             }
         }
