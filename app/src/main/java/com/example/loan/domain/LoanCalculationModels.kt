@@ -42,7 +42,6 @@ enum class LoanType(
         id = "custom",
         title = "سفارشی",
         subtitle = "تنظیم دلخواه کلیه پارامترها",
-        defaultDuration = 12,
         iconRes = R.drawable.img_3d_calculator
     )
 }
