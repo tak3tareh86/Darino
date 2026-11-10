@@ -17,16 +17,16 @@ enum class LoanScreenTab(val title: String) {
 
 data class LoanCalculatorState(
     val currentTab: LoanScreenTab = LoanScreenTab.CALCULATOR,
-    val loanType: LoanType = LoanType.BANK_LOAN,
-    val amountInput: String = "100000000",
-    val amount: Long = 1_000_000_000L,
-    val interestRateInput: String = "23",
-    val interestRate: Double = 23.0,
-    val interestPeriod: InterestPeriod = InterestPeriod.ANNUAL,
-    val durationInput: String = "36",
-    val duration: Int = 36,
-    val durationType: DurationType = DurationType.MONTHS,
-    val calculationType: CalculationMethod = CalculationMethod.ANNUITY,
+    val loanType: LoanType? = null,
+    val amountInput: String = "",
+    val amount: Long = 0L,
+    val interestRateInput: String = "",
+    val interestRate: Double = 0.0,
+    val interestPeriod: InterestPeriod? = null,
+    val durationInput: String = "",
+    val duration: Int = 0,
+    val durationType: DurationType? = null,
+    val calculationType: CalculationMethod? = null,
     
     // Outputs
     val monthlyPayment: Long = 0L,
@@ -45,17 +45,17 @@ data class LoanCalculatorState(
 
     // Loan comparison inputs & result
     val compLoan1Input: ComparisonLoanInput = ComparisonLoanInput(
-        name = "وام طرح ۱",
-        amount = 100_000_000L,
-        interestRate = 18.0,
-        durationMonths = 18,
+        name = "",
+        amount = 0L,
+        interestRate = 0.0,
+        durationMonths = 0,
         method = CalculationMethod.ANNUITY
     ),
     val compLoan2Input: ComparisonLoanInput = ComparisonLoanInput(
-        name = "وام طرح ۲",
-        amount = 100_000_000L,
-        interestRate = 23.0,
-        durationMonths = 36,
+        name = "",
+        amount = 0L,
+        interestRate = 0.0,
+        durationMonths = 0,
         method = CalculationMethod.ANNUITY
     ),
     val comparisonResult: ComparisonResult? = null

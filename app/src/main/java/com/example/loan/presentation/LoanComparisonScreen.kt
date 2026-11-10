@@ -126,60 +126,44 @@ fun LoanComparisonScreen(
             }
         }
 
-        // Quick Preset Comparison Scenario Button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(RadiusMD))
-                    .clickable {
-                        onUpdateLoan1(
-                            ComparisonLoanInput(
-                                name = "طرح کوتاه‌مدت (۱۸ ماه)",
-                                amount = 100_000_000L,
-                                interestRate = 18.0,
-                                durationMonths = 18
-                            )
-                        )
-                        onUpdateLoan2(
-                            ComparisonLoanInput(
-                                name = "طرح بلندمدت (۳۶ ماه)",
-                                amount = 100_000_000L,
-                                interestRate = 23.0,
-                                durationMonths = 36
-                            )
-                        )
-                    },
-                shape = RoundedCornerShape(RadiusMD),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        // Show empty editable inputs before any comparison has been entered.
+        if (comparisonResult == null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AutoAwesome,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "سناریوی پیشنهادی: ۱۸ ماه ۱۸٪ در مقابل ۳۶ ماه ۲۳٪",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                LoanComparisonCard(
+                    title = "وام اول",
+                    accentColor = InfoIndigoLight,
+                    durationMonths = loan1Input.durationMonths,
+                    interestRate = loan1Input.interestRate,
+                    amount = loan1Input.amount,
+                    amountUnit = loan1Input.amountUnit,
+                    result = null,
+                    isEditing = true,
+                    onToggleEdit = {},
+                    onSaveEdit = { name, amt, unit, rate, dur ->
+                        onUpdateLoan1(ComparisonLoanInput(name, amt, unit, rate, dur))
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                LoanComparisonCard(
+                    title = "وام دوم",
+                    accentColor = WarningAmberLight,
+                    durationMonths = loan2Input.durationMonths,
+                    interestRate = loan2Input.interestRate,
+                    amount = loan2Input.amount,
+                    amountUnit = loan2Input.amountUnit,
+                    result = null,
+                    isEditing = true,
+                    onToggleEdit = {},
+                    onSaveEdit = { name, amt, unit, rate, dur ->
+                        onUpdateLoan2(ComparisonLoanInput(name, amt, unit, rate, dur))
+                    },
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
-
         // Side-by-Side Comparison Cards
         if (comparisonResult != null) {
             val res1 = comparisonResult.loan1
@@ -362,16 +346,16 @@ private fun LoanComparisonCard(
     interestRate: Double,
     amount: Long,
     amountUnit: AppCurrency,
-    result: CalculationResult,
+    result: CalculationResult?,
     isEditing: Boolean,
     onToggleEdit: () -> Unit,
     onSaveEdit: (String, Long, AppCurrency, Double, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val activeCurrency = MoneyFormatter.activeCurrency
-    var editAmount by remember(amount, amountUnit, activeCurrency) { mutableStateOf(IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(amount, amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString())) }
-    var editInterest by remember(interestRate) { mutableStateOf(interestRate.toString()) }
-    var editDuration by remember(durationMonths) { mutableStateOf(durationMonths.toString()) }
+    var editAmount by remember(amount, amountUnit, activeCurrency) { mutableStateOf(if (amount > 0L) IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(amount, amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()) else "") }
+    var editInterest by remember(interestRate) { mutableStateOf(if (interestRate > 0.0) interestRate.toString() else "") }
+    var editDuration by remember(durationMonths) { mutableStateOf(if (durationMonths > 0) durationMonths.toString() else "") }
 
     Surface(
         modifier = modifier
@@ -476,12 +460,12 @@ private fun LoanComparisonCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "مبلغ: ${CalculationResult.formatMoney(amount, amountUnit)}",
+                        text = if (amount > 0L) "مبلغ: ${CalculationResult.formatMoney(amount, amountUnit)}" else "مبلغ: —",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "مدت: ${IranianPhoneUtils.convertDigitsToPersian(durationMonths.toString())} ماه | سود: ${IranianPhoneUtils.convertDigitsToPersian(interestRate.toString())}٪",
+                        text = if (durationMonths > 0 && interestRate > 0.0) "مدت: ${IranianPhoneUtils.convertDigitsToPersian(durationMonths.toString())} ماه | سود: ${IranianPhoneUtils.convertDigitsToPersian(interestRate.toString())}٪" else "مدت و نرخ سود: —",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -496,7 +480,7 @@ private fun LoanComparisonCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = result.monthlyPaymentFormatted,
+                    text = result?.monthlyPaymentFormatted ?: "—",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
@@ -513,7 +497,7 @@ private fun LoanComparisonCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = result.totalInterestFormatted,
+                    text = result?.totalInterestFormatted ?: "—",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.5.sp
@@ -530,7 +514,7 @@ private fun LoanComparisonCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = result.totalPaymentFormatted,
+                    text = result?.totalPaymentFormatted ?: "—",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp

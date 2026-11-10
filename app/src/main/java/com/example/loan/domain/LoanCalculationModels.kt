@@ -12,48 +12,36 @@ enum class LoanType(
     val id: String,
     val title: String,
     val subtitle: String,
-    val defaultInterest: Double,
-    val defaultDuration: Int,
     @DrawableRes val iconRes: Int
 ) {
     BANK_LOAN(
         id = "bank_loan",
         title = "وام بانکی",
         subtitle = "تسهیلات بانکی و اعتباری",
-        defaultInterest = 23.0,
-        defaultDuration = 36,
         iconRes = R.drawable.img_3d_bank
     ),
     INSTALLMENT_PURCHASE(
         id = "purchase",
         title = "خرید اقساطی",
         subtitle = "کالا، لوازم خانگی و دیجی‌پی",
-        defaultInterest = 24.0,
-        defaultDuration = 12,
         iconRes = R.drawable.img_3d_shopping
     ),
     PERSONAL_LOAN(
         id = "personal",
         title = "وام شخصی",
         subtitle = "وام شخصی و قرض‌الحسنه؛ نرخ تابع قرارداد",
-        defaultInterest = 4.0,
-        defaultDuration = 10,
         iconRes = R.drawable.img_3d_home
     ),
     CAR_LOAN(
         id = "car_loan",
         title = "وام خودرو",
         subtitle = "تسهیلات خرید و لیزینگ خودرو",
-        defaultInterest = 21.0,
-        defaultDuration = 24,
         iconRes = R.drawable.img_3d_car
     ),
     CUSTOM(
         id = "custom",
         title = "سفارشی",
         subtitle = "تنظیم دلخواه کلیه پارامترها",
-        defaultInterest = 18.0,
-        defaultDuration = 12,
         iconRes = R.drawable.img_3d_calculator
     )
 }
