@@ -294,7 +294,9 @@ class BankSmsRepository(private val context: Context) {
         } catch (error: Exception) {
             val rollback = pendingQueuePreferences.edit()
             if (previousQueue == null) rollback.remove(queueKey) else rollback.putString(queueKey, previousQueue)
-            rollback.commit()
+            if (!rollback.commit()) {
+                error.addSuppressed(IllegalStateException("بازگردانی پیشنهادهای پیامکی قبلی ناموفق بود."))
+            }
             throw error
         }
     }
