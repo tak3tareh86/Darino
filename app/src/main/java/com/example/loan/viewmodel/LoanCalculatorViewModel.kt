@@ -32,6 +32,9 @@ class LoanCalculatorViewModel(
     val state: StateFlow<LoanCalculatorState> = _state.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            repository.loadSavedCalculations()
+        }
         // Observe saved calculations
         viewModelScope.launch {
             repository.savedCalculations.collect { list ->
