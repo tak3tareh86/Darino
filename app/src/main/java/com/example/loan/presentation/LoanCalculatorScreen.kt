@@ -194,7 +194,7 @@ fun LoanCalculatorScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
-                            .clickable { viewModel.setTab(tab) }
+                            .clickable { activeViewModel.setTab(tab) }
                             .testTag("loan_tab_${tab.name.lowercase()}"),
                         shape = RoundedCornerShape(12.dp),
                         color = if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent,
@@ -263,8 +263,8 @@ fun LoanCalculatorScreen(
                                 loan1Input = state.compLoan1Input,
                                 loan2Input = state.compLoan2Input,
                                 comparisonResult = state.comparisonResult,
-                                onUpdateLoan1 = { viewModel.updateCompLoan1(it) },
-                                onUpdateLoan2 = { viewModel.updateCompLoan2(it) }
+                                onUpdateLoan1 = { activeViewModel.updateCompLoan1(it) },
+                                onUpdateLoan2 = { activeViewModel.updateCompLoan2(it) }
                             )
                         }
                     }
@@ -273,8 +273,8 @@ fun LoanCalculatorScreen(
                 LoanScreenTab.SAVED -> {
                     SavedCalculationsTab(
                         savedList = state.savedCalculations,
-                        onLoadClick = { viewModel.loadCalculationIntoCalculator(it) },
-                        onDeleteClick = { viewModel.deleteCalculation(it.id) }
+                        onLoadClick = { activeViewModel.loadCalculationIntoCalculator(it) },
+                        onDeleteClick = { activeViewModel.deleteCalculation(it.id) }
                     )
                 }
             }
@@ -313,7 +313,7 @@ fun LoanCalculatorScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.saveCalculation(saveTitleInput)
+                        activeViewModel.saveCalculation(saveTitleInput)
                         showSaveDialog = false
                     },
                     shape = RoundedCornerShape(RadiusMD)
@@ -370,7 +370,7 @@ private fun CalculatorMainTab(
                         Surface(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(16.dp))
-                                .clickable { viewModel.onLoanTypeChanged(type) }
+                                .clickable { activeViewModel.onLoanTypeChanged(type) }
                                 .testTag("select_loantype_${type.id}"),
                             shape = RoundedCornerShape(16.dp),
                             color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
@@ -443,10 +443,10 @@ private fun CalculatorMainTab(
 
                     PersianAmountInputField(
                         value = state.amountInput,
-                        onValueChange = { viewModel.onAmountInputChanged(it) },
+                        onValueChange = { activeViewModel.onAmountInputChanged(it) },
                         label = null,
                         allowDecimalInput = true,
-                        onRawDecimalAmountChange = { rawValue, _ -> viewModel.onAmountInputChanged(rawValue) },
+                        onRawDecimalAmountChange = { rawValue, _ -> activeViewModel.onAmountInputChanged(rawValue) },
                         unitLabel = MoneyFormatter.getUnitLabel(),
                         placeholder = "مبلغ را وارد کنید",
                         showWordsPreview = false,
@@ -494,7 +494,7 @@ private fun CalculatorMainTab(
                                 Surface(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
-                                        .clickable { viewModel.onInterestPeriodChanged(period) },
+                                        .clickable { activeViewModel.onInterestPeriodChanged(period) },
                                     shape = RoundedCornerShape(8.dp),
                                     color = if (isSel) MaterialTheme.colorScheme.surface else Color.Transparent,
                                     shadowElevation = if (isSel) 2.dp else 0.dp
@@ -515,7 +515,7 @@ private fun CalculatorMainTab(
 
                     OutlinedTextField(
                         value = state.interestRateInput,
-                        onValueChange = { viewModel.onInterestRateInputChanged(it) },
+                        onValueChange = { activeViewModel.onInterestRateInputChanged(it) },
                         placeholder = { Text("نرخ سود را وارد کنید") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
@@ -577,7 +577,7 @@ private fun CalculatorMainTab(
                                 Surface(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
-                                        .clickable { viewModel.onDurationTypeChanged(dtype) },
+                                        .clickable { activeViewModel.onDurationTypeChanged(dtype) },
                                     shape = RoundedCornerShape(8.dp),
                                     color = if (isSel) MaterialTheme.colorScheme.surface else Color.Transparent,
                                     shadowElevation = if (isSel) 2.dp else 0.dp
@@ -598,7 +598,7 @@ private fun CalculatorMainTab(
 
                     OutlinedTextField(
                         value = state.durationInput,
-                        onValueChange = { viewModel.onDurationInputChanged(it) },
+                        onValueChange = { activeViewModel.onDurationInputChanged(it) },
                         placeholder = { Text("مدت بازپرداخت را وارد کنید") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
@@ -639,7 +639,7 @@ private fun CalculatorMainTab(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(RadiusMD))
-                            .clickable { viewModel.onCalculationMethodChanged(method) },
+                            .clickable { activeViewModel.onCalculationMethodChanged(method) },
                         shape = RoundedCornerShape(RadiusMD),
                         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface,
                         border = BorderStroke(
