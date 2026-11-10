@@ -1045,8 +1045,7 @@ class LocalBackupRepository(
             )
 
             val userTag = BackupUserScope.tag(getEffectiveUserId())
-            preferences
-                .getLong("last_backup_time_$userTag", preferences.getLong("last_backup_time", 0L))
+            preferences.getLong("last_backup_time_$userTag", 0L)
                 .takeIf { it != 0L }
         }
 
