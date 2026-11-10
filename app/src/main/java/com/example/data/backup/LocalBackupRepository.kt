@@ -324,6 +324,9 @@ class LocalBackupRepository(
             try {
                 db.withTransaction {
                 if (mode == RestoreMode.REPLACE) {
+                    if (backup.metadata.backupVersion >= 3) {
+                        db.loanCalculationDao().clearAllCalculations()
+                    }
                     db.installmentDao().clearAllPayments(userId)
                     db.installmentDao().clearAllInstallments(userId)
                     if (backup.metadata.backupVersion >= 2) {
@@ -625,12 +628,15 @@ class LocalBackupRepository(
                     backup.financialHealthProfiles.forEach { profile ->
                         db.financialHealthDao().saveProfile(profile.copy(userId = userId))
                     }
-                    // Loan calculations use a global primary key (not user-scoped).
-                    // Give restored rows fresh IDs so they cannot overwrite another local profile.
+                    // Keep stable IDs: REPLACE clears this global table first, while MERGE
+                    // skips IDs already present so importing the same file twice is idempotent.
+                    val existingLoanCalculationIds = if (mode == RestoreMode.MERGE) {
+                        db.loanCalculationDao().getAllCalculationsList().map { it.id }.toSet()
+                    } else emptySet()
                     backup.loanCalculations.forEach { calculation ->
-                        db.loanCalculationDao().insertCalculation(
-                            calculation.copy(id = java.util.UUID.randomUUID().toString())
-                        )
+                        if (calculation.id !in existingLoanCalculationIds) {
+                            db.loanCalculationDao().insertCalculation(calculation)
+                        }
                     }
                     backup.userPreference?.let { preference ->
                         db.userPreferenceDao().insertOrUpdate(preference.copy(userId = userId))
