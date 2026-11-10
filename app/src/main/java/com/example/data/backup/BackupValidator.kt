@@ -72,16 +72,25 @@ object BackupValidator {
                 item["amount"] !is Number || item["receivedAtMillis"] !is Number
             ) return false
 
-            val balanceUnit = item["balanceAmountUnit"] as? String
+            val balanceUnitValue = item["balanceAmountUnit"]
+            if (balanceUnitValue != null && balanceUnitValue !is String) return false
+            val balanceUnit = balanceUnitValue as? String
             if (!balanceUnit.isNullOrBlank() && balanceUnit !in validUnits) return false
-            val amountCandidates = item["amountCandidates"] as? List<*> ?: emptyList<Any>()
+
+            val rawAmountCandidates = item["amountCandidates"]
+            if (rawAmountCandidates != null && rawAmountCandidates !is List<*>) return false
+            val amountCandidates = rawAmountCandidates as? List<*> ?: emptyList<Any>()
             if (amountCandidates.any { it !is Number || it.toDouble() <= 0.0 }) return false
-            val candidateUnits = item["amountCandidateUnits"] as? List<*> ?: emptyList<Any>()
+
+            val rawCandidateUnits = item["amountCandidateUnits"]
+            if (rawCandidateUnits != null && rawCandidateUnits !is List<*>) return false
+            val candidateUnits = rawCandidateUnits as? List<*> ?: emptyList<Any>()
             if (candidateUnits.isNotEmpty() &&
                 (candidateUnits.size != amountCandidates.size || candidateUnits.any { it !is String || it !in validUnits })
             ) return false
-            val type = item["type"] as? String
-            if (type != null && type !in validTypes) return false
+
+            val typeValue = item["type"]
+            if (typeValue != null && (typeValue !is String || typeValue !in validTypes)) return false
         }
         return values.size <= 50
     }
