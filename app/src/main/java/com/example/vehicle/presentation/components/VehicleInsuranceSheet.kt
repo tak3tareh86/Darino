@@ -293,7 +293,7 @@ fun VehicleInsuranceSheet(
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PersianAmountInputField(value = inspectionCostText, onValueChange = { inspectionCostText = it }, allowDecimalInput = true, onRawDecimalAmountChange = { rawValue, _ -> inspectionCostText = rawValue }, label = "هزینه معاینه فنی", placeholder = "مبلغ را وارد کنید", unitLabel = MoneyFormatter.getUnitLabel(), showWordsPreview = false, fieldHeight = 56.dp, modifier = Modifier.weight(1f), testTag = "inspection_cost_input", singleLineLabel = true)
-                    OutlinedTextField(value = centerName, onValueChange = { centerName = it }, label = { Text("مرکز معاینه فنی", maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) }, modifier = Modifier.weight(1f).height(56.dp), singleLine = true)
+                    OutlinedTextField(value = centerName, onValueChange = { centerName = it }, label = { Text("مرکز معاینه فنی", maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) }, modifier = Modifier.weight(1f), singleLine = true)
                 }
                 OutlinedTextField(value = inspectionStatus, onValueChange = { inspectionStatus = it }, label = { Text("وضعیت گواهی معاینه فنی") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 VehicleReminderSettings(
