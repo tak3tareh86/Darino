@@ -3,6 +3,7 @@ package com.example.loan.data
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.squareup.moshi.Json
 import com.example.loan.domain.DurationType
 import com.example.loan.domain.LoanCalculation
 import com.example.loan.domain.LoanType
@@ -22,7 +23,9 @@ data class LoanCalculationEntity(
     val totalInterest: Long,
     val realCostPercentage: Double,
     val createdAt: Long = System.currentTimeMillis(),
-    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN"
+    @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
+    @Json(ignore = true)
+    @ColumnInfo(defaultValue = "'legacy_unassigned'") val userId: String = "legacy_unassigned"
 ) {
     fun toDomainModel(): LoanCalculation {
         val type = try {
