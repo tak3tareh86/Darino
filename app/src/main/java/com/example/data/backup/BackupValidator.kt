@@ -570,7 +570,7 @@ object BackupValidator {
         }
         if (backup.transactions.any { transaction ->
                 transaction.sourceType.equals("CHECK", ignoreCase = true) &&
-                    transaction.sourceId != null && transaction.sourceId.toIntOrNull() !in checkIds
+                    transaction.sourceId?.toIntOrNull()?.let { it !in checkIds } == true
             }) {
             return ValidationResult.Invalid("یکی از تراکنش‌های مرتبط با چک به چک موجود در فایل پشتیبان متصل نیست.")
         }
