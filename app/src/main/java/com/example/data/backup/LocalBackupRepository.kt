@@ -11,6 +11,7 @@ import com.example.data.security.SessionManager
 import com.example.data.preferences.AppPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.withLock
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
