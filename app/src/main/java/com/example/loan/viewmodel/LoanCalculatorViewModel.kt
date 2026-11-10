@@ -162,6 +162,10 @@ class LoanCalculatorViewModel(
 
     private fun performCalculation() {
         val current = _state.value
+        val method = current.calculationType ?: run {
+            _state.update { it.copy(result = null, monthlyPayment = 0L, totalPayment = 0L, totalInterest = 0L, realCostPercentage = 0.0) }
+            return
+        }
         val validation = engine.validateInputs(
             amount = if (current.amountInput.isBlank()) null else current.amount,
             interestRate = if (current.interestRateInput.isBlank()) null else current.interestRate,
@@ -191,7 +195,7 @@ class LoanCalculatorViewModel(
                     interestPeriod = current.interestPeriod,
                     duration = current.duration,
                     durationType = current.durationType,
-                    method = current.calculationType,
+                    method = method,
                     amountUnit = AppCurrency.RIAL
                 )
                 _state.update {
