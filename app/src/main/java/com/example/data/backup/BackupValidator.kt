@@ -138,7 +138,7 @@ object BackupValidator {
         if (rawJson.isNullOrBlank()) return true
         val values = runCatching { jsonArrayAdapter.fromJson(rawJson) }.getOrNull() ?: return false
         val validUnits = setOf("TOMAN", "RIAL")
-        val validTypes = setOf("INCOME", "EXPENSE", "TRANSFER")
+        val validTypes = com.example.ui.screens.finance.model.TransactionType.values().map { it.name }.toSet()
         val seenIds = mutableSetOf<String>()
         for (value in values) {
             val item = value as? Map<*, *> ?: return false
