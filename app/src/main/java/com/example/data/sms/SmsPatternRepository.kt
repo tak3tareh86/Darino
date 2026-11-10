@@ -274,4 +274,42 @@ class SmsPatternRepository(context: Context) {
         }
         preferences.edit().putString(storageKey(userId), array.toString()).apply()
     }
+
+    /** Exports the plaintext JSON value; restore writes it back through encrypted preferences. */
+    @Synchronized
+    fun exportForBackup(userId: String): String? = preferences.getString(storageKey(userId), null)
+
+    @Synchronized
+    fun getStoredRecognitionStartMillis(userId: String): Long? =
+        preferences.getLong(recognitionStartKey(userId), 0L).takeIf { it > 0L }
+
+    @Synchronized
+    fun restoreFromBackup(rawJson: String?, recognitionStartMillis: Long?, userId: String) {
+        val storageKey = storageKey(userId)
+        val startKey = recognitionStartKey(userId)
+        val previousJson = preferences.getString(storageKey, null)
+        val previousStart = preferences.getLong(startKey, 0L)
+        if (rawJson == null) {
+            preferences.edit().remove(storageKey).remove(startKey).commit()
+            SmsPatternChangeNotifier.changes.tryEmit(Unit)
+            return
+        }
+        val array = JSONArray(rawJson)
+        val editor = preferences.edit().putString(storageKey, rawJson)
+        if (recognitionStartMillis != null && recognitionStartMillis > 0L) {
+            editor.putLong(startKey, recognitionStartMillis)
+        } else {
+            editor.remove(startKey)
+        }
+        check(editor.commit()) { "ذخیره الگوهای پیامک بازیابی‌شده انجام نشد." }
+        if (getPatterns(userId).size != array.length()) {
+            val rollback = preferences.edit()
+            if (previousJson == null) rollback.remove(storageKey) else rollback.putString(storageKey, previousJson)
+            if (previousStart > 0L) rollback.putLong(startKey, previousStart) else rollback.remove(startKey)
+            rollback.commit()
+            throw IllegalArgumentException("الگوهای پیامک فایل پشتیبان معتبر نیستند.")
+        }
+        SmsPatternChangeNotifier.changes.tryEmit(Unit)
+    }
+
 }
