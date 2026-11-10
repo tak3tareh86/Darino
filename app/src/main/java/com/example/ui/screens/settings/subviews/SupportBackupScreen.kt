@@ -840,7 +840,7 @@ private fun writeAndVerifyBackup(
         throw java.io.IOException("بررسی صحت فایل ذخیره‌شده ناموفق بود.")
     }
     } finally {
-        passphrase.fill('\\u0000')
+        passphrase.fill('\u0000')
     }
 }
 
