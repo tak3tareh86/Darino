@@ -269,6 +269,14 @@ class BackupValidatorTest {
                     recordCount = 1,
                     currencyUnit = "PER_RECORD"
                 ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
                 attachments = listOf(attachment)
             )
         )
