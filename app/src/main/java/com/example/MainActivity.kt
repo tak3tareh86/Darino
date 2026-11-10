@@ -159,13 +159,13 @@ class MainActivity : FragmentActivity() {
             val appContext = applicationContext
             // Attempt recovery before rebuilding alarms. If recovery fails, the journal
             // remains durable and the next app resume will retry it.
-                runCatching {
+                val restoreRecovered = runCatching {
                     com.example.data.backup.LocalBackupRepository(appContext).recoverInterruptedRestore()
                 }.onFailure { error ->
                     android.util.Log.e("MainActivity", "Interrupted backup restore recovery failed", error)
-                }
+                }.isSuccess
 
-            if (exactAlarmAllowed) {
+            if (exactAlarmAllowed && restoreRecovered) {
                 runCatching {
                     com.example.data.security.SessionManager.init(appContext)
                     com.example.reminder.domain.ReminderScheduler(appContext).rebuildAllSchedules()
