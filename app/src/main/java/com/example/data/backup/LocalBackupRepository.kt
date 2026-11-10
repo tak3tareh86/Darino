@@ -487,6 +487,25 @@ class LocalBackupRepository(
             val journal = restoreJournalFile(userId)
             if (!journal.isFile) return@withLock
             Log.w("LocalBackupRepository", "Recovering an interrupted backup restore for the active user.")
+            // The emergency snapshot is the pre-restore source of old OS alarm IDs.
+            // Cancel those IDs explicitly: after a crash following the Room commit, the
+            // restored database no longer contains the old schedules needed to cancel them.
+            val emergencyDirectory = File(context.filesDir, "emergency_backups")
+            val emergencyFile = emergencyDirectory.listFiles { file ->
+                file.isFile && file.name.startsWith("before-restore-${BackupUserScope.tag(userId)}-") &&
+                    file.extension == "darino"
+            }?.maxByOrNull { it.lastModified() }
+                ?: throw IllegalStateException("نسخه اضطراری لازم برای بازیابی زمان‌بندی‌های قبلی پیدا نشد.")
+            val previousJson = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(emergencyFile))
+                .toString(Charsets.UTF_8)
+            val previousBackup = BackupFileCodec.decode(previousJson)
+            val oldSmartScheduler = com.example.reminder.domain.ReminderScheduler(context)
+            previousBackup.reminderSchedules.forEach { oldSmartScheduler.cancelSchedule(it.id) }
+            val oldLegacyScheduler = com.example.data.receiver.ReminderScheduler(context)
+            previousBackup.legacyReminders.forEach { oldLegacyScheduler.cancel(it.id) }
+            val oldCalendarScheduler = com.example.calendar.reminder.CalendarEventReminderScheduler(context)
+            previousBackup.financialEvents.forEach { oldCalendarScheduler.cancel(it.id) }
+
             val json = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(journal)).toString(Charsets.UTF_8)
             val backup = BackupFileCodec.decode(json)
             restoreBackupInternal(backup, RestoreMode.REPLACE, recovering = true)
