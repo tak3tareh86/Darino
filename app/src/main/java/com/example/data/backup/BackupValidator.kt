@@ -557,6 +557,23 @@ object BackupValidator {
                 if (it.stringId.isNotBlank()) add(it.stringId)
             }
         }
+        val referencedAccountIds = buildList {
+            backup.checks.mapNotNullTo(this) { it.accountId }
+            backup.transactions.forEach { transaction ->
+                transaction.accountId?.let(::add)
+                transaction.transferSourceAccountId?.let(::add)
+                transaction.transferDestinationAccountId?.let(::add)
+            }
+        }
+        if (referencedAccountIds.any { it !in accountReferences }) {
+            return ValidationResult.Invalid("یکی از تراکنش‌ها یا چک‌ها به حساب مالی موجود در فایل پشتیبان متصل نیست.")
+        }
+        if (backup.transactions.any { transaction ->
+                transaction.sourceType.equals("CHECK", ignoreCase = true) &&
+                    transaction.sourceId != null && transaction.sourceId.toIntOrNull() !in checkIds
+            }) {
+            return ValidationResult.Invalid("یکی از تراکنش‌های مرتبط با چک به چک موجود در فایل پشتیبان متصل نیست.")
+        }
         val recurringAccountIds = jsonArrayStringValues(finance?.recurringTransactionsJson, "accountId")
             ?: return ValidationResult.Invalid("شناسه حساب در تراکنش‌های تکرارشونده معتبر نیست.")
         if (recurringAccountIds.any { it !in accountReferences }) {
