@@ -309,4 +309,30 @@ class BackupValidatorTest {
         assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
     }
 
+    @Test
+    fun versionEightRejectsMalformedFinanceRecordShapes() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(
+                    budgetsJson = """[{"id":"budget-1"}]"""
+                )
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
 }
