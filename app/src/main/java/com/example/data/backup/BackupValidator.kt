@@ -42,6 +42,14 @@ object BackupValidator {
         }
     }
 
+    private fun jsonArrayStringValues(rawJson: String?, key: String): List<String>? {
+        if (rawJson == null) return emptyList()
+        val values = runCatching { jsonArrayAdapter.fromJson(rawJson) }.getOrNull() ?: return null
+        if (values.any { it !is Map<*, *> }) return null
+        return values.mapNotNull { (it as Map<*, *>)[key] as? String }
+            .filter(String::isNotBlank)
+    }
+
     fun calculateChecksum(content: String): String {
         val bytes = MessageDigest.getInstance("SHA-256")
             .digest(content.toByteArray(Charsets.UTF_8))
@@ -179,6 +187,15 @@ object BackupValidator {
             if (!actualHash.equals(attachment.sha256, ignoreCase = true)) {
                 return ValidationResult.Invalid("صحت یکی از فایل‌های پیوست تأیید نشد.")
             }
+        }
+        val expectedAttachmentReferences = backup.vehicleExpenses
+            .mapNotNull { it.receiptImageUri?.takeIf(String::isNotBlank) } +
+            (if (version >= 8) {
+                jsonArrayStringValues(backup.vehicleStore?.expensesJson, "receiptImageUri")
+                    ?: return ValidationResult.Invalid("ساختار پیوست‌های خودرو در فایل پشتیبان معتبر نیست.")
+            } else emptyList())
+        if (version >= 8 && expectedAttachmentReferences.any { it !in attachmentUris }) {
+            return ValidationResult.Invalid("یکی از تصاویر رسید در فایل پشتیبان وجود ندارد.")
         }
         if (backup.metadata.recordCount != expectedCount + extraConfigurationRecords + backup.attachments.size) {
             return ValidationResult.Invalid("تعداد رکوردهای فایل با اطلاعات ثبت‌شده در سربرگ آن مطابقت ندارد.")
