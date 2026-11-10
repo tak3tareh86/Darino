@@ -274,7 +274,7 @@ class BackupValidatorTest {
                 metadata = BackupMetadata(
                     backupVersion = 8,
                     createdAt = 1_800_000_000_000L,
-                    recordCount = 2,
+                    recordCount = 3,
                     currencyUnit = "PER_RECORD"
                 ),
                 appSettings = AppSettingsBackup(
@@ -285,6 +285,11 @@ class BackupValidatorTest {
                     navigationTransition = "DYNAMIC"
                 ),
                 financeMetadata = FinanceMetadataBackup(),
+                vehicleStore = VehicleStoreEntity(
+                    key = "vehicle_data",
+                    userId = "backup-user",
+                    expensesJson = """[{"receiptImageUri":"content://receipts/1"}]"""
+                ),
                 attachments = listOf(attachment)
             )
         )
@@ -344,6 +349,35 @@ class BackupValidatorTest {
                 ),
                 financeMetadata = FinanceMetadataBackup(
                     budgetsJson = """[{"id":"budget-1"}]"""
+                )
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
+    @Test
+    fun versionEightRejectsReceiptReferenceWithoutAttachment() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
+                vehicleStore = VehicleStoreEntity(
+                    key = "vehicle_data",
+                    userId = "backup-user",
+                    expensesJson = """[{"receiptImageUri":"content://receipts/missing"}]"""
                 )
             )
         )
