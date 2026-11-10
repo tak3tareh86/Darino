@@ -445,9 +445,59 @@ class LocalBackupRepository(
             )
         }
 
+    private fun restoreJournalFile(userId: String): File =
+        File(File(context.filesDir, "restore_recovery").apply { mkdirs() },
+            "restore-${BackupUserScope.tag(userId)}.darino")
+
+    /** Persist the intended restore payload before changing any non-transactional store. */
+    private fun persistRestoreJournal(backup: DarinoBackup, userId: String) {
+        val json = BackupFileCodec.encode(backup).toByteArray(Charsets.UTF_8)
+        require(json.size.toLong() <= 64L * 1024 * 1024) {
+            "حجم داده‌های بازیابی از حد مجاز بیشتر است."
+        }
+        val encrypted = DeviceBackupEncryption.encrypt(json, context)
+        require(encrypted.size.toLong() <= MAX_LOCAL_BACKUP_FILE_BYTES) {
+            "حجم فایل بازیابی موقت از حد مجاز بیشتر است."
+        }
+        val destination = restoreJournalFile(userId)
+        val directory = destination.parentFile!!
+        check(directory.exists() || directory.mkdirs()) { "ساخت پوشه بازیابی موقت ناموفق بود." }
+        val temporary = File(directory, "${destination.name}.tmp")
+        FileOutputStream(temporary).use { stream ->
+            stream.write(encrypted)
+            stream.fd.sync()
+        }
+        try {
+            android.system.Os.rename(temporary.absolutePath, destination.absolutePath)
+        } catch (error: Exception) {
+            temporary.delete()
+            throw IllegalStateException("ثبت نشانگر بازیابی امن ناموفق بود.", error)
+        }
+    }
+
+    /**
+     * Replays an interrupted replacement from its encrypted, durable target snapshot.
+     * The operation is idempotent because REPLACE clears the active user's restored rows first.
+     */
+    suspend fun recoverInterruptedRestore() = withContext(Dispatchers.IO) {
+        val userId = getEffectiveUserId()
+        val journal = restoreJournalFile(userId)
+        if (!journal.isFile) return@withContext
+        Log.w("LocalBackupRepository", "Recovering an interrupted backup restore for the active user.")
+        val json = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(journal)).toString(Charsets.UTF_8)
+        val backup = BackupFileCodec.decode(json)
+        restoreBackupInternal(backup, RestoreMode.REPLACE, recovering = true)
+    }
+
     override suspend fun restoreBackup(
         backup: DarinoBackup,
         mode: RestoreMode
+    ) = restoreBackupInternal(backup, mode, recovering = false)
+
+    private suspend fun restoreBackupInternal(
+        backup: DarinoBackup,
+        mode: RestoreMode,
+        recovering: Boolean
     ) {
         withContext(Dispatchers.IO) {
             when (val validation = BackupValidator.validate(backup)) {
@@ -468,7 +518,11 @@ class LocalBackupRepository(
                 db.financialEventDao().getAllEventsList(userId)
             } else emptyList()
 
-            if (mode == RestoreMode.REPLACE) writeEmergencyBackup()
+            if (mode == RestoreMode.REPLACE && !recovering) {
+                writeEmergencyBackup()
+                // Durable encrypted redo record for stores that cannot share a transaction.
+                persistRestoreJournal(backup, userId)
+            }
             val restoredAttachments = restoreAttachments(backup.attachments)
             val generalPrefs = context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
             val backupPrefs = context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
@@ -988,6 +1042,11 @@ class LocalBackupRepository(
                     "Failed to reload restored data",
                     e
                 )
+            }
+            if (mode == RestoreMode.REPLACE) {
+                // Keep the journal until preferences, Room, attachments, repositories,
+                // and OS schedulers have all been reconciled.
+                restoreJournalFile(userId).delete()
             }
         }
     }
