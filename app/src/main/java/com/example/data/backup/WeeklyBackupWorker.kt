@@ -39,7 +39,7 @@ class WeeklyBackupWorker(
             val jsonString = BackupFileCodec.encode(backup)
             val encryptedPayload = DeviceBackupEncryption.encrypt(jsonString.toByteArray(Charsets.UTF_8))
 
-            val userTag = Integer.toHexString(userId.hashCode())
+            val userTag = BackupUserScope.tag(userId)
             val (y, m, d) = CalendarDateUtils.getCurrentJalaliDate()
             val filename = "${frequency}_auto_backup_${userTag}_${y}_${m.toString().padStart(2, '0')}_${d.toString().padStart(2, '0')}.darino"
 
