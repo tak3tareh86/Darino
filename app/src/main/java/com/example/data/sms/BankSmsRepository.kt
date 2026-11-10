@@ -240,25 +240,30 @@ class BankSmsRepository(private val context: Context) {
     fun exportStateForBackup(userId: String): BankSmsStateBackup {
         require(userId.isNotBlank())
         val queueKey = userKey(KEY_PENDING_SMS_QUEUE, userId)!!
-        val rawQueue = pendingQueuePreferences.getString(queueKey, null)
-        val portableQueue = rawQueue?.let { raw ->
-            runCatching {
-                val array = JSONArray(raw)
-                for (index in 0 until array.length()) {
-                    val item = array.optJSONObject(index) ?: continue
-                    // Older locally persisted suggestions predate explicit units and
-                    // receivedAtMillis; preserve their documented legacy defaults.
-                    if (!item.has("amountUnit") || item.isNull("amountUnit")) {
-                        item.put("amountUnit", "TOMAN")
-                    }
-                    if (!item.has("receivedAtMillis") || item.isNull("receivedAtMillis")) {
-                        item.put("receivedAtMillis", item.optLong("timestampMillis", System.currentTimeMillis()))
-                    }
+        return BankSmsStateBackup(
+            pendingSuggestionsJson = normalizePendingSuggestionsJson(
+                pendingQueuePreferences.getString(queueKey, null)
+            )
+        )
+    }
+
+    private fun normalizePendingSuggestionsJson(raw: String?): String? {
+        if (raw == null) return null
+        return runCatching {
+            val array = JSONArray(raw)
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                // Older locally persisted suggestions predate explicit units and
+                // receivedAtMillis; preserve their documented legacy defaults.
+                if (!item.has("amountUnit") || item.isNull("amountUnit")) {
+                    item.put("amountUnit", "TOMAN")
                 }
-                array.toString()
-            }.getOrElse { raw }
-        }
-        return BankSmsStateBackup(pendingSuggestionsJson = portableQueue)
+                if (!item.has("receivedAtMillis") || item.isNull("receivedAtMillis")) {
+                    item.put("receivedAtMillis", item.optLong("timestampMillis", System.currentTimeMillis()))
+                }
+            }
+            array.toString()
+        }.getOrElse { raw }
     }
 
     /** Restores the portable pending-suggestion queue with rollback on preference-write failure. */
@@ -272,7 +277,10 @@ class BankSmsRepository(private val context: Context) {
             if (state.pendingSuggestionsJson == null) editor.remove(queueKey)
             else editor.putString(queueKey, state.pendingSuggestionsJson)
             check(editor.commit()) { "ذخیره پیشنهادهای پیامکی بازیابی‌شده ناموفق بود." }
-            check(exportStateForBackup(userId) == state) {
+            val expectedState = state.copy(
+                pendingSuggestionsJson = normalizePendingSuggestionsJson(state.pendingSuggestionsJson)
+            )
+            check(exportStateForBackup(userId) == expectedState) {
                 "تطبیق پیشنهادهای پیامکی پس از بازیابی ناموفق بود."
             }
             SmsPatternChangeNotifier.changes.tryEmit(Unit)
