@@ -277,7 +277,11 @@ class BankSmsRepository(private val context: Context) {
             else queueEditor.putString(queueKey, state.pendingSuggestionsJson)
             check(queueEditor.commit()) { "ذخیره پیشنهادهای پیامکی بازیابی‌شده ناموفق بود." }
 
-            check(exportStateForBackup(userId) == state) {
+            val expectedState = state.copy(
+                processedSmsIds = state.processedSmsIds.sorted(),
+                dismissedSmsIds = state.dismissedSmsIds.sorted()
+            )
+            check(exportStateForBackup(userId) == expectedState) {
                 "تطبیق اطلاعات پیامکی پس از بازیابی ناموفق بود."
             }
             SmsPatternChangeNotifier.changes.tryEmit(Unit)
