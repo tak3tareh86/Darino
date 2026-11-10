@@ -482,7 +482,7 @@ fun SupportBackupScreen(
         SettingsConfirmationDialog(
             isOpen = true,
             title = "تأیید بازیابی پشتیبان",
-            message = "اطلاعات ذخیره‌شده مربوط به حساب فعلی با محتوای فایل پشتیبان جایگزین می‌شود. داده‌های عمومی دستگاه که به حساب کاربری وابسته نیستند، حذف نخواهند شد. پیش از ادامه، از اطلاعات فعلی نسخه پشتیبان بگیرید.",
+            message = "اطلاعات موجود با محتوای فایل پشتیبان جایگزین می‌شود. پیش از شروع، یک نسخه اضطراری رمزگذاری‌شده از وضعیت فعلی ذخیره خواهد شد. تعداد رکوردهای فایل: ${pendingRestoreBackup?.metadata?.recordCount ?: 0} | فایل‌های پیوست: ${pendingRestoreBackup?.attachments?.size ?: 0}",
             confirmButtonText = "بازیابی و جایگزینی",
             isDanger = true,
             onConfirm = {
