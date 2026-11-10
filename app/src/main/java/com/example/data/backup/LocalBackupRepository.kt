@@ -28,9 +28,19 @@ class LocalBackupRepository(
     }
 
     private fun captureAttachments(
-        expenses: List<com.example.data.database.VehicleExpenseRoomEntity>
+        expenses: List<com.example.data.database.VehicleExpenseRoomEntity>,
+        legacyExpensesJson: String?
     ): List<BackupAttachment> {
-        val uniqueUris = expenses.mapNotNull { it.receiptImageUri?.takeIf(String::isNotBlank) }.distinct()
+        val receiptUris = expenses.mapNotNull { it.receiptImageUri?.takeIf(String::isNotBlank) }.toMutableList()
+        if (!legacyExpensesJson.isNullOrBlank()) {
+            val legacyArray = org.json.JSONArray(legacyExpensesJson)
+            for (index in 0 until legacyArray.length()) {
+                val rawUri = legacyArray.optJSONObject(index)?.optString("receiptImageUri")
+                    ?.takeIf { it.isNotBlank() && it != "null" }
+                if (rawUri != null) receiptUris.add(rawUri)
+            }
+        }
+        val uniqueUris = receiptUris.distinct()
         var totalBytes = 0L
         return uniqueUris.map { rawUri ->
             val uri = Uri.parse(rawUri)
@@ -321,7 +331,7 @@ class LocalBackupRepository(
             }
             // File I/O is deliberately outside the SQLite transaction to avoid holding
             // database write locks while large receipt images are read.
-            val attachments = captureAttachments(snapshot.vehicleExpenses)
+            val attachments = captureAttachments(snapshot.vehicleExpenses, snapshot.vehicleStore?.expensesJson)
             BackupValidator.withChecksum(
                 snapshot.copy(
                     metadata = snapshot.metadata.copy(recordCount = snapshot.metadata.recordCount + attachments.size),
