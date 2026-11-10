@@ -266,7 +266,7 @@ class BackupValidatorTest {
                 metadata = BackupMetadata(
                     backupVersion = 8,
                     createdAt = 1_800_000_000_000L,
-                    recordCount = 1,
+                    recordCount = 2,
                     currencyUnit = "PER_RECORD"
                 ),
                 appSettings = AppSettingsBackup(
@@ -299,7 +299,7 @@ class BackupValidatorTest {
                 metadata = BackupMetadata(
                     backupVersion = 8,
                     createdAt = 1_800_000_000_000L,
-                    recordCount = 1,
+                    recordCount = 2,
                     currencyUnit = "PER_RECORD"
                 ),
                 attachments = listOf(attachment)
