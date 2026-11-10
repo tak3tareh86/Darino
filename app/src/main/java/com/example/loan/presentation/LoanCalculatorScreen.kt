@@ -455,6 +455,10 @@ private fun CalculatorMainTab(
             }
         }
 
+            }
+        }
+        }
+
         // 3. Interest Rate & Period Field
         item {
             Surface(
@@ -538,6 +542,10 @@ private fun CalculatorMainTab(
             }
         }
 
+            }
+        }
+        }
+
         // 4. Repayment Duration Field
         item {
             Surface(
@@ -619,6 +627,10 @@ private fun CalculatorMainTab(
                         }
                     )
             }
+        }
+
+            }
+        }
         }
 
         // 5. Calculation Method Selector (Annuity, Simple Interest, Custom)
