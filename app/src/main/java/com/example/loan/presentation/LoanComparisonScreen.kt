@@ -126,6 +126,44 @@ fun LoanComparisonScreen(
             }
         }
 
+        // Show empty editable inputs before any comparison has been entered.
+        if (comparisonResult == null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                LoanComparisonCard(
+                    title = "وام اول",
+                    accentColor = InfoIndigoLight,
+                    durationMonths = loan1Input.durationMonths,
+                    interestRate = loan1Input.interestRate,
+                    amount = loan1Input.amount,
+                    amountUnit = loan1Input.amountUnit,
+                    result = null,
+                    isEditing = true,
+                    onToggleEdit = {},
+                    onSaveEdit = { name, amt, unit, rate, dur ->
+                        onUpdateLoan1(ComparisonLoanInput(name, amt, unit, rate, dur))
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                LoanComparisonCard(
+                    title = "وام دوم",
+                    accentColor = WarningAmberLight,
+                    durationMonths = loan2Input.durationMonths,
+                    interestRate = loan2Input.interestRate,
+                    amount = loan2Input.amount,
+                    amountUnit = loan2Input.amountUnit,
+                    result = null,
+                    isEditing = true,
+                    onToggleEdit = {},
+                    onSaveEdit = { name, amt, unit, rate, dur ->
+                        onUpdateLoan2(ComparisonLoanInput(name, amt, unit, rate, dur))
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
         // Side-by-Side Comparison Cards
         if (comparisonResult != null) {
             val res1 = comparisonResult.loan1
