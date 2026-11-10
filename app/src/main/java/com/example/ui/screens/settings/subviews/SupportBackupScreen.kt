@@ -244,6 +244,140 @@ fun SupportBackupScreen(
         }
     }
 
+    if (showBackupPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showBackupPasswordDialog = false
+                backupPassphrase = ""
+                backupPassphraseConfirm = ""
+            },
+            title = { Text("رمزگذاری فایل پشتیبان") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("برای محافظت از اطلاعات مالی، فایل پشتیبان با این رمزگذاری می‌شود. رمز را در جای امن نگه دارید؛ بدون آن بازیابی ممکن نیست.")
+                    OutlinedTextField(
+                        value = backupPassphrase,
+                        onValueChange = { backupPassphrase = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("رمز پشتیبان (حداقل ۸ نویسه)") }
+                    )
+                    OutlinedTextField(
+                        value = backupPassphraseConfirm,
+                        onValueChange = { backupPassphraseConfirm = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("تکرار رمز پشتیبان") }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = backupPassphrase.length >= 8 && backupPassphrase == backupPassphraseConfirm,
+                    onClick = {
+                        val secret = backupPassphrase
+                        showBackupPasswordDialog = false
+                        backupPassphrase = ""
+                        backupPassphraseConfirm = ""
+                        isBackingUp = true
+                        scope.launch {
+                            try {
+                                val backup = backupManager.createBackup()
+                                val json = com.example.data.backup.BackupFileCodec.encode(backup)
+                                val payload = withContext(Dispatchers.Default) {
+                                    com.example.data.backup.BackupEncryption.encrypt(
+                                        json.toByteArray(Charsets.UTF_8),
+                                        secret.toCharArray()
+                                    )
+                                }
+                                val verified = com.example.data.backup.BackupEncryption.decrypt(
+                                    payload,
+                                    secret.toCharArray()
+                                ).toString(Charsets.UTF_8)
+                                val decoded = com.example.data.backup.BackupFileCodec.decode(verified)
+                                check(decoded.metadata.checksum == backup.metadata.checksum) {
+                                    "بررسی صحت نسخه رمزگذاری‌شده پشتیبان ناموفق بود."
+                                }
+                                pendingBackupPayload = payload
+                                pendingBackupChecksum = backup.metadata.checksum
+                                pendingBackupPassphrase = secret
+                                pendingBackupSummary = "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
+                                backupFileLauncher.launch(buildBackupFilename())
+                            } catch (e: Exception) {
+                                isBackingUp = false
+                                pendingBackupPayload = null
+                                pendingBackupChecksum = null
+                                pendingBackupPassphrase = null
+                                pendingBackupSummary = ""
+                                Log.e("SupportBackupScreen", "Backup creation failed", e)
+                                Toast.makeText(context, "خطا در آماده‌سازی پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                ) { Text("ایجاد فایل رمزگذاری‌شده") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showBackupPasswordDialog = false
+                    backupPassphrase = ""
+                    backupPassphraseConfirm = ""
+                }) { Text("انصراف") }
+            }
+        )
+    }
+
+    if (showRestorePasswordDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showRestorePasswordDialog = false
+                restorePassphrase = ""
+                pendingEncryptedRestorePayload = null
+            },
+            title = { Text("رمز فایل پشتیبان") },
+            text = {
+                OutlinedTextField(
+                    value = restorePassphrase,
+                    onValueChange = { restorePassphrase = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("رمز پشتیبان") }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = restorePassphrase.isNotEmpty(),
+                    onClick = {
+                        val secret = restorePassphrase
+                        val encrypted = pendingEncryptedRestorePayload
+                        showRestorePasswordDialog = false
+                        restorePassphrase = ""
+                        pendingEncryptedRestorePayload = null
+                        scope.launch {
+                            try {
+                                val bytes = encrypted ?: throw IllegalStateException("فایل رمزگذاری‌شده در دسترس نیست.")
+                                val json = withContext(Dispatchers.Default) {
+                                    com.example.data.backup.BackupEncryption.decrypt(bytes, secret.toCharArray())
+                                }.toString(Charsets.UTF_8)
+                                pendingRestoreBackup = com.example.data.backup.BackupFileCodec.decode(json)
+                                showRestoreConfirmation = true
+                            } catch (e: Exception) {
+                                Log.e("SupportBackupScreen", "Encrypted backup could not be opened", e)
+                                Toast.makeText(context, "رمز اشتباه است یا فایل پشتیبان آسیب دیده است.", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                ) { Text("باز کردن فایل") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showRestorePasswordDialog = false
+                    restorePassphrase = ""
+                    pendingEncryptedRestorePayload = null
+                }) { Text("انصراف") }
+            }
+        )
+    }
+
     if (showShareNameDialog) {
         AlertDialog(
             onDismissRequest = {
