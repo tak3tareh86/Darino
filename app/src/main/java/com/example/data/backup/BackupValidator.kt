@@ -91,6 +91,8 @@ object BackupValidator {
 
             val typeValue = item["type"]
             if (typeValue != null && (typeValue !is String || typeValue !in validTypes)) return false
+            val preserveValue = item["preserveAfterRestore"]
+            if (preserveValue != null && preserveValue !is Boolean) return false
         }
         return values.size <= 50
     }
