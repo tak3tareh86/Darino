@@ -26,9 +26,28 @@ object DeviceBackupEncryption {
             .array()
     }
 
-    private fun getOrCreateKey(): SecretKey {
+    fun decrypt(payload: ByteArray): ByteArray {
+        require(payload.size > 1 + 12 + TAG_BITS / 8) { "Automatic backup file is incomplete" }
+        val buffer = ByteBuffer.wrap(payload)
+        val nonceSize = buffer.get().toInt() and 0xff
+        require(nonceSize == 12 && payload.size > 1 + nonceSize + TAG_BITS / 8) {
+            "Automatic backup encryption header is invalid"
+        }
+        val nonce = ByteArray(nonceSize).also(buffer::get)
+        val cipherText = ByteArray(buffer.remaining()).also(buffer::get)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, getExistingKey(), javax.crypto.spec.GCMParameterSpec(TAG_BITS, nonce))
+        return cipher.doFinal(cipherText)
+    }
+
+    private fun getExistingKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
-        (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        return keyStore.getKey(KEY_ALIAS, null) as? SecretKey
+            ?: throw IllegalStateException("Automatic backup encryption key is unavailable")
+    }
+
+    private fun getOrCreateKey(): SecretKey {
+        runCatching { getExistingKey() }.getOrNull()?.let { return it }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEY_STORE)
         generator.init(
             KeyGenParameterSpec.Builder(
