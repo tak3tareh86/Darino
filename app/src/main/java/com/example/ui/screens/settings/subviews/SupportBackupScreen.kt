@@ -63,6 +63,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -259,20 +260,22 @@ fun SupportBackupScreen(
                         onValueChange = { backupPassphrase = it },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("رمز پشتیبان (حداقل ۸ نویسه)") }
+                        label = { Text("رمز پشتیبان (حداقل ۱۲ نویسه)") },
+                        visualTransformation = PasswordVisualTransformation()
                     )
                     OutlinedTextField(
                         value = backupPassphraseConfirm,
                         onValueChange = { backupPassphraseConfirm = it },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("تکرار رمز پشتیبان") }
+                        label = { Text("تکرار رمز پشتیبان") },
+                        visualTransformation = PasswordVisualTransformation()
                     )
                 }
             },
             confirmButton = {
                 TextButton(
-                    enabled = backupPassphrase.length >= 8 && backupPassphrase == backupPassphraseConfirm,
+                    enabled = backupPassphrase.length >= 12 && backupPassphrase == backupPassphraseConfirm,
                     onClick = {
                         val secret = backupPassphrase
                         showBackupPasswordDialog = false
@@ -347,7 +350,8 @@ fun SupportBackupScreen(
                     onValueChange = { restorePassphrase = it },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text("رمز پشتیبان") }
+                    label = { Text("رمز پشتیبان") },
+                    visualTransformation = PasswordVisualTransformation()
                 )
             },
             confirmButton = {
