@@ -38,18 +38,14 @@ class LoanCalculatorViewModel(
                 _state.update { it.copy(savedCalculations = list) }
             }
         }
-        // Keep the canonical calculation value in Rials while reflecting the active input unit.
-        val initialInput = MoneyAmount.of(_state.value.amount, AppCurrency.RIAL).inUnit(MoneyFormatter.activeCurrency).value.stripTrailingZeros().toPlainString()
-        _state.update { it.copy(amountInput = IranianAmountUtils.formatDecimalWithCommas(initialInput)) }
         viewModelScope.launch {
             MoneyFormatter.activeCurrencyFlow.collect { currency ->
-                val value = MoneyAmount.of(_state.value.amount, AppCurrency.RIAL).inUnit(currency).value.stripTrailingZeros().toPlainString()
-                _state.update { it.copy(amountInput = IranianAmountUtils.formatDecimalWithCommas(value)) }
+                if (_state.value.amountInput.isNotBlank()) {
+                    val value = MoneyAmount.of(_state.value.amount, AppCurrency.RIAL).inUnit(currency).value.stripTrailingZeros().toPlainString()
+                    _state.update { it.copy(amountInput = IranianAmountUtils.formatDecimalWithCommas(value)) }
+                }
             }
         }
-        // Run initial calculation with default parameters
-        performCalculation()
-        performComparison()
     }
 
     fun setTab(tab: LoanScreenTab) {
@@ -60,16 +56,16 @@ class LoanCalculatorViewModel(
         _state.update {
             it.copy(
                 loanType = type,
-                interestRateInput = if (type == LoanType.PERSONAL_LOAN) "4" else type.defaultInterest.toString(),
-                interestRate = if (type == LoanType.PERSONAL_LOAN) 4.0 else type.defaultInterest,
-                durationInput = type.defaultDuration.toString(),
-                duration = type.defaultDuration,
+                interestRateInput = "",
+                interestRate = 0.0,
+                durationInput = "",
+                duration = 0,
                 durationType = DurationType.MONTHS,
                 calculationType = if (type == LoanType.PERSONAL_LOAN) CalculationMethod.CUSTOM else CalculationMethod.ANNUITY,
                 errorMessage = null
             )
         }
-        performCalculation()
+        _state.update { it.copy(result = null, monthlyPayment = 0L, totalPayment = 0L, totalInterest = 0L, realCostPercentage = 0.0) }
     }
 
     fun onAmountInputChanged(raw: String) {
@@ -296,7 +292,9 @@ class LoanCalculatorViewModel(
     private fun performComparison() {
         val l1 = _state.value.compLoan1Input
         val l2 = _state.value.compLoan2Input
-        val res = engine.compareLoans(l1, l2)
+        val res = if (l1.amount > 0L && l2.amount > 0L && l1.durationMonths > 0 && l2.durationMonths > 0) {
+            runCatching { engine.compareLoans(l1, l2) }.getOrNull()
+        } else null
         _state.update { it.copy(comparisonResult = res) }
     }
 }
