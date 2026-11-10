@@ -25,7 +25,7 @@ object BackupEncryption {
 
     fun encrypt(plainText: ByteArray, passphrase: CharArray): ByteArray {
         try {
-            require(passphrase.size >= 8) { "رمز پشتیبان باید حداقل ۸ نویسه داشته باشد." }
+            require(passphrase.size >= 12) { "رمز پشتیبان باید حداقل ۱۲ نویسه داشته باشد." }
             val salt = ByteArray(SALT_SIZE).also(SecureRandom()::nextBytes)
             val nonce = ByteArray(NONCE_SIZE).also(SecureRandom()::nextBytes)
             val header = ByteBuffer.allocate(HEADER_SIZE)
