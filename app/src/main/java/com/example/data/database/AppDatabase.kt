@@ -31,7 +31,7 @@ import androidx.room.RoomDatabase
         UserPreferenceEntity::class,
         CheckEntity::class
     ],
-    version = 42,
+    version = 43,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -615,6 +615,84 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_42_43 = object : androidx.room.migration.Migration(42, 43) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Vehicle record IDs can be identical when the same portable backup is
+                // restored into a second account. Make all three string-keyed tables owner-scoped.
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS vehicle_expenses_new (
+                        id TEXT NOT NULL,
+                        userId TEXT NOT NULL,
+                        vehicleId TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        amount INTEGER NOT NULL,
+                        amountUnit TEXT NOT NULL DEFAULT 'TOMAN',
+                        date TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        receiptImageUri TEXT,
+                        PRIMARY KEY(id, userId)
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT OR REPLACE INTO vehicle_expenses_new
+                    (id, userId, vehicleId, title, category, amount, amountUnit, date, description, receiptImageUri)
+                    SELECT id, userId, vehicleId, title, category, amount, amountUnit, date, description, receiptImageUri
+                    FROM vehicle_expenses
+                """.trimIndent())
+                db.execSQL("DROP TABLE vehicle_expenses")
+                db.execSQL("ALTER TABLE vehicle_expenses_new RENAME TO vehicle_expenses")
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS vehicle_insurances_new (
+                        id TEXT NOT NULL,
+                        userId TEXT NOT NULL,
+                        vehicleId TEXT NOT NULL,
+                        company TEXT NOT NULL,
+                        type TEXT NOT NULL,
+                        startDate TEXT NOT NULL,
+                        endDate TEXT NOT NULL,
+                        amount INTEGER NOT NULL,
+                        amountUnit TEXT NOT NULL DEFAULT 'TOMAN',
+                        policyNumber TEXT NOT NULL,
+                        reminderDays TEXT NOT NULL,
+                        PRIMARY KEY(id, userId)
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT OR REPLACE INTO vehicle_insurances_new
+                    (id, userId, vehicleId, company, type, startDate, endDate, amount, amountUnit, policyNumber, reminderDays)
+                    SELECT id, userId, vehicleId, company, type, startDate, endDate, amount, amountUnit, policyNumber, reminderDays
+                    FROM vehicle_insurances
+                """.trimIndent())
+                db.execSQL("DROP TABLE vehicle_insurances")
+                db.execSQL("ALTER TABLE vehicle_insurances_new RENAME TO vehicle_insurances")
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS vehicle_inspections_new (
+                        id TEXT NOT NULL,
+                        userId TEXT NOT NULL,
+                        vehicleId TEXT NOT NULL,
+                        lastInspectionDate TEXT NOT NULL,
+                        expiryDate TEXT NOT NULL,
+                        cost INTEGER NOT NULL,
+                        costUnit TEXT NOT NULL DEFAULT 'TOMAN',
+                        status TEXT NOT NULL,
+                        centerName TEXT NOT NULL,
+                        PRIMARY KEY(id, userId)
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT OR REPLACE INTO vehicle_inspections_new
+                    (id, userId, vehicleId, lastInspectionDate, expiryDate, cost, costUnit, status, centerName)
+                    SELECT id, userId, vehicleId, lastInspectionDate, expiryDate, cost, costUnit, status, centerName
+                    FROM vehicle_inspections
+                """.trimIndent())
+                db.execSQL("DROP TABLE vehicle_inspections")
+                db.execSQL("ALTER TABLE vehicle_inspections_new RENAME TO vehicle_inspections")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -628,7 +706,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
                          MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
                          MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30,
-                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42
+                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43
                      )
                     .build()
                 INSTANCE = instance
