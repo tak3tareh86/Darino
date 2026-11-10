@@ -53,7 +53,7 @@ data class LoanCalculatorState(
     ),
     val compLoan2Input: ComparisonLoanInput = ComparisonLoanInput(
         name = "",
-        amount = 100_000_000L,
+        amount = 0L,
         interestRate = 0.0,
         durationMonths = 0,
         method = CalculationMethod.ANNUITY
