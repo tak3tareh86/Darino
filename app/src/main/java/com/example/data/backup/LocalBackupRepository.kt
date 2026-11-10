@@ -138,7 +138,7 @@ class LocalBackupRepository(
         val snapshot = createBackup()
         val json = BackupFileCodec.encode(snapshot)
         val encrypted = DeviceBackupEncryption.encrypt(json.toByteArray(Charsets.UTF_8))
-        val userTag = Integer.toHexString(getEffectiveUserId().hashCode())
+        val userTag = BackupUserScope.tag(getEffectiveUserId())
         val directory = File(context.filesDir, "emergency_backups")
         check(directory.exists() || directory.mkdirs()) { "ساخت پوشه پشتیبان اضطراری ناموفق بود." }
         val destination = File(directory, "before-restore-$userTag-${System.currentTimeMillis()}.darino")
