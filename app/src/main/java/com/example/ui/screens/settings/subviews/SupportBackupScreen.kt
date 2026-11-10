@@ -518,6 +518,31 @@ fun SupportBackupScreen(
         )
     }
 
+    if (showAutomaticRestoreConfirmation) {
+        SettingsConfirmationDialog(
+            isOpen = true,
+            title = "بازیابی آخرین پشتیبان خودکار",
+            message = "جدیدترین نسخه روزانه یا هفتگی ذخیره‌شده برای حساب فعلی از حافظه همین دستگاه بازیابی می‌شود. این نسخه به کلید رمزگذاری همین دستگاه وابسته است و پیش از جایگزینی، از وضعیت فعلی یک نسخه اضطراری ساخته خواهد شد.",
+            confirmButtonText = "بازیابی پشتیبان خودکار",
+            isDanger = true,
+            onConfirm = {
+                showAutomaticRestoreConfirmation = false
+                scope.launch {
+                    isRestoring = true
+                    try {
+                        backupRepo.restoreLatestAutomaticBackup()
+                        Toast.makeText(context, "پشتیبان خودکار با موفقیت بازیابی شد.", Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "خطا در بازیابی پشتیبان خودکار: ${e.message}", Toast.LENGTH_LONG).show()
+                    } finally {
+                        isRestoring = false
+                    }
+                }
+            },
+            onDismiss = { showAutomaticRestoreConfirmation = false }
+        )
+    }
+
     if (showRestoreConfirmation && pendingRestoreBackup != null) {
         SettingsConfirmationDialog(
             isOpen = true,
