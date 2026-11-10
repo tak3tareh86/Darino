@@ -290,7 +290,9 @@ class SmsPatternRepository(context: Context) {
         val previousJson = preferences.getString(storageKey, null)
         val previousStart = preferences.getLong(startKey, 0L)
         if (rawJson == null) {
-            preferences.edit().remove(storageKey).remove(startKey).commit()
+            check(preferences.edit().remove(storageKey).remove(startKey).commit()) {
+                "پاک‌سازی الگوهای پیامک قبلی هنگام بازیابی ناموفق بود."
+            }
             SmsPatternChangeNotifier.changes.tryEmit(Unit)
             return
         }
@@ -306,7 +308,7 @@ class SmsPatternRepository(context: Context) {
             val rollback = preferences.edit()
             if (previousJson == null) rollback.remove(storageKey) else rollback.putString(storageKey, previousJson)
             if (previousStart > 0L) rollback.putLong(startKey, previousStart) else rollback.remove(startKey)
-            rollback.commit()
+            check(rollback.commit()) { "بازگردانی الگوهای پیامک قبلی پس از خطا ناموفق بود." }
             throw IllegalArgumentException("الگوهای پیامک فایل پشتیبان معتبر نیستند.")
         }
         SmsPatternChangeNotifier.changes.tryEmit(Unit)
