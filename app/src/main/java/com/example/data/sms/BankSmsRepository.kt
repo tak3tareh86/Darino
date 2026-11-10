@@ -235,64 +235,35 @@ class BankSmsRepository(private val context: Context) {
         pendingQueuePreferences.edit().putString(key, array.toString()).apply()
     }
 
-    /** Captures all account-scoped local SMS review state for an encrypted backup. */
+    /** Captures pending suggestions; provider row IDs remain device-local and are not exported. */
     @Synchronized
     fun exportStateForBackup(userId: String): BankSmsStateBackup {
         require(userId.isNotBlank())
-        val processedKey = userKey(KEY_PROCESSED_SMS_IDS, userId)!!
-        val dismissedKey = userKey(KEY_DISMISSED_SMS_IDS, userId)!!
         val queueKey = userKey(KEY_PENDING_SMS_QUEUE, userId)!!
         return BankSmsStateBackup(
-            processedSmsIds = (prefs.getStringSet(processedKey, emptySet()) ?: emptySet()).toList().sorted(),
-            dismissedSmsIds = (prefs.getStringSet(dismissedKey, emptySet()) ?: emptySet()).toList().sorted(),
             pendingSuggestionsJson = pendingQueuePreferences.getString(queueKey, null)
         )
     }
 
-    /** Restores account-scoped SMS state and rolls both preference stores back on failure. */
+    /** Restores the portable pending-suggestion queue with rollback on preference-write failure. */
     @Synchronized
     fun restoreStateFromBackup(state: BankSmsStateBackup, userId: String) {
         require(userId.isNotBlank())
-        require(state.processedSmsIds.none(String::isBlank) &&
-            state.processedSmsIds.size == state.processedSmsIds.toSet().size)
-        require(state.dismissedSmsIds.none(String::isBlank) &&
-            state.dismissedSmsIds.size == state.dismissedSmsIds.toSet().size)
-
-        val processedKey = userKey(KEY_PROCESSED_SMS_IDS, userId)!!
-        val dismissedKey = userKey(KEY_DISMISSED_SMS_IDS, userId)!!
         val queueKey = userKey(KEY_PENDING_SMS_QUEUE, userId)!!
-        val oldProcessed = prefs.getStringSet(processedKey, null)?.toSet()
-        val oldDismissed = prefs.getStringSet(dismissedKey, null)?.toSet()
-        val oldQueue = pendingQueuePreferences.getString(queueKey, null)
+        val previousQueue = pendingQueuePreferences.getString(queueKey, null)
         try {
-            val generalEditor = prefs.edit()
-            if (state.processedSmsIds.isEmpty()) generalEditor.remove(processedKey)
-            else generalEditor.putStringSet(processedKey, state.processedSmsIds.toMutableSet())
-            if (state.dismissedSmsIds.isEmpty()) generalEditor.remove(dismissedKey)
-            else generalEditor.putStringSet(dismissedKey, state.dismissedSmsIds.toMutableSet())
-            check(generalEditor.commit()) { "ذخیره سوابق پیامک‌های بررسی‌شده ناموفق بود." }
-
-            val queueEditor = pendingQueuePreferences.edit()
-            if (state.pendingSuggestionsJson == null) queueEditor.remove(queueKey)
-            else queueEditor.putString(queueKey, state.pendingSuggestionsJson)
-            check(queueEditor.commit()) { "ذخیره پیشنهادهای پیامکی بازیابی‌شده ناموفق بود." }
-
-            val expectedState = state.copy(
-                processedSmsIds = state.processedSmsIds.sorted(),
-                dismissedSmsIds = state.dismissedSmsIds.sorted()
-            )
-            check(exportStateForBackup(userId) == expectedState) {
-                "تطبیق اطلاعات پیامکی پس از بازیابی ناموفق بود."
+            val editor = pendingQueuePreferences.edit()
+            if (state.pendingSuggestionsJson == null) editor.remove(queueKey)
+            else editor.putString(queueKey, state.pendingSuggestionsJson)
+            check(editor.commit()) { "ذخیره پیشنهادهای پیامکی بازیابی‌شده ناموفق بود." }
+            check(exportStateForBackup(userId) == state) {
+                "تطبیق پیشنهادهای پیامکی پس از بازیابی ناموفق بود."
             }
             SmsPatternChangeNotifier.changes.tryEmit(Unit)
         } catch (error: Exception) {
-            val rollback = prefs.edit()
-            if (oldProcessed == null) rollback.remove(processedKey) else rollback.putStringSet(processedKey, oldProcessed)
-            if (oldDismissed == null) rollback.remove(dismissedKey) else rollback.putStringSet(dismissedKey, oldDismissed)
+            val rollback = pendingQueuePreferences.edit()
+            if (previousQueue == null) rollback.remove(queueKey) else rollback.putString(queueKey, previousQueue)
             rollback.commit()
-            val queueRollback = pendingQueuePreferences.edit()
-            if (oldQueue == null) queueRollback.remove(queueKey) else queueRollback.putString(queueKey, oldQueue)
-            queueRollback.commit()
             throw error
         }
     }
