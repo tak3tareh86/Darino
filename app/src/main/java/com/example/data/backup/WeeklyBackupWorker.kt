@@ -39,8 +39,9 @@ class WeeklyBackupWorker(
             val jsonString = BackupFileCodec.encode(backup)
             val encryptedPayload = DeviceBackupEncryption.encrypt(jsonString.toByteArray(Charsets.UTF_8))
 
+            val userTag = Integer.toHexString(userId.hashCode())
             val (y, m, d) = CalendarDateUtils.getCurrentJalaliDate()
-            val filename = "${frequency}_auto_backup_${y}_${m.toString().padStart(2, '0')}_${d.toString().padStart(2, '0')}.darino"
+            val filename = "${frequency}_auto_backup_${userTag}_${y}_${m.toString().padStart(2, '0')}_${d.toString().padStart(2, '0')}.darino"
 
             val autoBackupsDir = File(applicationContext.filesDir, "auto_backups")
             if (!autoBackupsDir.exists() && !autoBackupsDir.mkdirs()) {
@@ -64,7 +65,7 @@ class WeeklyBackupWorker(
             // Keep bounded local history so daily backups cannot grow without limit.
             val keepCount = if (frequency == FREQUENCY_DAILY) DAILY_RETENTION_COUNT else WEEKLY_RETENTION_COUNT
             autoBackupsDir.listFiles { file ->
-                file.isFile && file.name.startsWith("${frequency}_auto_backup_") && file.extension == "darino"
+                file.isFile && file.name.startsWith("${frequency}_auto_backup_${userTag}_") && file.extension == "darino"
             }
                 ?.sortedByDescending { it.lastModified() }
                 ?.drop(keepCount)
@@ -79,6 +80,7 @@ class WeeklyBackupWorker(
             // Update last backup time
             prefs.edit()
                 .putLong("last_backup_time", System.currentTimeMillis())
+                .putLong("last_backup_time_${userTag}", System.currentTimeMillis())
                 .apply()
 
             Result.success()
