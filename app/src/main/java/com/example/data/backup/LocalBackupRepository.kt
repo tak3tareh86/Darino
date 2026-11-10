@@ -736,7 +736,7 @@ class LocalBackupRepository(
                 val restoredLegacyReminderIds = mutableMapOf<Int, Int>()
                 if (backup.metadata.backupVersion >= 6) {
                     backup.legacyReminders.forEach { reminder ->
-                        val remappedSourceId = when (reminder.sourceType) {
+                        val remappedSourceId = when (reminder.sourceType?.uppercase()) {
                             "INSTALLMENT" -> reminder.sourceId?.let { restoredInstallmentIds[it] ?: it }
                             "VEHICLE" -> reminder.sourceId?.let {
                                 restoredVehicleIds[it.toString()]?.toIntOrNull() ?: it
