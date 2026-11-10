@@ -202,9 +202,10 @@ class ReminderManager(
      */
     suspend fun deleteReminder(reminderId: String) = withContext(Dispatchers.IO) {
         val reminder = repository.getReminderById(reminderId)
+        val effectiveReminderId = reminder?.id ?: reminderId
         val schedules = repository.getSchedulesSync(reminderId)
-        scheduler.cancel(reminderId, schedules)
-        NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
+        scheduler.cancel(effectiveReminderId, schedules)
+        NotificationDispatcher(context).cancelReminderNotifications(effectiveReminderId, schedules)
         repository.deleteReminderWithSchedules(reminderId)
         if (reminder?.sourceType.equals("CALENDAR", ignoreCase = true)) {
             reminder?.sourceId?.let { eventId ->
@@ -222,6 +223,7 @@ class ReminderManager(
      */
     suspend fun completeReminder(reminderId: String) = withContext(Dispatchers.IO) {
         val reminder = repository.getReminderById(reminderId)
+        val effectiveReminderId = reminder?.id ?: reminderId
         val schedules = repository.getSchedulesSync(reminderId)
         if (reminder != null) {
             repository.updateReminderWithSchedules(
@@ -231,8 +233,8 @@ class ReminderManager(
         } else {
             repository.updateStatus(reminderId, "COMPLETED")
         }
-        scheduler.cancel(reminderId, schedules)
-        NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
+        scheduler.cancel(effectiveReminderId, schedules)
+        NotificationDispatcher(context).cancelReminderNotifications(effectiveReminderId, schedules)
         if (reminder?.sourceType.equals("CALENDAR", ignoreCase = true)) {
             reminder?.sourceId?.let { eventId ->
                 SessionManager.userId?.let { userId ->
@@ -249,10 +251,11 @@ class ReminderManager(
      */
     suspend fun cancelReminder(reminderId: String) = withContext(Dispatchers.IO) {
         val reminder = repository.getReminderById(reminderId)
+        val effectiveReminderId = reminder?.id ?: reminderId
         repository.updateStatus(reminderId, "CANCELLED")
         val schedules = repository.getSchedulesSync(reminderId)
-        scheduler.cancel(reminderId, schedules)
-        NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
+        scheduler.cancel(effectiveReminderId, schedules)
+        NotificationDispatcher(context).cancelReminderNotifications(effectiveReminderId, schedules)
         if (reminder?.sourceType.equals("CALENDAR", ignoreCase = true)) {
             reminder?.sourceId?.let { eventId ->
                 SessionManager.userId?.let { userId ->
@@ -331,8 +334,8 @@ class ReminderManager(
             try {
                 val disabledSchedules = enabledSchedules.map { it.copy(enabled = false) }
                 repository.updateReminderWithSchedules(enabledReminder.copy(status = "DISABLED"), disabledSchedules)
-                scheduler.cancel(reminderId, enabledSchedules)
-                NotificationDispatcher(context).cancelReminderNotifications(reminderId, enabledSchedules)
+                scheduler.cancel(reminder.id, enabledSchedules)
+                NotificationDispatcher(context).cancelReminderNotifications(reminder.id, enabledSchedules)
             } catch (rollbackEx: Exception) {
                 Log.e("ReminderManager", "Failed to rollback reminder to DISABLED", rollbackEx)
             }
@@ -367,6 +370,7 @@ class ReminderManager(
      */
     suspend fun disableReminder(reminderId: String) = withContext(Dispatchers.IO) {
         val reminder = repository.getReminderById(reminderId)
+        val effectiveReminderId = reminder?.id ?: reminderId
         val schedules = repository.getSchedulesSync(reminderId)
         // Persist the disabled channel and disabled schedules before cancelling system alarms.
         if (reminder != null) {
@@ -377,8 +381,8 @@ class ReminderManager(
         } else {
             repository.updateStatus(reminderId, "DISABLED")
         }
-        scheduler.cancel(reminderId, schedules)
-        NotificationDispatcher(context).cancelReminderNotifications(reminderId, schedules)
+        scheduler.cancel(effectiveReminderId, schedules)
+        NotificationDispatcher(context).cancelReminderNotifications(effectiveReminderId, schedules)
         if (reminder?.sourceType.equals("CALENDAR", ignoreCase = true)) {
             reminder?.sourceId?.let { com.example.calendar.reminder.CalendarEventReminderScheduler(context).cancel(it) }
         }
