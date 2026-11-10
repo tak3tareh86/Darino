@@ -69,8 +69,8 @@ class LocalBackupRepository(
     }
 
     companion object {
-        private const val MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
-        private const val MAX_TOTAL_ATTACHMENT_BYTES = 100 * 1024 * 1024
+        private const val MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+        private const val MAX_TOTAL_ATTACHMENT_BYTES = 30 * 1024 * 1024
     }
 
     private data class RestoredAttachments(
