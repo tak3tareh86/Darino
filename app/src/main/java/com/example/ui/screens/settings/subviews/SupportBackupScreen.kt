@@ -91,8 +91,17 @@ fun SupportBackupScreen(
 
     // Backup state
     val prefs = remember { context.getSharedPreferences("darino_backup_prefs", android.content.Context.MODE_PRIVATE) }
+    fun currentBackupTimestampKey(): String {
+        val userId = com.example.data.security.SessionManager.userId
+            ?: com.example.data.security.AuthSessionManager(context).getActiveSession()?.userId
+        return userId?.let { "last_backup_time_${Integer.toHexString(it.hashCode())}" } ?: "last_backup_time"
+    }
+    fun readLastBackupTimestamp(): Long {
+        val key = currentBackupTimestampKey()
+        return prefs.getLong(key, if (key == "last_backup_time") 0L else prefs.getLong("last_backup_time", 0L))
+    }
     var lastBackupDate by remember {
-        val lastTime = prefs.getLong("last_backup_time", 0L)
+        val lastTime = readLastBackupTimestamp()
         mutableStateOf(
             if (lastTime == 0L) {
                 "تاکنون بک‌آپی گرفته نشده"
@@ -104,7 +113,7 @@ fun SupportBackupScreen(
     }
 
     val refreshLastBackupDate = {
-        val lastTime = prefs.getLong("last_backup_time", 0L)
+        val lastTime = readLastBackupTimestamp()
         lastBackupDate = if (lastTime == 0L) {
             "تاکنون بک‌آپی گرفته نشده"
         } else {
@@ -136,6 +145,7 @@ fun SupportBackupScreen(
     var shareAfterEncryption by remember { mutableStateOf(false) }
     var showRestoreConfirmation by remember { mutableStateOf(false) }
     var showEmergencyRestoreConfirmation by remember { mutableStateOf(false) }
+    var showAutomaticRestoreConfirmation by remember { mutableStateOf(false) }
     var pendingRestoreBackup by remember { mutableStateOf<com.example.data.backup.DarinoBackup?>(null) }
     var backupSummaryInfo by remember { mutableStateOf("") }
     var pendingBackupPayload by remember { mutableStateOf<ByteArray?>(null) }
@@ -147,7 +157,7 @@ fun SupportBackupScreen(
 
     fun updateBackupTimestamp(summary: String) {
         val nowTime = System.currentTimeMillis()
-        prefs.edit().putLong("last_backup_time", nowTime).apply()
+        prefs.edit().putLong("last_backup_time", nowTime).putLong(currentBackupTimestampKey(), nowTime).apply()
         val dt = com.example.util.PersianCalendarHelper.fromEpochMillis(nowTime)
         lastBackupDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
             "${dt.year}/${dt.month.toString().padStart(2, '0')}/${dt.day.toString().padStart(2, '0')}"
