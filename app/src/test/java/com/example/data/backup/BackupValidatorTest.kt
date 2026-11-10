@@ -485,4 +485,36 @@ class BackupValidatorTest {
         assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
     }
 
+    @Test
+    fun versionNinePreservesAndValidatesPendingBankSmsSuggestions() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 9,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
+                bankSmsState = BankSmsStateBackup(
+                    pendingSuggestionsJson = """[{"id":"sms_1","patternId":"pattern_1","bankName":"Bank","amount":1000,"amountUnit":"TOMAN","smsText":"واریز","receivedAtMillis":1800000000000}]"""
+                )
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Valid)
+        val decoded = BackupFileCodec.decode(BackupFileCodec.encode(backup))
+        assertEquals(
+            backup.bankSmsState?.pendingSuggestionsJson,
+            decoded.bankSmsState?.pendingSuggestionsJson
+        )
+    }
+
 }
