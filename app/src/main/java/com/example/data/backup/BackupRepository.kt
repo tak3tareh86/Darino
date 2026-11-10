@@ -21,5 +21,10 @@ interface BackupRepository {
 
 enum class RestoreMode {
     REPLACE,
+
+    /**
+     * Reserved for a future implementation. The current repository intentionally rejects
+     * MERGE because safe cross-table ID remapping is not implemented; callers must use REPLACE.
+     */
     MERGE
 }
