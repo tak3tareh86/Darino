@@ -242,7 +242,7 @@ class BackupValidatorTest {
     }
 
     @Test
-    fun legacyVersionsOneThroughThreeRemainImportableAsJson() {
+    fun legacyVersionsOneThroughSevenRemainImportableAsJson() {
         for (version in 1..7) {
             val legacyBackup = BackupValidator.withChecksum(
                 DarinoBackup(
