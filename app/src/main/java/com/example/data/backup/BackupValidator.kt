@@ -34,6 +34,14 @@ object BackupValidator {
         return runCatching { jsonArrayAdapter.fromJson(rawJson)?.size ?: -1 }.getOrDefault(-1)
     }
 
+    fun isJsonObjectArray(rawJson: String?, requiredKeys: Set<String> = emptySet()): Boolean {
+        if (rawJson == null) return true
+        val values = runCatching { jsonArrayAdapter.fromJson(rawJson) }.getOrNull() ?: return false
+        return values.all { value ->
+            value is Map<*, *> && requiredKeys.all { it in value.keys }
+        }
+    }
+
     fun calculateChecksum(content: String): String {
         val bytes = MessageDigest.getInstance("SHA-256")
             .digest(content.toByteArray(Charsets.UTF_8))
@@ -132,7 +140,16 @@ object BackupValidator {
                 backup.smsPatternsJson
             ).map(::countJsonArrayItems)
         } else emptyList()
-        if (configurationRecordCounts.any { it < 0 } ||
+        val finance = backup.financeMetadata
+        val customCollectionsValid = version < 8 || (
+            isJsonObjectArray(finance?.budgetsJson, setOf("id", "title", "amount")) &&
+                isJsonObjectArray(finance?.savingsGoalsJson, setOf("id", "title", "targetAmount", "currentAmount")) &&
+                isJsonObjectArray(finance?.recurringTransactionsJson, setOf("id", "title", "amount", "type", "frequency", "startDate", "nextExecutionDate")) &&
+                isJsonObjectArray(finance?.categoriesJson, setOf("id", "title", "iconEmoji", "type")) &&
+                isJsonObjectArray(backup.userBankSmsRulesJson, setOf("bankName")) &&
+                isJsonObjectArray(backup.smsPatternsJson, setOf("name", "type", "sampleMessage"))
+        )
+        if (configurationRecordCounts.any { it < 0 } || !customCollectionsValid ||
             (backup.smsRecognitionStartMillis != null && backup.smsRecognitionStartMillis <= 0L)
         ) {
             return ValidationResult.Invalid("تنظیمات سفارشی فایل پشتیبان ساختار معتبر ندارند.")
