@@ -619,12 +619,28 @@ class LocalBackupRepository(
 
                 if (backup.metadata.backupVersion >= 5) {
                     backup.vehicleStore?.let { store ->
-                        db.vehicleDao().insertVehicleStoreForBackup(
+                        val structuredVehicleDataExists =
+                            backup.vehicles.isNotEmpty() || backup.vehicleServices.isNotEmpty() ||
+                                backup.vehicleExpenses.isNotEmpty() || backup.vehicleInsurances.isNotEmpty() ||
+                                backup.vehicleInspections.isNotEmpty()
+                        val restoredStore = if (structuredVehicleDataExists) {
+                            // Structured Room rows are authoritative. Do not replay a stale legacy
+                            // JSON snapshot after inserting those rows, or startup migration duplicates them.
+                            store.copy(
+                                userId = userId,
+                                vehiclesJson = "[]",
+                                servicesJson = "[]",
+                                expensesJson = "[]",
+                                insurancesJson = "[]",
+                                inspectionsJson = "[]"
+                            )
+                        } else {
                             store.copy(
                                 userId = userId,
                                 expensesJson = remapAttachmentUris(store.expensesJson, restoredAttachments.uriMap)
                             )
-                        )
+                        }
+                        db.vehicleDao().insertVehicleStoreForBackup(restoredStore)
                     }
                     backup.reminderDeliveryLogs.forEach { log ->
                         val newReminderId = restoredSmartReminderIds[log.reminderId]
