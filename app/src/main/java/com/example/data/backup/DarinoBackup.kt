@@ -50,7 +50,8 @@ data class DarinoBackup(
     val financeMetadata: FinanceMetadataBackup? = null,
     val userBankSmsRulesJson: String? = null,
     val smsPatternsJson: String? = null,
-    val smsRecognitionStartMillis: Long? = null
+    val smsRecognitionStartMillis: Long? = null,
+    val attachments: List<BackupAttachment> = emptyList()
 )
 
 /** User-visible settings. Nullable additions preserve compatibility with older backup files. */
@@ -81,4 +82,13 @@ data class FinanceMetadataBackup(
     val savingsGoalsJson: String? = null,
     val recurringTransactionsJson: String? = null,
     val categoriesJson: String? = null
+)
+
+/** Binary user attachments referenced by URI fields in database records. */
+data class BackupAttachment(
+    val originalUri: String,
+    val fileName: String,
+    val mediaType: String,
+    val sha256: String,
+    val base64Data: String
 )
