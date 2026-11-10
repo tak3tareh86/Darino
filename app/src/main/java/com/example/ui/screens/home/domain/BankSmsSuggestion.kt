@@ -31,7 +31,9 @@ data class BankSmsSuggestion(
     // Balance values can use a different unit from the transaction in the same SMS.
     val balanceAmountUnit: AppCurrency? = null,
     // Unit for each entry in amountCandidates, kept index-aligned with that list.
-    val amountCandidateUnits: List<AppCurrency> = emptyList()
+    val amountCandidateUnits: List<AppCurrency> = emptyList(),
+    // Restored pending suggestions remain visible even after their original pattern lookback expires.
+    val preserveAfterRestore: Boolean = false
 ) {
     val isExpense: Boolean
         get() = type == TransactionType.EXPENSE

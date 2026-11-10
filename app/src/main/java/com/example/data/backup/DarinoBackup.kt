@@ -45,14 +45,58 @@ data class DarinoBackup(
     val vehicleStore: VehicleStoreEntity? = null,
     val reminderDeliveryLogs: List<ReminderDeliveryLogEntity> = emptyList(),
     val legacyReminders: List<com.example.data.database.ReminderEntity> = emptyList(),
-    val legacyReminderSchedules: List<com.example.data.database.ReminderScheduleEntity> = emptyList()
+    val legacyReminderSchedules: List<com.example.data.database.ReminderScheduleEntity> = emptyList(),
+    // These are user-owned configuration records stored outside Room.
+    val financeMetadata: FinanceMetadataBackup? = null,
+    val userBankSmsRulesJson: String? = null,
+    val smsPatternsJson: String? = null,
+    val smsRecognitionStartMillis: Long? = null,
+    val attachments: List<BackupAttachment> = emptyList(),
+    val bankSmsState: BankSmsStateBackup? = null
 )
 
-/** User-visible general preferences stored outside Room. */
+/** User-visible settings. Nullable additions preserve compatibility with older backup files. */
 data class AppSettingsBackup(
     val themeMode: String,
     val language: String,
     val currency: String,
     val alertDelivery: String,
-    val navigationTransition: String
+    val navigationTransition: String,
+    val notificationsEnabled: Boolean? = null,
+    val smsNotificationsEnabled: Boolean? = null,
+    val notificationSoundEnabled: Boolean? = null,
+    val notificationVibrationEnabled: Boolean? = null,
+    val quietHoursEnabled: Boolean? = null,
+    val quietHoursStartMinute: Int? = null,
+    val quietHoursEndMinute: Int? = null,
+    val allowHighPriorityInQuietHours: Boolean? = null,
+    val defaultReminderTimeMinute: Int? = null,
+    val installmentReminderDays: Int? = null,
+    val vehicleReminderKilometers: Int? = null,
+    val autoBackupDailyEnabled: Boolean? = null,
+    val autoBackupWeeklyEnabled: Boolean? = null,
+    val cleanSlatePerformed: Boolean? = null
+)
+
+/** JSON snapshots of custom finance preferences stored in darino_general_preferences. */
+data class FinanceMetadataBackup(
+    val budgetsJson: String? = null,
+    val savingsGoalsJson: String? = null,
+    val recurringTransactionsJson: String? = null,
+    val categoriesJson: String? = null
+)
+
+/** Binary user attachments referenced by URI fields in database records. */
+data class BackupAttachment(
+    val originalUri: String,
+    val fileName: String,
+    val mediaType: String,
+    val sha256: String,
+    val base64Data: String
+)
+
+/** User-scoped bank-SMS review state; message bodies remain inside the encrypted backup. */
+data class BankSmsStateBackup(
+    // SMS provider row IDs are device-local and deliberately are not transferred.
+    val pendingSuggestionsJson: String? = null
 )

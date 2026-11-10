@@ -4,8 +4,6 @@ import android.content.Context
 import android.util.Log
 import androidx.work.*
 import com.example.calendar.domain.CalendarDateUtils
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -38,27 +36,36 @@ class WeeklyBackupWorker(
             val backupRepo = LocalBackupRepository(applicationContext)
             val backup = backupRepo.createBackup()
 
-            val moshi = Moshi.Builder()
-                .add(KotlinJsonAdapterFactory())
-                .build()
-            val adapter = moshi.adapter(DarinoBackup::class.java)
-            val jsonString = adapter.toJson(backup)
+            val jsonString = BackupFileCodec.encode(backup)
+            val encryptedPayload = DeviceBackupEncryption.encrypt(jsonString.toByteArray(Charsets.UTF_8), applicationContext)
 
+            val userTag = BackupUserScope.tag(userId)
             val (y, m, d) = CalendarDateUtils.getCurrentJalaliDate()
-            val filename = "${frequency}_auto_backup_${y}_${m.toString().padStart(2, '0')}_${d.toString().padStart(2, '0')}.json"
+            val filename = "${frequency}_auto_backup_${userTag}_${y}_${m.toString().padStart(2, '0')}_${d.toString().padStart(2, '0')}.darino"
 
             val autoBackupsDir = File(applicationContext.filesDir, "auto_backups")
-            if (!autoBackupsDir.exists()) {
-                autoBackupsDir.mkdirs()
+            if (!autoBackupsDir.exists() && !autoBackupsDir.mkdirs()) {
+                throw java.io.IOException("Could not create automatic backup directory")
             }
 
             val backupFile = File(autoBackupsDir, filename)
-            backupFile.writeText(jsonString, Charsets.UTF_8)
+            val temporaryFile = File(autoBackupsDir, "$filename.tmp")
+            java.io.FileOutputStream(temporaryFile).use { stream ->
+                stream.write(encryptedPayload)
+                stream.fd.sync()
+            }
+            try {
+                // Atomic replacement preserves the last known-good snapshot if writing fails.
+                android.system.Os.rename(temporaryFile.absolutePath, backupFile.absolutePath)
+            } catch (error: Exception) {
+                temporaryFile.delete()
+                throw java.io.IOException("Could not finalize automatic backup file", error)
+            }
 
             // Keep bounded local history so daily backups cannot grow without limit.
             val keepCount = if (frequency == FREQUENCY_DAILY) DAILY_RETENTION_COUNT else WEEKLY_RETENTION_COUNT
             autoBackupsDir.listFiles { file ->
-                file.isFile && file.name.startsWith("${frequency}_auto_backup_") && file.extension == "json"
+                file.isFile && file.name.startsWith("${frequency}_auto_backup_${userTag}_") && file.extension == "darino"
             }
                 ?.sortedByDescending { it.lastModified() }
                 ?.drop(keepCount)
@@ -73,6 +80,7 @@ class WeeklyBackupWorker(
             // Update last backup time
             prefs.edit()
                 .putLong("last_backup_time", System.currentTimeMillis())
+                .putLong("last_backup_time_${userTag}", System.currentTimeMillis())
                 .apply()
 
             Result.success()

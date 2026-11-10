@@ -1,6 +1,9 @@
 package com.example.data.backup
 
 import android.content.Context
+import android.content.SharedPreferences
+import android.net.Uri
+import android.util.Base64
 import android.util.Log
 import androidx.room.withTransaction
 import com.example.data.database.AppDatabase
@@ -8,6 +11,10 @@ import com.example.data.security.SessionManager
 import com.example.data.preferences.AppPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.security.MessageDigest
 
 class LocalBackupRepository(
     private val context: Context
@@ -21,12 +28,230 @@ class LocalBackupRepository(
             ?: throw IllegalStateException("Authenticated user is required")
     }
 
+    private fun captureAttachments(
+        expenses: List<com.example.data.database.VehicleExpenseRoomEntity>,
+        legacyExpensesJson: String?
+    ): List<BackupAttachment> {
+        val receiptUris = expenses.mapNotNull { it.receiptImageUri?.takeIf(String::isNotBlank) }.toMutableList()
+        if (!legacyExpensesJson.isNullOrBlank()) {
+            val legacyArray = org.json.JSONArray(legacyExpensesJson)
+            for (index in 0 until legacyArray.length()) {
+                val rawUri = legacyArray.optJSONObject(index)?.optString("receiptImageUri")
+                    ?.takeIf { it.isNotBlank() && it != "null" }
+                if (rawUri != null) receiptUris.add(rawUri)
+            }
+        }
+        val uniqueUris = receiptUris.distinct()
+        var totalBytes = 0L
+        return uniqueUris.map { rawUri ->
+            val uri = Uri.parse(rawUri)
+            val input = if (uri.scheme == null) {
+                File(rawUri).takeIf { it.isFile }?.inputStream()
+            } else {
+                context.contentResolver.openInputStream(uri)
+            } ?: throw IllegalStateException("فایل پیوست رسید قابل خواندن نیست: $rawUri")
+            val bytes = input.use { stream ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(8 * 1024)
+                var read: Int
+                var size = 0
+                while (stream.read(buffer).also { read = it } != -1) {
+                    size += read
+                    require(size <= MAX_ATTACHMENT_BYTES) { "حجم یکی از فایل‌های پیوست از حد مجاز بیشتر است." }
+                    output.write(buffer, 0, read)
+                }
+                output.toByteArray()
+            }
+            totalBytes += bytes.size
+            require(totalBytes <= MAX_TOTAL_ATTACHMENT_BYTES) { "حجم کل فایل‌های پیوست برای پشتیبان‌گیری بیش از حد مجاز است." }
+            val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
+                .joinToString("") { "%02x".format(it) }
+            val rawName = uri.lastPathSegment?.substringAfterLast('/')?.takeIf(String::isNotBlank)
+                ?: "receipt-$digest.bin"
+            val safeName = rawName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(120)
+            BackupAttachment(
+                originalUri = rawUri,
+                fileName = safeName,
+                mediaType = context.contentResolver.getType(uri) ?: "application/octet-stream",
+                sha256 = digest,
+                base64Data = Base64.encodeToString(bytes, Base64.NO_WRAP)
+            )
+        }
+    }
+
+    companion object {
+        private const val MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+        private const val MAX_TOTAL_ATTACHMENT_BYTES = 30 * 1024 * 1024
+    }
+
+    private data class RestoredAttachments(
+        val uriMap: Map<String, String>,
+        val createdFiles: List<File>
+    )
+
+    private fun restoreAttachments(attachments: List<BackupAttachment>): RestoredAttachments {
+        if (attachments.isEmpty()) return RestoredAttachments(emptyMap(), emptyList())
+        val directory = File(context.filesDir, "backup_attachments")
+        check(directory.exists() || directory.mkdirs()) { "ساخت پوشه فایل‌های پیوست ناموفق بود." }
+        val uriMap = linkedMapOf<String, String>()
+        val createdFiles = mutableListOf<File>()
+        try {
+            attachments.forEach { attachment ->
+                val bytes = Base64.decode(attachment.base64Data, Base64.DEFAULT)
+                val extension = attachment.fileName.substringAfterLast('.', "bin")
+                    .lowercase().filter { it.isLetterOrDigit() }.take(8).ifBlank { "bin" }
+                val destination = File(directory, "${attachment.sha256}.$extension")
+                val existingHash = if (destination.isFile) {
+                    MessageDigest.getInstance("SHA-256").digest(destination.readBytes())
+                        .joinToString("") { "%02x".format(it) }
+                } else null
+                if (existingHash != attachment.sha256) {
+                    val temporary = File(directory, "${destination.name}.tmp")
+                    FileOutputStream(temporary).use { stream ->
+                        stream.write(bytes)
+                        stream.fd.sync()
+                    }
+                    try {
+                        // Atomic same-filesystem replacement: a crash cannot leave a half-written receipt.
+                        android.system.Os.rename(temporary.absolutePath, destination.absolutePath)
+                    } catch (error: Exception) {
+                        temporary.delete()
+                        throw IllegalStateException("ذخیره فایل پیوست بازیابی‌شده ناموفق بود.", error)
+                    }
+                    createdFiles.add(destination)
+                }
+                val contentUri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "com.example.fileprovider",
+                    destination
+                ).toString()
+                uriMap[attachment.originalUri] = contentUri
+            }
+            return RestoredAttachments(uriMap, createdFiles)
+        } catch (error: Exception) {
+            createdFiles.forEach { it.delete() }
+            throw error
+        }
+    }
+
+    private suspend fun writeEmergencyBackup() {
+        val snapshot = createBackup()
+        val json = BackupFileCodec.encode(snapshot)
+        val encrypted = DeviceBackupEncryption.encrypt(json.toByteArray(Charsets.UTF_8), context)
+        val userTag = BackupUserScope.tag(getEffectiveUserId())
+        val directory = File(context.filesDir, "emergency_backups")
+        check(directory.exists() || directory.mkdirs()) { "ساخت پوشه پشتیبان اضطراری ناموفق بود." }
+        val destination = File(directory, "before-restore-$userTag-${System.currentTimeMillis()}.darino")
+        val temporary = File(directory, "${destination.name}.tmp")
+        FileOutputStream(temporary).use { stream ->
+            stream.write(encrypted)
+            stream.fd.sync()
+        }
+        if (!temporary.renameTo(destination)) {
+            temporary.delete()
+            throw IllegalStateException("ذخیره پشتیبان اضطراری پیش از بازیابی ناموفق بود.")
+        }
+        directory.listFiles()?.filter {
+            it.isFile && it.name.startsWith("before-restore-$userTag-") && it.name.endsWith(".darino")
+        }?.sortedByDescending { it.lastModified() }?.drop(3)?.forEach { it.delete() }
+    }
+
+    /** Restores the newest daily or weekly device-bound automatic backup for the active user. */
+    suspend fun restoreLatestAutomaticBackup() {
+        val userTag = BackupUserScope.tag(getEffectiveUserId())
+        val latest = withContext(Dispatchers.IO) {
+            File(context.filesDir, "auto_backups")
+                .listFiles { file ->
+                    file.isFile &&
+                        (file.name.startsWith("daily_auto_backup_${userTag}_") ||
+                            file.name.startsWith("weekly_auto_backup_${userTag}_")) &&
+                        file.extension == "darino"
+                }
+                ?.maxByOrNull { it.lastModified() }
+                ?: throw IllegalStateException("نسخه پشتیبان خودکار برای این حساب پیدا نشد.")
+        }
+        val backup = withContext(Dispatchers.IO) {
+            val json = DeviceBackupEncryption.decrypt(latest.readBytes()).toString(Charsets.UTF_8)
+            BackupFileCodec.decode(json)
+        }
+        restoreBackup(backup, RestoreMode.REPLACE)
+    }
+
+    /** Restores the newest device-bound emergency snapshot, retaining another snapshot first. */
+    suspend fun restoreLatestEmergencyBackup() {
+        val userTag = BackupUserScope.tag(getEffectiveUserId())
+        val latest = withContext(Dispatchers.IO) {
+            File(context.filesDir, "emergency_backups")
+                .listFiles { file ->
+                    file.isFile && file.name.startsWith("before-restore-$userTag-") && file.name.endsWith(".darino")
+                }
+                ?.maxByOrNull { it.lastModified() }
+                ?: throw IllegalStateException("نسخه اضطراری قابل بازیابی پیدا نشد.")
+        }
+        val backup = withContext(Dispatchers.IO) {
+            val json = DeviceBackupEncryption.decrypt(latest.readBytes()).toString(Charsets.UTF_8)
+            BackupFileCodec.decode(json)
+        }
+        restoreBackup(backup, RestoreMode.REPLACE)
+    }
+
+    private fun restoreSharedPreferencesSnapshot(
+        preferences: SharedPreferences,
+        snapshot: Map<String, *>
+    ) {
+        val editor = preferences.edit().clear()
+        snapshot.forEach { (key, value) ->
+            when (value) {
+                is String -> editor.putString(key, value)
+                is Boolean -> editor.putBoolean(key, value)
+                is Int -> editor.putInt(key, value)
+                is Long -> editor.putLong(key, value)
+                is Float -> editor.putFloat(key, value)
+                is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toMutableSet())
+            }
+        }
+        check(editor.commit()) { "SharedPreferences rollback failed" }
+    }
+
+    /**
+     * Keeps legacy-only vehicle JSON records while dropping only records already restored
+     * from structured Room tables. Child references and receipt URIs are remapped exactly.
+     */
+    private fun remapLegacyVehicleCollection(
+        rawJson: String,
+        structuredIds: Set<String>,
+        vehicleIdMap: Map<String, String>,
+        attachmentUriMap: Map<String, String> = emptyMap()
+    ): String {
+        if (rawJson.isBlank()) return "[]"
+        return runCatching {
+            val source = org.json.JSONArray(rawJson)
+            val result = org.json.JSONArray()
+            for (index in 0 until source.length()) {
+                val original = source.optJSONObject(index) ?: continue
+                val oldId = original.optString("id").takeIf { it.isNotBlank() && it != "null" }
+                if (oldId != null && oldId in structuredIds) continue
+                val item = org.json.JSONObject(original.toString())
+                if (item.has("vehicleId") && !item.isNull("vehicleId")) {
+                    val oldVehicleId = item.optString("vehicleId")
+                    item.put("vehicleId", vehicleIdMap[oldVehicleId] ?: oldVehicleId)
+                }
+                if (item.has("receiptImageUri") && !item.isNull("receiptImageUri")) {
+                    val oldUri = item.optString("receiptImageUri")
+                    item.put("receiptImageUri", attachmentUriMap[oldUri] ?: oldUri)
+                }
+                result.put(item)
+            }
+            result.toString()
+        }.getOrDefault(rawJson)
+    }
+
     override suspend fun createBackup(): DarinoBackup =
         withContext(Dispatchers.IO) {
             val userId = getEffectiveUserId()
 
             // Keep all table reads in one SQLite snapshot so related records cannot drift mid-backup.
-            db.withTransaction {
+            val snapshot = db.withTransaction {
             val accounts = db.accountDao().getAllAccountsRaw(userId)
 
             val checks = db.checkDao().getAllChecksList(userId)
@@ -70,8 +295,9 @@ class LocalBackupRepository(
             val financialHealthProfiles =
                 db.financialHealthDao().getAllProfilesForUser(userId)
 
+            db.loanCalculationDao().claimLegacyCalculations(userId)
             val loanCalculations =
-                db.loanCalculationDao().getAllCalculationsList()
+                db.loanCalculationDao().getAllCalculationsList(userId)
 
             val userPreference =
                 db.userPreferenceDao().getPreference(userId)
@@ -80,13 +306,42 @@ class LocalBackupRepository(
             val vehicleStore = db.vehicleDao().getVehicleStore(userId)
             val reminderDeliveryLogs = db.smartReminderDao().getAllDeliveryLogsForBackup(userId)
             val appPreferences = AppPreferencesRepository.getInstance(context)
+            val generalPrefs = context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
+            val backupPrefs = context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+            val userSuffix = "_$userId"
             val appSettings = AppSettingsBackup(
                 themeMode = appPreferences.themeMode.value.name,
                 language = appPreferences.language.value.name,
                 currency = appPreferences.currency.value.name,
                 alertDelivery = appPreferences.alertDelivery.value.name,
-                navigationTransition = appPreferences.navTransition.value.name
+                navigationTransition = appPreferences.navTransition.value.name,
+                notificationsEnabled = generalPrefs.getBoolean("pref_notifications_enabled", false),
+                smsNotificationsEnabled = generalPrefs.getBoolean("pref_sms_notifications_enabled", false),
+                notificationSoundEnabled = generalPrefs.getBoolean("pref_notification_sound_enabled", false),
+                notificationVibrationEnabled = generalPrefs.getBoolean("pref_notification_vibration_enabled", false),
+                quietHoursEnabled = generalPrefs.getBoolean("pref_quiet_hours_enabled", false),
+                quietHoursStartMinute = generalPrefs.getInt("pref_quiet_hours_start_minute", 23 * 60),
+                quietHoursEndMinute = generalPrefs.getInt("pref_quiet_hours_end_minute", 7 * 60),
+                allowHighPriorityInQuietHours = generalPrefs.getBoolean("pref_allow_high_priority_quiet_hours", false),
+                defaultReminderTimeMinute = generalPrefs.getInt("pref_default_reminder_time_minute", 9 * 60),
+                installmentReminderDays = generalPrefs.getInt("pref_installment_reminder_days", 0),
+                vehicleReminderKilometers = generalPrefs.getInt("pref_vehicle_reminder_kilometers", 0),
+                autoBackupDailyEnabled = backupPrefs.getBoolean("auto_backup_daily", false),
+                autoBackupWeeklyEnabled = backupPrefs.getBoolean("auto_backup_weekly", true),
+                cleanSlatePerformed = appPreferences.isCleanSlatePerformed()
             )
+            val financeMetadata = FinanceMetadataBackup(
+                budgetsJson = generalPrefs.getString("pref_persisted_budgets$userSuffix", null),
+                savingsGoalsJson = generalPrefs.getString("pref_persisted_savings_goals$userSuffix", null),
+                recurringTransactionsJson = generalPrefs.getString("pref_persisted_recurring_txs$userSuffix", null),
+                categoriesJson = generalPrefs.getString("pref_persisted_categories$userSuffix", null)
+            )
+            val smsRuleRepository = com.example.data.sms.UserBankSmsRuleRepository(context)
+            val smsPatternRepository = com.example.data.sms.SmsPatternRepository(context)
+            val smsRulesJson = smsRuleRepository.exportForBackup(userId)
+            val smsPatternsJson = smsPatternRepository.exportForBackup(userId)
+            val smsRecognitionStart = smsPatternRepository.getStoredRecognitionStartMillis(userId)
+            val bankSmsState = com.example.data.sms.BankSmsRepository.getInstance(context).exportStateForBackup(userId)
 
             val totalRecords =
                 accounts.size + checks.size + transactions.size +
@@ -103,11 +358,18 @@ class LocalBackupRepository(
                         financialHealthProfiles.size +
                         loanCalculations.size + notificationLogs.size + smsLogs.size + reminderDeliveryLogs.size +
                         legacyReminders.size + legacyReminderSchedules.size +
-                        (if (vehicleStore != null) 1 else 0) + (if (userPreference != null) 1 else 0) + 1
+                        (if (vehicleStore != null) 1 else 0) + (if (userPreference != null) 1 else 0) + 1 +
+                        BackupValidator.countJsonArrayItems(financeMetadata.budgetsJson) +
+                        BackupValidator.countJsonArrayItems(financeMetadata.savingsGoalsJson) +
+                        BackupValidator.countJsonArrayItems(financeMetadata.recurringTransactionsJson) +
+                        BackupValidator.countJsonArrayItems(financeMetadata.categoriesJson) +
+                        BackupValidator.countJsonArrayItems(smsRulesJson) +
+                        BackupValidator.countJsonArrayItems(smsPatternsJson) +
+                        BackupValidator.countJsonArrayItems(bankSmsState.pendingSuggestionsJson)
 
-            BackupValidator.withChecksum(DarinoBackup(
+            DarinoBackup(
                 metadata = BackupMetadata(
-                    backupVersion = 7,
+                    backupVersion = 9,
                     appVersion = "1.0",
                     createdAt = System.currentTimeMillis(),
                     recordCount = totalRecords,
@@ -137,9 +399,23 @@ class LocalBackupRepository(
                 vehicleStore = vehicleStore,
                 reminderDeliveryLogs = reminderDeliveryLogs,
                 legacyReminders = legacyReminders,
-                legacyReminderSchedules = legacyReminderSchedules
-            ))
+                legacyReminderSchedules = legacyReminderSchedules,
+                financeMetadata = financeMetadata,
+                userBankSmsRulesJson = smsRulesJson,
+                smsPatternsJson = smsPatternsJson,
+                smsRecognitionStartMillis = smsRecognitionStart,
+                bankSmsState = bankSmsState
+            )
             }
+            // File I/O is deliberately outside the SQLite transaction to avoid holding
+            // database write locks while large receipt images are read.
+            val attachments = captureAttachments(snapshot.vehicleExpenses, snapshot.vehicleStore?.expensesJson)
+            BackupValidator.withChecksum(
+                snapshot.copy(
+                    metadata = snapshot.metadata.copy(recordCount = snapshot.metadata.recordCount + attachments.size),
+                    attachments = attachments
+                )
+            )
         }
 
     override suspend fun restoreBackup(
@@ -151,6 +427,9 @@ class LocalBackupRepository(
                 is ValidationResult.Valid -> Unit
                 is ValidationResult.Invalid -> throw IllegalArgumentException(validation.reason)
             }
+            require(mode == RestoreMode.REPLACE) {
+                "ادغام پشتیبان تا زمان پیاده‌سازی تطبیق امن شناسه‌ها در دسترس نیست؛ برای جلوگیری از ایجاد رکوردهای تکراری، فقط جایگزینی کامل مجاز است."
+            }
             val userId = getEffectiveUserId()
             val previousSmartSchedules = if (mode == RestoreMode.REPLACE) {
                 db.smartReminderDao().getAllSchedulesList(userId)
@@ -158,9 +437,86 @@ class LocalBackupRepository(
             val previousLegacyReminders = if (mode == RestoreMode.REPLACE) {
                 db.reminderDao().getActiveRemindersSnapshot(userId)
             } else emptyList()
+            val previousFinancialEvents = if (mode == RestoreMode.REPLACE) {
+                db.financialEventDao().getAllEventsList(userId)
+            } else emptyList()
 
-            db.withTransaction {
+            if (mode == RestoreMode.REPLACE) writeEmergencyBackup()
+            val restoredAttachments = restoreAttachments(backup.attachments)
+            val generalPrefs = context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
+            val backupPrefs = context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+            val generalPrefsSnapshot = generalPrefs.all
+            val backupPrefsSnapshot = backupPrefs.all
+            val smsRuleRepository = com.example.data.sms.UserBankSmsRuleRepository(context)
+            val smsPatternRepository = com.example.data.sms.SmsPatternRepository(context)
+            val previousSmsRules = smsRuleRepository.exportForBackup(userId)
+            val previousSmsPatterns = smsPatternRepository.exportForBackup(userId)
+            val previousSmsRecognitionStart = smsPatternRepository.getStoredRecognitionStartMillis(userId)
+            val bankSmsRepository = com.example.data.sms.BankSmsRepository.getInstance(context)
+            val previousBankSmsState = bankSmsRepository.exportStateForBackup(userId)
+            try {
+                backup.appSettings?.let { settings ->
+                    val editor = generalPrefs.edit()
+                        .putString("pref_theme_mode", settings.themeMode)
+                        .putString("pref_language", settings.language)
+                        .putString("pref_currency", settings.currency)
+                        .putString("pref_alert_delivery", settings.alertDelivery)
+                        .putString("pref_nav_transition_animation", settings.navigationTransition)
+                    settings.notificationsEnabled?.let { editor.putBoolean("pref_notifications_enabled", it) }
+                    settings.smsNotificationsEnabled?.let { editor.putBoolean("pref_sms_notifications_enabled", it) }
+                    settings.notificationSoundEnabled?.let { editor.putBoolean("pref_notification_sound_enabled", it) }
+                    settings.notificationVibrationEnabled?.let { editor.putBoolean("pref_notification_vibration_enabled", it) }
+                    settings.quietHoursEnabled?.let { editor.putBoolean("pref_quiet_hours_enabled", it) }
+                    settings.quietHoursStartMinute?.let { editor.putInt("pref_quiet_hours_start_minute", it) }
+                    settings.quietHoursEndMinute?.let { editor.putInt("pref_quiet_hours_end_minute", it) }
+                    settings.allowHighPriorityInQuietHours?.let { editor.putBoolean("pref_allow_high_priority_quiet_hours", it) }
+                    settings.defaultReminderTimeMinute?.let { editor.putInt("pref_default_reminder_time_minute", it) }
+                    settings.installmentReminderDays?.let { editor.putInt("pref_installment_reminder_days", it) }
+                    settings.vehicleReminderKilometers?.let { editor.putInt("pref_vehicle_reminder_kilometers", it) }
+                    settings.cleanSlatePerformed?.let { editor.putBoolean("pref_is_clean_slate", it) }
+                    check(editor.commit()) { "ذخیره تنظیمات برنامه بازیابی‌شده انجام نشد." }
+
+                    settings.autoBackupDailyEnabled?.let {
+                        check(backupPrefs.edit().putBoolean("auto_backup_daily", it).commit())
+                    }
+                    settings.autoBackupWeeklyEnabled?.let {
+                        check(backupPrefs.edit().putBoolean("auto_backup_weekly", it).commit())
+                    }
+                }
+
+                if (backup.metadata.backupVersion >= 8) {
+                    val userSuffix = "_$userId"
+                    val finance = backup.financeMetadata
+                        ?: throw IllegalArgumentException("اطلاعات مالی سفارشی در فایل پشتیبان وجود ندارد.")
+                    val editor = generalPrefs.edit()
+                    fun putOrRemove(key: String, value: String?) {
+                        if (value == null) editor.remove(key) else editor.putString(key, value)
+                    }
+                    putOrRemove("pref_persisted_budgets$userSuffix", finance.budgetsJson)
+                    putOrRemove("pref_persisted_savings_goals$userSuffix", finance.savingsGoalsJson)
+                    putOrRemove("pref_persisted_recurring_txs$userSuffix", finance.recurringTransactionsJson)
+                    putOrRemove("pref_persisted_categories$userSuffix", finance.categoriesJson)
+                    check(editor.commit()) { "ذخیره تنظیمات مالی بازیابی‌شده انجام نشد." }
+                    smsRuleRepository.restoreFromBackup(backup.userBankSmsRulesJson, userId)
+                    smsPatternRepository.restoreFromBackup(
+                        backup.smsPatternsJson,
+                        backup.smsRecognitionStartMillis,
+                        userId
+                    )
+                    if (backup.metadata.backupVersion >= 9) {
+                        bankSmsRepository.restoreStateFromBackup(
+                            backup.bankSmsState
+                                ?: throw IllegalArgumentException("سوابق پیامک بانکی در فایل پشتیبان وجود ندارد."),
+                            userId
+                        )
+                    }
+                }
+
+                db.withTransaction {
                 if (mode == RestoreMode.REPLACE) {
+                    if (backup.metadata.backupVersion >= 3) {
+                        db.loanCalculationDao().clearAllCalculations(userId)
+                    }
                     db.installmentDao().clearAllPayments(userId)
                     db.installmentDao().clearAllInstallments(userId)
                     if (backup.metadata.backupVersion >= 2) {
@@ -257,7 +613,7 @@ class LocalBackupRepository(
                 }
 
                 backup.transactions.forEach { transaction ->
-                    val remappedSourceId = if (transaction.sourceType == "CHECK") {
+                    val remappedSourceId = if (transaction.sourceType.equals("CHECK", ignoreCase = true)) {
                         transaction.sourceId?.toIntOrNull()?.let { restoredCheckIds[it]?.toString() }
                             ?: transaction.sourceId
                     } else transaction.sourceId
@@ -318,7 +674,13 @@ class LocalBackupRepository(
                 if (backup.vehicleExpenses.isNotEmpty()) {
                     db.vehicleDao().insertExpensesForBackup(
                         backup.vehicleExpenses.map {
-                            it.copy(userId = userId, vehicleId = remapVehicleId(it.vehicleId))
+                            it.copy(
+                                userId = userId,
+                                vehicleId = remapVehicleId(it.vehicleId),
+                                receiptImageUri = it.receiptImageUri?.let { oldUri ->
+                                    restoredAttachments.uriMap[oldUri] ?: oldUri
+                                }
+                            )
                         }
                     )
                 }
@@ -346,12 +708,12 @@ class LocalBackupRepository(
                 backup.reminders.forEach { reminder ->
                     val newReminderId = java.util.UUID.randomUUID().toString()
                     restoredSmartReminderIds[reminder.id] = newReminderId
-                    val remappedSourceId = when (reminder.sourceType) {
+                    val remappedSourceId = when (reminder.sourceType?.uppercase()) {
                         "INSTALLMENT" -> reminder.sourceId
                             ?.let { restoredInstallmentReferenceIds[it] ?: it }
                         "CHECK" -> reminder.sourceId?.toIntOrNull()
                             ?.let { restoredCheckIds[it]?.toString() } ?: reminder.sourceId
-                        "VEHICLE" -> reminder.sourceId?.let { restoredVehicleIds[it] ?: it }
+                        "VEHICLE" -> reminder.sourceId?.let { restoredServiceIds[it] ?: restoredVehicleIds[it] ?: it }
                         "VEHICLE_SERVICE" -> reminder.sourceId?.let { restoredServiceIds[it] ?: it }
                         else -> reminder.sourceId
                     }
@@ -374,7 +736,7 @@ class LocalBackupRepository(
                 val restoredLegacyReminderIds = mutableMapOf<Int, Int>()
                 if (backup.metadata.backupVersion >= 6) {
                     backup.legacyReminders.forEach { reminder ->
-                        val remappedSourceId = when (reminder.sourceType) {
+                        val remappedSourceId = when (reminder.sourceType?.uppercase()) {
                             "INSTALLMENT" -> reminder.sourceId?.let { restoredInstallmentIds[it] ?: it }
                             "VEHICLE" -> reminder.sourceId?.let {
                                 restoredVehicleIds[it.toString()]?.toIntOrNull() ?: it
@@ -405,7 +767,38 @@ class LocalBackupRepository(
                 }
 
                 if (backup.metadata.backupVersion >= 5) {
-                    backup.vehicleStore?.let { db.vehicleDao().insertVehicleStoreForBackup(it.copy(userId = userId)) }
+                    backup.vehicleStore?.let { store ->
+                        val restoredStore = store.copy(
+                            userId = userId,
+                            vehiclesJson = remapLegacyVehicleCollection(
+                                store.vehiclesJson,
+                                backup.vehicles.flatMap { listOf(it.id.toString(), it.serverId.orEmpty()) }.toSet(),
+                                restoredVehicleIds
+                            ),
+                            servicesJson = remapLegacyVehicleCollection(
+                                store.servicesJson,
+                                backup.vehicleServices.flatMap { listOf(it.id.toString(), it.serverId.orEmpty()) }.toSet(),
+                                restoredVehicleIds
+                            ),
+                            expensesJson = remapLegacyVehicleCollection(
+                                store.expensesJson,
+                                backup.vehicleExpenses.map { it.id }.toSet(),
+                                restoredVehicleIds,
+                                restoredAttachments.uriMap
+                            ),
+                            insurancesJson = remapLegacyVehicleCollection(
+                                store.insurancesJson,
+                                backup.vehicleInsurances.map { it.id }.toSet(),
+                                restoredVehicleIds
+                            ),
+                            inspectionsJson = remapLegacyVehicleCollection(
+                                store.inspectionsJson,
+                                backup.vehicleInspections.map { it.id }.toSet(),
+                                restoredVehicleIds
+                            )
+                        )
+                        db.vehicleDao().insertVehicleStoreForBackup(restoredStore)
+                    }
                     backup.reminderDeliveryLogs.forEach { log ->
                         val newReminderId = restoredSmartReminderIds[log.reminderId]
                             ?: throw IllegalStateException("سوابق ارسال به یادآور موجود در فایل پشتیبان متصل نیست")
@@ -449,29 +842,81 @@ class LocalBackupRepository(
                     backup.financialHealthProfiles.forEach { profile ->
                         db.financialHealthDao().saveProfile(profile.copy(userId = userId))
                     }
-                    // Loan calculations use a global primary key (not user-scoped).
-                    // Give restored rows fresh IDs so they cannot overwrite another local profile.
+                    // loan_calculations uses a globally unique primary key rather than
+                    // a composite (id, userId) key. Allocate fresh IDs on restore so importing
+                    // another profile's backup can never REPLACE a different user's row.
                     backup.loanCalculations.forEach { calculation ->
                         db.loanCalculationDao().insertCalculation(
-                            calculation.copy(id = java.util.UUID.randomUUID().toString())
+                            calculation.copy(
+                                id = "calc_${java.util.UUID.randomUUID()}",
+                                userId = userId
+                            )
                         )
                     }
                     backup.userPreference?.let { preference ->
                         db.userPreferenceDao().insertOrUpdate(preference.copy(userId = userId))
                     }
-                    backup.appSettings?.let { settings ->
-                        val appPreferences = com.example.data.preferences.AppPreferencesRepository.getInstance(context)
-                        runCatching { com.example.ui.screens.settings.model.AppThemeMode.valueOf(settings.themeMode) }
-                            .getOrNull()?.let { appPreferences.setThemeMode(it) }
-                        runCatching { com.example.ui.screens.settings.model.AppLanguage.valueOf(settings.language) }
-                            .getOrNull()?.let { appPreferences.setLanguage(it) }
-                        runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(settings.currency) }
-                            .getOrNull()?.let { appPreferences.setCurrency(it) }
-                        runCatching { com.example.ui.screens.settings.model.AlertDeliveryPreference.valueOf(settings.alertDelivery) }
-                            .getOrNull()?.let { appPreferences.setAlertDelivery(it) }
-                        runCatching { com.example.ui.screens.settings.model.NavigationTransitionAnimation.valueOf(settings.navigationTransition) }
-                            .getOrNull()?.let { appPreferences.setNavTransition(it) }
-                    }
+                }
+                }
+            } catch (error: Exception) {
+                runCatching { restoreSharedPreferencesSnapshot(generalPrefs, generalPrefsSnapshot) }
+                    .exceptionOrNull()?.let(error::addSuppressed)
+                runCatching { restoreSharedPreferencesSnapshot(backupPrefs, backupPrefsSnapshot) }
+                    .exceptionOrNull()?.let(error::addSuppressed)
+                if (backup.metadata.backupVersion >= 9) {
+                    runCatching { bankSmsRepository.restoreStateFromBackup(previousBankSmsState, userId) }
+                        .exceptionOrNull()?.let(error::addSuppressed)
+                }
+                if (backup.metadata.backupVersion >= 8) {
+                    runCatching { smsRuleRepository.restoreFromBackup(previousSmsRules, userId) }
+                        .exceptionOrNull()?.let(error::addSuppressed)
+                    runCatching {
+                        smsPatternRepository.restoreFromBackup(
+                            previousSmsPatterns,
+                            previousSmsRecognitionStart,
+                            userId
+                        )
+                    }.exceptionOrNull()?.let(error::addSuppressed)
+                }
+                restoredAttachments.createdFiles.forEach { it.delete() }
+                throw error
+            }
+
+            backup.appSettings?.let { settings ->
+                val appPreferences = AppPreferencesRepository.getInstance(context)
+                runCatching { com.example.ui.screens.settings.model.AppThemeMode.valueOf(settings.themeMode) }
+                    .getOrNull()?.let { appPreferences.setThemeMode(it) }
+                runCatching { com.example.ui.screens.settings.model.AppLanguage.valueOf(settings.language) }
+                    .getOrNull()?.let { appPreferences.setLanguage(it) }
+                runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(settings.currency) }
+                    .getOrNull()?.let { appPreferences.setCurrency(it) }
+                runCatching { com.example.ui.screens.settings.model.AlertDeliveryPreference.valueOf(settings.alertDelivery) }
+                    .getOrNull()?.let { appPreferences.setAlertDelivery(it) }
+                runCatching { com.example.ui.screens.settings.model.NavigationTransitionAnimation.valueOf(settings.navigationTransition) }
+                    .getOrNull()?.let { appPreferences.setNavTransition(it) }
+                settings.smsNotificationsEnabled?.let(appPreferences::setSmsNotificationsEnabled)
+                settings.notificationSoundEnabled?.let(appPreferences::setNotificationSoundEnabled)
+                settings.notificationVibrationEnabled?.let(appPreferences::setNotificationVibrationEnabled)
+                settings.quietHoursEnabled?.let(appPreferences::setQuietHoursEnabled)
+                if (settings.quietHoursStartMinute != null && settings.quietHoursEndMinute != null) {
+                    appPreferences.setQuietHours(settings.quietHoursStartMinute, settings.quietHoursEndMinute)
+                }
+                settings.allowHighPriorityInQuietHours?.let(appPreferences::setAllowHighPriorityInQuietHours)
+                settings.defaultReminderTimeMinute?.let(appPreferences::setDefaultReminderTimeMinute)
+                settings.installmentReminderDays?.let { runCatching { appPreferences.setInstallmentReminderDays(it) } }
+                settings.vehicleReminderKilometers?.let { runCatching { appPreferences.setVehicleReminderKilometers(it) } }
+                settings.notificationsEnabled?.let(appPreferences::setNotificationsEnabled)
+                settings.cleanSlatePerformed?.let(appPreferences::setCleanSlatePerformed)
+
+                settings.autoBackupDailyEnabled?.let { enabled ->
+                    context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+                        .edit().putBoolean("auto_backup_daily", enabled).commit()
+                    if (enabled) WeeklyBackupWorker.enqueueDaily(context) else WeeklyBackupWorker.cancelDaily(context)
+                }
+                settings.autoBackupWeeklyEnabled?.let { enabled ->
+                    context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+                        .edit().putBoolean("auto_backup_weekly", enabled).commit()
+                    if (enabled) WeeklyBackupWorker.enqueueWeekly(context) else WeeklyBackupWorker.cancelWeekly(context)
                 }
             }
 
@@ -488,6 +933,14 @@ class LocalBackupRepository(
                 com.example.data.receiver.ReminderScheduler(context).schedule(reminder)
             }
 
+            // Calendar-event alarms are OS registrations, not Room data. Rebuild them
+            // after replacement so removed events cannot leave stale alarms behind.
+            val calendarReminderScheduler = com.example.calendar.reminder.CalendarEventReminderScheduler(context)
+            previousFinancialEvents.forEach { calendarReminderScheduler.cancel(it.id) }
+            db.financialEventDao().getAllEventsList(userId).forEach { entity ->
+                calendarReminderScheduler.schedule(entity.toDomain())
+            }
+
             try {
                 com.example.vehicle.data.VehicleRepository
                     .instance
@@ -497,6 +950,11 @@ class LocalBackupRepository(
                     .LocalInstallmentRepository
                     .instance
                     .reloadFromDatabase(context)
+                com.example.ui.screens.finance.data.LocalFinanceRepository
+                    .instance
+                    .refreshMetadataForCurrentUser()
+                com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(context)
+                com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(context)
             } catch (e: Exception) {
                 Log.e(
                     "LocalBackupRepository",
@@ -597,8 +1055,8 @@ class LocalBackupRepository(
                 Context.MODE_PRIVATE
             )
 
-            preferences
-                .getLong("last_backup_time", 0L)
+            val userTag = BackupUserScope.tag(getEffectiveUserId())
+            preferences.getLong("last_backup_time_$userTag", 0L)
                 .takeIf { it != 0L }
         }
 

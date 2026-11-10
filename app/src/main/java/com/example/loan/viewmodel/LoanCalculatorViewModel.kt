@@ -3,6 +3,7 @@ package com.example.loan.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.loan.data.LoanRepository
+import com.example.data.security.SessionManager
 import com.example.loan.domain.CalculationMethod
 import com.example.loan.domain.CalculationResult
 import com.example.loan.domain.ComparisonLoanInput
@@ -16,6 +17,7 @@ import com.example.util.IranianAmountUtils
 import com.example.util.MoneyAmount
 import com.example.util.MoneyFormatter
 import com.example.ui.screens.settings.model.AppCurrency
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +34,11 @@ class LoanCalculatorViewModel(
     val state: StateFlow<LoanCalculatorState> = _state.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            SessionManager.sessionState.collectLatest {
+                repository.loadSavedCalculations()
+            }
+        }
         // Observe saved calculations
         viewModelScope.launch {
             repository.savedCalculations.collect { list ->

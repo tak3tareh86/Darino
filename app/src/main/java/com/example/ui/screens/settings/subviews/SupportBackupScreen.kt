@@ -63,6 +63,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -90,8 +91,17 @@ fun SupportBackupScreen(
 
     // Backup state
     val prefs = remember { context.getSharedPreferences("darino_backup_prefs", android.content.Context.MODE_PRIVATE) }
+    fun currentBackupTimestampKey(): String {
+        val userId = com.example.data.security.SessionManager.userId
+            ?: com.example.data.security.AuthSessionManager(context).getActiveSession()?.userId
+        return userId?.let { "last_backup_time_${com.example.data.backup.BackupUserScope.tag(it)}" } ?: "last_backup_time"
+    }
+    fun readLastBackupTimestamp(): Long {
+        val key = currentBackupTimestampKey()
+        return prefs.getLong(key, 0L)
+    }
     var lastBackupDate by remember {
-        val lastTime = prefs.getLong("last_backup_time", 0L)
+        val lastTime = readLastBackupTimestamp()
         mutableStateOf(
             if (lastTime == 0L) {
                 "تاکنون بک‌آپی گرفته نشده"
@@ -103,7 +113,7 @@ fun SupportBackupScreen(
     }
 
     val refreshLastBackupDate = {
-        val lastTime = prefs.getLong("last_backup_time", 0L)
+        val lastTime = readLastBackupTimestamp()
         lastBackupDate = if (lastTime == 0L) {
             "تاکنون بک‌آپی گرفته نشده"
         } else {
@@ -125,19 +135,29 @@ fun SupportBackupScreen(
     var isBackingUp by remember { mutableStateOf(false) }
     var isRestoring by remember { mutableStateOf(false) }
     var showBackupSuccessDialog by remember { mutableStateOf(false) }
+    var showBackupPasswordDialog by remember { mutableStateOf(false) }
+    var showRestorePasswordDialog by remember { mutableStateOf(false) }
+    var backupPassphrase by remember { mutableStateOf("") }
+    var backupPassphraseConfirm by remember { mutableStateOf("") }
+    var pendingBackupPassphrase by remember { mutableStateOf<String?>(null) }
+    var restorePassphrase by remember { mutableStateOf("") }
+    var pendingEncryptedRestorePayload by remember { mutableStateOf<ByteArray?>(null) }
+    var shareAfterEncryption by remember { mutableStateOf(false) }
     var showRestoreConfirmation by remember { mutableStateOf(false) }
+    var showEmergencyRestoreConfirmation by remember { mutableStateOf(false) }
+    var showAutomaticRestoreConfirmation by remember { mutableStateOf(false) }
     var pendingRestoreBackup by remember { mutableStateOf<com.example.data.backup.DarinoBackup?>(null) }
     var backupSummaryInfo by remember { mutableStateOf("") }
     var pendingBackupPayload by remember { mutableStateOf<ByteArray?>(null) }
     var pendingBackupChecksum by remember { mutableStateOf<String?>(null) }
     var pendingBackupSummary by remember { mutableStateOf("") }
     var showShareNameDialog by remember { mutableStateOf(false) }
-    var shareFilename by remember { mutableStateOf(buildBackupFilename().removeSuffix(".json")) }
+    var shareFilename by remember { mutableStateOf(buildBackupFilename().removeSuffix(".darino")) }
     var pendingSharePayload by remember { mutableStateOf<String?>(null) }
 
     fun updateBackupTimestamp(summary: String) {
         val nowTime = System.currentTimeMillis()
-        prefs.edit().putLong("last_backup_time", nowTime).apply()
+        prefs.edit().putLong("last_backup_time", nowTime).putLong(currentBackupTimestampKey(), nowTime).apply()
         val dt = com.example.util.PersianCalendarHelper.fromEpochMillis(nowTime)
         lastBackupDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
             "${dt.year}/${dt.month.toString().padStart(2, '0')}/${dt.day.toString().padStart(2, '0')}"
@@ -147,21 +167,23 @@ fun SupportBackupScreen(
     }
 
     val backupFileLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { destinationUri ->
         val payload = pendingBackupPayload
         val checksum = pendingBackupChecksum
         val summary = pendingBackupSummary
+        val passphrase = pendingBackupPassphrase
         pendingBackupPayload = null
         pendingBackupChecksum = null
         pendingBackupSummary = ""
+        pendingBackupPassphrase = null
         if (destinationUri == null) {
             isBackingUp = false
-        } else if (payload != null && checksum != null) {
+        } else if (payload != null && checksum != null && passphrase != null) {
             scope.launch {
                 try {
                     withContext(Dispatchers.IO) {
-                        writeAndVerifyBackup(context, destinationUri, payload, checksum)
+                        writeAndVerifyBackup(context, destinationUri, payload, checksum, passphrase.toCharArray())
                     }
                     updateBackupTimestamp(summary)
                 } catch (e: Exception) {
@@ -182,12 +204,19 @@ fun SupportBackupScreen(
         if (uri != null) {
             scope.launch {
                 try {
-                    val jsonString = context.contentResolver.openInputStream(uri)
-                        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
-                        ?: throw java.io.IOException("امکان خواندن فایل انتخاب‌شده وجود ندارد.")
-                    val backup = com.example.data.backup.BackupFileCodec.decode(jsonString)
-                    pendingRestoreBackup = backup
-                    showRestoreConfirmation = true
+                    val payload = context.contentResolver.openInputStream(uri)?.use { input ->
+                        readBoundedBytes(input, MAX_PORTABLE_BACKUP_BYTES + 1024)
+                    } ?: throw java.io.IOException("امکان خواندن فایل انتخاب‌شده وجود ندارد.")
+                    if (com.example.data.backup.BackupEncryption.isEncrypted(payload)) {
+                        pendingEncryptedRestorePayload = payload
+                        restorePassphrase = ""
+                        showRestorePasswordDialog = true
+                    } else {
+                        // Backward compatibility: older unencrypted JSON backups remain importable.
+                        val backup = com.example.data.backup.BackupFileCodec.decode(payload.toString(Charsets.UTF_8))
+                        pendingRestoreBackup = backup
+                        showRestoreConfirmation = true
+                    }
                 } catch (e: Exception) {
                     Log.e("SupportBackupScreen", "Backup file reading failed", e)
                     Toast.makeText(context, "خطا در خواندن پشتیبان: ${e.message ?: "فایل نامعتبر است"}", Toast.LENGTH_LONG).show()
@@ -226,6 +255,157 @@ fun SupportBackupScreen(
         }
     }
 
+    if (showBackupPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showBackupPasswordDialog = false
+                backupPassphrase = ""
+                backupPassphraseConfirm = ""
+            },
+            title = { Text("رمزگذاری فایل پشتیبان") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("برای محافظت از اطلاعات مالی، فایل پشتیبان با این رمزگذاری می‌شود. رمز را در جای امن نگه دارید؛ بدون آن بازیابی ممکن نیست.")
+                    OutlinedTextField(
+                        value = backupPassphrase,
+                        onValueChange = { backupPassphrase = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("رمز پشتیبان (حداقل ۱۲ نویسه)") },
+                        visualTransformation = PasswordVisualTransformation()
+                    )
+                    OutlinedTextField(
+                        value = backupPassphraseConfirm,
+                        onValueChange = { backupPassphraseConfirm = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("تکرار رمز پشتیبان") },
+                        visualTransformation = PasswordVisualTransformation()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = backupPassphrase.length >= 12 && backupPassphrase == backupPassphraseConfirm,
+                    onClick = {
+                        val secret = backupPassphrase
+                        showBackupPasswordDialog = false
+                        backupPassphrase = ""
+                        backupPassphraseConfirm = ""
+                        isBackingUp = true
+                        scope.launch {
+                            try {
+                                val backup = backupManager.createBackup()
+                                val json = com.example.data.backup.BackupFileCodec.encode(backup)
+                                val jsonBytes = json.toByteArray(Charsets.UTF_8)
+                                require(jsonBytes.size <= MAX_PORTABLE_BACKUP_BYTES) {
+                                    "حجم پشتیبان از حد مجاز فایل قابل‌بازیابی بیشتر است."
+                                }
+                                val payload = withContext(Dispatchers.Default) {
+                                    com.example.data.backup.BackupEncryption.encrypt(
+                                        jsonBytes,
+                                        secret.toCharArray()
+                                    )
+                                }
+                                val verified = com.example.data.backup.BackupEncryption.decrypt(
+                                    payload,
+                                    secret.toCharArray()
+                                ).toString(Charsets.UTF_8)
+                                val decoded = com.example.data.backup.BackupFileCodec.decode(verified)
+                                check(decoded.metadata.checksum == backup.metadata.checksum) {
+                                    "بررسی صحت نسخه رمزگذاری‌شده پشتیبان ناموفق بود."
+                                }
+                                if (shareAfterEncryption) {
+                                    pendingSharePayload = android.util.Base64.encodeToString(payload, android.util.Base64.NO_WRAP)
+                                    shareFilename = buildBackupFilename().removeSuffix(".darino")
+                                    shareAfterEncryption = false
+                                    showShareNameDialog = true
+                                    isBackingUp = false
+                                } else {
+                                    pendingBackupPayload = payload
+                                    pendingBackupChecksum = backup.metadata.checksum
+                                    pendingBackupPassphrase = secret
+                                    pendingBackupSummary = "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
+                                    backupFileLauncher.launch(buildBackupFilename())
+                                }
+                            } catch (e: Exception) {
+                                isBackingUp = false
+                                pendingBackupPayload = null
+                                pendingBackupChecksum = null
+                                pendingBackupPassphrase = null
+                                pendingBackupSummary = ""
+                                Log.e("SupportBackupScreen", "Backup creation failed", e)
+                                Toast.makeText(context, "خطا در آماده‌سازی پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                ) { Text("ایجاد فایل رمزگذاری‌شده") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showBackupPasswordDialog = false
+                    backupPassphrase = ""
+                    backupPassphraseConfirm = ""
+                }) { Text("انصراف") }
+            }
+        )
+    }
+
+    if (showRestorePasswordDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showRestorePasswordDialog = false
+                restorePassphrase = ""
+                pendingEncryptedRestorePayload = null
+            },
+            title = { Text("رمز فایل پشتیبان") },
+            text = {
+                OutlinedTextField(
+                    value = restorePassphrase,
+                    onValueChange = { restorePassphrase = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("رمز پشتیبان") },
+                    visualTransformation = PasswordVisualTransformation()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = restorePassphrase.isNotEmpty(),
+                    onClick = {
+                        val secret = restorePassphrase
+                        val encrypted = pendingEncryptedRestorePayload
+                        scope.launch {
+                            try {
+                                val bytes = encrypted ?: throw IllegalStateException("فایل رمزگذاری‌شده در دسترس نیست.")
+                                val json = withContext(Dispatchers.Default) {
+                                    com.example.data.backup.BackupEncryption.decrypt(bytes, secret.toCharArray())
+                                }.toString(Charsets.UTF_8)
+                                pendingRestoreBackup = com.example.data.backup.BackupFileCodec.decode(json)
+                                showRestorePasswordDialog = false
+                                restorePassphrase = ""
+                                pendingEncryptedRestorePayload = null
+                                showRestoreConfirmation = true
+                            } catch (e: Exception) {
+                                restorePassphrase = ""
+                                showRestorePasswordDialog = true
+                                Log.e("SupportBackupScreen", "Encrypted backup could not be opened", e)
+                                Toast.makeText(context, "رمز اشتباه است یا فایل پشتیبان آسیب دیده است. دوباره تلاش کنید.", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                ) { Text("باز کردن فایل") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showRestorePasswordDialog = false
+                    restorePassphrase = ""
+                    pendingEncryptedRestorePayload = null
+                }) { Text("انصراف") }
+            }
+        )
+    }
+
     if (showShareNameDialog) {
         AlertDialog(
             onDismissRequest = {
@@ -240,7 +420,7 @@ fun SupportBackupScreen(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     label = { Text("نام فایل") },
-                    supportingText = { Text("پسوند .json به‌صورت خودکار اضافه می‌شود.") }
+                    supportingText = { Text("پسوند .darino به‌صورت خودکار اضافه می‌شود.") }
                 )
             },
             confirmButton = {
@@ -248,11 +428,11 @@ fun SupportBackupScreen(
                     enabled = shareFilename.isNotBlank() && shareFilename.trim() !in setOf(".", "..") &&
                         shareFilename.none { it in charArrayOf('/', '\\', ':', '*', '?', '"', '<', '>', '|') },
                     onClick = {
-                        val json = pendingSharePayload
-                        val safeName = shareFilename.trim().removeSuffix(".json").ifBlank { "Darino backup" } + ".json"
+                        val encodedPayload = pendingSharePayload
+                        val safeName = shareFilename.trim().removeSuffix(".darino").ifBlank { "Darino backup" } + ".darino"
                         showShareNameDialog = false
                         pendingSharePayload = null
-                        if (json != null) {
+                        if (encodedPayload != null) {
                             scope.launch {
                                 try {
                                     val shareRoot = java.io.File(context.cacheDir, "shared_backups").apply { mkdirs() }
@@ -264,19 +444,20 @@ fun SupportBackupScreen(
                                     }
                                     val cacheFile = java.io.File(shareDir, safeName)
                                     withContext(Dispatchers.IO) {
-                                        cacheFile.outputStream().buffered().use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                                        val encryptedBytes = android.util.Base64.decode(encodedPayload, android.util.Base64.NO_WRAP)
+                                        check(com.example.data.backup.BackupEncryption.isEncrypted(encryptedBytes)) {
+                                            "فایل اشتراک‌گذاری‌شده رمزگذاری‌شده نیست."
+                                        }
+                                        cacheFile.outputStream().buffered().use { it.write(encryptedBytes) }
                                         if (!cacheFile.isFile || cacheFile.length() <= 0L) {
                                             throw java.io.IOException("فایل پشتیبان برای اشتراک‌گذاری خالی است.")
                                         }
-                                        com.example.data.backup.BackupFileCodec.decode(
-                                            cacheFile.inputStream().bufferedReader(Charsets.UTF_8).use { it.readText() }
-                                        )
                                     }
                                     val contentUri = androidx.core.content.FileProvider.getUriForFile(
                                         context, "com.example.fileprovider", cacheFile
                                     )
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "application/json"
+                                        type = "application/octet-stream"
                                         putExtra(Intent.EXTRA_STREAM, contentUri)
                                         clipData = android.content.ClipData.newUri(context.contentResolver, safeName, contentUri)
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -304,7 +485,7 @@ fun SupportBackupScreen(
         SettingsConfirmationDialog(
             isOpen = true,
             title = "پشتیبان‌گیری موفق",
-            message = "نسخه پشتیبان شامل حساب‌ها، چک‌ها، تراکنش‌ها، اقساط، خودروها، یادآورها و رویدادهای مالی ذخیره و دوباره بررسی شد. فایل JSON رمزگذاری نشده است؛ آن را در محل امن نگه دارید.\n$backupSummaryInfo",
+            message = "فایل پشتیبان با رمز عبوری که تعیین کردید رمزگذاری و پس از ذخیره دوباره بررسی شد. برای بازیابی، همان رمز لازم است.\n$backupSummaryInfo",
             confirmButtonText = "متوجه شدم",
             isDanger = false,
             onConfirm = { showBackupSuccessDialog = false },
@@ -312,11 +493,61 @@ fun SupportBackupScreen(
         )
     }
 
+    if (showEmergencyRestoreConfirmation) {
+        SettingsConfirmationDialog(
+            isOpen = true,
+            title = "بازیابی نسخه اضطراری",
+            message = "آخرین نسخه اضطراری رمزگذاری‌شده‌ای که پیش از جایگزینی اطلاعات ذخیره شده است، روی حساب فعلی بازیابی می‌شود. این نسخه فقط روی همین دستگاه قابل بازیابی است.",
+            confirmButtonText = "بازیابی نسخه اضطراری",
+            isDanger = true,
+            onConfirm = {
+                showEmergencyRestoreConfirmation = false
+                scope.launch {
+                    isRestoring = true
+                    try {
+                        com.example.data.backup.LocalBackupRepository(context).restoreLatestEmergencyBackup()
+                        Toast.makeText(context, "نسخه اضطراری با موفقیت بازیابی شد.", Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "خطا در بازیابی نسخه اضطراری: ${e.message}", Toast.LENGTH_LONG).show()
+                    } finally {
+                        isRestoring = false
+                    }
+                }
+            },
+            onDismiss = { showEmergencyRestoreConfirmation = false }
+        )
+    }
+
+    if (showAutomaticRestoreConfirmation) {
+        SettingsConfirmationDialog(
+            isOpen = true,
+            title = "بازیابی آخرین پشتیبان خودکار",
+            message = "جدیدترین نسخه روزانه یا هفتگی ذخیره‌شده برای حساب فعلی از حافظه همین دستگاه بازیابی می‌شود. این نسخه به کلید رمزگذاری همین دستگاه وابسته است و پیش از جایگزینی، از وضعیت فعلی یک نسخه اضطراری ساخته خواهد شد.",
+            confirmButtonText = "بازیابی پشتیبان خودکار",
+            isDanger = true,
+            onConfirm = {
+                showAutomaticRestoreConfirmation = false
+                scope.launch {
+                    isRestoring = true
+                    try {
+                        backupRepo.restoreLatestAutomaticBackup()
+                        Toast.makeText(context, "پشتیبان خودکار با موفقیت بازیابی شد.", Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "خطا در بازیابی پشتیبان خودکار: ${e.message}", Toast.LENGTH_LONG).show()
+                    } finally {
+                        isRestoring = false
+                    }
+                }
+            },
+            onDismiss = { showAutomaticRestoreConfirmation = false }
+        )
+    }
+
     if (showRestoreConfirmation && pendingRestoreBackup != null) {
         SettingsConfirmationDialog(
             isOpen = true,
             title = "تأیید بازیابی پشتیبان",
-            message = "اطلاعات ذخیره‌شده مربوط به حساب فعلی با محتوای فایل پشتیبان جایگزین می‌شود. داده‌های عمومی دستگاه که به حساب کاربری وابسته نیستند، حذف نخواهند شد. پیش از ادامه، از اطلاعات فعلی نسخه پشتیبان بگیرید.",
+            message = "اطلاعات موجود با محتوای فایل پشتیبان جایگزین می‌شود. پیش از شروع، یک نسخه اضطراری رمزگذاری‌شده از وضعیت فعلی ذخیره خواهد شد. تعداد رکوردهای فایل: ${pendingRestoreBackup?.metadata?.recordCount ?: 0} | فایل‌های پیوست: ${pendingRestoreBackup?.attachments?.size ?: 0}",
             confirmButtonText = "بازیابی و جایگزینی",
             isDanger = true,
             onConfirm = {
@@ -437,40 +668,9 @@ fun SupportBackupScreen(
                             Button(
                                 onClick = {
                                     if (!isBackingUp) {
-                                        isBackingUp = true
-                                        scope.launch {
-                                            try {
-                                                val backup = backupManager.createBackup()
-                                                val payload = com.example.data.backup.BackupFileCodec.encode(backup)
-                                                    .toByteArray(Charsets.UTF_8)
-                                                if (payload.isEmpty()) throw java.io.IOException("محتوای پشتیبان خالی است.")
-                                                withContext(Dispatchers.IO) {
-                                                    val stagedFile = java.io.File.createTempFile("darino-backup-", ".json", context.cacheDir)
-                                                    try {
-                                                        stagedFile.outputStream().buffered().use { it.write(payload) }
-                                                        val decoded = com.example.data.backup.BackupFileCodec.decode(
-                                                            stagedFile.inputStream().bufferedReader(Charsets.UTF_8).use { it.readText() }
-                                                        )
-                                                        if (decoded.metadata.checksum != backup.metadata.checksum) {
-                                                            throw java.io.IOException("بررسی صحت نسخه موقت پشتیبان ناموفق بود.")
-                                                        }
-                                                    } finally {
-                                                        stagedFile.delete()
-                                                    }
-                                                }
-                                                pendingBackupPayload = payload
-                                                pendingBackupChecksum = backup.metadata.checksum
-                                                pendingBackupSummary = "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
-                                                backupFileLauncher.launch(buildBackupFilename())
-                                            } catch (e: Exception) {
-                                                isBackingUp = false
-                                                pendingBackupPayload = null
-                                                pendingBackupChecksum = null
-                                                pendingBackupSummary = ""
-                                                Log.e("SupportBackupScreen", "Backup creation failed", e)
-                                                Toast.makeText(context, "خطا در آماده‌سازی پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
-                                            }
-                                        }
+                                        backupPassphrase = ""
+                                        backupPassphraseConfirm = ""
+                                        showBackupPasswordDialog = true
                                     }
                                 },
                                 modifier = Modifier
@@ -503,7 +703,7 @@ fun SupportBackupScreen(
                             // Restore Backup Button
                             OutlinedButton(
                                 onClick = {
-                                    restoreBackupLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
+                                    restoreBackupLauncher.launch(arrayOf("application/octet-stream", "application/json", "*/*"))
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -527,25 +727,58 @@ fun SupportBackupScreen(
                                 )
                             }
 
+                            OutlinedButton(
+                                onClick = { showEmergencyRestoreConfirmation = true },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                enabled = !isRestoring,
+                                shape = RoundedCornerShape(RadiusMD),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CloudDownload,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "بازیابی آخرین نسخه اضطراری دستگاه",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            OutlinedButton(
+                                onClick = { showAutomaticRestoreConfirmation = true },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                enabled = !isRestoring,
+                                shape = RoundedCornerShape(RadiusMD),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CloudDownload,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "بازیابی آخرین پشتیبان خودکار روزانه/هفتگی",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
                             // Share Backup File
                             OutlinedButton(
                                 onClick = {
                                     if (!isBackingUp) {
-                                        isBackingUp = true
-                                        scope.launch {
-                                            try {
-                                                val backup = backupManager.createBackup()
-                                                val jsonString = com.example.data.backup.BackupFileCodec.encode(backup)
-                                                pendingSharePayload = jsonString
-                                                shareFilename = buildBackupFilename().removeSuffix(".json")
-                                                showShareNameDialog = true
-                                            } catch (e: Exception) {
-                                                Log.e("SupportBackupScreen", "Backup preparation for sharing failed", e)
-                                                Toast.makeText(context, "خطا در آماده‌سازی پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
-                                            } finally {
-                                                isBackingUp = false
-                                            }
-                                        }
+                                        shareAfterEncryption = true
+                                        backupPassphrase = ""
+                                        backupPassphraseConfirm = ""
+                                        showBackupPasswordDialog = true
                                     }
                                 },
                                 modifier = Modifier
@@ -614,9 +847,25 @@ fun SupportBackupScreen(
     }
 }
 
+private const val MAX_PORTABLE_BACKUP_BYTES = 64 * 1024 * 1024
+
+private fun readBoundedBytes(input: java.io.InputStream, maxBytes: Int): ByteArray {
+    val output = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(8 * 1024)
+    var total = 0
+    while (true) {
+        val read = input.read(buffer)
+        if (read < 0) break
+        total += read
+        require(total <= maxBytes) { "حجم فایل پشتیبان بیش از حد مجاز است." }
+        output.write(buffer, 0, read)
+    }
+    return output.toByteArray()
+}
+
 private fun buildBackupFilename(): String {
     val (year, month, day) = com.example.calendar.domain.CalendarDateUtils.getCurrentJalaliDate()
-    return "Darino backup ${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}.json"
+    return "Darino backup ${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}.darino"
 }
 
 private fun findExistingBackupDocument(
@@ -675,23 +924,28 @@ private fun writeAndVerifyBackup(
     context: android.content.Context,
     destinationUri: Uri,
     payload: ByteArray,
-    expectedChecksum: String
+    expectedChecksum: String,
+    passphrase: CharArray
 ) {
-    val output = context.contentResolver.openOutputStream(destinationUri, "wt")
+    try {
+        val output = context.contentResolver.openOutputStream(destinationUri, "wt")
         ?: throw java.io.IOException("ارائه‌دهنده فایل اجازه نوشتن یا جایگزینی فایل را نمی‌دهد.")
     output.buffered().use { stream ->
         stream.write(payload)
         stream.flush()
     }
 
-    val savedJson = context.contentResolver.openInputStream(destinationUri)
-        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+    val savedPayload = context.contentResolver.openInputStream(destinationUri)
+        ?.use { readBoundedBytes(it, MAX_PORTABLE_BACKUP_BYTES + 1024) }
         ?: throw java.io.IOException("فایل ذخیره شد اما امکان بررسی مجدد آن وجود ندارد.")
+    val savedJson = com.example.data.backup.BackupEncryption.decrypt(savedPayload, passphrase)
+        .toString(Charsets.UTF_8)
     val savedBackup = com.example.data.backup.BackupFileCodec.decode(savedJson)
-    if (savedJson.toByteArray(Charsets.UTF_8).size != payload.size ||
-        savedBackup.metadata.checksum != expectedChecksum
-    ) {
+    if (savedPayload.size != payload.size || savedBackup.metadata.checksum != expectedChecksum) {
         throw java.io.IOException("بررسی صحت فایل ذخیره‌شده ناموفق بود.")
+    }
+    } finally {
+        passphrase.fill('\u0000')
     }
 }
 

@@ -86,12 +86,19 @@ class VehicleRepository {
         // 1. One-time legacy JSON migration if present
         try {
             val store = vDao.getVehicleStore(userId)
-            if (store != null && store.vehiclesJson.isNotBlank()) {
-                val migratedVehicles = jsonToVehicles(store.vehiclesJson)
-                val migratedServices = jsonToServices(store.servicesJson)
-                val migratedExpenses = jsonToExpenses(store.expensesJson)
-                val migratedInsurances = jsonToInsurances(store.insurancesJson)
-                val migratedInspections = jsonToInspections(store.inspectionsJson)
+            if (store != null && listOf(
+                    store.vehiclesJson,
+                    store.servicesJson,
+                    store.expensesJson,
+                    store.insurancesJson,
+                    store.inspectionsJson
+                ).any { it.isNotBlank() && it != "[]" }
+            ) {
+                val migratedVehicles = jsonToVehicles(store.vehiclesJson.ifBlank { "[]" })
+                val migratedServices = jsonToServices(store.servicesJson.ifBlank { "[]" })
+                val migratedExpenses = jsonToExpenses(store.expensesJson.ifBlank { "[]" })
+                val migratedInsurances = jsonToInsurances(store.insurancesJson.ifBlank { "[]" })
+                val migratedInspections = jsonToInspections(store.inspectionsJson.ifBlank { "[]" })
 
                 db.withTransaction {
                     migratedVehicles.forEach { v ->

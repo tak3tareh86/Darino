@@ -151,9 +151,9 @@ data class VehicleServiceEntity(
     val deletedAt: Long? = null
 )
 
-@Entity(tableName = "vehicle_expenses")
+@Entity(tableName = "vehicle_expenses", primaryKeys = ["id", "userId"])
 data class VehicleExpenseRoomEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val userId: String = "",
     val vehicleId: String,
     val title: String,
@@ -165,9 +165,9 @@ data class VehicleExpenseRoomEntity(
     val receiptImageUri: String? = null
 )
 
-@Entity(tableName = "vehicle_insurances")
+@Entity(tableName = "vehicle_insurances", primaryKeys = ["id", "userId"])
 data class VehicleInsuranceRoomEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val userId: String = "",
     val vehicleId: String,
     val company: String,
@@ -180,9 +180,9 @@ data class VehicleInsuranceRoomEntity(
     val reminderDays: String = "30,15,7"
 )
 
-@Entity(tableName = "vehicle_inspections")
+@Entity(tableName = "vehicle_inspections", primaryKeys = ["id", "userId"])
 data class VehicleInspectionRoomEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val userId: String = "",
     val vehicleId: String,
     val lastInspectionDate: String,

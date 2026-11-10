@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.example.data.security.SessionManager
+import com.example.data.backup.BankSmsStateBackup
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.home.domain.BankSmsSuggestion
 import org.json.JSONArray
@@ -79,6 +80,8 @@ class BankSmsRepository(private val context: Context) {
     }
 
     fun markSmsProcessed(smsId: String, userId: String? = null) {
+        // Restored suggestion IDs are not Android SMS-provider row IDs.
+        if (smsId.startsWith("restored_backup_")) return
         val key = userKey(KEY_PROCESSED_SMS_IDS, userId) ?: return
         val current = (prefs.getStringSet(key, emptySet()) ?: emptySet()).toMutableSet()
         current.add(smsId)
@@ -86,6 +89,7 @@ class BankSmsRepository(private val context: Context) {
     }
 
     fun markSmsDismissed(smsId: String, userId: String? = null) {
+        if (smsId.startsWith("restored_backup_")) return
         val key = userKey(KEY_DISMISSED_SMS_IDS, userId) ?: return
         val current = (prefs.getStringSet(key, emptySet()) ?: emptySet()).toMutableSet()
         current.add(smsId)
@@ -171,6 +175,7 @@ class BankSmsRepository(private val context: Context) {
                 }
             }
         }.getOrDefault(emptyList()).mapNotNull { saved ->
+            if (saved.preserveAfterRestore) return@mapNotNull saved
             // Restore configured-template suggestions only while their own rolling window is active.
             val eligiblePatterns = currentPatterns.filter {
                 saved.receivedAtMillis >= System.currentTimeMillis() - it.lookbackMillis
@@ -232,6 +237,68 @@ class BankSmsRepository(private val context: Context) {
             )
         }
         pendingQueuePreferences.edit().putString(key, array.toString()).apply()
+    }
+
+    /** Captures pending suggestions; provider row IDs remain device-local and are not exported. */
+    @Synchronized
+    fun exportStateForBackup(userId: String): BankSmsStateBackup {
+        require(userId.isNotBlank())
+        val queueKey = userKey(KEY_PENDING_SMS_QUEUE, userId)!!
+        return BankSmsStateBackup(
+            pendingSuggestionsJson = normalizePendingSuggestionsJson(
+                pendingQueuePreferences.getString(queueKey, null)
+            )
+        )
+    }
+
+    private fun normalizePendingSuggestionsJson(raw: String?, markPreserved: Boolean = false): String? {
+        if (raw == null) return null
+        return runCatching {
+            val array = JSONArray(raw)
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                // Older locally persisted suggestions predate explicit units and
+                // receivedAtMillis; preserve their documented legacy defaults.
+                if (!item.has("amountUnit") || item.isNull("amountUnit")) {
+                    item.put("amountUnit", "TOMAN")
+                }
+                if (!item.has("receivedAtMillis") || item.isNull("receivedAtMillis")) {
+                    item.put("receivedAtMillis", item.optLong("timestampMillis", System.currentTimeMillis()))
+                }
+                if (markPreserved) {
+                    item.put("id", "restored_backup_${java.util.UUID.randomUUID()}")
+                    item.put("preserveAfterRestore", true)
+                }
+            }
+            array.toString()
+        }.getOrElse { raw }
+    }
+
+    /** Restores the portable pending-suggestion queue with rollback on preference-write failure. */
+    @Synchronized
+    fun restoreStateFromBackup(state: BankSmsStateBackup, userId: String) {
+        require(userId.isNotBlank())
+        val queueKey = userKey(KEY_PENDING_SMS_QUEUE, userId)!!
+        val previousQueue = pendingQueuePreferences.getString(queueKey, null)
+        val restoredQueue = normalizePendingSuggestionsJson(state.pendingSuggestionsJson, markPreserved = true)
+        try {
+            val editor = pendingQueuePreferences.edit()
+            if (restoredQueue == null) editor.remove(queueKey)
+            else editor.putString(queueKey, restoredQueue)
+            check(editor.commit()) { "ذخیره پیشنهادهای پیامکی بازیابی‌شده ناموفق بود." }
+            val expectedState = state.copy(pendingSuggestionsJson = restoredQueue)
+            check(exportStateForBackup(userId) == expectedState) {
+                "تطبیق پیشنهادهای پیامکی پس از بازیابی ناموفق بود."
+            }
+            SmsPatternChangeNotifier.changes.tryEmit(Unit)
+        } catch (error: Exception) {
+            val rollback = pendingQueuePreferences.edit()
+            if (previousQueue == null) rollback.remove(queueKey) else rollback.putString(queueKey, previousQueue)
+            if (!rollback.commit()) {
+                error.addSuppressed(IllegalStateException("بازگردانی پیشنهادهای پیامکی قبلی ناموفق بود."))
+            }
+            throw error
+        }
     }
 
     fun removePendingSmsSuggestion(smsId: String, userId: String? = null) {

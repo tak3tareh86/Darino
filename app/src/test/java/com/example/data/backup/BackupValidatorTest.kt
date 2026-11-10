@@ -1,14 +1,60 @@
 package com.example.data.backup
 
+import com.example.data.database.AccountEntity
 import com.example.data.database.UserPreferenceEntity
 import com.example.data.database.TransactionEntity
 import com.example.data.database.VehicleStoreEntity
 import com.example.reminder.data.ReminderDeliveryLogEntity
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BackupValidatorTest {
+    @Test
+    fun rejectsDuplicatePrimaryKeysBeforeRestore() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 7,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "PER_RECORD"
+                ),
+                accounts = listOf(
+                    AccountEntity(id = 7, userId = "backup-user", stringId = "account-a", name = "Cash", type = "CASH"),
+                    AccountEntity(id = 7, userId = "backup-user", stringId = "account-b", name = "Bank", type = "BANK")
+                )
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
+    @Test
+    fun rejectsTransactionReferencesToMissingAccounts() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 7,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 1,
+                    currencyUnit = "PER_RECORD"
+                ),
+                transactions = listOf(
+                    TransactionEntity(
+                        id = 1,
+                        userId = "backup-user",
+                        amount = 500,
+                        accountId = "missing-account"
+                    )
+                )
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
     @Test
     fun versionSevenBackupAcceptsPerRecordCurrencyMetadata() {
         val unsigned = DarinoBackup(
@@ -199,6 +245,321 @@ class BackupValidatorTest {
     fun backupJsonCodecRejectsEmptyFiles() {
         val result = runCatching { BackupFileCodec.decode("") }
         assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun versionEightCountsCustomFinanceAndSmsConfiguration() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 4,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(
+                    budgetsJson = """[{"id":"budget-1","title":"Budget","amount":100}]""",
+                    savingsGoalsJson = "[]",
+                    recurringTransactionsJson = "[]",
+                    categoriesJson = "[]"
+                ),
+                userBankSmsRulesJson = """[{"bankName":"Bank","senders":["100"],"incomeMarkers":"income","expenseMarkers":"","transferMarkers":""}]""",
+                smsPatternsJson = """[{"name":"Sample","type":"INCOME","sampleMessage":"SMS"}]"""
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Valid)
+    }
+
+    @Test
+    fun versionEightRejectsMalformedCustomConfigurationJson() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 1,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
+                userBankSmsRulesJson = "{not-an-array"
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
+    @Test
+    fun versionEightValidatesReceiptAttachmentHashAndCount() {
+        val bytes = "receipt-image".toByteArray()
+        val hash = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+            .joinToString("") { "%02x".format(it) }
+        val attachment = BackupAttachment(
+            originalUri = "content://receipts/1",
+            fileName = "receipt.png",
+            mediaType = "image/png",
+            sha256 = hash,
+            base64Data = okio.ByteString.of(*bytes).base64()
+        )
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 3,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
+                vehicleStore = VehicleStoreEntity(
+                    key = "vehicle_data",
+                    userId = "backup-user",
+                    expensesJson = """[{"receiptImageUri":"content://receipts/1"}]"""
+                ),
+                attachments = listOf(attachment)
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Valid)
+    }
+
+    @Test
+    fun versionEightRejectsTamperedReceiptAttachment() {
+        val bytes = "receipt-image".toByteArray()
+        val attachment = BackupAttachment(
+            originalUri = "content://receipts/1",
+            fileName = "receipt.png",
+            mediaType = "image/png",
+            sha256 = "0".repeat(64),
+            base64Data = okio.ByteString.of(*bytes).base64()
+        )
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
+                attachments = listOf(attachment)
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
+    @Test
+    fun versionEightRejectsMalformedFinanceRecordShapes() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(
+                    budgetsJson = """[{"id":"budget-1"}]"""
+                )
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
+    @Test
+    fun versionEightRejectsReceiptReferenceWithoutAttachment() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
+                vehicleStore = VehicleStoreEntity(
+                    key = "vehicle_data",
+                    userId = "backup-user",
+                    expensesJson = """[{"receiptImageUri":"content://receipts/missing"}]"""
+                )
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
+    @Test
+    fun portableBackupDoesNotExposeLocalLoanOwnerId() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
+                loanCalculations = listOf(
+                    com.example.loan.data.LoanCalculationEntity(
+                        id = "loan-1",
+                        title = "Loan",
+                        loanType = "BANK_LOAN",
+                        amount = 100_000L,
+                        interestRate = 10.0,
+                        duration = 12,
+                        durationType = "MONTHS",
+                        monthlyPayment = 9_000L,
+                        totalPayment = 108_000L,
+                        totalInterest = 8_000L,
+                        realCostPercentage = 8.0,
+                        userId = "private-user-id"
+                    )
+                )
+            )
+        )
+
+        val json = BackupFileCodec.encode(backup)
+        assertFalse(json.contains("private-user-id"))
+        assertEquals(
+            "legacy_unassigned",
+            BackupFileCodec.decode(json).loanCalculations.single().userId
+        )
+    }
+
+    @Test
+    fun versionEightRejectsOutOfRangeReminderSettings() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 1,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC",
+                    defaultReminderTimeMinute = 1440
+                ),
+                financeMetadata = FinanceMetadataBackup()
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
+    @Test
+    fun versionEightRejectsMalformedLegacyVehicleCollections() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 8,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
+                vehicleStore = VehicleStoreEntity(
+                    key = "vehicle_data",
+                    userId = "backup-user",
+                    vehiclesJson = "{malformed"
+                )
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
+    @Test
+    fun versionNinePreservesAndValidatesPendingBankSmsSuggestions() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 9,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "PER_RECORD"
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
+                bankSmsState = BankSmsStateBackup(
+                    pendingSuggestionsJson = """[{"id":"sms_1","patternId":"pattern_1","bankName":"Bank","amount":1000,"amountUnit":"TOMAN","smsText":"واریز","receivedAtMillis":1800000000000}]"""
+                )
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Valid)
+        val decoded = BackupFileCodec.decode(BackupFileCodec.encode(backup))
+        assertEquals(
+            backup.bankSmsState?.pendingSuggestionsJson,
+            decoded.bankSmsState?.pendingSuggestionsJson
+        )
     }
 
 }

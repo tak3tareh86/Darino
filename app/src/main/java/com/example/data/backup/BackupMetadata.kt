@@ -10,3 +10,14 @@ data class BackupMetadata(
     val dateSystem: String = "JALALI_UI",
     val deviceInfo: String = "Android Local"
 )
+
+/** Non-reversible account tag for isolating device-local backup files without exposing user IDs. */
+object BackupUserScope {
+    fun tag(userId: String): String {
+        require(userId.isNotBlank())
+        return java.security.MessageDigest.getInstance("SHA-256")
+            .digest(userId.toByteArray(Charsets.UTF_8))
+            .take(12)
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+    }
+}

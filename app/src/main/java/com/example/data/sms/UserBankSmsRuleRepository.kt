@@ -132,4 +132,32 @@ class UserBankSmsRuleRepository(context: Context) {
         }
         prefs.edit().putString(key(userId), array.toString()).apply()
     }
+    /** Exports the already-decrypted JSON value; restore re-encrypts it with this device's key. */
+    @Synchronized
+    fun exportForBackup(userId: String): String? = prefs.getString(key(userId), null)
+
+    @Synchronized
+    fun restoreFromBackup(rawJson: String?, userId: String) {
+        val storageKey = key(userId)
+        if (rawJson == null) {
+            check(prefs.edit().remove(storageKey).commit()) {
+                "پاک‌سازی قوانین پیامک قبلی هنگام بازیابی ناموفق بود."
+            }
+            SmsPatternChangeNotifier.changes.tryEmit(Unit)
+            return
+        }
+        val array = JSONArray(rawJson)
+        val previous = prefs.getString(storageKey, null)
+        check(prefs.edit().putString(storageKey, rawJson).commit()) {
+            "ذخیره قوانین پیامک بازیابی‌شده انجام نشد."
+        }
+        if (getAll(userId).size != array.length()) {
+            val rollback = prefs.edit()
+            if (previous == null) rollback.remove(storageKey) else rollback.putString(storageKey, previous)
+            check(rollback.commit()) { "بازگردانی قوانین پیامک قبلی پس از خطا ناموفق بود." }
+            throw IllegalArgumentException("قوانین پیامک فایل پشتیبان معتبر نیستند.")
+        }
+        SmsPatternChangeNotifier.changes.tryEmit(Unit)
+    }
+
 }
