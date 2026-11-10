@@ -1,5 +1,6 @@
 package com.example.data.backup
 
+import com.example.data.database.AccountEntity
 import com.example.data.database.UserPreferenceEntity
 import com.example.data.database.TransactionEntity
 import com.example.data.database.VehicleStoreEntity
@@ -10,6 +11,50 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BackupValidatorTest {
+    @Test
+    fun rejectsDuplicatePrimaryKeysBeforeRestore() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 7,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "PER_RECORD"
+                ),
+                accounts = listOf(
+                    AccountEntity(id = 7, userId = "backup-user", stringId = "account-a", name = "Cash", type = "CASH"),
+                    AccountEntity(id = 7, userId = "backup-user", stringId = "account-b", name = "Bank", type = "BANK")
+                )
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
+    @Test
+    fun rejectsTransactionReferencesToMissingAccounts() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 7,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 1,
+                    currencyUnit = "PER_RECORD"
+                ),
+                transactions = listOf(
+                    TransactionEntity(
+                        id = 1,
+                        userId = "backup-user",
+                        amount = 500,
+                        accountId = "missing-account"
+                    )
+                )
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
+    }
+
     @Test
     fun versionSevenBackupAcceptsPerRecordCurrencyMetadata() {
         val unsigned = DarinoBackup(
