@@ -130,7 +130,13 @@ class LocalBackupRepository(
                         financialHealthProfiles.size +
                         loanCalculations.size + notificationLogs.size + smsLogs.size + reminderDeliveryLogs.size +
                         legacyReminders.size + legacyReminderSchedules.size +
-                        (if (vehicleStore != null) 1 else 0) + (if (userPreference != null) 1 else 0) + 1
+                        (if (vehicleStore != null) 1 else 0) + (if (userPreference != null) 1 else 0) + 1 +
+                        BackupValidator.countJsonArrayItems(financeMetadata.budgetsJson) +
+                        BackupValidator.countJsonArrayItems(financeMetadata.savingsGoalsJson) +
+                        BackupValidator.countJsonArrayItems(financeMetadata.recurringTransactionsJson) +
+                        BackupValidator.countJsonArrayItems(financeMetadata.categoriesJson) +
+                        BackupValidator.countJsonArrayItems(smsRulesJson) +
+                        BackupValidator.countJsonArrayItems(smsPatternsJson)
 
             BackupValidator.withChecksum(DarinoBackup(
                 metadata = BackupMetadata(
