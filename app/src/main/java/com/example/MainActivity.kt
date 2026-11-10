@@ -154,10 +154,8 @@ class MainActivity : FragmentActivity() {
         val alarmManager = getSystemService(android.content.Context.ALARM_SERVICE) as? android.app.AlarmManager
         val exactAlarmAllowed = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S ||
             alarmManager?.canScheduleExactAlarms() == true
-        if (exactAlarmAllowed) {
-            // Room is the durable source of truth; rebuild every alarm family on app
-            // resume so a process death between restore commit and OS registration is recoverable.
-            lifecycleScope.launch {
+        // Always inspect the durable restore journal, even when exact-alarm access is denied.
+        lifecycleScope.launch {
                 val appContext = applicationContext
                 // Complete any interrupted cross-store restore before rebuilding alarms
                 // or allowing the user to interact with potentially mixed persisted state.
@@ -167,6 +165,7 @@ class MainActivity : FragmentActivity() {
                     android.util.Log.e("MainActivity", "Interrupted backup restore recovery failed", error)
                 }
 
+                if (exactAlarmAllowed) {
                 runCatching {
                     com.example.data.security.SessionManager.init(appContext)
                     com.example.reminder.domain.ReminderScheduler(appContext).rebuildAllSchedules()
