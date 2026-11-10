@@ -437,6 +437,9 @@ class LocalBackupRepository(
             val previousLegacyReminders = if (mode == RestoreMode.REPLACE) {
                 db.reminderDao().getActiveRemindersSnapshot(userId)
             } else emptyList()
+            val previousFinancialEvents = if (mode == RestoreMode.REPLACE) {
+                db.financialEventDao().getAllEventsList(userId)
+            } else emptyList()
 
             if (mode == RestoreMode.REPLACE) writeEmergencyBackup()
             val restoredAttachments = restoreAttachments(backup.attachments)
@@ -928,6 +931,14 @@ class LocalBackupRepository(
             com.example.reminder.domain.ReminderManager(context).rebuildAllSchedules()
             db.reminderDao().getActiveRemindersSnapshot(userId).forEach { reminder ->
                 com.example.data.receiver.ReminderScheduler(context).schedule(reminder)
+            }
+
+            // Calendar-event alarms are OS registrations, not Room data. Rebuild them
+            // after replacement so removed events cannot leave stale alarms behind.
+            val calendarReminderScheduler = com.example.calendar.reminder.CalendarEventReminderScheduler(context)
+            previousFinancialEvents.forEach { calendarReminderScheduler.cancel(it.id) }
+            db.financialEventDao().getAllEventsList(userId).forEach { entity ->
+                calendarReminderScheduler.schedule(entity.toDomain())
             }
 
             try {
