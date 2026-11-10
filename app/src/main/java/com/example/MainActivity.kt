@@ -159,6 +159,14 @@ class MainActivity : FragmentActivity() {
             // resume so a process death between restore commit and OS registration is recoverable.
             lifecycleScope.launch {
                 val appContext = applicationContext
+                // Complete any interrupted cross-store restore before rebuilding alarms
+                // or allowing the user to interact with potentially mixed persisted state.
+                runCatching {
+                    com.example.data.backup.LocalBackupRepository(appContext).recoverInterruptedRestore()
+                }.onFailure { error ->
+                    android.util.Log.e("MainActivity", "Interrupted backup restore recovery failed", error)
+                }
+
                 runCatching {
                     com.example.data.security.SessionManager.init(appContext)
                     com.example.reminder.domain.ReminderScheduler(appContext).rebuildAllSchedules()
