@@ -68,7 +68,7 @@ interface ReminderDao {
     @Query("SELECT s.* FROM smart_reminder_schedules s INNER JOIN smart_reminders r ON r.id = s.reminderId WHERE r.userId = :userId AND (s.reminderId = :reminderId OR (r.sourceType = 'VEHICLE' AND r.sourceId = :reminderId)) ORDER BY s.triggerDateTime ASC")
     fun getSchedulesForReminder(userId: String, reminderId: String): Flow<List<ReminderScheduleEntity>>
 
-    @Query("SELECT s.* FROM smart_reminder_schedules s INNER JOIN smart_reminders r ON r.id = s.reminderId WHERE r.userId = :userId AND s.reminderId = :reminderId ORDER BY s.triggerDateTime ASC")
+    @Query("SELECT s.* FROM smart_reminder_schedules s INNER JOIN smart_reminders r ON r.id = s.reminderId WHERE r.userId = :userId AND (s.reminderId = :reminderId OR (r.sourceType = 'VEHICLE' AND r.sourceId = :reminderId)) ORDER BY s.triggerDateTime ASC")
     suspend fun getSchedulesForReminderSync(userId: String, reminderId: String): List<ReminderScheduleEntity>
 
     @Query("SELECT s.* FROM smart_reminder_schedules s INNER JOIN smart_reminders r ON r.id = s.reminderId WHERE r.userId = :userId ORDER BY s.triggerDateTime ASC")
