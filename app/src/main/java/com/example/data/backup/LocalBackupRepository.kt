@@ -1,6 +1,7 @@
 package com.example.data.backup
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import android.util.Base64
 import android.util.Log
@@ -168,6 +169,24 @@ class LocalBackupRepository(
             BackupFileCodec.decode(json)
         }
         restoreBackup(backup, RestoreMode.REPLACE)
+    }
+
+    private fun restoreSharedPreferencesSnapshot(
+        preferences: SharedPreferences,
+        snapshot: Map<String, *>
+    ) {
+        val editor = preferences.edit().clear()
+        snapshot.forEach { (key, value) ->
+            when (value) {
+                is String -> editor.putString(key, value)
+                is Boolean -> editor.putBoolean(key, value)
+                is Int -> editor.putInt(key, value)
+                is Long -> editor.putLong(key, value)
+                is Float -> editor.putFloat(key, value)
+                is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toMutableSet())
+            }
+        }
+        check(editor.commit()) { "SharedPreferences rollback failed" }
     }
 
     private fun remapAttachmentUris(json: String, uriMap: Map<String, String>): String =
@@ -363,7 +382,65 @@ class LocalBackupRepository(
 
             if (mode == RestoreMode.REPLACE) writeEmergencyBackup()
             val restoredAttachments = restoreAttachments(backup.attachments)
+            val generalPrefs = context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
+            val backupPrefs = context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+            val generalPrefsSnapshot = generalPrefs.all
+            val backupPrefsSnapshot = backupPrefs.all
+            val smsRuleRepository = com.example.data.sms.UserBankSmsRuleRepository(context)
+            val smsPatternRepository = com.example.data.sms.SmsPatternRepository(context)
+            val previousSmsRules = smsRuleRepository.exportForBackup(userId)
+            val previousSmsPatterns = smsPatternRepository.exportForBackup(userId)
+            val previousSmsRecognitionStart = smsPatternRepository.getStoredRecognitionStartMillis(userId)
             try {
+                backup.appSettings?.let { settings ->
+                    val editor = generalPrefs.edit()
+                        .putString("pref_theme_mode", settings.themeMode)
+                        .putString("pref_language", settings.language)
+                        .putString("pref_currency", settings.currency)
+                        .putString("pref_alert_delivery", settings.alertDelivery)
+                        .putString("pref_nav_transition_animation", settings.navigationTransition)
+                    settings.notificationsEnabled?.let { editor.putBoolean("pref_notifications_enabled", it) }
+                    settings.smsNotificationsEnabled?.let { editor.putBoolean("pref_sms_notifications_enabled", it) }
+                    settings.notificationSoundEnabled?.let { editor.putBoolean("pref_notification_sound_enabled", it) }
+                    settings.notificationVibrationEnabled?.let { editor.putBoolean("pref_notification_vibration_enabled", it) }
+                    settings.quietHoursEnabled?.let { editor.putBoolean("pref_quiet_hours_enabled", it) }
+                    settings.quietHoursStartMinute?.let { editor.putInt("pref_quiet_hours_start_minute", it) }
+                    settings.quietHoursEndMinute?.let { editor.putInt("pref_quiet_hours_end_minute", it) }
+                    settings.allowHighPriorityInQuietHours?.let { editor.putBoolean("pref_allow_high_priority_quiet_hours", it) }
+                    settings.defaultReminderTimeMinute?.let { editor.putInt("pref_default_reminder_time_minute", it) }
+                    settings.installmentReminderDays?.let { editor.putInt("pref_installment_reminder_days", it) }
+                    settings.vehicleReminderKilometers?.let { editor.putInt("pref_vehicle_reminder_kilometers", it) }
+                    check(editor.commit()) { "ذخیره تنظیمات برنامه بازیابی‌شده انجام نشد." }
+
+                    settings.autoBackupDailyEnabled?.let {
+                        check(backupPrefs.edit().putBoolean("auto_backup_daily", it).commit())
+                    }
+                    settings.autoBackupWeeklyEnabled?.let {
+                        check(backupPrefs.edit().putBoolean("auto_backup_weekly", it).commit())
+                    }
+                }
+
+                if (backup.metadata.backupVersion >= 8) {
+                    val userSuffix = "_$userId"
+                    val finance = backup.financeMetadata
+                        ?: throw IllegalArgumentException("اطلاعات مالی سفارشی در فایل پشتیبان وجود ندارد.")
+                    val editor = generalPrefs.edit()
+                    fun putOrRemove(key: String, value: String?) {
+                        if (value == null) editor.remove(key) else editor.putString(key, value)
+                    }
+                    putOrRemove("pref_persisted_budgets$userSuffix", finance.budgetsJson)
+                    putOrRemove("pref_persisted_savings_goals$userSuffix", finance.savingsGoalsJson)
+                    putOrRemove("pref_persisted_recurring_txs$userSuffix", finance.recurringTransactionsJson)
+                    putOrRemove("pref_persisted_categories$userSuffix", finance.categoriesJson)
+                    check(editor.commit()) { "ذخیره تنظیمات مالی بازیابی‌شده انجام نشد." }
+                    smsRuleRepository.restoreFromBackup(backup.userBankSmsRulesJson, userId)
+                    smsPatternRepository.restoreFromBackup(
+                        backup.smsPatternsJson,
+                        backup.smsRecognitionStartMillis,
+                        userId
+                    )
+                }
+
                 db.withTransaction {
                 if (mode == RestoreMode.REPLACE) {
                     if (backup.metadata.backupVersion >= 3) {
@@ -696,42 +773,23 @@ class LocalBackupRepository(
                 }
                 }
             } catch (error: Exception) {
+                runCatching { restoreSharedPreferencesSnapshot(generalPrefs, generalPrefsSnapshot) }
+                    .exceptionOrNull()?.let(error::addSuppressed)
+                runCatching { restoreSharedPreferencesSnapshot(backupPrefs, backupPrefsSnapshot) }
+                    .exceptionOrNull()?.let(error::addSuppressed)
+                if (backup.metadata.backupVersion >= 8) {
+                    runCatching { smsRuleRepository.restoreFromBackup(previousSmsRules, userId) }
+                        .exceptionOrNull()?.let(error::addSuppressed)
+                    runCatching {
+                        smsPatternRepository.restoreFromBackup(
+                            previousSmsPatterns,
+                            previousSmsRecognitionStart,
+                            userId
+                        )
+                    }.exceptionOrNull()?.let(error::addSuppressed)
+                }
                 restoredAttachments.createdFiles.forEach { it.delete() }
                 throw error
-            }
-
-            if (backup.metadata.backupVersion >= 8) {
-                val generalPrefs = context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
-                val backupPrefs = context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
-                val userSuffix = "_$userId"
-                if (mode == RestoreMode.REPLACE) {
-                    generalPrefs.edit()
-                        .remove("pref_persisted_budgets$userSuffix")
-                        .remove("pref_persisted_savings_goals$userSuffix")
-                        .remove("pref_persisted_recurring_txs$userSuffix")
-                        .remove("pref_persisted_categories$userSuffix")
-                        .commit()
-                }
-                backup.financeMetadata?.let { finance ->
-                    val editor = generalPrefs.edit()
-                    fun putOrRemove(key: String, value: String?) {
-                        if (value == null) editor.remove(key) else editor.putString(key, value)
-                    }
-                    putOrRemove("pref_persisted_budgets$userSuffix", finance.budgetsJson)
-                    putOrRemove("pref_persisted_savings_goals$userSuffix", finance.savingsGoalsJson)
-                    putOrRemove("pref_persisted_recurring_txs$userSuffix", finance.recurringTransactionsJson)
-                    putOrRemove("pref_persisted_categories$userSuffix", finance.categoriesJson)
-                    check(editor.commit()) { "ذخیره تنظیمات مالی بازیابی‌شده انجام نشد." }
-                }
-
-                val smsRuleRepository = com.example.data.sms.UserBankSmsRuleRepository(context)
-                val smsPatternRepository = com.example.data.sms.SmsPatternRepository(context)
-                smsRuleRepository.restoreFromBackup(backup.userBankSmsRulesJson, userId)
-                smsPatternRepository.restoreFromBackup(
-                    backup.smsPatternsJson,
-                    backup.smsRecognitionStartMillis,
-                    userId
-                )
             }
 
             backup.appSettings?.let { settings ->
