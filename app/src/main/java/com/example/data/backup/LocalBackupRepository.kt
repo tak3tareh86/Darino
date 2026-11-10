@@ -490,19 +490,77 @@ class LocalBackupRepository(
                     backup.userPreference?.let { preference ->
                         db.userPreferenceDao().insertOrUpdate(preference.copy(userId = userId))
                     }
-                    backup.appSettings?.let { settings ->
-                        val appPreferences = com.example.data.preferences.AppPreferencesRepository.getInstance(context)
-                        runCatching { com.example.ui.screens.settings.model.AppThemeMode.valueOf(settings.themeMode) }
-                            .getOrNull()?.let { appPreferences.setThemeMode(it) }
-                        runCatching { com.example.ui.screens.settings.model.AppLanguage.valueOf(settings.language) }
-                            .getOrNull()?.let { appPreferences.setLanguage(it) }
-                        runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(settings.currency) }
-                            .getOrNull()?.let { appPreferences.setCurrency(it) }
-                        runCatching { com.example.ui.screens.settings.model.AlertDeliveryPreference.valueOf(settings.alertDelivery) }
-                            .getOrNull()?.let { appPreferences.setAlertDelivery(it) }
-                        runCatching { com.example.ui.screens.settings.model.NavigationTransitionAnimation.valueOf(settings.navigationTransition) }
-                            .getOrNull()?.let { appPreferences.setNavTransition(it) }
+                }
+            }
+
+            if (backup.metadata.backupVersion >= 8) {
+                val generalPrefs = context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
+                val backupPrefs = context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+                val userSuffix = "_$userId"
+                if (mode == RestoreMode.REPLACE) {
+                    generalPrefs.edit()
+                        .remove("pref_persisted_budgets$userSuffix")
+                        .remove("pref_persisted_savings_goals$userSuffix")
+                        .remove("pref_persisted_recurring_txs$userSuffix")
+                        .remove("pref_persisted_categories$userSuffix")
+                        .commit()
+                }
+                backup.financeMetadata?.let { finance ->
+                    val editor = generalPrefs.edit()
+                    fun putOrRemove(key: String, value: String?) {
+                        if (value == null) editor.remove(key) else editor.putString(key, value)
                     }
+                    putOrRemove("pref_persisted_budgets$userSuffix", finance.budgetsJson)
+                    putOrRemove("pref_persisted_savings_goals$userSuffix", finance.savingsGoalsJson)
+                    putOrRemove("pref_persisted_recurring_txs$userSuffix", finance.recurringTransactionsJson)
+                    putOrRemove("pref_persisted_categories$userSuffix", finance.categoriesJson)
+                    check(editor.commit()) { "ذخیره تنظیمات مالی بازیابی‌شده انجام نشد." }
+                }
+
+                val smsRuleRepository = com.example.data.sms.UserBankSmsRuleRepository(context)
+                val smsPatternRepository = com.example.data.sms.SmsPatternRepository(context)
+                smsRuleRepository.restoreFromBackup(backup.userBankSmsRulesJson, userId)
+                smsPatternRepository.restoreFromBackup(
+                    backup.smsPatternsJson,
+                    backup.smsRecognitionStartMillis,
+                    userId
+                )
+            }
+
+            backup.appSettings?.let { settings ->
+                val appPreferences = AppPreferencesRepository.getInstance(context)
+                runCatching { com.example.ui.screens.settings.model.AppThemeMode.valueOf(settings.themeMode) }
+                    .getOrNull()?.let { appPreferences.setThemeMode(it) }
+                runCatching { com.example.ui.screens.settings.model.AppLanguage.valueOf(settings.language) }
+                    .getOrNull()?.let { appPreferences.setLanguage(it) }
+                runCatching { com.example.ui.screens.settings.model.AppCurrency.valueOf(settings.currency) }
+                    .getOrNull()?.let { appPreferences.setCurrency(it) }
+                runCatching { com.example.ui.screens.settings.model.AlertDeliveryPreference.valueOf(settings.alertDelivery) }
+                    .getOrNull()?.let { appPreferences.setAlertDelivery(it) }
+                runCatching { com.example.ui.screens.settings.model.NavigationTransitionAnimation.valueOf(settings.navigationTransition) }
+                    .getOrNull()?.let { appPreferences.setNavTransition(it) }
+                settings.smsNotificationsEnabled?.let(appPreferences::setSmsNotificationsEnabled)
+                settings.notificationSoundEnabled?.let(appPreferences::setNotificationSoundEnabled)
+                settings.notificationVibrationEnabled?.let(appPreferences::setNotificationVibrationEnabled)
+                settings.quietHoursEnabled?.let(appPreferences::setQuietHoursEnabled)
+                if (settings.quietHoursStartMinute != null && settings.quietHoursEndMinute != null) {
+                    appPreferences.setQuietHours(settings.quietHoursStartMinute, settings.quietHoursEndMinute)
+                }
+                settings.allowHighPriorityInQuietHours?.let(appPreferences::setAllowHighPriorityInQuietHours)
+                settings.defaultReminderTimeMinute?.let(appPreferences::setDefaultReminderTimeMinute)
+                settings.installmentReminderDays?.let { runCatching { appPreferences.setInstallmentReminderDays(it) } }
+                settings.vehicleReminderKilometers?.let { runCatching { appPreferences.setVehicleReminderKilometers(it) } }
+                settings.notificationsEnabled?.let(appPreferences::setNotificationsEnabled)
+
+                settings.autoBackupDailyEnabled?.let { enabled ->
+                    context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+                        .edit().putBoolean("auto_backup_daily", enabled).commit()
+                    if (enabled) WeeklyBackupWorker.enqueueDaily(context) else WeeklyBackupWorker.cancelDaily(context)
+                }
+                settings.autoBackupWeeklyEnabled?.let { enabled ->
+                    context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+                        .edit().putBoolean("auto_backup_weekly", enabled).commit()
+                    if (enabled) WeeklyBackupWorker.enqueueWeekly(context) else WeeklyBackupWorker.cancelWeekly(context)
                 }
             }
 
