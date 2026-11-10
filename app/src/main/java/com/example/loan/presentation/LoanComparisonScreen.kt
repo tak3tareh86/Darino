@@ -75,8 +75,8 @@ fun LoanComparisonScreen(
     onUpdateLoan2: (ComparisonLoanInput) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isEditingLoan1 by remember { mutableStateOf(true) }
-    var isEditingLoan2 by remember { mutableStateOf(true) }
+    var isEditingLoan1 by remember { mutableStateOf(false) }
+    var isEditingLoan2 by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier.fillMaxWidth(),
