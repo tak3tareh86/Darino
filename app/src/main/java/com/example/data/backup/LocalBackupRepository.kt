@@ -192,8 +192,38 @@ class LocalBackupRepository(
         check(editor.commit()) { "SharedPreferences rollback failed" }
     }
 
-    private fun remapAttachmentUris(json: String, uriMap: Map<String, String>): String =
-        uriMap.entries.fold(json) { value, (oldUri, newUri) -> value.replace(oldUri, newUri) }
+    /**
+     * Keeps legacy-only vehicle JSON records while dropping only records already restored
+     * from structured Room tables. Child references and receipt URIs are remapped exactly.
+     */
+    private fun remapLegacyVehicleCollection(
+        rawJson: String,
+        structuredIds: Set<String>,
+        vehicleIdMap: Map<String, String>,
+        attachmentUriMap: Map<String, String> = emptyMap()
+    ): String {
+        if (rawJson.isBlank()) return "[]"
+        return runCatching {
+            val source = org.json.JSONArray(rawJson)
+            val result = org.json.JSONArray()
+            for (index in 0 until source.length()) {
+                val original = source.optJSONObject(index) ?: continue
+                val oldId = original.optString("id").takeIf { it.isNotBlank() && it != "null" }
+                if (oldId != null && oldId in structuredIds) continue
+                val item = org.json.JSONObject(original.toString())
+                if (item.has("vehicleId") && !item.isNull("vehicleId")) {
+                    val oldVehicleId = item.optString("vehicleId")
+                    item.put("vehicleId", vehicleIdMap[oldVehicleId] ?: oldVehicleId)
+                }
+                if (item.has("receiptImageUri") && !item.isNull("receiptImageUri")) {
+                    val oldUri = item.optString("receiptImageUri")
+                    item.put("receiptImageUri", attachmentUriMap[oldUri] ?: oldUri)
+                }
+                result.put(item)
+            }
+            result.toString()
+        }.getOrDefault(rawJson)
+    }
 
     override suspend fun createBackup(): DarinoBackup =
         withContext(Dispatchers.IO) {
@@ -713,27 +743,35 @@ class LocalBackupRepository(
 
                 if (backup.metadata.backupVersion >= 5) {
                     backup.vehicleStore?.let { store ->
-                        val structuredVehicleDataExists =
-                            backup.vehicles.isNotEmpty() || backup.vehicleServices.isNotEmpty() ||
-                                backup.vehicleExpenses.isNotEmpty() || backup.vehicleInsurances.isNotEmpty() ||
-                                backup.vehicleInspections.isNotEmpty()
-                        val restoredStore = if (structuredVehicleDataExists) {
-                            // Structured Room rows are authoritative. Do not replay a stale legacy
-                            // JSON snapshot after inserting those rows, or startup migration duplicates them.
-                            store.copy(
-                                userId = userId,
-                                vehiclesJson = "[]",
-                                servicesJson = "[]",
-                                expensesJson = "[]",
-                                insurancesJson = "[]",
-                                inspectionsJson = "[]"
+                        val restoredStore = store.copy(
+                            userId = userId,
+                            vehiclesJson = remapLegacyVehicleCollection(
+                                store.vehiclesJson,
+                                backup.vehicles.flatMap { listOf(it.id.toString(), it.serverId.orEmpty()) }.toSet(),
+                                restoredVehicleIds
+                            ),
+                            servicesJson = remapLegacyVehicleCollection(
+                                store.servicesJson,
+                                backup.vehicleServices.flatMap { listOf(it.id.toString(), it.serverId.orEmpty()) }.toSet(),
+                                restoredVehicleIds
+                            ),
+                            expensesJson = remapLegacyVehicleCollection(
+                                store.expensesJson,
+                                backup.vehicleExpenses.map { it.id }.toSet(),
+                                restoredVehicleIds,
+                                restoredAttachments.uriMap
+                            ),
+                            insurancesJson = remapLegacyVehicleCollection(
+                                store.insurancesJson,
+                                backup.vehicleInsurances.map { it.id }.toSet(),
+                                restoredVehicleIds
+                            ),
+                            inspectionsJson = remapLegacyVehicleCollection(
+                                store.inspectionsJson,
+                                backup.vehicleInspections.map { it.id }.toSet(),
+                                restoredVehicleIds
                             )
-                        } else {
-                            store.copy(
-                                userId = userId,
-                                expensesJson = remapAttachmentUris(store.expensesJson, restoredAttachments.uriMap)
-                            )
-                        }
+                        )
                         db.vehicleDao().insertVehicleStoreForBackup(restoredStore)
                     }
                     backup.reminderDeliveryLogs.forEach { log ->
