@@ -194,7 +194,7 @@ fun SupportBackupScreen(
             scope.launch {
                 try {
                     val payload = context.contentResolver.openInputStream(uri)?.use { input ->
-                        readBoundedBytes(input, 100 * 1024 * 1024)
+                        readBoundedBytes(input, 256 * 1024 * 1024)
                     } ?: throw java.io.IOException("امکان خواندن فایل انتخاب‌شده وجود ندارد.")
                     if (com.example.data.backup.BackupEncryption.isEncrypted(payload)) {
                         pendingEncryptedRestorePayload = payload
