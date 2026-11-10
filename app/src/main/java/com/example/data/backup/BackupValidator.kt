@@ -185,6 +185,22 @@ object BackupValidator {
             return ValidationResult.Invalid("فایل پشتیبان دارای پرداخت قسط بدون قسط مرتبط است.")
         }
 
+        val loanCalculationIds = backup.loanCalculations.map { it.id }
+        if (loanCalculationIds.size != loanCalculationIds.toSet().size) {
+            return ValidationResult.Invalid("فایل پشتیبان دارای محاسبات وام تکراری است.")
+        }
+        val smartReminderIds = backup.reminders.map { it.id }.toSet()
+        if (backup.reminderDeliveryLogs.any { it.reminderId !in smartReminderIds }) {
+            return ValidationResult.Invalid("سوابق ارسال به یادآور موجود در فایل پشتیبان متصل نیستند.")
+        }
+        val checkIds = backup.checks.map { it.id }.toSet()
+        if (backup.checks.any {
+                (it.replacedByCheckId != null && it.replacedByCheckId !in checkIds) ||
+                    (it.replacesCheckId != null && it.replacesCheckId !in checkIds)
+            }
+        ) {
+            return ValidationResult.Invalid("ارتباط زنجیره جایگزینی چک‌ها در فایل پشتیبان ناقص است.")
+        }
         val reminderIds = backup.reminders.map { it.id }.toSet()
         if (backup.reminderSchedules.any { it.reminderId !in reminderIds }) {
             return ValidationResult.Invalid("فایل پشتیبان دارای زمان‌بندی یادآور بدون یادآور مرتبط است.")
