@@ -763,9 +763,16 @@ class LocalBackupRepository(
                     backup.financialHealthProfiles.forEach { profile ->
                         db.financialHealthDao().saveProfile(profile.copy(userId = userId))
                     }
-                    // Calculation IDs remain stable within the owning user's table.
+                    // loan_calculations uses a globally unique primary key rather than
+                    // a composite (id, userId) key. Allocate fresh IDs on restore so importing
+                    // another profile's backup can never REPLACE a different user's row.
                     backup.loanCalculations.forEach { calculation ->
-                        db.loanCalculationDao().insertCalculation(calculation.copy(userId = userId))
+                        db.loanCalculationDao().insertCalculation(
+                            calculation.copy(
+                                id = "calc_${java.util.UUID.randomUUID()}",
+                                userId = userId
+                            )
+                        )
                     }
                     backup.userPreference?.let { preference ->
                         db.userPreferenceDao().insertOrUpdate(preference.copy(userId = userId))
