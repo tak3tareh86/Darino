@@ -1,8 +1,10 @@
 package com.example.data.backup
 
+import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.nio.ByteBuffer
+import java.io.File
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -14,9 +16,10 @@ object DeviceBackupEncryption {
     private const val KEY_ALIAS = "darino_auto_backup_v1"
     private const val TAG_BITS = 128
 
-    fun encrypt(plainText: ByteArray): ByteArray {
+    @Synchronized
+    fun encrypt(plainText: ByteArray, context: Context): ByteArray {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey(context))
         val nonce = cipher.iv
         val cipherText = cipher.doFinal(plainText)
         return ByteBuffer.allocate(1 + nonce.size + cipherText.size)
@@ -26,6 +29,7 @@ object DeviceBackupEncryption {
             .array()
     }
 
+    @Synchronized
     fun decrypt(payload: ByteArray): ByteArray {
         require(payload.size > 1 + 12 + TAG_BITS / 8) { "Automatic backup file is incomplete" }
         val buffer = ByteBuffer.wrap(payload)
@@ -46,11 +50,19 @@ object DeviceBackupEncryption {
             ?: throw IllegalStateException("Automatic backup encryption key is unavailable")
     }
 
-    private fun getOrCreateKey(): SecretKey {
+    private fun getOrCreateKey(context: Context): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
         if (keyStore.containsAlias(KEY_ALIAS)) {
             return keyStore.getKey(KEY_ALIAS, null) as? SecretKey
                 ?: throw IllegalStateException("Automatic backup encryption key exists but cannot be loaded")
+        }
+        val hasExistingSnapshots = listOf("auto_backups", "emergency_backups").any { directoryName ->
+            File(context.filesDir, directoryName).listFiles()?.any {
+                it.isFile && it.extension == "darino"
+            } == true
+        }
+        check(!hasExistingSnapshots) {
+            "Automatic backup key is missing while encrypted snapshots still exist; refusing to replace their key."
         }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEY_STORE)
         generator.init(
