@@ -499,9 +499,9 @@ interface AccountDao {
     suspend fun clearAllAccounts(userId: String)
 }
 
-@Entity(tableName = "vehicle_store")
+@Entity(tableName = "vehicle_store", primaryKeys = ["key", "userId"])
 data class VehicleStoreEntity(
-    @PrimaryKey val key: String = "vehicle_data",
+    val key: String = "vehicle_data",
     val userId: String = "",
     val vehiclesJson: String = "",
     val servicesJson: String = "",
