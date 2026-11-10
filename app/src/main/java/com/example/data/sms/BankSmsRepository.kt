@@ -240,9 +240,25 @@ class BankSmsRepository(private val context: Context) {
     fun exportStateForBackup(userId: String): BankSmsStateBackup {
         require(userId.isNotBlank())
         val queueKey = userKey(KEY_PENDING_SMS_QUEUE, userId)!!
-        return BankSmsStateBackup(
-            pendingSuggestionsJson = pendingQueuePreferences.getString(queueKey, null)
-        )
+        val rawQueue = pendingQueuePreferences.getString(queueKey, null)
+        val portableQueue = rawQueue?.let { raw ->
+            runCatching {
+                val array = JSONArray(raw)
+                for (index in 0 until array.length()) {
+                    val item = array.optJSONObject(index) ?: continue
+                    // Older locally persisted suggestions predate explicit units and
+                    // receivedAtMillis; preserve their documented legacy defaults.
+                    if (!item.has("amountUnit") || item.isNull("amountUnit")) {
+                        item.put("amountUnit", "TOMAN")
+                    }
+                    if (!item.has("receivedAtMillis") || item.isNull("receivedAtMillis")) {
+                        item.put("receivedAtMillis", item.optLong("timestampMillis", System.currentTimeMillis()))
+                    }
+                }
+                array.toString()
+            }.getOrElse { raw }
+        }
+        return BankSmsStateBackup(pendingSuggestionsJson = portableQueue)
     }
 
     /** Restores the portable pending-suggestion queue with rollback on preference-write failure. */
