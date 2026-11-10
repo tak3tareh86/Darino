@@ -51,7 +51,8 @@ data class DarinoBackup(
     val userBankSmsRulesJson: String? = null,
     val smsPatternsJson: String? = null,
     val smsRecognitionStartMillis: Long? = null,
-    val attachments: List<BackupAttachment> = emptyList()
+    val attachments: List<BackupAttachment> = emptyList(),
+    val bankSmsState: BankSmsStateBackup? = null
 )
 
 /** User-visible settings. Nullable additions preserve compatibility with older backup files. */
@@ -91,4 +92,11 @@ data class BackupAttachment(
     val mediaType: String,
     val sha256: String,
     val base64Data: String
+)
+
+/** User-scoped bank-SMS review state; message bodies remain inside the encrypted backup. */
+data class BankSmsStateBackup(
+    val processedSmsIds: List<String> = emptyList(),
+    val dismissedSmsIds: List<String> = emptyList(),
+    val pendingSuggestionsJson: String? = null
 )
