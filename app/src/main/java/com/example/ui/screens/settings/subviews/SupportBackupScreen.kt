@@ -822,7 +822,8 @@ private fun writeAndVerifyBackup(
     expectedChecksum: String,
     passphrase: CharArray
 ) {
-    val output = context.contentResolver.openOutputStream(destinationUri, "wt")
+    try {
+        val output = context.contentResolver.openOutputStream(destinationUri, "wt")
         ?: throw java.io.IOException("ارائه‌دهنده فایل اجازه نوشتن یا جایگزینی فایل را نمی‌دهد.")
     output.buffered().use { stream ->
         stream.write(payload)
@@ -837,6 +838,9 @@ private fun writeAndVerifyBackup(
     val savedBackup = com.example.data.backup.BackupFileCodec.decode(savedJson)
     if (savedPayload.size != payload.size || savedBackup.metadata.checksum != expectedChecksum) {
         throw java.io.IOException("بررسی صحت فایل ذخیره‌شده ناموفق بود.")
+    }
+    } finally {
+        passphrase.fill('\\u0000')
     }
 }
 
