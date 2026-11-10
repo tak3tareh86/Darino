@@ -236,17 +236,10 @@ object UserRuleSmsAmountParser {
         val amount = extracted.transactionAmount ?: extractAmountLegacy(normalized)
         val amountIsValid = amount != null
         val amountValue = amount ?: 0L
-        val messageFallbackUnit = when {
-            rialRegex.containsMatchIn(normalized) && !tomanRegex.containsMatchIn(normalized) -> AppCurrency.RIAL
-            tomanRegex.containsMatchIn(normalized) && !rialRegex.containsMatchIn(normalized) -> AppCurrency.TOMAN
-            else -> AppCurrency.TOMAN
-        }
-        val amountUnit = if (amountIsValid) {
-            currencyUnitNearAmount(normalized, amountValue, messageFallbackUnit, transactionContextRegex)
-        } else messageFallbackUnit
-        val balanceUnit = extracted.balanceAmount?.let {
-            currencyUnitNearAmount(normalized, it, messageFallbackUnit, balanceContextRegex)
-        }
+        // Bank SMS amounts are raw Rial values regardless of any currency words in the body.
+        // App currency conversion belongs exclusively to the presentation/confirmation layer.
+        val amountUnit = AppCurrency.RIAL
+        val balanceUnit = extracted.balanceAmount?.let { AppCurrency.RIAL }
         val dateTime = PersianCalendarHelper.fromEpochMillis(receivedAtMillis)
         val time = Regex("""(?<![0-9])([0-2]?[0-9]:[0-5][0-9])""")
             .find(normalized)?.groupValues?.get(1)
@@ -265,17 +258,7 @@ object UserRuleSmsAmountParser {
             }
         }
         val candidateValues = extracted.candidates + extraCandidates.map { it.first }
-        val candidateUnits = run {
-            val seen = mutableMapOf<Long, Int>()
-            val groupedMatches = groupedNumberRegex.findAll(normalized).toList()
-            val groupedUnits = extracted.candidates.map { candidate ->
-                val occurrence = seen.getOrDefault(candidate, 0)
-                seen[candidate] = occurrence + 1
-                val match = groupedMatches.filter { it.groupValues[1].filter { ch -> ch in '0'..'9' }.toLongOrNull() == candidate }.getOrNull(occurrence)
-                match?.let { currencyUnitForMatch(normalized, it, messageFallbackUnit) } ?: messageFallbackUnit
-            }
-            groupedUnits + extraCandidates.map { it.second }
-        }
+        val candidateUnits = List(candidateValues.size) { AppCurrency.RIAL }
 
         return BankSmsSuggestion(
             id = smsId,
