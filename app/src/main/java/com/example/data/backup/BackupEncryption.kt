@@ -62,7 +62,7 @@ object BackupEncryption {
             cipher.updateAAD(header)
             return cipher.doFinal(cipherText)
         } finally {
-            passphrase.fill('\\u0000')
+            passphrase.fill('\u0000')
         }
     }
 
