@@ -376,7 +376,7 @@ private fun SettingsMainView(
         SettingsConfirmationDialog(
             isOpen = true,
             title = "خروج از حساب کاربری",
-            message = "آیا اطمینان دارید که می‌خواهید از حساب کاربری خود خارج شوید؟ برای استفاده مجدد نیاز به ورود با شماره همراه خواهید داشت.",
+            message = "با خروج از حساب کاربری، تمامی اطلاعات ثبت‌شده شما پاک خواهد شد.",
             confirmButtonText = "خروج از حساب",
             isDanger = true,
             onConfirm = {
