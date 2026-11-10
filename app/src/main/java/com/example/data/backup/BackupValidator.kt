@@ -61,6 +61,9 @@ object BackupValidator {
         if (backup.metadata.createdAt <= 0L || backup.metadata.recordCount < 0) {
             return ValidationResult.Invalid("اطلاعات فراداده فایل پشتیبان نامعتبر است.")
         }
+        if (version >= 8 && (backup.appSettings == null || backup.financeMetadata == null)) {
+            return ValidationResult.Invalid("فایل پشتیبان کامل نیست و بخشی از تنظیمات اصلی را ندارد.")
+        }
         val validCurrencyMetadata = when (version) {
             in 1..6 -> backup.metadata.currencyUnit == "TOMAN"
             in 7..8 -> backup.metadata.currencyUnit == "PER_RECORD"
