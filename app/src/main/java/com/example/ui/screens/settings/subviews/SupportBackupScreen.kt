@@ -671,7 +671,7 @@ fun SupportBackupScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("بک‌آپ خودکار روزانه", fontWeight = FontWeight.SemiBold)
                                     Text(
-                                        "اجرای مستقل هر ۲۴ ساعت؛ نگهداری حداکثر ۳۰ نسخه",
+                                        "برنامه‌ریزی روزانه؛ زمان اجرا ممکن است با محدودیت‌های اندروید کمی جابه‌جا شود (۳۰ نسخه)",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -690,7 +690,7 @@ fun SupportBackupScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("بک‌آپ خودکار هفتگی", fontWeight = FontWeight.SemiBold)
                                     Text(
-                                        "اجرای مستقل هر ۷ روز؛ نگهداری حداکثر ۱۲ نسخه",
+                                        "برنامه‌ریزی هفتگی؛ زمان اجرا ممکن است با محدودیت‌های اندروید کمی جابه‌جا شود (۱۲ نسخه)",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
