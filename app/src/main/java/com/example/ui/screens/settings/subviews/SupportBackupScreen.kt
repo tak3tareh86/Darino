@@ -193,9 +193,7 @@ fun SupportBackupScreen(
             scope.launch {
                 try {
                     val payload = context.contentResolver.openInputStream(uri)?.use { input ->
-                        val bytes = input.readBytes()
-                        require(bytes.size <= 100 * 1024 * 1024) { "حجم فایل پشتیبان بیش از حد مجاز است." }
-                        bytes
+                        readBoundedBytes(input, 100 * 1024 * 1024)
                     } ?: throw java.io.IOException("امکان خواندن فایل انتخاب‌شده وجود ندارد.")
                     if (com.example.data.backup.BackupEncryption.isEncrypted(payload)) {
                         pendingEncryptedRestorePayload = payload
@@ -358,9 +356,6 @@ fun SupportBackupScreen(
                     onClick = {
                         val secret = restorePassphrase
                         val encrypted = pendingEncryptedRestorePayload
-                        showRestorePasswordDialog = false
-                        restorePassphrase = ""
-                        pendingEncryptedRestorePayload = null
                         scope.launch {
                             try {
                                 val bytes = encrypted ?: throw IllegalStateException("فایل رمزگذاری‌شده در دسترس نیست.")
@@ -368,10 +363,15 @@ fun SupportBackupScreen(
                                     com.example.data.backup.BackupEncryption.decrypt(bytes, secret.toCharArray())
                                 }.toString(Charsets.UTF_8)
                                 pendingRestoreBackup = com.example.data.backup.BackupFileCodec.decode(json)
+                                showRestorePasswordDialog = false
+                                restorePassphrase = ""
+                                pendingEncryptedRestorePayload = null
                                 showRestoreConfirmation = true
                             } catch (e: Exception) {
+                                restorePassphrase = ""
+                                showRestorePasswordDialog = true
                                 Log.e("SupportBackupScreen", "Encrypted backup could not be opened", e)
-                                Toast.makeText(context, "رمز اشتباه است یا فایل پشتیبان آسیب دیده است.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "رمز اشتباه است یا فایل پشتیبان آسیب دیده است. دوباره تلاش کنید.", Toast.LENGTH_LONG).show()
                             }
                         }
                     }
@@ -732,6 +732,20 @@ fun SupportBackupScreen(
             }
         }
     }
+}
+
+private fun readBoundedBytes(input: java.io.InputStream, maxBytes: Int): ByteArray {
+    val output = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(8 * 1024)
+    var total = 0
+    while (true) {
+        val read = input.read(buffer)
+        if (read < 0) break
+        total += read
+        require(total <= maxBytes) { "حجم فایل پشتیبان بیش از حد مجاز است." }
+        output.write(buffer, 0, read)
+    }
+    return output.toByteArray()
 }
 
 private fun buildBackupFilename(): String {
