@@ -35,7 +35,7 @@ object BackupValidator {
     }
 
     fun isJsonObjectArray(rawJson: String?, requiredKeys: Set<String> = emptySet()): Boolean {
-        if (rawJson == null) return true
+        if (rawJson.isNullOrBlank()) return true
         val values = runCatching { jsonArrayAdapter.fromJson(rawJson) }.getOrNull() ?: return false
         return values.all { value ->
             value is Map<*, *> && requiredKeys.all { it in value.keys }
@@ -112,6 +112,22 @@ object BackupValidator {
         if (hasInvalidCurrencyUnit) {
             return ValidationResult.Invalid("فایل پشتیبان شامل رکوردی با واحد پول ناشناخته است؛ برای جلوگیری از تغییر مبلغ، بازیابی متوقف شد.")
         }
+        val settings = backup.appSettings
+        val invalidAppSettings = settings != null && (
+            com.example.ui.screens.settings.model.AppThemeMode.values().none { it.name == settings.themeMode } ||
+                com.example.ui.screens.settings.model.AppLanguage.values().none { it.name == settings.language } ||
+                settings.currency !in validUnits ||
+                com.example.ui.screens.settings.model.AlertDeliveryPreference.values().none { it.name == settings.alertDelivery } ||
+                com.example.ui.screens.settings.model.NavigationTransitionAnimation.values().none { it.name == settings.navigationTransition } ||
+                (settings.quietHoursStartMinute != null && settings.quietHoursStartMinute !in 0..1439) ||
+                (settings.quietHoursEndMinute != null && settings.quietHoursEndMinute !in 0..1439) ||
+                (settings.defaultReminderTimeMinute != null && settings.defaultReminderTimeMinute !in 0..1439) ||
+                (settings.installmentReminderDays != null && settings.installmentReminderDays !in setOf(0, 1, 3, 7, 10)) ||
+                (settings.vehicleReminderKilometers != null && settings.vehicleReminderKilometers !in setOf(0, 200, 500, 1000))
+        )
+        if (invalidAppSettings) {
+            return ValidationResult.Invalid("تنظیمات برنامه در فایل پشتیبان معتبر نیستند.")
+        }
         if (backup.metadata.checksum.isBlank()) {
             return ValidationResult.Invalid("فایل پشتیبان امضای صحت‌سنجی ندارد یا ناقص است.")
         }
@@ -155,7 +171,12 @@ object BackupValidator {
                 isJsonObjectArray(finance?.recurringTransactionsJson, setOf("id", "title", "amount", "type", "frequency", "startDate", "nextExecutionDate")) &&
                 isJsonObjectArray(finance?.categoriesJson, setOf("id", "title", "iconEmoji", "type")) &&
                 isJsonObjectArray(backup.userBankSmsRulesJson, setOf("bankName")) &&
-                isJsonObjectArray(backup.smsPatternsJson, setOf("name", "type", "sampleMessage"))
+                isJsonObjectArray(backup.smsPatternsJson, setOf("name", "type", "sampleMessage")) &&
+                isJsonObjectArray(backup.vehicleStore?.vehiclesJson) &&
+                isJsonObjectArray(backup.vehicleStore?.servicesJson) &&
+                isJsonObjectArray(backup.vehicleStore?.expensesJson) &&
+                isJsonObjectArray(backup.vehicleStore?.insurancesJson) &&
+                isJsonObjectArray(backup.vehicleStore?.inspectionsJson)
         )
         if (configurationRecordCounts.any { it < 0 } || !customCollectionsValid ||
             (backup.smsRecognitionStartMillis != null && backup.smsRecognitionStartMillis <= 0L)
