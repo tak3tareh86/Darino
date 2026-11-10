@@ -247,10 +247,6 @@ fun TransferSheet(
                             errorMessage = "لطفاً حساب مبدأ و مقصد را انتخاب کنید."
                             return@Button
                         }
-                        if (src.id == dest.id) {
-                            errorMessage = "حساب مبدأ و مقصد نمی‌توانند یکسان باشند."
-                            return@Button
-                        }
                         errorMessage = null
                         onSubmitTransfer(src.id, dest.id, amountText, descText)
                     },
