@@ -137,7 +137,7 @@ class LocalBackupRepository(
     private suspend fun writeEmergencyBackup() {
         val snapshot = createBackup()
         val json = BackupFileCodec.encode(snapshot)
-        val encrypted = DeviceBackupEncryption.encrypt(json.toByteArray(Charsets.UTF_8))
+        val encrypted = DeviceBackupEncryption.encrypt(json.toByteArray(Charsets.UTF_8), context)
         val userTag = BackupUserScope.tag(getEffectiveUserId())
         val directory = File(context.filesDir, "emergency_backups")
         check(directory.exists() || directory.mkdirs()) { "ساخت پوشه پشتیبان اضطراری ناموفق بود." }
