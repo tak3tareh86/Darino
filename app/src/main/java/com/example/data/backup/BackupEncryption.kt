@@ -24,38 +24,46 @@ object BackupEncryption {
     private const val HEADER_SIZE = 8 + 1 + 4 + SALT_SIZE + NONCE_SIZE
 
     fun encrypt(plainText: ByteArray, passphrase: CharArray): ByteArray {
-        require(passphrase.size >= 8) { "رمز پشتیبان باید حداقل ۸ نویسه داشته باشد." }
-        val salt = ByteArray(SALT_SIZE).also(SecureRandom()::nextBytes)
-        val nonce = ByteArray(NONCE_SIZE).also(SecureRandom()::nextBytes)
-        val header = ByteBuffer.allocate(HEADER_SIZE)
-            .put(magic)
-            .put(FORMAT_VERSION)
-            .putInt(ITERATIONS)
-            .put(salt)
-            .put(nonce)
-            .array()
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, deriveKey(passphrase, salt, ITERATIONS), GCMParameterSpec(TAG_BITS, nonce))
-        cipher.updateAAD(header)
-        return header + cipher.doFinal(plainText)
+        try {
+            require(passphrase.size >= 8) { "رمز پشتیبان باید حداقل ۸ نویسه داشته باشد." }
+            val salt = ByteArray(SALT_SIZE).also(SecureRandom()::nextBytes)
+            val nonce = ByteArray(NONCE_SIZE).also(SecureRandom()::nextBytes)
+            val header = ByteBuffer.allocate(HEADER_SIZE)
+                .put(magic)
+                .put(FORMAT_VERSION)
+                .putInt(ITERATIONS)
+                .put(salt)
+                .put(nonce)
+                .array()
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.ENCRYPT_MODE, deriveKey(passphrase, salt, ITERATIONS), GCMParameterSpec(TAG_BITS, nonce))
+            cipher.updateAAD(header)
+            return header + cipher.doFinal(plainText)
+        } finally {
+            passphrase.fill('\\u0000')
+        }
     }
 
     fun decrypt(payload: ByteArray, passphrase: CharArray): ByteArray {
-        require(payload.size > HEADER_SIZE + TAG_BITS / 8) { "فایل پشتیبان رمزگذاری‌شده ناقص است." }
-        val buffer = ByteBuffer.wrap(payload)
-        val storedMagic = ByteArray(magic.size).also(buffer::get)
-        require(storedMagic.contentEquals(magic)) { "ساختار فایل پشتیبان شناخته‌شده نیست." }
-        require(buffer.get() == FORMAT_VERSION) { "نسخه رمزگذاری فایل پشتیبان پشتیبانی نمی‌شود." }
-        val iterations = buffer.int
-        require(iterations in MIN_ITERATIONS..MAX_ITERATIONS) { "پارامتر امنیتی فایل پشتیبان معتبر نیست." }
-        val salt = ByteArray(SALT_SIZE).also(buffer::get)
-        val nonce = ByteArray(NONCE_SIZE).also(buffer::get)
-        val header = payload.copyOfRange(0, HEADER_SIZE)
-        val cipherText = payload.copyOfRange(HEADER_SIZE, payload.size)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, deriveKey(passphrase, salt, iterations), GCMParameterSpec(TAG_BITS, nonce))
-        cipher.updateAAD(header)
-        return cipher.doFinal(cipherText)
+        try {
+            require(payload.size > HEADER_SIZE + TAG_BITS / 8) { "فایل پشتیبان رمزگذاری‌شده ناقص است." }
+            val buffer = ByteBuffer.wrap(payload)
+            val storedMagic = ByteArray(magic.size).also(buffer::get)
+            require(storedMagic.contentEquals(magic)) { "ساختار فایل پشتیبان شناخته‌شده نیست." }
+            require(buffer.get() == FORMAT_VERSION) { "نسخه رمزگذاری فایل پشتیبان پشتیبانی نمی‌شود." }
+            val iterations = buffer.int
+            require(iterations in MIN_ITERATIONS..MAX_ITERATIONS) { "پارامتر امنیتی فایل پشتیبان معتبر نیست." }
+            val salt = ByteArray(SALT_SIZE).also(buffer::get)
+            val nonce = ByteArray(NONCE_SIZE).also(buffer::get)
+            val header = payload.copyOfRange(0, HEADER_SIZE)
+            val cipherText = payload.copyOfRange(HEADER_SIZE, payload.size)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, deriveKey(passphrase, salt, iterations), GCMParameterSpec(TAG_BITS, nonce))
+            cipher.updateAAD(header)
+            return cipher.doFinal(cipherText)
+        } finally {
+            passphrase.fill('\\u0000')
+        }
     }
 
     fun isEncrypted(payload: ByteArray): Boolean =
