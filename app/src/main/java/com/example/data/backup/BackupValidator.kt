@@ -79,8 +79,14 @@ object BackupValidator {
             keys.all { item[it] == null || item[it] is String }
         fun optionalBoolean(item: Map<*, *>, key: String): Boolean =
             item[key] == null || item[key] is Boolean
-        fun optionalUnit(item: Map<*, *>, key: String): Boolean =
-            item[key] == null || (item[key] is String && item[key] in units)
+        fun optionalEnum(item: Map<*, *>, key: String, allowed: Set<String>): Boolean {
+            val value = item[key]
+            return value == null || (value is String && value in allowed)
+        }
+        fun requiredEnum(item: Map<*, *>, key: String, allowed: Set<String>): Boolean {
+            val value = item[key] as? String
+            return value != null && value in allowed
+        }
         fun uniqueIds(items: List<Map<*, *>>): Boolean {
             val ids = items.map { it["id"] as? String ?: return false }
             return ids.all(String::isNotBlank) && ids.size == ids.toSet().size
@@ -88,7 +94,7 @@ object BackupValidator {
 
         if (!uniqueIds(budgets) || budgets.any {
                 !requiredString(it, "id") || !requiredString(it, "title") ||
-                    it["amount"] !is Number || !optionalUnit(it, "amountUnit") ||
+                    it["amount"] !is Number || !optionalEnum(it, "amountUnit", units) ||
                     !optionalStrings(it, "categoryId", "categoryTitle", "period", "startDate", "endDate") ||
                     !optionalBoolean(it, "isEnabled")
             }) return false
@@ -96,33 +102,33 @@ object BackupValidator {
         if (!uniqueIds(savings) || savings.any {
                 !requiredString(it, "id") || !requiredString(it, "title") ||
                     it["targetAmount"] !is Number || it["currentAmount"] !is Number ||
-                    !optionalUnit(it, "amountUnit") ||
+                    !optionalEnum(it, "amountUnit", units) ||
                     !optionalStrings(it, "targetDate", "description", "iconEmoji") ||
-                    (it["status"] != null && (it["status"] !is String || it["status"] !in goalStatuses))
+                    !optionalEnum(it, "status", goalStatuses)
             }) return false
 
         if (!uniqueIds(recurring) || recurring.any {
                 !requiredString(it, "id") || !requiredString(it, "title") ||
-                    it["amount"] !is Number || !optionalUnit(it, "amountUnit") ||
-                    (it["type"] !is String || it["type"] !in transactionTypes) ||
+                    it["amount"] !is Number || !optionalEnum(it, "amountUnit", units) ||
+                    !requiredEnum(it, "type", transactionTypes) ||
                     !requiredString(it, "categoryId") || !requiredString(it, "categoryTitle") ||
-                    (it["frequency"] !is String || it["frequency"] !in frequencies) ||
+                    !requiredEnum(it, "frequency", frequencies) ||
                     !requiredString(it, "startDate") || !requiredString(it, "nextExecutionDate") ||
                     !optionalStrings(it, "endDate", "accountName", "accountId") ||
                     !optionalBoolean(it, "enabled") ||
-                    (it["paymentMethod"] != null &&
-                        (it["paymentMethod"] !is String || it["paymentMethod"] !in paymentMethods))
+                    !optionalEnum(it, "paymentMethod", paymentMethods)
             }) return false
 
         if (!uniqueIds(categories) || categories.any {
                 !requiredString(it, "id") || !requiredString(it, "title") ||
                     !requiredString(it, "iconEmoji") ||
-                    (it["type"] !is String || it["type"] !in transactionTypes) ||
+                    !requiredEnum(it, "type", transactionTypes) ||
                     (it["accentColor"] != null && it["accentColor"] !is Number) ||
                     !optionalBoolean(it, "isDefault") || !optionalBoolean(it, "isActive") ||
-                    (it["subCategories"] != null &&
-                        (it["subCategories"] !is List<*> ||
-                            (it["subCategories"] as List<*>).any { child -> child !is String }))
+                    (it["subCategories"] != null && (
+                        it["subCategories"] !is List<*> ||
+                            (it["subCategories"] as List<*>).any { child -> child !is String }
+                    ))
             }) return false
 
         return true
