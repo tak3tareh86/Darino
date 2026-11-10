@@ -205,7 +205,7 @@ fun LoanCalculatorScreen(
                         state = state,
                         viewModel = viewModel,
                         onOpenSaveDialog = {
-                            saveTitleInput = "${state.loanType.title} (${CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)})"
+                            saveTitleInput = "${state.loanType?.title ?: "محاسبه وام"} (${CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)})"
                             showSaveDialog = true
                         },
                         onCreateInstallmentClick = {
@@ -223,7 +223,7 @@ fun LoanCalculatorScreen(
                             val totalFormatted = res?.let { MoneyFormatter.formatExact(MoneyAmount.of(it.totalPayment, AppCurrency.RIAL), includeUnit = false) }
                                 ?: MoneyFormatter.formatExact(MoneyAmount.of(state.amount, AppCurrency.RIAL), includeUnit = false)
                             val monthlyFormatted = res?.let { MoneyFormatter.formatExact(MoneyAmount.of(it.monthlyPayment, AppCurrency.RIAL), includeUnit = false) }.orEmpty()
-                            val title = "${state.loanType.title} (${CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)})"
+                            val title = "${state.loanType?.title ?: "وام"} (${CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)})"
 
                             onCreateInstallment(cat, title, totalFormatted, monthlyFormatted, durationMonths)
                         }
@@ -412,7 +412,7 @@ private fun CalculatorMainTab(
                         )
 
                         Text(
-                            text = CalculationResult.formatMoney(state.amount),
+                            text = if (state.amount > 0L) CalculationResult.formatMoney(state.amount) else "—",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
@@ -432,44 +432,6 @@ private fun CalculatorMainTab(
                         showWordsPreview = false,
                         testTag = "loan_amount_input"
                     )
-
-                    // Quick Preset Chips for Amount
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        val presets = listOf(
-                            20_000_000L to "۲۰ میلیون",
-                            50_000_000L to "۵۰ میلیون",
-                            100_000_000L to "۱۰۰ میلیون",
-                            200_000_000L to "۲۰۰ میلیون",
-                            500_000_000L to "۵۰۰ میلیون"
-                        )
-                        presets.forEach { (amt, label) ->
-                            val isCurrent = state.amount == MoneyAmount.of(amt, AppCurrency.TOMAN).asRialsLongExact()
-                            Surface(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { viewModel.onQuickAmountSelected(amt) },
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                                border = if (isCurrent) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
-                            ) {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 10.5.sp,
-                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
-                                    ),
-                                    color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -534,7 +496,7 @@ private fun CalculatorMainTab(
                     OutlinedTextField(
                         value = state.interestRateInput,
                         onValueChange = { viewModel.onInterestRateInputChanged(it) },
-                        placeholder = { Text("مثلاً ۲۳") },
+                        placeholder = { Text("نرخ سود را وارد کنید") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -553,44 +515,6 @@ private fun CalculatorMainTab(
                             )
                         }
                     )
-
-                    // Quick Preset Chips for Interest
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        val ratePresets = listOf(
-                            0.0 to "۰٪ (بدون کارمزد)",
-                            4.0 to "۴٪ (نمونه کارمزد)",
-                            18.0 to "۱۸٪ (نمونه)",
-                            23.0 to "۲۳٪ (نمونه)",
-                            28.0 to "۲۸٪ (نمونه)"
-                        )
-                        ratePresets.forEach { (rate, label) ->
-                            val isCurrent = state.interestRate == rate
-                            Surface(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { viewModel.onQuickInterestSelected(rate) },
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                                border = if (isCurrent) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
-                            ) {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 10.5.sp,
-                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
-                                    ),
-                                    color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -655,7 +579,7 @@ private fun CalculatorMainTab(
                     OutlinedTextField(
                         value = state.durationInput,
                         onValueChange = { viewModel.onDurationInputChanged(it) },
-                        placeholder = { Text("مثلاً ۳۶") },
+                        placeholder = { Text("مدت بازپرداخت را وارد کنید") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -674,44 +598,6 @@ private fun CalculatorMainTab(
                             )
                         }
                     )
-
-                    // Quick Preset Chips for Duration
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        val durationPresets = listOf(
-                            6 to "۶ ماه",
-                            12 to "۱۲ ماه (۱ سال)",
-                            24 to "۲۴ ماه (۲ سال)",
-                            36 to "۳۶ ماه (۳ سال)",
-                            60 to "۶۰ ماه (۵ سال)"
-                        )
-                        durationPresets.forEach { (m, label) ->
-                            val isCurrent = state.durationType == DurationType.MONTHS && state.duration == m
-                            Surface(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { viewModel.onQuickDurationSelected(m) },
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                                border = if (isCurrent) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
-                            ) {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 10.5.sp,
-                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
-                                    ),
-                                    color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
 
