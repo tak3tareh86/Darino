@@ -227,7 +227,7 @@ class LocalBackupRepository(
                                 file.name.startsWith("weekly_auto_backup_${userTag}_")) &&
                             file.extension == "darino"
                     }
-                    ?.maxByOrNull { it.name }
+                    ?.maxByOrNull { it.name.substringAfter("${userTag}_") }
                     ?: throw IllegalStateException("نسخه پشتیبان خودکار برای این حساب پیدا نشد.")
                 readBoundedLocalBackup(legacyFile)
             }
