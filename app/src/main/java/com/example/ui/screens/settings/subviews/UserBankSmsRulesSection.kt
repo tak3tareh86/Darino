@@ -468,7 +468,7 @@ private fun RuleEditorDialog(
                         OutlinedTextField(
                             value = textSenders,
                             onValueChange = { textSenders = it },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).height(104.dp),
                             label = {
                                 Text(
                                     "سرشماره متنی",
@@ -494,7 +494,7 @@ private fun RuleEditorDialog(
                         OutlinedTextField(
                             value = numericSenders,
                             onValueChange = { numericSenders = it },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).height(104.dp),
                             label = {
                                 Text(
                                     "سرشماره عددی",
