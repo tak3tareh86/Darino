@@ -190,7 +190,7 @@ class LocalBackupRepository(
         }
         directory.listFiles()?.filter {
             it.isFile && it.name.startsWith("before-restore-$userTag-") && it.name.endsWith(".darino")
-        }?.sortedByDescending { it.lastModified() }?.drop(3)?.forEach { it.delete() }
+        }?.sortedByDescending { it.name }?.drop(3)?.forEach { it.delete() }
     }
 
     /** Restores the newest daily or weekly device-bound automatic backup for the active user. */
@@ -227,7 +227,7 @@ class LocalBackupRepository(
                                 file.name.startsWith("weekly_auto_backup_${userTag}_")) &&
                             file.extension == "darino"
                     }
-                    ?.maxByOrNull { it.lastModified() }
+                    ?.maxByOrNull { it.name }
                     ?: throw IllegalStateException("نسخه پشتیبان خودکار برای این حساب پیدا نشد.")
                 readBoundedLocalBackup(legacyFile)
             }
@@ -245,7 +245,7 @@ class LocalBackupRepository(
                 .listFiles { file ->
                     file.isFile && file.name.startsWith("before-restore-$userTag-") && file.name.endsWith(".darino")
                 }
-                ?.maxByOrNull { it.lastModified() }
+                ?.maxByOrNull { it.name }
                 ?: throw IllegalStateException("نسخه اضطراری قابل بازیابی پیدا نشد.")
         }
         val backup = withContext(Dispatchers.IO) {
@@ -527,7 +527,7 @@ class LocalBackupRepository(
             val emergencyFile = emergencyDirectory.listFiles { file ->
                 file.isFile && file.name.startsWith("before-restore-${BackupUserScope.tag(userId)}-") &&
                     file.extension == "darino"
-            }?.maxByOrNull { it.lastModified() }
+            }?.maxByOrNull { it.name }
                 ?: throw IllegalStateException("نسخه اضطراری لازم برای بازیابی زمان‌بندی‌های قبلی پیدا نشد.")
             val previousJson = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(emergencyFile))
                 .toString(Charsets.UTF_8)
