@@ -624,7 +624,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         private val MIGRATION_44_45 = object : androidx.room.migration.Migration(44, 45) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-                // Legacy saved calculations used the calculator's default annual annuity model.
+                // Legacy rows did not persist these settings; assign explicit fallback values.
                 db.execSQL("ALTER TABLE loan_calculations ADD COLUMN calculationMethod TEXT NOT NULL DEFAULT 'ANNUITY'")
                 db.execSQL("ALTER TABLE loan_calculations ADD COLUMN interestPeriod TEXT NOT NULL DEFAULT 'ANNUAL'")
             }
