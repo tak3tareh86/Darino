@@ -1068,7 +1068,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             userId = userId,
             accountId = item.accountId,
             transferSourceAccountId = item.transferSourceAccountId,
-            transferDestinationAccountId = item.transferDestinationAccountId
+            transferDestinationAccountId = item.transferDestinationAccountId,
+            transferRecipientName = item.transferRecipientName?.trim()?.takeIf { it.isNotEmpty() }
         )
     }
 
@@ -1118,7 +1119,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             isRecurring = entity.isRecurring,
             accountId = entity.accountId,
             transferSourceAccountId = entity.transferSourceAccountId,
-            transferDestinationAccountId = entity.transferDestinationAccountId
+            transferDestinationAccountId = entity.transferDestinationAccountId,
+            transferRecipientName = entity.transferRecipientName
         )
     }
 
