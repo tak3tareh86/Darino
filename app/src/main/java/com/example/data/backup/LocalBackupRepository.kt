@@ -641,23 +641,27 @@ class LocalBackupRepository(
                 } ?: run {
                     // Legacy backup formats did not contain app preferences. Reset these
                     // to application defaults instead of leaking settings from the newer state.
-                    val appPreferences = AppPreferencesRepository.getInstance(context)
-                    appPreferences.setThemeMode(com.example.ui.screens.settings.model.AppThemeMode.SYSTEM)
-                    appPreferences.setLanguage(com.example.ui.screens.settings.model.AppLanguage.PERSIAN)
-                    appPreferences.setCurrency(com.example.ui.screens.settings.model.AppCurrency.TOMAN)
-                    appPreferences.setAlertDelivery(com.example.ui.screens.settings.model.AlertDeliveryPreference.NONE)
-                    appPreferences.setNavTransition(com.example.ui.screens.settings.model.NavigationTransitionAnimation.DYNAMIC)
-                    appPreferences.setNotificationsEnabled(false)
-                    appPreferences.setSmsNotificationsEnabled(false)
-                    appPreferences.setNotificationSoundEnabled(false)
-                    appPreferences.setNotificationVibrationEnabled(false)
-                    appPreferences.setQuietHoursEnabled(false)
-                    appPreferences.setQuietHours(23 * 60, 7 * 60)
-                    appPreferences.setAllowHighPriorityInQuietHours(false)
-                    appPreferences.setDefaultReminderTimeMinute(9 * 60)
-                    appPreferences.setInstallmentReminderDays(0)
-                    appPreferences.setVehicleReminderKilometers(0)
-                    appPreferences.setCleanSlatePerformed(false)
+                    check(
+                        generalPrefs.edit()
+                            .putString("pref_theme_mode", "SYSTEM")
+                            .putString("pref_language", "PERSIAN")
+                            .putString("pref_currency", "TOMAN")
+                            .putString("pref_alert_delivery", "NONE")
+                            .putString("pref_nav_transition_animation", "DYNAMIC")
+                            .putBoolean("pref_notifications_enabled", false)
+                            .putBoolean("pref_sms_notifications_enabled", false)
+                            .putBoolean("pref_notification_sound_enabled", false)
+                            .putBoolean("pref_notification_vibration_enabled", false)
+                            .putBoolean("pref_quiet_hours_enabled", false)
+                            .putInt("pref_quiet_hours_start_minute", 23 * 60)
+                            .putInt("pref_quiet_hours_end_minute", 7 * 60)
+                            .putBoolean("pref_allow_high_priority_quiet_hours", false)
+                            .putInt("pref_default_reminder_time_minute", 9 * 60)
+                            .putInt("pref_installment_reminder_days", 0)
+                            .putInt("pref_vehicle_reminder_kilometers", 0)
+                            .putBoolean("pref_is_clean_slate", false)
+                            .commit()
+                    ) { "بازنشانی تنظیمات عمومی ناموفق بود." }
                     check(
                         backupPrefs.edit()
                             .putBoolean("auto_backup_daily", false)
@@ -1096,6 +1100,24 @@ class LocalBackupRepository(
                     }
                     if (enabled) WeeklyBackupWorker.enqueueWeekly(context) else WeeklyBackupWorker.cancelWeekly(context)
                 }
+            } ?: run {
+                val appPreferences = AppPreferencesRepository.getInstance(context)
+                appPreferences.setThemeMode(com.example.ui.screens.settings.model.AppThemeMode.SYSTEM)
+                appPreferences.setLanguage(com.example.ui.screens.settings.model.AppLanguage.PERSIAN)
+                appPreferences.setCurrency(com.example.ui.screens.settings.model.AppCurrency.TOMAN)
+                appPreferences.setAlertDelivery(com.example.ui.screens.settings.model.AlertDeliveryPreference.NONE)
+                appPreferences.setNavTransition(com.example.ui.screens.settings.model.NavigationTransitionAnimation.DYNAMIC)
+                appPreferences.setNotificationsEnabled(false)
+                appPreferences.setSmsNotificationsEnabled(false)
+                appPreferences.setNotificationSoundEnabled(false)
+                appPreferences.setNotificationVibrationEnabled(false)
+                appPreferences.setQuietHoursEnabled(false)
+                appPreferences.setQuietHours(23 * 60, 7 * 60)
+                appPreferences.setAllowHighPriorityInQuietHours(false)
+                appPreferences.setDefaultReminderTimeMinute(9 * 60)
+                appPreferences.setInstallmentReminderDays(0)
+                appPreferences.setVehicleReminderKilometers(0)
+                appPreferences.setCleanSlatePerformed(false)
             }
 
             // AlarmManager is outside the Room transaction: cancel old registrations only
