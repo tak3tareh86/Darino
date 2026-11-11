@@ -1006,7 +1006,7 @@ private fun buildBackupFilename(): String {
 
 private fun buildManualBackupFilename(): String {
     val (year, month, day) = com.example.calendar.domain.CalendarDateUtils.getCurrentJalaliDate()
-    val time = java.text.SimpleDateFormat("HHmmss", java.util.Locale.ROOT).format(java.util.Date())
+    val time = java.text.SimpleDateFormat("HHmmssSSS", java.util.Locale.ROOT).format(java.util.Date())
     return "Manual_${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}_$time.darino"
 }
 
