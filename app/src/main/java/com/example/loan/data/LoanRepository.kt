@@ -52,6 +52,8 @@ class LoanRepository(private val context: Context? = null) {
                 inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
             }.onFailure { refreshError ->
                 android.util.Log.e("LoanRepository", "Calculation saved but list refresh failed", refreshError)
+                inMemoryList.value = (inMemoryList.value.filterNot { it.id == calculation.id } + calculation)
+                    .sortedByDescending { it.createdAt }
             }
             true
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -76,6 +78,7 @@ class LoanRepository(private val context: Context? = null) {
                 inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
             }.onFailure { refreshError ->
                 android.util.Log.e("LoanRepository", "Calculation deleted but list refresh failed", refreshError)
+                inMemoryList.value = inMemoryList.value.filterNot { it.id == id }
             }
             true
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
