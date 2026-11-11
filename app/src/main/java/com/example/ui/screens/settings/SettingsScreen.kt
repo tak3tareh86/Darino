@@ -46,7 +46,6 @@ import com.example.ui.screens.settings.components.CalendarSelectionSheet
 import com.example.ui.screens.settings.components.CurrencySelectionSheet
 import com.example.ui.screens.settings.components.LanguageSelectionSheet
 import com.example.ui.screens.settings.components.SearchResultList
-import com.example.ui.screens.settings.components.SettingsConfirmationDialog
 import com.example.ui.screens.settings.components.SettingsHeader
 import com.example.ui.screens.settings.components.SettingsItem
 import com.example.ui.screens.settings.components.SettingsOverviewCard
@@ -99,7 +98,6 @@ fun SettingsScreen(
     onThemeChanged: (AppThemeMode) -> Unit,
     onBackClick: (() -> Unit)? = null,
     onOpenAuth: () -> Unit = {},
-    onLogout: () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -212,7 +210,6 @@ fun SettingsScreen(
                     onOpenCalendarSheet = { showCalendarSheet = true },
                     onOpenWeekStartSheet = { showWeekStartSheet = true },
                     onBackClick = onBackClick,
-                    onLogout = onLogout,
                     bottomBar = bottomBar,
                     modifier = modifier
                 )
@@ -370,23 +367,6 @@ private fun SettingsMainView(
     bottomBar: @Composable () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var showLogoutConfirmDialog by remember { mutableStateOf(false) }
-
-    if (showLogoutConfirmDialog) {
-        SettingsConfirmationDialog(
-            isOpen = true,
-            title = "خروج از حساب کاربری",
-            message = "با خروج از حساب کاربری، تمامی اطلاعات ثبت‌شده شما پاک خواهد شد.",
-            confirmButtonText = "خروج از حساب",
-            isDanger = true,
-            onConfirm = {
-                showLogoutConfirmDialog = false
-                onLogout()
-            },
-            onDismiss = { showLogoutConfirmDialog = false }
-        )
-    }
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = bottomBar,
@@ -441,9 +421,7 @@ private fun SettingsMainView(
                 ) {
                     // 1. Top User Account Card (کادر حساب کاربری بالای منوی تنظیمات)
                     item {
-                        UserAccountCard(
-                            onLogoutClick = { showLogoutConfirmDialog = true }
-                        )
+                        UserAccountCard()
                     }
 
                     // 2. Main Settings: General Settings & Support & Backup
