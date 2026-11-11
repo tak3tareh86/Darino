@@ -38,38 +38,43 @@ class LoanRepository(private val context: Context? = null) {
         }
     }
 
-    suspend fun saveCalculation(calculation: LoanCalculation) = withContext(Dispatchers.IO) {
-        val ctx = context ?: return@withContext
+    suspend fun saveCalculation(calculation: LoanCalculation): Boolean = withContext(Dispatchers.IO) {
+        val ctx = context ?: return@withContext false
         val userId = SessionManager.userId?.takeIf { it.isNotBlank() } ?: run {
             inMemoryList.value = emptyList()
-            return@withContext
+            return@withContext false
         }
         try {
             val dao = AppDatabase.getDatabase(ctx).loanCalculationDao()
             dao.claimLegacyCalculations(userId)
             dao.insertCalculation(LoanCalculationEntity.fromDomainModel(calculation).copy(userId = userId))
             inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
+            true
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (error: Exception) {
             android.util.Log.e("LoanRepository", "Unable to save calculation for the active user", error)
+            false
         }
     }
 
-    suspend fun deleteCalculation(id: String) = withContext(Dispatchers.IO) {
-        val ctx = context ?: return@withContext
+    suspend fun deleteCalculation(id: String): Boolean = withContext(Dispatchers.IO) {
+        val ctx = context ?: return@withContext false
         val userId = SessionManager.userId?.takeIf { it.isNotBlank() } ?: run {
             inMemoryList.value = emptyList()
-            return@withContext
+            return@withContext false
         }
         try {
             val dao = AppDatabase.getDatabase(ctx).loanCalculationDao()
-            dao.deleteCalculation(userId, id)
+            val deletedRows = dao.deleteCalculation(userId, id)
+            if (deletedRows == 0) return@withContext false
             inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
+            true
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (error: Exception) {
             android.util.Log.e("LoanRepository", "Unable to delete calculation for the active user", error)
+            false
         }
     }
 }
