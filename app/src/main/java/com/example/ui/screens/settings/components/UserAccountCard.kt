@@ -71,7 +71,7 @@ import com.example.ui.theme.RadiusSM
 
 /**
  * Top User Account Card displayed prominently at the head of the Settings Screen.
- * Allows user to manually enter name, pick profile photo from gallery, and shows login phone in LTR digits.
+ * Allows user to manually enter name and pick a profile photo from the gallery.
  */
 @Composable
 fun UserAccountCard(
@@ -197,7 +197,7 @@ fun UserAccountCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Header Row: Avatar Picker on one side, Name TextField & LTR Phone on the other
+                // Header Row: Avatar Picker and Name TextField
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -287,7 +287,7 @@ fun UserAccountCard(
 
                     Spacer(modifier = Modifier.width(14.dp))
 
-                    // User Inputs: Manual Name Entry & Phone (LTR)
+                    // User Input: Manual Name Entry
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
