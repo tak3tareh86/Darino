@@ -793,11 +793,6 @@ fun SupportBackupScreen(
                     // Manual backup
                     item {
                         SettingsSectionCard(title = "پشتیبان‌گیری دستی") {
-                            Text(
-                                text = "هر زمان لازم بود، یک فایل پشتیبان رمزگذاری‌شده از اطلاعات خود ایجاد کنید.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                             Button(
                                 onClick = {
                                     if (!isBackingUp) {
