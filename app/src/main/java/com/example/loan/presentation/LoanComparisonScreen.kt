@@ -212,7 +212,6 @@ fun LoanComparisonScreen(
 
             // Compact comparison result panel
             val interestDiff = comparisonResult.totalInterestDiff
-            val monthlyDiff = comparisonResult.monthlyPaymentDiff
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(RadiusLG),
@@ -260,14 +259,19 @@ fun LoanComparisonScreen(
                     ) {
                         Text(
                             text = when {
-                                monthlyDiff < 0 -> "وام دوم، قسط کمتری دارد و مقرون‌به‌صرفه‌تر است."
-                                monthlyDiff > 0 -> "وام اول، قسط کمتری دارد و مقرون‌به‌صرفه‌تر است."
-                                else -> "مبلغ قسط ماهانه هر دو وام برابر است."
+                                interestDiff < 0 -> "وام دوم سود کل کمتری دارد و از نظر هزینه سود مقرون‌به‌صرفه‌تر است."
+                                interestDiff > 0 -> "وام اول سود کل کمتری دارد و از نظر هزینه سود مقرون‌به‌صرفه‌تر است."
+                                else -> "سود کل دو وام برابر است؛ مبلغ قسط ماهانه را جداگانه مقایسه کنید."
                             },
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp),
                             color = MaterialTheme.colorScheme.onTertiaryContainer
                         )
                     }
+                    Text(
+                        text = "کل بازپرداخت وام اول: ${res1.totalPaymentFormatted} | وام دوم: ${res2.totalPaymentFormatted}",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     val interestText = when {
                         interestDiff > 0 -> "وام اول: ${CalculationResult.formatMoney(abs(interestDiff), AppCurrency.RIAL)} سود کمتر"
                         interestDiff < 0 -> "وام دوم: ${CalculationResult.formatMoney(abs(interestDiff), AppCurrency.RIAL)} سود کمتر"
@@ -305,6 +309,10 @@ private fun LoanComparisonCard(
         ) else "")
     }
     var editInterest by remember(interestRate) { mutableStateOf(if (interestRate > 0.0) interestRate.toString() else "") }
+    val parsedInterestRate = IranianPhoneUtils.convertDigitsToEnglish(editInterest)
+        .replace(',', '.')
+        .toDoubleOrNull()
+        ?.takeIf { it.isFinite() && it >= 0.0 && it <= 1000.0 }
     var editDuration by remember(durationMonths) { mutableStateOf(if (durationMonths > 0) durationMonths.toString() else "") }
 
     Surface(
@@ -357,6 +365,13 @@ private fun LoanComparisonCard(
                         singleLine = true,
                         shape = RoundedCornerShape(RadiusMD)
                     )
+                    if (parsedInterestRate == null) {
+                        Text(
+                            text = "نرخ سود معتبر بین صفر تا ۱۰۰۰ درصد وارد کنید.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                     OutlinedTextField(
                         value = editDuration,
                         onValueChange = { editDuration = it },
@@ -371,7 +386,7 @@ private fun LoanComparisonCard(
                         onClick = {
                             val parsedAmount = IranianAmountUtils.parseAmountToBigDecimal(editAmount)
                                 ?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
-                            val rate = IranianPhoneUtils.convertDigitsToEnglish(editInterest).replace(',', '.').toDoubleOrNull() ?: interestRate
+                            val rate = parsedInterestRate ?: return@Button
                             val duration = IranianPhoneUtils.convertDigitsToEnglish(editDuration).filter { it.isDigit() }.toIntOrNull() ?: durationMonths
                             onSaveEdit(
                                 title,
@@ -381,6 +396,7 @@ private fun LoanComparisonCard(
                                 duration
                             )
                         },
+                        enabled = parsedInterestRate != null,
                         modifier = Modifier.fillMaxWidth().height(40.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         shape = RoundedCornerShape(RadiusMD)
