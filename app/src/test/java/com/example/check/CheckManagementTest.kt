@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.data.database.AppDatabase
 import com.example.data.database.CheckEntity
 import com.example.data.security.SessionManager
+import com.example.data.security.AuthSessionManager
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import java.util.Calendar
@@ -35,13 +36,24 @@ class CheckManagementTest {
     private lateinit var repository: LocalCheckRepository
     private lateinit var database: AppDatabase
 
+    private fun setTestAuthenticatedUser(user: com.example.data.api.NetworkUserDto) {
+        AuthSessionManager.getInstance(context).createSession(
+            userId = user.id,
+            username = user.phoneNumber ?: user.id,
+            phoneNumber = user.phoneNumber,
+            fullName = user.fullName
+        )
+        // Keep the compatibility facade used by repositories in sync with the local session.
+        SessionManager.init(context)
+    }
+
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
         org.robolectric.Shadows.shadowOf(context.applicationContext as android.app.Application)
             .grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
         SessionManager.init(context)
-        SessionManager.setAuthenticatedUser(
+        setTestAuthenticatedUser(
             com.example.data.api.NetworkUserDto(
                 id = "user_1",
                 fullName = "User 1",
@@ -110,7 +122,7 @@ class CheckManagementTest {
     @Test
     fun `test user isolation`() = runBlocking {
         // User 1 adds a check
-        SessionManager.setAuthenticatedUser(
+        setTestAuthenticatedUser(
             com.example.data.api.NetworkUserDto(
                 id = "user_1",
                 fullName = "User 1",
@@ -134,7 +146,7 @@ class CheckManagementTest {
         repository.addCheck(check1)
 
         // Switch to User 2
-        SessionManager.setAuthenticatedUser(
+        setTestAuthenticatedUser(
             com.example.data.api.NetworkUserDto(
                 id = "user_2",
                 fullName = "User 2",
@@ -215,7 +227,7 @@ class CheckManagementTest {
     @Test
     fun `test cross-user edit security`() = runBlocking {
         // User 1 adds a check
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         val check = Check(
             id = 0,
             userId = "user_1",
@@ -233,7 +245,7 @@ class CheckManagementTest {
         val checkId = repository.getChecks().first()[0].id
 
         // Switch to User 2
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_2", fullName = "U2", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_2", fullName = "U2", phoneVerified = true))
         
         // Try to edit User 1's check as User 2
         val tamperedCheck = check.copy(id = checkId, amount = 9999, userId = "user_2")
@@ -242,7 +254,7 @@ class CheckManagementTest {
         assertEquals("User 2 should not be able to update User 1's check", CheckOperationResult.NOT_FOUND, result)
         
         // Verify User 1's check is unchanged in DB
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         val verifiedCheck = repository.getCheckById(checkId)
         assertNotNull(verifiedCheck)
         assertEquals(1000L, verifiedCheck?.amount)
@@ -250,7 +262,7 @@ class CheckManagementTest {
 
     @Test
     fun `test idempotent settlement`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         val check = Check(
             id = 0,
             userId = "user_1",
@@ -298,7 +310,7 @@ class CheckManagementTest {
 
     @Test
     fun `test date validation on add and update`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val now = System.currentTimeMillis()
         val invalidCheck = Check(
@@ -330,7 +342,7 @@ class CheckManagementTest {
 
     @Test
     fun `test account security on settlement`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val check = Check(
             id = 0,
@@ -386,7 +398,7 @@ class CheckManagementTest {
 
     @Test
     fun `test canceled check settlement forbidden and bounced check can be recovered`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val account = com.example.ui.screens.finance.model.Account(id = "acc_ok", userId = "user_1", name = "OK", type = com.example.ui.screens.finance.model.AccountType.BANK)
         database.accountDao().insertAccount(com.example.data.database.AccountEntity(userId = "user_1", stringId = "acc_ok", name = "OK", type = "BANK"))
@@ -412,7 +424,7 @@ class CheckManagementTest {
 
     @Test
     fun `test tampered check object settlement uses DB values`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val check = Check(
             id = 0,
@@ -449,7 +461,7 @@ class CheckManagementTest {
 
     @Test
     fun `test idempotency with deterministic ID collision`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         // 1. Setup a check
         val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "COLL-01", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 0, status = CheckStatus.REGISTERED)
@@ -480,7 +492,7 @@ class CheckManagementTest {
 
     @Test
     fun `test cleared check without transaction is not success`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         // 1. Manually insert a check that is CLEARED but has NO transaction
         val checkEntity = com.example.data.database.CheckEntity(
@@ -513,7 +525,7 @@ class CheckManagementTest {
 
     @Test
     fun `test settlement row count zero logic`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "ROW-0", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 0, status = CheckStatus.REGISTERED)
         repository.addCheck(check)
@@ -529,7 +541,7 @@ class CheckManagementTest {
 
     @Test
     fun `test paid check settlement creates expense transaction`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val check = Check(id = 0, userId = "user_1", type = CheckType.PAID, amount = 3000, checkNumber = "PAID-01", bankName = "Melli", holderName = "Me", receiverName = "Vendor", issueDate = 0, dueDate = 0, status = CheckStatus.REGISTERED)
         repository.addCheck(check)
@@ -551,7 +563,7 @@ class CheckManagementTest {
     @Test
     fun `test settlement fails if existing transaction belongs to another user`() = runBlocking {
         // User 1 has a check
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "U1-C", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 0, status = CheckStatus.REGISTERED)
         repository.addCheck(check)
         val savedCheck = repository.getChecks().first()[0]
@@ -610,7 +622,7 @@ class CheckManagementTest {
     }
     @Test
     fun `test add and edit check reminder date time and retrieve`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val initialReminder = Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, 1); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
         val check = Check(
@@ -687,7 +699,7 @@ class CheckManagementTest {
     }
     @Test
     fun `test disable reminder deletes existing reminder and cancels alarm`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         val reminderRepo = com.example.reminder.data.LocalReminderRepository(context)
 
         val reminderTime = System.currentTimeMillis() + 3600000
@@ -728,7 +740,7 @@ class CheckManagementTest {
 
     @Test
     fun `test edit check with reminder off does not re-enable reminder`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         val reminderRepo = com.example.reminder.data.LocalReminderRepository(context)
 
         val check = Check(
@@ -762,7 +774,7 @@ class CheckManagementTest {
 
     @Test
     fun `test reminder independence between two checks`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         val reminderRepo = com.example.reminder.data.LocalReminderRepository(context)
 
         val check1 = Check(
@@ -813,7 +825,7 @@ class CheckManagementTest {
 
     @Test
     fun `test settlement failure on account mismatch in idempotent retry`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "MISMATCH-01", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 100, status = CheckStatus.REGISTERED)
         repository.addCheck(check)
@@ -834,7 +846,7 @@ class CheckManagementTest {
 
     @Test
     fun `test reject existing settlement transaction with mismatched amount or type`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "REJ-01", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 100, status = CheckStatus.REGISTERED)
         repository.addCheck(check)
@@ -869,7 +881,7 @@ class CheckManagementTest {
 
     @Test
     fun `test check and financial state preserved on settlement failure`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "PRESERVE-01", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = 100, status = CheckStatus.REGISTERED)
         repository.addCheck(check)
@@ -895,7 +907,7 @@ class CheckManagementTest {
 
     @Test
     fun `test reminder cancellation on settlement`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         
         val check = Check(id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 1000, checkNumber = "CANCEL-REM", bankName = "B", holderName = "H", receiverName = "R", issueDate = 0, dueDate = System.currentTimeMillis() + 86400000, status = CheckStatus.REGISTERED, reminderDateTime = System.currentTimeMillis() + 100000)
         repository.addCheck(check)
@@ -910,7 +922,7 @@ class CheckManagementTest {
     }
     @Test
     fun `test settled check cannot be edited or deleted directly`() = runBlocking {
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         val check = Check(
             id = 0,
             userId = "user_1",
