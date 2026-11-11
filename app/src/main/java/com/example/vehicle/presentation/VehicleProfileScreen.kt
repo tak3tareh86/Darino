@@ -3,9 +3,6 @@ package com.example.vehicle.presentation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -279,28 +276,40 @@ listOf("الف", "ب", "پ", "ت", "ث", "ج", "چ", "ح", "خ", "د", "ذ", "ر
                                         expanded = showPlateLetterMenu,
                                         onDismissRequest = { showPlateLetterMenu = false }
                                     ) {
-                                        LazyVerticalGrid(
-                                            columns = GridCells.Fixed(2),
-                                            modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
-                                            contentPadding = PaddingValues(4.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(max = 240.dp)
+                                                .verticalScroll(rememberScrollState())
+                                                .padding(4.dp),
                                             verticalArrangement = Arrangement.spacedBy(2.dp)
                                         ) {
-                                            items(plateLetters) { letter ->
-                                                DropdownMenuItem(
-                                                    text = {
-                                                        Text(
-                                                            text = letter,
-                                                            modifier = Modifier.fillMaxWidth(),
-                                                            textAlign = TextAlign.Center,
-                                                            fontWeight = if (plateLetter == letter) FontWeight.Bold else FontWeight.Normal
+                                            plateLetters.chunked(2).forEach { rowLetters ->
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    rowLetters.forEach { letter ->
+                                                        DropdownMenuItem(
+                                                            text = {
+                                                                Text(
+                                                                    text = letter,
+                                                                    modifier = Modifier.fillMaxWidth(),
+                                                                    textAlign = TextAlign.Center,
+                                                                    fontWeight = if (plateLetter == letter) FontWeight.Bold else FontWeight.Normal
+                                                                )
+                                                            },
+                                                            onClick = {
+                                                                plateLetter = letter
+                                                                showPlateLetterMenu = false
+                                                            },
+                                                            modifier = Modifier.weight(1f)
                                                         )
-                                                    },
-                                                    onClick = {
-                                                        plateLetter = letter
-                                                        showPlateLetterMenu = false
                                                     }
-                                                )
+                                                    if (rowLetters.size == 1) {
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                    }
+                                                }
                                             }
                                         }
                                     }
