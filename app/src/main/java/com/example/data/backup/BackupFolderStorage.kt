@@ -112,7 +112,13 @@ object BackupFolderStorage {
                 document.name.endsWith(".darino", ignoreCase = true) &&
                     namePrefixes.any(document.name::startsWith)
             }
-            .maxByOrNull { it.name }
+            // Compare the timestamp portion, not the filename prefix: "weekly" sorts
+            // after "daily" regardless of date and would otherwise always win.
+            .maxByOrNull { document ->
+                namePrefixes.firstOrNull(document.name::startsWith)
+                    ?.let(document.name::removePrefix)
+                    .orEmpty()
+            }
     }
 
     private fun pruneBackups(
