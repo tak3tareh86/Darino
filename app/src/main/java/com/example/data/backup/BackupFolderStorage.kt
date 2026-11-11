@@ -123,7 +123,7 @@ object BackupFolderStorage {
     ) {
         val expired = listDocuments(context, treeUri)
             .filter { it.name.startsWith(prefix) && it.name.endsWith(".darino", ignoreCase = true) }
-            .sortedByDescending { it.lastModified }
+            .sortedByDescending { it.name }
             .drop(keepCount)
         expired.forEach { document ->
             if (!runCatching {
