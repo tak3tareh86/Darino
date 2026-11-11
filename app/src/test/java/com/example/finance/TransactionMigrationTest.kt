@@ -31,6 +31,43 @@ class TransactionMigrationTest {
     }
 
     @Test
+    fun `Migration 43 to 44 preserves existing transactions and adds nullable recipient`() {
+        sqliteDb.execSQL("ALTER TABLE transactions DROP COLUMN transferRecipientName")
+        sqliteDb.execSQL("""
+            INSERT INTO transactions (
+                userId, amount, type, category, accountName, description, timestamp,
+                timeFormatted, stringId, title, datePersian, paymentMethod, sourceType,
+                isRecurring, syncState, updatedAt
+            ) VALUES (
+                'migration_user', 1200, 'TRANSFER', 'Transfer', 'انتقال وجه', '',
+                1000, '10:00', 'legacy_transfer', 'انتقال', '1403/01/01',
+                'BANK_CARD', 'MANUAL', 0, 'SYNCED', 1000
+            )
+        """.trimIndent())
+
+        AppDatabase.MIGRATION_43_44.migrate(sqliteDb)
+
+        val cursor = sqliteDb.query(
+            "SELECT transferRecipientName FROM transactions WHERE stringId = 'legacy_transfer'"
+        )
+        assertTrue(cursor.moveToFirst())
+        assertEquals(null, cursor.getString(0))
+        cursor.close()
+
+        sqliteDb.execSQL("""
+            UPDATE transactions
+            SET transferRecipientName = 'نام دریافت‌کننده'
+            WHERE stringId = 'legacy_transfer'
+        """.trimIndent())
+        val updated = sqliteDb.query(
+            "SELECT transferRecipientName FROM transactions WHERE stringId = 'legacy_transfer'"
+        )
+        assertTrue(updated.moveToFirst())
+        assertEquals("نام دریافت‌کننده", updated.getString(0))
+        updated.close()
+    }
+
+    @Test
     fun `Migration 17 to 18 preserves legacy blank stringId records`() {
         // 1. Prepare: Drop the unique index to simulate v17 state where duplicates were possible
         sqliteDb.execSQL("DROP INDEX IF EXISTS index_transactions_userId_stringId")
