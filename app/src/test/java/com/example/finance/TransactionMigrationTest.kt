@@ -5,6 +5,9 @@ import androidx.room.Room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.database.AppDatabase
+import com.example.data.database.TransactionEntity
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -28,6 +31,27 @@ class TransactionMigrationTest {
         // We build a fresh in-memory database. Room will create the v18 schema.
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
         sqliteDb = db.openHelper.writableDatabase
+    }
+
+    @Test
+    fun `Backup transaction serialization retains transfer recipient`() {
+        val original = TransactionEntity(
+            userId = "backup_user",
+            stringId = "backup_transfer",
+            type = "TRANSFER",
+            transferSourceAccountId = "source_account",
+            transferDestinationAccountId = "destination_account",
+            transferRecipientName = "نام دریافت‌کننده"
+        )
+        val adapter = Moshi.Builder()
+            .add(KotlinJsonAdapterFactory())
+            .build()
+            .adapter(TransactionEntity::class.java)
+
+        val decoded = adapter.fromJson(adapter.toJson(original))
+        assertEquals("نام دریافت‌کننده", decoded?.transferRecipientName)
+        assertEquals("source_account", decoded?.transferSourceAccountId)
+        assertEquals("destination_account", decoded?.transferDestinationAccountId)
     }
 
     @Test
