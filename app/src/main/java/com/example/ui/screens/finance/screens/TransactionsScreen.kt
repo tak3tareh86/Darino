@@ -913,6 +913,16 @@ fun TransactionCard(
                         overflow = TextOverflow.Ellipsis
                     )
 
+                    if (transaction.type == TransactionType.TRANSFER && !transaction.transferRecipientName.isNullOrBlank()) {
+                        Text(
+                            text = "دریافت‌کننده: ${transaction.transferRecipientName}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
