@@ -420,11 +420,6 @@ fun AppNavigationContainer(
                             onThemeChanged = onThemeModeChanged,
                             onBackClick = { isSettingsOpen = false; settingsInitialDestination = SettingsDestination.MAIN },
                             onOpenAuth = { showAuthSheet = true },
-                            onLogout = {
-                                authViewModel.logout()
-                                lockViewModel.checkSessionAndLockStatus()
-                                isSettingsOpen = false
-                            }
                         )
                     } else if (isNotificationsOpen) {
                         NotificationCenterScreen(

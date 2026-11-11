@@ -27,16 +27,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -74,11 +71,10 @@ import com.example.ui.theme.RadiusSM
 
 /**
  * Top User Account Card displayed prominently at the head of the Settings Screen.
- * Allows user to manually enter name, pick profile photo from gallery, and shows login phone in LTR digits.
+ * Allows user to manually enter name and pick a profile photo from the gallery.
  */
 @Composable
 fun UserAccountCard(
-    onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
@@ -201,7 +197,7 @@ fun UserAccountCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Header Row: Avatar Picker on one side, Name TextField & LTR Phone on the other
+                // Header Row: Avatar Picker and Name TextField
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -291,7 +287,7 @@ fun UserAccountCard(
 
                     Spacer(modifier = Modifier.width(14.dp))
 
-                    // User Inputs: Manual Name Entry & Phone (LTR)
+                    // User Input: Manual Name Entry
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -335,43 +331,7 @@ fun UserAccountCard(
                     }
                 }
 
-                // Divider line
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(
-                            if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
-                        )
-                )
 
-                // Keep the only account action clear and easy to reach.
-                OutlinedButton(
-                    onClick = onLogoutClick,
-                    shape = RoundedCornerShape(RadiusMD),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = ExpenseRoseLight
-                    ),
-                    border = BorderStroke(1.dp, ExpenseRoseLight.copy(alpha = 0.5f)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(42.dp)
-                        .testTag("logout_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ExitToApp,
-                        contentDescription = "خروج از حساب",
-                        modifier = Modifier.size(17.dp),
-                        tint = ExpenseRoseLight
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "خروج از حساب",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ExpenseRoseLight
-                    )
-                }
             }
         }
     }
