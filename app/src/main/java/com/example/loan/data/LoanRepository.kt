@@ -48,7 +48,11 @@ class LoanRepository(private val context: Context? = null) {
             val dao = AppDatabase.getDatabase(ctx).loanCalculationDao()
             dao.claimLegacyCalculations(userId)
             dao.insertCalculation(LoanCalculationEntity.fromDomainModel(calculation).copy(userId = userId))
-            inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
+            runCatching {
+                inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
+            }.onFailure { refreshError ->
+                android.util.Log.e("LoanRepository", "Calculation saved but list refresh failed", refreshError)
+            }
             true
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
@@ -68,7 +72,11 @@ class LoanRepository(private val context: Context? = null) {
             val dao = AppDatabase.getDatabase(ctx).loanCalculationDao()
             val deletedRows = dao.deleteCalculation(userId, id)
             if (deletedRows == 0) return@withContext false
-            inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
+            runCatching {
+                inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
+            }.onFailure { refreshError ->
+                android.util.Log.e("LoanRepository", "Calculation deleted but list refresh failed", refreshError)
+            }
             true
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
