@@ -261,7 +261,9 @@ class AccountTransferTest {
 
         // 6. Delete transfer restores both sides
         repository.deleteTransactionResult("tx_transfer")
-        assertEquals(null, db.transactionDao().getTransactionIncludingDeleted(userA, "tx_transfer"))
+        val deletedTransfer = db.transactionDao().getTransactionIncludingDeleted(userA, "tx_transfer")
+        assertTrue(deletedTransfer?.deletedAt != null)
+        assertEquals("گیرنده ویرایش‌شده", deletedTransfer?.transferRecipientName)
         assertEquals(1_000_000L, repository.calculateAccountBalance("acc_src"))
         assertEquals(500_000L, repository.calculateAccountBalance("acc_dest"))
 
