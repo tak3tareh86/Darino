@@ -80,7 +80,7 @@ fun LoanComparisonScreen(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Hero Comparison Banner
         Surface(
@@ -210,128 +210,74 @@ fun LoanComparisonScreen(
                 )
             }
 
-            // Summary Differences & Smart Financial Advice
+            // Compact comparison result panel
             val interestDiff = comparisonResult.totalInterestDiff
             val monthlyDiff = comparisonResult.monthlyPaymentDiff
-
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(RadiusLG),
                 color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "تحلیل تفاوت دو وام",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    // Difference Item 1: Interest
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (interestDiff > 0) Icons.Rounded.Savings else Icons.Rounded.TrendingUp,
-                                contentDescription = null,
-                                tint = if (interestDiff > 0) EmeraldPrimaryLight else ExpenseRoseLight,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = "تفاوت سود پرداختی:",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        val absInterest = abs(interestDiff)
-                        val interestText = if (interestDiff > 0) {
-                            "طرح ۱: ${CalculationResult.formatMoney(absInterest, AppCurrency.RIAL)} سود کمتر"
-                        } else {
-                            "طرح ۲: ${CalculationResult.formatMoney(absInterest)} سود کمتر"
-                        }
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = interestText,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            ),
-                            color = if (interestDiff > 0) EmeraldPrimaryLight else ExpenseRoseLight
-                        )
-                    }
-
-                    // Difference Item 2: Monthly Payment
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.CompareArrows,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = "تفاوت قسط ماهانه:",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        val absMonthly = abs(monthlyDiff)
-                        val monthlyText = if (monthlyDiff < 0) {
-                            "طرح ۲: ${CalculationResult.formatMoney(absMonthly, AppCurrency.RIAL)} قسط سبک‌تر"
-                        } else {
-                            "طرح ۱: ${CalculationResult.formatMoney(absMonthly)} قسط سبک‌تر"
-                        }
-                        Text(
-                            text = monthlyText,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            ),
+                            text = "نتایج مقایسه",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
-
-                    // Recommendation Pill
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(RadiusMD))
+                                .background(InfoIndigoLight.copy(alpha = 0.08f)).padding(9.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("وام اول", style = MaterialTheme.typography.labelSmall, color = InfoIndigoLight)
+                            Text("مبلغ قسط ماهانه", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(res1.monthlyPaymentFormatted, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp), color = InfoIndigoLight)
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(RadiusMD))
+                                .background(WarningAmberLight.copy(alpha = 0.08f)).padding(9.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("وام دوم", style = MaterialTheme.typography.labelSmall, color = WarningAmberLight)
+                            Text("مبلغ قسط ماهانه", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(res2.monthlyPaymentFormatted, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp), color = WarningAmberLight)
+                        }
+                    }
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(RadiusMD))
-                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
-                            .padding(10.dp)
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(RadiusMD))
+                            .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f))
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
                     ) {
                         Text(
-                            text = if (loan1Input.durationMonths < loan2Input.durationMonths) {
-                                "💡 نتیجه‌گیری: اگر توانایی پرداخت ماهانه بیشتری دارید، طرح اول (${loan1Input.durationMonths} ماهه) به دلیل صرفه‌جویی چشمگیر در کل سود بانکی بسیار به‌صرفه‌تر است."
-                            } else {
-                                "💡 نتیجه‌گیری: اگر به دنبال اقساط سبک‌تر ماهیانه برای مدیریت جریان نقدی روزمره هستید، وام با مدت زمان بالاتر فشار کمتری به بودجه شما وارد می‌کند."
+                            text = when {
+                                monthlyDiff < 0 -> "وام دوم، قسط کمتری دارد و مقرون‌به‌صرفه‌تر است."
+                                monthlyDiff > 0 -> "وام اول، قسط کمتری دارد و مقرون‌به‌صرفه‌تر است."
+                                else -> "مبلغ قسط ماهانه هر دو وام برابر است."
                             },
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 11.5.sp,
-                                lineHeight = 18.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp),
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
                         )
                     }
+                    val interestText = when {
+                        interestDiff > 0 -> "وام اول: ${CalculationResult.formatMoney(abs(interestDiff), AppCurrency.RIAL)} سود کمتر"
+                        interestDiff < 0 -> "وام دوم: ${CalculationResult.formatMoney(abs(interestDiff), AppCurrency.RIAL)} سود کمتر"
+                        else -> "سود کل دو وام برابر است"
+                    }
+                    Text(
+                        text = "تفاوت سود کل: $interestText",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -353,175 +299,125 @@ private fun LoanComparisonCard(
     modifier: Modifier = Modifier
 ) {
     val activeCurrency = MoneyFormatter.activeCurrency
-    var editAmount by remember(amount, amountUnit, activeCurrency) { mutableStateOf(if (amount > 0L) IranianAmountUtils.formatDecimalWithCommas(MoneyAmount.of(amount, amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()) else "") }
+    var editAmount by remember(amount, amountUnit, activeCurrency) {
+        mutableStateOf(if (amount > 0L) IranianAmountUtils.formatDecimalWithCommas(
+            MoneyAmount.of(amount, amountUnit).inUnit(activeCurrency).value.stripTrailingZeros().toPlainString()
+        ) else "")
+    }
     var editInterest by remember(interestRate) { mutableStateOf(if (interestRate > 0.0) interestRate.toString() else "") }
     var editDuration by remember(durationMonths) { mutableStateOf(if (durationMonths > 0) durationMonths.toString() else "") }
 
     Surface(
-        modifier = modifier
-            .shadow(elevation = 3.dp, shape = RoundedCornerShape(RadiusLG)),
+        modifier = modifier.shadow(2.dp, RoundedCornerShape(RadiusLG)),
         shape = RoundedCornerShape(RadiusLG),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.5.dp, accentColor.copy(alpha = 0.5f))
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.35f))
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Header
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    ),
-                    color = accentColor
-                )
-
-                Surface(
-                    shape = CircleShape,
-                    color = accentColor.copy(alpha = 0.15f),
-                    modifier = Modifier.clickable { onToggleEdit() }
-                ) {
+                Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp), color = accentColor)
+                Surface(shape = CircleShape, color = accentColor.copy(alpha = 0.12f), modifier = Modifier.clickable { onToggleEdit() }) {
                     Icon(
                         imageVector = if (isEditing) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
                         contentDescription = "ویرایش",
-                        modifier = Modifier
-                            .padding(4.dp)
-                            .size(16.dp),
+                        modifier = Modifier.padding(4.dp).size(18.dp),
                         tint = accentColor
                     )
                 }
             }
 
             AnimatedVisibility(visible = isEditing) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(
+                        text = "مبلغ وام (${MoneyFormatter.getUnitLabel(activeCurrency)})",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     PersianAmountInputField(
                         value = editAmount,
                         onValueChange = { editAmount = it },
                         allowDecimalInput = true,
                         onRawDecimalAmountChange = { rawValue, _ -> editAmount = rawValue },
-                        label = "مبلغ وام (${MoneyFormatter.getUnitLabel(activeCurrency)})",
+                        label = null,
                         unitLabel = MoneyFormatter.getUnitLabel(activeCurrency),
                         placeholder = "مبلغ را وارد کنید",
                         showWordsPreview = false
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        OutlinedTextField(
-                            value = editInterest,
-                            onValueChange = { editInterest = it },
-                            label = { Text("نرخ سود٪", fontSize = 10.sp) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedTextField(
                             value = editDuration,
                             onValueChange = { editDuration = it },
-                            label = { Text("ماه", fontSize = 10.sp) },
+                            label = { Text("مدت بازپرداخت") },
+                            placeholder = { Text("ماه") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
-                            singleLine = true
+                            singleLine = true,
+                            shape = RoundedCornerShape(RadiusMD)
+                        )
+                        OutlinedTextField(
+                            value = editInterest,
+                            onValueChange = { editInterest = it },
+                            label = { Text("نرخ سود سالانه") },
+                            placeholder = { Text("درصد") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(RadiusMD)
                         )
                     }
                     Button(
                         onClick = {
-                            val a = IranianAmountUtils.parseAmountToBigDecimal(editAmount)?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
-                            val r = IranianPhoneUtils.convertDigitsToEnglish(editInterest).replace(',', '.').toDoubleOrNull() ?: interestRate
-                            val d = IranianPhoneUtils.convertDigitsToEnglish(editDuration).filter { ch -> ch.isDigit() }.toIntOrNull() ?: durationMonths
-                            onSaveEdit(title, if (a > 0L) a else MoneyAmount.of(amount, amountUnit).asRialsLongExact(), AppCurrency.RIAL, r, d)
+                            val parsedAmount = IranianAmountUtils.parseAmountToBigDecimal(editAmount)
+                                ?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
+                            val rate = IranianPhoneUtils.convertDigitsToEnglish(editInterest).replace(',', '.').toDoubleOrNull() ?: interestRate
+                            val duration = IranianPhoneUtils.convertDigitsToEnglish(editDuration).filter { it.isDigit() }.toIntOrNull() ?: durationMonths
+                            onSaveEdit(
+                                title,
+                                if (parsedAmount > 0L) parsedAmount else MoneyAmount.of(amount, amountUnit).asRialsLongExact(),
+                                AppCurrency.RIAL,
+                                rate,
+                                duration
+                            )
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(40.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         shape = RoundedCornerShape(RadiusMD)
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Done,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Rounded.Done, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(5.dp))
                         Text("اعمال تغییرات", fontSize = 11.sp)
                     }
                 }
             }
 
-            // Specs
-            Surface(
-                shape = RoundedCornerShape(RadiusMD),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-            ) {
+            AnimatedVisibility(visible = !isEditing) {
                 Column(
-                    modifier = Modifier.padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(RadiusMD))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f))
+                        .padding(horizontal = 9.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = if (amount > 0L) "مبلغ: ${CalculationResult.formatMoney(amount, amountUnit)}" else "مبلغ: —",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = if (durationMonths > 0 && interestRate > 0.0) "مدت: ${IranianPhoneUtils.convertDigitsToPersian(durationMonths.toString())} ماه | سود: ${IranianPhoneUtils.convertDigitsToPersian(interestRate.toString())}٪" else "مدت و نرخ سود: —",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    CompactLoanValue("مبلغ وام", if (amount > 0L) CalculationResult.formatMoney(amount, amountUnit) else "—")
+                    CompactLoanValue("مدت بازپرداخت", if (durationMonths > 0) "${IranianPhoneUtils.convertDigitsToPersian(durationMonths.toString())} ماه" else "—")
+                    CompactLoanValue("نرخ سود سالانه", if (interestRate > 0.0) "${IranianPhoneUtils.convertDigitsToPersian(interestRate.toString())}٪" else "—")
                 }
             }
-
-            // Monthly Payment
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "قسط ماهانه",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = result?.monthlyPaymentFormatted ?: "—",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    ),
-                    color = accentColor
-                )
-            }
-
-            // Total Interest
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "سود کل",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = result?.totalInterestFormatted ?: "—",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 12.5.sp
-                    ),
-                    color = ExpenseRoseLight
-                )
-            }
-
-            // Total Payment
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "کل بازپرداخت",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = result?.totalPaymentFormatted ?: "—",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 12.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
         }
+    }
+}
+
+@Composable
+private fun CompactLoanValue(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 10.5.sp), color = MaterialTheme.colorScheme.onSurface)
     }
 }
