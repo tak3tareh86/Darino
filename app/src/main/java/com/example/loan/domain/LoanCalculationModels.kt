@@ -109,7 +109,9 @@ data class LoanCalculation(
     val totalInterest: Long,
     val realCostPercentage: Double,
     val createdAt: Long = System.currentTimeMillis(),
-    val amountUnit: com.example.ui.screens.settings.model.AppCurrency = com.example.ui.screens.settings.model.AppCurrency.TOMAN
+    val amountUnit: com.example.ui.screens.settings.model.AppCurrency = com.example.ui.screens.settings.model.AppCurrency.TOMAN,
+    val method: CalculationMethod = CalculationMethod.ANNUITY,
+    val interestPeriod: InterestPeriod = InterestPeriod.ANNUAL
 )
 
 data class ComparisonLoanInput(
