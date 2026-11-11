@@ -47,7 +47,7 @@ class WeeklyBackupWorker(
 
             val userTag = BackupUserScope.tag(userId)
             val (y, m, d) = CalendarDateUtils.getCurrentJalaliDate()
-            val timestamp = java.text.SimpleDateFormat("HHmmss", java.util.Locale.ROOT)
+            val timestamp = java.text.SimpleDateFormat("HHmmssSSS", java.util.Locale.ROOT)
                 .format(java.util.Date())
             val retentionPrefix = "${frequency}_auto_backup_${userTag}_"
             val filename = "${retentionPrefix}${y}_${m.toString().padStart(2, '0')}_${d.toString().padStart(2, '0')}_$timestamp.darino"
