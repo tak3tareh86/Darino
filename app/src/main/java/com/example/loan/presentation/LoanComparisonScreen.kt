@@ -212,7 +212,6 @@ fun LoanComparisonScreen(
 
             // Compact comparison result panel
             val interestDiff = comparisonResult.totalInterestDiff
-            val monthlyDiff = comparisonResult.monthlyPaymentDiff
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(RadiusLG),
