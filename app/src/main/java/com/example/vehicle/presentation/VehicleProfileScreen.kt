@@ -126,7 +126,7 @@ fun VehicleProfileScreen(
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -136,21 +136,14 @@ fun VehicleProfileScreen(
                         Soft3DIcon(
                             imageRes = R.drawable.img_3d_car,
                             contentDescription = vehicle.model,
-                            size = 40.dp,
+                            size = 32.dp,
                             accentColor = MaterialTheme.colorScheme.primary
                         )
-                        Column {
-                            Text(
-                                text = "شناسه و پلاک انتظامی",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "ثبت شده در سامانه دارینو",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text(
+                            text = "شناسه و پلاک انتظامی",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
 
                     IranianLicensePlate(
