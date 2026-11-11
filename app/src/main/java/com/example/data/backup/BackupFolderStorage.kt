@@ -112,7 +112,7 @@ object BackupFolderStorage {
                 document.name.endsWith(".darino", ignoreCase = true) &&
                     namePrefixes.any(document.name::startsWith)
             }
-            .maxByOrNull { it.lastModified }
+            .maxByOrNull { it.name }
     }
 
     private fun pruneBackups(
