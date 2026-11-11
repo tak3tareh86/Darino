@@ -21,12 +21,18 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -38,6 +44,9 @@ import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.util.IranianPhoneUtils
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun SavedCalculationsTab(
@@ -45,6 +54,24 @@ fun SavedCalculationsTab(
     onLoadClick: (LoanCalculation) -> Unit,
     onDeleteClick: (LoanCalculation) -> Unit
 ) {
+    var pendingDeletion by remember { mutableStateOf<LoanCalculation?>(null) }
+
+    pendingDeletion?.let { calculation ->
+        AlertDialog(
+            onDismissRequest = { pendingDeletion = null },
+            title = { Text("حذف محاسبه ذخیره‌شده؟") },
+            text = { Text("آیا از حذف «${calculation.title}» مطمئن هستید؟ این عملیات قابل بازگشت نیست.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteClick(calculation)
+                    pendingDeletion = null
+                }) { Text("حذف") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeletion = null }) { Text("انصراف") }
+            }
+        )
+    }
     if (savedList.isEmpty()) {
         Box(
             modifier = Modifier
@@ -115,10 +142,15 @@ fun SavedCalculationsTab(
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                Text(
+                                    text = "ذخیره‌شده در: ${IranianPhoneUtils.convertDigitsToPersian(SimpleDateFormat("yyyy/MM/dd - HH:mm", Locale.getDefault()).format(Date(calc.createdAt)))}",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                )
                             }
 
                             IconButton(
-                                onClick = { onDeleteClick(calc) },
+                                onClick = { pendingDeletion = calc },
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
