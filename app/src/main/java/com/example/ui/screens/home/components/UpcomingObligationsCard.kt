@@ -173,12 +173,6 @@ fun UpcomingObligationsCard(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            Text(
-                                text = "در حال حاضر قسط پرداخت‌نشده‌ای وجود ندارد.",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
-                            )
                         }
                     } else {
                         NearestObligationFlatItem(
