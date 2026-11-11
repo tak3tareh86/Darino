@@ -4,7 +4,9 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.squareup.moshi.Json
+import com.example.loan.domain.CalculationMethod
 import com.example.loan.domain.DurationType
+import com.example.loan.domain.InterestPeriod
 import com.example.loan.domain.LoanCalculation
 import com.example.loan.domain.LoanType
 import com.example.ui.screens.settings.model.AppCurrency
@@ -25,7 +27,9 @@ data class LoanCalculationEntity(
     val createdAt: Long = System.currentTimeMillis(),
     @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
     @field:Json(ignore = true)
-    @ColumnInfo(defaultValue = "'legacy_unassigned'") val userId: String = "legacy_unassigned"
+    @ColumnInfo(defaultValue = "'legacy_unassigned'") val userId: String = "legacy_unassigned",
+    @ColumnInfo(defaultValue = "'ANNUITY'") val calculationMethod: String = CalculationMethod.ANNUITY.name,
+    @ColumnInfo(defaultValue = "'ANNUAL'") val interestPeriod: String = InterestPeriod.ANNUAL.name
 ) {
     fun toDomainModel(): LoanCalculation {
         val type = try {
@@ -51,7 +55,9 @@ data class LoanCalculationEntity(
             totalInterest = totalInterest,
             realCostPercentage = realCostPercentage,
             createdAt = createdAt,
-            amountUnit = AppCurrency.valueOf(amountUnit)
+            amountUnit = AppCurrency.valueOf(amountUnit),
+            method = CalculationMethod.valueOf(calculationMethod),
+            interestPeriod = InterestPeriod.valueOf(interestPeriod)
         )
     }
 
@@ -70,7 +76,9 @@ data class LoanCalculationEntity(
                 totalInterest = domain.totalInterest,
                 realCostPercentage = domain.realCostPercentage,
                 createdAt = domain.createdAt,
-                amountUnit = domain.amountUnit.name
+                amountUnit = domain.amountUnit.name,
+                calculationMethod = domain.method.name,
+                interestPeriod = domain.interestPeriod.name
             )
         }
     }
