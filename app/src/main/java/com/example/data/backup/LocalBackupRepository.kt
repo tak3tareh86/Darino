@@ -196,19 +196,41 @@ class LocalBackupRepository(
     /** Restores the newest daily or weekly device-bound automatic backup for the active user. */
     suspend fun restoreLatestAutomaticBackup() {
         val userTag = BackupUserScope.tag(getEffectiveUserId())
-        val latest = withContext(Dispatchers.IO) {
-            File(context.filesDir, "auto_backups")
-                .listFiles { file ->
-                    file.isFile &&
-                        (file.name.startsWith("daily_auto_backup_${userTag}_") ||
-                            file.name.startsWith("weekly_auto_backup_${userTag}_")) &&
-                        file.extension == "darino"
-                }
-                ?.maxByOrNull { it.lastModified() }
-                ?: throw IllegalStateException("نسخه پشتیبان خودکار برای این حساب پیدا نشد.")
-        }
         val backup = withContext(Dispatchers.IO) {
-            val json = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(latest)).toString(Charsets.UTF_8)
+            val selectedFolderBackup = BackupFolderStorage.latestBackup(
+                context,
+                listOf("daily_auto_backup_${userTag}_", "weekly_auto_backup_${userTag}_")
+            )
+            val encryptedPayload = if (selectedFolderBackup != null) {
+                context.contentResolver.openInputStream(selectedFolderBackup.uri)?.use { input ->
+                    val output = ByteArrayOutputStream()
+                    val buffer = ByteArray(8 * 1024)
+                    var total = 0L
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        require(total <= MAX_LOCAL_BACKUP_FILE_BYTES) {
+                            "حجم فایل پشتیبان خودکار از حد مجاز بیشتر است."
+                        }
+                        output.write(buffer, 0, count)
+                    }
+                    output.toByteArray()
+                } ?: throw java.io.IOException("خواندن فایل پشتیبان از پوشه انتخاب‌شده ناموفق بود.")
+            } else {
+                // Backward compatibility for automatic backups created before folder selection existed.
+                val legacyFile = File(context.filesDir, "auto_backups")
+                    .listFiles { file ->
+                        file.isFile &&
+                            (file.name.startsWith("daily_auto_backup_${userTag}_") ||
+                                file.name.startsWith("weekly_auto_backup_${userTag}_")) &&
+                            file.extension == "darino"
+                    }
+                    ?.maxByOrNull { it.lastModified() }
+                    ?: throw IllegalStateException("نسخه پشتیبان خودکار برای این حساب پیدا نشد.")
+                readBoundedLocalBackup(legacyFile)
+            }
+            val json = DeviceBackupEncryption.decrypt(encryptedPayload).toString(Charsets.UTF_8)
             BackupFileCodec.decode(json)
         }
         restoreBackup(backup, RestoreMode.REPLACE)
