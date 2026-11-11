@@ -387,7 +387,7 @@ class LocalBackupRepository(
                 installmentReminderDays = generalPrefs.getInt("pref_installment_reminder_days", 0),
                 vehicleReminderKilometers = generalPrefs.getInt("pref_vehicle_reminder_kilometers", 0),
                 autoBackupDailyEnabled = backupPrefs.getBoolean("auto_backup_daily", false),
-                autoBackupWeeklyEnabled = backupPrefs.getBoolean("auto_backup_weekly", true),
+                autoBackupWeeklyEnabled = backupPrefs.getBoolean("auto_backup_weekly", false),
                 cleanSlatePerformed = appPreferences.isCleanSlatePerformed()
             )
             val financeMetadata = FinanceMetadataBackup(
@@ -606,67 +606,87 @@ class LocalBackupRepository(
                         .putString("pref_currency", settings.currency)
                         .putString("pref_alert_delivery", settings.alertDelivery)
                         .putString("pref_nav_transition_animation", settings.navigationTransition)
-                    settings.notificationsEnabled?.let { editor.putBoolean("pref_notifications_enabled", it) }
-                    settings.smsNotificationsEnabled?.let { editor.putBoolean("pref_sms_notifications_enabled", it) }
-                    settings.notificationSoundEnabled?.let { editor.putBoolean("pref_notification_sound_enabled", it) }
-                    settings.notificationVibrationEnabled?.let { editor.putBoolean("pref_notification_vibration_enabled", it) }
-                    settings.quietHoursEnabled?.let { editor.putBoolean("pref_quiet_hours_enabled", it) }
-                    settings.quietHoursStartMinute?.let { editor.putInt("pref_quiet_hours_start_minute", it) }
-                    settings.quietHoursEndMinute?.let { editor.putInt("pref_quiet_hours_end_minute", it) }
-                    settings.allowHighPriorityInQuietHours?.let { editor.putBoolean("pref_allow_high_priority_quiet_hours", it) }
-                    settings.defaultReminderTimeMinute?.let { editor.putInt("pref_default_reminder_time_minute", it) }
-                    settings.installmentReminderDays?.let { editor.putInt("pref_installment_reminder_days", it) }
-                    settings.vehicleReminderKilometers?.let { editor.putInt("pref_vehicle_reminder_kilometers", it) }
-                    settings.cleanSlatePerformed?.let { editor.putBoolean("pref_is_clean_slate", it) }
+                    fun putBooleanOrRemove(key: String, value: Boolean?) {
+                        if (value == null) editor.remove(key) else editor.putBoolean(key, value)
+                    }
+                    fun putIntOrRemove(key: String, value: Int?) {
+                        if (value == null) editor.remove(key) else editor.putInt(key, value)
+                    }
+                    putBooleanOrRemove("pref_notifications_enabled", settings.notificationsEnabled)
+                    putBooleanOrRemove("pref_sms_notifications_enabled", settings.smsNotificationsEnabled)
+                    putBooleanOrRemove("pref_notification_sound_enabled", settings.notificationSoundEnabled)
+                    putBooleanOrRemove("pref_notification_vibration_enabled", settings.notificationVibrationEnabled)
+                    putBooleanOrRemove("pref_quiet_hours_enabled", settings.quietHoursEnabled)
+                    putIntOrRemove("pref_quiet_hours_start_minute", settings.quietHoursStartMinute)
+                    putIntOrRemove("pref_quiet_hours_end_minute", settings.quietHoursEndMinute)
+                    putBooleanOrRemove("pref_allow_high_priority_quiet_hours", settings.allowHighPriorityInQuietHours)
+                    putIntOrRemove("pref_default_reminder_time_minute", settings.defaultReminderTimeMinute)
+                    putIntOrRemove("pref_installment_reminder_days", settings.installmentReminderDays)
+                    putIntOrRemove("pref_vehicle_reminder_kilometers", settings.vehicleReminderKilometers)
+                    putBooleanOrRemove("pref_is_clean_slate", settings.cleanSlatePerformed)
                     check(editor.commit()) { "ذخیره تنظیمات برنامه بازیابی‌شده انجام نشد." }
 
-                    settings.autoBackupDailyEnabled?.let {
-                        check(backupPrefs.edit().putBoolean("auto_backup_daily", it).commit())
-                    }
-                    settings.autoBackupWeeklyEnabled?.let {
-                        check(backupPrefs.edit().putBoolean("auto_backup_weekly", it).commit())
-                    }
+                    val dailyEnabled = settings.autoBackupDailyEnabled ?: false
+                    val weeklyEnabled = settings.autoBackupWeeklyEnabled ?: false
+                    check(
+                        backupPrefs.edit()
+                            .putBoolean("auto_backup_daily", dailyEnabled)
+                            .putBoolean("auto_backup_weekly", weeklyEnabled)
+                            .commit()
+                    ) { "ذخیره تنظیمات پشتیبان‌گیری بازیابی‌شده ناموفق بود." }
+                    if (dailyEnabled) WeeklyBackupWorker.enqueueDaily(context)
+                    else WeeklyBackupWorker.cancelDaily(context)
+                    if (weeklyEnabled) WeeklyBackupWorker.enqueueWeekly(context)
+                    else WeeklyBackupWorker.cancelWeekly(context)
                 }
 
+                val userSuffix = "_$userId"
+                val financeEditor = generalPrefs.edit()
                 if (backup.metadata.backupVersion >= 8) {
-                    val userSuffix = "_$userId"
                     val finance = backup.financeMetadata
                         ?: throw IllegalArgumentException("اطلاعات مالی سفارشی در فایل پشتیبان وجود ندارد.")
-                    val editor = generalPrefs.edit()
                     fun putOrRemove(key: String, value: String?) {
-                        if (value == null) editor.remove(key) else editor.putString(key, value)
+                        if (value == null) financeEditor.remove(key) else financeEditor.putString(key, value)
                     }
                     putOrRemove("pref_persisted_budgets$userSuffix", finance.budgetsJson)
                     putOrRemove("pref_persisted_savings_goals$userSuffix", finance.savingsGoalsJson)
                     putOrRemove("pref_persisted_recurring_txs$userSuffix", finance.recurringTransactionsJson)
                     putOrRemove("pref_persisted_categories$userSuffix", finance.categoriesJson)
-                    check(editor.commit()) { "ذخیره تنظیمات مالی بازیابی‌شده انجام نشد." }
-                    smsRuleRepository.restoreFromBackup(backup.userBankSmsRulesJson, userId)
-                    smsPatternRepository.restoreFromBackup(
-                        backup.smsPatternsJson,
-                        backup.smsRecognitionStartMillis,
-                        userId
-                    )
-                    if (backup.metadata.backupVersion >= 9) {
-                        bankSmsRepository.restoreStateFromBackup(
-                            backup.bankSmsState
-                                ?: throw IllegalArgumentException("سوابق پیامک بانکی در فایل پشتیبان وجود ندارد."),
-                            userId
-                        )
-                    }
+                } else {
+                    financeEditor.remove("pref_persisted_budgets$userSuffix")
+                        .remove("pref_persisted_savings_goals$userSuffix")
+                        .remove("pref_persisted_recurring_txs$userSuffix")
+                        .remove("pref_persisted_categories$userSuffix")
                 }
+                check(financeEditor.commit()) { "ذخیره تنظیمات مالی بازیابی‌شده انجام نشد." }
+                smsRuleRepository.restoreFromBackup(
+                    if (backup.metadata.backupVersion >= 8) backup.userBankSmsRulesJson else null,
+                    userId
+                )
+                smsPatternRepository.restoreFromBackup(
+                    if (backup.metadata.backupVersion >= 8) backup.smsPatternsJson else null,
+                    if (backup.metadata.backupVersion >= 8) backup.smsRecognitionStartMillis else null,
+                    userId
+                )
+                bankSmsRepository.restoreStateFromBackup(
+                    if (backup.metadata.backupVersion >= 9) {
+                        backup.bankSmsState
+                            ?: throw IllegalArgumentException("سوابق پیامک بانکی در فایل پشتیبان وجود ندارد.")
+                    } else {
+                        BankSmsStateBackup()
+                    },
+                    userId
+                )
 
                 db.withTransaction {
                 if (mode == RestoreMode.REPLACE) {
-                    if (backup.metadata.backupVersion >= 3) {
-                        db.loanCalculationDao().clearAllCalculations(userId)
-                    }
+                    // REPLACE means every user-owned table is cleared first. A field
+                    // absent from an older backup is treated as empty, never as "keep current".
+                    db.loanCalculationDao().clearAllCalculations(userId)
                     db.installmentDao().clearAllPayments(userId)
                     db.installmentDao().clearAllInstallments(userId)
-                    if (backup.metadata.backupVersion >= 2) {
-                        db.accountDao().clearAllAccounts(userId)
-                        db.checkDao().clearAllChecks(userId)
-                    }
+                    db.accountDao().clearAllAccounts(userId)
+                    db.checkDao().clearAllChecks(userId)
                     db.transactionDao()
                         .clearAllTransactions(userId)
 
@@ -693,25 +713,17 @@ class LocalBackupRepository(
                     db.smartReminderDao()
                         .clearAllReminders(userId)
 
-                    if (backup.metadata.backupVersion >= 6) {
-                        db.reminderDao().clearAllSchedulesForBackup(userId)
-                        db.reminderDao().clearAllRemindersForBackup(userId)
-                    }
+                    db.reminderDao().clearAllSchedulesForBackup(userId)
+                    db.reminderDao().clearAllRemindersForBackup(userId)
 
                     db.financialEventDao()
                         .clearAllEvents(userId)
 
-                    if (backup.metadata.backupVersion >= 4) {
-                        db.notificationLogDao().clearAllNotificationsForBackup(userId)
-                        db.smsLogDao().clearAllSmsLogsForBackup(userId)
-                    }
-                    if (backup.metadata.backupVersion >= 5) {
-                        db.vehicleDao().clearVehicleStoreForUser(userId)
-                    }
-                    if (backup.metadata.backupVersion >= 3) {
-                        db.financialHealthDao().clearProfilesForUser(userId)
-                        db.userPreferenceDao().clearPreference(userId)
-                    }
+                    db.notificationLogDao().clearAllNotificationsForBackup(userId)
+                    db.smsLogDao().clearAllSmsLogsForBackup(userId)
+                    db.vehicleDao().clearVehicleStoreForUser(userId)
+                    db.financialHealthDao().clearProfilesForUser(userId)
+                    db.userPreferenceDao().clearPreference(userId)
                 }
 
                 // Re-create auto-generated primary keys instead of risking collisions with another
@@ -910,8 +922,7 @@ class LocalBackupRepository(
                     )
                 }
 
-                if (backup.metadata.backupVersion >= 5) {
-                    backup.vehicleStore?.let { store ->
+                backup.vehicleStore?.let { store ->
                         val restoredStore = store.copy(
                             userId = userId,
                             vehiclesJson = remapLegacyVehicleCollection(
@@ -958,7 +969,6 @@ class LocalBackupRepository(
                                 scheduleId = newScheduleId
                             )
                         )
-                    }
                 }
 
                 if (backup.metadata.backupVersion >= 4) {
@@ -1007,21 +1017,17 @@ class LocalBackupRepository(
                     .exceptionOrNull()?.let(error::addSuppressed)
                 runCatching { restoreSharedPreferencesSnapshot(backupPrefs, backupPrefsSnapshot) }
                     .exceptionOrNull()?.let(error::addSuppressed)
-                if (backup.metadata.backupVersion >= 9) {
-                    runCatching { bankSmsRepository.restoreStateFromBackup(previousBankSmsState, userId) }
-                        .exceptionOrNull()?.let(error::addSuppressed)
-                }
-                if (backup.metadata.backupVersion >= 8) {
-                    runCatching { smsRuleRepository.restoreFromBackup(previousSmsRules, userId) }
-                        .exceptionOrNull()?.let(error::addSuppressed)
-                    runCatching {
-                        smsPatternRepository.restoreFromBackup(
-                            previousSmsPatterns,
-                            previousSmsRecognitionStart,
-                            userId
-                        )
-                    }.exceptionOrNull()?.let(error::addSuppressed)
-                }
+                runCatching { bankSmsRepository.restoreStateFromBackup(previousBankSmsState, userId) }
+                    .exceptionOrNull()?.let(error::addSuppressed)
+                runCatching { smsRuleRepository.restoreFromBackup(previousSmsRules, userId) }
+                    .exceptionOrNull()?.let(error::addSuppressed)
+                runCatching {
+                    smsPatternRepository.restoreFromBackup(
+                        previousSmsPatterns,
+                        previousSmsRecognitionStart,
+                        userId
+                    )
+                }.exceptionOrNull()?.let(error::addSuppressed)
                 restoredAttachments.createdFiles.forEach { it.delete() }
                 throw error
             }
