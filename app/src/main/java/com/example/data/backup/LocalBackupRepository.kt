@@ -922,7 +922,8 @@ class LocalBackupRepository(
                     )
                 }
 
-                backup.vehicleStore?.let { store ->
+                if (backup.metadata.backupVersion >= 5) {
+                    backup.vehicleStore?.let { store ->
                         val restoredStore = store.copy(
                             userId = userId,
                             vehiclesJson = remapLegacyVehicleCollection(
