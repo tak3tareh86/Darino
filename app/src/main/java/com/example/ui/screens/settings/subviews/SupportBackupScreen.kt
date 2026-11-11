@@ -94,8 +94,34 @@ fun SupportBackupScreen(
     val prefs = remember { context.getSharedPreferences("darino_backup_prefs", android.content.Context.MODE_PRIVATE) }
     var dailyAutoBackupEnabled by remember { mutableStateOf(prefs.getBoolean("auto_backup_daily", false)) }
     var weeklyAutoBackupEnabled by remember { mutableStateOf(prefs.getBoolean("auto_backup_weekly", false)) }
+    var backupFolderUri by remember { mutableStateOf(com.example.data.backup.BackupFolderStorage.selectedFolderUri(context)) }
+
+    val backupFolderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { selectedUri ->
+        if (selectedUri != null) {
+            try {
+                com.example.data.backup.BackupFolderStorage.saveSelectedFolder(
+                    context,
+                    selectedUri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                backupFolderUri = selectedUri
+                Toast.makeText(context, "پوشه ذخیره پشتیبان انتخاب شد.", Toast.LENGTH_SHORT).show()
+            } catch (error: Exception) {
+                Log.e("SupportBackupScreen", "Could not persist backup folder", error)
+                Toast.makeText(context, error.message ?: "انتخاب پوشه پشتیبان ناموفق بود.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     fun setAutomaticBackupEnabled(frequency: String, enabled: Boolean) {
+        if (enabled && backupFolderUri == null) {
+            Toast.makeText(context, "برای فعال‌سازی بک‌آپ خودکار، ابتدا پوشه ذخیره را انتخاب کنید.", Toast.LENGTH_LONG).show()
+            backupFolderPickerLauncher.launch(null)
+            return
+        }
         val preferenceKey = if (frequency == "daily") "auto_backup_daily" else "auto_backup_weekly"
         try {
             check(prefs.edit().putBoolean(preferenceKey, enabled).commit()) {
@@ -157,6 +183,7 @@ fun SupportBackupScreen(
                 refreshLastBackupDate()
                 dailyAutoBackupEnabled = prefs.getBoolean("auto_backup_daily", false)
                 weeklyAutoBackupEnabled = prefs.getBoolean("auto_backup_weekly", false)
+                backupFolderUri = com.example.data.backup.BackupFolderStorage.selectedFolderUri(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -353,18 +380,20 @@ fun SupportBackupScreen(
                                     showShareNameDialog = true
                                     isBackingUp = false
                                 } else {
-                                    pendingBackupPayload = payload
-                                    pendingBackupChecksum = backup.metadata.checksum
-                                    pendingBackupPassphrase = secret
-                                    pendingBackupSummary = "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
-                                    backupFileLauncher.launch(buildBackupFilename())
+                                    val filename = buildManualBackupFilename()
+                                    withContext(Dispatchers.IO) {
+                                        com.example.data.backup.BackupFolderStorage.saveBackup(
+                                            context,
+                                            filename,
+                                            payload
+                                        )
+                                    }
+                                    updateBackupTimestamp(
+                                        "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
+                                    )
                                 }
                             } catch (e: Exception) {
                                 isBackingUp = false
-                                pendingBackupPayload = null
-                                pendingBackupChecksum = null
-                                pendingBackupPassphrase = null
-                                pendingBackupSummary = ""
                                 Log.e("SupportBackupScreen", "Backup creation failed", e)
                                 Toast.makeText(context, "خطا در آماده‌سازی پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
                             }
@@ -553,7 +582,7 @@ fun SupportBackupScreen(
         SettingsConfirmationDialog(
             isOpen = true,
             title = "بازیابی آخرین پشتیبان خودکار",
-            message = "جدیدترین نسخه روزانه یا هفتگی ذخیره‌شده برای حساب فعلی از حافظه همین دستگاه بازیابی می‌شود. این نسخه به کلید رمزگذاری همین دستگاه وابسته است و پیش از جایگزینی، از وضعیت فعلی یک نسخه اضطراری ساخته خواهد شد.",
+            message = "جدیدترین نسخه روزانه یا هفتگی حساب فعلی از پوشه انتخاب‌شده بازیابی می‌شود. این نسخه به کلید رمزگذاری همین دستگاه وابسته است و پیش از جایگزینی، از وضعیت فعلی یک نسخه اضطراری ساخته خواهد شد.",
             confirmButtonText = "بازیابی پشتیبان خودکار",
             isDanger = true,
             onConfirm = {
@@ -657,9 +686,31 @@ fun SupportBackupScreen(
 
                     // Independent local automatic-backup schedules
                     item {
+                        SettingsSectionCard(title = "پوشه ذخیره پشتیبان‌ها") {
+                            Text(
+                                text = "پشتیبان‌های دستی، روزانه و هفتگی همگی در پوشه‌ای که انتخاب می‌کنید ذخیره می‌شوند. فایل‌های قبلی با تغییر پوشه جابه‌جا یا حذف نمی‌شوند.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = backupFolderUri?.let { "پوشه فعلی: ${com.example.data.backup.BackupFolderStorage.folderLabel(it)}" }
+                                    ?: "هنوز پوشه‌ای برای ذخیره پشتیبان انتخاب نشده است.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedButton(
+                                onClick = { backupFolderPickerLauncher.launch(null) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (backupFolderUri == null) "انتخاب پوشه ذخیره" else "تغییر پوشه ذخیره")
+                            }
+                        }
+                    }
+
+                    item {
                         SettingsSectionCard(title = "پشتیبان‌گیری خودکار محلی") {
                             Text(
-                                text = "نسخه‌های پشتیبان روی حافظه داخلی همین دستگاه و بدون نیاز به اینترنت یا سرور ذخیره می‌شوند.",
+                                text = "نسخه‌های پشتیبان در پوشه انتخاب‌شده روی دستگاه و بدون نیاز به اینترنت یا سرور ذخیره می‌شوند.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -748,9 +799,14 @@ fun SupportBackupScreen(
                             Button(
                                 onClick = {
                                     if (!isBackingUp) {
-                                        backupPassphrase = ""
-                                        backupPassphraseConfirm = ""
-                                        showBackupPasswordDialog = true
+                                        if (backupFolderUri == null) {
+                                            Toast.makeText(context, "ابتدا پوشه ذخیره پشتیبان را انتخاب کنید.", Toast.LENGTH_LONG).show()
+                                            backupFolderPickerLauncher.launch(null)
+                                        } else {
+                                            backupPassphrase = ""
+                                            backupPassphraseConfirm = ""
+                                            showBackupPasswordDialog = true
+                                        }
                                     }
                                 },
                                 modifier = Modifier
@@ -946,6 +1002,12 @@ private fun readBoundedBytes(input: java.io.InputStream, maxBytes: Int): ByteArr
 private fun buildBackupFilename(): String {
     val (year, month, day) = com.example.calendar.domain.CalendarDateUtils.getCurrentJalaliDate()
     return "Darino backup ${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}.darino"
+}
+
+private fun buildManualBackupFilename(): String {
+    val (year, month, day) = com.example.calendar.domain.CalendarDateUtils.getCurrentJalaliDate()
+    val time = java.text.SimpleDateFormat("HHmmssSSS", java.util.Locale.ROOT).format(java.util.Date())
+    return "Manual_${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}_$time.darino"
 }
 
 private fun findExistingBackupDocument(

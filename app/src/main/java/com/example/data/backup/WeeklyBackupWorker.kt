@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.Log
 import androidx.work.*
 import com.example.calendar.domain.CalendarDateUtils
-import java.io.File
 import java.util.concurrent.TimeUnit
 
 class WeeklyBackupWorker(
@@ -48,41 +47,23 @@ class WeeklyBackupWorker(
 
             val userTag = BackupUserScope.tag(userId)
             val (y, m, d) = CalendarDateUtils.getCurrentJalaliDate()
-            val filename = "${frequency}_auto_backup_${userTag}_${y}_${m.toString().padStart(2, '0')}_${d.toString().padStart(2, '0')}.darino"
+            val timestamp = java.text.SimpleDateFormat("HHmmssSSS", java.util.Locale.ROOT)
+                .format(java.util.Date())
+            val retentionPrefix = "${frequency}_auto_backup_${userTag}_"
+            val filename = "${retentionPrefix}${y}_${m.toString().padStart(2, '0')}_${d.toString().padStart(2, '0')}_$timestamp.darino"
 
-            val autoBackupsDir = File(applicationContext.filesDir, "auto_backups")
-            if (!autoBackupsDir.exists() && !autoBackupsDir.mkdirs()) {
-                throw java.io.IOException("Could not create automatic backup directory")
-            }
-
-            val backupFile = File(autoBackupsDir, filename)
-            val temporaryFile = File(autoBackupsDir, "$filename.tmp")
-            java.io.FileOutputStream(temporaryFile).use { stream ->
-                stream.write(encryptedPayload)
-                stream.fd.sync()
-            }
-            try {
-                // Atomic replacement preserves the last known-good snapshot if writing fails.
-                android.system.Os.rename(temporaryFile.absolutePath, backupFile.absolutePath)
-            } catch (error: Exception) {
-                temporaryFile.delete()
-                throw java.io.IOException("Could not finalize automatic backup file", error)
-            }
-
-            // Keep bounded local history so daily backups cannot grow without limit.
+            // All user-visible backup types share the folder explicitly selected in settings.
+            // A missing/revoked folder is an error; never silently write to private app storage.
             val keepCount = if (frequency == FREQUENCY_DAILY) DAILY_RETENTION_COUNT else WEEKLY_RETENTION_COUNT
-            autoBackupsDir.listFiles { file ->
-                file.isFile && file.name.startsWith("${frequency}_auto_backup_${userTag}_") && file.extension == "darino"
-            }
-                ?.sortedByDescending { it.lastModified() }
-                ?.drop(keepCount)
-                ?.forEach { oldFile ->
-                    if (!oldFile.delete()) {
-                        Log.w(TAG, "Could not delete expired automatic backup: ${oldFile.name}")
-                    }
-                }
+            val savedUri = BackupFolderStorage.saveBackup(
+                applicationContext,
+                filename,
+                encryptedPayload,
+                retentionPrefix,
+                keepCount
+            )
 
-            Log.i(TAG, "$frequency auto-backup file created successfully: ${backupFile.absolutePath}")
+            Log.i(TAG, "$frequency auto-backup file created successfully: $savedUri")
 
             // Update last backup time
             prefs.edit()
