@@ -638,6 +638,34 @@ class LocalBackupRepository(
                     else WeeklyBackupWorker.cancelDaily(context)
                     if (weeklyEnabled) WeeklyBackupWorker.enqueueWeekly(context)
                     else WeeklyBackupWorker.cancelWeekly(context)
+                } ?: run {
+                    // Legacy backup formats did not contain app preferences. Reset these
+                    // to application defaults instead of leaking settings from the newer state.
+                    val appPreferences = AppPreferencesRepository.getInstance(context)
+                    appPreferences.setThemeMode(com.example.ui.screens.settings.model.AppThemeMode.SYSTEM)
+                    appPreferences.setLanguage(com.example.ui.screens.settings.model.AppLanguage.PERSIAN)
+                    appPreferences.setCurrency(com.example.ui.screens.settings.model.AppCurrency.TOMAN)
+                    appPreferences.setAlertDelivery(com.example.ui.screens.settings.model.AlertDeliveryPreference.NONE)
+                    appPreferences.setNavTransition(com.example.ui.screens.settings.model.NavigationTransitionAnimation.DYNAMIC)
+                    appPreferences.setNotificationsEnabled(false)
+                    appPreferences.setSmsNotificationsEnabled(false)
+                    appPreferences.setNotificationSoundEnabled(false)
+                    appPreferences.setNotificationVibrationEnabled(false)
+                    appPreferences.setQuietHoursEnabled(false)
+                    appPreferences.setQuietHours(23 * 60, 7 * 60)
+                    appPreferences.setAllowHighPriorityInQuietHours(false)
+                    appPreferences.setDefaultReminderTimeMinute(9 * 60)
+                    appPreferences.setInstallmentReminderDays(0)
+                    appPreferences.setVehicleReminderKilometers(0)
+                    appPreferences.setCleanSlatePerformed(false)
+                    check(
+                        backupPrefs.edit()
+                            .putBoolean("auto_backup_daily", false)
+                            .putBoolean("auto_backup_weekly", false)
+                            .commit()
+                    ) { "بازنشانی تنظیمات پشتیبان‌گیری ناموفق بود." }
+                    WeeklyBackupWorker.cancelDaily(context)
+                    WeeklyBackupWorker.cancelWeekly(context)
                 }
 
                 val userSuffix = "_$userId"
