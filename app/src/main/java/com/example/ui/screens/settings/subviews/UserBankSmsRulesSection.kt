@@ -460,40 +460,72 @@ private fun RuleEditorDialog(
                     }
                 }
                 item {
-                    OutlinedTextField(
-                        value = textSenders,
-                        onValueChange = { textSenders = it },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("سرشماره متنی (هر خط یک مورد)") },
-                        placeholder = { Text("مثلاً Blu یا BankMellat") },
-                        minLines = 2,
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(
-                            textDirection = TextDirection.Ltr,
-                            textAlign = TextAlign.Start
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        OutlinedTextField(
+                            value = textSenders,
+                            onValueChange = { textSenders = it },
+                            modifier = Modifier.weight(1f),
+                            label = {
+                                Text(
+                                    "سرشماره متنی",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            },
+                            placeholder = {
+                                Text(
+                                    "مثلاً Blu",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            },
+                            minLines = 2,
+                            textStyle = MaterialTheme.typography.bodySmall.copy(
+                                textDirection = TextDirection.Ltr,
+                                textAlign = TextAlign.Start
+                            )
                         )
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = numericSenders,
-                        onValueChange = { numericSenders = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("سرشماره عددی (هر خط یک مورد)") },
-                        placeholder = { Text("مثلاً 0999 998 7641") },
-                        minLines = 2,
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(
-                            textDirection = TextDirection.Ltr,
-                            textAlign = TextAlign.Start
-                        ),
-                        isError = !numericSendersValid
-                    )
+                        OutlinedTextField(
+                            value = numericSenders,
+                            onValueChange = { numericSenders = it },
+                            modifier = Modifier.weight(1f),
+                            label = {
+                                Text(
+                                    "سرشماره عددی",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            },
+                            placeholder = {
+                                Text(
+                                    "مثلاً 0999...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            },
+                            minLines = 2,
+                            textStyle = MaterialTheme.typography.bodySmall.copy(
+                                textDirection = TextDirection.Ltr,
+                                textAlign = TextAlign.Start
+                            ),
+                            isError = !numericSendersValid
+                        )
+                    }
                     if (!numericSendersValid) {
                         Text("در کادر عددی فقط ارقام، فاصله و + ابتدایی مجاز است.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
                     if (!textSendersValid) {
                         Text("مقدار عددی را در کادر سرشماره عددی وارد کنید.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
-                    Text("پرکردن یکی از دو کادر کافی است؛ اگر هر دو را وارد کنید، تطبیق با هرکدام پذیرفته می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("هر خط یک مورد؛ پرکردن یکی از دو کادر کافی است. اگر هر دو را وارد کنید، تطبیق با هرکدام پذیرفته می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 item { OutlinedTextField(income, { income = sanitizeMarkerInput(it) }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های واریز") }, placeholder = { Text("واریز/نشست") }, singleLine = true) }
                 item { OutlinedTextField(expense, { expense = sanitizeMarkerInput(it) }, modifier = Modifier.fillMaxWidth(), label = { Text("نشانه‌های برداشت") }, placeholder = { Text("برداشت/پرید") }, singleLine = true) }
