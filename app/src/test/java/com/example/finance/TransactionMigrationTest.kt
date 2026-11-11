@@ -5,6 +5,9 @@ import androidx.room.Room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.database.AppDatabase
+import com.example.data.database.TransactionEntity
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -28,6 +31,64 @@ class TransactionMigrationTest {
         // We build a fresh in-memory database. Room will create the v18 schema.
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
         sqliteDb = db.openHelper.writableDatabase
+    }
+
+    @Test
+    fun `Backup transaction serialization retains transfer recipient`() {
+        val original = TransactionEntity(
+            userId = "backup_user",
+            stringId = "backup_transfer",
+            type = "TRANSFER",
+            transferSourceAccountId = "source_account",
+            transferDestinationAccountId = "destination_account",
+            transferRecipientName = "نام دریافت‌کننده"
+        )
+        val adapter = Moshi.Builder()
+            .add(KotlinJsonAdapterFactory())
+            .build()
+            .adapter(TransactionEntity::class.java)
+
+        val decoded = adapter.fromJson(adapter.toJson(original))
+        assertEquals("نام دریافت‌کننده", decoded?.transferRecipientName)
+        assertEquals("source_account", decoded?.transferSourceAccountId)
+        assertEquals("destination_account", decoded?.transferDestinationAccountId)
+    }
+
+    @Test
+    fun `Migration 43 to 44 preserves existing transactions and adds nullable recipient`() {
+        sqliteDb.execSQL("ALTER TABLE transactions DROP COLUMN transferRecipientName")
+        sqliteDb.execSQL("""
+            INSERT INTO transactions (
+                userId, amount, type, category, accountName, description, timestamp,
+                timeFormatted, stringId, title, datePersian, paymentMethod, sourceType,
+                isRecurring, syncState, updatedAt
+            ) VALUES (
+                'migration_user', 1200, 'TRANSFER', 'Transfer', 'انتقال وجه', '',
+                1000, '10:00', 'legacy_transfer', 'انتقال', '1403/01/01',
+                'BANK_CARD', 'MANUAL', 0, 'SYNCED', 1000
+            )
+        """.trimIndent())
+
+        AppDatabase.MIGRATION_43_44.migrate(sqliteDb)
+
+        val cursor = sqliteDb.query(
+            "SELECT transferRecipientName FROM transactions WHERE stringId = 'legacy_transfer'"
+        )
+        assertTrue(cursor.moveToFirst())
+        assertEquals(null, cursor.getString(0))
+        cursor.close()
+
+        sqliteDb.execSQL("""
+            UPDATE transactions
+            SET transferRecipientName = 'نام دریافت‌کننده'
+            WHERE stringId = 'legacy_transfer'
+        """.trimIndent())
+        val updated = sqliteDb.query(
+            "SELECT transferRecipientName FROM transactions WHERE stringId = 'legacy_transfer'"
+        )
+        assertTrue(updated.moveToFirst())
+        assertEquals("نام دریافت‌کننده", updated.getString(0))
+        updated.close()
     }
 
     @Test

@@ -120,6 +120,7 @@ data class TransactionItemData(
     val accountId: String? = null,
     val transferSourceAccountId: String? = null,
     val transferDestinationAccountId: String? = null,
+    val transferRecipientName: String? = null,
     val amountUnit: AppCurrency = AppCurrency.TOMAN
 ) {
     val amountFormatted: String

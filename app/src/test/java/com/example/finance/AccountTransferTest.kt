@@ -196,11 +196,22 @@ class AccountTransferTest {
             datePersian = "امروز",
             timePersian = "12:00",
             transferSourceAccountId = "acc_src",
-            transferDestinationAccountId = "acc_dest"
+            transferDestinationAccountId = "acc_dest",
+            transferRecipientName = "گیرنده آزمایشی"
         )
 
         val transferRes = repository.addTransactionResult(transferTx)
         assertEquals(TransactionOperationResult.SUCCESS, transferRes)
+
+        val storedTransfer = db.transactionDao().getTransactionByStringId(userA, "tx_transfer")
+        assertEquals("گیرنده آزمایشی", storedTransfer?.transferRecipientName)
+
+        val renamedTransfer = transferTx.copy(transferRecipientName = "گیرنده ویرایش‌شده")
+        assertEquals(TransactionOperationResult.SUCCESS, repository.updateTransactionResult(renamedTransfer))
+        assertEquals(
+            "گیرنده ویرایش‌شده",
+            db.transactionDao().getTransactionByStringId(userA, "tx_transfer")?.transferRecipientName
+        )
 
         // Balance changes
         assertEquals(700_000L, repository.calculateAccountBalance("acc_src"))
@@ -250,6 +261,9 @@ class AccountTransferTest {
 
         // 6. Delete transfer restores both sides
         repository.deleteTransactionResult("tx_transfer")
+        val deletedTransfer = db.transactionDao().getTransactionIncludingDeleted(userA, "tx_transfer")
+        assertTrue(deletedTransfer?.deletedAt != null)
+        assertEquals("گیرنده ویرایش‌شده", deletedTransfer?.transferRecipientName)
         assertEquals(1_000_000L, repository.calculateAccountBalance("acc_src"))
         assertEquals(500_000L, repository.calculateAccountBalance("acc_dest"))
 

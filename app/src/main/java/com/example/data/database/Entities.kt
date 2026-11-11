@@ -66,7 +66,8 @@ data class TransactionEntity(
     val deletedAt: Long? = null,
     val accountId: String? = null,
     val transferSourceAccountId: String? = null,
-    val transferDestinationAccountId: String? = null
+    val transferDestinationAccountId: String? = null,
+    val transferRecipientName: String? = null
 )
 
 @Entity(tableName = "installments")

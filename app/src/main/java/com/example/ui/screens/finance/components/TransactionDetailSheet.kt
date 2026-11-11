@@ -41,6 +41,7 @@ import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
+import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.RadiusMD
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,8 +53,11 @@ fun TransactionDetailSheet(
     onDeleteTransaction: (TransactionItemData) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val isExpense = transaction.type == TransactionType.EXPENSE
-    val amountColor = if (isExpense) ExpenseRoseLight else EmeraldPrimaryLight
+    val amountColor = when (transaction.type) {
+        TransactionType.EXPENSE -> ExpenseRoseLight
+        TransactionType.INCOME -> EmeraldPrimaryLight
+        TransactionType.TRANSFER -> InfoIndigoLight
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -133,10 +137,13 @@ fun TransactionDetailSheet(
             }
 
             // Details List
-            DetailRowItem(label = "نوع تراکنش", value = if (isExpense) "هزینه" else "درآمد")
+            DetailRowItem(label = "نوع تراکنش", value = transaction.type.title)
             DetailRowItem(label = "دسته‌بندی", value = "${transaction.category.iconEmoji} ${transaction.category.title}")
             DetailRowItem(label = "تاریخ و زمان", value = "${transaction.datePersian} ساعت ${transaction.timePersian}")
             DetailRowItem(label = "حساب / روش پرداخت", value = transaction.accountName)
+            if (transaction.type == TransactionType.TRANSFER && !transaction.transferRecipientName.isNullOrBlank()) {
+                DetailRowItem(label = "دریافت‌کننده", value = transaction.transferRecipientName)
+            }
 
             // Action Buttons: Edit and Delete
             Row(

@@ -55,7 +55,7 @@ import com.example.util.PersianCalendarHelper
 fun TransferSheet(
     accounts: List<com.example.ui.screens.finance.model.Account> = emptyList(),
     onDismiss: () -> Unit,
-    onSubmitTransfer: (from: String, to: String, amount: String, desc: String, datePersian: String) -> Unit,
+    onSubmitTransfer: (from: String, to: String, amount: String, desc: String, datePersian: String, recipientName: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val activeAccounts = remember(accounts) { accounts.filter { it.isActive } }
@@ -81,6 +81,7 @@ fun TransferSheet(
     var amountText by remember { mutableStateOf("") }
     var transferDate by remember { mutableStateOf(PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()) }
     var descText by remember { mutableStateOf("") }
+    var recipientName by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Dialog(
@@ -236,6 +237,19 @@ fun TransferSheet(
                     )
                 }
 
+                OutlinedTextField(
+                    value = recipientName,
+                    onValueChange = { recipientName = it },
+                    label = { Text("کسی که پول را برایش انتقال دادیم (اختیاری)") },
+                    modifier = Modifier.fillMaxWidth().testTag("transfer_recipient_input"),
+                    shape = RoundedCornerShape(RadiusMD),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = InfoIndigoLight,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    singleLine = true
+                )
+
                 // Description Field
                 OutlinedTextField(
                     value = descText,
@@ -271,7 +285,7 @@ fun TransferSheet(
                             return@Button
                         }
                         errorMessage = null
-                        onSubmitTransfer(src.id, dest.id, amountText, descText, transferDate)
+                        onSubmitTransfer(src.id, dest.id, amountText, descText, transferDate, recipientName.trim())
                     },
                     modifier = Modifier
                         .fillMaxWidth()
