@@ -197,11 +197,12 @@ class LocalBackupRepository(
     suspend fun restoreLatestAutomaticBackup() {
         val userTag = BackupUserScope.tag(getEffectiveUserId())
         val backup = withContext(Dispatchers.IO) {
-            val selectedFolderBackup = BackupFolderStorage.latestBackup(
-                context,
-                listOf("daily_auto_backup_${userTag}_", "weekly_auto_backup_${userTag}_")
-            )
-            val encryptedPayload = if (selectedFolderBackup != null) {
+            val selectedFolder = BackupFolderStorage.selectedFolderUri(context)
+            val encryptedPayload = if (selectedFolder != null) {
+                val selectedFolderBackup = BackupFolderStorage.latestBackup(
+                    context,
+                    listOf("daily_auto_backup_${userTag}_", "weekly_auto_backup_${userTag}_")
+                ) ?: throw IllegalStateException("در پوشه انتخاب‌شده نسخه پشتیبان خودکار برای این حساب پیدا نشد.")
                 context.contentResolver.openInputStream(selectedFolderBackup.uri)?.use { input ->
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8 * 1024)
@@ -218,7 +219,7 @@ class LocalBackupRepository(
                     output.toByteArray()
                 } ?: throw java.io.IOException("خواندن فایل پشتیبان از پوشه انتخاب‌شده ناموفق بود.")
             } else {
-                // Backward compatibility for automatic backups created before folder selection existed.
+                // Backward compatibility only for installations that have not selected a folder yet.
                 val legacyFile = File(context.filesDir, "auto_backups")
                     .listFiles { file ->
                         file.isFile &&
