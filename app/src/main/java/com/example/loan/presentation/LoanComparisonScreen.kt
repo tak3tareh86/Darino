@@ -269,8 +269,8 @@ fun LoanComparisonScreen(
                         )
                     }
                     val interestText = when {
-                        interestDiff > 0 -> "وام اول: \${CalculationResult.formatMoney(abs(interestDiff), AppCurrency.RIAL)} سود کمتر"
-                        interestDiff < 0 -> "وام دوم: \${CalculationResult.formatMoney(abs(interestDiff), AppCurrency.RIAL)} سود کمتر"
+                        interestDiff > 0 -> "وام اول: ${CalculationResult.formatMoney(abs(interestDiff), AppCurrency.RIAL)} سود کمتر"
+                        interestDiff < 0 -> "وام دوم: ${CalculationResult.formatMoney(abs(interestDiff), AppCurrency.RIAL)} سود کمتر"
                         else -> "سود کل دو وام برابر است"
                     }
                     Text(
@@ -333,7 +333,7 @@ private fun LoanComparisonCard(
             AnimatedVisibility(visible = isEditing) {
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Text(
-                        text = "مبلغ وام (\${MoneyFormatter.getUnitLabel(activeCurrency)})",
+                        text = "مبلغ وام (${MoneyFormatter.getUnitLabel(activeCurrency)})",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -374,7 +374,7 @@ private fun LoanComparisonCard(
                             val parsedAmount = IranianAmountUtils.parseAmountToBigDecimal(editAmount)
                                 ?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
                             val rate = IranianPhoneUtils.convertDigitsToEnglish(editInterest).replace(',', '.').toDoubleOrNull() ?: interestRate
-                            val duration = IranianPhoneUtils.convertDigitsToEnglish(editDuration).filter(Char::isDigit).toIntOrNull() ?: durationMonths
+                            val duration = IranianPhoneUtils.convertDigitsToEnglish(editDuration).filter { it.isDigit() }.toIntOrNull() ?: durationMonths
                             onSaveEdit(
                                 title,
                                 if (parsedAmount > 0L) parsedAmount else MoneyAmount.of(amount, amountUnit).asRialsLongExact(),
@@ -402,8 +402,8 @@ private fun LoanComparisonCard(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     CompactLoanValue("مبلغ وام", if (amount > 0L) CalculationResult.formatMoney(amount, amountUnit) else "—")
-                    CompactLoanValue("مدت بازپرداخت", if (durationMonths > 0) "\${IranianPhoneUtils.convertDigitsToPersian(durationMonths.toString())} ماه" else "—")
-                    CompactLoanValue("نرخ سود سالانه", if (interestRate > 0.0) "\${IranianPhoneUtils.convertDigitsToPersian(interestRate.toString())}٪" else "—")
+                    CompactLoanValue("مدت بازپرداخت", if (durationMonths > 0) "${IranianPhoneUtils.convertDigitsToPersian(durationMonths.toString())} ماه" else "—")
+                    CompactLoanValue("نرخ سود سالانه", if (interestRate > 0.0) "${IranianPhoneUtils.convertDigitsToPersian(interestRate.toString())}٪" else "—")
                 }
             }
         }
