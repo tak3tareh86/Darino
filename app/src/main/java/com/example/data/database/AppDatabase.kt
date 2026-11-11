@@ -615,10 +615,10 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        private val MIGRATION_43_44 = object : androidx.room.migration.Migration(43, 44) {
+        val MIGRATION_43_44 = object : androidx.room.migration.Migration(43, 44) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // Nullable recipient metadata keeps every existing transfer intact.
-                db.execSQL("ALTER TABLE transactions ADD COLUMN transferRecipientName TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN transferRecipientName TEXT")
             }
         }
 
