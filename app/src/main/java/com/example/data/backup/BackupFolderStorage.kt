@@ -34,12 +34,12 @@ object BackupFolderStorage {
             "مجوز نوشتن در پوشه انتخاب‌شده دریافت نشد."
         }
         context.contentResolver.takePersistableUriPermission(uri, accessFlags)
+        // Validate access before publishing the new destination in preferences.
+        listDocuments(context, uri)
         check(
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit().putString(KEY_FOLDER_URI, uri.toString()).commit()
         ) { "ذخیره پوشه پشتیبان ناموفق بود." }
-        // Validate the persisted folder immediately so an invalid selection is never reported as ready.
-        listDocuments(context, uri)
     }
 
     fun folderLabel(uri: Uri): String =
