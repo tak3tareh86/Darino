@@ -22,7 +22,7 @@ interface LoanCalculationDao {
     suspend fun insertCalculation(entity: LoanCalculationEntity)
 
     @Query("DELETE FROM loan_calculations WHERE userId = :userId AND id = :id")
-    suspend fun deleteCalculation(userId: String, id: String)
+    suspend fun deleteCalculation(userId: String, id: String): Int
 
     @Query("DELETE FROM loan_calculations WHERE userId = :userId")
     suspend fun clearAllCalculations(userId: String)
