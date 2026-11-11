@@ -44,7 +44,7 @@ class LoanCalculationPersistenceTest {
     }
 
     @Test
-    fun legacyRowsUseSafeHistoricalDefaults() {
+    fun legacyRowsUseExplicitFallbackDefaults() {
         val restored = LoanCalculationEntity(
             id = "legacy",
             title = "محاسبه قدیمی",
