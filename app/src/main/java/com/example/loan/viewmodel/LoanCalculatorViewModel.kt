@@ -248,22 +248,26 @@ class LoanCalculatorViewModel(
             totalInterest = res.totalInterest,
             realCostPercentage = res.realCostPercentage,
             createdAt = System.currentTimeMillis(),
-            amountUnit = AppCurrency.RIAL
+            amountUnit = AppCurrency.RIAL,
+            method = res.method,
+            interestPeriod = current.interestPeriod ?: InterestPeriod.ANNUAL
         )
 
         viewModelScope.launch {
-            repository.saveCalculation(calculation)
+            val saved = repository.saveCalculation(calculation)
             _state.update {
-                it.copy(successFeedbackMessage = "محاسبه با موفقیت ذخیره شد")
+                if (saved) it.copy(successFeedbackMessage = "محاسبه با موفقیت ذخیره شد", errorMessage = null)
+                else it.copy(errorMessage = "ذخیره محاسبه انجام نشد. وضعیت ورود و دسترسی به پایگاه داده را بررسی کنید.")
             }
         }
     }
 
     fun deleteCalculation(id: String) {
         viewModelScope.launch {
-            repository.deleteCalculation(id)
+            val deleted = repository.deleteCalculation(id)
             _state.update {
-                it.copy(successFeedbackMessage = "محاسبه حذف شد")
+                if (deleted) it.copy(successFeedbackMessage = "محاسبه حذف شد", errorMessage = null)
+                else it.copy(errorMessage = "حذف محاسبه انجام نشد یا رکوردی برای حذف پیدا نشد.")
             }
         }
     }
@@ -280,6 +284,8 @@ class LoanCalculatorViewModel(
                 durationInput = calculation.duration.toString(),
                 duration = calculation.duration,
                 durationType = calculation.durationType,
+                calculationType = calculation.method,
+                interestPeriod = calculation.interestPeriod,
                 errorMessage = null,
                 successFeedbackMessage = "اطلاعات وام بارگذاری شد"
             )

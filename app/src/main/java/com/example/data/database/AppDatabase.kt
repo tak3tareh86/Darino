@@ -31,7 +31,7 @@ import androidx.room.RoomDatabase
         UserPreferenceEntity::class,
         CheckEntity::class
     ],
-    version = 44,
+    version = 45,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -622,6 +622,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_44_45 = object : androidx.room.migration.Migration(44, 45) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Legacy rows did not persist these settings; assign explicit fallback values.
+                db.execSQL("ALTER TABLE loan_calculations ADD COLUMN calculationMethod TEXT NOT NULL DEFAULT 'ANNUITY'")
+                db.execSQL("ALTER TABLE loan_calculations ADD COLUMN interestPeriod TEXT NOT NULL DEFAULT 'ANNUAL'")
+            }
+        }
+
         private val MIGRATION_42_43 = object : androidx.room.migration.Migration(42, 43) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // Vehicle record IDs can be identical when the same portable backup is
@@ -713,7 +721,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
                          MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
                          MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30,
-                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44
+                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45
                      )
                     .build()
                 INSTANCE = instance
