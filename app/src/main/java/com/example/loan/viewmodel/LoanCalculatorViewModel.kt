@@ -305,7 +305,9 @@ class LoanCalculatorViewModel(
     private fun performComparison() {
         val l1 = _state.value.compLoan1Input
         val l2 = _state.value.compLoan2Input
-        val res = if (l1.amount > 0L && l2.amount > 0L && l1.durationMonths > 0 && l2.durationMonths > 0) {
+        val validLoan1 = l1.amount > 0L && l1.interestRate.isFinite() && l1.interestRate in 0.0..1000.0 && l1.durationMonths in 1..600
+        val validLoan2 = l2.amount > 0L && l2.interestRate.isFinite() && l2.interestRate in 0.0..1000.0 && l2.durationMonths in 1..600
+        val res = if (validLoan1 && validLoan2) {
             runCatching { engine.compareLoans(l1, l2) }.getOrNull()
         } else null
         _state.update { it.copy(comparisonResult = res) }
