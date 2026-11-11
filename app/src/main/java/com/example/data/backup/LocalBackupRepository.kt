@@ -812,7 +812,8 @@ class LocalBackupRepository(
                             sourceId = remappedSourceId,
                             accountId = remapAccountId(transaction.accountId),
                             transferSourceAccountId = remapAccountId(transaction.transferSourceAccountId),
-                            transferDestinationAccountId = remapAccountId(transaction.transferDestinationAccountId)
+                            transferDestinationAccountId = remapAccountId(transaction.transferDestinationAccountId),
+                            transferRecipientName = transaction.transferRecipientName
                         )
                     )
                 }
