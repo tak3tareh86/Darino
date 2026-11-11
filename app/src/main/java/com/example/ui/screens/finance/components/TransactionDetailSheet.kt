@@ -41,6 +41,7 @@ import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
+import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.RadiusMD
 
 @OptIn(ExperimentalMaterial3Api::class)
