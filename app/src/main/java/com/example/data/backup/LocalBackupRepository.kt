@@ -1002,6 +1002,7 @@ class LocalBackupRepository(
                                 scheduleId = newScheduleId
                             )
                         )
+                    }
                 }
 
                 if (backup.metadata.backupVersion >= 4) {
