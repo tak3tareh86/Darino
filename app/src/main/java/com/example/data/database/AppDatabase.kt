@@ -31,7 +31,7 @@ import androidx.room.RoomDatabase
         UserPreferenceEntity::class,
         CheckEntity::class
     ],
-    version = 43,
+    version = 44,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -615,6 +615,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_43_44 = object : androidx.room.migration.Migration(43, 44) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Nullable recipient metadata keeps every existing transfer intact.
+                db.execSQL("ALTER TABLE transactions ADD COLUMN transferRecipientName TEXT DEFAULT NULL")
+            }
+        }
+
         private val MIGRATION_42_43 = object : androidx.room.migration.Migration(42, 43) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // Vehicle record IDs can be identical when the same portable backup is
@@ -706,7 +713,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
                          MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
                          MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30,
-                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43
+                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44
                      )
                     .build()
                 INSTANCE = instance
