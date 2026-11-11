@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -177,8 +178,7 @@ fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit
                                     onClick = { repository.delete(rule.id); rules = repository.getAll() },
                                     modifier = Modifier.align(Alignment.TopEnd).size(30.dp)
                                 ) {
-                                    Icon(
-                                        Icons.Rounded.DeleteOutline,
+                                    Icon(                                        Icons.Rounded.DeleteOutline,
                                         contentDescription = "حذف",
                                         modifier = Modifier.size(17.dp),
                                         tint = MaterialTheme.colorScheme.error
@@ -357,8 +357,7 @@ private fun RuleEditorDialog(
     var numericSenders by remember(initial?.id) { mutableStateOf(initial?.numericSenderAddresses?.joinToString("\n").orEmpty()) }
     var income by remember(initial?.id) { mutableStateOf(initial?.incomeMarkers.orEmpty()) }
     var expense by remember(initial?.id) { mutableStateOf(initial?.expenseMarkers.orEmpty()) }
-    var transfer by remember(initial?.id) { mutableStateOf(initial?.transferMarkers.orEmpty()) }
-    var lookbackDays by remember(initial?.id) { mutableStateOf((initial?.lookbackMillis ?: 24L * 60L * 60L * 1000L).let { (it / (24L * 60L * 60L * 1000L)).toInt().coerceIn(1, 90) }) }
+    var transfer by remember(initial?.id) { mutableStateOf(initial?.transferMarkers.orEmpty()) }    var lookbackDays by remember(initial?.id) { mutableStateOf((initial?.lookbackMillis ?: 24L * 60L * 60L * 1000L).let { (it / (24L * 60L * 60L * 1000L)).toInt().coerceIn(1, 90) }) }
     var lookbackMenuExpanded by remember { mutableStateOf(false) }
     val textSenderList = textSenders.split(Regex("[,،\\n]")).map(String::trim).filter(String::isNotEmpty).distinct()
     val numericSenderList = numericSenders.split(Regex("[,،\\n]")).map(String::trim).filter(String::isNotEmpty).distinct()
@@ -537,8 +536,7 @@ private fun RuleEditorDialog(
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f)
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 12.dp),                            verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(11.dp)
                         ) {
                             Surface(
@@ -718,132 +716,3 @@ private fun SmsRulesGuide() {
                     tonalElevation = 2.dp,
                     shadowElevation = 1.dp
                 ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 14.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(7.dp)
-                    ) {
-                        Text(group.icon, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                        Text(
-                            group.shortTitle,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2
-                        )
-                    }
-                }
-            }
-        }
-
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("💡", style = MaterialTheme.typography.headlineSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("نکته مهم", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
-                    Text("اگر بیش از یک دسته نشانه در پیامک تطبیق پیدا کند، نوع تراکنش نیازمند تأیید کاربر خواهد بود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-    }
-
-    selectedGroup?.let { group ->
-        Dialog(onDismissRequest = { selectedGroup = null }) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 560.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 12.dp
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            group.title,
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        TextButton(onClick = { selectedGroup = null }) {
-                            Text("بستن")
-                        }
-                    }
-                    Column(
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        GuideRuleCard(
-                            icon = group.icon,
-                            title = group.title,
-                            bullets = group.bullets,
-                            examples = group.examples
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GuideRuleCard(icon: String, title: String, bullets: List<String>, examples: List<String>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(21.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Surface(shape = RoundedCornerShape(13.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-                    Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
-                        Text(icon, color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.titleLarge)
-                    }
-                }
-                Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-            }
-            bullets.forEach { line ->
-                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text("✓", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
-                    Text(line, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                examples.chunked(2).forEach { pair ->
-                    val correct = pair.firstOrNull()?.contains("صحیح") == true || pair.firstOrNull()?.contains("معادل") == true || pair.firstOrNull()?.contains("عددی") == true || pair.firstOrNull()?.contains("متنی") == true
-                    Surface(
-                        shape = RoundedCornerShape(13.dp),
-                        color = if (correct) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                (if (correct) "✓ " else "✕ ") + (pair.getOrNull(0) ?: ""),
-                                color = if (correct) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer,
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                            Text(
-                                pair.getOrNull(1).orEmpty(),
-                                color = if (correct) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
