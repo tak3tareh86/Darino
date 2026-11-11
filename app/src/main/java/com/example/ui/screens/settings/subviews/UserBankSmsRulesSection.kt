@@ -381,8 +381,82 @@ private fun RuleEditorDialog(
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        OutlinedTextField(value = bank, onValueChange = { bank = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نام بانک یا مؤسسه") }, singleLine = true)
-                        TextButton(onClick = { bankSearch = ""; showBankPicker = true }) { Text("انتخاب از فهرست بانک‌ها و مؤسسات") }
+                        OutlinedTextField(
+                            value = bank,
+                            onValueChange = { bank = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("نام بانک یا مؤسسه") },
+                            singleLine = true,
+                            trailingIcon = {
+                                androidx.compose.material3.IconButton(onClick = {
+                                    bankSearch = ""
+                                    showBankPicker = !showBankPicker
+                                }) {
+                                    Icon(Icons.Rounded.ArrowDropDown, contentDescription = "نمایش فهرست بانک‌ها")
+                                }
+                            }
+                        )
+                        DropdownMenu(
+                            expanded = showBankPicker,
+                            onDismissRequest = { showBankPicker = false },
+                            modifier = Modifier.width(320.dp).heightIn(max = 440.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = bankSearch,
+                                    onValueChange = { bankSearch = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    label = { Text("جست‌وجوی نام بانک") },
+                                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) }
+                                )
+                                val matchingBanks = BankCatalog.search(bankSearch)
+                                if (matchingBanks.isEmpty()) {
+                                    Text(
+                                        "بانکی با این نام پیدا نشد.",
+                                        modifier = Modifier.padding(8.dp),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().heightIn(max = 340.dp).verticalScroll(rememberScrollState()),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        matchingBanks.chunked(2).forEach { bankRow ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                bankRow.forEach { entry ->
+                                                    Surface(
+                                                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable {
+                                                            bank = entry.title
+                                                            showBankPicker = false
+                                                        },
+                                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                                        shape = RoundedCornerShape(10.dp)
+                                                    ) {
+                                                        Text(
+                                                            entry.title,
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+                                                            style = MaterialTheme.typography.labelMedium,
+                                                            textAlign = TextAlign.Center,
+                                                            maxLines = 2,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                }
+                                                if (bankRow.size == 1) Spacer(Modifier.weight(1f))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 item {
@@ -514,32 +588,6 @@ private fun RuleEditorDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
     )
-    if (showBankPicker) {
-        Dialog(onDismissRequest = { showBankPicker = false }) {
-            Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("فهرست بانک‌ها و مؤسسات", style = MaterialTheme.typography.titleLarge)
-                    OutlinedTextField(value = bankSearch, onValueChange = { bankSearch = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("جست‌وجوی نام بانک") })
-                    LazyColumn(modifier = Modifier.fillMaxWidth().height(420.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        items(BankCatalog.search(bankSearch), key = { it.id }) { entry ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { bank = entry.title; showBankPicker = false }.padding(horizontal = 8.dp, vertical = 9.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                BankLogo(name = entry.title)
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(entry.title, style = MaterialTheme.typography.bodyMedium)
-                                    Text(entry.group, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        }
-                    }
-                    TextButton(onClick = { showBankPicker = false }, modifier = Modifier.align(Alignment.End)) { Text("بستن") }
-                }
-            }
-        }
-    }
 }
 
 
