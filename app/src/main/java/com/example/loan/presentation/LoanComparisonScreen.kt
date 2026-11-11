@@ -347,28 +347,26 @@ private fun LoanComparisonCard(
                         placeholder = "مبلغ را وارد کنید",
                         showWordsPreview = false
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedTextField(
-                            value = editDuration,
-                            onValueChange = { editDuration = it },
-                            label = { Text("مدت بازپرداخت") },
-                            placeholder = { Text("ماه") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            shape = RoundedCornerShape(RadiusMD)
-                        )
-                        OutlinedTextField(
-                            value = editInterest,
-                            onValueChange = { editInterest = it },
-                            label = { Text("نرخ سود سالانه") },
-                            placeholder = { Text("درصد") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            shape = RoundedCornerShape(RadiusMD)
-                        )
-                    }
+                    OutlinedTextField(
+                        value = editInterest,
+                        onValueChange = { editInterest = it },
+                        label = { Text("نرخ سود سالانه") },
+                        placeholder = { Text("درصد") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(RadiusMD)
+                    )
+                    OutlinedTextField(
+                        value = editDuration,
+                        onValueChange = { editDuration = it },
+                        label = { Text("مدت بازپرداخت") },
+                        placeholder = { Text("ماه") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(RadiusMD)
+                    )
                     Button(
                         onClick = {
                             val parsedAmount = IranianAmountUtils.parseAmountToBigDecimal(editAmount)
