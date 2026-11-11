@@ -146,6 +146,7 @@ fun AddTransactionSheet(
         )
     }
     var description by remember { mutableStateOf(initialTransaction?.description ?: "") }
+    var transferRecipientName by remember { mutableStateOf(initialTransaction?.transferRecipientName.orEmpty()) }
     var tagsText by remember { mutableStateOf(initialTransaction?.tags?.joinToString("، ") ?: "") }
     val activeAccounts = remember(accounts) { accounts.filter { it.isActive } }
     var selectedAccount by remember(activeAccounts, initialTransaction) {
@@ -537,6 +538,21 @@ fun AddTransactionSheet(
 
 
 
+            if (selectedType == TransactionType.TRANSFER) {
+                OutlinedTextField(
+                    value = transferRecipientName,
+                    onValueChange = { transferRecipientName = it },
+                    label = { Text("کسی که پول را برایش انتقال دادیم (اختیاری)") },
+                    modifier = Modifier.fillMaxWidth().testTag("tx_transfer_recipient_input"),
+                    singleLine = true,
+                    shape = RoundedCornerShape(RadiusMD),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = InfoIndigoLight,
+                        unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.1f)
+                    )
+                )
+            }
+
             // Date & Time Row (Directly visible)
             val context = LocalContext.current
             Row(
@@ -725,6 +741,7 @@ fun AddTransactionSheet(
                         accountId = selectedAccount?.id,
                         transferSourceAccountId = if (selectedType == TransactionType.TRANSFER) selectedSourceAccount?.id else null,
                         transferDestinationAccountId = if (selectedType == TransactionType.TRANSFER) selectedDestinationAccount?.id else null,
+                        transferRecipientName = if (selectedType == TransactionType.TRANSFER) transferRecipientName.trim().takeIf { it.isNotEmpty() } else null,
                         sourceType = initialTransaction?.sourceType ?: TransactionSourceType.MANUAL,
                         sourceId = initialTransaction?.sourceId,
                         tags = tags,
