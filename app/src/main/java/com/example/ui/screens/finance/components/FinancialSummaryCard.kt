@@ -44,6 +44,7 @@ import com.example.util.MoneyFormatter
 
 @Composable
 fun FinancialSummaryCard(
+    title: String = "وضعیت مالی این ماه",
     formattedIncome: String,
     formattedExpense: String,
     formattedBalance: String,
@@ -105,7 +106,7 @@ fun FinancialSummaryCard(
                         }
 
                         Text(
-                            text = "وضعیت مالی این ماه",
+                            text = title,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
@@ -146,7 +147,7 @@ fun FinancialSummaryCard(
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
-                        text = "مانده پس‌انداز و نقدینگی",
+                        text = "مانده عملکرد مالی ماه",
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                         color = secondaryTextColor
                     )
