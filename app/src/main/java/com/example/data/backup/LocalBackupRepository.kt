@@ -150,6 +150,7 @@ class LocalBackupRepository(
     }
 
     companion object {
+        private const val TAG = "LocalBackupRepository"
         private val restoreRecoveryMutex = kotlinx.coroutines.sync.Mutex()
         private const val MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
         private const val MAX_TOTAL_ATTACHMENT_BYTES = 30 * 1024 * 1024
