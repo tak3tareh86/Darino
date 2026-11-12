@@ -40,6 +40,13 @@ class FinancialViewModel(
     private val _selectedPeriod = MutableStateFlow(FinanceFilterPeriod.THIS_MONTH)
     val selectedPeriod: StateFlow<FinanceFilterPeriod> = _selectedPeriod
 
+    // Independent clock signal for the current Jalali-month summary card.
+    private val _monthRefreshTime = MutableStateFlow(System.currentTimeMillis())
+
+    fun refreshMonthSummary() {
+        _monthRefreshTime.value = System.currentTimeMillis()
+    }
+
     val uiState: StateFlow<FinancialState> = combine(
         listOf(
             repository.getTransactions(),
@@ -49,6 +56,7 @@ class FinancialViewModel(
             repository.getCategories(),
             repository.getAccounts(),
             _selectedPeriod,
+            _monthRefreshTime,
             MoneyFormatter.activeCurrencyFlow
         )
     ) { args ->
@@ -65,13 +73,27 @@ class FinancialViewModel(
         @Suppress("UNCHECKED_CAST")
         val accounts = args[5] as List<com.example.ui.screens.finance.model.Account>
         val period = args[6] as FinanceFilterPeriod
-        val currency = args[7] as com.example.ui.screens.settings.model.AppCurrency
+        val monthNow = args[7] as Long
+        val currency = args[8] as com.example.ui.screens.settings.model.AppCurrency
 
         val range = com.example.ui.screens.finance.domain.FinanceTimeUtils.getTimeRangeForPeriod(period)
         
         val filteredTransactions = transactions.filter { 
             it.dateMillis >= range.startMillis && it.dateMillis < range.endMillis 
         }
+
+        // The summary card always represents the current Jalali month,
+        // regardless of the page-level transaction filter selected by the user.
+        val currentMonthRange = com.example.ui.screens.finance.domain.FinanceTimeUtils
+            .getTimeRangeForPeriod(FinanceFilterPeriod.THIS_MONTH, monthNow)
+        val currentMonthTransactions = transactions.filter {
+            it.dateMillis >= currentMonthRange.startMillis && it.dateMillis < currentMonthRange.endMillis
+        }
+        val currentMonthIncome = FinanceEngine.calculateMonthlyIncome(currentMonthTransactions)
+        val currentMonthExpense = FinanceEngine.calculateMonthlyExpense(currentMonthTransactions)
+        val currentMonthBalance = FinanceEngine.calculateMonthlyBalance(currentMonthIncome, currentMonthExpense)
+        val currentMonthSavingsRate = FinanceEngine.calculateSavingsRate(currentMonthIncome, currentMonthExpense)
+        val currentMonthName = com.example.util.PersianCalendarHelper.fromEpochMillis(monthNow).monthName
 
         // Calculate real balances for all accounts (unrestricted by period)
         val accountBalances = accounts.associate { acc ->
@@ -112,7 +134,18 @@ class FinancialViewModel(
             savingsRate = savingsRate,
             formattedIncome = MoneyFormatter.formatExact(MoneyAmount.of(income, AppCurrency.RIAL), targetCurrency = currency).let { if (it.startsWith("−")) it else "+$it" },
             formattedExpense = MoneyFormatter.formatExact(MoneyAmount.of(expense, AppCurrency.RIAL), targetCurrency = currency).let { if (it.startsWith("−")) it else "−$it" },
-            formattedBalance = MoneyFormatter.formatExact(MoneyAmount.of(totalRealBalance, AppCurrency.RIAL), targetCurrency = currency), // Show total real balance in summary card? User said current balance shouldn't be restricted.
+            formattedBalance = MoneyFormatter.formatExact(MoneyAmount.of(totalRealBalance, AppCurrency.RIAL), targetCurrency = currency),
+            currentMonthName = currentMonthName,
+            currentMonthFormattedIncome = MoneyFormatter.formatExact(
+                MoneyAmount.of(currentMonthIncome, AppCurrency.RIAL), targetCurrency = currency
+            ).let { if (it.startsWith("−")) it else "+$it" },
+            currentMonthFormattedExpense = MoneyFormatter.formatExact(
+                MoneyAmount.of(currentMonthExpense, AppCurrency.RIAL), targetCurrency = currency
+            ).let { if (it.startsWith("−")) it else "−$it" },
+            currentMonthFormattedBalance = MoneyFormatter.formatExact(
+                MoneyAmount.of(currentMonthBalance, AppCurrency.RIAL), targetCurrency = currency
+            ).let { if (currentMonthBalance > 0L && !it.startsWith("+")) "+$it" else it },
+            currentMonthSavingsRate = currentMonthSavingsRate,
             monthlyBudget = budgetSummary.totalBudget,
             budgetUsed = budgetSummary.totalSpent,
             budgetRemaining = budgetSummary.remainingBudget,
