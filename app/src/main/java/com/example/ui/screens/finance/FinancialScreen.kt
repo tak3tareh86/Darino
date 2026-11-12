@@ -196,7 +196,10 @@ fun FinancialScreen(
                             formattedExpense = state.currentMonthFormattedExpense,
                             formattedBalance = state.currentMonthFormattedBalance,
                             savingsRate = state.currentMonthSavingsRate,
-                            onCardClick = { navigateToSubScreen(FinanceSubScreen.ALL_TRANSACTIONS) }
+                            onCardClick = {
+                                viewModel.setPeriod(FinanceFilterPeriod.THIS_MONTH)
+                                navigateToSubScreen(FinanceSubScreen.ALL_TRANSACTIONS)
+                            }
                         )
 
                         // 2. Monthly Budget Card (Total, Spent, Remaining, Progress, Status)
