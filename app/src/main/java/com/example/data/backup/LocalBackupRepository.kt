@@ -97,22 +97,40 @@ class LocalBackupRepository(
                 return@forEach
             }
 
-            // Once a stream is successfully opened, real read/size failures remain fatal:
-            // never silently create a truncated or incomplete attachment payload.
-            val bytes = input.use { stream ->
-                val output = ByteArrayOutputStream()
-                val buffer = ByteArray(8 * 1024)
-                var size = 0
-                while (true) {
-                    val read = stream.read(buffer)
-                    if (read == -1) break
-                    size += read
-                    require(size <= MAX_ATTACHMENT_BYTES) {
-                        "حجم یکی از فایل‌های پیوست از حد مجاز بیشتر است."
+            // A provider can revoke access or fail while the stream is being read,
+            // even after openInputStream succeeds. Never keep partially-read bytes.
+            // Size-limit violations remain fatal so we do not silently omit large files.
+            val bytes = try {
+                input.use { stream ->
+                    val output = ByteArrayOutputStream()
+                    val buffer = ByteArray(8 * 1024)
+                    var size = 0
+                    while (true) {
+                        val read = stream.read(buffer)
+                        if (read == -1) break
+                        size += read
+                        require(size <= MAX_ATTACHMENT_BYTES) {
+                            "حجم یکی از فایل‌های پیوست از حد مجاز بیشتر است."
+                        }
+                        output.write(buffer, 0, read)
                     }
-                    output.write(buffer, 0, read)
+                    output.toByteArray()
                 }
-                output.toByteArray()
+            } catch (error: IllegalArgumentException) {
+                // Includes the explicit per-file size limit above; surface it to the user.
+                throw error
+            } catch (error: Exception) {
+                skippedCount++
+                Log.w(TAG, "Receipt attachment became unreadable while copying; continuing backup without partial data", error)
+                null
+            }
+
+            if (bytes == null || bytes.isEmpty()) {
+                if (bytes != null) {
+                    skippedCount++
+                    Log.w(TAG, "Skipping an empty receipt attachment; continuing backup")
+                }
+                return@forEach
             }
 
             totalBytes += bytes.size
