@@ -97,6 +97,21 @@ class FinancialViewModel(
         val currentMonthSavingsRate = FinanceEngine.calculateSavingsRate(currentMonthIncome, currentMonthExpense)
         val currentMonthName = com.example.util.PersianCalendarHelper.fromEpochMillis(monthNow).monthName
 
+        // The annual summary is independent of the page-level filter and covers
+        // the current Jalali year from Farvardin 1 through the current instant.
+        val currentYearRange = com.example.ui.screens.finance.domain.FinanceTimeUtils
+            .getTimeRangeForPeriod(FinanceFilterPeriod.THIS_YEAR, monthNow)
+        val currentYearEnd = minOf(currentYearRange.endMillis, monthNow)
+        val currentYearTransactions = transactions.filter {
+            it.dateMillis >= currentYearRange.startMillis && it.dateMillis < currentYearEnd
+        }
+        val currentYearIncome = FinanceEngine.calculateMonthlyIncome(currentYearTransactions)
+        val currentYearExpense = FinanceEngine.calculateMonthlyExpense(currentYearTransactions)
+        val currentYearBalance = FinanceEngine.calculateMonthlyBalance(currentYearIncome, currentYearExpense)
+        val currentYearSavingsRate = FinanceEngine.calculateSavingsRate(currentYearIncome, currentYearExpense)
+        val currentYearName = com.example.util.PersianCalendarHelper.fromEpochMillis(monthNow).year
+            .toString().let { MoneyFormatter.toPersianDigits(it) }
+
         // Calculate real balances for all accounts (unrestricted by period)
         val accountBalances = accounts.associate { acc ->
             var balance = MoneyAmount.of(acc.initialBalance, acc.initialBalanceUnit).asRialsLongExact()
@@ -148,6 +163,17 @@ class FinancialViewModel(
                 MoneyAmount.of(currentMonthBalance, AppCurrency.RIAL), targetCurrency = currency
             ).let { if (currentMonthBalance > 0L && !it.startsWith("+")) "+$it" else it },
             currentMonthSavingsRate = currentMonthSavingsRate,
+            currentYear = currentYearName,
+            currentYearFormattedIncome = MoneyFormatter.formatExact(
+                MoneyAmount.of(currentYearIncome, AppCurrency.RIAL), targetCurrency = currency
+            ).let { if (it.startsWith("−")) it else "+$it" },
+            currentYearFormattedExpense = MoneyFormatter.formatExact(
+                MoneyAmount.of(currentYearExpense, AppCurrency.RIAL), targetCurrency = currency
+            ).let { if (it.startsWith("−")) it else "−$it" },
+            currentYearFormattedBalance = MoneyFormatter.formatExact(
+                MoneyAmount.of(currentYearBalance, AppCurrency.RIAL), targetCurrency = currency
+            ).let { if (currentYearBalance > 0L && !it.startsWith("+")) "+$it" else it },
+            currentYearSavingsRate = currentYearSavingsRate,
             monthlyBudget = budgetSummary.totalBudget,
             budgetUsed = budgetSummary.totalSpent,
             budgetRemaining = budgetSummary.remainingBudget,
