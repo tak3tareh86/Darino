@@ -348,7 +348,7 @@ class LocalBackupRepository(
                 appSettings = appSettings,
                 notificationLogs = notificationLogs,
                 smsLogs = smsLogs,
-                vehicleStore = vehicleStore?.copy(expensesJson = sanitizeLegacyExpenseJson(vehicleStore.expensesJson)),
+                vehicleStore = vehicleStore?.copy(expensesJson = sanitizeLegacyExpenseJson(vehicleStore.expensesJson).orEmpty()),
                 reminderDeliveryLogs = reminderDeliveryLogs,
                 legacyReminders = legacyReminders,
                 legacyReminderSchedules = legacyReminderSchedules,
