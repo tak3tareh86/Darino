@@ -47,7 +47,6 @@ import com.example.ui.screens.finance.components.FinancialFilterSheet
 import com.example.ui.screens.finance.components.FinancialHeader
 import com.example.ui.screens.finance.components.FinancialQuickActions
 import com.example.ui.screens.finance.components.FinancialSummaryCard
-import com.example.ui.screens.finance.components.MonthlyBudgetCard
 import com.example.ui.screens.finance.components.TransferSheet
 import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionType
@@ -196,20 +195,27 @@ fun FinancialScreen(
                             formattedExpense = state.currentMonthFormattedExpense,
                             formattedBalance = state.currentMonthFormattedBalance,
                             savingsRate = state.currentMonthSavingsRate,
+                            balanceLabel = "مانده عملکرد مالی ماه",
+                            cardTestTag = "monthly_financial_status_card",
                             onCardClick = {
                                 viewModel.setPeriod(FinanceFilterPeriod.THIS_MONTH)
                                 navigateToSubScreen(FinanceSubScreen.ALL_TRANSACTIONS)
                             }
                         )
 
-                        // 2. Monthly Budget Card (Total, Spent, Remaining, Progress, Status)
-                        MonthlyBudgetCard(
-                            totalBudgetFormatted = state.formattedMonthlyBudget,
-                            spentFormatted = state.formattedBudgetUsed,
-                            remainingFormatted = state.formattedBudgetRemaining,
-                            usagePercentage = state.budgetProgress,
-                            status = state.budgetStatus,
-                            onCardClick = { navigateToSubScreen(FinanceSubScreen.BUDGETS) }
+                        // 2. Current Jalali Year Financial Status Card
+                        FinancialSummaryCard(
+                            title = "وضعیت مالی سال ${state.currentYear}",
+                            formattedIncome = state.currentYearFormattedIncome,
+                            formattedExpense = state.currentYearFormattedExpense,
+                            formattedBalance = state.currentYearFormattedBalance,
+                            savingsRate = state.currentYearSavingsRate,
+                            balanceLabel = "مانده عملکرد مالی سال",
+                            cardTestTag = "current_year_financial_status_card",
+                            onCardClick = {
+                                viewModel.setPeriod(FinanceFilterPeriod.THIS_YEAR)
+                                navigateToSubScreen(FinanceSubScreen.ALL_TRANSACTIONS)
+                            }
                         )
 
                         // 3. Quick Actions: ثبت هزینه، ثبت درآمد، انتقال
