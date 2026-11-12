@@ -101,7 +101,17 @@ object BackupFolderStorage {
             val finalUri = DocumentsContract.renameDocument(resolver, temporaryUri, filename)
                 ?: throw IOException("پوشه انتخاب‌شده امکان نهایی‌کردن نام فایل پشتیبان را ندارد.")
             if (retentionPrefix != null && keepCount != null) {
-                pruneBackups(context, treeUri, retentionPrefix, keepCount)
+                // Retention is best-effort: a listing/provider failure must never turn a
+                // verified and renamed backup into a failed save or delete the new file.
+                runCatching {
+                    pruneBackups(context, treeUri, retentionPrefix, keepCount)
+                }.onFailure { error ->
+                    android.util.Log.w(
+                        "BackupFolderStorage",
+                        "Backup was saved, but retention cleanup failed.",
+                        error
+                    )
+                }
             }
             return finalUri
         } catch (error: Exception) {
