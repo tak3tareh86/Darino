@@ -1046,7 +1046,7 @@ class LocalBackupRepository(
                 throw e
             }
             if (mode == RestoreMode.REPLACE) {
-                // Keep the journal until preferences, Room, attachments, repositories,
+                // Keep the journal until preferences, Room, repositories,
                 // and OS schedulers have all been reconciled.
                 val journal = restoreJournalFile(userId)
                 check(!journal.exists() || journal.delete()) {
