@@ -2,8 +2,6 @@ package com.example.data.backup
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.net.Uri
-import android.util.Base64
 import android.util.Log
 import androidx.room.withTransaction
 import com.example.data.database.AppDatabase
@@ -15,7 +13,6 @@ import kotlinx.coroutines.sync.withLock
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.security.MessageDigest
 
 class LocalBackupRepository(
     private val context: Context
@@ -29,148 +26,9 @@ class LocalBackupRepository(
             ?: throw IllegalStateException("Authenticated user is required")
     }
 
-    /**
-     * Captures receipt files without allowing one stale/revoked SAF URI to abort the
-     * complete backup. Manual, daily and weekly backups all use this same code path.
-     *
-     * A URI returned by ACTION_OPEN_DOCUMENT is a document URI and can be opened.
-     * A URI returned by ACTION_OPEN_DOCUMENT_TREE is a directory URI, not a file;
-     * passing it to openInputStream causes provider-specific "Invalid URI" errors.
-     */
-    private fun captureAttachments(
-        expenses: List<com.example.data.database.VehicleExpenseRoomEntity>,
-        legacyExpensesJson: String?
-    ): List<BackupAttachment> {
-        val receiptUris = expenses.mapNotNull {
-            it.receiptImageUri?.takeIf(String::isNotBlank)
-        }.toMutableList()
-
-        if (!legacyExpensesJson.isNullOrBlank()) {
-            // A malformed legacy JSON snapshot must not block a current database backup.
-            runCatching {
-                val legacyArray = org.json.JSONArray(legacyExpensesJson)
-                for (index in 0 until legacyArray.length()) {
-                    val rawUri = legacyArray.optJSONObject(index)
-                        ?.optString("receiptImageUri")
-                        ?.takeIf { it.isNotBlank() && it != "null" }
-                    if (rawUri != null) receiptUris.add(rawUri)
-                }
-            }.onFailure {
-                Log.w(TAG, "Ignoring malformed legacy vehicle-expenses JSON while capturing backup attachments", it)
-            }
-        }
-
-        val uniqueUris = receiptUris.distinct()
-        val attachments = mutableListOf<BackupAttachment>()
-        var totalBytes = 0L
-        var skippedCount = 0
-
-        uniqueUris.forEach { rawUri ->
-            val uri = runCatching { Uri.parse(rawUri) }.getOrNull()
-            if (uri == null) {
-                skippedCount++
-                return@forEach
-            }
-
-            // SAF tree URIs identify folders. They are never valid image-file streams.
-            // Skip the broken attachment, but preserve the associated expense record.
-            if (uri.scheme != null && android.provider.DocumentsContract.isTreeUri(uri)) {
-                skippedCount++
-                Log.w(TAG, "Skipping receipt attachment: stored URI points to a SAF folder, not a file")
-                return@forEach
-            }
-
-            val input = try {
-                if (uri.scheme.isNullOrBlank()) {
-                    File(rawUri).takeIf { it.isFile }?.inputStream()
-                } else {
-                    context.contentResolver.openInputStream(uri)
-                }
-            } catch (error: Exception) {
-                Log.w(TAG, "Skipping an unreadable receipt attachment; continuing backup", error)
-                null
-            }
-
-            if (input == null) {
-                skippedCount++
-                Log.w(TAG, "Skipping a missing or inaccessible receipt attachment; continuing backup")
-                return@forEach
-            }
-
-            // A provider can revoke access or fail while the stream is being read,
-            // even after openInputStream succeeds. Never keep partially-read bytes.
-            // Size-limit violations remain fatal so we do not silently omit large files.
-            val bytes = try {
-                input.use { stream ->
-                    val output = ByteArrayOutputStream()
-                    val buffer = ByteArray(8 * 1024)
-                    var size = 0
-                    while (true) {
-                        val read = stream.read(buffer)
-                        if (read == -1) break
-                        size += read
-                        require(size <= MAX_ATTACHMENT_BYTES) {
-                            "حجم یکی از فایل‌های پیوست از حد مجاز بیشتر است."
-                        }
-                        output.write(buffer, 0, read)
-                    }
-                    output.toByteArray()
-                }
-            } catch (error: IllegalArgumentException) {
-                // Includes the explicit per-file size limit above; surface it to the user.
-                throw error
-            } catch (error: Exception) {
-                skippedCount++
-                Log.w(TAG, "Receipt attachment became unreadable while copying; continuing backup without partial data", error)
-                null
-            }
-
-            if (bytes == null || bytes.isEmpty()) {
-                if (bytes != null) {
-                    skippedCount++
-                    Log.w(TAG, "Skipping an empty receipt attachment; continuing backup")
-                }
-                return@forEach
-            }
-
-            totalBytes += bytes.size
-            require(totalBytes <= MAX_TOTAL_ATTACHMENT_BYTES) {
-                "حجم کل فایل‌های پیوست برای پشتیبان‌گیری بیش از حد مجاز است."
-            }
-
-            val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
-                .joinToString("") { "%02x".format(it) }
-            val rawName = uri.lastPathSegment?.substringAfterLast('/')?.takeIf(String::isNotBlank)
-                ?: "receipt-$digest.bin"
-            val safeName = rawName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(120)
-            val mediaType = runCatching { context.contentResolver.getType(uri) }.getOrNull()
-                ?: "application/octet-stream"
-
-            attachments.add(
-                BackupAttachment(
-                    originalUri = rawUri,
-                    fileName = safeName,
-                    mediaType = mediaType,
-                    sha256 = digest,
-                    base64Data = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                )
-            )
-        }
-
-        if (skippedCount > 0) {
-            Log.w(
-                TAG,
-                "Backup captured ${attachments.size} receipt attachment(s); ${skippedCount} inaccessible or invalid attachment(s) were omitted. Expense records remain included."
-            )
-        }
-        return attachments
-    }
-
     companion object {
         private const val TAG = "LocalBackupRepository"
         private val restoreRecoveryMutex = kotlinx.coroutines.sync.Mutex()
-        private const val MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
-        private const val MAX_TOTAL_ATTACHMENT_BYTES = 30 * 1024 * 1024
         private const val MAX_BACKUP_JSON_BYTES = 64L * 1024 * 1024
         // Matches the portable backup payload ceiling, with room for device-encryption framing.
         private const val MAX_LOCAL_BACKUP_FILE_BYTES = MAX_BACKUP_JSON_BYTES + 1024L
@@ -199,56 +57,6 @@ class LocalBackupRepository(
         }
         require(output.size() > 0) { "فایل پشتیبان محلی خالی است." }
         return output.toByteArray()
-    }
-
-    private data class RestoredAttachments(
-        val uriMap: Map<String, String>,
-        val createdFiles: List<File>
-    )
-
-    private fun restoreAttachments(attachments: List<BackupAttachment>): RestoredAttachments {
-        if (attachments.isEmpty()) return RestoredAttachments(emptyMap(), emptyList())
-        val directory = File(context.filesDir, "backup_attachments")
-        check(directory.exists() || directory.mkdirs()) { "ساخت پوشه فایل‌های پیوست ناموفق بود." }
-        val uriMap = linkedMapOf<String, String>()
-        val createdFiles = mutableListOf<File>()
-        try {
-            attachments.forEach { attachment ->
-                val bytes = Base64.decode(attachment.base64Data, Base64.DEFAULT)
-                val extension = attachment.fileName.substringAfterLast('.', "bin")
-                    .lowercase().filter { it.isLetterOrDigit() }.take(8).ifBlank { "bin" }
-                val destination = File(directory, "${attachment.sha256}.$extension")
-                val existingHash = if (destination.isFile) {
-                    MessageDigest.getInstance("SHA-256").digest(destination.readBytes())
-                        .joinToString("") { "%02x".format(it) }
-                } else null
-                if (existingHash != attachment.sha256) {
-                    val temporary = File(directory, "${destination.name}.tmp")
-                    FileOutputStream(temporary).use { stream ->
-                        stream.write(bytes)
-                        stream.fd.sync()
-                    }
-                    try {
-                        // Atomic same-filesystem replacement: a crash cannot leave a half-written receipt.
-                        android.system.Os.rename(temporary.absolutePath, destination.absolutePath)
-                    } catch (error: Exception) {
-                        temporary.delete()
-                        throw IllegalStateException("ذخیره فایل پیوست بازیابی‌شده ناموفق بود.", error)
-                    }
-                    createdFiles.add(destination)
-                }
-                val contentUri = androidx.core.content.FileProvider.getUriForFile(
-                    context,
-                    "com.example.fileprovider",
-                    destination
-                ).toString()
-                uriMap[attachment.originalUri] = contentUri
-            }
-            return RestoredAttachments(uriMap, createdFiles)
-        } catch (error: Exception) {
-            createdFiles.forEach { it.delete() }
-            throw error
-        }
     }
 
     private suspend fun writeEmergencyBackup() {
@@ -362,13 +170,13 @@ class LocalBackupRepository(
 
     /**
      * Keeps legacy-only vehicle JSON records while dropping only records already restored
-     * from structured Room tables. Child references and receipt URIs are remapped exactly.
+     * from structured Room tables. Legacy receipt URIs are intentionally discarded:
+     * Darino no longer supports file or image attachments.
      */
     private fun remapLegacyVehicleCollection(
         rawJson: String,
         structuredIds: Set<String>,
-        vehicleIdMap: Map<String, String>,
-        attachmentUriMap: Map<String, String> = emptyMap()
+        vehicleIdMap: Map<String, String>
     ): String {
         if (rawJson.isBlank()) return "[]"
         return runCatching {
@@ -383,10 +191,7 @@ class LocalBackupRepository(
                     val oldVehicleId = item.optString("vehicleId")
                     item.put("vehicleId", vehicleIdMap[oldVehicleId] ?: oldVehicleId)
                 }
-                if (item.has("receiptImageUri") && !item.isNull("receiptImageUri")) {
-                    val oldUri = item.optString("receiptImageUri")
-                    item.put("receiptImageUri", attachmentUriMap[oldUri] ?: oldUri)
-                }
+                item.remove("receiptImageUri")
                 result.put(item)
             }
             result.toString()
@@ -531,7 +336,7 @@ class LocalBackupRepository(
                 installmentPayments = payments,
                 vehicles = vehicles,
                 vehicleServices = services,
-                vehicleExpenses = expenses,
+                vehicleExpenses = expenses.map { it.copy(receiptImageUri = null) },
                 vehicleInsurances = insurances,
                 vehicleInspections = inspections,
                 reminders = reminders,
@@ -543,7 +348,7 @@ class LocalBackupRepository(
                 appSettings = appSettings,
                 notificationLogs = notificationLogs,
                 smsLogs = smsLogs,
-                vehicleStore = vehicleStore,
+                vehicleStore = vehicleStore?.copy(expensesJson = sanitizeLegacyExpenseJson(vehicleStore.expensesJson)),
                 reminderDeliveryLogs = reminderDeliveryLogs,
                 legacyReminders = legacyReminders,
                 legacyReminderSchedules = legacyReminderSchedules,
@@ -556,14 +361,20 @@ class LocalBackupRepository(
             }
             // File I/O is deliberately outside the SQLite transaction to avoid holding
             // database write locks while large receipt images are read.
-            val attachments = captureAttachments(snapshot.vehicleExpenses, snapshot.vehicleStore?.expensesJson)
-            BackupValidator.withChecksum(
-                snapshot.copy(
-                    metadata = snapshot.metadata.copy(recordCount = snapshot.metadata.recordCount + attachments.size),
-                    attachments = attachments
-                )
-            )
+            // New backups contain data records only; legacy receipt URI fields are excluded.
+            BackupValidator.withChecksum(snapshot)
         }
+
+    private fun sanitizeLegacyExpenseJson(rawJson: String?): String? {
+        if (rawJson.isNullOrBlank()) return rawJson
+        return runCatching {
+            val expenses = org.json.JSONArray(rawJson)
+            for (index in 0 until expenses.length()) {
+                expenses.optJSONObject(index)?.remove("receiptImageUri")
+            }
+            expenses.toString()
+        }.getOrDefault(rawJson)
+    }
 
     private fun restoreJournalFile(userId: String): File =
         File(File(context.filesDir, "restore_recovery").apply { mkdirs() },
@@ -673,7 +484,6 @@ class LocalBackupRepository(
                 // Durable encrypted redo record for stores that cannot share a transaction.
                 persistRestoreJournal(backup, userId)
             }
-            val restoredAttachments = restoreAttachments(backup.attachments)
             val generalPrefs = context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
             val backupPrefs = context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
             val generalPrefsSnapshot = generalPrefs.all
@@ -721,10 +531,7 @@ class LocalBackupRepository(
                             .putBoolean("auto_backup_weekly", weeklyEnabled)
                             .commit()
                     ) { "ذخیره تنظیمات پشتیبان‌گیری بازیابی‌شده ناموفق بود." }
-                    if (dailyEnabled) WeeklyBackupWorker.enqueueDaily(context)
-                    else WeeklyBackupWorker.cancelDaily(context)
-                    if (weeklyEnabled) WeeklyBackupWorker.enqueueWeekly(context)
-                    else WeeklyBackupWorker.cancelWeekly(context)
+                    // WorkManager is reconciled only after the Room replacement commits.
                 } ?: run {
                     // Legacy backup formats did not contain app preferences. Reset these
                     // to application defaults instead of leaking settings from the newer state.
@@ -755,8 +562,7 @@ class LocalBackupRepository(
                             .putBoolean("auto_backup_weekly", false)
                             .commit()
                     ) { "بازنشانی تنظیمات پشتیبان‌گیری ناموفق بود." }
-                    WeeklyBackupWorker.cancelDaily(context)
-                    WeeklyBackupWorker.cancelWeekly(context)
+                    // Keep existing scheduled work untouched until the restore transaction commits.
                 }
 
                 val userSuffix = "_$userId"
@@ -953,9 +759,7 @@ class LocalBackupRepository(
                             it.copy(
                                 userId = userId,
                                 vehicleId = remapVehicleId(it.vehicleId),
-                                receiptImageUri = it.receiptImageUri?.let { oldUri ->
-                                    restoredAttachments.uriMap[oldUri] ?: oldUri
-                                }
+                                receiptImageUri = null
                             )
                         }
                     )
@@ -1059,8 +863,7 @@ class LocalBackupRepository(
                             expensesJson = remapLegacyVehicleCollection(
                                 store.expensesJson,
                                 backup.vehicleExpenses.map { it.id }.toSet(),
-                                restoredVehicleIds,
-                                restoredAttachments.uriMap
+                                restoredVehicleIds
                             ),
                             insurancesJson = remapLegacyVehicleCollection(
                                 store.insurancesJson,
@@ -1150,7 +953,6 @@ class LocalBackupRepository(
                         userId
                     )
                 }.exceptionOrNull()?.let(error::addSuppressed)
-                restoredAttachments.createdFiles.forEach { it.delete() }
                 throw error
             }
 
@@ -1208,6 +1010,10 @@ class LocalBackupRepository(
                 appPreferences.setVehicleReminderKilometers(0)
                 appPreferences.setCleanSlatePerformed(false)
             }
+
+            // WorkManager state is device-local and cannot be rolled back with SharedPreferences.
+            // Reconcile it only after the Room transaction and preference writes have committed.
+            WeeklyBackupWorker.syncAutomaticBackups(context)
 
             // AlarmManager is outside the Room transaction: cancel old registrations only
             // after the database replacement commits, then rebuild from the restored rows.
