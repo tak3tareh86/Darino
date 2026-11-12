@@ -29,55 +29,124 @@ class LocalBackupRepository(
             ?: throw IllegalStateException("Authenticated user is required")
     }
 
+    /**
+     * Captures receipt files without allowing one stale/revoked SAF URI to abort the
+     * complete backup. Manual, daily and weekly backups all use this same code path.
+     *
+     * A URI returned by ACTION_OPEN_DOCUMENT is a document URI and can be opened.
+     * A URI returned by ACTION_OPEN_DOCUMENT_TREE is a directory URI, not a file;
+     * passing it to openInputStream causes provider-specific "Invalid URI" errors.
+     */
     private fun captureAttachments(
         expenses: List<com.example.data.database.VehicleExpenseRoomEntity>,
         legacyExpensesJson: String?
     ): List<BackupAttachment> {
-        val receiptUris = expenses.mapNotNull { it.receiptImageUri?.takeIf(String::isNotBlank) }.toMutableList()
+        val receiptUris = expenses.mapNotNull {
+            it.receiptImageUri?.takeIf(String::isNotBlank)
+        }.toMutableList()
+
         if (!legacyExpensesJson.isNullOrBlank()) {
-            val legacyArray = org.json.JSONArray(legacyExpensesJson)
-            for (index in 0 until legacyArray.length()) {
-                val rawUri = legacyArray.optJSONObject(index)?.optString("receiptImageUri")
-                    ?.takeIf { it.isNotBlank() && it != "null" }
-                if (rawUri != null) receiptUris.add(rawUri)
+            // A malformed legacy JSON snapshot must not block a current database backup.
+            runCatching {
+                val legacyArray = org.json.JSONArray(legacyExpensesJson)
+                for (index in 0 until legacyArray.length()) {
+                    val rawUri = legacyArray.optJSONObject(index)
+                        ?.optString("receiptImageUri")
+                        ?.takeIf { it.isNotBlank() && it != "null" }
+                    if (rawUri != null) receiptUris.add(rawUri)
+                }
+            }.onFailure {
+                Log.w(TAG, "Ignoring malformed legacy vehicle-expenses JSON while capturing backup attachments", it)
             }
         }
+
         val uniqueUris = receiptUris.distinct()
+        val attachments = mutableListOf<BackupAttachment>()
         var totalBytes = 0L
-        return uniqueUris.map { rawUri ->
-            val uri = Uri.parse(rawUri)
-            val input = if (uri.scheme == null) {
-                File(rawUri).takeIf { it.isFile }?.inputStream()
-            } else {
-                context.contentResolver.openInputStream(uri)
-            } ?: throw IllegalStateException("فایل پیوست رسید قابل خواندن نیست: $rawUri")
+        var skippedCount = 0
+
+        uniqueUris.forEach { rawUri ->
+            val uri = runCatching { Uri.parse(rawUri) }.getOrNull()
+            if (uri == null) {
+                skippedCount++
+                return@forEach
+            }
+
+            // SAF tree URIs identify folders. They are never valid image-file streams.
+            // Skip the broken attachment, but preserve the associated expense record.
+            if (uri.scheme != null && android.provider.DocumentsContract.isTreeUri(uri)) {
+                skippedCount++
+                Log.w(TAG, "Skipping receipt attachment: stored URI points to a SAF folder, not a file")
+                return@forEach
+            }
+
+            val input = try {
+                if (uri.scheme.isNullOrBlank()) {
+                    File(rawUri).takeIf { it.isFile }?.inputStream()
+                } else {
+                    context.contentResolver.openInputStream(uri)
+                }
+            } catch (error: Exception) {
+                skippedCount++
+                Log.w(TAG, "Skipping an unreadable receipt attachment; continuing backup", error)
+                null
+            }
+
+            if (input == null) {
+                skippedCount++
+                Log.w(TAG, "Skipping a missing or inaccessible receipt attachment; continuing backup")
+                return@forEach
+            }
+
+            // Once a stream is successfully opened, real read/size failures remain fatal:
+            // never silently create a truncated or incomplete attachment payload.
             val bytes = input.use { stream ->
                 val output = ByteArrayOutputStream()
                 val buffer = ByteArray(8 * 1024)
-                var read: Int
                 var size = 0
-                while (stream.read(buffer).also { read = it } != -1) {
+                while (true) {
+                    val read = stream.read(buffer)
+                    if (read == -1) break
                     size += read
-                    require(size <= MAX_ATTACHMENT_BYTES) { "حجم یکی از فایل‌های پیوست از حد مجاز بیشتر است." }
+                    require(size <= MAX_ATTACHMENT_BYTES) {
+                        "حجم یکی از فایل‌های پیوست از حد مجاز بیشتر است."
+                    }
                     output.write(buffer, 0, read)
                 }
                 output.toByteArray()
             }
+
             totalBytes += bytes.size
-            require(totalBytes <= MAX_TOTAL_ATTACHMENT_BYTES) { "حجم کل فایل‌های پیوست برای پشتیبان‌گیری بیش از حد مجاز است." }
+            require(totalBytes <= MAX_TOTAL_ATTACHMENT_BYTES) {
+                "حجم کل فایل‌های پیوست برای پشتیبان‌گیری بیش از حد مجاز است."
+            }
+
             val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
                 .joinToString("") { "%02x".format(it) }
             val rawName = uri.lastPathSegment?.substringAfterLast('/')?.takeIf(String::isNotBlank)
                 ?: "receipt-$digest.bin"
             val safeName = rawName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(120)
-            BackupAttachment(
-                originalUri = rawUri,
-                fileName = safeName,
-                mediaType = context.contentResolver.getType(uri) ?: "application/octet-stream",
-                sha256 = digest,
-                base64Data = Base64.encodeToString(bytes, Base64.NO_WRAP)
+            val mediaType = runCatching { context.contentResolver.getType(uri) }.getOrNull()
+                ?: "application/octet-stream"
+
+            attachments.add(
+                BackupAttachment(
+                    originalUri = rawUri,
+                    fileName = safeName,
+                    mediaType = mediaType,
+                    sha256 = digest,
+                    base64Data = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                )
             )
         }
+
+        if (skippedCount > 0) {
+            Log.w(
+                TAG,
+                "Backup captured ${attachments.size} receipt attachment(s); ${skippedCount} inaccessible or invalid attachment(s) were omitted. Expense records remain included."
+            )
+        }
+        return attachments
     }
 
     companion object {
