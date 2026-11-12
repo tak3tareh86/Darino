@@ -427,9 +427,14 @@ class LocalBackupRepository(
                     file.extension == "darino"
             }?.maxByOrNull { it.name }
                 ?: throw IllegalStateException("نسخه اضطراری لازم برای بازیابی زمان‌بندی‌های قبلی پیدا نشد.")
+            // Decode and validate both durable files before touching any OS alarm registration.
+            // A damaged restore journal must not cancel alarms for the still-current database.
             val previousJson = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(emergencyFile))
                 .toString(Charsets.UTF_8)
             val previousBackup = BackupFileCodec.decode(previousJson)
+            val json = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(journal)).toString(Charsets.UTF_8)
+            val backup = BackupFileCodec.decode(json)
+
             val oldSmartScheduler = com.example.reminder.domain.ReminderScheduler(context)
             previousBackup.reminderSchedules.forEach { oldSmartScheduler.cancelSchedule(it.id) }
             val oldLegacyScheduler = com.example.data.receiver.ReminderScheduler(context)
@@ -437,8 +442,6 @@ class LocalBackupRepository(
             val oldCalendarScheduler = com.example.calendar.reminder.CalendarEventReminderScheduler(context)
             previousBackup.financialEvents.forEach { oldCalendarScheduler.cancel(it.id) }
 
-            val json = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(journal)).toString(Charsets.UTF_8)
-            val backup = BackupFileCodec.decode(json)
             restoreBackupInternal(backup, RestoreMode.REPLACE, recovering = true)
         }
     }
