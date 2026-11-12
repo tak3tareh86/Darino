@@ -86,8 +86,10 @@ class FinancialViewModel(
         // regardless of the page-level transaction filter selected by the user.
         val currentMonthRange = com.example.ui.screens.finance.domain.FinanceTimeUtils
             .getTimeRangeForPeriod(FinanceFilterPeriod.THIS_MONTH, monthNow)
+        // Month-to-date only: exclude transactions dated after the current instant.
+        val currentMonthEnd = minOf(currentMonthRange.endMillis, monthNow)
         val currentMonthTransactions = transactions.filter {
-            it.dateMillis >= currentMonthRange.startMillis && it.dateMillis < currentMonthRange.endMillis
+            it.dateMillis >= currentMonthRange.startMillis && it.dateMillis < currentMonthEnd
         }
         val currentMonthIncome = FinanceEngine.calculateMonthlyIncome(currentMonthTransactions)
         val currentMonthExpense = FinanceEngine.calculateMonthlyExpense(currentMonthTransactions)
