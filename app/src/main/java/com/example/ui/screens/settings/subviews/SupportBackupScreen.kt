@@ -110,6 +110,7 @@ fun SupportBackupScreen(
                         android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
                 backupFolderUri = selectedUri
+                com.example.data.backup.WeeklyBackupWorker.syncAutomaticBackups(context)
                 Toast.makeText(context, "پوشه ذخیره پشتیبان انتخاب شد.", Toast.LENGTH_SHORT).show()
             } catch (error: Exception) {
                 Log.e("SupportBackupScreen", "Could not persist backup folder", error)
@@ -119,7 +120,7 @@ fun SupportBackupScreen(
     }
 
     fun setAutomaticBackupEnabled(frequency: String, enabled: Boolean) {
-        if (enabled && backupFolderUri == null) {
+        if (enabled && !com.example.data.backup.BackupFolderStorage.hasWritableSelectedFolder(context)) {
             Toast.makeText(context, "برای فعال‌سازی بک‌آپ خودکار، ابتدا پوشه ذخیره را انتخاب کنید.", Toast.LENGTH_LONG).show()
             backupFolderPickerLauncher.launch(null)
             return
@@ -611,7 +612,7 @@ fun SupportBackupScreen(
         SettingsConfirmationDialog(
             isOpen = true,
             title = "تأیید بازیابی پشتیبان",
-            message = "اطلاعات موجود با محتوای فایل پشتیبان جایگزین می‌شود. پیش از شروع، یک نسخه اضطراری رمزگذاری‌شده از وضعیت فعلی ذخیره خواهد شد. تعداد رکوردهای فایل: ${pendingRestoreBackup?.metadata?.recordCount ?: 0} | فایل‌های پیوست: ${pendingRestoreBackup?.attachments?.size ?: 0}",
+            message = "اطلاعات موجود با محتوای فایل پشتیبان جایگزین می‌شود. پیش از شروع، یک نسخه اضطراری رمزگذاری‌شده از وضعیت فعلی ذخیره خواهد شد. تعداد رکوردهای فایل: ${pendingRestoreBackup?.metadata?.recordCount ?: 0}",
             confirmButtonText = "بازیابی و جایگزینی",
             isDanger = true,
             onConfirm = {
