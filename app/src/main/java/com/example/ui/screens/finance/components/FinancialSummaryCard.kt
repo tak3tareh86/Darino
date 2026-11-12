@@ -50,6 +50,8 @@ fun FinancialSummaryCard(
     formattedBalance: String,
     savingsRate: Int,
     modifier: Modifier = Modifier,
+    balanceLabel: String = "مانده عملکرد مالی ماه",
+    cardTestTag: String = "monthly_financial_status_card",
     onCardClick: () -> Unit = {}
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
@@ -67,7 +69,7 @@ fun FinancialSummaryCard(
         backgroundColor = Color.Transparent,
         elevation = 4.dp,
         contentPadding = PaddingValues(0.dp),
-        testTag = "monthly_financial_status_card",
+        testTag = cardTestTag,
         onClick = onCardClick
     ) {
         Box(
@@ -147,7 +149,7 @@ fun FinancialSummaryCard(
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
-                        text = "مانده عملکرد مالی ماه",
+                        text = balanceLabel,
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                         color = secondaryTextColor
                     )
