@@ -106,18 +106,10 @@ class MainActivity : FragmentActivity() {
         com.example.ui.screens.check.data.LocalCheckRepository.instance.init(this)
         com.example.vehicle.data.VehicleRepository.instance.initDatabase(this)
 
-        // Reconcile each local automatic-backup schedule independently with its saved setting.
-        val automaticBackupPreferences =
-            getSharedPreferences("darino_backup_prefs", MODE_PRIVATE)
-        if (automaticBackupPreferences.getBoolean("auto_backup_daily", false)) {
-            WeeklyBackupWorker.enqueueDaily(this)
-        } else {
-            WeeklyBackupWorker.cancelDaily(this)
-        }
-        if (automaticBackupPreferences.getBoolean("auto_backup_weekly", false)) {
-            WeeklyBackupWorker.enqueueWeekly(this)
-        } else {
-            WeeklyBackupWorker.cancelWeekly(this)
+        // Reconcile automatic schedules with both saved preferences and the device-local
+        // SAF destination. The folder check queries a document provider, so keep it off main.
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            WeeklyBackupWorker.syncAutomaticBackups(applicationContext)
         }
         com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(this)
 
