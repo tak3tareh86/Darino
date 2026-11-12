@@ -83,6 +83,17 @@ class LocalBackupRepository(
             temporary.delete()
             throw IllegalStateException("ذخیره پشتیبان اضطراری پیش از بازیابی ناموفق بود.")
         }
+        try {
+            val verifiedJson = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(destination))
+                .toString(Charsets.UTF_8)
+            val verifiedBackup = BackupFileCodec.decode(verifiedJson)
+            check(verifiedBackup.metadata.checksum == snapshot.metadata.checksum) {
+                "بررسی صحت پشتیبان اضطراری ذخیره‌شده ناموفق بود."
+            }
+        } catch (error: Exception) {
+            destination.delete()
+            throw IllegalStateException("صحت پشتیبان اضطراری ذخیره‌شده تأیید نشد؛ بازیابی آغاز نشد.", error)
+        }
         directory.listFiles()?.filter {
             it.isFile && it.name.startsWith("before-restore-$userTag-") && it.name.endsWith(".darino")
         }?.sortedByDescending { it.name }?.drop(3)?.forEach { it.delete() }
@@ -403,6 +414,17 @@ class LocalBackupRepository(
         } catch (error: Exception) {
             temporary.delete()
             throw IllegalStateException("ثبت نشانگر بازیابی امن ناموفق بود.", error)
+        }
+        try {
+            val verifiedJson = DeviceBackupEncryption.decrypt(readBoundedLocalBackup(destination))
+                .toString(Charsets.UTF_8)
+            val verifiedBackup = BackupFileCodec.decode(verifiedJson)
+            check(verifiedBackup.metadata.checksum == backup.metadata.checksum) {
+                "بررسی صحت نشانگر بازیابی ذخیره‌شده ناموفق بود."
+            }
+        } catch (error: Exception) {
+            destination.delete()
+            throw IllegalStateException("نشانگر بازیابی ذخیره‌شده قابل تأیید نیست؛ جایگزینی اطلاعات آغاز نشد.", error)
         }
     }
 
