@@ -87,7 +87,6 @@ class LocalBackupRepository(
                     context.contentResolver.openInputStream(uri)
                 }
             } catch (error: Exception) {
-                skippedCount++
                 Log.w(TAG, "Skipping an unreadable receipt attachment; continuing backup", error)
                 null
             }
