@@ -21,6 +21,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -31,6 +33,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.screens.finance.components.AddBudgetSheet
 import com.example.ui.screens.finance.components.AddRecurringTransactionSheet
@@ -64,7 +69,9 @@ import com.example.ui.screens.finance.screens.TransactionsScreen
 import com.example.ui.screens.finance.viewmodel.FinancialViewModel
 import com.example.ui.screens.home.components.BottomNavItem
 import com.example.ui.screens.home.components.HomeBottomNavigation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 enum class FinanceSubScreen {
     MAIN,
@@ -87,6 +94,33 @@ fun FinancialScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val selectedPeriod by viewModel.selectedPeriod.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Refresh immediately when returning to the app and at each local midnight.
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshMonthSummary()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        viewModel.refreshMonthSummary()
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(viewModel) {
+        while (true) {
+            val now = System.currentTimeMillis()
+            val nextMidnight = Calendar.getInstance().apply {
+                timeInMillis = now
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                add(Calendar.DAY_OF_YEAR, 1)
+            }.timeInMillis
+            delay((nextMidnight - now).coerceAtLeast(1_000L))
+            viewModel.refreshMonthSummary()
+        }
+    }
+
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -157,10 +191,11 @@ fun FinancialScreen(
                     ) {
                         // 1. Monthly Financial Status Card (Income, Expense, Balance, Savings Rate)
                         FinancialSummaryCard(
-                            formattedIncome = state.formattedIncome,
-                            formattedExpense = state.formattedExpense,
-                            formattedBalance = state.formattedBalance,
-                            savingsRate = state.savingsRate,
+                            title = "وضعیت مالی ${state.currentMonthName}",
+                            formattedIncome = state.currentMonthFormattedIncome,
+                            formattedExpense = state.currentMonthFormattedExpense,
+                            formattedBalance = state.currentMonthFormattedBalance,
+                            savingsRate = state.currentMonthSavingsRate,
                             onCardClick = { navigateToSubScreen(FinanceSubScreen.ALL_TRANSACTIONS) }
                         )
 
