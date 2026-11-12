@@ -89,6 +89,8 @@ fun SupportBackupScreen(
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("پشتیبان‌گیری داده‌ها", "ارتباط با پشتیبانی")
+    var selectedBackupTabIndex by remember { mutableIntStateOf(0) }
+    val backupTabs = listOf("پشتیبان‌گیری", "بازیابی", "اشتراک‌گذاری")
 
     // Backup state
     val prefs = remember { context.getSharedPreferences("darino_backup_prefs", android.content.Context.MODE_PRIVATE) }
@@ -655,7 +657,7 @@ fun SupportBackupScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Tabs Row
+            // Main tabs: data backup and support contact.
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 modifier = Modifier.fillMaxWidth(),
@@ -682,34 +684,79 @@ fun SupportBackupScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 if (selectedTabIndex == 0) {
-                    // Backup status
+                    // Compact overview cards. Both cards intentionally share equal width and height.
                     item {
-                        SettingsSectionCard(title = "آخرین وضعیت بکاپ") {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(RadiusMD))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                    .padding(14.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier.weight(1f).height(148.dp),
+                                shape = RoundedCornerShape(RadiusMD),
+                                color = MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                Column(
+                                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.CloudDone,
-                                        contentDescription = null,
-                                        tint = EmeraldPrimaryLight,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Column {
-                                        Text("آخرین وضعیت بکاپ", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.CloudDone,
+                                            contentDescription = null,
+                                            tint = EmeraldPrimaryLight,
+                                            modifier = Modifier.size(21.dp)
+                                        )
                                         Text(
-                                            text = "آخرین ذخیره: $lastBackupDate",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            "آخرین وضعیت بکاپ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                    Text(
+                                        text = lastBackupDate,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                modifier = Modifier.weight(1f).height(148.dp),
+                                shape = RoundedCornerShape(RadiusMD),
+                                color = MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                                ) {
+                                    Text(
+                                        "پوشه ذخیره",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = backupFolderUri?.let {
+                                            com.example.data.backup.BackupFolderStorage.folderLabel(it)
+                                        } ?: "هنوز انتخاب نشده",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2
+                                    )
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    OutlinedButton(
+                                        onClick = { backupFolderPickerLauncher.launch(null) },
+                                        modifier = Modifier.fillMaxWidth().height(36.dp),
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                        shape = RoundedCornerShape(RadiusSM)
+                                    ) {
+                                        Text(
+                                            if (backupFolderUri == null) "انتخاب پوشه" else "تغییر پوشه",
+                                            fontSize = 11.sp
                                         )
                                     }
                                 }
@@ -717,197 +764,204 @@ fun SupportBackupScreen(
                         }
                     }
 
-                    // Backup folder
+                    // Backup actions are separated into three UI tabs; callbacks and state remain unchanged.
                     item {
-                        SettingsSectionCard(title = "پوشه ذخیره پشتیبان‌ها") {
-                            Text(
-                                text = "پشتیبان‌های دستی، روزانه و هفتگی در پوشه انتخاب‌شده ذخیره می‌شوند.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = backupFolderUri?.let { "پوشه فعلی: ${com.example.data.backup.BackupFolderStorage.folderLabel(it)}" }
-                                    ?: "هنوز پوشه‌ای برای ذخیره پشتیبان انتخاب نشده است.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OutlinedButton(
-                                onClick = { backupFolderPickerLauncher.launch(null) },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(RadiusMD)
-                            ) {
-                                Text(if (backupFolderUri == null) "انتخاب پوشه ذخیره" else "تغییر پوشه ذخیره")
-                            }
-                        }
-                    }
-
-                    // Automatic local backups
-                    item {
-                        SettingsSectionCard(title = "پشتیبان‌گیری خودکار محلی") {
-                            Text(
-                                text = "نسخه‌های پشتیبان روی دستگاه و بدون نیاز به اینترنت یا سرور ذخیره می‌شوند.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("بک‌آپ خودکار روزانه", fontWeight = FontWeight.SemiBold)
-                                    Text(
-                                        "برنامه‌ریزی روزانه؛ زمان اجرا ممکن است با محدودیت‌های اندروید کمی جابه‌جا شود (۳۰ نسخه)",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Switch(
-                                    checked = dailyAutoBackupEnabled,
-                                    onCheckedChange = { enabled -> setAutomaticBackupEnabled("daily", enabled) },
-                                    modifier = Modifier.testTag("auto_backup_daily_switch")
-                                )
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("بک‌آپ خودکار هفتگی", fontWeight = FontWeight.SemiBold)
-                                    Text(
-                                        "برنامه‌ریزی هفتگی؛ زمان اجرا ممکن است با محدودیت‌های اندروید کمی جابه‌جا شود (۱۲ نسخه)",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Switch(
-                                    checked = weeklyAutoBackupEnabled,
-                                    onCheckedChange = { enabled -> setAutomaticBackupEnabled("weekly", enabled) },
-                                    modifier = Modifier.testTag("auto_backup_weekly_switch")
+                        TabRow(
+                            selectedTabIndex = selectedBackupTabIndex,
+                            modifier = Modifier.fillMaxWidth(),
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ) {
+                            backupTabs.forEachIndexed { index, title ->
+                                Tab(
+                                    selected = selectedBackupTabIndex == index,
+                                    onClick = { selectedBackupTabIndex = index },
+                                    text = {
+                                        Text(
+                                            text = title,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (selectedBackupTabIndex == index) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (selectedBackupTabIndex == index) EmeraldPrimaryLight else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 )
                             }
                         }
                     }
 
-                    // Manual backup
-                    item {
-                        SettingsSectionCard(title = "پشتیبان‌گیری دستی") {
-                            Button(
-                                onClick = {
-                                    if (!isBackingUp) {
-                                        if (backupFolderUri == null) {
-                                            Toast.makeText(context, "ابتدا پوشه ذخیره پشتیبان را انتخاب کنید.", Toast.LENGTH_LONG).show()
-                                            backupFolderPickerLauncher.launch(null)
+                    when (selectedBackupTabIndex) {
+                        0 -> {
+                            // Automatic local backups.
+                            item {
+                                SettingsSectionCard(title = "پشتیبان‌گیری خودکار محلی") {
+                                    Text(
+                                        text = "نسخه‌های پشتیبان روی دستگاه و بدون نیاز به اینترنت یا سرور ذخیره می‌شوند.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("بک‌آپ خودکار روزانه", fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                "برنامه‌ریزی روزانه؛ زمان اجرا ممکن است با محدودیت‌های اندروید کمی جابه‌جا شود (۳۰ نسخه)",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Switch(
+                                            checked = dailyAutoBackupEnabled,
+                                            onCheckedChange = { enabled -> setAutomaticBackupEnabled("daily", enabled) },
+                                            modifier = Modifier.testTag("auto_backup_daily_switch")
+                                        )
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("بک‌آپ خودکار هفتگی", fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                "برنامه‌ریزی هفتگی؛ زمان اجرا ممکن است با محدودیت‌های اندروید کمی جابه‌جا شود (۱۲ نسخه)",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Switch(
+                                            checked = weeklyAutoBackupEnabled,
+                                            onCheckedChange = { enabled -> setAutomaticBackupEnabled("weekly", enabled) },
+                                            modifier = Modifier.testTag("auto_backup_weekly_switch")
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Manual backup.
+                            item {
+                                SettingsSectionCard(title = "پشتیبان‌گیری دستی") {
+                                    Button(
+                                        onClick = {
+                                            if (!isBackingUp) {
+                                                if (backupFolderUri == null) {
+                                                    Toast.makeText(context, "ابتدا پوشه ذخیره پشتیبان را انتخاب کنید.", Toast.LENGTH_LONG).show()
+                                                    backupFolderPickerLauncher.launch(null)
+                                                } else {
+                                                    backupPassphrase = ""
+                                                    backupPassphraseConfirm = ""
+                                                    showBackupPasswordDialog = true
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth().height(48.dp).testTag("create_backup_button"),
+                                        shape = RoundedCornerShape(RadiusMD),
+                                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimaryLight),
+                                        enabled = !isBackingUp
+                                    ) {
+                                        if (isBackingUp) {
+                                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("در حال ایجاد فایل پشتیبان...")
                                         } else {
-                                            backupPassphrase = ""
-                                            backupPassphraseConfirm = ""
-                                            showBackupPasswordDialog = true
+                                            Icon(Icons.Rounded.CloudUpload, contentDescription = null, modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("ایجاد فایل پشتیبان جدید", fontWeight = FontWeight.Bold)
                                         }
                                     }
-                                },
-                                modifier = Modifier.fillMaxWidth().height(48.dp).testTag("create_backup_button"),
-                                shape = RoundedCornerShape(RadiusMD),
-                                colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimaryLight),
-                                enabled = !isBackingUp
-                            ) {
-                                if (isBackingUp) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("در حال ایجاد فایل پشتیبان...")
-                                } else {
-                                    Icon(Icons.Rounded.CloudUpload, contentDescription = null, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("ایجاد فایل پشتیبان جدید", fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
-                    }
 
-                    // Restore actions remain separate because they use different backup sources.
-                    item {
-                        SettingsSectionCard(title = "بازیابی اطلاعات") {
-                            OutlinedButton(
-                                onClick = { restoreBackupLauncher.launch(arrayOf("application/octet-stream", "application/json", "*/*")) },
-                                modifier = Modifier.fillMaxWidth().height(48.dp).testTag("restore_backup_button"),
-                                enabled = !isRestoring,
-                                shape = RoundedCornerShape(RadiusMD),
-                                border = BorderStroke(1.dp, EmeraldPrimaryLight)
-                            ) {
-                                Icon(Icons.Rounded.CloudDownload, contentDescription = null, tint = EmeraldPrimaryLight, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("بازیابی از فایل پشتیبان قبلی (Restore)", color = EmeraldPrimaryLight, fontWeight = FontWeight.Bold)
-                            }
-                            OutlinedButton(
-                                onClick = { showEmergencyRestoreConfirmation = true },
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
-                                enabled = !isRestoring,
-                                shape = RoundedCornerShape(RadiusMD),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                            ) {
-                                Icon(Icons.Rounded.CloudDownload, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("بازیابی آخرین نسخه اضطراری دستگاه", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                            }
-                            OutlinedButton(
-                                onClick = { showAutomaticRestoreConfirmation = true },
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
-                                enabled = !isRestoring,
-                                shape = RoundedCornerShape(RadiusMD),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                            ) {
-                                Icon(Icons.Rounded.CloudDownload, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("بازیابی آخرین پشتیبان خودکار روزانه/هفتگی", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-
-                    // Share / transfer backup
-                    item {
-                        SettingsSectionCard(title = "اشتراک‌گذاری و انتقال بکاپ") {
-                            Text(
-                                text = "فایل پشتیبان رمزگذاری‌شده را برای نگهداری یا انتقال به فضای دیگری به اشتراک بگذارید.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OutlinedButton(
-                                onClick = {
-                                    if (!isBackingUp) {
-                                        shareAfterEncryption = true
-                                        backupPassphrase = ""
-                                        backupPassphraseConfirm = ""
-                                        showBackupPasswordDialog = true
+                        1 -> {
+                            // Restore actions retain their original handlers and confirmation flows.
+                            item {
+                                SettingsSectionCard(title = "بازیابی اطلاعات") {
+                                    OutlinedButton(
+                                        onClick = { restoreBackupLauncher.launch(arrayOf("application/octet-stream", "application/json", "*/*")) },
+                                        modifier = Modifier.fillMaxWidth().height(48.dp).testTag("restore_backup_button"),
+                                        enabled = !isRestoring,
+                                        shape = RoundedCornerShape(RadiusMD),
+                                        border = BorderStroke(1.dp, EmeraldPrimaryLight)
+                                    ) {
+                                        Icon(Icons.Rounded.CloudDownload, contentDescription = null, tint = EmeraldPrimaryLight, modifier = Modifier.size(20.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("بازیابی از فایل پشتیبان قبلی (Restore)", color = EmeraldPrimaryLight, fontWeight = FontWeight.Bold)
                                     }
-                                },
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
-                                shape = RoundedCornerShape(RadiusMD),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                            ) {
-                                Icon(Icons.Rounded.Share, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("اشتراک‌گذاری فایل بک‌آپ (ارسال به تلگرام، درایو)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                                    OutlinedButton(
+                                        onClick = { showEmergencyRestoreConfirmation = true },
+                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        enabled = !isRestoring,
+                                        shape = RoundedCornerShape(RadiusMD),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                    ) {
+                                        Icon(Icons.Rounded.CloudDownload, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("بازیابی آخرین نسخه اضطراری دستگاه", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                    }
+                                    OutlinedButton(
+                                        onClick = { showAutomaticRestoreConfirmation = true },
+                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        enabled = !isRestoring,
+                                        shape = RoundedCornerShape(RadiusMD),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                    ) {
+                                        Icon(Icons.Rounded.CloudDownload, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("بازیابی آخرین پشتیبان خودکار روزانه/هفتگی", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                    }
+                                }
                             }
                         }
-                    }
 
-                    // Security note
-                    item {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(RadiusMD),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                        ) {
-                            Text(
-                                text = "نکته امنیتی: فایل‌های پشتیبان با رمز عبور شما رمزگذاری می‌شوند. رمز را در جای امن نگه دارید؛ برای بازیابی فایل، همان رمز لازم است.",
-                                modifier = Modifier.padding(14.dp),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        else -> {
+                            // Share / transfer backup.
+                            item {
+                                SettingsSectionCard(title = "اشتراک‌گذاری و انتقال بکاپ") {
+                                    Text(
+                                        text = "فایل پشتیبان رمزگذاری‌شده را برای نگهداری یا انتقال به فضای دیگری به اشتراک بگذارید.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedButton(
+                                        onClick = {
+                                            if (!isBackingUp) {
+                                                shareAfterEncryption = true
+                                                backupPassphrase = ""
+                                                backupPassphraseConfirm = ""
+                                                showBackupPasswordDialog = true
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        shape = RoundedCornerShape(RadiusMD),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                    ) {
+                                        Icon(Icons.Rounded.Share, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("اشتراک‌گذاری فایل بک‌آپ (ارسال به تلگرام، درایو)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                                    }
+                                }
+                            }
+
+                            item {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(RadiusMD),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                ) {
+                                    Text(
+                                        text = "نکته امنیتی: فایل‌های پشتیبان با رمز عبور شما رمزگذاری می‌شوند. رمز را در جای امن نگه دارید؛ برای بازیابی فایل، همان رمز لازم است.",
+                                        modifier = Modifier.padding(14.dp),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
                     }
                 } else {
-                    // TAB 2: SUPPORT
+                    // Support contact tab.
                     item {
                         SettingsSectionCard(title = "ارتباط با پشتیبانی از طریق ایمیل") {
                             SupportContactRow(
