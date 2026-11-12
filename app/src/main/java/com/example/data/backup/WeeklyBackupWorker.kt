@@ -22,6 +22,10 @@ class WeeklyBackupWorker(
             Log.i(TAG, "$frequency auto-backup is disabled in settings. Skipping.")
             return Result.success()
         }
+        if (!BackupFolderStorage.hasWritableSelectedFolder(applicationContext)) {
+            Log.w(TAG, "$frequency auto-backup has no accessible selected destination; stopping this run.")
+            return Result.failure()
+        }
 
         val userId = com.example.data.security.SessionManager.userId
             ?: com.example.data.security.AuthSessionManager(applicationContext).getActiveSession()?.userId
@@ -90,6 +94,20 @@ class WeeklyBackupWorker(
         private const val MAX_LOCAL_BACKUP_FILE_BYTES = MAX_BACKUP_JSON_BYTES + 1024L
         const val UNIQUE_WORK_NAME = "weekly_auto_backup_work"
         const val DAILY_UNIQUE_WORK_NAME = "daily_auto_backup_work"
+
+        /**
+         * Reconciles scheduled work with the user's desired settings and the device-local
+         * SAF destination. The preference can travel in a backup; the folder grant cannot.
+         */
+        fun syncAutomaticBackups(context: Context) {
+            val prefs = context.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+            val dailyEnabled = prefs.getBoolean("auto_backup_daily", false)
+            val weeklyEnabled = prefs.getBoolean("auto_backup_weekly", false)
+            val folderAvailable = BackupFolderStorage.hasWritableSelectedFolder(context)
+
+            if (folderAvailable && dailyEnabled) enqueueDaily(context) else cancelDaily(context)
+            if (folderAvailable && weeklyEnabled) enqueueWeekly(context) else cancelWeekly(context)
+        }
 
         fun enqueueWeekly(context: Context) {
             val constraints = Constraints.Builder()
