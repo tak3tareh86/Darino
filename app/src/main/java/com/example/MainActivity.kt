@@ -81,6 +81,10 @@ import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
 
+    // Do not expose mutable app screens until any interrupted restore has been replayed.
+    private var restoreRecoveryReady by mutableStateOf(false)
+    private var restoreRecoveryError by mutableStateOf(false)
+
     override fun onStart() {
         super.onStart()
         isAppVisible = true
@@ -137,10 +141,28 @@ class MainActivity : FragmentActivity() {
 
             FinanceManagerTheme(darkTheme = isDark) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    AppNavigationContainer(
-                        currentThemeMode = currentThemeMode,
-                        onThemeModeChanged = preferencesRepository::setThemeMode
-                    )
+                    if (this@MainActivity.restoreRecoveryReady) {
+                        AppNavigationContainer(
+                            currentThemeMode = currentThemeMode,
+                            onThemeModeChanged = preferencesRepository::setThemeMode
+                        )
+                    } else if (this@MainActivity.restoreRecoveryError) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            androidx.compose.material3.Text(
+                                "بازیابی اطلاعات هنوز کامل نشده است. برای جلوگیری از تغییر یا از دست رفتن اطلاعات، برنامه تا تکمیل بازیابی قفل شده است. برنامه را دوباره باز کنید تا تلاش مجدد انجام شود."
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            androidx.compose.material3.CircularProgressIndicator()
+                        }
+                    }
                 }
             }
         }
@@ -161,6 +183,8 @@ class MainActivity : FragmentActivity() {
             }.onFailure { error ->
                 android.util.Log.e("MainActivity", "Interrupted backup restore recovery failed", error)
             }.isSuccess
+            restoreRecoveryReady = restoreRecovered
+            restoreRecoveryError = !restoreRecovered
 
             if (exactAlarmAllowed && restoreRecovered) {
                 runCatching {
