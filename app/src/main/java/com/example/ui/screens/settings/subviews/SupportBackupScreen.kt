@@ -319,6 +319,7 @@ fun SupportBackupScreen(
         AlertDialog(
             onDismissRequest = {
                 showBackupPasswordDialog = false
+                shareAfterEncryption = false
                 backupPassphrase = ""
                 backupPassphraseConfirm = ""
             },
@@ -406,6 +407,7 @@ fun SupportBackupScreen(
             dismissButton = {
                 TextButton(onClick = {
                     showBackupPasswordDialog = false
+                    shareAfterEncryption = false
                     backupPassphrase = ""
                     backupPassphraseConfirm = ""
                 }) { Text("انصراف") }
@@ -849,6 +851,7 @@ fun SupportBackupScreen(
                                                     Toast.makeText(context, "ابتدا پوشه ذخیره پشتیبان را انتخاب کنید.", Toast.LENGTH_LONG).show()
                                                     backupFolderPickerLauncher.launch(null)
                                                 } else {
+                                                    shareAfterEncryption = false
                                                     backupPassphrase = ""
                                                     backupPassphraseConfirm = ""
                                                     showBackupPasswordDialog = true
