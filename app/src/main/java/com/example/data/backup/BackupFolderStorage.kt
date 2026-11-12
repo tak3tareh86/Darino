@@ -42,6 +42,18 @@ object BackupFolderStorage {
         ) { "ذخیره پوشه پشتیبان ناموفق بود." }
     }
 
+    fun hasWritableSelectedFolder(context: Context): Boolean {
+        val treeUri = selectedFolderUri(context) ?: return false
+        val permissions = context.contentResolver.persistedUriPermissions
+        val hasReadGrant = permissions.any { it.uri == treeUri && it.isReadPermission }
+        val hasWriteGrant = permissions.any { it.uri == treeUri && it.isWritePermission }
+        if (!hasReadGrant || !hasWriteGrant) return false
+        return runCatching {
+            listDocuments(context, treeUri)
+            true
+        }.getOrDefault(false)
+    }
+
     fun folderLabel(uri: Uri): String =
         uri.lastPathSegment?.substringAfterLast(':')?.takeIf { it.isNotBlank() }
             ?: "پوشه انتخاب‌شده"
