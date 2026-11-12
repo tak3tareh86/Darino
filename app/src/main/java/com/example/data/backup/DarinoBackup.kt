@@ -51,6 +51,8 @@ data class DarinoBackup(
     val userBankSmsRulesJson: String? = null,
     val smsPatternsJson: String? = null,
     val smsRecognitionStartMillis: Long? = null,
+    // Legacy-only field: retained to decode and checksum older backups. New backups leave it empty,
+    // and restore intentionally discards these historical binary attachments and receipt URIs.
     val attachments: List<BackupAttachment> = emptyList(),
     val bankSmsState: BankSmsStateBackup? = null
 )
