@@ -215,6 +215,13 @@ class LocalBackupRepository(
 
             // Keep all table reads in one SQLite snapshot so related records cannot drift mid-backup.
             val snapshot = db.withTransaction {
+            // Repair orphaned vehicle children on every backup, not only during legacy migration.
+            // A previous migration may already have emptied vehicle_store while old Room rows remain.
+            db.vehicleDao().deleteOrphanVehicleServices(userId)
+            db.vehicleDao().deleteOrphanVehicleExpenses(userId)
+            db.vehicleDao().deleteOrphanVehicleInsurances(userId)
+            db.vehicleDao().deleteOrphanVehicleInspections(userId)
+
             val accounts = db.accountDao().getAllAccountsRaw(userId)
 
             val checks = db.checkDao().getAllChecksList(userId)
