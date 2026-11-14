@@ -121,11 +121,29 @@ fun ReminderScreen(
             val rem = selectedReminderForDetail
             if (rem != null) {
                 var offsets by remember(rem.id) { mutableStateOf<List<PredefinedOffset>?>(null) }
+                var offsetsLoadError by remember(rem.id) { mutableStateOf<String?>(null) }
                 LaunchedEffect(rem.id) {
-                    offsets = viewModel.getReminderOffsets(rem.id)
+                    runCatching { viewModel.getReminderOffsets(rem.id) }
+                        .onSuccess { offsets = it }
+                        .onFailure { offsetsLoadError = it.localizedMessage ?: "خواندن تنظیمات فعلی یادآور ممکن نشد." }
                 }
                 val loadedOffsets = offsets
-                if (loadedOffsets == null) {
+                if (offsetsLoadError != null) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            offsetsLoadError.orEmpty(),
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        TextButton(onClick = { currentSubScreen = ReminderSubScreen.DETAIL }) {
+                            Text("بازگشت")
+                        }
+                    }
+                } else if (loadedOffsets == null) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
