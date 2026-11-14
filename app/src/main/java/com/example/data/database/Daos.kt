@@ -304,6 +304,18 @@ interface VehicleDao {
     @Query("SELECT id FROM vehicle_inspections WHERE userId = :userId AND vehicleId = :vehicleId")
     suspend fun getInspectionIdsByVehicleId(userId: String, vehicleId: String): List<String>
 
+    @Query("DELETE FROM vehicle_services WHERE userId = :userId AND NOT EXISTS (SELECT 1 FROM vehicles WHERE vehicles.userId = vehicle_services.userId AND vehicles.deletedAt IS NULL AND (vehicles.serverId = vehicle_services.vehicleId OR CAST(vehicles.id AS TEXT) = vehicle_services.vehicleId))")
+    suspend fun deleteOrphanVehicleServices(userId: String)
+
+    @Query("DELETE FROM vehicle_expenses WHERE userId = :userId AND NOT EXISTS (SELECT 1 FROM vehicles WHERE vehicles.userId = vehicle_expenses.userId AND vehicles.deletedAt IS NULL AND (vehicles.serverId = vehicle_expenses.vehicleId OR CAST(vehicles.id AS TEXT) = vehicle_expenses.vehicleId))")
+    suspend fun deleteOrphanVehicleExpenses(userId: String)
+
+    @Query("DELETE FROM vehicle_insurances WHERE userId = :userId AND NOT EXISTS (SELECT 1 FROM vehicles WHERE vehicles.userId = vehicle_insurances.userId AND vehicles.deletedAt IS NULL AND (vehicles.serverId = vehicle_insurances.vehicleId OR CAST(vehicles.id AS TEXT) = vehicle_insurances.vehicleId))")
+    suspend fun deleteOrphanVehicleInsurances(userId: String)
+
+    @Query("DELETE FROM vehicle_inspections WHERE userId = :userId AND NOT EXISTS (SELECT 1 FROM vehicles WHERE vehicles.userId = vehicle_inspections.userId AND vehicles.deletedAt IS NULL AND (vehicles.serverId = vehicle_inspections.vehicleId OR CAST(vehicles.id AS TEXT) = vehicle_inspections.vehicleId))")
+    suspend fun deleteOrphanVehicleInspections(userId: String)
+
     @Query("SELECT * FROM vehicle_store WHERE userId = :userId AND key = :key LIMIT 1")
     suspend fun getVehicleStore(userId: String, key: String = "vehicle_data"): VehicleStoreEntity?
 
