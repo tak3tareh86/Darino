@@ -487,7 +487,7 @@ class ReminderManager(
         val oldSchedules = existing?.let { repository.getSchedulesSync(it.id) }.orEmpty()
         // The stored schedules are also the durable copy of the user's selected offsets.
         // Keep disabled entries for past triggers so a later date edit can restore them.
-        val offsets = selectedOffsets?.takeIf { it.isNotEmpty() } ?: when {
+        val offsets = selectedOffsets ?: when {
             existing?.notificationEnabled == true -> oldSchedules.mapNotNull { stored ->
                 PredefinedOffset.entries.find {
                     it.value == stored.offsetValue && it.unit.name.equals(stored.offsetUnit, ignoreCase = true)
@@ -633,7 +633,23 @@ class ReminderManager(
             Log.i("ReminderManager", "Synced ${futureSchedules.size} installment schedules for $installmentId; armed=$count.")
             count
         } catch (e: Exception) {
-            Log.e("ReminderManager", "Installment schedules saved but some alarms could not be armed for $installmentId.", e)
+            Log.e("ReminderManager", "Installment schedules could not be armed for $installmentId; restoring the previous reminder configuration.", e)
+            runCatching {
+                scheduler.cancel(reminder.id, schedules)
+                NotificationDispatcher(context).cancelReminderNotifications(reminder.id, schedules)
+                if (existing != null) {
+                    repository.updateReminderWithSchedules(existing, oldSchedules)
+                    val restorableSchedules = oldSchedules.filter { it.enabled && it.triggerDateTime > now }
+                    if (restorableSchedules.isNotEmpty()) {
+                        scheduler.schedule(existing, restorableSchedules)
+                    }
+                } else {
+                    repository.deleteReminderWithSchedules(reminder.id)
+                }
+            }.onFailure { rollbackError ->
+                e.addSuppressed(rollbackError)
+                Log.e("ReminderManager", "Failed to restore installment reminder after scheduling failure for $installmentId.", rollbackError)
+            }
             throw e
         }
     }
