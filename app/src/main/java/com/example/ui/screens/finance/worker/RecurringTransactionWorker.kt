@@ -14,6 +14,7 @@ class RecurringTransactionWorker(
     override suspend fun doWork(): Result {
         Log.i(TAG, "RecurringTransactionWorker execution started...")
         return try {
+            com.example.data.security.SessionManager.init(applicationContext)
             val repository = LocalFinanceRepository.instance
             repository.processDueRecurringTransactions(applicationContext)
             Log.i(TAG, "RecurringTransactionWorker executed successfully.")
