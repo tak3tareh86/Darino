@@ -9,19 +9,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -41,6 +28,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -66,7 +54,6 @@ import com.example.ui.screens.check.CheckScreen
 import com.example.ui.screens.settings.SettingsScreen
 import com.example.financial_health.presentation.FinancialHealthScreen
 import com.example.ui.screens.settings.model.AppThemeMode
-import com.example.ui.screens.settings.model.NavigationTransitionAnimation
 import com.example.ui.screens.settings.model.SettingsDestination
 import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import com.example.ui.screens.splash.SplashScreen
@@ -241,6 +228,7 @@ fun AppNavigationContainer(
     var isSplashFinished by remember { mutableStateOf(false) }
     var currentTab by remember { mutableStateOf(BottomNavItem.HOME) }
     val tabBackStack = remember { mutableStateListOf(BottomNavItem.HOME) }
+    val tabStateHolder = rememberSaveableStateHolder()
 
     fun navigateToTab(tab: BottomNavItem) {
         if (tab == currentTab) return
@@ -260,7 +248,6 @@ fun AppNavigationContainer(
     val localSessionManager = remember(context) { AuthSessionManager.getInstance(context) }
 
     val prefsRepo = remember(context) { com.example.data.preferences.AppPreferencesRepository.getInstance(context) }
-    val currentNavTransition by prefsRepo.navTransition.collectAsState()
     val currentCurrency by prefsRepo.currency.collectAsState()
     val currentLanguage by prefsRepo.language.collectAsState()
     val currentNumberMode by prefsRepo.numberDisplayMode.collectAsState()
@@ -446,99 +433,8 @@ fun AppNavigationContainer(
                             onBackClick = { isFinancialHealthOpen = false }
                         )
                     } else {
-                        AnimatedContent(
-                            targetState = currentTab,
-                            transitionSpec = {
-                                val initialIndex = initialState.ordinal
-                                val targetIndex = targetState.ordinal
-                                val isForward = targetIndex >= initialIndex
-
-                                when (currentNavTransition) {
-                                    NavigationTransitionAnimation.SLIDE -> {
-                                        slideInHorizontally(
-                                            initialOffsetX = { fullWidth -> if (isForward) fullWidth else -fullWidth },
-                                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
-                                        ) togetherWith slideOutHorizontally(
-                                            targetOffsetX = { fullWidth -> if (isForward) -fullWidth else fullWidth },
-                                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
-                                        )
-                                    }
-                                    NavigationTransitionAnimation.FADE -> {
-                                        fadeIn(
-                                            animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
-                                        ) togetherWith fadeOut(
-                                            animationSpec = tween(durationMillis = 130, easing = FastOutSlowInEasing)
-                                        )
-                                    }
-                                    NavigationTransitionAnimation.SCALE -> {
-                                        (scaleIn(
-                                            initialScale = 0.88f,
-                                            animationSpec = tween(durationMillis = 170, easing = FastOutSlowInEasing)
-                                        ) + fadeIn(
-                                            animationSpec = tween(durationMillis = 150)
-                                        )) togetherWith (scaleOut(
-                                            targetScale = 1.08f,
-                                            animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
-                                        ) + fadeOut(
-                                            animationSpec = tween(durationMillis = 120)
-                                        ))
-                                    }
-                                    NavigationTransitionAnimation.ZOOM -> {
-                                        (scaleIn(
-                                            initialScale = 0.72f,
-                                            animationSpec = tween(durationMillis = 190, easing = FastOutSlowInEasing)
-                                        ) + fadeIn(
-                                            animationSpec = tween(durationMillis = 160)
-                                        )) togetherWith (scaleOut(
-                                            targetScale = 1.25f,
-                                            animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing)
-                                        ) + fadeOut(
-                                            animationSpec = tween(durationMillis = 140)
-                                        ))
-                                    }
-                                    NavigationTransitionAnimation.SLIDE_FADE -> {
-                                        (slideInHorizontally(
-                                            initialOffsetX = { fullWidth -> if (isForward) (fullWidth * 0.45f).toInt() else (-fullWidth * 0.45f).toInt() },
-                                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
-                                        ) + fadeIn(
-                                            animationSpec = tween(durationMillis = 170)
-                                        )) togetherWith (slideOutHorizontally(
-                                            targetOffsetX = { fullWidth -> if (isForward) (-fullWidth * 0.45f).toInt() else (fullWidth * 0.45f).toInt() },
-                                            animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing)
-                                        ) + fadeOut(
-                                            animationSpec = tween(durationMillis = 140)
-                                        ))
-                                    }
-                                    NavigationTransitionAnimation.DYNAMIC -> {
-                                        (slideInHorizontally(
-                                            initialOffsetX = { fullWidth -> if (isForward) (fullWidth * 0.5f).toInt() else (-fullWidth * 0.5f).toInt() },
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessMedium
-                                            )
-                                        ) + scaleIn(
-                                            initialScale = 0.90f,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessMedium
-                                            )
-                                        ) + fadeIn(
-                                            animationSpec = tween(durationMillis = 130)
-                                        )) togetherWith (slideOutHorizontally(
-                                            targetOffsetX = { fullWidth -> if (isForward) (-fullWidth * 0.35f).toInt() else (fullWidth * 0.35f).toInt() },
-                                            animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
-                                        ) + scaleOut(
-                                            targetScale = 0.96f,
-                                            animationSpec = tween(durationMillis = 140, easing = FastOutSlowInEasing)
-                                        ) + fadeOut(
-                                            animationSpec = tween(durationMillis = 120)
-                                        ))
-                                    }
-                                }
-                            },
-                            label = "MainTabAnimatedContent"
-                        ) { targetTab ->
-                            when (targetTab) {
+                        tabStateHolder.SaveableStateProvider(currentTab) {
+                            when (currentTab) {
                                 BottomNavItem.HOME -> {
                                     HomeScreen(
                                         onNavigateToTab = { tab ->
