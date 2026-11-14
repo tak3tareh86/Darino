@@ -299,80 +299,88 @@ fun ReminderCard(
                         }
                     }
 
-                    if (!isCompleted) {
-                        IconButton(
-                            onClick = onSnoozeClick,
-                            modifier = Modifier
-                                .size(30.dp)
-                                .testTag("btn_snooze_${reminder.id}")
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(21.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Snooze,
-                                    contentDescription = "به تعویق انداختن",
-                                    tint = WarningAmberLight,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            }
-                        }
-                    }
 
-                    IconButton(
-                        onClick = onToggleCompleted,
-                        modifier = Modifier
-                            .size(30.dp)
-                            .testTag("btn_toggle_complete_${reminder.id}")
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(21.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isCompleted) EmeraldPrimaryLight.copy(alpha = 0.15f)
-                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (isCompleted) Icons.Rounded.CheckCircle else Icons.Rounded.CheckCircleOutline,
-                                contentDescription = if (isCompleted) "علامت به عنوان فعال" else "علامت به عنوان انجام شده",
-                                tint = if (isCompleted) EmeraldPrimaryLight else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
                 }
             }
         }
 
-        // Delete action stays inside the card at its physical top-left corner.
-        IconButton(
-            onClick = { showDeleteConfirmDialog = true },
+        // Actions are vertically stacked in this order: delete, complete, snooze.
+        Column(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 2.dp, end = 10.dp)
-                .size(30.dp)
-                .testTag("btn_delete_reminder_${reminder.id}")
+                .padding(top = 2.dp, end = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            Box(
+            IconButton(
+                onClick = { showDeleteConfirmDialog = true },
                 modifier = Modifier
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.75f)),
-                contentAlignment = Alignment.Center
+                    .size(30.dp)
+                    .testTag("btn_delete_reminder_${reminder.id}")
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.DeleteOutline,
-                    contentDescription = "حذف یادآور",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(15.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.75f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.DeleteOutline,
+                        contentDescription = "حذف یادآور",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onToggleCompleted,
+                modifier = Modifier
+                    .size(30.dp)
+                    .testTag("btn_toggle_complete_${reminder.id}")
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(21.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isCompleted) EmeraldPrimaryLight.copy(alpha = 0.15f)
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isCompleted) Icons.Rounded.CheckCircle else Icons.Rounded.CheckCircleOutline,
+                        contentDescription = if (isCompleted) "علامت به عنوان فعال" else "علامت به عنوان انجام شده",
+                        tint = if (isCompleted) EmeraldPrimaryLight else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            if (!isCompleted) {
+                IconButton(
+                    onClick = onSnoozeClick,
+                    modifier = Modifier
+                        .size(30.dp)
+                        .testTag("btn_snooze_${reminder.id}")
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(21.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Snooze,
+                            contentDescription = "به تعویق انداختن",
+                            tint = WarningAmberLight,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
             }
         }
         }
