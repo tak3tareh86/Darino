@@ -720,7 +720,7 @@ interface CheckDao {
             transaction.amount != check.amount ||
             transaction.amountUnit != check.amountUnit ||
             transaction.type != expectedType ||
-            transaction.category != if (expectedType == "INCOME") "other_income" else "misc") return false
+            transaction.category != (if (expectedType == "INCOME") "other_income" else "misc")) return false
 
         val current = getCheckById(check.userId, check.id) ?: return false
         if (current.userId != check.userId || current.deletedAt != null ||
