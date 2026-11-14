@@ -320,11 +320,17 @@ class NotificationDispatcher(private val context: Context) {
         )
 
         // Build notification body
-        val amountText = reminder.amount?.takeIf { it > 0L }?.let { amount ->
+        val formattedAmount = reminder.amount?.takeIf { it > 0L }?.let { amount ->
             runCatching {
                 MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.valueOf(reminder.amountUnit)))
             }.getOrNull()
-        }?.let { " • مبلغ: $it" }.orEmpty()
+        }
+        // Some linked reminders (such as checks and installments) already include
+        // the formatted amount in their description. Do not append it a second time.
+        val amountText = formattedAmount
+            ?.takeIf { reminder.description.isBlank() || !reminder.description.contains(it) }
+            ?.let { " • مبلغ: $it" }
+            .orEmpty()
         val bodyText = if (reminder.description.isNotBlank()) {
             "${reminder.description}$amountText"
         } else {
