@@ -9,6 +9,15 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -28,6 +37,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +64,7 @@ import com.example.ui.screens.check.CheckScreen
 import com.example.ui.screens.settings.SettingsScreen
 import com.example.financial_health.presentation.FinancialHealthScreen
 import com.example.ui.screens.settings.model.AppThemeMode
+import com.example.ui.screens.settings.model.NavigationTransitionAnimation
 import com.example.ui.screens.settings.model.SettingsDestination
 import com.example.ui.screens.installments.data.LocalInstallmentRepository
 import com.example.ui.screens.splash.SplashScreen
@@ -248,6 +259,7 @@ fun AppNavigationContainer(
     val localSessionManager = remember(context) { AuthSessionManager.getInstance(context) }
 
     val prefsRepo = remember(context) { com.example.data.preferences.AppPreferencesRepository.getInstance(context) }
+    val currentNavTransition by prefsRepo.navTransition.collectAsState()
     val currentCurrency by prefsRepo.currency.collectAsState()
     val currentLanguage by prefsRepo.language.collectAsState()
     val currentNumberMode by prefsRepo.numberDisplayMode.collectAsState()
@@ -434,7 +446,47 @@ fun AppNavigationContainer(
                         )
                     } else {
                         tabStateHolder.SaveableStateProvider(currentTab) {
-                            when (currentTab) {
+                            key(currentTab) {
+                                AnimatedVisibility(
+                                    visible = true,
+                                    enter = when (currentNavTransition) {
+                                        NavigationTransitionAnimation.SLIDE -> slideInHorizontally(
+                                            initialOffsetX = { it },
+                                            animationSpec = tween(180, easing = FastOutSlowInEasing)
+                                        )
+                                        NavigationTransitionAnimation.FADE -> fadeIn(
+                                            animationSpec = tween(150, easing = FastOutSlowInEasing)
+                                        )
+                                        NavigationTransitionAnimation.SCALE -> scaleIn(
+                                            initialScale = 0.88f,
+                                            animationSpec = tween(170, easing = FastOutSlowInEasing)
+                                        ) + fadeIn(animationSpec = tween(150))
+                                        NavigationTransitionAnimation.ZOOM -> scaleIn(
+                                            initialScale = 0.72f,
+                                            animationSpec = tween(190, easing = FastOutSlowInEasing)
+                                        ) + fadeIn(animationSpec = tween(160))
+                                        NavigationTransitionAnimation.SLIDE_FADE -> slideInHorizontally(
+                                            initialOffsetX = { (it * 0.45f).toInt() },
+                                            animationSpec = tween(180, easing = FastOutSlowInEasing)
+                                        ) + fadeIn(animationSpec = tween(170))
+                                        NavigationTransitionAnimation.DYNAMIC -> slideInHorizontally(
+                                            initialOffsetX = { (it * 0.5f).toInt() },
+                                            animationSpec = spring(
+                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                stiffness = Spring.StiffnessMedium
+                                            )
+                                        ) + scaleIn(
+                                            initialScale = 0.90f,
+                                            animationSpec = spring(
+                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                stiffness = Spring.StiffnessMedium
+                                            )
+                                        ) + fadeIn(animationSpec = tween(130))
+                                    },
+                                    exit = EnterTransition.None,
+                                    label = "MainTabEnter"
+                                ) {
+                                    when (currentTab) {
                                 BottomNavItem.HOME -> {
                                     HomeScreen(
                                         onNavigateToTab = { tab ->
@@ -486,6 +538,8 @@ fun AppNavigationContainer(
                                     ReminderScreen(
                                         bottomBar = {}
                                     )
+                                }
+                                    }
                                 }
                             }
                         }
