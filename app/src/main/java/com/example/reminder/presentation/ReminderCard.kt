@@ -219,10 +219,10 @@ fun ReminderCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Date & Time
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                // Date and time are vertically stacked, with the time centered under the date.
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -299,6 +299,30 @@ fun ReminderCard(
                         }
                     }
 
+                    if (!isCompleted) {
+                        IconButton(
+                            onClick = onSnoozeClick,
+                            modifier = Modifier
+                                .size(30.dp)
+                                .testTag("btn_snooze_${reminder.id}")
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(21.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Snooze,
+                                    contentDescription = "به تعویق انداختن",
+                                    tint = WarningAmberLight,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
+                    }
+
                     IconButton(
                         onClick = onToggleCompleted,
                         modifier = Modifier
@@ -323,30 +347,6 @@ fun ReminderCard(
                             )
                         }
                     }
-
-                    if (!isCompleted) {
-                        IconButton(
-                            onClick = onSnoozeClick,
-                            modifier = Modifier
-                                .size(30.dp)
-                                .testTag("btn_snooze_${reminder.id}")
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(21.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Snooze,
-                                    contentDescription = "به تعویق انداختن",
-                                    tint = WarningAmberLight,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -356,7 +356,7 @@ fun ReminderCard(
             onClick = { showDeleteConfirmDialog = true },
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 2.dp, end = 2.dp)
+                .padding(top = 2.dp, end = 10.dp)
                 .size(30.dp)
                 .testTag("btn_delete_reminder_${reminder.id}")
         ) {
