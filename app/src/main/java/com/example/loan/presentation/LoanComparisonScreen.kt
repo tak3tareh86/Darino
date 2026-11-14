@@ -351,7 +351,7 @@ private fun LoanComparisonCard(
                         allowDecimalInput = true,
                         onRawDecimalAmountChange = { rawValue, _ -> editAmount = rawValue },
                         label = null,
-                        unitLabel = MoneyFormatter.getUnitLabel(activeCurrency),
+                        unitLabel = "",
                         placeholder = "مبلغ را وارد کنید",
                         showWordsPreview = false
                     )
