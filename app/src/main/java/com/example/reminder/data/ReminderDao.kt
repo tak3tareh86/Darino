@@ -38,6 +38,9 @@ interface ReminderDao {
     @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND sourceId = :sourceId LIMIT 1")
     suspend fun getReminderBySourceId(userId: String, sourceId: String): ReminderEntity?
 
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND sourceType = :sourceType AND sourceId = :sourceId LIMIT 1")
+    suspend fun getReminderBySource(userId: String, sourceType: String, sourceId: String): ReminderEntity?
+
     @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND (id = :id OR (sourceType = 'VEHICLE' AND sourceId = :id)) ORDER BY CASE WHEN id = :id THEN 0 ELSE 1 END LIMIT 1")
     suspend fun getReminderById(userId: String, id: String): ReminderEntity?
 
