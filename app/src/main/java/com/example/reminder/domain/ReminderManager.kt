@@ -741,7 +741,7 @@ class ReminderManager(
         type: String = "MAINTENANCE",
         selectedOffsets: List<PredefinedOffset> = emptyList()
     ) = withContext(Dispatchers.IO) {
-        val existing = repository.getReminderBySourceId(serviceId)
+        val existing = repository.getReminderBySource("VEHICLE", serviceId)
         val effectiveTime = existing?.time ?: defaultReminderTime()
         val reminder = existing?.copy(
             title = "$serviceTitle ($vehicleName)",
@@ -788,7 +788,7 @@ class ReminderManager(
         expirationDatePersian: String,
         selectedOffsets: List<PredefinedOffset> = emptyList()
     ) = withContext(Dispatchers.IO) {
-        val existing = repository.getReminderBySourceId(insuranceId)
+        val existing = repository.getReminderBySource("INSURANCE", insuranceId)
         val effectiveTime = existing?.time ?: defaultReminderTime()
         val reminder = existing?.copy(
             title = "تمدید بیمه خودرو: $vehicleName",
@@ -834,7 +834,7 @@ class ReminderManager(
         reminderDateTime: Long? = null,
         amountUnit: AppCurrency = AppCurrency.TOMAN
     ) = withContext(Dispatchers.IO) {
-        val existing = repository.getReminderBySourceId(checkId)
+        val existing = repository.getReminderBySource("CHECK", checkId)
         
         // If reminder is turned off (null), delete existing reminder and cancel alarms
         if (reminderDateTime == null) {
@@ -927,7 +927,7 @@ class ReminderManager(
      * Triggered when a check is cleared, paid or canceled.
      */
     suspend fun onCheckSettled(checkId: String) = withContext(Dispatchers.IO) {
-        val reminder = repository.getReminderBySourceId(checkId)
+        val reminder = repository.getReminderBySource("CHECK", checkId)
         if (reminder != null) {
             completeReminder(reminder.id)
         }
