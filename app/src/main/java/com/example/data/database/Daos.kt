@@ -554,6 +554,9 @@ interface CheckDao {
     @Query("SELECT EXISTS(SELECT 1 FROM transactions WHERE userId = :userId AND sourceType = 'CHECK' AND sourceId = :checkId AND deletedAt IS NULL)")
     suspend fun hasSettlementTransactionForCheck(userId: String, checkId: String): Boolean
 
+    @Query("SELECT EXISTS(SELECT 1 FROM transactions WHERE userId = :userId AND sourceType = 'CHECK' AND sourceId = :checkId AND deletedAt IS NOT NULL)")
+    suspend fun hasDeletedSettlementTransactionForCheck(userId: String, checkId: String): Boolean
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCheck(check: CheckEntity): Long
 
@@ -686,8 +689,12 @@ interface CheckDao {
     ): Boolean {
         val expectedType = if (check.type == "RECEIVED") "INCOME" else "EXPENSE"
 
+        // A soft-deleted settlement must never be silently restored or replaced.
+        val historicalTx = transactionDao.getTransactionIncludingDeleted(check.userId, transaction.stringId)
+        if (historicalTx?.deletedAt != null) return false
+
         // 1. Idempotency Check: Does a valid transaction already exist for this user and check?
-        val existingTx = transactionDao.getTransactionByStringId(check.userId, transaction.stringId)
+        val existingTx = historicalTx?.takeIf { it.deletedAt == null }
         if (existingTx != null) {
             // Strict Validation: Transaction must match check user, source, account, amount, and financial type
             if (existingTx.userId != check.userId ||
@@ -730,9 +737,10 @@ interface CheckDao {
                    finalCheckState.userId == check.userId
         }
 
-        // A legacy or manually linked CHECK transaction with a different ID must also
-        // block insertion; the deterministic transaction ID below remains the retry key.
-        if (hasSettlementTransactionForCheck(check.userId, check.id.toString())) return false
+        // Any prior settlement linked to this check, including a soft-deleted one,
+        // blocks automatic creation of another ledger entry.
+        if (hasSettlementTransactionForCheck(check.userId, check.id.toString()) ||
+            hasDeletedSettlementTransactionForCheck(check.userId, check.id.toString())) return false
 
         // 2. Perform the update: Change status to CLEARED
         val updatedRows = updateCheckWithOwner(

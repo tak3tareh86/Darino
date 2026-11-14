@@ -338,13 +338,20 @@ class LocalCheckRepository private constructor() : CheckRepository {
 
         // A prior ledger entry for this check means it must not be counted again,
         // regardless of which settlement option the user chooses now.
-        val alreadyRecorded = try {
-            database.checkDao().hasSettlementTransactionForCheck(userId, existingCheck.id.toString())
+        val settlementHistory = try {
+            val checkId = existingCheck.id.toString()
+            when {
+                database.checkDao().hasDeletedSettlementTransactionForCheck(userId, checkId) ->
+                    CheckOperationResult.SETTLEMENT_TRANSACTION_DELETED
+                database.checkDao().hasSettlementTransactionForCheck(userId, checkId) ->
+                    CheckOperationResult.VALIDATION_ERROR
+                else -> null
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             return@withContext CheckOperationResult.PERSISTENCE_ERROR
         }
-        if (alreadyRecorded) return@withContext CheckOperationResult.VALIDATION_ERROR
+        if (settlementHistory != null) return@withContext settlementHistory
 
         val accountEntity = if (recordFinancialTransaction) {
             val selected = account ?: return@withContext CheckOperationResult.VALIDATION_ERROR
@@ -372,6 +379,10 @@ class LocalCheckRepository private constructor() : CheckRepository {
             } else {
                 val validAccount = accountEntity ?: return@withContext CheckOperationResult.VALIDATION_ERROR
                 val transactionId = "check_settle_${existingCheck.id}"
+                val historicalTransaction = database.transactionDao().getTransactionIncludingDeleted(userId, transactionId)
+                if (historicalTransaction?.deletedAt != null) {
+                    return@withContext CheckOperationResult.SETTLEMENT_TRANSACTION_DELETED
+                }
                 val transaction = com.example.data.database.TransactionEntity(
                     userId = userId,
                     amount = existingCheck.amount,
