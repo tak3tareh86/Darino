@@ -103,26 +103,35 @@ fun SupportBackupScreen(
     var weeklyAutoBackupStatus by remember { mutableStateOf("در حال بررسی وضعیت زمان‌بندی…") }
 
     fun formatAutomaticBackupStatus(frequency: String, enabled: Boolean, state: androidx.work.WorkInfo.State?): String {
+        val lastResult = prefs.getString("auto_backup_last_result_$frequency", null)
+        val lastError = prefs.getString("auto_backup_last_error_$frequency", null)
         val stateLabel = when {
             !enabled -> "غیرفعال"
             state == androidx.work.WorkInfo.State.RUNNING -> "در حال اجرا"
+            lastResult == "failed" -> "آخرین اجرا ناموفق بوده؛ تلاش بعدی در انتظار است"
+            lastResult == "skipped" -> "آخرین نوبت بدون تهیه نسخه پشتیبان رد شده است"
             state == androidx.work.WorkInfo.State.ENQUEUED -> "زمان‌بندی شده و در انتظار اجرا"
             state == androidx.work.WorkInfo.State.BLOCKED -> "در انتظار اجرای پیش‌نیاز"
-            state == androidx.work.WorkInfo.State.FAILED -> "آخرین اجرای ثبت‌شده ناموفق"
+            state == androidx.work.WorkInfo.State.FAILED -> "اجرای ثبت‌شده ناموفق"
             state == androidx.work.WorkInfo.State.CANCELLED -> "زمان‌بندی لغو شده"
             state == androidx.work.WorkInfo.State.SUCCEEDED -> "اجرا با موفقیت ثبت شد"
             else -> "زمان‌بندی در WorkManager پیدا نشد"
         }
         val lastSuccess = prefs.getLong("auto_backup_last_success_$frequency", 0L)
-        if (lastSuccess == 0L) return "$stateLabel • هنوز اجرای موفقی ثبت نشده است"
-        val date = com.example.util.PersianCalendarHelper.fromEpochMillis(lastSuccess)
-        val dateText = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
-            "${date.year}/${date.month.toString().padStart(2, '0')}/${date.day.toString().padStart(2, '0')}"
-        )
-        val timeText = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
-            java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(lastSuccess))
-        )
-        return "$stateLabel • آخرین موفق: $dateText - $timeText"
+        val successText = if (lastSuccess == 0L) {
+            "هنوز اجرای موفقی ثبت نشده است"
+        } else {
+            val date = com.example.util.PersianCalendarHelper.fromEpochMillis(lastSuccess)
+            val dateText = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
+                "${date.year}/${date.month.toString().padStart(2, '0')}/${date.day.toString().padStart(2, '0')}"
+            )
+            val timeText = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
+                java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(lastSuccess))
+            )
+            "آخرین موفق: $dateText - $timeText"
+        }
+        val errorText = lastError?.takeIf { it.isNotBlank() }?.let { " • علت آخرین وضعیت: $it" }.orEmpty()
+        return "$stateLabel • $successText$errorText"
     }
 
     fun refreshAutomaticBackupStatus() {
