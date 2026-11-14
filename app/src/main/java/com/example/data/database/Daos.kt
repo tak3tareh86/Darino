@@ -719,7 +719,8 @@ interface CheckDao {
             transaction.accountId != accountId ||
             transaction.amount != check.amount ||
             transaction.amountUnit != check.amountUnit ||
-            transaction.type != expectedType) return false
+            transaction.type != expectedType ||
+            transaction.category != if (expectedType == "INCOME") "other_income" else "misc") return false
 
         val current = getCheckById(check.userId, check.id) ?: return false
         if (current.userId != check.userId || current.deletedAt != null ||
@@ -755,7 +756,7 @@ interface CheckDao {
             }
             if (current.status !in listOf("REGISTERED", "PENDING", "BOUNCED")) return false
 
-            val rows = markCheckClearedForSettlement(
+            markCheckClearedForSettlement(
                 checkId = check.id,
                 userId = check.userId,
                 type = current.type,
