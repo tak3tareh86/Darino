@@ -232,6 +232,7 @@ fun SupportBackupScreen(
         val key = currentBackupTimestampKey()
         return prefs.getLong(key, 0L)
     }
+    var backupHistoryRefresh by remember { mutableIntStateOf(0) }
     var lastBackupDate by remember {
         val lastTime = readLastBackupTimestamp()
         mutableStateOf(
@@ -245,6 +246,7 @@ fun SupportBackupScreen(
     }
 
     val refreshLastBackupDate = {
+        backupHistoryRefresh++
         val lastTime = readLastBackupTimestamp()
         lastBackupDate = if (lastTime == 0L) {
             "تاکنون بک‌آپی گرفته نشده"
@@ -254,6 +256,26 @@ fun SupportBackupScreen(
                 "${dt.year}/${dt.month.toString().padStart(2, '0')}/${dt.day.toString().padStart(2, '0')}"
             )
         }
+    }
+
+    fun formatBackupHistoryTimestamp(timestamp: Long): String {
+        if (timestamp == 0L) return "هنوز ثبت نشده"
+        val date = com.example.util.PersianCalendarHelper.fromEpochMillis(timestamp)
+        val dateText = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
+            "${date.year}/${date.month.toString().padStart(2, '0')}/${date.day.toString().padStart(2, '0')}"
+        )
+        val timeText = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
+            java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
+        )
+        return "$dateText  $timeText"
+    }
+
+    val manualBackupHistoryTimestamp = remember(backupHistoryRefresh) { readLastBackupTimestamp() }
+    val dailyBackupHistoryTimestamp = remember(backupHistoryRefresh) {
+        prefs.getLong("auto_backup_last_success_daily", 0L)
+    }
+    val weeklyBackupHistoryTimestamp = remember(backupHistoryRefresh) {
+        prefs.getLong("auto_backup_last_success_weekly", 0L)
     }
 
     DisposableEffect(lifecycleOwner) {
@@ -296,6 +318,7 @@ fun SupportBackupScreen(
         lastBackupDate = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
             "${dt.year}/${dt.month.toString().padStart(2, '0')}/${dt.day.toString().padStart(2, '0')}"
         )
+        backupHistoryRefresh++
         backupSummaryInfo = summary
         showBackupSuccessDialog = true
     }
@@ -732,82 +755,74 @@ fun SupportBackupScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 if (selectedTabIndex == 0) {
-                    // Compact overview cards. Both cards intentionally share equal width and height.
+                    // Full-width backup history card; display only timestamps recorded after successful backups.
                     item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().height(148.dp),
+                            shape = RoundedCornerShape(RadiusMD),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
-                            Surface(
-                                modifier = Modifier.weight(1f).height(148.dp),
-                                shape = RoundedCornerShape(RadiusMD),
-                                color = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 9.dp),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize().padding(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(7.dp)
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(7.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.CloudDone,
-                                            contentDescription = null,
-                                            tint = EmeraldPrimaryLight,
-                                            modifier = Modifier.size(21.dp)
-                                        )
-                                        Text(
-                                            "آخرین وضعیت بکاپ",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    }
-                                    Text(
-                                        text = lastBackupDate,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    Icon(
+                                        imageVector = Icons.Rounded.CloudDone,
+                                        contentDescription = null,
+                                        tint = EmeraldPrimaryLight,
+                                        modifier = Modifier.size(20.dp)
                                     )
-                                }
-                            }
-
-                            Surface(
-                                modifier = Modifier.weight(1f).height(148.dp),
-                                shape = RoundedCornerShape(RadiusMD),
-                                color = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize().padding(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(7.dp)
-                                ) {
                                     Text(
-                                        "پوشه ذخیره",
+                                        "آخرین وضعیت بکاپ",
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.SemiBold
                                     )
-                                    Text(
-                                        text = backupFolderUri?.let {
-                                            com.example.data.backup.BackupFolderStorage.folderLabel(it)
-                                        } ?: "هنوز انتخاب نشده",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 2
-                                    )
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    OutlinedButton(
-                                        onClick = { backupFolderPickerLauncher.launch(null) },
-                                        modifier = Modifier.fillMaxWidth().height(36.dp),
-                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                                        shape = RoundedCornerShape(RadiusSM)
+                                }
+
+                                @Composable
+                                fun BackupHistoryRow(label: String, timestamp: Long) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Text(
-                                            if (backupFolderUri == null) "انتخاب پوشه" else "تغییر پوشه",
-                                            fontSize = 11.sp
+                                            text = label,
+                                            modifier = Modifier.width(112.dp),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1
                                         )
+                                        Text(
+                                            text = formatBackupHistoryTimestamp(timestamp),
+                                            modifier = Modifier.weight(1f),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1
+                                        )
+                                        if (timestamp > 0L) {
+                                            Box(
+                                                modifier = Modifier.size(20.dp).clip(CircleShape)
+                                                    .background(Color(0xFF16A34A)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text("✓", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        } else {
+                                            Spacer(modifier = Modifier.size(20.dp))
+                                        }
                                     }
                                 }
+
+                                BackupHistoryRow("آخرین بکاپ دستی", manualBackupHistoryTimestamp)
+                                BackupHistoryRow("آخرین بکاپ روزانه", dailyBackupHistoryTimestamp)
+                                BackupHistoryRow("آخرین بکاپ هفتگی", weeklyBackupHistoryTimestamp)
                             }
                         }
                     }
@@ -936,6 +951,49 @@ fun SupportBackupScreen(
                                             Icon(Icons.Rounded.CloudUpload, contentDescription = null, modifier = Modifier.size(20.dp))
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text("ایجاد فایل پشتیبان جدید", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Save-folder card moved below manual backup; its picker behavior is unchanged.
+                            item {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(RadiusMD),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                            Text(
+                                                "پوشه ذخیره",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Text(
+                                                text = backupFolderUri?.let {
+                                                    com.example.data.backup.BackupFolderStorage.folderLabel(it)
+                                                } ?: "هنوز انتخاب نشده",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1
+                                            )
+                                        }
+                                        OutlinedButton(
+                                            onClick = { backupFolderPickerLauncher.launch(null) },
+                                            modifier = Modifier.width(112.dp).height(38.dp),
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                            shape = RoundedCornerShape(RadiusSM)
+                                        ) {
+                                            Text(
+                                                if (backupFolderUri == null) "انتخاب پوشه" else "تغییر پوشه",
+                                                fontSize = 11.sp
+                                            )
                                         }
                                     }
                                 }
