@@ -3,9 +3,13 @@ package com.example.reminder.data
 import androidx.room.Entity
 import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
+import androidx.room.Index
 import java.util.UUID
 
-@Entity(tableName = "smart_reminders")
+@Entity(
+    tableName = "smart_reminders",
+    indices = [Index(value = ["userId", "sourceType", "sourceId"], unique = true)]
+)
 data class ReminderEntity(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
     val userId: String = "",
