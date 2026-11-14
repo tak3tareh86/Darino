@@ -848,8 +848,9 @@ fun SupportBackupScreen(
                                     Button(
                                         onClick = {
                                             if (!isBackingUp) {
-                                                if (backupFolderUri == null) {
-                                                    Toast.makeText(context, "ابتدا پوشه ذخیره پشتیبان را انتخاب کنید.", Toast.LENGTH_LONG).show()
+                                                if (!com.example.data.backup.BackupFolderStorage.hasWritableSelectedFolder(context)) {
+                                                    backupFolderUri = null
+                                                    Toast.makeText(context, "دسترسی پوشه پشتیبان معتبر نیست؛ لطفاً پوشه ذخیره را دوباره انتخاب کنید.", Toast.LENGTH_LONG).show()
                                                     backupFolderPickerLauncher.launch(null)
                                                 } else {
                                                     shareAfterEncryption = false
