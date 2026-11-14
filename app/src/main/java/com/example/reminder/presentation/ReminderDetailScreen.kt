@@ -45,8 +45,8 @@ fun ReminderDetailScreen(
     reminder: ReminderEntity,
     onBackClick: () -> Unit,
     onDelete: () -> Unit,
-    onEditInstallmentReminder: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onEditInstallmentReminder: () -> Unit = {}
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
