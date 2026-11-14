@@ -13,6 +13,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import org.json.JSONArray
 import org.json.JSONObject
+import com.example.ui.screens.settings.model.AppCurrency
+import com.example.util.MoneyFormatter
 
 /**
  * Durable, user-scoped pending occurrences. Pending entries are not financial transactions:
@@ -128,7 +130,9 @@ object RecurringTransactionNotificationManager {
         val title = payload.optString("title").ifBlank { "تراکنش دوره‌ای" }
         val date = payload.optString("datePersian")
         val amount = payload.optLong("amount")
-        val amountText = "%,d".format(amount)
+        val amountUnit = runCatching { AppCurrency.valueOf(payload.optString("amountUnit")) }
+            .getOrDefault(AppCurrency.TOMAN)
+        val amountText = MoneyFormatter.formatRawAmount(amount, currency = amountUnit)
         val typeTitle = if (payload.optString("type") == "INCOME") "درآمد" else "هزینه"
         val details = "$typeTitle: $title\nمبلغ: $amountText\nموعد: $date\nبرای ثبت در سوابق مالی، تأیید کنید."
 
