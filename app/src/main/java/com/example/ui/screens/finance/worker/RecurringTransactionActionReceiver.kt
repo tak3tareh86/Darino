@@ -44,6 +44,10 @@ class RecurringTransactionActionReceiver : BroadcastReceiver() {
                         if (!RecurringTransactionNotificationManager.hasPending(appContext, userId, occurrenceId)) {
                             return@launch
                         }
+                        val remindAt = System.currentTimeMillis() + TimeUnit.HOURS.toMillis(24)
+                        RecurringTransactionNotificationManager.deferPending(
+                            appContext, userId, occurrenceId, remindAt
+                        )
                         val request = OneTimeWorkRequestBuilder<RecurringTransactionReminderWorker>()
                             .setInitialDelay(24, TimeUnit.HOURS)
                             .setInputData(
