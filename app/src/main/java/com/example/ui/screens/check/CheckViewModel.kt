@@ -129,9 +129,14 @@ class CheckViewModel : ViewModel() {
         }
     }
 
-    fun settleCheck(check: Check, account: com.example.ui.screens.finance.model.Account, onResult: (CheckOperationResult) -> Unit = {}) {
+    fun settleCheck(
+        check: Check,
+        account: com.example.ui.screens.finance.model.Account?,
+        recordFinancialTransaction: Boolean,
+        onResult: (CheckOperationResult) -> Unit = {}
+    ) {
         viewModelScope.launch {
-            val result = repository.settleCheck(check, account)
+            val result = repository.settleCheck(check, account, recordFinancialTransaction)
             onResult(result)
         }
     }
