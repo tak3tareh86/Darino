@@ -481,7 +481,7 @@ class ReminderManager(
         amountUnit: AppCurrency = AppCurrency.TOMAN,
         useSelectedOffsetsExactly: Boolean = false
     ): Int = withContext(Dispatchers.IO) {
-        val existing = repository.getReminderBySourceId(installmentId)
+        val existing = repository.getReminderBySource("INSTALLMENT", installmentId)
         val effectiveDueTime = dueTimePersian?.takeIf { it.isNotBlank() }
             ?: existing?.time
             ?: defaultReminderTime()
@@ -686,7 +686,7 @@ class ReminderManager(
         paymentDueDates: List<Pair<String, String>>,
         amountUnit: AppCurrency = AppCurrency.TOMAN
     ): Int = withContext(Dispatchers.IO) {
-        val existing = repository.getReminderBySourceId(installmentId)
+        val existing = repository.getReminderBySource("INSTALLMENT", installmentId)
             ?: return@withContext 0
 
         // A completed status can be stale when a previously paid payment is
