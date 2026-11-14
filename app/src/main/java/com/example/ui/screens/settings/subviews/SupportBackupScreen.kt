@@ -258,16 +258,19 @@ fun SupportBackupScreen(
         }
     }
 
-    fun formatBackupHistoryTimestamp(timestamp: Long): String {
+    fun formatBackupHistoryDate(timestamp: Long): String {
         if (timestamp == 0L) return "هنوز ثبت نشده"
         val date = com.example.util.PersianCalendarHelper.fromEpochMillis(timestamp)
-        val dateText = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
+        return com.example.util.IranianPhoneUtils.convertDigitsToPersian(
             "${date.year}/${date.month.toString().padStart(2, '0')}/${date.day.toString().padStart(2, '0')}"
         )
-        val timeText = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
+    }
+
+    fun formatBackupHistoryTime(timestamp: Long): String {
+        if (timestamp == 0L) return ""
+        return com.example.util.IranianPhoneUtils.convertDigitsToPersian(
             java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
         )
-        return "$dateText  $timeText"
     }
 
     val manualBackupHistoryTimestamp = remember(backupHistoryRefresh) { readLastBackupTimestamp() }
@@ -800,12 +803,19 @@ fun SupportBackupScreen(
                                             maxLines = 1
                                         )
                                         Text(
-                                            text = formatBackupHistoryTimestamp(timestamp),
+                                            text = formatBackupHistoryDate(timestamp),
                                             modifier = Modifier.weight(1f),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1
                                         )
+                                        Text(
+                                            text = formatBackupHistoryTime(timestamp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
                                         if (timestamp > 0L) {
                                             Box(
                                                 modifier = Modifier.size(20.dp).clip(CircleShape)
