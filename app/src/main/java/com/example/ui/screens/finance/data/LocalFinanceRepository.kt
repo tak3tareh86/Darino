@@ -597,6 +597,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             return
         }
 
+        // Background workers can start in a fresh process; retain the application context
+        // so updated recurrence metadata is persisted after processing.
+        appContext = context.applicationContext
         val db = AppDatabase.getDatabase(context)
         ensureDefaultAccounts(db, currentUserId)
         RecurringTransactionNotificationManager.showAllPending(context, currentUserId)
