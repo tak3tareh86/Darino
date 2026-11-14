@@ -1020,11 +1020,6 @@ fun SupportBackupScreen(
                             // Share / transfer backup.
                             item {
                                 SettingsSectionCard(title = "اشتراک‌گذاری و انتقال بکاپ") {
-                                    Text(
-                                        text = "فایل پشتیبان رمزگذاری‌شده را برای نگهداری یا انتقال به فضای دیگری به اشتراک بگذارید.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
                                     OutlinedButton(
                                         onClick = {
                                             if (!isBackingUp) {
