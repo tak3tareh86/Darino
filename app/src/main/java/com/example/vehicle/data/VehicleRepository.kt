@@ -95,10 +95,19 @@ class VehicleRepository {
                 ).any { it.isNotBlank() && it != "[]" }
             ) {
                 val migratedVehicles = jsonToVehicles(store.vehiclesJson.ifBlank { "[]" })
+                val existingVehicleIds = vDao.getAllVehiclesForBackup(userId).flatMap { vehicle ->
+                    listOfNotNull(vehicle.serverId?.takeIf(String::isNotBlank), vehicle.id.toString())
+                }.toSet()
+                val validVehicleIds = existingVehicleIds + migratedVehicles.map { it.id }
+                // Legacy child rows must never be inserted unless their owning vehicle exists.
                 val migratedServices = jsonToServices(store.servicesJson.ifBlank { "[]" })
+                    .filter { it.vehicleId in validVehicleIds }
                 val migratedExpenses = jsonToExpenses(store.expensesJson.ifBlank { "[]" })
+                    .filter { it.vehicleId in validVehicleIds }
                 val migratedInsurances = jsonToInsurances(store.insurancesJson.ifBlank { "[]" })
+                    .filter { it.vehicleId in validVehicleIds }
                 val migratedInspections = jsonToInspections(store.inspectionsJson.ifBlank { "[]" })
+                    .filter { it.vehicleId in validVehicleIds }
 
                 db.withTransaction {
                     migratedVehicles.forEach { v ->
@@ -207,8 +216,23 @@ class VehicleRepository {
                         )
                     })
 
-                    // Clear legacy JSON store to prevent repeated migration
-                    vDao.insertVehicleStore(com.example.data.database.VehicleStoreEntity(userId = userId, vehiclesJson = ""))
+                    // All legacy collections have now been migrated (or safely excluded as orphans).
+                    // Clear every collection atomically so stale child JSON cannot poison later backups.
+                    vDao.insertVehicleStore(
+                        com.example.data.database.VehicleStoreEntity(
+                            userId = userId,
+                            vehiclesJson = "",
+                            servicesJson = "",
+                            expensesJson = "",
+                            insurancesJson = "",
+                            inspectionsJson = ""
+                        )
+                    )
+                    // Repair orphan rows left by earlier versions of the legacy migration.
+                    vDao.deleteOrphanVehicleServices(userId)
+                    vDao.deleteOrphanVehicleExpenses(userId)
+                    vDao.deleteOrphanVehicleInsurances(userId)
+                    vDao.deleteOrphanVehicleInspections(userId)
                 }
             }
         } catch (e: Exception) {
@@ -776,6 +800,25 @@ class VehicleRepository {
         }
     }
 
+    /**
+     * Removes only legacy records explicitly linked to the deleted vehicle.
+     * Invalid JSON is preserved so corruption is never silently discarded.
+     */
+    private fun removeLegacyVehicleRows(rawJson: String, field: String, vehicleIds: Set<String>): String {
+        if (rawJson.isBlank() || rawJson == "[]") return rawJson
+        return runCatching {
+            val source = JSONArray(rawJson)
+            val filtered = JSONArray()
+            for (index in 0 until source.length()) {
+                val item = source.optJSONObject(index)
+                if (item == null || item.optString(field) !in vehicleIds) {
+                    filtered.put(source.get(index))
+                }
+            }
+            filtered.toString()
+        }.getOrDefault(rawJson)
+    }
+
     // 4. Delete Vehicle (Atomic cascading delete in Room transaction with child reminder cleanup)
     suspend fun deleteVehicle(vehicleId: String): Result<Unit> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
@@ -797,6 +840,25 @@ class VehicleRepository {
             }
 
             val affectedRows = db.withTransaction {
+                val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
+                val legacyVehicleIds = buildSet {
+                    add(vehicleId)
+                    vehicle?.let {
+                        add(it.id.toString())
+                        it.serverId?.takeIf(String::isNotBlank)?.let(::add)
+                    }
+                }
+                db.vehicleDao().getVehicleStore(userId)?.let { store ->
+                    db.vehicleDao().insertVehicleStore(
+                        store.copy(
+                            vehiclesJson = removeLegacyVehicleRows(store.vehiclesJson, "id", legacyVehicleIds),
+                            servicesJson = removeLegacyVehicleRows(store.servicesJson, "vehicleId", legacyVehicleIds),
+                            expensesJson = removeLegacyVehicleRows(store.expensesJson, "vehicleId", legacyVehicleIds),
+                            insurancesJson = removeLegacyVehicleRows(store.insurancesJson, "vehicleId", legacyVehicleIds),
+                            inspectionsJson = removeLegacyVehicleRows(store.inspectionsJson, "vehicleId", legacyVehicleIds)
+                        )
+                    )
+                }
                 val vehicleAffected = db.vehicleDao().deleteVehicleByServerId(userId, vehicleId)
                 db.vehicleDao().deleteServicesByVehicleId(userId, vehicleId)
                 db.vehicleDao().deleteExpensesByVehicleId(userId, vehicleId)
