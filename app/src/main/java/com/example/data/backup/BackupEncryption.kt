@@ -28,7 +28,7 @@ object BackupEncryption {
 
     fun encrypt(plainText: ByteArray, passphrase: CharArray): ByteArray {
         try {
-            require(passphrase.size >= 12) { "رمز پشتیبان باید حداقل ۱۲ نویسه داشته باشد." }
+            require(passphrase.size == 6 && passphrase.all(Char::isDigit)) { "رمز پشتیبان باید دقیقاً ۶ رقم باشد." }
             val kdfId = if (supportsSha256Pbkdf2()) KDF_PBKDF2_SHA256 else KDF_PBKDF2_SHA1
             val salt = ByteArray(SALT_SIZE).also(SecureRandom()::nextBytes)
             val nonce = ByteArray(NONCE_SIZE).also(SecureRandom()::nextBytes)
