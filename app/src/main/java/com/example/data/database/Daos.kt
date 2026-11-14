@@ -640,6 +640,45 @@ interface CheckDao {
     suspend fun clearAllChecks(userId: String)
 
     @Transaction
+    suspend fun settleCheckWithoutTransaction(check: CheckEntity): Boolean {
+        // A check already linked to a ledger transaction must never be settled through
+        // the "status only" path, otherwise the check and financial ledger would disagree.
+        if (hasSettlementTransactionForCheck(check.userId, check.id.toString())) return false
+
+        val current = getCheckById(check.userId, check.id) ?: return false
+        if (current.userId != check.userId || current.deletedAt != null ||
+            current.status == "CANCELED" || current.status == "REPLACED" ||
+            current.replacedByCheckId != null) return false
+
+        if (current.status == "CLEARED") return current.accountId == null
+
+        val rows = updateCheckWithOwner(
+            id = check.id,
+            userId = check.userId,
+            type = check.type,
+            amount = check.amount,
+            amountUnit = check.amountUnit,
+            checkNumber = check.checkNumber,
+            sayadId = check.sayadId,
+            bankName = check.bankName,
+            branch = check.branch,
+            holderName = check.holderName,
+            receiverName = check.receiverName,
+            issueDate = check.issueDate,
+            dueDate = check.dueDate,
+            status = "CLEARED",
+            notes = check.notes,
+            accountId = null,
+            reminderDateTime = null,
+            updatedAt = check.updatedAt
+        )
+        if (rows != 1) return false
+        val finalState = getCheckById(check.userId, check.id)
+        return finalState != null && finalState.userId == check.userId &&
+            finalState.status == "CLEARED" && finalState.accountId == null
+    }
+
+    @Transaction
     suspend fun settleCheckWithTransaction(
         check: CheckEntity,
         transaction: TransactionEntity,
@@ -690,6 +729,10 @@ interface CheckDao {
                    finalCheckState.status == "CLEARED" && 
                    finalCheckState.userId == check.userId
         }
+
+        // A legacy or manually linked CHECK transaction with a different ID must also
+        // block insertion; the deterministic transaction ID below remains the retry key.
+        if (hasSettlementTransactionForCheck(check.userId, check.id.toString())) return false
 
         // 2. Perform the update: Change status to CLEARED
         val updatedRows = updateCheckWithOwner(
