@@ -84,8 +84,9 @@ fun AddServiceSheet(
         IranianPhoneUtils.convertDigitsToPersian("$hour:$minute")
     }
     val todayJalali = remember { com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate() }
-    var selectedType by remember(initialServiceType) { mutableStateOf(initialServiceType) }
-    var title by remember(initialServiceType) { mutableStateOf(initialServiceType.title) }
+    var selectedTypes by remember(initialServiceType) { mutableStateOf(setOf(initialServiceType)) }
+    val selectedType = selectedTypes.firstOrNull() ?: initialServiceType
+    var customServiceTitle by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(todayJalali) }
     var mileageText by remember { mutableStateOf(if (vehicle.currentMileage > 0) vehicle.currentMileage.toString() else "") }
     var costText by remember { mutableStateOf("") }
@@ -149,6 +150,17 @@ fun AddServiceSheet(
             ServiceOption("سرویس سفارشی", ServiceType.CUSTOM)
         )
     }
+    val selectedServiceTitle = remember(selectedTypes, customServiceTitle, serviceTypeOptions) {
+        serviceTypeOptions
+            .filter { it.type in selectedTypes }
+            .map { option ->
+                if (option.type == ServiceType.CUSTOM) customServiceTitle.trim() else option.title
+            }
+            .filter { it.isNotBlank() }
+            .joinToString("، ")
+    }
+    val hasValidServiceSelection = selectedTypes.isNotEmpty() &&
+        (ServiceType.CUSTOM !in selectedTypes || customServiceTitle.isNotBlank())
     var showServiceTypeDialog by remember { mutableStateOf(false) }
 
     // Notification offset options (7 days, 3 days, 1 day before due date)
@@ -242,9 +254,12 @@ fun AddServiceSheet(
                             size = 28.dp,
                             accentColor = MaterialTheme.colorScheme.primary
                         )
-                        val matchedOpt = serviceTypeOptions.find { it.type == selectedType }
                         Text(
-                            text = matchedOpt?.title ?: selectedType.title,
+                            text = if (selectedTypes.size == 1 && ServiceType.CUSTOM in selectedTypes) {
+                                customServiceTitle.ifBlank { "سرویس سفارشی" }
+                            } else {
+                                "${selectedTypes.size} سرویس انتخاب شده"
+                            },
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -273,18 +288,19 @@ fun AddServiceSheet(
                             gridItems(serviceTypeOptions) { item ->
                                 val displayName = item.title
                                 val type = item.type
-                                val isSelected = selectedType == type
+                                val isSelected = type in selectedTypes
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(58.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                         .clickable {
-                                            selectedType = type
-                                            title = displayName
-                                            customIntervalKmText = ""
-                                            customIntervalMonthsText = ""
-                                            showServiceTypeDialog = false
+                                            selectedTypes = if (isSelected) selectedTypes - type else selectedTypes + type
+                                            if (type == selectedType && !isSelected) {
+                                                customIntervalKmText = ""
+                                                customIntervalMonthsText = ""
+                                                isNextDateManuallyEdited = false
+                                            }
                                         },
                                     color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                                     shape = RoundedCornerShape(8.dp)
@@ -328,13 +344,42 @@ fun AddServiceSheet(
                 )
             }
 
-            // Title & Cost
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                label = { Text("عنوان سرویس") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+            // Selected services and optional custom service title
+            Text(
+                text = "سرویس‌های انتخاب‌شده",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (selectedTypes.isEmpty()) {
+                Text("حداقل یک سرویس انتخاب کنید.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            } else {
+                LazyRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(serviceTypeOptions.filter { it.type in selectedTypes }) { option ->
+                        val chipTitle = if (option.type == ServiceType.CUSTOM) customServiceTitle.ifBlank { "سرویس سفارشی" } else option.title
+                        AssistChip(
+                            onClick = { selectedTypes = selectedTypes - option.type },
+                            label = { Text(chipTitle, maxLines = 1) },
+                            trailingIcon = {
+                                Icon(Icons.Rounded.Close, contentDescription = "حذف $chipTitle", modifier = Modifier.size(14.dp))
+                            }
+                        )
+                    }
+                }
+            }
+            if (ServiceType.CUSTOM in selectedTypes) {
+                OutlinedTextField(
+                    value = customServiceTitle,
+                    onValueChange = { customServiceTitle = it },
+                    label = { Text("عنوان سرویس سفارشی") },
+                    placeholder = { Text("نام سرویس را وارد کنید") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+            Text(
+                text = "همه سرویس‌های انجام‌شده در این مراجعه را انتخاب کنید؛ مبلغ زیر مجموع هزینه آن‌هاست.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Row(
@@ -639,7 +684,7 @@ fun AddServiceSheet(
             // Submit Button
             Button(
                 onClick = {
-                    if (title.isNotBlank()) {
+                    if (hasValidServiceSelection) {
                         val selectedOffsets = buildList {
                             if (remind1WeekBefore) add(com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS)
                             if (remind3DaysBefore) add(com.example.reminder.domain.PredefinedOffset.BEFORE_3_DAYS)
@@ -652,7 +697,7 @@ fun AddServiceSheet(
                             val cost = parsedCostRials ?: 0L
                             val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onAddService(
-                                title, selectedType, date, mileage, cost, description,
+                                selectedServiceTitle, selectedType, date, mileage, cost, description,
                                 if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
                                 if (calcKm > 0) calcKm else null,
                                 isReminderEnabled, selectedOffsets, nextServiceTimeText
@@ -660,7 +705,7 @@ fun AddServiceSheet(
                         }
                     }
                 },
-                enabled = title.isNotBlank() && !costInputInvalid,
+                enabled = hasValidServiceSelection && !costInputInvalid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
@@ -697,7 +742,7 @@ fun AddServiceSheet(
                     val cost = parsedCostRials ?: 0L
                     val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                     onAddService(
-                        title, selectedType, date, mileage, cost, description,
+                        selectedServiceTitle, selectedType, date, mileage, cost, description,
                         if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
                         if (calcKm > 0) calcKm else null,
                         false, emptyList(), nextServiceTimeText
