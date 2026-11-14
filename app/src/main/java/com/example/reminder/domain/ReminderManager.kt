@@ -606,9 +606,24 @@ class ReminderManager(
         // Cancel old PendingIntents before replacing Room rows. Each payment/offset pair
         // has its own stable ID, so paying or editing one payment cannot collide with others.
         if (existing != null) {
-            scheduler.cancel(existing.id, oldSchedules)
-            NotificationDispatcher(context).cancelReminderNotifications(existing.id, oldSchedules)
-            repository.updateReminderWithSchedules(reminder, schedules)
+            try {
+                scheduler.cancel(existing.id, oldSchedules)
+                NotificationDispatcher(context).cancelReminderNotifications(existing.id, oldSchedules)
+                repository.updateReminderWithSchedules(reminder, schedules)
+            } catch (e: Exception) {
+                Log.e("ReminderManager", "Failed to persist installment reminder changes for $installmentId; restoring previous alarms.", e)
+                runCatching {
+                    repository.updateReminderWithSchedules(existing, oldSchedules)
+                    val restorableSchedules = oldSchedules.filter { it.enabled && it.triggerDateTime > now }
+                    if (restorableSchedules.isNotEmpty()) {
+                        scheduler.schedule(existing, restorableSchedules)
+                    }
+                }.onFailure { rollbackError ->
+                    e.addSuppressed(rollbackError)
+                    Log.e("ReminderManager", "Failed to restore installment reminder after persistence failure for $installmentId.", rollbackError)
+                }
+                throw e
+            }
         } else {
             repository.insertReminderWithSchedules(reminder, schedules)
         }
