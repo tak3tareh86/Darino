@@ -87,8 +87,14 @@ object BackupFolderStorage {
 
         val resolver = context.contentResolver
         val temporaryName = ".$filename.tmp-${System.currentTimeMillis()}"
+        // createDocument expects a document URI for the parent, not the raw tree URI.
+        // Convert the selected tree to its root document URI while retaining the tree grant.
+        val parentDocumentUri = DocumentsContract.buildDocumentUriUsingTree(
+            treeUri,
+            DocumentsContract.getTreeDocumentId(treeUri)
+        )
         val temporaryUri = DocumentsContract.createDocument(
-            resolver, treeUri, "application/octet-stream", temporaryName
+            resolver, parentDocumentUri, "application/octet-stream", temporaryName
         ) ?: throw IOException("ساخت فایل موقت در پوشه پشتیبان ناموفق بود.")
         try {
             val descriptor = resolver.openFileDescriptor(temporaryUri, "w")
