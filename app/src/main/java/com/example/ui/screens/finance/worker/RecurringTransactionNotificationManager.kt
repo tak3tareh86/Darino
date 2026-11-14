@@ -58,6 +58,31 @@ object RecurringTransactionNotificationManager {
     fun hasPending(context: Context, userId: String, occurrenceId: String): Boolean =
         getPending(context, userId, occurrenceId) != null
 
+    fun deferPending(context: Context, userId: String, occurrenceId: String, untilMillis: Long) {
+        val payload = getPending(context, userId, occurrenceId) ?: return
+        payload.put("nextNotificationAt", untilMillis)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val current = JSONArray(prefs.getString(storageKey(userId), "[]") ?: "[]")
+        val updated = JSONArray()
+        for (index in 0 until current.length()) {
+            val item = current.optJSONObject(index) ?: continue
+            updated.put(if (item.optString("occurrenceId") == occurrenceId) payload else item)
+        }
+        prefs.edit().putString(storageKey(userId), updated.toString()).commit()
+    }
+
+    fun showAllPending(context: Context, userId: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val current = JSONArray(prefs.getString(storageKey(userId), "[]") ?: "[]")
+        val now = System.currentTimeMillis()
+        for (index in 0 until current.length()) {
+            val item = current.optJSONObject(index) ?: continue
+            val occurrenceId = item.optString("occurrenceId")
+            if (occurrenceId.isBlank() || item.optLong("nextNotificationAt", 0L) > now) continue
+            showPending(context, userId, occurrenceId)
+        }
+    }
+
     @Synchronized
     fun removePending(context: Context, userId: String, occurrenceId: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
