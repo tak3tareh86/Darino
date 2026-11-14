@@ -108,32 +108,44 @@ fun SupportBackupScreen(
         val stateLabel = when {
             !enabled -> "غیرفعال"
             state == androidx.work.WorkInfo.State.RUNNING -> "در حال اجرا"
-            lastResult == "failed" -> "آخرین اجرا ناموفق بوده؛ تلاش بعدی در انتظار است"
+            state == androidx.work.WorkInfo.State.FAILED -> "زمان‌بندی متوقف شده؛ اجرای ناموفق"
+            state == androidx.work.WorkInfo.State.CANCELLED -> "زمان‌بندی لغو شده"
+            lastResult == "failed" && state == androidx.work.WorkInfo.State.ENQUEUED ->
+                "آخرین اجرا ناموفق بود؛ تلاش مجدد در صف است"
+            lastResult == "failed" -> "آخرین اجرا ناموفق بود؛ زمان‌بندی فعال پیدا نشد"
             lastResult == "skipped" -> "آخرین نوبت بدون تهیه نسخه پشتیبان رد شده است"
             state == androidx.work.WorkInfo.State.ENQUEUED -> "زمان‌بندی شده و در انتظار اجرا"
             state == androidx.work.WorkInfo.State.BLOCKED -> "در انتظار اجرای پیش‌نیاز"
-            state == androidx.work.WorkInfo.State.FAILED -> "اجرای ثبت‌شده ناموفق"
-            state == androidx.work.WorkInfo.State.CANCELLED -> "زمان‌بندی لغو شده"
             state == androidx.work.WorkInfo.State.SUCCEEDED -> "اجرا با موفقیت ثبت شد"
             else -> "زمان‌بندی در WorkManager پیدا نشد"
         }
-        val lastSuccess = prefs.getLong("auto_backup_last_success_$frequency", 0L)
-        val successText = if (lastSuccess == 0L) {
-            "هنوز اجرای موفقی ثبت نشده است"
-        } else {
-            val date = com.example.util.PersianCalendarHelper.fromEpochMillis(lastSuccess)
+
+        fun formatTimestamp(timestamp: Long): String {
+            val date = com.example.util.PersianCalendarHelper.fromEpochMillis(timestamp)
             val dateText = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
                 "${date.year}/${date.month.toString().padStart(2, '0')}/${date.day.toString().padStart(2, '0')}"
             )
             val timeText = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
-                java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(lastSuccess))
+                java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
             )
-            "آخرین موفق: $dateText - $timeText"
+            return "$dateText - $timeText"
         }
-        val errorText = lastError?.takeIf { it.isNotBlank() }?.let { " • علت آخرین وضعیت: $it" }.orEmpty()
-        return "$stateLabel • $successText$errorText"
-    }
 
+        val lastAttempt = prefs.getLong("auto_backup_last_attempt_$frequency", 0L)
+        val lastSuccess = prefs.getLong("auto_backup_last_success_$frequency", 0L)
+        val attemptText = if (lastAttempt == 0L) {
+            "هنوز تلاشی ثبت نشده است"
+        } else {
+            "آخرین تلاش: ${formatTimestamp(lastAttempt)}"
+        }
+        val successText = if (lastSuccess == 0L) {
+            "هنوز اجرای موفقی ثبت نشده است"
+        } else {
+            "آخرین موفق: ${formatTimestamp(lastSuccess)}"
+        }
+        val errorText = lastError?.takeIf { it.isNotBlank() }?.let { " • علت آخرین خطا: $it" }.orEmpty()
+        return "$stateLabel • $attemptText • $successText$errorText"
+    }
     fun refreshAutomaticBackupStatus() {
         scope.launch {
             val statuses = withContext(Dispatchers.IO) {
