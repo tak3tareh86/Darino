@@ -131,18 +131,16 @@ fun AddVehicleExpenseSheet(
                         selected = selectedCategory == cat,
                         onClick = {
                             selectedCategory = cat
-                            if (title.isBlank() || title == "سوخت‌گیری بنزین" || title.startsWith("هزینه")) {
-                                title = when (cat) {
-                                    VehicleExpenseCategory.FUEL -> "سوخت‌گیری بنزین"
-                                    VehicleExpenseCategory.WASH -> "کارواش و نظافت"
-                                    VehicleExpenseCategory.PARKING -> "پارکینگ / عوارض آزادراهی"
-                                    VehicleExpenseCategory.REPAIRS -> "تعمیرات فنی"
-                                    VehicleExpenseCategory.PARTS -> "خرید قطعات یدکی"
-                                    VehicleExpenseCategory.INSURANCE -> "تمدید بیمه‌نامه"
-                                    VehicleExpenseCategory.INSPECTION -> "معاینه فنی خودرو"
-                                    VehicleExpenseCategory.SERVICE -> "سرویس دوره‌ای"
-                                    VehicleExpenseCategory.OTHER -> "سایر هزینه‌های متفرقه"
-                                }
+                            title = when (cat) {
+                                VehicleExpenseCategory.FUEL -> "سوخت‌گیری بنزین"
+                                VehicleExpenseCategory.WASH -> "کارواش و نظافت"
+                                VehicleExpenseCategory.PARKING -> "پارکینگ / عوارض آزادراهی"
+                                VehicleExpenseCategory.REPAIRS -> "تعمیرات فنی"
+                                VehicleExpenseCategory.PARTS -> "خرید قطعات یدکی"
+                                VehicleExpenseCategory.INSURANCE -> "تمدید بیمه‌نامه"
+                                VehicleExpenseCategory.INSPECTION -> "معاینه فنی خودرو"
+                                VehicleExpenseCategory.SERVICE -> "سرویس دوره‌ای"
+                                VehicleExpenseCategory.OTHER -> "سایر هزینه‌های متفرقه"
                             }
                         },
                         label = { Text(cat.title, fontSize = 11.sp) }
