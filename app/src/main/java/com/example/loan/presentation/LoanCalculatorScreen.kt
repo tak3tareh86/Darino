@@ -439,7 +439,7 @@ private fun CalculatorMainTab(
                         )
 
                         Text(
-                            text = if (state.amount > 0L) CalculationResult.formatMoney(state.amount) else "—",
+                            text = if (state.amount > 0L) MoneyFormatter.formatExact(MoneyAmount.of(state.amount, AppCurrency.RIAL), includeUnit = false) else "—",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
