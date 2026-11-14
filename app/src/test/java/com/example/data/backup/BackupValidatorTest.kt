@@ -4,6 +4,8 @@ import com.example.data.database.AccountEntity
 import com.example.data.database.UserPreferenceEntity
 import com.example.data.database.TransactionEntity
 import com.example.data.database.VehicleStoreEntity
+import com.example.data.database.VehicleEntity
+import com.example.data.database.VehicleServiceEntity as RoomVehicleServiceEntity
 import com.example.reminder.data.ReminderDeliveryLogEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -649,6 +651,94 @@ class BackupValidatorTest {
             backup.bankSmsState?.pendingSuggestionsJson,
             decoded.bankSmsState?.pendingSuggestionsJson
         )
+    }
+
+
+    @Test
+    fun versionNineIgnoresStaleLegacyVehicleChildrenWhenRoomVehiclesArePresent() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 9,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 3,
+                    currencyUnit = "PER_RECORD"
+                ),
+                vehicles = listOf(
+                    VehicleEntity(
+                        id = 1,
+                        serverId = "current-car",
+                        userId = "backup-user",
+                        brand = "Test",
+                        model = "Car",
+                        year = "1405",
+                        plate = "plate",
+                        currentMileage = 100
+                    )
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
+                vehicleStore = VehicleStoreEntity(
+                    userId = "backup-user",
+                    vehiclesJson = "[]",
+                    servicesJson = """[{"id":"old-service","vehicleId":"deleted-car","title":"Oil","date":"1405/08/01","mileage":100,"cost":1000}]"""
+                )
+            )
+        )
+
+        assertEquals(ValidationResult.Valid, BackupValidator.validate(backup))
+    }
+
+    @Test
+    fun versionNineStillRejectsOrphanedStructuredVehicleChildren() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 9,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 4,
+                    currencyUnit = "PER_RECORD"
+                ),
+                vehicles = listOf(
+                    VehicleEntity(
+                        id = 1,
+                        serverId = "current-car",
+                        userId = "backup-user",
+                        brand = "Test",
+                        model = "Car",
+                        year = "1405",
+                        plate = "plate",
+                        currentMileage = 100
+                    )
+                ),
+                vehicleServices = listOf(
+                    RoomVehicleServiceEntity(
+                        id = 1,
+                        userId = "backup-user",
+                        vehicleId = "deleted-car",
+                        type = "OIL",
+                        title = "Oil"
+                    )
+                ),
+                appSettings = AppSettingsBackup(
+                    themeMode = "SYSTEM",
+                    language = "PERSIAN",
+                    currency = "TOMAN",
+                    alertDelivery = "NONE",
+                    navigationTransition = "DYNAMIC"
+                ),
+                financeMetadata = FinanceMetadataBackup(),
+                vehicleStore = VehicleStoreEntity(userId = "backup-user", vehiclesJson = "[]")
+            )
+        )
+
+        assertTrue(BackupValidator.validate(backup) is ValidationResult.Invalid)
     }
 
 }
