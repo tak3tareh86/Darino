@@ -856,66 +856,29 @@ fun SupportBackupScreen(
                             // Automatic local backups.
                             item {
                                 SettingsSectionCard(title = "پشتیبان‌گیری خودکار محلی") {
-                                    Text(
-                                        text = "نسخه‌های پشتیبان روی دستگاه و بدون نیاز به اینترنت یا سرور ذخیره می‌شوند.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text("بک‌آپ خودکار روزانه", fontWeight = FontWeight.SemiBold)
-                                            Text(
-                                                "برنامه‌ریزی روزانه؛ زمان اجرا ممکن است با محدودیت‌های اندروید کمی جابه‌جا شود (۳۰ نسخه)",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
+                                        Text("بکاپ خودکار روزانه (۳۰ نسخه)", fontWeight = FontWeight.SemiBold)
                                         Switch(
                                             checked = dailyAutoBackupEnabled,
                                             onCheckedChange = { enabled -> setAutomaticBackupEnabled("daily", enabled) },
                                             modifier = Modifier.testTag("auto_backup_daily_switch")
                                         )
                                     }
-                                    Text(
-                                        text = dailyAutoBackupStatus,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (dailyAutoBackupStatus.contains("ناموفق") || dailyAutoBackupStatus.contains("رد شده") || dailyAutoBackupStatus.contains("پیدا نشد")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
-                                    )
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text("بک‌آپ خودکار هفتگی", fontWeight = FontWeight.SemiBold)
-                                            Text(
-                                                "برنامه‌ریزی هفتگی؛ زمان اجرا ممکن است با محدودیت‌های اندروید کمی جابه‌جا شود (۱۲ نسخه)",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
+                                        Text("بکاپ خودکار هفتگی (۱۲ نسخه)", fontWeight = FontWeight.SemiBold)
                                         Switch(
                                             checked = weeklyAutoBackupEnabled,
                                             onCheckedChange = { enabled -> setAutomaticBackupEnabled("weekly", enabled) },
                                             modifier = Modifier.testTag("auto_backup_weekly_switch")
                                         )
-                                    }
-                                    Text(
-                                        text = weeklyAutoBackupStatus,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (weeklyAutoBackupStatus.contains("ناموفق") || weeklyAutoBackupStatus.contains("رد شده") || weeklyAutoBackupStatus.contains("پیدا نشد")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
-                                    )
-                                    TextButton(
-                                        onClick = { refreshAutomaticBackupStatus() },
-                                        modifier = Modifier.align(Alignment.End)
-                                    ) {
-                                        Text("بررسی دوباره وضعیت")
                                     }
                                 }
                             }
