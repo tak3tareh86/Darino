@@ -239,7 +239,8 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                     dueTimePersian = dueTimePersian,
                     selectedOffsets = offsets,
                     paymentDueDates = unpaidPayments.map { it.id to it.dueDate },
-                    amountUnit = installment.amountUnit
+                    amountUnit = installment.amountUnit,
+                    useSelectedOffsetsExactly = true
                 )
 
                 val updated = repository.getReminderById(reminder.id)
