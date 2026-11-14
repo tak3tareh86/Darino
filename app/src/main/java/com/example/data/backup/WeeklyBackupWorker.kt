@@ -19,10 +19,13 @@ class WeeklyBackupWorker(
         val isEnabled = prefs.getBoolean(preferenceKey, false)
 
         if (!isEnabled) {
+            recordExecution(frequency, "skipped")
             Log.i(TAG, "$frequency auto-backup is disabled in settings. Skipping.")
             return Result.success()
         }
+        recordExecution(frequency, "running")
         if (!BackupFolderStorage.hasWritableSelectedFolder(applicationContext)) {
+            recordExecution(frequency, "failed", "پوشه ذخیره پشتیبان در دسترس نیست.")
             Log.w(TAG, "$frequency auto-backup has no accessible selected destination; stopping this run.")
             return Result.failure()
         }
@@ -31,6 +34,7 @@ class WeeklyBackupWorker(
             ?: com.example.data.security.AuthSessionManager(applicationContext).getActiveSession()?.userId
 
         if (userId.isNullOrBlank()) {
+            recordExecution(frequency, "skipped", "نشست کاربری فعال نیست.")
             Log.i(TAG, "Weekly auto-backup skipped: no authenticated user session.")
             return Result.success()
         }
@@ -74,12 +78,29 @@ class WeeklyBackupWorker(
                 .putLong("last_backup_time", System.currentTimeMillis())
                 .putLong("last_backup_time_${userTag}", System.currentTimeMillis())
                 .apply()
+            recordExecution(frequency, "success")
 
             Result.success()
         } catch (e: Exception) {
+            recordExecution(frequency, "failed", e.message ?: e.javaClass.simpleName)
             Log.e(TAG, "Error performing $frequency auto-backup", e)
             Result.retry()
         }
+    }
+
+    private fun recordExecution(frequency: String, result: String, error: String? = null) {
+        val now = System.currentTimeMillis()
+        val prefs = applicationContext.getSharedPreferences("darino_backup_prefs", Context.MODE_PRIVATE)
+        val editor = prefs.edit()
+            .putLong("auto_backup_last_attempt_${frequency}", now)
+            .putString("auto_backup_last_result_${frequency}", result)
+        if (result == "success") {
+            editor.putLong("auto_backup_last_success_${frequency}", now)
+            editor.remove("auto_backup_last_error_${frequency}")
+        } else if (result == "failed") {
+            editor.putString("auto_backup_last_error_${frequency}", error?.take(300))
+        }
+        editor.apply()
     }
 
     companion object {
