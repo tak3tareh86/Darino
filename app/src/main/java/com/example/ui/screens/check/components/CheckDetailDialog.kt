@@ -69,7 +69,7 @@ fun CheckDetailDialog(
                     )
                 }
                 
-                StatusBadge(status = check.status)
+                StatusBadge(status = check.status, type = check.type)
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
