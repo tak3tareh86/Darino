@@ -388,17 +388,17 @@ fun SupportBackupScreen(
                                     showShareNameDialog = true
                                     isBackingUp = false
                                 } else {
+                                    // Manual backups use Android's document picker instead of the
+                                    // persisted folder tree URI. This avoids provider-specific tree
+                                    // URI failures while keeping automatic backups on their folder.
                                     val filename = buildManualBackupFilename()
-                                    withContext(Dispatchers.IO) {
-                                        com.example.data.backup.BackupFolderStorage.saveBackup(
-                                            context,
-                                            filename,
-                                            payload
-                                        )
-                                    }
-                                    updateBackupTimestamp(
+                                    pendingBackupPayload = payload
+                                    pendingBackupChecksum = backup.metadata.checksum
+                                    pendingBackupSummary =
                                         "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
-                                    )
+                                    pendingBackupPassphrase = secret
+                                    isBackingUp = true
+                                    backupFileLauncher.launch(filename)
                                 }
                             } catch (e: Exception) {
                                 isBackingUp = false
@@ -852,16 +852,10 @@ fun SupportBackupScreen(
                                     Button(
                                         onClick = {
                                             if (!isBackingUp) {
-                                                if (!com.example.data.backup.BackupFolderStorage.hasWritableSelectedFolder(context)) {
-                                                    backupFolderUri = null
-                                                    Toast.makeText(context, "دسترسی پوشه پشتیبان معتبر نیست؛ لطفاً پوشه ذخیره را دوباره انتخاب کنید.", Toast.LENGTH_LONG).show()
-                                                    backupFolderPickerLauncher.launch(null)
-                                                } else {
-                                                    shareAfterEncryption = false
-                                                    backupPassphrase = ""
-                                                    backupPassphraseConfirm = ""
-                                                    showBackupPasswordDialog = true
-                                                }
+                                                shareAfterEncryption = false
+                                                backupPassphrase = ""
+                                                backupPassphraseConfirm = ""
+                                                showBackupPasswordDialog = true
                                             }
                                         },
                                         modifier = Modifier.fillMaxWidth().height(48.dp).testTag("create_backup_button"),
