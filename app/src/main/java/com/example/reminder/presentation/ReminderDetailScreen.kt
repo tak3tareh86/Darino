@@ -452,7 +452,7 @@ fun EditInstallmentReminderScreen(
                             },
                             label = {
                                 Text(
-                                    offset.title,
+                                    offset.title.substringBefore(" ("),
                                     maxLines = 1,
                                     softWrap = false,
                                     fontSize = 11.sp
