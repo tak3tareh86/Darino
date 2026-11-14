@@ -261,7 +261,7 @@ fun CheckScreen(
                                 Icon(Icons.Rounded.FilterList, null)
                                 Spacer(Modifier.width(5.dp))
                                 Text(
-                                    if (uiState.selectedStatus == null) "فیلتر" else uiState.selectedStatus?.title.orEmpty(),
+                                    if (uiState.selectedStatus == null) "فیلتر" else uiState.selectedStatus?.displayTitle(when (selectedMainTab) { 1 -> CheckType.RECEIVED; 2 -> CheckType.PAID; else -> null }).orEmpty(),
                                     maxLines = 1,
                                     style = MaterialTheme.typography.labelMedium
                                 )
@@ -335,7 +335,7 @@ fun CheckScreen(
                                             modifier = Modifier.weight(1f),
                                             label = {
                                                 Text(
-                                                    text = status?.title ?: "همه وضعیت‌ها",
+                                                    text = status?.displayTitle(when (selectedMainTab) { 1 -> CheckType.RECEIVED; 2 -> CheckType.PAID; else -> null }) ?: "همه وضعیت‌ها",
                                                     maxLines = 1,
                                                     softWrap = false,
                                                     style = MaterialTheme.typography.labelMedium
