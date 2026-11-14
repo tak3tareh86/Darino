@@ -841,23 +841,23 @@ class VehicleRepository {
 
             val affectedRows = db.withTransaction {
                 val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
-                val legacyVehicleIds = buildSet {
-                    add(vehicleId)
-                    vehicle?.let {
-                        add(it.id.toString())
-                        it.serverId?.takeIf(String::isNotBlank)?.let(::add)
+                if (vehicle != null) {
+                    val legacyVehicleIds = buildSet {
+                        add(vehicleId)
+                        add(vehicle.id.toString())
+                        vehicle.serverId?.takeIf(String::isNotBlank)?.let(::add)
                     }
-                }
-                db.vehicleDao().getVehicleStore(userId)?.let { store ->
-                    db.vehicleDao().insertVehicleStore(
-                        store.copy(
-                            vehiclesJson = removeLegacyVehicleRows(store.vehiclesJson, "id", legacyVehicleIds),
-                            servicesJson = removeLegacyVehicleRows(store.servicesJson, "vehicleId", legacyVehicleIds),
-                            expensesJson = removeLegacyVehicleRows(store.expensesJson, "vehicleId", legacyVehicleIds),
-                            insurancesJson = removeLegacyVehicleRows(store.insurancesJson, "vehicleId", legacyVehicleIds),
-                            inspectionsJson = removeLegacyVehicleRows(store.inspectionsJson, "vehicleId", legacyVehicleIds)
+                    db.vehicleDao().getVehicleStore(userId)?.let { store ->
+                        db.vehicleDao().insertVehicleStore(
+                            store.copy(
+                                vehiclesJson = removeLegacyVehicleRows(store.vehiclesJson, "id", legacyVehicleIds),
+                                servicesJson = removeLegacyVehicleRows(store.servicesJson, "vehicleId", legacyVehicleIds),
+                                expensesJson = removeLegacyVehicleRows(store.expensesJson, "vehicleId", legacyVehicleIds),
+                                insurancesJson = removeLegacyVehicleRows(store.insurancesJson, "vehicleId", legacyVehicleIds),
+                                inspectionsJson = removeLegacyVehicleRows(store.inspectionsJson, "vehicleId", legacyVehicleIds)
+                            )
                         )
-                    )
+                    }
                 }
                 val vehicleAffected = db.vehicleDao().deleteVehicleByServerId(userId, vehicleId)
                 db.vehicleDao().deleteServicesByVehicleId(userId, vehicleId)
