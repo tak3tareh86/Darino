@@ -377,7 +377,8 @@ class LocalCheckRepository private constructor() : CheckRepository {
                     amount = existingCheck.amount,
                     amountUnit = existingCheck.amountUnit,
                     type = if (existingCheck.type == CheckType.RECEIVED.name) "INCOME" else "EXPENSE",
-                    category = "انتقال",
+                    // Store a category whose type matches the ledger transaction.
+                    category = if (existingCheck.type == CheckType.RECEIVED.name) "other_income" else "misc",
                     accountName = validAccount.name,
                     accountId = validAccount.stringId,
                     description = if (existingCheck.type == CheckType.RECEIVED.name)
