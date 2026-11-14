@@ -12,6 +12,43 @@ import org.junit.Test
 
 class BackupValidatorTest {
     @Test
+    fun acceptsRemindersWhoseLinkedSourceRecordWasDeleted() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 6,
+                    createdAt = 1_800_000_000_000L,
+                    recordCount = 2,
+                    currencyUnit = "TOMAN"
+                ),
+                reminders = listOf(
+                    com.example.reminder.data.ReminderEntity(
+                        id = "smart-reminder-1",
+                        title = "یادآور قسط حذف‌شده",
+                        date = "1405/08/10",
+                        sourceType = "INSTALLMENT",
+                        sourceId = "deleted-installment-id"
+                    )
+                ),
+                legacyReminders = listOf(
+                    com.example.data.database.ReminderEntity(
+                        id = 12,
+                        userId = "backup-user",
+                        type = "GENERAL",
+                        title = "یادآور خودروی حذف‌شده",
+                        description = "",
+                        sourceType = "VEHICLE",
+                        sourceId = 987654,
+                        scheduledDateTime = 1_800_000_000_000L
+                    )
+                )
+            )
+        )
+
+        assertEquals(ValidationResult.Valid, BackupValidator.validate(backup))
+    }
+
+    @Test
     fun rejectsDuplicatePrimaryKeysBeforeRestore() {
         val backup = BackupValidator.withChecksum(
             DarinoBackup(
