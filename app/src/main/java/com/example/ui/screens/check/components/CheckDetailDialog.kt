@@ -27,11 +27,13 @@ fun CheckDetailDialog(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onSettle: (com.example.ui.screens.finance.model.Account) -> Unit,
+    onSettleWithoutTransaction: () -> Unit,
     onReplace: () -> Unit,
     relatedCheckNumber: String? = null,
     originalCheckNumber: String? = null
 ) {
     var showSettleDialog by remember { mutableStateOf(false) }
+    var showAccountSelectionDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var selectedAccount by remember { mutableStateOf<com.example.ui.screens.finance.model.Account?>(null) }
 
@@ -153,7 +155,7 @@ fun CheckDetailDialog(
                 ) {
                     Icon(Icons.Rounded.CheckCircle, null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("تسویه و ثبت تراکنش", fontWeight = FontWeight.Bold)
+                    Text("ثبت وصول / پرداخت", fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -234,13 +236,48 @@ fun CheckDetailDialog(
     }
 
     if (showSettleDialog) {
+        val isReceived = check.type == CheckType.RECEIVED
         AlertDialog(
             onDismissRequest = { showSettleDialog = false },
-            title = { Text("تسویه چک") },
+            title = { Text(if (isReceived) "ثبت وصول چک" else "ثبت پرداخت چک") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("حساب مورد نظر برای ثبت تراکنش تسویه را انتخاب کنید:")
+                Text(
+                    if (isReceived)
+                        "چک وصول شد. آیا مبلغ ${check.formattedAmount} به‌عنوان درآمد ثبت شود؟"
+                    else
+                        "چک پرداخت شد. آیا مبلغ ${check.formattedAmount} به‌عنوان هزینه ثبت شود؟"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSettleDialog = false
+                    showAccountSelectionDialog = true
+                }) { Text("بله، ثبت شود") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        showSettleDialog = false
+                        onSettleWithoutTransaction()
+                    }) { Text("خیر، فقط تغییر وضعیت") }
+                    TextButton(onClick = { showSettleDialog = false }) { Text("انصراف") }
+                }
+            }
+        )
+    }
 
+    if (showAccountSelectionDialog) {
+        AlertDialog(
+            onDismissRequest = { showAccountSelectionDialog = false },
+            title = { Text("انتخاب حساب") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        if (check.type == CheckType.RECEIVED)
+                            "درآمد وصول چک به کدام حساب اضافه شود؟"
+                        else
+                            "هزینه پرداخت چک از کدام حساب ثبت شود؟"
+                    )
                     if (accounts.isEmpty()) {
                         Text(
                             "حساب فعالی برای ثبت تراکنش پیدا نشد. ابتدا از بخش حساب‌ها یک حساب فعال ایجاد کنید.",
@@ -248,22 +285,16 @@ fun CheckDetailDialog(
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
-
                     accounts.forEach { account ->
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
                                 selected = selectedAccount == account,
                                 onClick = { selectedAccount = account }
                             )
-                            Text(
-                                text = account.name,
-                                modifier = Modifier.padding(start = 8.dp)
-                            )
+                            Text(text = account.name, modifier = Modifier.padding(start = 8.dp))
                         }
                     }
                 }
@@ -271,20 +302,16 @@ fun CheckDetailDialog(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        selectedAccount?.let { 
+                        selectedAccount?.let {
                             onSettle(it)
-                            showSettleDialog = false
+                            showAccountSelectionDialog = false
                         }
                     },
                     enabled = selectedAccount != null
-                ) {
-                    Text("تایید و تسویه")
-                }
+                ) { Text("ثبت تراکنش و تسویه") }
             },
             dismissButton = {
-                TextButton(onClick = { showSettleDialog = false }) {
-                    Text("انصراف")
-                }
+                TextButton(onClick = { showAccountSelectionDialog = false }) { Text("انصراف") }
             }
         )
     }
