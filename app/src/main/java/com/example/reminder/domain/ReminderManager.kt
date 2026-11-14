@@ -478,7 +478,8 @@ class ReminderManager(
         dueTimePersian: String? = null,
         selectedOffsets: List<PredefinedOffset>? = null,
         paymentDueDates: List<Pair<String, String>>? = null,
-        amountUnit: AppCurrency = AppCurrency.TOMAN
+        amountUnit: AppCurrency = AppCurrency.TOMAN,
+        useSelectedOffsetsExactly: Boolean = false
     ): Int = withContext(Dispatchers.IO) {
         val existing = repository.getReminderBySourceId(installmentId)
         val effectiveDueTime = dueTimePersian?.takeIf { it.isNotBlank() }
@@ -487,7 +488,10 @@ class ReminderManager(
         val oldSchedules = existing?.let { repository.getSchedulesSync(it.id) }.orEmpty()
         // The stored schedules are also the durable copy of the user's selected offsets.
         // Keep disabled entries for past triggers so a later date edit can restore them.
-        val offsets = selectedOffsets ?: when {
+        val offsets = if (useSelectedOffsetsExactly) {
+            selectedOffsets.orEmpty()
+        } else {
+            selectedOffsets?.takeIf { it.isNotEmpty() } ?: when {
             existing?.notificationEnabled == true -> oldSchedules.mapNotNull { stored ->
                 PredefinedOffset.entries.find {
                     it.value == stored.offsetValue && it.unit.name.equals(stored.offsetUnit, ignoreCase = true)
@@ -506,6 +510,7 @@ class ReminderManager(
                 listOfNotNull(preferredOffset)
             }
             else -> emptyList()
+            }
         }
 
         val reminder = existing?.copy(
