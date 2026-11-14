@@ -26,8 +26,10 @@ class WeeklyBackupWorker(
         recordExecution(frequency, "running")
         if (!BackupFolderStorage.hasWritableSelectedFolder(applicationContext)) {
             recordExecution(frequency, "failed", "پوشه ذخیره پشتیبان در دسترس نیست.")
-            Log.w(TAG, "$frequency auto-backup has no accessible selected destination; stopping this run.")
-            return Result.failure()
+            Log.w(TAG, "$frequency auto-backup has no accessible selected destination; retrying this run.")
+            // A periodic request that returns failure may become permanently FAILED.
+            // Retry instead so a temporary SAF/provider problem does not kill future backups.
+            return Result.retry()
         }
 
         val userId = com.example.data.security.SessionManager.userId
