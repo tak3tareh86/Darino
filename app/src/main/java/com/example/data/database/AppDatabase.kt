@@ -31,7 +31,7 @@ import androidx.room.RoomDatabase
         UserPreferenceEntity::class,
         CheckEntity::class
     ],
-    version = 45,
+    version = 46,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -630,6 +630,103 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_45_46 = object : androidx.room.migration.Migration(45, 46) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Keep one canonical reminder for each user/source pair. Prefer an active
+                // reminder, then the most recently updated record, without touching manual
+                // reminders whose sourceId is null or blank.
+                db.execSQL("""
+                    CREATE TEMP TABLE installment_reminder_dedup AS
+                    SELECT duplicate.id AS duplicateId,
+                           (
+                               SELECT keeper.id
+                               FROM smart_reminders AS keeper
+                               WHERE keeper.userId = duplicate.userId
+                                 AND keeper.sourceType = duplicate.sourceType
+                                 AND keeper.sourceId = duplicate.sourceId
+                               ORDER BY
+                                   CASE WHEN keeper.status = 'ACTIVE' THEN 0 ELSE 1 END,
+                                   keeper.updatedAt DESC,
+                                   keeper.createdAt DESC,
+                                   keeper.id ASC
+                               LIMIT 1
+                           ) AS keeperId
+                    FROM smart_reminders AS duplicate
+                    WHERE duplicate.sourceId IS NOT NULL
+                      AND TRIM(duplicate.sourceId) <> ''
+                      AND duplicate.id <> (
+                          SELECT keeper.id
+                          FROM smart_reminders AS keeper
+                          WHERE keeper.userId = duplicate.userId
+                            AND keeper.sourceType = duplicate.sourceType
+                            AND keeper.sourceId = duplicate.sourceId
+                          ORDER BY
+                              CASE WHEN keeper.status = 'ACTIVE' THEN 0 ELSE 1 END,
+                              keeper.updatedAt DESC,
+                              keeper.createdAt DESC,
+                              keeper.id ASC
+                          LIMIT 1
+                      )
+                """.trimIndent())
+
+                // Preserve non-conflicting schedules and delivery history on the chosen row.
+                db.execSQL("""
+                    UPDATE smart_reminder_schedules
+                    SET reminderId = (
+                        SELECT keeperId FROM installment_reminder_dedup
+                        WHERE duplicateId = smart_reminder_schedules.reminderId
+                    )
+                    WHERE reminderId IN (SELECT duplicateId FROM installment_reminder_dedup)
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM smart_reminder_schedules AS keeperSchedule
+                          WHERE keeperSchedule.id = smart_reminder_schedules.id
+                            AND keeperSchedule.reminderId = (
+                                SELECT keeperId FROM installment_reminder_dedup
+                                WHERE duplicateId = smart_reminder_schedules.reminderId
+                            )
+                      )
+                """.trimIndent())
+                db.execSQL("""
+                    UPDATE smart_reminder_delivery_logs
+                    SET reminderId = (
+                        SELECT keeperId FROM installment_reminder_dedup
+                        WHERE duplicateId = smart_reminder_delivery_logs.reminderId
+                    )
+                    WHERE reminderId IN (SELECT duplicateId FROM installment_reminder_dedup)
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM smart_reminder_delivery_logs AS keeperLog
+                          WHERE keeperLog.id = smart_reminder_delivery_logs.id
+                            AND keeperLog.reminderId = (
+                                SELECT keeperId FROM installment_reminder_dedup
+                                WHERE duplicateId = smart_reminder_delivery_logs.reminderId
+                            )
+                      )
+                """.trimIndent())
+
+                db.execSQL("""
+                    DELETE FROM smart_reminder_schedules
+                    WHERE reminderId IN (SELECT duplicateId FROM installment_reminder_dedup)
+                """.trimIndent())
+                db.execSQL("""
+                    DELETE FROM smart_reminder_delivery_logs
+                    WHERE reminderId IN (SELECT duplicateId FROM installment_reminder_dedup)
+                """.trimIndent())
+                db.execSQL("""
+                    DELETE FROM smart_reminders
+                    WHERE id IN (SELECT duplicateId FROM installment_reminder_dedup)
+                """.trimIndent())
+                db.execSQL("DROP TABLE installment_reminder_dedup")
+
+                db.execSQL("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS
+                    index_smart_reminders_userId_sourceType_sourceId
+                    ON smart_reminders(userId, sourceType, sourceId)
+                """.trimIndent())
+            }
+        }
+
         private val MIGRATION_42_43 = object : androidx.room.migration.Migration(42, 43) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // Vehicle record IDs can be identical when the same portable backup is
@@ -721,7 +818,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
                          MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
                          MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30,
-                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45
+                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46
                      )
                     .build()
                 INSTANCE = instance
