@@ -769,9 +769,14 @@ class LocalBackupRepository(
                     val newId = db.vehicleDao().insertVehicle(
                         vehicle.copy(id = 0, userId = userId)
                     ).toInt()
-                    restoredVehicleIds[vehicle.id.toString()] = newId.toString()
+                    // VehicleRepository exposes serverId as the vehicle's public ID when present.
+                    // Child records must use that same ID after restore, not the new Room row ID.
+                    val restoredVehicleId = vehicle.serverId
+                        ?.takeIf { it.isNotBlank() }
+                        ?: newId.toString()
+                    restoredVehicleIds[vehicle.id.toString()] = restoredVehicleId
                     vehicle.serverId?.takeIf { it.isNotBlank() }?.let { serverId ->
-                        restoredVehicleIds[serverId] = newId.toString()
+                        restoredVehicleIds[serverId] = restoredVehicleId
                     }
                 }
                 fun remapVehicleId(oldId: String): String = restoredVehicleIds[oldId] ?: oldId
