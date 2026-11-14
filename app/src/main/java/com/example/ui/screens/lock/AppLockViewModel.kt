@@ -114,9 +114,14 @@ class AppLockViewModel @JvmOverloads constructor(
             val phone = user?.phoneNumber ?: ""
             val hasLock = securityRepository.hasAnyActiveLock()
 
+            // Apply the configured background timeout even when Android has killed
+            // the process and this ViewModel is being created again.
+            val shouldLock = hasLock &&
+                securityRepository.shouldLockAppOnResume(System.currentTimeMillis())
+
             _uiState.value = _uiState.value.copy(
                 userPhone = phone,
-                appLockState = if (hasLock) AppLockState.Locked else AppLockState.Unlocked
+                appLockState = if (shouldLock) AppLockState.Locked else AppLockState.Unlocked
             )
         }
     }
