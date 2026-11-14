@@ -456,8 +456,14 @@ fun CheckScreen(
                 }
             },
             onSettle = { account ->
-                viewModel.settleCheck(selectedCheckForDetail!!, account) { result ->
-                    showOperationResult(result, "تسویه ثبت شد و تراکنش مالی به حساب اضافه شد.")
+                viewModel.settleCheck(selectedCheckForDetail!!, account, true) { result ->
+                    showOperationResult(result, "وصول/پرداخت چک ثبت شد و تراکنش مالی به حساب اضافه شد.")
+                    if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) selectedCheckForDetail = null
+                }
+            },
+            onSettleWithoutTransaction = {
+                viewModel.settleCheck(selectedCheckForDetail!!, null, false) { result ->
+                    showOperationResult(result, "وضعیت چک تغییر کرد؛ تراکنش مالی جدیدی ثبت نشد.")
                     if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) selectedCheckForDetail = null
                 }
             },
