@@ -457,56 +457,56 @@ fun AppNavigationContainer(
                                     NavigationTransitionAnimation.SLIDE -> {
                                         slideInHorizontally(
                                             initialOffsetX = { fullWidth -> if (isForward) fullWidth else -fullWidth },
-                                            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
                                         ) togetherWith slideOutHorizontally(
                                             targetOffsetX = { fullWidth -> if (isForward) -fullWidth else fullWidth },
-                                            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
                                         )
                                     }
                                     NavigationTransitionAnimation.FADE -> {
                                         fadeIn(
-                                            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
                                         ) togetherWith fadeOut(
-                                            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 130, easing = FastOutSlowInEasing)
                                         )
                                     }
                                     NavigationTransitionAnimation.SCALE -> {
                                         (scaleIn(
                                             initialScale = 0.88f,
-                                            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 170, easing = FastOutSlowInEasing)
                                         ) + fadeIn(
-                                            animationSpec = tween(durationMillis = 250)
+                                            animationSpec = tween(durationMillis = 150)
                                         )) togetherWith (scaleOut(
                                             targetScale = 1.08f,
-                                            animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
                                         ) + fadeOut(
-                                            animationSpec = tween(durationMillis = 200)
+                                            animationSpec = tween(durationMillis = 120)
                                         ))
                                     }
                                     NavigationTransitionAnimation.ZOOM -> {
                                         (scaleIn(
                                             initialScale = 0.72f,
-                                            animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 190, easing = FastOutSlowInEasing)
                                         ) + fadeIn(
-                                            animationSpec = tween(durationMillis = 280)
+                                            animationSpec = tween(durationMillis = 160)
                                         )) togetherWith (scaleOut(
                                             targetScale = 1.25f,
-                                            animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing)
                                         ) + fadeOut(
-                                            animationSpec = tween(durationMillis = 240)
+                                            animationSpec = tween(durationMillis = 140)
                                         ))
                                     }
                                     NavigationTransitionAnimation.SLIDE_FADE -> {
                                         (slideInHorizontally(
                                             initialOffsetX = { fullWidth -> if (isForward) (fullWidth * 0.45f).toInt() else (-fullWidth * 0.45f).toInt() },
-                                            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
                                         ) + fadeIn(
-                                            animationSpec = tween(durationMillis = 300)
+                                            animationSpec = tween(durationMillis = 170)
                                         )) togetherWith (slideOutHorizontally(
                                             targetOffsetX = { fullWidth -> if (isForward) (-fullWidth * 0.45f).toInt() else (fullWidth * 0.45f).toInt() },
-                                            animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing)
                                         ) + fadeOut(
-                                            animationSpec = tween(durationMillis = 240)
+                                            animationSpec = tween(durationMillis = 140)
                                         ))
                                     }
                                     NavigationTransitionAnimation.DYNAMIC -> {
@@ -514,24 +514,24 @@ fun AppNavigationContainer(
                                             initialOffsetX = { fullWidth -> if (isForward) (fullWidth * 0.5f).toInt() else (-fullWidth * 0.5f).toInt() },
                                             animationSpec = spring(
                                                 dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessMediumLow
+                                                stiffness = Spring.StiffnessMedium
                                             )
                                         ) + scaleIn(
                                             initialScale = 0.90f,
                                             animationSpec = spring(
                                                 dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessMediumLow
+                                                stiffness = Spring.StiffnessMedium
                                             )
                                         ) + fadeIn(
-                                            animationSpec = tween(durationMillis = 220)
+                                            animationSpec = tween(durationMillis = 130)
                                         )) togetherWith (slideOutHorizontally(
                                             targetOffsetX = { fullWidth -> if (isForward) (-fullWidth * 0.35f).toInt() else (fullWidth * 0.35f).toInt() },
-                                            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
                                         ) + scaleOut(
                                             targetScale = 0.96f,
-                                            animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 140, easing = FastOutSlowInEasing)
                                         ) + fadeOut(
-                                            animationSpec = tween(durationMillis = 200)
+                                            animationSpec = tween(durationMillis = 120)
                                         ))
                                     }
                                 }
