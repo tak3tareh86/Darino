@@ -410,7 +410,8 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 database.checkDao().settleCheckWithTransaction(
                     check = updatedCheckEntity,
                     transaction = transaction,
-                    transactionDao = database.transactionDao()
+                    transactionDao = database.transactionDao(),
+                    accountDao = database.accountDao()
                 )
             }
 

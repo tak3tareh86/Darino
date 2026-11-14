@@ -603,6 +603,7 @@ interface CheckDao {
           AND status IN ('REGISTERED', 'PENDING', 'BOUNCED')
           AND replacedByCheckId IS NULL
           AND type = :type AND amount = :amount AND amountUnit = :amountUnit
+          AND checkNumber = :checkNumber AND bankName = :bankName
     """)
     suspend fun markCheckClearedForSettlement(
         checkId: Int,
@@ -610,6 +611,8 @@ interface CheckDao {
         type: String,
         amount: Long,
         amountUnit: String,
+        checkNumber: String,
+        bankName: String,
         accountId: String?,
         updatedAt: Long
     ): Int
@@ -682,6 +685,8 @@ interface CheckDao {
             type = current.type,
             amount = current.amount,
             amountUnit = current.amountUnit,
+            checkNumber = current.checkNumber,
+            bankName = current.bankName,
             accountId = null,
             updatedAt = check.updatedAt
         )
@@ -697,7 +702,8 @@ interface CheckDao {
     suspend fun settleCheckWithTransaction(
         check: CheckEntity,
         transaction: TransactionEntity,
-        transactionDao: TransactionDao
+        transactionDao: TransactionDao,
+        accountDao: AccountDao
     ): Boolean {
         if (check.type != "RECEIVED" && check.type != "PAID") return false
         val expectedType = if (check.type == "RECEIVED") "INCOME" else "EXPENSE"
@@ -720,7 +726,14 @@ interface CheckDao {
             current.replacedByCheckId != null ||
             current.type != check.type ||
             current.amount != check.amount ||
-            current.amountUnit != check.amountUnit) return false
+            current.amountUnit != check.amountUnit ||
+            current.checkNumber != check.checkNumber ||
+            current.bankName != check.bankName) return false
+
+        val activeAccount = accountDao.getAccountByStringId(check.userId, accountId)
+            ?: return false
+        if (activeAccount.userId != check.userId || !activeAccount.isActive ||
+            activeAccount.deletedAt != null || activeAccount.name != transaction.accountName) return false
 
         // A soft-deleted settlement is historical data, not permission to restore
         // or silently create another transaction with the same business meaning.
@@ -748,14 +761,15 @@ interface CheckDao {
                 type = current.type,
                 amount = current.amount,
                 amountUnit = current.amountUnit,
+                checkNumber = current.checkNumber,
+                bankName = current.bankName,
                 accountId = accountId,
                 updatedAt = check.updatedAt
             )
             val finalState = getCheckById(check.userId, check.id)
             return finalState != null && finalState.userId == check.userId &&
                 finalState.deletedAt == null && finalState.status == "CLEARED" &&
-                finalState.accountId == accountId && finalState.replacedByCheckId == null &&
-                (rows == 1 || finalState.status == "CLEARED")
+                finalState.accountId == accountId && finalState.replacedByCheckId == null
         }
 
         // A different active or deleted CHECK transaction linked to this check
@@ -771,6 +785,8 @@ interface CheckDao {
             type = current.type,
             amount = current.amount,
             amountUnit = current.amountUnit,
+            checkNumber = current.checkNumber,
+            bankName = current.bankName,
             accountId = accountId,
             updatedAt = check.updatedAt
         )
