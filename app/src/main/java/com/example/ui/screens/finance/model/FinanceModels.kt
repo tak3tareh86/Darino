@@ -24,6 +24,7 @@ enum class TransactionSourceType(val title: String) {
     INSURANCE("بیمه"),
     MAINTENANCE("سرویس و نگهداری"),
     FUEL("سوخت و بنزین"),
+    CHECK("چک"),
     OTHER("سایر")
 }
 
