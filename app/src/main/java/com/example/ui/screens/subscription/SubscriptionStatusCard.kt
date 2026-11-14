@@ -93,62 +93,86 @@ fun SubscriptionStatusCard(
                     shape = RoundedCornerShape(16.dp),
                     ambientColor = Color(0xFF0D9488).copy(alpha = 0.2f),
                     spotColor = Color(0xFF0F172A).copy(alpha = 0.35f)
-                )
-                .clip(RoundedCornerShape(16.dp)),
+                ),
+            shape = RoundedCornerShape(16.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
             colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(activeGradient)
-                    .padding(horizontal = 12.dp, vertical = 13.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .heightIn(min = 112.dp)
+                    .background(activeGradient),
+                contentAlignment = Alignment.Center
             ) {
-                // Single centered content area with the enlarged logo kept on the left in RTL.
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 13.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Column(
+                    // Two centered information columns; in RTL the logo remains on the left.
+                    Row(
                         modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Text(
-                                text = "اشتراک فعال",
-                                color = cardTextColor,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
+                                text = "وضعیت اشتراک",
+                                color = cardMutedTextColor,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center,
                                 maxLines = 1
                             )
-                            Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.CheckCircle,
-                                contentDescription = "اشتراک فعال",
-                                tint = Color(0xFF22C55E),
-                                modifier = Modifier.size(18.dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "فعال",
+                                    color = cardTextColor,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "اشتراک فعال",
+                                    tint = Color(0xFF22C55E),
+                                    modifier = Modifier.size(17.dp)
+                                )
+                            }
+                        }
+
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text(
+                                text = "تاریخ خرید",
+                                color = cardMutedTextColor,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = if (marketConfirmedActive && info.subscriptionPurchaseAt != null) state.subscriptionPurchaseJalaliDate else "نامشخص",
+                                color = cardTextColor,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1
                             )
                         }
-                        Text(
-                            text = "تاریخ خرید",
-                            color = cardMutedTextColor,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = if (marketConfirmedActive && info.subscriptionPurchaseAt != null) state.subscriptionPurchaseJalaliDate else "نامشخص",
-                            color = cardTextColor,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1
-                        )
                     }
 
                     androidx.compose.foundation.Image(
