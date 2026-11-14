@@ -126,9 +126,15 @@ object VehicleAnalyzer {
         val today = parseAndValidateJalaliDate(currentPdt.toFormattedDate())
             ?: "%04d/%02d/%02d".format(currentPdt.year, currentPdt.month, currentPdt.day)
 
-        fun latestService(type: ServiceType): VehicleServiceEntity? =
-            carServices.filter { it.serviceType == type }
-                .maxByOrNull { parseAndValidateJalaliDate(it.date) ?: "" }
+        fun latestService(type: ServiceType): VehicleServiceEntity? {
+            val matching = carServices.filter { it.serviceType == type }
+            val compatible = if (matching.isNotEmpty()) matching else when (type) {
+                ServiceType.OIL_FILTER_CHANGE, ServiceType.AIR_FILTER_CHANGE ->
+                    carServices.filter { it.serviceType == ServiceType.FILTERS }
+                else -> emptyList()
+            }
+            return compatible.maxByOrNull { parseAndValidateJalaliDate(it.date) ?: "" }
+        }
 
         fun serviceStatus(
             title: String,
@@ -218,8 +224,13 @@ object VehicleAnalyzer {
                 defaultIntervalKm = 5000
             ),
             serviceStatus(
-                "فیلترها",
-                listOf(ServiceType.FILTERS),
+                "فیلتر روغن",
+                listOf(ServiceType.OIL_FILTER_CHANGE),
+                R.drawable.filter
+            ),
+            serviceStatus(
+                "فیلتر هوا",
+                listOf(ServiceType.AIR_FILTER_CHANGE),
                 R.drawable.filter
             ),
             serviceStatus(
