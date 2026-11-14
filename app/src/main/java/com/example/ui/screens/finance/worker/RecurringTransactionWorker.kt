@@ -16,8 +16,6 @@ class RecurringTransactionWorker(
         return try {
             com.example.data.security.SessionManager.init(applicationContext)
             val repository = LocalFinanceRepository.instance
-            repository.init(applicationContext)
-            repository.refreshMetadataForCurrentUser()
             repository.processDueRecurringTransactions(applicationContext)
             Log.i(TAG, "RecurringTransactionWorker executed successfully.")
             Result.success()
