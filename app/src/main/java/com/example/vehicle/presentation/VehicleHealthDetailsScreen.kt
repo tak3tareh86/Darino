@@ -60,7 +60,10 @@ fun VehicleHealthDetailsScreen(
         checklistByTitle["روغن موتور"]?.let {
             VehicleHealthDisplayGroup(title = it.title, items = listOf(it))
         },
-        checklistByTitle["فیلترها"]?.let {
+        checklistByTitle["فیلتر روغن"]?.let {
+            VehicleHealthDisplayGroup(title = it.title, items = listOf(it))
+        },
+        checklistByTitle["فیلتر هوا"]?.let {
             VehicleHealthDisplayGroup(title = it.title, items = listOf(it))
         },
         checklistByTitle["روغن گیربکس"]?.let {
