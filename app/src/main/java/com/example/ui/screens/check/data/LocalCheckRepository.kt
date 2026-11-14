@@ -307,73 +307,100 @@ class LocalCheckRepository private constructor() : CheckRepository {
         }
     }
 
-    override suspend fun settleCheck(check: Check, account: com.example.ui.screens.finance.model.Account): CheckOperationResult = withContext(Dispatchers.IO) {
+    override suspend fun settleCheck(
+        check: Check,
+        account: com.example.ui.screens.finance.model.Account?,
+        recordFinancialTransaction: Boolean
+    ): CheckOperationResult = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
         val database = db ?: return@withContext CheckOperationResult.PERSISTENCE_ERROR
-        
-        // 1. Verify account ownership and validity
-        val accountEntity = database.accountDao().getAccountByStringId(userId, account.id)
-        if (accountEntity == null || accountEntity.userId != userId || !accountEntity.isActive || accountEntity.deletedAt != null) {
-            return@withContext CheckOperationResult.VALIDATION_ERROR
-        }
 
-        // 2. Verify check ownership and current status from Database
-        val existingCheck = database.checkDao().getCheckById(userId, check.id)
-        if (existingCheck == null || existingCheck.userId != userId) {
+        // Read authoritative check state from the database; never trust UI-supplied amounts.
+        val existingCheck = try {
+            database.checkDao().getCheckById(userId, check.id)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext CheckOperationResult.PERSISTENCE_ERROR
+        } ?: return@withContext CheckOperationResult.NOT_FOUND
+
+        if (existingCheck.userId != userId || existingCheck.deletedAt != null) {
             return@withContext CheckOperationResult.NOT_FOUND
         }
-        
-        // A bounced check can later be recovered (cash collection or other settlement).
-        // Canceled and replaced instruments cannot be settled; successful settlement
-        // changes it to CLEARED and creates the corresponding ledger transaction atomically.
-        if (existingCheck.status == CheckStatus.CANCELED.name || existingCheck.status == CheckStatus.REPLACED.name ||
-            existingCheck.replacedByCheckId != null) {
+        if (existingCheck.status == CheckStatus.CANCELED.name ||
+            existingCheck.status == CheckStatus.REPLACED.name ||
+            existingCheck.replacedByCheckId != null ||
+            existingCheck.status == CheckStatus.CLEARED.name) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
-        if (existingCheck.deletedAt != null) {
-            return@withContext CheckOperationResult.NOT_FOUND
-        }
-
-        // 4. Date validation (using DB record)
         if (existingCheck.dueDate < existingCheck.issueDate) {
             return@withContext CheckOperationResult.VALIDATION_ERROR
         }
 
+        // A prior ledger entry for this check means it must not be counted again,
+        // regardless of which settlement option the user chooses now.
+        val alreadyRecorded = try {
+            database.checkDao().hasSettlementTransactionForCheck(userId, existingCheck.id.toString())
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext CheckOperationResult.PERSISTENCE_ERROR
+        }
+        if (alreadyRecorded) return@withContext CheckOperationResult.VALIDATION_ERROR
+
+        val accountEntity = if (recordFinancialTransaction) {
+            val selected = account ?: return@withContext CheckOperationResult.VALIDATION_ERROR
+            try {
+                database.accountDao().getAccountByStringId(userId, selected.id)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return@withContext CheckOperationResult.PERSISTENCE_ERROR
+            }?.takeIf { it.userId == userId && it.isActive && it.deletedAt == null }
+                ?: return@withContext CheckOperationResult.VALIDATION_ERROR
+        } else {
+            null
+        }
+
         try {
-            // CRITICAL: Use data from DB record (existingCheck) for all financial information
-            // to prevent tampering from UI parameters.
             val updatedCheckEntity = existingCheck.copy(
                 status = CheckStatus.CLEARED.name,
-                accountId = account.id,
+                accountId = accountEntity?.stringId,
+                reminderDateTime = null,
                 updatedAt = System.currentTimeMillis()
             )
 
-            // Create a stable, deterministic transaction ID for idempotency
-            val settleTransactionId = "check_settle_${existingCheck.id}"
-            
-            val transaction = com.example.data.database.TransactionEntity(
-                userId = userId,
-                amount = existingCheck.amount,
-                amountUnit = existingCheck.amountUnit,
-                type = if (existingCheck.type == CheckType.RECEIVED.name) "INCOME" else "EXPENSE",
-                category = "انتقال", 
-                accountName = accountEntity.name,
-                accountId = accountEntity.stringId,
-                description = "تسویه خودکار چک شماره ${existingCheck.checkNumber}",
-                timestamp = System.currentTimeMillis(),
-                stringId = settleTransactionId,
-                title = "وصول چک: ${existingCheck.bankName} (${existingCheck.checkNumber})",
-                sourceType = "CHECK",
-                sourceId = existingCheck.id.toString(),
-                datePersian = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
-                timeFormatted = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedTime()
-            )
-
-            val success = database.checkDao().settleCheckWithTransaction(
-                check = updatedCheckEntity,
-                transaction = transaction,
-                transactionDao = database.transactionDao()
-            )
+            val success = if (!recordFinancialTransaction) {
+                database.checkDao().settleCheckWithoutTransaction(updatedCheckEntity)
+            } else {
+                val validAccount = accountEntity ?: return@withContext CheckOperationResult.VALIDATION_ERROR
+                val transactionId = "check_settle_${existingCheck.id}"
+                val transaction = com.example.data.database.TransactionEntity(
+                    userId = userId,
+                    amount = existingCheck.amount,
+                    amountUnit = existingCheck.amountUnit,
+                    type = if (existingCheck.type == CheckType.RECEIVED.name) "INCOME" else "EXPENSE",
+                    category = "انتقال",
+                    accountName = validAccount.name,
+                    accountId = validAccount.stringId,
+                    description = if (existingCheck.type == CheckType.RECEIVED.name)
+                        "وصول چک شماره ${existingCheck.checkNumber}"
+                    else
+                        "پرداخت چک شماره ${existingCheck.checkNumber}",
+                    timestamp = System.currentTimeMillis(),
+                    stringId = transactionId,
+                    title = if (existingCheck.type == CheckType.RECEIVED.name)
+                        "وصول چک: ${existingCheck.bankName} (${existingCheck.checkNumber})"
+                    else
+                        "پرداخت چک: ${existingCheck.bankName} (${existingCheck.checkNumber})",
+                    sourceType = "CHECK",
+                    sourceId = existingCheck.id.toString(),
+                    datePersian = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate(),
+                    timeFormatted = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedTime()
+                )
+                database.checkDao().settleCheckWithTransaction(
+                    check = updatedCheckEntity,
+                    transaction = transaction,
+                    transactionDao = database.transactionDao()
+                )
+            }
 
             if (success) {
                 try {
