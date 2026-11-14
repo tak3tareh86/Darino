@@ -65,6 +65,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -330,25 +332,27 @@ fun SupportBackupScreen(
                     Text("برای محافظت از اطلاعات مالی، فایل پشتیبان با این رمزگذاری می‌شود. رمز را در جای امن نگه دارید؛ بدون آن بازیابی ممکن نیست.")
                     OutlinedTextField(
                         value = backupPassphrase,
-                        onValueChange = { backupPassphrase = it },
+                        onValueChange = { backupPassphrase = it.filter(Char::isDigit).take(6) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("رمز پشتیبان (حداقل ۱۲ نویسه)") },
+                        label = { Text("رمز پشتیبان (۶ رقم)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         visualTransformation = PasswordVisualTransformation()
                     )
                     OutlinedTextField(
                         value = backupPassphraseConfirm,
-                        onValueChange = { backupPassphraseConfirm = it },
+                        onValueChange = { backupPassphraseConfirm = it.filter(Char::isDigit).take(6) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("تکرار رمز پشتیبان") },
+                        label = { Text("تکرار رمز ۶ رقمی") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         visualTransformation = PasswordVisualTransformation()
                     )
                 }
             },
             confirmButton = {
                 TextButton(
-                    enabled = backupPassphrase.length >= 12 && backupPassphrase == backupPassphraseConfirm,
+                    enabled = backupPassphrase.length == 6 && backupPassphrase.all(Char::isDigit) && backupPassphrase == backupPassphraseConfirm,
                     onClick = {
                         val secret = backupPassphrase
                         showBackupPasswordDialog = false
@@ -430,13 +434,13 @@ fun SupportBackupScreen(
                     onValueChange = { restorePassphrase = it },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text("رمز پشتیبان") },
+                    label = { Text("رمز ۶ رقمی (برای فایل‌های قدیمی، رمز قبلی)") },
                     visualTransformation = PasswordVisualTransformation()
                 )
             },
             confirmButton = {
                 TextButton(
-                    enabled = restorePassphrase.isNotEmpty(),
+                    enabled = (restorePassphrase.length == 6 && restorePassphrase.all(Char::isDigit)) || restorePassphrase.length >= 12,
                     onClick = {
                         val secret = restorePassphrase
                         val encrypted = pendingEncryptedRestorePayload
