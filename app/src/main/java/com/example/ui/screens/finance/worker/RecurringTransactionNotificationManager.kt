@@ -60,6 +60,7 @@ object RecurringTransactionNotificationManager {
     fun hasPending(context: Context, userId: String, occurrenceId: String): Boolean =
         getPending(context, userId, occurrenceId) != null
 
+    @Synchronized
     fun deferPending(context: Context, userId: String, occurrenceId: String, untilMillis: Long) {
         val payload = getPending(context, userId, occurrenceId) ?: return
         payload.put("nextNotificationAt", untilMillis)
@@ -85,6 +86,7 @@ object RecurringTransactionNotificationManager {
         }
     }
 
+    @Synchronized
     @Synchronized
     fun removePending(context: Context, userId: String, occurrenceId: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
