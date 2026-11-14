@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.domain.ReminderType
+import com.example.reminder.domain.PredefinedOffset
+import com.example.ui.screens.reminder.components.PersianTimeInputField
 import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.ui.theme.EmeraldPrimaryLight
@@ -43,6 +45,7 @@ fun ReminderDetailScreen(
     reminder: ReminderEntity,
     onBackClick: () -> Unit,
     onDelete: () -> Unit,
+    onEditInstallmentReminder: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -76,6 +79,17 @@ fun ReminderDetailScreen(
                     }
                 },
                 actions = {
+                    if (reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) &&
+                        reminder.status.equals("ACTIVE", ignoreCase = true)
+                    ) {
+                        IconButton(onClick = onEditInstallmentReminder) {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = "ویرایش یادآور وام",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                     IconButton(onClick = { showDeleteConfirmDialog = true }) {
                         Icon(
                             imageVector = Icons.Rounded.DeleteOutline,
@@ -293,5 +307,171 @@ private fun DetailRow(
                 color = MaterialTheme.colorScheme.onSurface
             )
         )
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditInstallmentReminderScreen(
+    reminder: ReminderEntity,
+    initialOffsets: List<PredefinedOffset>,
+    onBackClick: () -> Unit,
+    onSave: (
+        dueTimePersian: String,
+        offsets: List<PredefinedOffset>,
+        onComplete: (Result<ReminderEntity>) -> Unit
+    ) -> Unit,
+    onSaved: (ReminderEntity) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var time by remember(reminder.id) { mutableStateOf(reminder.time) }
+    val selectedOffsets = remember(reminder.id, initialOffsets) {
+        mutableStateListOf<PredefinedOffset>().apply { addAll(initialOffsets) }
+    }
+    var isSaving by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        "ویرایش یادآور وام",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                navigationIcon = {
+                    IconButton(enabled = !isSaving, onClick = onBackClick) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "بازگشت")
+                    }
+                }
+            )
+        },
+        bottomBar = {
+            Surface(shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface) {
+                Button(
+                    onClick = {
+                        if (isSaving) return@Button
+                        errorMessage = null
+                        isSaving = true
+                        onSave(time, selectedOffsets.toList()) { result ->
+                            isSaving = false
+                            result.onSuccess(onSaved)
+                            result.onFailure {
+                                errorMessage = it.localizedMessage ?: "ذخیره تنظیمات یادآور انجام نشد."
+                            }
+                        }
+                    },
+                    enabled = !isSaving,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(RadiusMD)
+                ) {
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Rounded.Save, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("ذخیره تغییرات")
+                    }
+                }
+            }
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Layered3DCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        reminder.title,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "تاریخ سررسید بعدی: ${IranianPhoneUtils.convertDigitsToPersian(reminder.date)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "تاریخ سررسید از جدول اقساط وام گرفته می‌شود؛ در این بخش فقط ساعت و زمان‌های هشدار را تغییر می‌دهید.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Text(
+                "ساعت ارسال هشدار",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            PersianTimeInputField(
+                value = time,
+                onValueChange = { time = it },
+                label = "ساعت یادآوری",
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Text(
+                "زمان‌های هشدار",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            Text(
+                "می‌توانید چند زمان را هم‌زمان انتخاب کنید یا همه را غیرفعال کنید.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            PredefinedOffset.entries.toList().chunked(2).forEach { rowOffsets ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rowOffsets.forEach { offset ->
+                        FilterChip(
+                            selected = offset in selectedOffsets,
+                            onClick = {
+                                if (offset in selectedOffsets) selectedOffsets.remove(offset)
+                                else selectedOffsets.add(offset)
+                            },
+                            label = {
+                                Text(
+                                    offset.title,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    fontSize = 11.sp
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (rowOffsets.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+
+            if (errorMessage != null) {
+                Text(
+                    errorMessage.orEmpty(),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
     }
 }
