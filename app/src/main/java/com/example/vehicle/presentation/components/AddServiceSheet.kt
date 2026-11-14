@@ -135,7 +135,8 @@ fun AddServiceSheet(
     val serviceTypeOptions: List<ServiceOption> = remember {
         listOf(
             ServiceOption("تعویض روغن موتور", ServiceType.OIL_CHANGE),
-            ServiceOption("تعویض فیلترها", ServiceType.FILTERS),
+            ServiceOption("تعویض فیلتر روغن", ServiceType.OIL_FILTER_CHANGE),
+            ServiceOption("تعویض فیلتر هوا", ServiceType.AIR_FILTER_CHANGE),
             ServiceOption("تعویض فیلتر بنزین", ServiceType.FUEL_FILTER_CHANGE),
             ServiceOption("تعویض لنت ترمز", ServiceType.BRAKE_PADS),
             ServiceOption("تعویض دیسک و صفحه", ServiceType.CLUTCH_DISC_PLATE_CHANGE),
