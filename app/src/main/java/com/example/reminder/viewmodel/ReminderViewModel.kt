@@ -230,7 +230,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                 }
                 val nextPayment = unpaidPayments.minByOrNull { it.dueDate }
                     ?: throw IllegalStateException("برای این وام قسط پرداخت‌نشده‌ای باقی نمانده است.")
-                val linkedReminder = repository.getReminderBySourceId(installment.id)
+                val linkedReminder = repository.getReminderBySource("INSTALLMENT", installment.id)
                     ?: throw IllegalStateException("یادآور متصل به این وام پیدا نشد؛ برای جلوگیری از ایجاد یادآور تکراری، عملیات متوقف شد.")
                 if (linkedReminder.id != reminder.id) {
                     throw IllegalStateException("ارتباط این یادآور با وام تغییر کرده است؛ برای جلوگیری از تغییر رکورد اشتباه، عملیات متوقف شد.")
