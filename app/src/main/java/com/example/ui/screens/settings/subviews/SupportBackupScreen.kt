@@ -988,6 +988,7 @@ fun SupportBackupScreen(
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text("بازیابی از فایل پشتیبان قبلی (Restore)", color = EmeraldPrimaryLight, fontWeight = FontWeight.Bold)
                                     }
+                                    Spacer(modifier = Modifier.height(10.dp))
                                     OutlinedButton(
                                         onClick = { showEmergencyRestoreConfirmation = true },
                                         modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -999,6 +1000,7 @@ fun SupportBackupScreen(
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text("بازیابی آخرین نسخه اضطراری دستگاه", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                                     }
+                                    Spacer(modifier = Modifier.height(10.dp))
                                     OutlinedButton(
                                         onClick = { showAutomaticRestoreConfirmation = true },
                                         modifier = Modifier.fillMaxWidth().height(48.dp),
