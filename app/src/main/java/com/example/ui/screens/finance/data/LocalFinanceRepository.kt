@@ -748,8 +748,13 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 return true
             }
 
-            val accountId = payload.optString("accountId").takeIf { it.isNotBlank() } ?: return false
-            val account = db.accountDao().getAccountByStringId(userId, accountId) ?: return false
+            val accountId = payload.optString("accountId").takeIf { it.isNotBlank() }
+            val account = if (accountId != null) {
+                db.accountDao().getAccountByStringId(userId, accountId)
+            } else {
+                db.accountDao().getAllAccountsList(userId)
+                    .firstOrNull { it.name.equals(payload.optString("accountName"), ignoreCase = true) }
+            } ?: return false
             if (account.userId != userId || !account.isActive || account.deletedAt != null) return false
             if (SessionManager.userId != userId) return false
 
