@@ -596,6 +596,24 @@ interface CheckDao {
         updatedAt: Long
     ): Int
 
+    @Query("""
+        UPDATE checks
+        SET status = 'CLEARED', accountId = :accountId, reminderDateTime = NULL, updatedAt = :updatedAt
+        WHERE id = :checkId AND userId = :userId AND deletedAt IS NULL
+          AND status IN ('REGISTERED', 'PENDING', 'BOUNCED')
+          AND replacedByCheckId IS NULL
+          AND type = :type AND amount = :amount AND amountUnit = :amountUnit
+    """)
+    suspend fun markCheckClearedForSettlement(
+        checkId: Int,
+        userId: String,
+        type: String,
+        amount: Long,
+        amountUnit: String,
+        accountId: String?,
+        updatedAt: Long
+    ): Int
+
     @Query("UPDATE checks SET status = 'REPLACED', replacedByCheckId = :replacementId, reminderDateTime = NULL, updatedAt = :updatedAt WHERE userId = :userId AND id = :checkId AND status = 'BOUNCED' AND replacedByCheckId IS NULL AND deletedAt IS NULL")
     suspend fun markCheckReplaced(userId: String, checkId: Int, replacementId: Int, updatedAt: Long): Int
 
@@ -644,41 +662,35 @@ interface CheckDao {
 
     @Transaction
     suspend fun settleCheckWithoutTransaction(check: CheckEntity): Boolean {
-        // A check already linked to a ledger transaction must never be settled through
-        // the "status only" path, otherwise the check and financial ledger would disagree.
-        if (hasSettlementTransactionForCheck(check.userId, check.id.toString())) return false
+        val checkId = check.id.toString()
+        if (hasSettlementTransactionForCheck(check.userId, checkId) ||
+            hasDeletedSettlementTransactionForCheck(check.userId, checkId)) return false
 
         val current = getCheckById(check.userId, check.id) ?: return false
         if (current.userId != check.userId || current.deletedAt != null ||
-            current.status == "CANCELED" || current.status == "REPLACED" ||
-            current.replacedByCheckId != null) return false
+            current.replacedByCheckId != null ||
+            current.type != check.type ||
+            current.amount != check.amount ||
+            current.amountUnit != check.amountUnit) return false
 
         if (current.status == "CLEARED") return current.accountId == null
+        if (current.status !in listOf("REGISTERED", "PENDING", "BOUNCED")) return false
 
-        val rows = updateCheckWithOwner(
-            id = check.id,
+        val rows = markCheckClearedForSettlement(
+            checkId = check.id,
             userId = check.userId,
-            type = check.type,
-            amount = check.amount,
-            amountUnit = check.amountUnit,
-            checkNumber = check.checkNumber,
-            sayadId = check.sayadId,
-            bankName = check.bankName,
-            branch = check.branch,
-            holderName = check.holderName,
-            receiverName = check.receiverName,
-            issueDate = check.issueDate,
-            dueDate = check.dueDate,
-            status = "CLEARED",
-            notes = check.notes,
+            type = current.type,
+            amount = current.amount,
+            amountUnit = current.amountUnit,
             accountId = null,
-            reminderDateTime = null,
             updatedAt = check.updatedAt
         )
         if (rows != 1) return false
+
         val finalState = getCheckById(check.userId, check.id)
         return finalState != null && finalState.userId == check.userId &&
-            finalState.status == "CLEARED" && finalState.accountId == null
+            finalState.deletedAt == null && finalState.status == "CLEARED" &&
+            finalState.accountId == null && finalState.replacedByCheckId == null
     }
 
     @Transaction
@@ -687,114 +699,94 @@ interface CheckDao {
         transaction: TransactionEntity,
         transactionDao: TransactionDao
     ): Boolean {
+        if (check.type != "RECEIVED" && check.type != "PAID") return false
         val expectedType = if (check.type == "RECEIVED") "INCOME" else "EXPENSE"
+        val checkId = check.id.toString()
+        val expectedTransactionId = "check_settle_${check.id}"
+        val accountId = check.accountId?.takeIf { it.isNotBlank() } ?: return false
 
-        // A soft-deleted settlement must never be silently restored or replaced.
-        val historicalTx = transactionDao.getTransactionIncludingDeleted(check.userId, transaction.stringId)
+        if (check.status != "CLEARED" ||
+            transaction.userId != check.userId ||
+            transaction.stringId != expectedTransactionId ||
+            transaction.sourceType != "CHECK" ||
+            transaction.sourceId != checkId ||
+            transaction.accountId != accountId ||
+            transaction.amount != check.amount ||
+            transaction.amountUnit != check.amountUnit ||
+            transaction.type != expectedType) return false
+
+        val current = getCheckById(check.userId, check.id) ?: return false
+        if (current.userId != check.userId || current.deletedAt != null ||
+            current.replacedByCheckId != null ||
+            current.type != check.type ||
+            current.amount != check.amount ||
+            current.amountUnit != check.amountUnit) return false
+
+        // A soft-deleted settlement is historical data, not permission to restore
+        // or silently create another transaction with the same business meaning.
+        val historicalTx = transactionDao.getTransactionIncludingDeleted(check.userId, expectedTransactionId)
         if (historicalTx?.deletedAt != null) return false
 
-        // 1. Idempotency Check: Does a valid transaction already exist for this user and check?
         val existingTx = historicalTx?.takeIf { it.deletedAt == null }
         if (existingTx != null) {
-            // Strict Validation: Transaction must match check user, source, account, amount, and financial type
             if (existingTx.userId != check.userId ||
                 existingTx.sourceType != "CHECK" ||
-                existingTx.sourceId != check.id.toString() ||
-                existingTx.accountId != check.accountId ||
+                existingTx.sourceId != checkId ||
+                existingTx.accountId != accountId ||
                 existingTx.amount != check.amount ||
                 existingTx.amountUnit != check.amountUnit ||
-                existingTx.type != expectedType
-            ) {
-                return false
-            }
+                existingTx.type != expectedType) return false
 
-            // If transaction is there and matches, ensure the check record also reaches the correct state.
-            updateCheckWithOwner(
-                id = check.id,
+            if (current.status == "CLEARED") {
+                return current.accountId == accountId
+            }
+            if (current.status !in listOf("REGISTERED", "PENDING", "BOUNCED")) return false
+
+            val rows = markCheckClearedForSettlement(
+                checkId = check.id,
                 userId = check.userId,
-                type = check.type,
-                amount = check.amount,
-                amountUnit = check.amountUnit,
-                checkNumber = check.checkNumber,
-                sayadId = check.sayadId,
-                bankName = check.bankName,
-                branch = check.branch,
-                holderName = check.holderName,
-                receiverName = check.receiverName,
-                issueDate = check.issueDate,
-                dueDate = check.dueDate,
-                status = check.status,
-                notes = check.notes,
-                accountId = check.accountId,
-                reminderDateTime = check.reminderDateTime,
+                type = current.type,
+                amount = current.amount,
+                amountUnit = current.amountUnit,
+                accountId = accountId,
                 updatedAt = check.updatedAt
             )
-            
-            // Final verification
-            val finalCheckState = getCheckById(check.userId, check.id)
-            return finalCheckState != null && 
-                   finalCheckState.status == "CLEARED" && 
-                   finalCheckState.userId == check.userId
+            val finalState = getCheckById(check.userId, check.id)
+            return finalState != null && finalState.userId == check.userId &&
+                finalState.deletedAt == null && finalState.status == "CLEARED" &&
+                finalState.accountId == accountId && finalState.replacedByCheckId == null &&
+                (rows == 1 || finalState.status == "CLEARED")
         }
 
-        // Any prior settlement linked to this check, including a soft-deleted one,
-        // blocks automatic creation of another ledger entry.
-        if (hasSettlementTransactionForCheck(check.userId, check.id.toString()) ||
-            hasDeletedSettlementTransactionForCheck(check.userId, check.id.toString())) return false
+        // A different active or deleted CHECK transaction linked to this check
+        // must block a second ledger entry as well.
+        if (hasSettlementTransactionForCheck(check.userId, checkId) ||
+            hasDeletedSettlementTransactionForCheck(check.userId, checkId)) return false
 
-        // 2. Perform the update: Change status to CLEARED
-        val updatedRows = updateCheckWithOwner(
-            id = check.id,
+        if (current.status !in listOf("REGISTERED", "PENDING", "BOUNCED")) return false
+
+        val updatedRows = markCheckClearedForSettlement(
+            checkId = check.id,
             userId = check.userId,
-            type = check.type,
-            amount = check.amount,
-            amountUnit = check.amountUnit,
-            checkNumber = check.checkNumber,
-            sayadId = check.sayadId,
-            bankName = check.bankName,
-            branch = check.branch,
-            holderName = check.holderName,
-            receiverName = check.receiverName,
-            issueDate = check.issueDate,
-            dueDate = check.dueDate,
-            status = check.status,
-            notes = check.notes,
-            accountId = check.accountId,
-            reminderDateTime = check.reminderDateTime,
+            type = current.type,
+            amount = current.amount,
+            amountUnit = current.amountUnit,
+            accountId = accountId,
             updatedAt = check.updatedAt
         )
+        if (updatedRows != 1) return false
 
-        // If no rows updated
-        if (updatedRows == 0) {
-            val concurrentState = getCheckById(check.userId, check.id)
-            if (concurrentState != null && 
-                concurrentState.status == "CLEARED" && 
-                concurrentState.userId == check.userId &&
-                concurrentState.accountId == check.accountId) {
-                // Already CLEARED with correct account. Continue to ensure transaction exists.
-            } else {
-                return false
-            }
-        }
+        transactionDao.insertTransaction(transaction)
 
-        // 3. Insert the financial transaction
-        try {
-            transactionDao.insertTransaction(transaction)
-        } catch (e: Exception) {
-            val doubleCheckTx = transactionDao.getTransactionByStringId(check.userId, transaction.stringId)
-            if (doubleCheckTx != null && 
-                doubleCheckTx.userId == check.userId &&
-                doubleCheckTx.sourceType == "CHECK" && 
-                doubleCheckTx.sourceId == check.id.toString() && 
-                doubleCheckTx.accountId == check.accountId &&
-                doubleCheckTx.amount == check.amount &&
-                doubleCheckTx.amountUnit == check.amountUnit &&
-                doubleCheckTx.type == expectedType) {
-                return true
-            }
-            throw e
-        }
-
-        return true
+        val finalCheckState = getCheckById(check.userId, check.id)
+        val finalTransaction = transactionDao.getTransactionByStringId(check.userId, expectedTransactionId)
+        return finalCheckState != null && finalCheckState.userId == check.userId &&
+            finalCheckState.deletedAt == null && finalCheckState.status == "CLEARED" &&
+            finalCheckState.accountId == accountId && finalCheckState.replacedByCheckId == null &&
+            finalTransaction != null && finalTransaction.deletedAt == null &&
+            finalTransaction.sourceType == "CHECK" && finalTransaction.sourceId == checkId &&
+            finalTransaction.accountId == accountId && finalTransaction.amount == check.amount &&
+            finalTransaction.amountUnit == check.amountUnit && finalTransaction.type == expectedType
     }
+
 }
