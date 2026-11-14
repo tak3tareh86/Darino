@@ -33,6 +33,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.R
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.domain.ReminderType
+import com.example.reminder.domain.PredefinedOffset
 import com.example.reminder.domain.SnoozeOption
 import com.example.reminder.viewmodel.ReminderFilterChip
 import com.example.reminder.viewmodel.ReminderTab
@@ -54,6 +55,7 @@ private enum class ReminderSubScreen {
     LIST,
     ADD,
     DETAIL,
+    EDIT_INSTALLMENT_REMINDER,
     NOTIFICATION_CENTER
 }
 
@@ -73,6 +75,7 @@ fun ReminderScreen(
     BackHandler(enabled = currentSubScreen != ReminderSubScreen.LIST) {
         when (currentSubScreen) {
             ReminderSubScreen.ADD, ReminderSubScreen.NOTIFICATION_CENTER -> currentSubScreen = ReminderSubScreen.LIST
+            ReminderSubScreen.EDIT_INSTALLMENT_REMINDER -> currentSubScreen = ReminderSubScreen.DETAIL
             ReminderSubScreen.DETAIL -> {
                 selectedReminderForDetail = null
                 currentSubScreen = ReminderSubScreen.LIST
@@ -105,7 +108,41 @@ fun ReminderScreen(
                         selectedReminderForDetail = null
                         currentSubScreen = ReminderSubScreen.LIST
                     },
+                    onEditInstallmentReminder = {
+                        currentSubScreen = ReminderSubScreen.EDIT_INSTALLMENT_REMINDER
+                    }
                 )
+            } else {
+                currentSubScreen = ReminderSubScreen.LIST
+            }
+        }
+
+        ReminderSubScreen.EDIT_INSTALLMENT_REMINDER -> {
+            val rem = selectedReminderForDetail
+            if (rem != null) {
+                var offsets by remember(rem.id) { mutableStateOf<List<PredefinedOffset>?>(null) }
+                LaunchedEffect(rem.id) {
+                    offsets = viewModel.getReminderOffsets(rem.id)
+                }
+                val loadedOffsets = offsets
+                if (loadedOffsets == null) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    EditInstallmentReminderScreen(
+                        reminder = rem,
+                        initialOffsets = loadedOffsets,
+                        onBackClick = { currentSubScreen = ReminderSubScreen.DETAIL },
+                        onSave = { time, selected, onComplete ->
+                            viewModel.updateInstallmentReminder(rem, time, selected, onComplete)
+                        },
+                        onSaved = { updated ->
+                            selectedReminderForDetail = updated
+                            currentSubScreen = ReminderSubScreen.DETAIL
+                        }
+                    )
+                }
             } else {
                 currentSubScreen = ReminderSubScreen.LIST
             }
