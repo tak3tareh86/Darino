@@ -49,7 +49,7 @@ fun CheckCard(check: Check, onClick: () -> Unit, modifier: Modifier = Modifier) 
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                StatusBadge(status = check.status)
+                StatusBadge(status = check.status, type = check.type)
                 Spacer(Modifier.weight(1f))
                 Text(
                     check.formattedAmount,
@@ -201,7 +201,7 @@ private fun InfoLine(
 }
 
 @Composable
-fun StatusBadge(status: CheckStatus) {
+fun StatusBadge(status: CheckStatus, type: CheckType? = null) {
     val statusColor = androidx.compose.ui.graphics.Color(status.color)
     Surface(
         color = statusColor.copy(alpha = 0.14f),
@@ -209,7 +209,7 @@ fun StatusBadge(status: CheckStatus) {
         border = BorderStroke(1.dp, statusColor.copy(alpha = 0.18f))
     ) {
         Text(
-            text = status.title,
+            text = status.displayTitle(type),
             modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
             style = MaterialTheme.typography.labelSmall,
             color = statusColor,
