@@ -97,8 +97,10 @@ class WeeklyBackupWorker(
         if (result == "success") {
             editor.putLong("auto_backup_last_success_${frequency}", now)
             editor.remove("auto_backup_last_error_${frequency}")
-        } else if (result == "failed") {
-            editor.putString("auto_backup_last_error_${frequency}", error?.take(300))
+        } else if (error != null) {
+            editor.putString("auto_backup_last_error_${frequency}", error.take(300))
+        } else {
+            editor.remove("auto_backup_last_error_${frequency}")
         }
         editor.apply()
     }
