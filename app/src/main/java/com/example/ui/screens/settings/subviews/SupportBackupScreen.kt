@@ -440,9 +440,11 @@ fun SupportBackupScreen(
                                     )
                                 }
                             } catch (e: Exception) {
-                                isBackingUp = false
                                 Log.e("SupportBackupScreen", "Backup creation failed", e)
                                 Toast.makeText(context, "خطا در آماده‌سازی پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
+                            } finally {
+                                // Always restore the manual backup button after the operation finishes.
+                                isBackingUp = false
                             }
                         }
                     }
