@@ -34,6 +34,7 @@ import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
+import com.example.ui.screens.finance.worker.RecurringTransactionNotificationManager
 
 class LocalFinanceRepository private constructor() : FinanceRepository {
 
@@ -599,10 +600,6 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val db = AppDatabase.getDatabase(context)
         ensureDefaultAccounts(db, currentUserId)
         val allAccounts = db.accountDao().getAllAccountsList(currentUserId).filter { it.isActive && it.deletedAt == null }
-        if (allAccounts.isEmpty()) {
-            android.util.Log.w("LocalFinanceRepository", "processDueRecurringTransactions: No active account found for user $currentUserId.")
-            return
-        }
 
         if (_recurringTransactions.value.isEmpty()) {
             loadMetadataFromDisk(context, currentUserId)
@@ -660,76 +657,39 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 val digitsNext = nextDateNorm.replace("/", "").replace("-", "")
                 val executionStringId = "rec_exec_${item.id}_${digitsNext}"
 
-                // Database-level deduplication check
+                // Persist a pending occurrence and notify; never write a transaction before confirmation.
                 val existingTx = db.transactionDao().getTransactionIncludingDeleted(currentUserId, executionStringId)
                 var shouldAdvanceDate = false
 
                 if (existingTx != null) {
-                    android.util.Log.i("LocalFinanceRepository", "Transaction $executionStringId already exists. Skipping insertion.")
+                    shouldAdvanceDate = true
+                } else if (RecurringTransactionNotificationManager.hasPending(context, currentUserId, executionStringId)) {
+                    RecurringTransactionNotificationManager.showPending(context, currentUserId, executionStringId)
                     shouldAdvanceDate = true
                 } else {
-                    // Account selection and validation logic:
-                    // If accountId is explicitly specified, it MUST match an active non-deleted account owned by currentUserId.
-                    // If accountId is empty/blank, match by accountName among active accounts owned by currentUserId.
-                    // If no valid account matches, DO NOT fallback to firstOrNull().
-                    val targetAccount: com.example.data.database.AccountEntity? = if (!item.accountId.isNullOrBlank()) {
-                        allAccounts.find { it.stringId == item.accountId }
-                    } else if (!item.accountName.isNullOrBlank()) {
-                        allAccounts.find { it.name.equals(item.accountName, ignoreCase = true) }
-                    } else {
-                        null
+                    val scheduledMillis = PersianCalendarHelper.jalaliToEpochMillis(nextY, nextM, nextD, 9, 0)
+                    val payload = JSONObject().apply {
+                        put("userId", currentUserId)
+                        put("occurrenceId", executionStringId)
+                        put("recurringId", item.id)
+                        put("title", item.title)
+                        put("amount", item.amount)
+                        put("amountUnit", item.amountUnit.name)
+                        put("type", item.type.name)
+                        put("categoryId", item.categoryId)
+                        put("categoryTitle", item.categoryTitle)
+                        put("frequency", item.frequency.name)
+                        put("datePersian", item.nextExecutionDate)
+                        put("dateMillis", scheduledMillis)
+                        put("paymentMethod", item.paymentMethod.name)
+                        put("accountName", item.accountName)
+                        put("accountId", item.accountId ?: "")
                     }
-
-                    if (targetAccount == null) {
-                        android.util.Log.e("LocalFinanceRepository", "Cannot process recurring transaction ${item.id}: specified or matching active account '${item.accountId ?: item.accountName}' not found for user $currentUserId. Skipping insertion and keeping nextExecutionDate.")
-                        shouldAdvanceDate = false
+                    if (RecurringTransactionNotificationManager.savePending(context, currentUserId, executionStringId, payload)) {
+                        RecurringTransactionNotificationManager.showPending(context, currentUserId, executionStringId)
+                        shouldAdvanceDate = true
                     } else {
-                        val category = _categories.value.find { it.id == item.categoryId }
-                            ?: TransactionCategory(
-                                id = item.categoryId,
-                                title = item.categoryTitle.ifBlank { "عمومی" },
-                                iconEmoji = if (item.type == TransactionType.INCOME) "💰" else "🛍️",
-                                accentColor = if (item.type == TransactionType.INCOME) androidx.compose.ui.graphics.Color(0xFF10B981) else androidx.compose.ui.graphics.Color(0xFFEF4444),
-                                type = item.type
-                            )
-
-                        val txTime = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedTime()
-                        val txMillis = PersianCalendarHelper.jalaliToEpochMillis(nextY, nextM, nextD, 9, 0)
-
-                        val autoTx = TransactionItemData(
-                            id = executionStringId,
-                            title = item.title,
-                            amount = item.amount,
-                            amountUnit = item.amountUnit,
-                            type = item.type,
-                            category = category,
-                            categoryId = category.id,
-                            datePersian = item.nextExecutionDate,
-                            timePersian = txTime,
-                            dateMillis = txMillis,
-                            description = "تراکنش دوره‌ای خودکار (${item.frequency.title})",
-                            paymentMethod = item.paymentMethod,
-                            accountName = targetAccount.name,
-                            accountId = targetAccount.stringId,
-                            sourceType = TransactionSourceType.MANUAL,
-                            isRecurring = true,
-                            recurringFrequency = item.frequency
-                        )
-
-                        if (SessionManager.userId != currentUserId) {
-                            android.util.Log.e("LocalFinanceRepository", "Session user changed mid-execution from $currentUserId to ${SessionManager.userId}. Skipping insertion and keeping nextExecutionDate.")
-                            shouldAdvanceDate = false
-                        } else {
-                            val entity = toEntity(autoTx, userId = currentUserId)
-                            try {
-                                db.transactionDao().insertTransaction(entity)
-                                android.util.Log.i("LocalFinanceRepository", "Inserted automatic recurring transaction $executionStringId for user $currentUserId")
-                                shouldAdvanceDate = true
-                            } catch (e: Exception) {
-                                android.util.Log.e("LocalFinanceRepository", "Failed to insert recurring transaction $executionStringId due to exception: ${e.message}", e)
-                                shouldAdvanceDate = false
-                            }
-                        }
+                        android.util.Log.e("LocalFinanceRepository", "Unable to persist pending recurring occurrence $executionStringId; keeping its due date.")
                     }
                 }
 
@@ -765,6 +725,80 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         if (hasChanges) {
             _recurringTransactions.value = updatedList
             saveMetadataToDisk()
+        }
+    }
+
+    /**
+     * Creates a recurring transaction only after the user confirms its notification.
+     * The deterministic occurrence ID prevents duplicate transactions on repeated taps.
+     */
+    suspend fun confirmPendingRecurringTransaction(context: Context, occurrenceId: String): Boolean {
+        val userId = SessionManager.userId ?: return false
+        val payload = RecurringTransactionNotificationManager.getPending(context, userId, occurrenceId)
+            ?: return false
+        if (payload.optString("userId") != userId || payload.optString("occurrenceId") != occurrenceId) return false
+
+        return try {
+            val db = AppDatabase.getDatabase(context.applicationContext)
+            val existing = db.transactionDao().getTransactionIncludingDeleted(userId, occurrenceId)
+            if (existing != null) {
+                if (existing.deletedAt != null) return false
+                RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
+                RecurringTransactionNotificationManager.cancel(context, occurrenceId)
+                return true
+            }
+
+            val accountId = payload.optString("accountId").takeIf { it.isNotBlank() } ?: return false
+            val account = db.accountDao().getAccountByStringId(userId, accountId) ?: return false
+            if (account.userId != userId || !account.isActive || account.deletedAt != null) return false
+            if (SessionManager.userId != userId) return false
+
+            val type = runCatching { TransactionType.valueOf(payload.getString("type")) }.getOrNull() ?: return false
+            if (type != TransactionType.INCOME && type != TransactionType.EXPENSE) return false
+            val amountUnit = runCatching { AppCurrency.valueOf(payload.getString("amountUnit")) }.getOrNull() ?: return false
+            val paymentMethod = runCatching { PaymentMethod.valueOf(payload.getString("paymentMethod")) }.getOrDefault(PaymentMethod.BANK_CARD)
+            val frequency = runCatching { RecurringFrequency.valueOf(payload.getString("frequency")) }.getOrNull() ?: return false
+
+            val categoryId = payload.getString("categoryId")
+            val category = (_categories.value + FinanceDefaultCategories.allDefaultCategories)
+                .firstOrNull { it.id == categoryId && it.type == type }
+                ?: TransactionCategory(
+                    id = categoryId,
+                    title = payload.optString("categoryTitle").ifBlank { "عمومی" },
+                    iconEmoji = if (type == TransactionType.INCOME) "💰" else "🛍️",
+                    accentColor = if (type == TransactionType.INCOME) Color(0xFF10B981) else Color(0xFFEF4444),
+                    type = type
+                )
+
+            val transaction = TransactionItemData(
+                id = occurrenceId,
+                title = payload.getString("title"),
+                amount = payload.getLong("amount"),
+                amountUnit = amountUnit,
+                type = type,
+                category = category,
+                categoryId = category.id,
+                datePersian = payload.getString("datePersian"),
+                timePersian = "۰۹:۰۰",
+                dateMillis = payload.getLong("dateMillis"),
+                description = "تراکنش دوره‌ای با تأیید کاربر (${frequency.title})",
+                paymentMethod = paymentMethod,
+                accountName = account.name,
+                accountId = account.stringId,
+                sourceType = TransactionSourceType.MANUAL,
+                isRecurring = true,
+                recurringFrequency = frequency
+            )
+
+            if (SessionManager.userId != userId || !validateTransactionWithDatabase(transaction, userId, db)) return false
+            db.transactionDao().insertTransaction(toEntity(transaction, userId = userId))
+            refreshTransactionsForCurrentUser(context.applicationContext)
+            RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
+            RecurringTransactionNotificationManager.cancel(context, occurrenceId)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("LocalFinanceRepository", "Failed to confirm recurring occurrence $occurrenceId", e)
+            false
         }
     }
 
