@@ -27,6 +27,10 @@ object VehicleMaintenanceCatalog {
                 "نوع و گرانروی روغن، شرایط کارکرد و بازهٔ تعویض را از دفترچهٔ راهنمای $vehicleName بررسی کنید."
             ServiceType.FILTERS ->
                 "فیلتر روغن، هوا و کابین ممکن است بازه‌های متفاوتی داشته باشند؛ نوع فیلتر و زمان تعویض را از دفترچهٔ همین خودرو بررسی کنید."
+            ServiceType.OIL_FILTER_CHANGE ->
+                "بازهٔ تعویض فیلتر روغن را از دفترچهٔ راهنمای $vehicleName بررسی کنید."
+            ServiceType.AIR_FILTER_CHANGE ->
+                "بازهٔ تعویض فیلتر هوا را از دفترچهٔ راهنمای $vehicleName بررسی کنید."
             ServiceType.FUEL_FILTER_CHANGE ->
                 "بازهٔ تعویض فیلتر بنزین به موتور و سیستم سوخت‌رسانی وابسته است؛ دستورالعمل همین خودرو را ملاک قرار دهید."
             ServiceType.BRAKE_PADS ->
