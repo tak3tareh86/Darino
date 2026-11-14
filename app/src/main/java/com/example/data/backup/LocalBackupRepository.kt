@@ -1056,10 +1056,14 @@ class LocalBackupRepository(
                 com.example.ui.screens.installments.data
                     .LocalInstallmentRepository
                     .instance
-                    .reloadFromDatabase(context)
-                com.example.ui.screens.finance.data.LocalFinanceRepository
-                    .instance
-                    .refreshMetadataForCurrentUser()
+                    .reloadFromDatabaseAndAwait(context)
+
+                val financeRepository = com.example.ui.screens.finance.data.LocalFinanceRepository.instance
+                // Categories and other finance metadata are stored outside Room. Reload them
+                // first, then remap the restored Room transactions against those categories.
+                financeRepository.refreshMetadataForCurrentUser()
+                financeRepository.refreshTransactionsForCurrentUser(context)
+
                 com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(context)
                 com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(context)
             } catch (e: Exception) {

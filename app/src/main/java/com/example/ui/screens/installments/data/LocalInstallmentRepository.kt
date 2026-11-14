@@ -247,15 +247,25 @@ class LocalInstallmentRepository private constructor() {
     }
 
     fun reloadFromDatabase(context: Context) {
+        repositoryScope.launch {
+            reloadFromDatabaseAndAwait(context)
+        }
+    }
+
+    /**
+     * Reloads the restored Room snapshot before returning. Backup restoration uses this
+     * suspendable entry point so it cannot report completion while installment state is stale.
+     */
+    suspend fun reloadFromDatabaseAndAwait(context: Context) = withContext(Dispatchers.IO) {
         val appCtx = context.applicationContext
         appContext = appCtx
-        repositoryScope.launch {
-            val userId = SessionManager.userId
-            if (userId == null) {
-                _installmentDataAvailable.value = false
-                updateInternalState(emptyList())
-                return@launch
-            }
+        val userId = SessionManager.userId
+        if (userId.isNullOrBlank()) {
+            _installmentDataAvailable.value = false
+            updateInternalState(emptyList())
+            return@withContext
+        }
+        saveMutex.withLock {
             reloadForUser(appCtx, userId)
         }
     }

@@ -3,58 +3,58 @@ package com.example.loan.data
 import android.content.Context
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
+import com.example.data.security.SessionState
 import com.example.loan.domain.LoanCalculation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 class LoanRepository(private val context: Context? = null) {
 
-    private val inMemoryList = MutableStateFlow<List<LoanCalculation>>(emptyList())
-    val savedCalculations: Flow<List<LoanCalculation>> = inMemoryList.asStateFlow()
+    // Room is the source of truth. The DAO Flow keeps this list synchronized with
+    // backup restores and with writes performed by any other repository.
+    val savedCalculations: Flow<List<LoanCalculation>> = context?.applicationContext?.let { appContext ->
+        SessionManager.sessionState.flatMapLatest { state ->
+            val userId = when (state) {
+                is SessionState.Authenticated -> state.user.id
+                is SessionState.PhoneVerificationRequired -> state.user.id
+                else -> null
+            }
+            if (userId.isNullOrBlank()) {
+                flowOf(emptyList())
+            } else {
+                AppDatabase.getDatabase(appContext)
+                    .loanCalculationDao()
+                    .getAllCalculations(userId)
+                    .map { rows -> rows.map { it.toDomainModel() } }
+            }
+        }
+    } ?: flowOf(emptyList())
 
     suspend fun loadSavedCalculations() = withContext(Dispatchers.IO) {
-        val ctx = context ?: run {
-            inMemoryList.value = emptyList()
-            return@withContext
-        }
-        val userId = SessionManager.userId
-        if (userId.isNullOrBlank()) {
-            inMemoryList.value = emptyList()
-            return@withContext
-        }
+        val ctx = context ?: return@withContext
+        val userId = SessionManager.userId?.takeIf { it.isNotBlank() } ?: return@withContext
         try {
-            val dao = AppDatabase.getDatabase(ctx).loanCalculationDao()
-            dao.claimLegacyCalculations(userId)
-            inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
+            // Preserve the one-time ownership migration for legacy calculation rows.
+            // The DAO Flow emits again when Room commits this update or a later restore.
+            AppDatabase.getDatabase(ctx).loanCalculationDao().claimLegacyCalculations(userId)
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (error: Exception) {
-            // Never leave another user's cached calculations visible after a failed account switch.
-            inMemoryList.value = emptyList()
-            android.util.Log.e("LoanRepository", "Unable to load saved calculations for the active user", error)
+            android.util.Log.e("LoanRepository", "Unable to claim legacy calculations for the active user", error)
         }
     }
 
     suspend fun saveCalculation(calculation: LoanCalculation): Boolean = withContext(Dispatchers.IO) {
         val ctx = context ?: return@withContext false
-        val userId = SessionManager.userId?.takeIf { it.isNotBlank() } ?: run {
-            inMemoryList.value = emptyList()
-            return@withContext false
-        }
+        val userId = SessionManager.userId?.takeIf { it.isNotBlank() } ?: return@withContext false
         try {
             val dao = AppDatabase.getDatabase(ctx).loanCalculationDao()
             dao.claimLegacyCalculations(userId)
             dao.insertCalculation(LoanCalculationEntity.fromDomainModel(calculation).copy(userId = userId))
-            runCatching {
-                inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
-            }.onFailure { refreshError ->
-                android.util.Log.e("LoanRepository", "Calculation saved but list refresh failed", refreshError)
-                inMemoryList.value = (inMemoryList.value.filterNot { it.id == calculation.id } + calculation)
-                    .sortedByDescending { it.createdAt }
-            }
             true
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
@@ -66,21 +66,10 @@ class LoanRepository(private val context: Context? = null) {
 
     suspend fun deleteCalculation(id: String): Boolean = withContext(Dispatchers.IO) {
         val ctx = context ?: return@withContext false
-        val userId = SessionManager.userId?.takeIf { it.isNotBlank() } ?: run {
-            inMemoryList.value = emptyList()
-            return@withContext false
-        }
+        val userId = SessionManager.userId?.takeIf { it.isNotBlank() } ?: return@withContext false
         try {
             val dao = AppDatabase.getDatabase(ctx).loanCalculationDao()
-            val deletedRows = dao.deleteCalculation(userId, id)
-            if (deletedRows == 0) return@withContext false
-            runCatching {
-                inMemoryList.value = dao.getAllCalculationsList(userId).map { it.toDomainModel() }
-            }.onFailure { refreshError ->
-                android.util.Log.e("LoanRepository", "Calculation deleted but list refresh failed", refreshError)
-                inMemoryList.value = inMemoryList.value.filterNot { it.id == id }
-            }
-            true
+            dao.deleteCalculation(userId, id) > 0
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (error: Exception) {
