@@ -788,7 +788,7 @@ fun SupportBackupScreen(
                                 @Composable
                                 fun BackupHistoryRow(label: String, timestamp: Long) {
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().weight(1f),
+                                        modifier = Modifier.fillMaxWidth().height(25.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
