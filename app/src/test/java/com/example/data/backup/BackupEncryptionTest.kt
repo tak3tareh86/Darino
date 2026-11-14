@@ -13,7 +13,7 @@ class BackupEncryptionTest {
         assertTrue(BackupEncryption.isEncrypted(encrypted))
         assertArrayEquals(
             original,
-            BackupEncryption.decrypt(encrypted, "correct horse battery".toCharArray())
+            BackupEncryption.decrypt(encrypted, "123456".toCharArray())
         )
     }
 
@@ -40,7 +40,7 @@ class BackupEncryptionTest {
 
         val tampered = encrypted.copyOf().also { it[it.lastIndex] = (it.last().toInt() xor 1).toByte() }
         assertTrue(runCatching {
-            BackupEncryption.decrypt(tampered, "strong-passphrase".toCharArray())
+            BackupEncryption.decrypt(tampered, "654321".toCharArray())
         }.isFailure)
     }
 }
