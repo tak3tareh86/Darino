@@ -599,7 +599,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
         val db = AppDatabase.getDatabase(context)
         ensureDefaultAccounts(db, currentUserId)
-        val allAccounts = db.accountDao().getAllAccountsList(currentUserId).filter { it.isActive && it.deletedAt == null }
+        RecurringTransactionNotificationManager.showAllPending(context, currentUserId)
 
         if (_recurringTransactions.value.isEmpty()) {
             loadMetadataFromDisk(context, currentUserId)
@@ -738,8 +738,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             ?: return false
         if (payload.optString("userId") != userId || payload.optString("occurrenceId") != occurrenceId) return false
 
+        val db = AppDatabase.getDatabase(context.applicationContext)
         return try {
-            val db = AppDatabase.getDatabase(context.applicationContext)
             val existing = db.transactionDao().getTransactionIncludingDeleted(userId, occurrenceId)
             if (existing != null) {
                 if (existing.deletedAt != null) return false
@@ -803,7 +803,19 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             true
         } catch (e: Exception) {
             android.util.Log.e("LocalFinanceRepository", "Failed to confirm recurring occurrence $occurrenceId", e)
-            false
+            // A second tap may race the first database insert. Treat an already-persisted
+            // active occurrence as success and clean up its pending notification.
+            val persisted = runCatching {
+                db.transactionDao().getTransactionIncludingDeleted(userId, occurrenceId)
+            }.getOrNull()
+            if (persisted != null && persisted.deletedAt == null) {
+                RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
+                RecurringTransactionNotificationManager.cancel(context, occurrenceId)
+                runCatching { refreshTransactionsForCurrentUser(context.applicationContext) }
+                true
+            } else {
+                false
+            }
         }
     }
 
