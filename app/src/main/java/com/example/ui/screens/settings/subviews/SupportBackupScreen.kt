@@ -848,7 +848,7 @@ fun SupportBackupScreen(
                                     Text(
                                         text = dailyAutoBackupStatus,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = if (dailyAutoBackupStatus.contains("ناموفق") || dailyAutoBackupStatus.contains("پیدا نشد")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = if (dailyAutoBackupStatus.contains("ناموفق") || dailyAutoBackupStatus.contains("رد شده") || dailyAutoBackupStatus.contains("پیدا نشد")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
                                     )
                                     Row(
@@ -873,7 +873,7 @@ fun SupportBackupScreen(
                                     Text(
                                         text = weeklyAutoBackupStatus,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = if (weeklyAutoBackupStatus.contains("ناموفق") || weeklyAutoBackupStatus.contains("پیدا نشد")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = if (weeklyAutoBackupStatus.contains("ناموفق") || weeklyAutoBackupStatus.contains("رد شده") || weeklyAutoBackupStatus.contains("پیدا نشد")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
                                     )
                                     TextButton(
