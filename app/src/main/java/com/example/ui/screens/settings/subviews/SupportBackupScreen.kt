@@ -99,6 +99,51 @@ fun SupportBackupScreen(
     var dailyAutoBackupEnabled by remember { mutableStateOf(prefs.getBoolean("auto_backup_daily", false)) }
     var weeklyAutoBackupEnabled by remember { mutableStateOf(prefs.getBoolean("auto_backup_weekly", false)) }
     var backupFolderUri by remember { mutableStateOf(com.example.data.backup.BackupFolderStorage.selectedFolderUri(context)) }
+    var dailyAutoBackupStatus by remember { mutableStateOf("در حال بررسی وضعیت زمان‌بندی…") }
+    var weeklyAutoBackupStatus by remember { mutableStateOf("در حال بررسی وضعیت زمان‌بندی…") }
+
+    fun formatAutomaticBackupStatus(frequency: String, enabled: Boolean, state: androidx.work.WorkInfo.State?): String {
+        val stateLabel = when {
+            !enabled -> "غیرفعال"
+            state == androidx.work.WorkInfo.State.RUNNING -> "در حال اجرا"
+            state == androidx.work.WorkInfo.State.ENQUEUED -> "زمان‌بندی شده و در انتظار اجرا"
+            state == androidx.work.WorkInfo.State.BLOCKED -> "در انتظار اجرای پیش‌نیاز"
+            state == androidx.work.WorkInfo.State.FAILED -> "آخرین اجرای ثبت‌شده ناموفق"
+            state == androidx.work.WorkInfo.State.CANCELLED -> "زمان‌بندی لغو شده"
+            state == androidx.work.WorkInfo.State.SUCCEEDED -> "اجرا با موفقیت ثبت شد"
+            else -> "زمان‌بندی در WorkManager پیدا نشد"
+        }
+        val lastSuccess = prefs.getLong("auto_backup_last_success_$frequency", 0L)
+        if (lastSuccess == 0L) return "$stateLabel • هنوز اجرای موفقی ثبت نشده است"
+        val date = com.example.util.PersianCalendarHelper.fromEpochMillis(lastSuccess)
+        val dateText = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
+            "${date.year}/${date.month.toString().padStart(2, '0')}/${date.day.toString().padStart(2, '0')}"
+        )
+        val timeText = com.example.util.IranianPhoneUtils.convertDigitsToPersian(
+            java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(lastSuccess))
+        )
+        return "$stateLabel • آخرین موفق: $dateText - $timeText"
+    }
+
+    fun refreshAutomaticBackupStatus() {
+        scope.launch {
+            val statuses = withContext(Dispatchers.IO) {
+                val workManager = androidx.work.WorkManager.getInstance(context)
+                val dailyInfo = runCatching {
+                    workManager.getWorkInfosForUniqueWork(com.example.data.backup.WeeklyBackupWorker.DAILY_UNIQUE_WORK_NAME).get().firstOrNull()
+                }.getOrNull()
+                val weeklyInfo = runCatching {
+                    workManager.getWorkInfosForUniqueWork(com.example.data.backup.WeeklyBackupWorker.UNIQUE_WORK_NAME).get().firstOrNull()
+                }.getOrNull()
+                Pair(
+                    formatAutomaticBackupStatus("daily", prefs.getBoolean("auto_backup_daily", false), dailyInfo?.state),
+                    formatAutomaticBackupStatus("weekly", prefs.getBoolean("auto_backup_weekly", false), weeklyInfo?.state)
+                )
+            }
+            dailyAutoBackupStatus = statuses.first
+            weeklyAutoBackupStatus = statuses.second
+        }
+    }
 
     val backupFolderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -113,6 +158,7 @@ fun SupportBackupScreen(
                 )
                 backupFolderUri = selectedUri
                 com.example.data.backup.WeeklyBackupWorker.syncAutomaticBackups(context)
+                refreshAutomaticBackupStatus()
                 Toast.makeText(context, "پوشه ذخیره پشتیبان انتخاب شد.", Toast.LENGTH_SHORT).show()
             } catch (error: Exception) {
                 Log.e("SupportBackupScreen", "Could not persist backup folder", error)
@@ -142,6 +188,7 @@ fun SupportBackupScreen(
                 weeklyAutoBackupEnabled = enabled
             }
             val frequencyLabel = if (frequency == "daily") "روزانه" else "هفتگی"
+            refreshAutomaticBackupStatus()
             val statusLabel = if (enabled) "فعال" else "غیرفعال"
             Toast.makeText(context, "پشتیبان‌گیری خودکار $frequencyLabel $statusLabel شد.", Toast.LENGTH_SHORT).show()
         } catch (error: Exception) {
@@ -189,6 +236,7 @@ fun SupportBackupScreen(
                 dailyAutoBackupEnabled = prefs.getBoolean("auto_backup_daily", false)
                 weeklyAutoBackupEnabled = prefs.getBoolean("auto_backup_weekly", false)
                 backupFolderUri = com.example.data.backup.BackupFolderStorage.selectedFolderUri(context)
+                refreshAutomaticBackupStatus()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -788,6 +836,12 @@ fun SupportBackupScreen(
                                             modifier = Modifier.testTag("auto_backup_daily_switch")
                                         )
                                     }
+                                    Text(
+                                        text = dailyAutoBackupStatus,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (dailyAutoBackupStatus.contains("ناموفق") || dailyAutoBackupStatus.contains("پیدا نشد")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                                    )
                                     Row(
                                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -806,6 +860,18 @@ fun SupportBackupScreen(
                                             onCheckedChange = { enabled -> setAutomaticBackupEnabled("weekly", enabled) },
                                             modifier = Modifier.testTag("auto_backup_weekly_switch")
                                         )
+                                    }
+                                    Text(
+                                        text = weeklyAutoBackupStatus,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (weeklyAutoBackupStatus.contains("ناموفق") || weeklyAutoBackupStatus.contains("پیدا نشد")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                                    )
+                                    TextButton(
+                                        onClick = { refreshAutomaticBackupStatus() },
+                                        modifier = Modifier.align(Alignment.End)
+                                    ) {
+                                        Text("بررسی دوباره وضعیت")
                                     }
                                 }
                             }
