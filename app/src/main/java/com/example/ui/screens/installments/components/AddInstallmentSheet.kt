@@ -1198,6 +1198,7 @@ private fun ReminderOptionRow(
  * CENTERED POP-UP DIALOG FOR CONFIGURING CUSTOM / VARIABLE INSTALLMENTS
  */
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun CustomInstallmentsDialog(
     totalAmountStr: String,
     activeCurrency: AppCurrency,
@@ -1215,7 +1216,7 @@ private fun CustomInstallmentsDialog(
     var rangeEndStr by remember { mutableStateOf(IranianPhoneUtils.convertDigitsToPersian(countInt.toString())) }
     var rangeAmountStr by remember { mutableStateOf("") }
     var validationError by remember { mutableStateOf<String?>(null) }
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by remember { mutableStateOf(0) }
 
     var scheduleList by remember {
         mutableStateOf(
