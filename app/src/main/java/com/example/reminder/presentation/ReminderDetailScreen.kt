@@ -425,7 +425,8 @@ fun EditInstallmentReminderScreen(
                 value = time,
                 onValueChange = { time = it },
                 label = "ساعت یادآوری",
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isSaving
             )
 
             Text(
@@ -450,6 +451,7 @@ fun EditInstallmentReminderScreen(
                                 if (offset in selectedOffsets) selectedOffsets.remove(offset)
                                 else selectedOffsets.add(offset)
                             },
+                            enabled = !isSaving,
                             label = {
                                 Text(
                                     offset.title.substringBefore(" ("),
