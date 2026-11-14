@@ -12,6 +12,8 @@ import com.example.reminder.domain.ReminderManager
 import com.example.reminder.domain.RepeatType
 import com.example.reminder.domain.SmartSuggestion
 import com.example.reminder.domain.SnoozeOption
+import com.example.ui.screens.installments.data.LocalInstallmentRepository
+import com.example.ui.screens.installments.model.InstallmentStatus
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 private data class FilterParams(
     val tab: ReminderTab,
@@ -183,6 +186,74 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                 manager.updateReminder(reminder, offsets, repeatType, repeatInterval)
             } catch (e: Exception) {
                 _errorMessage.value = "خطا در ویرایش یادآور: ${e.localizedMessage}"
+            }
+        }
+    }
+
+    suspend fun getReminderOffsets(reminderId: String): List<PredefinedOffset> {
+        return repository.getSchedulesSync(reminderId)
+            .asSequence()
+            .filterNot { it.id.startsWith("snooze_") }
+            .mapNotNull { stored ->
+                PredefinedOffset.entries.find {
+                    it.value == stored.offsetValue &&
+                        it.unit.name.equals(stored.offsetUnit, ignoreCase = true)
+                }
+            }
+            .distinct()
+            .toList()
+    }
+
+    fun updateInstallmentReminder(
+        reminder: ReminderEntity,
+        dueTimePersian: String,
+        offsets: List<PredefinedOffset>,
+        onComplete: ((Result<ReminderEntity>) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            try {
+                require(reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) &&
+                    !reminder.sourceId.isNullOrBlank()) {
+                    "این یادآور به وام معتبری متصل نیست."
+                }
+                val installmentRepository = LocalInstallmentRepository.instance
+                installmentRepository.init(getApplication())
+                withTimeout(15_000L) {
+                    installmentRepository.installmentDataAvailable.first { it }
+                }
+                val installment = installmentRepository.installments.value
+                    .firstOrNull { it.id == reminder.sourceId }
+                    ?: throw IllegalStateException("اطلاعات وام متصل به این یادآور پیدا نشد. ابتدا صفحه اقساط را باز و دوباره تلاش کنید.")
+
+                val unpaidPayments = installment.paymentHistory.filter {
+                    it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
+                }
+                val nextPayment = unpaidPayments.minByOrNull { it.dueDate }
+                    ?: throw IllegalStateException("برای این وام قسط پرداخت‌نشده‌ای باقی نمانده است.")
+
+                manager.syncInstallmentReminder(
+                    installmentId = installment.id,
+                    title = installment.title,
+                    amount = nextPayment.amount,
+                    dueDatePersian = nextPayment.dueDate,
+                    dueTimePersian = dueTimePersian,
+                    selectedOffsets = offsets,
+                    paymentDueDates = unpaidPayments.map { it.id to it.dueDate },
+                    amountUnit = installment.amountUnit
+                )
+
+                val updated = repository.getReminderById(reminder.id)
+                    ?: throw IllegalStateException("یادآور ویرایش شد اما بازیابی اطلاعات آن ممکن نشد.")
+                _userMessage.value = if (offsets.isEmpty()) {
+                    "تنظیمات یادآور وام ذخیره شد؛ هشدارهای زمان‌بندی‌شده غیرفعال شدند."
+                } else {
+                    "تنظیمات یادآور وام با موفقیت به‌روزرسانی شد."
+                }
+                onComplete?.invoke(Result.success(updated))
+            } catch (e: Exception) {
+                val error = e.localizedMessage ?: "خطای نامشخص"
+                _errorMessage.value = "خطا در ویرایش یادآور وام: $error"
+                onComplete?.invoke(Result.failure(e))
             }
         }
     }
