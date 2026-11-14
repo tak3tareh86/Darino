@@ -23,7 +23,9 @@ object BackupFolderStorage {
         val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_FOLDER_URI, null)
             ?: return null
-        return runCatching { Uri.parse(raw) }.getOrNull()
+        return runCatching { Uri.parse(raw) }
+            .getOrNull()
+            ?.takeIf(::isUsableTreeUri)
     }
 
     fun saveSelectedFolder(context: Context, uri: Uri, grantedFlags: Int) {
@@ -54,6 +56,12 @@ object BackupFolderStorage {
         }.getOrDefault(false)
     }
 
+    private fun isUsableTreeUri(uri: Uri): Boolean =
+        uri.scheme == "content" &&
+            !uri.authority.isNullOrBlank() &&
+            DocumentsContract.isTreeUri(uri) &&
+            runCatching { DocumentsContract.getTreeDocumentId(uri).isNotBlank() }.getOrDefault(false)
+
     fun folderLabel(uri: Uri): String =
         uri.lastPathSegment?.substringAfterLast(':')?.takeIf { it.isNotBlank() }
             ?: "پوشه انتخاب‌شده"
@@ -69,7 +77,7 @@ object BackupFolderStorage {
             "پسوند فایل پشتیبان باید .darino باشد."
         }
         val treeUri = selectedFolderUri(context)
-            ?: throw IOException("ابتدا پوشه ذخیره پشتیبان را در تنظیمات انتخاب کنید.")
+            ?: throw IOException("پوشه ذخیره پشتیبان معتبر نیست؛ لطفاً دوباره پوشه را انتخاب کنید.")
         val hasWriteGrant = context.contentResolver.persistedUriPermissions.any {
             it.uri == treeUri && it.isWritePermission
         }
@@ -164,6 +172,9 @@ object BackupFolderStorage {
     }
 
     private fun listDocuments(context: Context, treeUri: Uri): List<BackupDocument> {
+        if (!isUsableTreeUri(treeUri)) {
+            throw IOException("نشانی پوشه پشتیبان معتبر نیست؛ لطفاً پوشه را دوباره انتخاب کنید.")
+        }
         val resolver = context.contentResolver
         val parentId = DocumentsContract.getTreeDocumentId(treeUri)
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentId)
