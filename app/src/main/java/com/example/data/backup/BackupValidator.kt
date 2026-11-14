@@ -460,27 +460,42 @@ object BackupValidator {
 
         val legacyVehicleIds = jsonArrayStringValues(vehicleStore?.vehiclesJson, "id")
             ?: return ValidationResult.Invalid("شناسه خودروهای قدیمی در فایل پشتیبان معتبر نیست.")
-        val vehicleIds = buildSet {
+        val structuredVehicleIds = buildSet {
             backup.vehicles.forEach { vehicle ->
                 add(vehicle.id.toString())
                 vehicle.serverId?.takeIf { it.isNotBlank() }?.let { add(it) }
             }
-            legacyVehicleIds.forEach(::add)
         }
-        val referencedVehicleIds = buildList {
+        val allVehicleIds = structuredVehicleIds + legacyVehicleIds
+        val structuredReferences = buildList {
             backup.vehicleServices.forEach { add(it.vehicleId) }
             backup.vehicleExpenses.forEach { add(it.vehicleId) }
             backup.vehicleInsurances.forEach { add(it.vehicleId) }
             backup.vehicleInspections.forEach { add(it.vehicleId) }
-            listOf(
-                vehicleStore?.servicesJson,
-                vehicleStore?.expensesJson,
-                vehicleStore?.insurancesJson,
-                vehicleStore?.inspectionsJson
-            ).forEach { raw -> jsonArrayStringValues(raw, "vehicleId")?.let { addAll(it) } }
         }
-        if (referencedVehicleIds.any { it !in vehicleIds }) {
+        if (structuredReferences.any { it !in allVehicleIds }) {
             return ValidationResult.Invalid("فایل پشتیبان دارای اطلاعات خودرو بدون خودروی مرتبط است.")
+        }
+
+        // Older releases could leave stale child rows in the legacy JSON store after
+        // migrating to Room or deleting a vehicle. When structured vehicle records exist,
+        // those Room collections are authoritative; unmatched legacy rows are discarded
+        // by the migration cleanup and must not make an otherwise restorable backup fail.
+        // Purely legacy backups still require every legacy child to reference a legacy car.
+        if (backup.vehicles.isEmpty()) {
+            val legacyReferences = buildList {
+                listOf(
+                    vehicleStore?.servicesJson,
+                    vehicleStore?.expensesJson,
+                    vehicleStore?.insurancesJson,
+                    vehicleStore?.inspectionsJson
+                ).forEach { raw ->
+                    jsonArrayStringValues(raw, "vehicleId")?.let { addAll(it) }
+                }
+            }
+            if (legacyReferences.any { it !in legacyVehicleIds }) {
+                return ValidationResult.Invalid("فایل پشتیبان دارای اطلاعات خودرو بدون خودروی مرتبط است.")
+            }
         }
 
         // Reminder source links are historical/advisory references, not Room foreign keys.
