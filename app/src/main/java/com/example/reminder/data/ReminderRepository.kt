@@ -25,6 +25,7 @@ interface ReminderRepository {
     fun getRemindersByType(type: String): Flow<List<ReminderEntity>>
     suspend fun getReminderById(id: String): ReminderEntity?
     suspend fun getReminderBySourceId(sourceId: String): ReminderEntity?
+    suspend fun getReminderBySource(sourceType: String, sourceId: String): ReminderEntity?
     suspend fun insertReminder(reminder: ReminderEntity)
     suspend fun insertReminders(reminders: List<ReminderEntity>)
     suspend fun insertReminderWithSchedules(reminder: ReminderEntity, schedules: List<ReminderScheduleEntity>)
@@ -126,6 +127,9 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
 
     override suspend fun getReminderBySourceId(sourceId: String): ReminderEntity? =
         SessionManager.userId?.let { dao.getReminderBySourceId(it, sourceId) }
+
+    override suspend fun getReminderBySource(sourceType: String, sourceId: String): ReminderEntity? =
+        SessionManager.userId?.let { dao.getReminderBySource(it, sourceType, sourceId) }
 
     override suspend fun insertReminder(reminder: ReminderEntity) {
         dao.insertReminder(reminder.copy(userId = requireUserId()))
