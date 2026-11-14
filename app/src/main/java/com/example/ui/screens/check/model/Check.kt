@@ -17,7 +17,13 @@ enum class CheckStatus(val title: String, val color: Long) {
     CLEARED("وصول شده", 0xFF10B981),
     BOUNCED("برگشتی", 0xFFEF4444),
     CANCELED("لغو شده", 0xFF94A3B8),
-    REPLACED("جایگزین شده", 0xFF64748B)
+    REPLACED("جایگزین شده", 0xFF64748B);
+
+    fun displayTitle(type: CheckType?): String = when {
+        this == CLEARED && type == CheckType.PAID -> "پرداخت شده"
+        this == CLEARED && type == null -> "تسویه شده"
+        else -> title
+    }
 }
 
 data class Check(
