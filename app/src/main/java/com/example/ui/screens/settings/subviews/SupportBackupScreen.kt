@@ -154,6 +154,12 @@ fun SupportBackupScreen(
         }
     }
 
+    // A screen opened while the Activity is already RESUMED will not receive a new
+    // ON_RESUME event, so load the status once when this composable enters composition.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        refreshAutomaticBackupStatus()
+    }
+
     val backupFolderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { selectedUri ->
