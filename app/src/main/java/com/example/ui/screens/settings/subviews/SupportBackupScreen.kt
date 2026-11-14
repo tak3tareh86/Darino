@@ -211,9 +211,6 @@ fun SupportBackupScreen(
     var showAutomaticRestoreConfirmation by remember { mutableStateOf(false) }
     var pendingRestoreBackup by remember { mutableStateOf<com.example.data.backup.DarinoBackup?>(null) }
     var backupSummaryInfo by remember { mutableStateOf("") }
-    var pendingBackupPayload by remember { mutableStateOf<ByteArray?>(null) }
-    var pendingBackupChecksum by remember { mutableStateOf<String?>(null) }
-    var pendingBackupSummary by remember { mutableStateOf("") }
     var showShareNameDialog by remember { mutableStateOf(false) }
     var shareFilename by remember { mutableStateOf(buildBackupFilename().removeSuffix(".darino")) }
     var pendingSharePayload by remember { mutableStateOf<String?>(null) }
@@ -227,38 +224,6 @@ fun SupportBackupScreen(
         )
         backupSummaryInfo = summary
         showBackupSuccessDialog = true
-    }
-
-    val backupFileLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
-    ) { destinationUri ->
-        val payload = pendingBackupPayload
-        val checksum = pendingBackupChecksum
-        val summary = pendingBackupSummary
-        val passphrase = pendingBackupPassphrase
-        pendingBackupPayload = null
-        pendingBackupChecksum = null
-        pendingBackupSummary = ""
-        pendingBackupPassphrase = null
-        if (destinationUri == null) {
-            isBackingUp = false
-        } else if (payload != null && checksum != null && passphrase != null) {
-            scope.launch {
-                try {
-                    withContext(Dispatchers.IO) {
-                        writeAndVerifyBackup(context, destinationUri, payload, checksum, passphrase.toCharArray())
-                    }
-                    updateBackupTimestamp(summary)
-                } catch (e: Exception) {
-                    Log.e("SupportBackupScreen", "Backup save failed", e)
-                    Toast.makeText(context, "خطا در ذخیره فایل پشتیبان: ${e.message ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
-                } finally {
-                    isBackingUp = false
-                }
-            }
-        } else {
-            isBackingUp = false
-        }
     }
 
     val restoreBackupLauncher = rememberLauncherForActivityResult(
@@ -388,17 +353,17 @@ fun SupportBackupScreen(
                                     showShareNameDialog = true
                                     isBackingUp = false
                                 } else {
-                                    // Manual backups use Android's document picker instead of the
-                                    // persisted folder tree URI. This avoids provider-specific tree
-                                    // URI failures while keeping automatic backups on their folder.
                                     val filename = buildManualBackupFilename()
-                                    pendingBackupPayload = payload
-                                    pendingBackupChecksum = backup.metadata.checksum
-                                    pendingBackupSummary =
+                                    withContext(Dispatchers.IO) {
+                                        com.example.data.backup.BackupFolderStorage.saveBackup(
+                                            context,
+                                            filename,
+                                            payload
+                                        )
+                                    }
+                                    updateBackupTimestamp(
                                         "تعداد کل رکوردها: ${backup.metadata.recordCount} | نسخه: ${backup.metadata.backupVersion}"
-                                    pendingBackupPassphrase = secret
-                                    isBackingUp = true
-                                    backupFileLauncher.launch(filename)
+                                    )
                                 }
                             } catch (e: Exception) {
                                 isBackingUp = false
@@ -852,10 +817,16 @@ fun SupportBackupScreen(
                                     Button(
                                         onClick = {
                                             if (!isBackingUp) {
-                                                shareAfterEncryption = false
-                                                backupPassphrase = ""
-                                                backupPassphraseConfirm = ""
-                                                showBackupPasswordDialog = true
+                                                if (!com.example.data.backup.BackupFolderStorage.hasWritableSelectedFolder(context)) {
+                                                    backupFolderUri = null
+                                                    Toast.makeText(context, "دسترسی پوشه پشتیبان معتبر نیست؛ لطفاً پوشه ذخیره را انتخاب کنید.", Toast.LENGTH_LONG).show()
+                                                    backupFolderPickerLauncher.launch(null)
+                                                } else {
+                                                    shareAfterEncryption = false
+                                                    backupPassphrase = ""
+                                                    backupPassphraseConfirm = ""
+                                                    showBackupPasswordDialog = true
+                                                }
                                             }
                                         },
                                         modifier = Modifier.fillMaxWidth().height(48.dp).testTag("create_backup_button"),
@@ -1032,87 +1003,6 @@ private fun buildManualBackupFilename(): String {
     val (year, month, day) = com.example.calendar.domain.CalendarDateUtils.getCurrentJalaliDate()
     val time = java.text.SimpleDateFormat("HHmmssSSS", java.util.Locale.ROOT).format(java.util.Date())
     return "Manual_${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}_$time.darino"
-}
-
-private fun findExistingBackupDocument(
-    context: android.content.Context,
-    treeUri: Uri,
-    filename: String
-): Uri? {
-    val resolver = context.contentResolver
-    val parentDocumentId = android.provider.DocumentsContract.getTreeDocumentId(treeUri)
-    val childrenUri = android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(
-        treeUri,
-        parentDocumentId
-    )
-    val projection = arrayOf(
-        android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-        android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
-    )
-
-    val cursor = resolver.query(childrenUri, projection, null, null, null)
-        ?: throw java.io.IOException("امکان بررسی فایل‌های موجود در پوشه انتخاب‌شده وجود ندارد.")
-    cursor.use {
-        val idColumn = cursor.getColumnIndexOrThrow(
-            android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID
-        )
-        val nameColumn = cursor.getColumnIndexOrThrow(
-            android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
-        )
-        while (cursor.moveToNext()) {
-            if (cursor.getString(nameColumn) == filename) {
-                val documentId = cursor.getString(idColumn)
-                return android.provider.DocumentsContract.buildDocumentUriUsingTree(
-                    treeUri,
-                    documentId
-                )
-            }
-        }
-    }
-    return null
-}
-
-private fun getDocumentDisplayName(
-    context: android.content.Context,
-    documentUri: Uri
-): String? {
-    val projection = arrayOf(android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-    context.contentResolver.query(documentUri, projection, null, null, null)?.use { cursor ->
-        val nameColumn = cursor.getColumnIndex(
-            android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
-        )
-        if (nameColumn >= 0 && cursor.moveToFirst()) return cursor.getString(nameColumn)
-    }
-    return null
-}
-
-private fun writeAndVerifyBackup(
-    context: android.content.Context,
-    destinationUri: Uri,
-    payload: ByteArray,
-    expectedChecksum: String,
-    passphrase: CharArray
-) {
-    try {
-        val output = context.contentResolver.openOutputStream(destinationUri, "wt")
-        ?: throw java.io.IOException("ارائه‌دهنده فایل اجازه نوشتن یا جایگزینی فایل را نمی‌دهد.")
-    output.buffered().use { stream ->
-        stream.write(payload)
-        stream.flush()
-    }
-
-    val savedPayload = context.contentResolver.openInputStream(destinationUri)
-        ?.use { readBoundedBytes(it, MAX_PORTABLE_BACKUP_BYTES + 1024) }
-        ?: throw java.io.IOException("فایل ذخیره شد اما امکان بررسی مجدد آن وجود ندارد.")
-    val savedJson = com.example.data.backup.BackupEncryption.decrypt(savedPayload, passphrase)
-        .toString(Charsets.UTF_8)
-    val savedBackup = com.example.data.backup.BackupFileCodec.decode(savedJson)
-    if (savedPayload.size != payload.size || savedBackup.metadata.checksum != expectedChecksum) {
-        throw java.io.IOException("بررسی صحت فایل ذخیره‌شده ناموفق بود.")
-    }
-    } finally {
-        passphrase.fill('\u0000')
-    }
 }
 
 @Composable
