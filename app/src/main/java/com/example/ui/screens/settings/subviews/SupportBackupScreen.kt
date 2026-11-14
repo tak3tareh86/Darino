@@ -202,7 +202,6 @@ fun SupportBackupScreen(
     var showRestorePasswordDialog by remember { mutableStateOf(false) }
     var backupPassphrase by remember { mutableStateOf("") }
     var backupPassphraseConfirm by remember { mutableStateOf("") }
-    var pendingBackupPassphrase by remember { mutableStateOf<String?>(null) }
     var restorePassphrase by remember { mutableStateOf("") }
     var pendingEncryptedRestorePayload by remember { mutableStateOf<ByteArray?>(null) }
     var shareAfterEncryption by remember { mutableStateOf(false) }
