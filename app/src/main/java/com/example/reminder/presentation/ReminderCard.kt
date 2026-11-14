@@ -187,7 +187,7 @@ fun ReminderCard(
                     MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.valueOf(reminder.amountUnit)))
                 }.getOrNull()
             }
-            val displayDescription = if (
+            val amountCleanedDescription = if (
                 formattedReminderAmount != null && reminder.description.contains(formattedReminderAmount)
             ) {
                 reminder.description
@@ -198,6 +198,34 @@ fun ReminderCard(
                     .trim()
             } else {
                 reminder.description
+            }
+
+            // Vehicle reminder descriptions show only the useful identifying detail.
+            // The stored reminder title and all reminder scheduling data remain untouched.
+            val displayDescription = when {
+                reminder.type.equals("INSURANCE", ignoreCase = true) -> {
+                    amountCleanedDescription
+                        .substringAfter("برای خودرو ", "")
+                        .substringBefore(".")
+                        .trim()
+                        .ifBlank { amountCleanedDescription }
+                }
+                reminder.title.startsWith("یادآور سرویس:") ||
+                    amountCleanedDescription.startsWith("موعد سرویس دوره‌ای:") -> {
+                    val serviceDetails = amountCleanedDescription
+                        .substringAfter("موعد سرویس دوره‌ای:", "")
+                        .substringBefore("؛ کیلومتر هدف")
+                        .trim()
+                        .substringBeforeLast(" (")
+                        .trim()
+                    val serviceNames = serviceDetails.split("،").map { it.trim() }.filter { it.isNotBlank() }
+                    when {
+                        serviceNames.size > 1 -> "${serviceNames.first()} و ..."
+                        serviceNames.size == 1 -> serviceNames.first()
+                        else -> amountCleanedDescription
+                    }
+                }
+                else -> amountCleanedDescription
             }
 
             // Row 2: Description if exists and contains information beyond the amount.
