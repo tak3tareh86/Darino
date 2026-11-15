@@ -329,6 +329,8 @@ fun FinancialReportScreen(
                                             )
                                             Text(
                                                 formatReportSharePercentage(item.amount, totalAmount),
+                                                maxLines = 1,
+                                                softWrap = false,
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
