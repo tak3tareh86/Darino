@@ -141,15 +141,10 @@ fun VehicleTimelineScreen(
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     val timelineItems = buildTimelineDisplayItems(filteredEvents)
-                    val maxServiceRows = timelineItems.maxOfOrNull { item ->
-                        if (item.serviceTitles.isEmpty()) 0 else (item.serviceTitles.size + 1) / 2
-                    } ?: 0
-                    val cardHeight = (120 + maxServiceRows * 24).coerceAtLeast(148).dp
                     itemsIndexed(timelineItems, key = { _, item -> item.primary.id }) { index, item ->
                         TimelineItemRow(
                             item = item,
-                            isLast = index == timelineItems.lastIndex,
-                            cardHeight = cardHeight
+                            isLast = index == timelineItems.lastIndex
                         )
                     }
                 }
@@ -344,13 +339,16 @@ private fun buildTimelineDisplayItems(events: List<VehicleTimelineEvent>): List<
 @Composable
 private fun TimelineItemRow(
     item: TimelineDisplayItem,
-    isLast: Boolean,
-    cardHeight: androidx.compose.ui.unit.Dp
+    isLast: Boolean
 ) {
     val event = item.primary
     val amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(item.amount, event.amountUnit))
     val eventColor = Color(event.colorHex)
     val isServiceItem = item.serviceTitles.isNotEmpty()
+    // One or two services occupy one row; each additional pair adds one row.
+    // Keep non-service cards at the compact baseline height.
+    val serviceRows = if (isServiceItem) (item.serviceTitles.size + 1) / 2 else 0
+    val cardHeight = (120 + maxOf(1, serviceRows) * 24).coerceAtLeast(148).dp
 
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
