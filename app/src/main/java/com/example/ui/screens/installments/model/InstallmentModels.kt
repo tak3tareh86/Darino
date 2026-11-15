@@ -150,8 +150,24 @@ data class InstallmentItem(
     val displayEndDate: String
         get() = AppNumberFormatter.formatDigits(endDate, AppNumberFormatter.currentMode)
 
+    // The principal (totalAmount) is not the repayment total when interest or fees apply.
+    // Derive the repayment denominator from the actual schedule rows.
+    val totalRepaymentAmount: Long
+        get() = if (paymentHistory.isEmpty()) {
+            totalAmount
+        } else {
+            paymentHistory.fold(0L) { total, payment ->
+                Math.addExact(
+                    total,
+                    MoneyAmount.of(payment.amount, payment.amountUnit).inUnit(amountUnit).value.longValueExact()
+                )
+            }
+        }
+
     val progressPercentage: Float
-        get() = if (totalAmount > 0) (paidAmount.toFloat() / totalAmount.toFloat()).coerceIn(0f, 1f) else 0f
+        get() = if (totalRepaymentAmount > 0L) {
+            (paidAmount.toFloat() / totalRepaymentAmount.toFloat()).coerceIn(0f, 1f)
+        } else 0f
 
     val displayTotal: String
         get() = MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, amountUnit))
