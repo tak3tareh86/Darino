@@ -73,7 +73,7 @@ class VehicleAnalyzerServiceHistoryTest {
     }
 
     @Test
-    fun genericFilterRecordRemainsCompatibleWithBothFilterChecks() {
+    fun genericFilterRecordDoesNotConfirmEitherSpecificFilter() {
         val generic = service(
             id = "filters",
             type = ServiceType.FILTERS,
@@ -82,18 +82,18 @@ class VehicleAnalyzerServiceHistoryTest {
         )
 
         assertEquals(
-            "filters",
+            null,
             VehicleAnalyzer.findLatestServiceForType(
                 listOf(generic),
                 ServiceType.OIL_FILTER_CHANGE
-            )?.id
+            )
         )
         assertEquals(
-            "filters",
+            null,
             VehicleAnalyzer.findLatestServiceForType(
                 listOf(generic),
                 ServiceType.AIR_FILTER_CHANGE
-            )?.id
+            )
         )
     }
 }
