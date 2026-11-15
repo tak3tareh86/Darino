@@ -141,6 +141,14 @@ fun FinancialSummaryCard(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                ),
+                                color = primaryTextColor
+                            )
                             Box(
                                 modifier = Modifier
                                     .size(30.dp)
@@ -155,14 +163,6 @@ fun FinancialSummaryCard(
                                     contentScale = ContentScale.Crop
                                 )
                             }
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                ),
-                                color = primaryTextColor
-                            )
                         }
                     }
                     Row(
