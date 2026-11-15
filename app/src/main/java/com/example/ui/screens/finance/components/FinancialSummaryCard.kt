@@ -136,19 +136,11 @@ fun FinancialSummaryCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                ),
-                                color = primaryTextColor
-                            )
                             Box(
                                 modifier = Modifier
                                     .size(30.dp)
@@ -163,9 +155,16 @@ fun FinancialSummaryCard(
                                     contentScale = ContentScale.Crop
                                 )
                             }
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                ),
+                                color = primaryTextColor
+                            )
                         }
                     }
-
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
