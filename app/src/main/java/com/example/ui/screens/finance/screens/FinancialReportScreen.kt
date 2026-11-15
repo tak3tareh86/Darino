@@ -216,22 +216,46 @@ fun FinancialReportScreen(
             }
             item {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            ReportSegment("ماهانه", period == ReportPeriod.MONTH, Modifier.weight(1f)) { period = ReportPeriod.MONTH }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        ReportSegment("ماهانه", period == ReportPeriod.MONTH, Modifier.weight(0.9f)) {
+                            period = ReportPeriod.MONTH
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                            IconButton(onClick = {
-                                if (period == ReportPeriod.MONTH) {
-                                    if (selectedMonth == 1) { selectedMonth = 12; selectedYear-- } else selectedMonth--
-                                } else selectedYear--
-                            }) { Icon(Icons.Default.ChevronRight, contentDescription = "بازه قبل") }
-                            Text(periodTitle, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                            IconButton(onClick = {
-                                if (period == ReportPeriod.MONTH) {
-                                    if (selectedMonth == 12) { selectedMonth = 1; selectedYear++ } else selectedMonth++
-                                } else selectedYear++
-                            }) { Icon(Icons.Default.ChevronLeft, contentDescription = "بازه بعد") }
+                        ReportSegment("سالانه", period == ReportPeriod.YEAR, Modifier.weight(0.9f)) {
+                            period = ReportPeriod.YEAR
+                        }
+                        Row(
+                            modifier = Modifier.weight(1.35f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    if (period == ReportPeriod.MONTH) {
+                                        if (selectedMonth == 1) { selectedMonth = 12; selectedYear-- } else selectedMonth--
+                                    } else selectedYear--
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) { Icon(Icons.Default.ChevronRight, contentDescription = "بازه قبل", modifier = Modifier.size(19.dp)) }
+                            Text(
+                                periodTitle,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                modifier = Modifier.weight(1f),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            IconButton(
+                                onClick = {
+                                    if (period == ReportPeriod.MONTH) {
+                                        if (selectedMonth == 12) { selectedMonth = 1; selectedYear++ } else selectedMonth++
+                                    } else selectedYear++
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) { Icon(Icons.Default.ChevronLeft, contentDescription = "بازه بعد", modifier = Modifier.size(19.dp)) }
                         }
                     }
                 }
