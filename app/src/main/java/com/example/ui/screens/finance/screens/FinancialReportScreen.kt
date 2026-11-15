@@ -241,11 +241,24 @@ fun FinancialReportScreen(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 totals.take(5).forEach { item ->
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(Modifier.size(9.dp).clip(CircleShape).background(item.category.accentColor))
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(item.category.title, modifier = Modifier.weight(1f), maxLines = 1, fontSize = 11.sp)
-                                        Text("${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(Modifier.size(9.dp).clip(CircleShape).background(item.category.accentColor))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(item.category.title, modifier = Modifier.weight(1f), maxLines = 1, fontSize = 11.sp)
+                                            Text(
+                                                "${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
                                     }
                                 }
                                 if (hasAmountOverflow) {
