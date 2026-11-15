@@ -241,14 +241,10 @@ fun ReminderCard(
                 )
             }
 
-            // Row 3: Meta details (Date, Time, Amount / Kilometer, Notification / SMS status)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Date and time are vertically stacked, with the time centered under the date.
+            // Row 3: Date/time stay on the right; the amount is centered in the card.
+            Box(modifier = Modifier.fillMaxWidth()) {
                 Column(
+                    modifier = Modifier.align(Alignment.CenterEnd),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
@@ -291,43 +287,37 @@ fun ReminderCard(
                     }
                 }
 
-                // Amount / Target Kilometer and compact actions on the left side
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (formattedReminderAmount != null) {
+                if (formattedReminderAmount != null) {
+                    Text(
+                        text = formattedReminderAmount,
+                        modifier = Modifier.align(Alignment.Center),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = EmeraldPrimaryLight
+                        )
+                    )
+                } else if (reminder.targetKilometer != null) {
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterStart),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Speed,
+                            contentDescription = null,
+                            tint = InfoIndigoLight,
+                            modifier = Modifier.size(13.dp)
+                        )
                         Text(
-                            text = formattedReminderAmount,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = EmeraldPrimaryLight
+                            text = "${reminder.targetKilometer} کیلومتر",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = InfoIndigoLight
                             )
                         )
-                    } else if (reminder.targetKilometer != null) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Speed,
-                                contentDescription = null,
-                                tint = InfoIndigoLight,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Text(
-                                text = "${reminder.targetKilometer} کیلومتر",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = InfoIndigoLight
-                                )
-                            )
-                        }
                     }
-
-
                 }
             }
         }
