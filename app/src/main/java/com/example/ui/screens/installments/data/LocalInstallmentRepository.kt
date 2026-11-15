@@ -174,11 +174,16 @@ class LocalInstallmentRepository private constructor() {
                     require(payments.all { it.amountUnit.name == entity.amountUnit }) { "Installment and payment currency units differ: ${entity.id}" }
                     val paidPayments = payments.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
                     val paidAmount = paidPayments.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
-                    // Repayments may include interest/fees and legitimately exceed the loan principal.
-                    // Keep the principal as the contract amount and never expose a negative remaining balance.
+                    // The contract amount remains the original principal; the unpaid schedule rows
+                    // determine the actual outstanding repayment balance (including interest/fees).
+                    val unpaidPayments = payments.filter {
+                        it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
+                    }
                     val paidInstallmentsCount = paidPayments.map { it.installmentNumber }.toSet().size
                     val remainingInstallmentsCount = (entity.totalInstallments - paidInstallmentsCount).coerceAtLeast(0)
-                    val remainingAmount = Math.subtractExact(entity.amount, paidAmount).coerceAtLeast(0L)
+                    val remainingAmount = unpaidPayments.fold(0L) { total, payment ->
+                        Math.addExact(total, payment.amount)
+                    }
 
                     // Schedule/payment history is the source of truth for whether a contract is still active.
                     // Do not let a stale top-level PAID/COMPLETED flag hide unpaid scheduled payments.
@@ -495,8 +500,12 @@ class LocalInstallmentRepository private constructor() {
                 val paidCount = history.count { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
                 val remainingCount = (item.totalInstallments - paidCount).coerceAtLeast(0)
 
-                val actualPaidAmount = history.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
-                val actualRemainingAmount = Math.subtractExact(item.totalAmount, actualPaidAmount).coerceAtLeast(0L)
+                val actualPaidAmount = history
+                    .filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
+                    .fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
+                val actualRemainingAmount = history
+                    .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                    .fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
 
                 val isCompleted = remainingCount == 0
                 val newStatus = if (isCompleted) InstallmentStatus.COMPLETED else InstallmentStatus.PENDING
@@ -585,9 +594,11 @@ class LocalInstallmentRepository private constructor() {
             val paidCount = paidItems.size
             val paidSum = paidItems.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
             // Editing a repayment row must not change the original loan principal.
-            // The schedule total may differ from the principal because it can include interest/fees.
+            // Outstanding balance is the sum of unpaid schedule rows, not principal minus paid amount.
             val totalSum = targetTotalAmount
-            val remainingSum = Math.subtractExact(totalSum, paidSum).coerceAtLeast(0L)
+            val remainingSum = updatedHistory
+                .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                .fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
             val remainingCount = (targetInstallment.totalInstallments - paidCount).coerceAtLeast(0)
             val nextPending = updatedHistory
                 .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
