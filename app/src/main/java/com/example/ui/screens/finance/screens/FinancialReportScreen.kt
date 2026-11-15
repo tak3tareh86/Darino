@@ -59,6 +59,10 @@ import com.example.ui.screens.settings.model.AppCurrency
 private enum class ReportPeriod { MONTH, YEAR }
 private data class ReportCategoryTotal(val category: TransactionCategory, val amount: Long, val count: Int)
 
+internal fun sumReportAmountsExact(values: Iterable<Long>): Long? = runCatching {
+    values.fold(0L) { total, value -> Math.addExact(total, value) }
+}.getOrNull()
+
 @Composable
 fun FinancialReportScreen(
     transactions: List<TransactionItemData>,
@@ -90,17 +94,25 @@ fun FinancialReportScreen(
     val periodTransactions = transactions.filter {
         it.dateMillis >= rangeStart && it.dateMillis < rangeEnd && it.type == selectedType
     }
-    val totals = periodTransactions.groupBy { it.categoryId }.mapNotNull { (categoryId, items) ->
+    var hasAmountOverflow = false
+    val computedTotals = periodTransactions.groupBy { it.categoryId }.mapNotNull { (categoryId, items) ->
         val category = categories.firstOrNull { it.id == categoryId } ?: items.firstOrNull()?.category
-        category?.let {
-            ReportCategoryTotal(
-                category = it,
-                amount = items.sumOf { tx -> MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact() },
-                count = items.size
-            )
+        category?.let { resolvedCategory ->
+            val amount = runCatching {
+                sumReportAmountsExact(items.map { tx -> MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact() })
+            }.getOrNull()
+            if (amount == null) {
+                hasAmountOverflow = true
+                null
+            } else {
+                ReportCategoryTotal(category = resolvedCategory, amount = amount, count = items.size)
+            }
         }
     }.sortedByDescending { it.amount }
-    val totalAmount = totals.sumOf { it.amount }
+    val calculatedTotal = sumReportAmountsExact(computedTotals.map { it.amount })
+    if (calculatedTotal == null) hasAmountOverflow = true
+    val totalAmount = calculatedTotal ?: 0L
+    val totals = if (hasAmountOverflow) emptyList() else computedTotals
     val selectedCategory = selectedCategoryId?.let { id -> totals.firstOrNull { it.category.id == id } }
     val visibleTransactions = if (selectedCategoryId == null) periodTransactions else {
         periodTransactions.filter { it.categoryId == selectedCategoryId }
@@ -131,13 +143,39 @@ fun FinancialReportScreen(
                 PersianCalendarHelper.jalaliToEpochMillis(selectedYear, selectedMonth, lastDay, 0, 0)
             }
         }
-        periodTransactions.filter { it.dateMillis >= bucketStart && it.dateMillis < bucketEnd }
-            .sumOf { MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact() }
+        val bucketTransactions = periodTransactions.filter { it.dateMillis >= bucketStart && it.dateMillis < bucketEnd }
+        val bucketTotal = runCatching {
+            sumReportAmountsExact(bucketTransactions.map { MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact() })
+        }.getOrNull()
+        if (bucketTotal == null) {
+            hasAmountOverflow = true
+            0L
+        } else bucketTotal
     }
 
     val monthNames = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
+    val trendLabels = if (period == ReportPeriod.YEAR) {
+        listOf("فر", "ارد", "خرد", "تیر", "مرد", "شهر", "مهر", "آبا", "آذر", "دی", "بهم", "اسف")
+    } else {
+        val daysInMonth = when {
+            selectedMonth <= 6 -> 31
+            selectedMonth <= 11 -> 30
+            else -> kotlin.math.round(
+                (PersianCalendarHelper.jalaliToEpochMillis(selectedYear + 1, 1, 1, 0, 0) -
+                    PersianCalendarHelper.jalaliToEpochMillis(selectedYear, 12, 1, 0, 0)) / 86_400_000.0
+            ).toInt().coerceIn(29, 30)
+        }
+        (0 until trendBuckets).map { index ->
+            val firstDay = 1 + daysInMonth * index / trendBuckets
+            val endDay = daysInMonth * (index + 1) / trendBuckets
+            "${MoneyFormatter.toPersianDigits(firstDay.toString())}-${MoneyFormatter.toPersianDigits(endDay.toString())}"
+        }
+    }
+    if (trendAmounts.any { it == 0L } && hasAmountOverflow) {
+        // Keep the report in an explicit error state rather than displaying partial totals.
+    }
     val periodTitle = if (period == ReportPeriod.MONTH) "${monthNames[selectedMonth - 1]} ${MoneyFormatter.toPersianDigits(selectedYear.toString())}" else "سال ${MoneyFormatter.toPersianDigits(selectedYear.toString())}"
-    val amountText = MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, AppCurrency.RIAL), includeUnit = false)
+    val amountText = if (hasAmountOverflow) "—" else MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, AppCurrency.RIAL), includeUnit = false)
     val unitLabel = MoneyFormatter.getUnitLabel()
     val chartPrimaryColor = MaterialTheme.colorScheme.primary
     val chartTrackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -210,7 +248,7 @@ fun FinancialReportScreen(
                                 Canvas(Modifier.fillMaxSize()) {
                                     val stroke = 22.dp.toPx()
                                     var startAngle = -90f
-                                    if (totalAmount > 0L) {
+                                    if (!hasAmountOverflow && totalAmount > 0L) {
                                         totals.forEach { item ->
                                             val sweep = (item.amount.toDouble() / totalAmount.toDouble() * 360.0).toFloat()
                                             drawArc(item.category.accentColor, startAngle, sweep, false, style = Stroke(stroke, cap = StrokeCap.Butt))
@@ -238,10 +276,18 @@ fun FinancialReportScreen(
                                 if (totals.isEmpty()) Text("در این بازه تراکنشی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             }
                         }
-                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.09f)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("جمع کل ${if (selectedType == TransactionType.EXPENSE) "هزینه‌ها" else "درآمدها"}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                            Spacer(Modifier.weight(1f))
-                            Text("$amountText $unitLabel", fontWeight = FontWeight.Bold)
+                        if (hasAmountOverflow) {
+                            Text(
+                                "مجموع مبالغ این بازه از محدوده قابل محاسبه خارج است؛ برای جلوگیری از نمایش عدد نادرست، جمع و نمودار پنهان شده‌اند.",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else {
+                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.09f)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("جمع کل ${if (selectedType == TransactionType.EXPENSE) "هزینه‌ها" else "درآمدها"}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                                Spacer(Modifier.weight(1f))
+                                Text("$amountText $unitLabel", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -250,6 +296,9 @@ fun FinancialReportScreen(
                 Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("روند تغییرات", fontWeight = FontWeight.Bold)
+                        if (hasAmountOverflow) {
+                            Text("نمودار به دلیل خارج بودن مجموع مبالغ از محدوده محاسبه نمایش داده نمی‌شود.", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                        } else {
                         Canvas(Modifier.fillMaxWidth().height(112.dp)) {
                             val maxValue = (trendAmounts.maxOrNull() ?: 0L).coerceAtLeast(1L).toFloat()
                             val stepX = if (trendAmounts.size > 1) size.width / (trendAmounts.size - 1) else size.width
@@ -267,11 +316,22 @@ fun FinancialReportScreen(
                                 drawCircle(chartPrimaryColor, radius = 4.dp.toPx(), center = point)
                             }
                         }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            trendLabels.forEach { label ->
+                                Text(
+                                    label,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = if (period == ReportPeriod.YEAR) 8.sp else 9.sp,
+                                    maxLines = 1
+                                )
+                            }
+                        }
                         Text(
-                            if (period == ReportPeriod.YEAR) "مقایسه ماه‌های سال" else "تقسیم‌بندی روند در طول ماه",
+                            if (period == ReportPeriod.YEAR) "برچسب‌ها به‌ترتیب ماه‌های سال هستند" else "بازه‌های روزانه ماه",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
                         )
+                        }
                     }
                 }
             }
@@ -279,7 +339,9 @@ fun FinancialReportScreen(
                 Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("دسته‌بندی‌ها", fontWeight = FontWeight.Bold)
-                        if (totals.isEmpty()) {
+                        if (hasAmountOverflow) {
+                            Text("به‌دلیل محدودیت محاسبات عددی، جزئیات جمع‌بندی این بازه نمایش داده نمی‌شود.", color = MaterialTheme.colorScheme.error)
+                        } else if (totals.isEmpty()) {
                             Text("داده‌ای برای نمایش وجود ندارد.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         } else totals.forEach { item ->
                             val selected = selectedCategoryId == item.category.id
