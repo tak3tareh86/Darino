@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import com.example.ui.screens.finance.model.TransactionCategory
 import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionType
@@ -186,6 +187,8 @@ fun FinancialReportScreen(
     val unitLabel = MoneyFormatter.getUnitLabel()
     val chartPrimaryColor = MaterialTheme.colorScheme.primary
     val chartTrackColor = MaterialTheme.colorScheme.surfaceVariant
+    val trendAverageColor = MaterialTheme.colorScheme.tertiary
+    val trendPointSurfaceColor = MaterialTheme.colorScheme.surface
 
     Column(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
@@ -407,50 +410,63 @@ fun FinancialReportScreen(
                         if (hasAmountOverflow) {
                             Text("نمودار به دلیل خارج بودن مجموع مبالغ از محدوده محاسبه نمایش داده نمی‌شود.", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
                         } else {
-                            val trendSum = sumReportAmountsExact(trendAmounts) ?: 0L
+                            val trendSumResult = sumReportAmountsExact(trendAmounts)
+                            val trendSum = trendSumResult ?: 0L
                             val averageTrend = if (trendAmounts.isNotEmpty()) trendSum / trendAmounts.size else 0L
                             val maxTrend = trendAmounts.maxOrNull() ?: 0L
-                            val maxTrendIndex = trendAmounts.indexOfFirst { it == maxTrend }.coerceAtLeast(0)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Surface(
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
-                                ) {
-                                    Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                        Text("میانگین هر بازه", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
-                                        Text(
-                                            MoneyFormatter.formatExact(MoneyAmount.of(averageTrend, AppCurrency.RIAL), includeUnit = false),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
-                                            maxLines = 1
-                                        )
-                                    }
+                            val minTrend = trendAmounts.minOrNull() ?: 0L
+                            val previousRangeStart: Long
+                            val previousRangeEnd: Long
+                            if (period == ReportPeriod.MONTH) {
+                                val previousMonth = if (selectedMonth == 1) 12 else selectedMonth - 1
+                                val previousYear = if (selectedMonth == 1) selectedYear - 1 else selectedYear
+                                previousRangeStart = PersianCalendarHelper.jalaliToEpochMillis(previousYear, previousMonth, 1, 0, 0)
+                                previousRangeEnd = rangeStart
+                            } else {
+                                previousRangeStart = PersianCalendarHelper.jalaliToEpochMillis(selectedYear - 1, 1, 1, 0, 0)
+                                previousRangeEnd = rangeStart
+                            }
+                            val previousTransactions = transactions.filter {
+                                it.dateMillis >= previousRangeStart && it.dateMillis < previousRangeEnd && it.type == selectedType
+                            }
+                            val previousTotalResult = runCatching {
+                                sumReportAmountsExact(previousTransactions.map {
+                                    MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
+                                })
+                            }.getOrNull()
+                            val changeText = when {
+                                trendSumResult == null || previousTotalResult == null -> "—"
+                                previousTotalResult == 0L && trendSum == 0L -> "—"
+                                previousTotalResult == 0L -> "جدید"
+                                else -> {
+                                    val change = (trendSum.toDouble() - previousTotalResult.toDouble()) /
+                                        previousTotalResult.toDouble() * 100.0
+                                    val rounded = kotlin.math.round(change).toLong()
+                                    val sign = if (rounded > 0) "+" else ""
+                                    "$sign${MoneyFormatter.toPersianDigits(rounded.toString())}٪"
                                 }
-                                Surface(
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f)
-                                ) {
-                                    Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                        Text("بیشترین مقدار", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
-                                        Text(
-                                            MoneyFormatter.formatExact(MoneyAmount.of(maxTrend, AppCurrency.RIAL), includeUnit = false),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
-                                            maxLines = 1
-                                        )
-                                    }
-                                }
+                            }
+                            val changeColor = when {
+                                previousTotalResult == null || trendSumResult == null -> MaterialTheme.colorScheme.onSurfaceVariant
+                                trendSum == previousTotalResult -> MaterialTheme.colorScheme.onSurfaceVariant
+                                (trendSum > previousTotalResult) == (selectedType == TransactionType.INCOME) -> MaterialTheme.colorScheme.tertiary
+                                else -> MaterialTheme.colorScheme.error
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TrendMetricCard("میانگین هر بازه", MoneyFormatter.formatExact(MoneyAmount.of(averageTrend, AppCurrency.RIAL), includeUnit = false), Modifier.weight(1f), MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f))
+                                TrendMetricCard("بیشترین مقدار", MoneyFormatter.formatExact(MoneyAmount.of(maxTrend, AppCurrency.RIAL), includeUnit = false), Modifier.weight(1f), MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f))
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TrendMetricCard("کمترین مقدار", MoneyFormatter.formatExact(MoneyAmount.of(minTrend, AppCurrency.RIAL), includeUnit = false), Modifier.weight(1f), MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
+                                TrendMetricCard("تغییر نسبت به قبل", changeText, Modifier.weight(1f), MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f), valueColor = changeColor)
                             }
                             Canvas(
                                 Modifier.fillMaxWidth().height(148.dp).pointerInput(trendAmounts) {
                                     detectTapGestures { tap ->
-                                        val index = ((tap.x / size.width) * trendAmounts.size)
-                                            .toInt().coerceIn(0, trendAmounts.lastIndex)
+                                        val horizontalInset = 5.dp.toPx()
+                                        val usableWidth = (size.width - horizontalInset * 2).coerceAtLeast(1f)
+                                        val index = (((tap.x - horizontalInset) / usableWidth) * (trendAmounts.size - 1))
+                                            .roundToInt().coerceIn(0, trendAmounts.lastIndex)
                                         selectedTrendIndex = index
                                     }
                                 }
@@ -510,7 +526,7 @@ fun FinancialReportScreen(
                                 }
                                 val averageY = topInset + usableHeight * (1.0 - averageTrend.toDouble() / maxValue).toFloat()
                                 drawLine(
-                                    color = MaterialTheme.colorScheme.tertiary,
+                                    color = trendAverageColor,
                                     start = Offset(horizontalInset, averageY),
                                     end = Offset(size.width - horizontalInset, averageY),
                                     strokeWidth = 1.6.dp.toPx(),
@@ -519,7 +535,7 @@ fun FinancialReportScreen(
                                 if (selectedTrendIndex in points.indices) {
                                     val selectedPoint = points[selectedTrendIndex]
                                     drawLine(
-                                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.65f),
+                                        color = trendAverageColor.copy(alpha = 0.65f),
                                         start = Offset(selectedPoint.x, topInset),
                                         end = Offset(selectedPoint.x, size.height - bottomInset),
                                         strokeWidth = 1.dp.toPx(),
@@ -528,7 +544,7 @@ fun FinancialReportScreen(
                                 }
                                 points.forEachIndexed { index, point ->
                                     drawCircle(
-                                        color = MaterialTheme.colorScheme.surface,
+                                        color = trendPointSurfaceColor,
                                         radius = if (index == selectedTrendIndex) 7.dp.toPx() else 5.dp.toPx(),
                                         center = point
                                     )
@@ -579,7 +595,7 @@ fun FinancialReportScreen(
                                 Box(Modifier.size(7.dp).clip(CircleShape).background(chartPrimaryColor))
                                 Text("مقدار هر بازه", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
                                 Spacer(Modifier.width(8.dp))
-                                Box(Modifier.width(15.dp).height(2.dp).background(MaterialTheme.colorScheme.tertiary))
+                                Box(Modifier.width(15.dp).height(2.dp).background(trendAverageColor))
                                 Text("میانگین", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
                             }
                         }
@@ -635,6 +651,22 @@ fun FinancialReportScreen(
                 }
             }
 
+        }
+    }
+}
+
+@Composable
+private fun TrendMetricCard(
+    label: String,
+    value: String,
+    modifier: Modifier,
+    containerColor: Color,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface
+) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(12.dp), color = containerColor) {
+        Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, maxLines = 1)
+            Text(value, color = valueColor, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
         }
     }
 }
