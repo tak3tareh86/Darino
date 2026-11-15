@@ -68,9 +68,9 @@ fun FinancialSummaryCard(
     val isYearSelected = selectedSummaryPeriod == FinanceFilterPeriod.THIS_YEAR
     val gradientStart by animateColorAsState(
         targetValue = when {
-            isDark && isYearSelected -> Color(0xFF211A38)
+            isDark && isYearSelected -> Color(0xFF142B28)
             isDark -> Color(0xFF111F38)
-            isYearSelected -> Color(0xFFF2EAFE)
+            isYearSelected -> Color(0xFFE1EEE9)
             else -> Color(0xFFEAF4FF)
         },
         animationSpec = tween(durationMillis = 450),
@@ -78,9 +78,9 @@ fun FinancialSummaryCard(
     )
     val gradientMiddle by animateColorAsState(
         targetValue = when {
-            isDark && isYearSelected -> Color(0xFF3A285C)
+            isDark && isYearSelected -> Color(0xFF1B3B35)
             isDark -> Color(0xFF193B63)
-            isYearSelected -> Color(0xFFE9DDFB)
+            isYearSelected -> Color(0xFFD0E3DC)
             else -> Color(0xFFD9EBFF)
         },
         animationSpec = tween(durationMillis = 450),
@@ -88,16 +88,16 @@ fun FinancialSummaryCard(
     )
     val gradientEnd by animateColorAsState(
         targetValue = when {
-            isDark && isYearSelected -> Color(0xFF593B70)
+            isDark && isYearSelected -> Color(0xFF245044)
             isDark -> Color(0xFF164B66)
-            isYearSelected -> Color(0xFFDCCAF4)
+            isYearSelected -> Color(0xFFBDD7CC)
             else -> Color(0xFFC7E3FA)
         },
         animationSpec = tween(durationMillis = 450),
         label = "summary_gradient_end"
     )
     val periodAccent by animateColorAsState(
-        targetValue = if (isYearSelected) Color(0xFF8B5CC7) else Color(0xFF2879B8),
+        targetValue = if (isYearSelected) Color(0xFF287C68) else Color(0xFF2879B8),
         animationSpec = tween(durationMillis = 450),
         label = "summary_period_accent"
     )
