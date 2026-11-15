@@ -232,7 +232,7 @@ fun FinancialReportScreen(
                                         Box(Modifier.size(9.dp).clip(CircleShape).background(item.category.accentColor))
                                         Spacer(Modifier.width(6.dp))
                                         Text(item.category.title, modifier = Modifier.weight(1f), maxLines = 1, fontSize = 11.sp)
-                                        Text("${if (totalAmount > 0) (item.amount * 100 / totalAmount).toInt() else 0}٪", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                        Text("${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                                 if (totals.isEmpty()) Text("در این بازه تراکنشی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
@@ -299,7 +299,7 @@ fun FinancialReportScreen(
                                 Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)) {
                                     Box(Modifier.fillMaxWidth(if (totalAmount > 0) (item.amount.toFloat() / totalAmount).coerceIn(0f, 1f) else 0f).height(6.dp).clip(CircleShape).background(item.category.accentColor))
                                 }
-                                Text("${item.count} تراکنش • ${if (totalAmount > 0) (item.amount * 100 / totalAmount).toInt() else 0}٪", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("${item.count} تراکنش • ${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
