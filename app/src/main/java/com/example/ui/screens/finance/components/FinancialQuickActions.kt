@@ -45,7 +45,8 @@ fun FinancialQuickActions(
     val actions = listOf(
         FinanceActionItem("add_expense", "ثبت هزینه", "💸", ExpenseRoseLight, isPrimary = true),
         FinanceActionItem("add_income", "ثبت درآمد", "💰", EmeraldPrimaryLight),
-        FinanceActionItem("transfer", "ثبت انتقال وجه", "🔄", InfoIndigoLight)
+        FinanceActionItem("transfer", "ثبت انتقال وجه", "🔄", InfoIndigoLight),
+        FinanceActionItem("reports", "گزارش مالی", "📊", EmeraldPrimaryLight)
     )
 
     Row(
@@ -135,7 +136,7 @@ fun FinanceActionButton(
                 text = action.title,
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = if (action.isPrimary) FontWeight.Bold else FontWeight.SemiBold,
-                    fontSize = if (action.id == "transfer") 10.5.sp else 12.sp
+                    fontSize = if (action.id == "transfer" || action.id == "reports") 10.sp else 12.sp
                 ),
                 maxLines = 1,
                 softWrap = false,
