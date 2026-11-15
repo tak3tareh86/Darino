@@ -86,6 +86,10 @@ fun FinancialReportScreen(
     onBackClick: () -> Unit
 ) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    val initialDate = remember { PersianCalendarHelper.fromEpochMillis(now) }
+    var period by remember { mutableStateOf(ReportPeriod.MONTH) }
+    var selectedYear by remember { mutableIntStateOf(initialDate.year) }
+    var selectedMonth by remember { mutableIntStateOf(initialDate.month) }
     LaunchedEffect(Unit) {
         var lastJalaliDate = PersianCalendarHelper.fromEpochMillis(now)
         while (true) {
@@ -102,10 +106,6 @@ fun FinancialReportScreen(
             lastJalaliDate = updatedJalaliDate
         }
     }
-    val initialDate = remember { PersianCalendarHelper.fromEpochMillis(now) }
-    var period by remember { mutableStateOf(ReportPeriod.MONTH) }
-    var selectedYear by remember { mutableIntStateOf(initialDate.year) }
-    var selectedMonth by remember { mutableIntStateOf(initialDate.month) }
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
     var showAllCategories by remember { mutableStateOf(false) }
     var selectedTrendIndex by remember(period, selectedYear, selectedMonth, selectedType) { mutableIntStateOf(-1) }
