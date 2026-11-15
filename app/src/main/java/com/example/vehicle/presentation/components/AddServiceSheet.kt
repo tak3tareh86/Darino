@@ -57,7 +57,7 @@ fun AddServiceSheet(
     vehicle: VehicleEntity,
     onAddService: (
         title: String,
-        serviceTypes: List<ServiceType>,
+        services: List<Pair<ServiceType, String>>,
         date: String,
         mileage: Int,
         cost: Long,
@@ -151,15 +151,15 @@ fun AddServiceSheet(
             ServiceOption("سرویس سفارشی", ServiceType.CUSTOM)
         )
     }
-    val selectedServiceTitle = remember(selectedTypes, customServiceTitle, serviceTypeOptions) {
+    val selectedServiceEntries = remember(selectedTypes, customServiceTitle, serviceTypeOptions) {
         serviceTypeOptions
             .filter { it.type in selectedTypes }
-            .map { option ->
-                if (option.type == ServiceType.CUSTOM) customServiceTitle.trim() else option.title
+            .mapNotNull { option ->
+                val serviceTitle = if (option.type == ServiceType.CUSTOM) customServiceTitle.trim() else option.title
+                serviceTitle.takeIf { it.isNotBlank() }?.let { option.type to it }
             }
-            .filter { it.isNotBlank() }
-            .joinToString("، ")
     }
+    val selectedServiceTitle = selectedServiceEntries.joinToString("، ") { it.second }
     val hasValidServiceSelection = selectedTypes.isNotEmpty() &&
         (ServiceType.CUSTOM !in selectedTypes || customServiceTitle.isNotBlank())
     var showServiceTypeDialog by remember { mutableStateOf(false) }
@@ -698,7 +698,7 @@ fun AddServiceSheet(
                             val cost = parsedCostRials ?: 0L
                             val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onAddService(
-                                selectedServiceTitle, selectedTypes.toList(), date, mileage, cost, description,
+                                selectedServiceTitle, selectedServiceEntries, date, mileage, cost, description,
                                 if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
                                 if (calcKm > 0) calcKm else null,
                                 isReminderEnabled, selectedOffsets, nextServiceTimeText
@@ -743,7 +743,7 @@ fun AddServiceSheet(
                     val cost = parsedCostRials ?: 0L
                     val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                     onAddService(
-                        selectedServiceTitle, selectedTypes.toList(), date, mileage, cost, description,
+                        selectedServiceTitle, selectedServiceEntries, date, mileage, cost, description,
                         if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
                         if (calcKm > 0) calcKm else null,
                         false, emptyList(), nextServiceTimeText
