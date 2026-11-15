@@ -25,8 +25,11 @@ import androidx.compose.material3.Text
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -133,31 +136,33 @@ fun FinancialSummaryCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            ),
-                            color = primaryTextColor
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(CircleShape)
-                                .background(iconBackgroundColor),
-                            contentAlignment = Alignment.Center
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.img_3d_wallet),
-                                contentDescription = null,
-                                modifier = Modifier.size(23.dp),
-                                contentScale = ContentScale.Crop
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                ),
+                                color = primaryTextColor
                             )
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(iconBackgroundColor),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.img_3d_wallet),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(23.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
                         }
                     }
 
