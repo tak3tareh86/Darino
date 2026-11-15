@@ -48,9 +48,10 @@ fun VehicleTimelineScreen(
         events.mapNotNull { VehicleAnalyzer.parseAndValidateJalaliDate(it.date) }
     }
     val availableYears = remember(validEventDates, today.year) {
-        (validEventDates.mapNotNull { it.substringBefore('/').toIntOrNull() } + today.year)
-            .distinct()
-            .sortedDescending()
+        val eventYears = validEventDates.mapNotNull { it.substringBefore('/').toIntOrNull() }
+        val firstYear = minOf(today.year, eventYears.minOrNull() ?: today.year)
+        val lastYear = maxOf(today.year, eventYears.maxOrNull() ?: today.year)
+        (firstYear..lastYear).toList().reversed()
     }
     val filteredEvents = remember(events, filterMode, selectedYear, selectedMonth) {
         filterVehicleTimelineEvents(events, filterMode, selectedYear, selectedMonth)
@@ -275,7 +276,7 @@ private fun TimelineFilterControls(
                 }
             }
 
-            if (invalidDateCount > 0) {
+            if (mode != TimelineFilterMode.ALL && invalidDateCount > 0) {
                 Text(
                     IranianPhoneUtils.convertDigitsToPersian(invalidDateCount.toString()) +
                         " سابقه به دلیل تاریخ نامعتبر در فیلتر زمانی قابل دسته‌بندی نیست.",
