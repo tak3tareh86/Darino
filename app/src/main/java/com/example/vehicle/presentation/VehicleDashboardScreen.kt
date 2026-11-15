@@ -427,6 +427,7 @@ fun DarinoVehicleMainDashboard(
                         }
                         VehicleTab.TIMELINE -> {
                             VehicleTimelineScreen(
+                                vehicleId = currentCar.id,
                                 events = state.timelineEvents
                             )
                         }
