@@ -120,6 +120,7 @@ fun InstallmentsScreen(
 
     // Repository State
     val repo = LocalInstallmentRepository.instance
+    val installmentDataAvailable by repo.installmentDataAvailable.collectAsState()
     val bankLoansList by repo.bankLoans.collectAsState()
     val homeLoansList by repo.homeLoans.collectAsState()
     val carInsuranceList by repo.carInsurance.collectAsState()
@@ -243,7 +244,16 @@ fun InstallmentsScreen(
                             .padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        if (allInstallments.isEmpty()) {
+                        if (allInstallments.isEmpty() && !installmentDataAvailable) {
+                            Text(
+                                text = "اطلاعات اقساط هنوز با موفقیت بارگذاری نشده است. برای تلاش مجدد لمس کنید.",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { repo.reloadFromDatabase(context) }
+                                    .padding(24.dp),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        } else if (allInstallments.isEmpty()) {
                             InstallmentsEmptyState(
                                 onAddClick = {
                                     addInitialCategory = InstallmentCategory.BANK_LOANS
@@ -369,10 +379,16 @@ fun InstallmentsScreen(
                         navigateTo(InstallmentNavigationState.DetailView(item))
                     },
                     onMarkAsPaid = { installmentId, paymentDate ->
-                        LocalInstallmentRepository.instance.markOverdueAsPaid(installmentId, paymentDate, context)
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("قسط با موفقیت در تاریخ $paymentDate به عنوان پرداخت شده ثبت شد.")
-                        }
+                        val paymentSaved = LocalInstallmentRepository.instance
+                            .markOverdueAsPaid(installmentId, paymentDate, context)
+                        snackbarHostState.showSnackbar(
+                            if (paymentSaved) {
+                                "قسط با موفقیت در تاریخ $paymentDate به عنوان پرداخت شده ثبت شد."
+                            } else {
+                                "ثبت پرداخت انجام نشد. اطلاعات قسط تغییر نکرده است؛ دوباره تلاش کنید."
+                            }
+                        )
+                        paymentSaved
                     }
                 )
             }
@@ -450,14 +466,14 @@ fun InstallmentsScreen(
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("مبلغ کل، مبلغ هر قسط و تعداد اقساط باید معتبر و بزرگتر از صفر باشند.")
                         }
-                        return@AddInstallmentSheet
+                        return@AddInstallmentSheet false
                     }
                 } else {
                     if (customScheduleItems.isEmpty() || customScheduleItems.fold(0L) { total, item -> Math.addExact(total, item.amount) } <= 0L) {
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("برنامه زمان‌بندی سفارشی وارد شده نامعتبر است.")
                         }
-                        return@AddInstallmentSheet
+                        return@AddInstallmentSheet false
                     }
                 }
 
@@ -482,7 +498,7 @@ fun InstallmentsScreen(
                                 "برنامه اقساط قابل ثبت نیست. تعداد و شماره اقساط باید کامل و بدون تکرار باشند و جمع اقساط نباید کمتر از مبلغ وام باشد. کسری: ${MoneyFormatter.formatExact(MoneyAmount.of(difference, AppCurrency.RIAL))}"
                             )
                         }
-                        return@AddInstallmentSheet
+                        return@AddInstallmentSheet false
                     }
                 }
 
@@ -490,7 +506,7 @@ fun InstallmentsScreen(
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar("تعداد اقساط پرداخت‌شده باید بین صفر و تعداد کل اقساط باشد.")
                     }
-                    return@AddInstallmentSheet
+                    return@AddInstallmentSheet false
                 }
                 if (customScheduleItems.isNullOrEmpty() &&
                     totalInstallments > 1 &&
@@ -499,7 +515,7 @@ fun InstallmentsScreen(
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar("مبلغ هر قسط با مبلغ کل و تعداد اقساط سازگار نیست؛ لطفاً مبالغ را بررسی کنید.")
                     }
-                    return@AddInstallmentSheet
+                    return@AddInstallmentSheet false
                 }
 
                 val monthlyFormatted = MoneyFormatter.formatExact(MoneyAmount.of(parsedMonthly, AppCurrency.RIAL))
@@ -519,10 +535,10 @@ fun InstallmentsScreen(
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar("تاریخ سررسید نامعتبر یا خالی است")
                     }
-                    return@AddInstallmentSheet
+                    return@AddInstallmentSheet false
                 }
 
-                val parsedTriple = com.example.calendar.domain.CalendarDateUtils.parseJalali(effectiveDueDate) ?: return@AddInstallmentSheet
+                val parsedTriple = com.example.calendar.domain.CalendarDateUtils.parseJalali(effectiveDueDate) ?: return@AddInstallmentSheet false
 
                 if (!customScheduleItems.isNullOrEmpty()) {
                     val numbers = customScheduleItems.map { it.installmentNumber }
@@ -537,7 +553,7 @@ fun InstallmentsScreen(
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("شماره اقساط سفارشی باید یکتا و معتبر باشند و مبلغ/تاریخ نباید خالی باشد")
                         }
-                        return@AddInstallmentSheet
+                        return@AddInstallmentSheet false
                     }
                 }
 
@@ -677,12 +693,15 @@ fun InstallmentsScreen(
                     paymentHistory = paymentHistoryList,
                     amountUnit = AppCurrency.RIAL
                 )
-                LocalInstallmentRepository.instance.addInstallment(newItem, context)
+                val installmentSaved = LocalInstallmentRepository.instance.addInstallment(newItem, context)
+                if (!installmentSaved) {
+                    snackbarHostState.showSnackbar("ذخیره قسط در پایگاه داده انجام نشد. اطلاعات فرم حفظ شده است؛ پس از بررسی مشکل دوباره تلاش کنید.")
+                    return@AddInstallmentSheet false
+                }
 
                 if (reminderEnabled && remainingInstallments > 0) {
-                    coroutineScope.launch {
-                        try {
-                            val scheduledCount = com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
+                    try {
+                        val scheduledCount = com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
                                 installmentId = newItem.id,
                                 title = newItem.title,
                                 amount = nextUnpaidPayment?.amount ?: parsedMonthly,
@@ -693,28 +712,26 @@ fun InstallmentsScreen(
                                 paymentDueDates = paymentHistoryList
                                     .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
                                     .map { it.id to it.dueDate }
-                            )
-                            if (scheduledCount > 0) {
-                                snackbarHostState.showSnackbar("قسط و یادآور با موفقیت ثبت شدند ($scheduledCount یادآور فعال تنظیم شد).")
-                            } else {
-                                snackbarHostState.showSnackbar("قسط ثبت شد، اما هیچ یادآور آینده‌ای تنظیم نشد (زمان‌های سررسید انتخاب‌شده در گذشته بودند یا گزینه‌ای انتخاب نشده بود).")
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            android.util.Log.e("InstallmentsScreen", "Failed to sync reminder for installment ${newItem.id}", e)
-                            snackbarHostState.showSnackbar("قسط ثبت شد، اما ثبت یادآور با خطا مواجه شد: ${e.localizedMessage ?: "خطای ناشناخته"}")
+                        )
+                        if (scheduledCount > 0) {
+                            snackbarHostState.showSnackbar("قسط و یادآور با موفقیت ثبت شدند ($scheduledCount یادآور فعال تنظیم شد).")
+                        } else {
+                            snackbarHostState.showSnackbar("قسط ثبت شد، اما هیچ یادآور آینده‌ای تنظیم نشد (زمان‌های سررسید انتخاب‌شده در گذشته بودند یا گزینه‌ای انتخاب نشده بود).")
                         }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        android.util.Log.e("InstallmentsScreen", "Failed to sync reminder for installment ${newItem.id}", e)
+                        snackbarHostState.showSnackbar("قسط ثبت شد، اما ثبت یادآور با خطا مواجه شد: ${e.localizedMessage ?: "خطای ناشناخته"}")
                     }
                 } else {
-                    coroutineScope.launch {
-                        val message = if (remainingInstallments == 0) {
-                            "وام با تمام اقساط پرداخت‌شده ثبت شد."
-                        } else {
-                            "قسط با موفقیت ثبت شد (یادآور غیرفعال است)."
-                        }
-                        snackbarHostState.showSnackbar(message)
+                    val message = if (remainingInstallments == 0) {
+                        "وام با تمام اقساط پرداخت‌شده ثبت شد."
+                    } else {
+                        "قسط با موفقیت ثبت شد (یادآور غیرفعال است)."
                     }
+                    snackbarHostState.showSnackbar(message)
                 }
+                true
             }
         )
     }

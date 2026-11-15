@@ -173,16 +173,64 @@ class LocalInstallmentRepository private constructor() {
                     require(duplicateNumbers.isEmpty()) { "Duplicate installment schedule rows in DB: ${entity.id}" }
                     require(payments.all { it.amountUnit.name == entity.amountUnit }) { "Installment and payment currency units differ: ${entity.id}" }
                     val paidPayments = payments.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
-                    val paidAmount = paidPayments.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
-                    // The contract amount remains the original principal; the unpaid schedule rows
-                    // determine the actual outstanding repayment balance (including interest/fees).
+                    val knownPaidAmount = paidPayments.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
+                    // The contract amount remains the original principal; complete schedule rows
+                    // determine the exact outstanding repayment balance (including interest/fees).
                     val unpaidPayments = payments.filter {
                         it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
                     }
-                    val paidInstallmentsCount = paidPayments.map { it.installmentNumber }.toSet().size
-                    val remainingInstallmentsCount = (entity.totalInstallments - paidInstallmentsCount).coerceAtLeast(0)
-                    val remainingAmount = unpaidPayments.fold(0L) { total, payment ->
+                    val knownUnpaidAmount = unpaidPayments.fold(0L) { total, payment ->
                         Math.addExact(total, payment.amount)
+                    }
+                    val paidRowsCount = paidPayments.map { it.installmentNumber }.toSet().size
+                    val missingScheduleRows = (entity.totalInstallments - payments.size).coerceAtLeast(0)
+
+                    // Older or partially damaged records can have a loan row but fewer payment
+                    // rows than the contract requires. In that case, use the persisted paid count
+                    // and the average known installment (or principal/count when no rows exist)
+                    // to estimate missing rows instead of falsely reporting a zero balance.
+                    val effectivePaidRowsCount = if (missingScheduleRows > 0) {
+                        // Never let a stale parent paid-count override payment rows that are
+                        // explicitly still unpaid.
+                        val maxPossiblePaidRows = (entity.totalInstallments - unpaidPayments.size)
+                            .coerceAtLeast(paidRowsCount)
+                        entity.paidInstallments.coerceIn(paidRowsCount, maxPossiblePaidRows)
+                    } else {
+                        paidRowsCount
+                    }
+                    val remainingInstallmentsCount =
+                        (entity.totalInstallments - effectivePaidRowsCount).coerceAtLeast(0)
+                    val missingPaidRows = (effectivePaidRowsCount - paidRowsCount)
+                        .coerceIn(0, missingScheduleRows)
+                    val missingUnpaidRows = missingScheduleRows - missingPaidRows
+
+                    val estimatedAveragePayment = if (payments.isNotEmpty()) {
+                        payments.fold(BigDecimal.ZERO) { total, payment ->
+                            total.add(BigDecimal.valueOf(payment.amount))
+                        }.divide(
+                            BigDecimal.valueOf(payments.size.toLong()),
+                            0,
+                            RoundingMode.HALF_UP
+                        ).longValueExact()
+                    } else {
+                        BigDecimal.valueOf(entity.amount).divide(
+                            BigDecimal.valueOf(entity.totalInstallments.toLong()),
+                            0,
+                            RoundingMode.HALF_UP
+                        ).longValueExact().coerceAtLeast(1L)
+                    }
+                    val estimatedMissingPaidAmount =
+                        Math.multiplyExact(estimatedAveragePayment, missingPaidRows.toLong())
+                    val estimatedMissingUnpaidAmount =
+                        Math.multiplyExact(estimatedAveragePayment, missingUnpaidRows.toLong())
+                    val paidAmount = Math.addExact(knownPaidAmount, estimatedMissingPaidAmount)
+                    val remainingAmount = Math.addExact(knownUnpaidAmount, estimatedMissingUnpaidAmount)
+
+                    if (missingScheduleRows > 0) {
+                        android.util.Log.w(
+                            "LocalInstallmentRepository",
+                            "Installment ${entity.id} has ${missingScheduleRows} missing payment rows; outstanding balance is estimated."
+                        )
                     }
 
                     // Schedule/payment history is the source of truth for whether a contract is still active.
@@ -329,19 +377,31 @@ class LocalInstallmentRepository private constructor() {
         )
     }
 
-    fun addInstallment(item: InstallmentItem, context: Context? = null) {
-        val targetContext = context?.applicationContext ?: appContext ?: return
-        repositoryScope.launch {
+    suspend fun addInstallment(item: InstallmentItem, context: Context? = null): Boolean {
+        val targetContext = context?.applicationContext ?: appContext ?: return false
+        return withContext(Dispatchers.IO) {
             try {
+                val userId = SessionManager.userId
+                    ?: throw IllegalStateException("No authenticated user ID")
+                // Never build a replacement snapshot from the temporary empty state
+                // published while Room is loading or after a failed Room read.
+                ensureInstallmentDataAvailable(targetContext, userId)
                 val current = _installments.value.toMutableList()
                 current.add(0, item)
+                // A successful Room transaction is the authoritative save result.
                 saveToRoom(targetContext, current)
-                val userId = SessionManager.userId
-                if (userId != null) {
-                    reloadForUser(targetContext, userId)
-                }
+                runCatching { reloadForUser(targetContext, userId) }
+                    .onFailure { error ->
+                        android.util.Log.e(
+                            "LocalInstallmentRepository",
+                            "Installment ${item.id} was saved, but refreshing its in-memory snapshot failed.",
+                            error
+                        )
+                    }
+                true
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("LocalInstallmentRepository", "Failed to save installment ${item.id}.", e)
+                false
             }
         }
     }
@@ -350,12 +410,13 @@ class LocalInstallmentRepository private constructor() {
         val targetContext = context?.applicationContext ?: appContext ?: return
         repositoryScope.launch {
             try {
+                val userId = SessionManager.userId
+                    ?: throw IllegalStateException("No authenticated user ID")
+                // Do not persist a partial/empty in-memory snapshot after a failed read.
+                ensureInstallmentDataAvailable(targetContext, userId)
                 val current = _installments.value.map { if (it.id == updated.id) updated else it }
                 saveToRoom(targetContext, current)
-                val userId = SessionManager.userId
-                if (userId != null) {
-                    reloadForUser(targetContext, userId)
-                }
+                reloadForUser(targetContext, userId)
                 // Generic installment edits can change the payment history or
                 // due dates too, so keep reminder schedules in sync here as well.
                 refreshReminderForInstallment(targetContext, updated)
@@ -377,6 +438,18 @@ class LocalInstallmentRepository private constructor() {
                         db.installmentDao().deleteInstallmentById(userId, numericId, id)
                         db.installmentDao().deletePaymentsForInstallment(userId, numericId, id)
                     }
+                    // Remove only this installment's linked reminder and its own alarms.
+                    // Reminder cleanup is isolated so a reminder error cannot hide the committed loan deletion.
+                    runCatching {
+                        com.example.reminder.domain.ReminderManager(targetContext)
+                            .deleteInstallmentReminder(id)
+                    }.onFailure { error ->
+                        android.util.Log.e(
+                            "LocalInstallmentRepository",
+                            "Installment $id was deleted, but its linked reminder cleanup failed.",
+                            error
+                        )
+                    }
                     reloadForUser(targetContext, userId)
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -385,11 +458,12 @@ class LocalInstallmentRepository private constructor() {
         }
     }
 
-    fun markOverdueAsPaid(installmentId: String, paymentDate: String, context: Context? = null, scheduleItemId: String? = null) {
-        repositoryScope.launch {
-            payInstallment(installmentId, paymentDate, context, scheduleItemId)
-        }
-    }
+    suspend fun markOverdueAsPaid(
+        installmentId: String,
+        paymentDate: String,
+        context: Context? = null,
+        scheduleItemId: String? = null
+    ): Boolean = payInstallment(installmentId, paymentDate, context, scheduleItemId)
 
     suspend fun payInstallment(
         installmentId: String,
@@ -404,6 +478,7 @@ class LocalInstallmentRepository private constructor() {
                 val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
                 val effectivePaymentDate = paymentDate.ifBlank { todayJalali }
                 val userId = SessionManager.userId ?: return@withLock false
+                ensureInstallmentDataAvailable(targetContext, userId)
                 val db = AppDatabase.getDatabase(targetContext)
 
                 if (_installments.value.none { it.id == installmentId }) {
@@ -479,11 +554,19 @@ class LocalInstallmentRepository private constructor() {
                         if (!confirmedInstallment) {
                             return@withLock false
                         }
-                        // Publish the committed Room snapshot to every installment StateFlow so
-                        // the schedule and parent loan summaries update without leaving the screen.
-                        reloadForUser(targetContext, userId)
+                        // The Room transaction and verification above establish success.
+                        // Refreshing in-memory/finance metadata is best-effort and must not
+                        // turn an already committed payment into a reported failure.
+                        runCatching { reloadForUser(targetContext, userId) }
+                            .onFailure { error ->
+                                android.util.Log.e("LocalInstallmentRepository", "Payment recovery committed, but state refresh failed.", error)
+                            }
                         if (financialTransaction != null) {
-                            com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                            runCatching {
+                                com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                            }.onFailure { error ->
+                                android.util.Log.e("LocalInstallmentRepository", "Payment recovery committed, but finance metadata refresh failed.", error)
+                            }
                         }
                         return@withLock true
                     } catch (e: Exception) {
@@ -532,10 +615,19 @@ class LocalInstallmentRepository private constructor() {
                 current[index] = updatedItem
                 saveToRoomInternal(targetContext, current, financialTransaction)
                 _installments.value = current
-                reloadForUser(targetContext, userId)
+                // saveToRoomInternal has committed the payment transaction. A later
+                // snapshot refresh failure must not misreport that committed payment.
+                runCatching { reloadForUser(targetContext, userId) }
+                    .onFailure { error ->
+                        android.util.Log.e("LocalInstallmentRepository", "Payment committed, but state refresh failed.", error)
+                    }
                 refreshReminderForInstallment(targetContext, updatedItem)
                 if (financialTransaction != null) {
-                    com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                    runCatching {
+                        com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                    }.onFailure { error ->
+                        android.util.Log.e("LocalInstallmentRepository", "Payment committed, but finance metadata refresh failed.", error)
+                    }
                 }
                 true
             } catch (e: Exception) {
@@ -561,6 +653,7 @@ class LocalInstallmentRepository private constructor() {
 
         return saveMutex.withLock {
             val userId = SessionManager.userId ?: return@withLock false
+            ensureInstallmentDataAvailable(targetContext, userId)
             val currentItems = _installments.value
             val targetInstallment = currentItems.firstOrNull { it.id == installmentId }
                 ?: return@withLock false
@@ -685,10 +778,20 @@ class LocalInstallmentRepository private constructor() {
         }
     }
 
+    private suspend fun ensureInstallmentDataAvailable(context: Context, userId: String) {
+        if (!_installmentDataAvailable.value) {
+            reloadForUser(context, userId)
+        }
+        check(_installmentDataAvailable.value) {
+            "Installment data is not available; refusing to replace the Room snapshot."
+        }
+    }
+
     private suspend fun saveToRoom(context: Context, items: List<InstallmentItem>) = saveMutex.withLock {
+        val userId = SessionManager.userId ?: throw IllegalStateException("No authenticated user ID")
+        ensureInstallmentDataAvailable(context, userId)
         val db = AppDatabase.getDatabase(context)
         db.withTransaction {
-            val userId = SessionManager.userId ?: throw IllegalStateException("No authenticated user ID")
             persistInstallmentStateToRoom(db, userId, items)
         }
     }

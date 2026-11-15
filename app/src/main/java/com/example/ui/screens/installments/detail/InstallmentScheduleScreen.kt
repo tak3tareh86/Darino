@@ -340,25 +340,8 @@ fun InstallmentScheduleScreen(
                                         )
                                         isSavingScheduleEdit = false
                                         if (success) {
-                                            val found = installmentRepository.installments.value
-                                                .firstOrNull { it.id == currentItem.id }
-                                            if (found != null) {
-                                                try {
-                                                    com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
-                                                        installmentId = found.id,
-                                                        title = found.title,
-                                                        amount = found.paymentHistory.firstOrNull {
-                                                            it.status != com.example.ui.screens.installments.model.InstallmentStatus.PAID &&
-                                                                it.status != com.example.ui.screens.installments.model.InstallmentStatus.COMPLETED
-                                                        }?.amount ?: (found.totalAmount / found.totalInstallments.coerceAtLeast(1)),
-                                                        amountUnit = found.amountUnit,
-                                                        dueDatePersian = found.nextPaymentDate,
-                                                        dueTimePersian = "۰۹:۰۰"
-                                                    )
-                                                } catch (e: Exception) {
-                                                    e.printStackTrace()
-                                                }
-                                            }
+                                            // updateScheduleItem already refreshes the linked reminder
+                                            // through the repository, preserving the user's stored time.
                                             editingScheduleItem = null
                                         } else {
                                             scheduleEditError = "ذخیره تغییرات انجام نشد. تاریخ سررسید و مبلغ را بررسی کنید و دوباره تلاش کنید."
