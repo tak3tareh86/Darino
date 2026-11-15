@@ -205,10 +205,10 @@ fun FinancialReportScreen(
             item {
                 Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)) {
                     Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ReportSegment("هزینه‌ها", selectedType == TransactionType.EXPENSE, Modifier.weight(1f), icon = Icons.Default.TrendingDown) {
+                        ReportSegment("هزینه‌ها", selectedType == TransactionType.EXPENSE, Modifier.weight(1f), icon = Icons.Default.TrendingDown, selectedColor = MaterialTheme.colorScheme.error, selectedContentColor = MaterialTheme.colorScheme.onError) {
                             selectedType = TransactionType.EXPENSE
                         }
-                        ReportSegment("درآمدها", selectedType == TransactionType.INCOME, Modifier.weight(1f), icon = Icons.Default.TrendingUp) {
+                        ReportSegment("درآمدها", selectedType == TransactionType.INCOME, Modifier.weight(1f), icon = Icons.Default.TrendingUp, selectedColor = MaterialTheme.colorScheme.tertiary, selectedContentColor = MaterialTheme.colorScheme.onTertiary) {
                             selectedType = TransactionType.INCOME
                         }
                     }
@@ -221,10 +221,10 @@ fun FinancialReportScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
-                        ReportSegment("ماهانه", period == ReportPeriod.MONTH, Modifier.weight(0.9f)) {
+                        ReportSegment("ماهانه", period == ReportPeriod.MONTH, Modifier.weight(0.9f), selectedColor = MaterialTheme.colorScheme.primary, selectedContentColor = MaterialTheme.colorScheme.onPrimary) {
                             period = ReportPeriod.MONTH
                         }
-                        ReportSegment("سالانه", period == ReportPeriod.YEAR, Modifier.weight(0.9f)) {
+                        ReportSegment("سالانه", period == ReportPeriod.YEAR, Modifier.weight(0.9f), selectedColor = MaterialTheme.colorScheme.secondary, selectedContentColor = MaterialTheme.colorScheme.onSecondary) {
                             period = ReportPeriod.YEAR
                         }
                         Row(
@@ -458,10 +458,10 @@ fun FinancialReportScreen(
 }
 
 @Composable
-private fun ReportSegment(label: String, selected: Boolean, modifier: Modifier = Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
+private fun ReportSegment(label: String, selected: Boolean, modifier: Modifier = Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, selectedColor: Color = MaterialTheme.colorScheme.primary, selectedContentColor: Color = MaterialTheme.colorScheme.onPrimary, onClick: () -> Unit) {
     Surface(
         modifier = modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
-        color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+        color = if (selected) selectedColor else Color.Transparent,
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(
@@ -471,11 +471,11 @@ private fun ReportSegment(label: String, selected: Boolean, modifier: Modifier =
         ) {
             if (icon != null) {
                 Icon(icon, contentDescription = null, modifier = Modifier.size(17.dp),
-                    tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    tint = if (selected) selectedContentColor else MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(6.dp))
             }
             Text(label, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (selected) selectedContentColor else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, fontSize = 13.sp)
         }
     }
