@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -210,6 +211,7 @@ fun CategoryManagementScreen(
         AddEditCategorySheet(
             initialCategory = editingCategory,
             defaultType = selectedTab,
+            existingCategories = categories,
             onDismiss = { showAddSheet = false },
             onSave = { cat ->
                 onSaveCategory(cat)
@@ -452,6 +454,7 @@ fun CategoryItemCard(
 fun AddEditCategorySheet(
     initialCategory: TransactionCategory?,
     defaultType: TransactionType,
+    existingCategories: List<TransactionCategory>,
     onDismiss: () -> Unit,
     onSave: (TransactionCategory) -> Unit
 ) {
@@ -462,6 +465,18 @@ fun AddEditCategorySheet(
     var emoji by remember { mutableStateOf(initialCategory?.iconEmoji ?: "🏷️") }
     var subCategoriesText by remember { mutableStateOf(initialCategory?.subCategories?.joinToString("، ") ?: "") }
     var selectedType by remember { mutableStateOf(initialCategory?.type ?: defaultType) }
+    val availableColors = listOf(
+        Color(0xFFF97316), Color(0xFF3B82F6), Color(0xFF8B5CF6),
+        Color(0xFF10B981), Color(0xFFEC4899), Color(0xFF06B6D4),
+        Color(0xFFF59E0B), Color(0xFF6366F1), Color(0xFF14B8A6),
+        Color(0xFFEF4444), Color(0xFF0D9488), Color(0xFF64748B)
+    )
+    val suggestedColor = availableColors.firstOrNull { candidate ->
+        existingCategories.none { it.accentColor == candidate }
+    } ?: availableColors[0]
+    var selectedColor by remember(initialCategory?.id) {
+        mutableStateOf(initialCategory?.accentColor ?: suggestedColor)
+    }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(
@@ -533,6 +548,37 @@ fun AddEditCategorySheet(
                 }
             }
 
+            // Category accent color
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "رنگ دسته‌بندی",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(availableColors) { color ->
+                        val isSelected = color == selectedColor
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .clickable { selectedColor = color },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = "رنگ انتخاب‌شده",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Subcategories
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -566,7 +612,7 @@ fun AddEditCategorySheet(
                         title = title,
                         type = selectedType,
                         iconEmoji = emoji.ifBlank { "🏷️" },
-                        accentColor = initialCategory?.accentColor ?: Color(0xFF6366F1),
+                        accentColor = selectedColor,
                         subCategories = subs,
                         isCustom = true,
                         isActive = initialCategory?.isActive ?: true
