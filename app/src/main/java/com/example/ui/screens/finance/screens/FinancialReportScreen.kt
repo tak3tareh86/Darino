@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,7 +22,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -76,8 +74,7 @@ internal fun reportTrendDayRanges(daysInMonth: Int, bucketCount: Int = 6): List<
 fun FinancialReportScreen(
     transactions: List<TransactionItemData>,
     categories: List<TransactionCategory>,
-    onBackClick: () -> Unit,
-    onTransactionClick: (TransactionItemData) -> Unit
+    onBackClick: () -> Unit
 ) {
     val now = remember { System.currentTimeMillis() }
     val initialDate = remember { PersianCalendarHelper.fromEpochMillis(now) }
@@ -85,7 +82,7 @@ fun FinancialReportScreen(
     var selectedYear by remember { mutableIntStateOf(initialDate.year) }
     var selectedMonth by remember { mutableIntStateOf(initialDate.month) }
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
-    var selectedCategoryId by remember { mutableStateOf<String?>(null) }
+    var showAllCategories by remember { mutableStateOf(false) }
 
     val rangeStart = if (period == ReportPeriod.MONTH) {
         PersianCalendarHelper.jalaliToEpochMillis(selectedYear, selectedMonth, 1, 0, 0)
@@ -122,10 +119,6 @@ fun FinancialReportScreen(
     if (calculatedTotal == null) hasAmountOverflow = true
     val totalAmount = calculatedTotal ?: 0L
     val totals = if (hasAmountOverflow) emptyList() else computedTotals
-    val selectedCategory = selectedCategoryId?.let { id -> totals.firstOrNull { it.category.id == id } }
-    val visibleTransactions = if (selectedCategoryId == null) periodTransactions else {
-        periodTransactions.filter { it.categoryId == selectedCategoryId }
-    }.sortedByDescending { it.dateMillis }
     val trendBuckets = if (period == ReportPeriod.YEAR) 12 else 6
     val trendAmounts = (0 until trendBuckets).map { index ->
         val bucketStart: Long
@@ -212,7 +205,6 @@ fun FinancialReportScreen(
                     Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         ReportSegment("هزینه‌ها", selectedType == TransactionType.EXPENSE, Modifier.weight(1f)) {
                             selectedType = TransactionType.EXPENSE
-                            selectedCategoryId = null
                         }
                         ReportSegment("درآمدها", selectedType == TransactionType.INCOME, Modifier.weight(1f)) {
                             selectedType = TransactionType.INCOME
@@ -225,7 +217,7 @@ fun FinancialReportScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp)) {
                     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            ReportSegment("ماهانه", period == ReportPeriod.MONTH, Modifier.weight(1f)) { period = ReportPeriod.MONTH; selectedCategoryId = null }
+                            ReportSegment("ماهانه", period == ReportPeriod.MONTH, Modifier.weight(1f)) { period = ReportPeriod.MONTH }
                             ReportSegment("سالانه", period == ReportPeriod.YEAR, Modifier.weight(1f)) { period = ReportPeriod.YEAR; selectedCategoryId = null }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
@@ -233,7 +225,6 @@ fun FinancialReportScreen(
                                 if (period == ReportPeriod.MONTH) {
                                     if (selectedMonth == 1) { selectedMonth = 12; selectedYear-- } else selectedMonth--
                                 } else selectedYear--
-                                selectedCategoryId = null
                             }) { Icon(Icons.Default.ChevronRight, contentDescription = "بازه قبل") }
                             Text(periodTitle, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                             IconButton(onClick = {
@@ -348,66 +339,48 @@ fun FinancialReportScreen(
             }
             item {
                 Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("دسته‌بندی‌ها", fontWeight = FontWeight.Bold)
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("دسته‌بندی‌ها", fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.weight(1f))
+                            Text("${MoneyFormatter.toPersianDigits(totals.size.toString())} دسته", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                        }
                         if (hasAmountOverflow) {
-                            Text("به‌دلیل محدودیت محاسبات عددی، جزئیات جمع‌بندی این بازه نمایش داده نمی‌شود.", color = MaterialTheme.colorScheme.error)
+                            Text("به‌دلیل محدودیت محاسبات عددی، جزئیات جمع‌بندی این بازه نمایش داده نمی‌شود.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                         } else if (totals.isEmpty()) {
-                            Text("داده‌ای برای نمایش وجود ندارد.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        } else totals.forEach { item ->
-                            val selected = selectedCategoryId == item.category.id
-                            Column(
-                                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                                    .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent)
-                                    .clickable { selectedCategoryId = if (selected) null else item.category.id }
-                                    .padding(9.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(item.category.iconEmoji, fontSize = 18.sp)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(item.category.title, Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                                    Text(MoneyFormatter.formatExact(MoneyAmount.of(item.amount, AppCurrency.RIAL), includeUnit = false), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                            Text("داده‌ای برای نمایش وجود ندارد.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        } else {
+                            val displayedCategories = if (showAllCategories) totals else totals.take(5)
+                            displayedCategories.forEach { item ->
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(item.category.iconEmoji, fontSize = 16.sp)
+                                        Spacer(Modifier.width(7.dp))
+                                        Text(item.category.title, Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 12.sp, maxLines = 1)
+                                        Text(MoneyFormatter.formatExact(MoneyAmount.of(item.amount, AppCurrency.RIAL), includeUnit = false), fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+                                        Spacer(Modifier.width(7.dp))
+                                        Text("${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                                    }
+                                    Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                                        Box(Modifier.fillMaxWidth(if (totalAmount > 0) (item.amount.toFloat() / totalAmount).coerceIn(0f, 1f) else 0f).height(4.dp).clip(CircleShape).background(item.category.accentColor))
+                                    }
                                 }
-                                Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)) {
-                                    Box(Modifier.fillMaxWidth(if (totalAmount > 0) (item.amount.toFloat() / totalAmount).coerceIn(0f, 1f) else 0f).height(6.dp).clip(CircleShape).background(item.category.accentColor))
-                                }
-                                Text("${item.count} تراکنش • ${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (totals.size > 5) {
+                                Text(
+                                    if (showAllCategories) "نمایش کمتر" else "مشاهده همه دسته‌ها (${MoneyFormatter.toPersianDigits((totals.size - 5).toString())} مورد دیگر)",
+                                    modifier = Modifier.fillMaxWidth().clickable { showAllCategories = !showAllCategories }.padding(vertical = 5.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
                             }
                         }
                     }
                 }
             }
-            item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (selectedCategory == null) "جزئیات تراکنش‌ها" else "تراکنش‌های ${selectedCategory.category.title}", fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.weight(1f))
-                    if (selectedCategoryId != null) Text("نمایش همه", color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { selectedCategoryId = null }, fontSize = 12.sp)
-                }
-            }
-            if (visibleTransactions.isEmpty()) {
-                item { Text("تراکنشی در این بخش وجود ندارد.", modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            } else {
-                items(visibleTransactions, key = { it.id }) { tx ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().clickable { onTransactionClick(tx) },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(tx.category.iconEmoji, fontSize = 20.sp)
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(tx.title, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                Text("${tx.datePersian} • ${tx.timePersian}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Text(MoneyFormatter.formatExact(MoneyAmount.of(tx.amount, tx.amountUnit)), fontWeight = FontWeight.Bold, color = if (selectedType == TransactionType.EXPENSE) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, fontSize = 12.sp)
-                        }
-                    }
-                }
-            }
+
         }
     }
 }
