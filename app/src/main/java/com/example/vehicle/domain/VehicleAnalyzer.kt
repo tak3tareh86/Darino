@@ -137,13 +137,14 @@ object VehicleAnalyzer {
             when {
                 record.serviceType == type -> true
                 type == ServiceType.OIL_FILTER_CHANGE || type == ServiceType.AIR_FILTER_CHANGE -> {
-                    record.serviceType == ServiceType.FILTERS ||
-                        aliases.any { alias ->
-                            val searchableText = normalizeServiceSearchText(
-                                record.title + " " + record.description
-                            )
-                            searchableText.contains(alias)
-                        }
+                    // A generic FILTERS record does not prove which filter was replaced.
+                    // Accept legacy rows only when their title/description names this exact filter.
+                    aliases.any { alias ->
+                        val searchableText = normalizeServiceSearchText(
+                            record.title + " " + record.description
+                        )
+                        searchableText.contains(alias)
+                    }
                 }
                 else -> aliases.any { alias ->
                     normalizeServiceSearchText(record.title + " " + record.description).contains(alias)
