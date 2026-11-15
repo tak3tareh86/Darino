@@ -49,6 +49,8 @@ fun FinancialSummaryCard(
     formattedExpense: String,
     formattedBalance: String,
     savingsRate: Int,
+    hasIncome: Boolean,
+    savingsStatus: String?,
     selectedSummaryPeriod: FinanceFilterPeriod,
     onSummaryPeriodChange: (FinanceFilterPeriod) -> Unit,
     yearLabel: String,
@@ -158,6 +160,11 @@ fun FinancialSummaryCard(
                         color = secondaryTextColor
                     )
                     Text(
+                        text = "درآمد منهای هزینه؛ موجودی حساب‌ها نیست",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = mutedTextColor
+                    )
+                    Text(
                         text = formattedBalance,
                         style = MaterialTheme.typography.displayMedium.copy(
                             fontWeight = FontWeight.Black,
@@ -166,7 +173,7 @@ fun FinancialSummaryCard(
                         color = primaryTextColor
                     )
                     Text(
-                        text = "تومان",
+                        text = MoneyFormatter.getUnitLabel(),
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
                         color = mutedTextColor
                     )
@@ -250,11 +257,20 @@ fun FinancialSummaryCard(
                         contentColor = Color(0xFF111827)
                     ) {
                         Text(
-                            text = "${MoneyFormatter.toPersianDigits(savingsRate.toString())}٪",
+                            text = if (hasIncome) "${MoneyFormatter.toPersianDigits(savingsRate.toString())}٪" else "—",
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                         )
                     }
+                }
+
+                if (savingsStatus != null) {
+                    Text(
+                        text = savingsStatus,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = if (savingsStatus.contains("بیشتر")) Color(0xFFEF4444) else mutedTextColor,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }
