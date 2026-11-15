@@ -251,6 +251,21 @@ fun FinancialReportScreen(
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         Text(if (selectedType == TransactionType.EXPENSE) "گزارش هزینه‌ها" else "گزارش درآمدها", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                totals.take(5).forEach { item ->
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(Modifier.size(9.dp).clip(CircleShape).background(item.category.accentColor))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(item.category.title, modifier = Modifier.weight(1f), maxLines = 1, fontSize = 11.sp)
+                                        Text("${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                                if (hasAmountOverflow) {
+                                    Text("جمع دسته‌بندی‌ها قابل محاسبه نیست.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                                } else if (totals.isEmpty()) {
+                                    Text("در این بازه تراکنشی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                }
+                            }
                             Box(Modifier.size(142.dp), contentAlignment = Alignment.Center) {
                                 Canvas(Modifier.fillMaxSize()) {
                                     val stroke = 22.dp.toPx()
@@ -269,21 +284,6 @@ fun FinancialReportScreen(
                                     Text("جمع کل", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(amountText, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                     Text(unitLabel, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                totals.take(5).forEach { item ->
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(Modifier.size(9.dp).clip(CircleShape).background(item.category.accentColor))
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(item.category.title, modifier = Modifier.weight(1f), maxLines = 1, fontSize = 11.sp)
-                                        Text("${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                    }
-                                }
-                                if (hasAmountOverflow) {
-                                    Text("جمع دسته‌بندی‌ها قابل محاسبه نیست.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-                                } else if (totals.isEmpty()) {
-                                    Text("در این بازه تراکنشی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                 }
                             }
                         }
