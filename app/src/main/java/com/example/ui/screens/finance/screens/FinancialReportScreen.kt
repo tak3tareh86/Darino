@@ -454,9 +454,11 @@ fun FinancialReportScreen(
                             } else {
                                 rangeStart
                             }
-                            val currentComparableTotal = sumReportAmountsExact(periodTransactions.map {
-                                MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
-                            })
+                            val currentComparableTotal = runCatching {
+                                sumReportAmountsExact(periodTransactions.map {
+                                    MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
+                                })
+                            }.getOrNull()
                             val previousTotalResult = runCatching {
                                 sumReportAmountsExact(transactions.filter {
                                     it.dateMillis >= previousRangeStart &&
