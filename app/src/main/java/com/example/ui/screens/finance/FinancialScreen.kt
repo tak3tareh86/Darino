@@ -322,11 +322,7 @@ fun FinancialScreen(
                 FinancialReportScreen(
                     transactions = state.reportTransactions,
                     categories = state.categories,
-                    onBackClick = { navigateBack() },
-                    onTransactionClick = { tx ->
-                        selectedTransactionDetail = tx
-                        navigateToSubScreen(FinanceSubScreen.TRANSACTION_DETAIL)
-                    }
+                    onBackClick = { navigateBack() }
                 )
             }
 
