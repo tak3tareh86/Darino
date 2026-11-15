@@ -237,6 +237,7 @@ data class FinancialState(
     val formattedBudgetRemaining: String = "",
     val recentTransactions: List<TransactionItemData> = emptyList(),
     val allTransactions: List<TransactionItemData> = emptyList(),
+    val reportTransactions: List<TransactionItemData> = emptyList(),
     val activeBudgets: List<Budget> = emptyList(),
     val savingsGoals: List<SavingsGoal> = emptyList(),
     val recurringTransactions: List<RecurringTransaction> = emptyList(),
