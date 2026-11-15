@@ -273,7 +273,7 @@ fun FinancialReportScreen(
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(12.dp),
-                                        color = item.category.accentColor.copy(alpha = 0.12f)
+                                        color = item.category.accentColor.copy(alpha = 0.18f)
                                     ) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
