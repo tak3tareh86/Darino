@@ -63,15 +63,6 @@ internal fun sumReportAmountsExact(values: Iterable<Long>): Long? = runCatching 
     values.fold(0L) { total, value -> Math.addExact(total, value) }
 }.getOrNull()
 
-internal fun reportTrendDayRanges(daysInMonth: Int, bucketCount: Int = 6): List<IntRange> {
-    require(daysInMonth > 0 && bucketCount > 0 && bucketCount <= daysInMonth)
-    return (0 until bucketCount).map { index ->
-        val firstDay = 1 + daysInMonth * index / bucketCount
-        val lastDay = daysInMonth * (index + 1) / bucketCount
-        firstDay..lastDay
-    }
-}
-
 @Composable
 fun FinancialReportScreen(
     transactions: List<TransactionItemData>,
@@ -143,6 +134,7 @@ fun FinancialReportScreen(
     if (calculatedTotal == null) hasAmountOverflow = true
     val totalAmount = calculatedTotal ?: 0L
     val totals = if (hasAmountOverflow) emptyList() else computedTotals
+    val monthNames = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
     val periodTitle = if (period == ReportPeriod.MONTH) "${monthNames[selectedMonth - 1]} ${MoneyFormatter.toPersianDigits(selectedYear.toString())}" else "سال ${MoneyFormatter.toPersianDigits(selectedYear.toString())}"
     val amountText = if (hasAmountOverflow) "—" else MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, AppCurrency.RIAL), includeUnit = false)
     val unitLabel = MoneyFormatter.getUnitLabel()
