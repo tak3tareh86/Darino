@@ -55,7 +55,7 @@ import com.example.util.PersianCalendarHelper
 import com.example.ui.screens.settings.model.AppCurrency
 
 private enum class ReportPeriod { MONTH, YEAR }
-private data class ReportCategoryTotal(val category: TransactionCategory, val amount: Long, val count: Int)
+private data class ReportCategoryTotal(val category: TransactionCategory, val amount: Long)
 
 internal fun sumReportAmountsExact(values: Iterable<Long>): Long? = runCatching {
     values.fold(0L) { total, value -> Math.addExact(total, value) }
@@ -111,7 +111,7 @@ fun FinancialReportScreen(
                 hasAmountOverflow = true
                 null
             } else {
-                ReportCategoryTotal(category = resolvedCategory, amount = amount, count = items.size)
+                ReportCategoryTotal(category = resolvedCategory, amount = amount)
             }
         }
     }.sortedByDescending { it.amount }
