@@ -246,13 +246,13 @@ fun FinancialReportScreen(
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                        color = item.category.accentColor.copy(alpha = 0.13f)
                                     ) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 8.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Box(Modifier.size(9.dp).clip(CircleShape).background(item.category.accentColor))
+                                            Box(Modifier.size(10.dp).clip(CircleShape).background(item.category.accentColor))
                                             Spacer(Modifier.width(6.dp))
                                             Text(item.category.title, modifier = Modifier.weight(1f), maxLines = 1, fontSize = 11.sp)
                                             Text(
