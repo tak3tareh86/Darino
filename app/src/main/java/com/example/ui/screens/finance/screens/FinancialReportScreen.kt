@@ -155,7 +155,7 @@ fun FinancialReportScreen(
             Color(0xFFF59E0B), Color(0xFF14B8A6), Color(0xFFEF4444),
             Color(0xFF0D9488), Color(0xFF64748B)
         )
-        totals.forEach { total ->
+        totals.sortedBy { it.category.id }.forEach { total ->
             val originalColor = total.category.accentColor
             val displayColor = if (usedColors.add(originalColor.value.toLong())) {
                 originalColor
