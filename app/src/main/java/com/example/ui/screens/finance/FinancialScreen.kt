@@ -199,6 +199,7 @@ fun FinancialScreen(
                             savingsRate = if (isYearSummary) state.currentYearSavingsRate else state.currentMonthSavingsRate,
                             balanceLabel = if (isYearSummary) "مانده عملکرد مالی سال" else "مانده عملکرد مالی ماه",
                             selectedSummaryPeriod = selectedSummaryPeriod,
+                            yearLabel = state.currentYear,
                             onSummaryPeriodChange = { selectedSummaryPeriod = it },
                             cardTestTag = "unified_financial_status_card",
                             onCardClick = {
