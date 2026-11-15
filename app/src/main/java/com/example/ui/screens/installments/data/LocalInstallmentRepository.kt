@@ -329,9 +329,9 @@ class LocalInstallmentRepository private constructor() {
         )
     }
 
-    fun addInstallment(item: InstallmentItem, context: Context? = null) {
-        val targetContext = context?.applicationContext ?: appContext ?: return
-        repositoryScope.launch {
+    suspend fun addInstallment(item: InstallmentItem, context: Context? = null): Boolean {
+        val targetContext = context?.applicationContext ?: appContext ?: return false
+        return withContext(Dispatchers.IO) {
             try {
                 val userId = SessionManager.userId
                     ?: throw IllegalStateException("No authenticated user ID")
@@ -340,10 +340,20 @@ class LocalInstallmentRepository private constructor() {
                 ensureInstallmentDataAvailable(targetContext, userId)
                 val current = _installments.value.toMutableList()
                 current.add(0, item)
+                // A successful Room transaction is the authoritative save result.
                 saveToRoom(targetContext, current)
-                reloadForUser(targetContext, userId)
+                runCatching { reloadForUser(targetContext, userId) }
+                    .onFailure { error ->
+                        android.util.Log.e(
+                            "LocalInstallmentRepository",
+                            "Installment ${item.id} was saved, but refreshing its in-memory snapshot failed.",
+                            error
+                        )
+                    }
+                true
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("LocalInstallmentRepository", "Failed to save installment ${item.id}.", e)
+                false
             }
         }
     }
