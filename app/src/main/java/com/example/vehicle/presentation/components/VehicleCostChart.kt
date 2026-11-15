@@ -6,10 +6,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,7 +22,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.util.IranianPhoneUtils
+import com.example.util.MoneyAmount
+import com.example.util.MoneyFormatter
+import com.example.ui.screens.settings.model.AppCurrency
 import com.example.vehicle.domain.VehicleMonthlyExpenseBar
 
 /**
@@ -33,6 +38,7 @@ fun VehicleCostChart(
 ) {
     val maxTotal = (bars.maxOfOrNull { it.totalAmount } ?: 5_000_000L).coerceAtLeast(1_000_000L).toFloat()
     val progress = remember { Animatable(0f) }
+    var selectedBarIndex by remember(bars) { mutableIntStateOf(-1) }
 
     LaunchedEffect(bars) {
         progress.animateTo(1f, animationSpec = tween(700))
@@ -53,7 +59,7 @@ fun VehicleCostChart(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
         ) {
-            bars.forEach { bar ->
+            bars.forEachIndexed { barIndex, bar ->
                 val fuelRatio = (bar.fuelAmount / maxTotal) * progress.value
                 val repairRatio = (bar.repairAmount / maxTotal) * progress.value
                 val serviceRatio = (bar.serviceAmount / maxTotal) * progress.value
@@ -63,30 +69,19 @@ fun VehicleCostChart(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    // Tooltip tag for current month
-                    if (bar.isCurrentMonth) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        ) {
-                            Text(
-                                text = "${IranianPhoneUtils.convertDigitsToPersian((bar.totalAmount / 1_000_000L).toString())} م",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                color = Color.White,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                            )
+                    modifier = Modifier
+                        .weight(1f)
+                        .pointerInput(barIndex) {
+                            detectTapGestures {
+                                selectedBarIndex = if (selectedBarIndex == barIndex) -1 else barIndex
+                            }
                         }
-                    } else {
-                        Spacer(modifier = Modifier.height(18.dp))
-                    }
+                ) {
+                    // Keep the original label space so the chart geometry remains unchanged.
+                    Spacer(modifier = Modifier.height(18.dp))
 
-                    // Stacked Bar
+                    // Stacked Bar. The tooltip is a popup and does not participate in layout.
+                    Box {
                     Column(
                         modifier = Modifier
                             .width(14.dp)
@@ -125,6 +120,42 @@ fun VehicleCostChart(
                         if (otherRatio > 0f) {
                             Box(Modifier.fillMaxWidth().height((118 * otherRatio).dp).background(Color(0xFFA78BFA)))
                         }
+                    }
+                    DropdownMenu(
+                        expanded = selectedBarIndex == barIndex,
+                        onDismissRequest = { selectedBarIndex = -1 }
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 6.dp,
+                            shadowElevation = 6.dp,
+                            modifier = Modifier.widthIn(min = 132.dp, max = 220.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = bar.monthName,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Text(
+                                    text = MoneyFormatter.formatExact(
+                                        MoneyAmount.of(bar.totalAmount, AppCurrency.RIAL)
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
