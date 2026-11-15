@@ -120,6 +120,7 @@ fun InstallmentsScreen(
 
     // Repository State
     val repo = LocalInstallmentRepository.instance
+    val installmentDataAvailable by repo.installmentDataAvailable.collectAsState()
     val bankLoansList by repo.bankLoans.collectAsState()
     val homeLoansList by repo.homeLoans.collectAsState()
     val carInsuranceList by repo.carInsurance.collectAsState()
@@ -243,7 +244,16 @@ fun InstallmentsScreen(
                             .padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        if (allInstallments.isEmpty()) {
+                        if (allInstallments.isEmpty() && !installmentDataAvailable) {
+                            Text(
+                                text = "اطلاعات اقساط هنوز با موفقیت بارگذاری نشده است. برای تلاش مجدد لمس کنید.",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { repo.reloadFromDatabase(context) }
+                                    .padding(24.dp),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        } else if (allInstallments.isEmpty()) {
                             InstallmentsEmptyState(
                                 onAddClick = {
                                     addInitialCategory = InstallmentCategory.BANK_LOANS
