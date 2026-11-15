@@ -65,6 +65,7 @@ import com.example.ui.screens.finance.screens.RecurringTransactionsScreen
 import com.example.ui.screens.finance.screens.SavingsGoalsScreen
 import com.example.ui.screens.finance.screens.TransactionDetailScreen
 import com.example.ui.screens.finance.screens.TransactionsScreen
+import com.example.ui.screens.finance.screens.FinancialReportScreen
 import com.example.ui.screens.finance.viewmodel.FinancialViewModel
 import com.example.ui.screens.home.components.BottomNavItem
 import com.example.ui.screens.home.components.HomeBottomNavigation
@@ -79,7 +80,8 @@ enum class FinanceSubScreen {
     BUDGETS,
     SAVINGS_GOALS,
     RECURRING_TRANSACTIONS,
-    CATEGORIES
+    CATEGORIES,
+    REPORT
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -227,6 +229,9 @@ fun FinancialScreen(
                                     "transfer" -> {
                                         showTransferSheet = true
                                     }
+                                    "reports" -> {
+                                        navigateToSubScreen(FinanceSubScreen.REPORT)
+                                    }
                                 }
                             }
                         )
@@ -309,6 +314,18 @@ fun FinancialScreen(
                                 scope.launch { snackbarHostState.showSnackbar("خطا در حذف تراکنش") }
                             }
                         }
+                    }
+                )
+            }
+
+            FinanceSubScreen.REPORT -> {
+                FinancialReportScreen(
+                    transactions = state.reportTransactions,
+                    categories = state.categories,
+                    onBackClick = { navigateBack() },
+                    onTransactionClick = { tx ->
+                        selectedTransactionDetail = tx
+                        navigateToSubScreen(FinanceSubScreen.TRANSACTION_DETAIL)
                     }
                 )
             }
