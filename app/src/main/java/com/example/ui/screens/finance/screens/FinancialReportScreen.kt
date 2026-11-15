@@ -63,6 +63,15 @@ internal fun sumReportAmountsExact(values: Iterable<Long>): Long? = runCatching 
     values.fold(0L) { total, value -> Math.addExact(total, value) }
 }.getOrNull()
 
+internal fun reportTrendDayRanges(daysInMonth: Int, bucketCount: Int = 6): List<IntRange> {
+    require(daysInMonth > 0 && bucketCount > 0 && bucketCount <= daysInMonth)
+    return (0 until bucketCount).map { index ->
+        val firstDay = 1 + daysInMonth * index / bucketCount
+        val lastDay = daysInMonth * (index + 1) / bucketCount
+        firstDay..lastDay
+    }
+}
+
 @Composable
 fun FinancialReportScreen(
     transactions: List<TransactionItemData>,
@@ -165,10 +174,8 @@ fun FinancialReportScreen(
                     PersianCalendarHelper.jalaliToEpochMillis(selectedYear, 12, 1, 0, 0)) / 86_400_000.0
             ).toInt().coerceIn(29, 30)
         }
-        (0 until trendBuckets).map { index ->
-            val firstDay = 1 + daysInMonth * index / trendBuckets
-            val endDay = daysInMonth * (index + 1) / trendBuckets
-            "${MoneyFormatter.toPersianDigits(firstDay.toString())}-${MoneyFormatter.toPersianDigits(endDay.toString())}"
+        reportTrendDayRanges(daysInMonth, trendBuckets).map { range ->
+            "${MoneyFormatter.toPersianDigits(range.first.toString())}-${MoneyFormatter.toPersianDigits(range.last.toString())}"
         }
     }
     if (trendAmounts.any { it == 0L } && hasAmountOverflow) {
