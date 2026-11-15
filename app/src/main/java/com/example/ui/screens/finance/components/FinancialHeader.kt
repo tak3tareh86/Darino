@@ -1,25 +1,14 @@
 package com.example.ui.screens.finance.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.FilterList
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,17 +17,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.RadiusXL
 
 @Composable
 fun FinancialHeader(
-    currentFilterText: String,
-    onFilterClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
@@ -62,8 +47,6 @@ fun FinancialHeader(
     }
     val headerTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
     val headerSubtitleColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val filterSurfaceColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF0D9488).copy(alpha = 0.10f)
-    val filterBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF0D9488).copy(alpha = 0.22f)
 
     Box(
         modifier = modifier
@@ -83,7 +66,6 @@ fun FinancialHeader(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
-            // Centered Title & Subtitle
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(1.dp)
@@ -101,44 +83,6 @@ fun FinancialHeader(
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                     color = headerSubtitleColor
                 )
-            }
-
-            // Top-Left Aligned: Filter Button
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .height(34.dp)
-                    .testTag("finance_filter_button")
-                    .shadow(
-                        elevation = 2.dp,
-                        shape = RoundedCornerShape(8.dp),
-                        ambientColor = Color.Black.copy(alpha = 0.15f),
-                        spotColor = Color(0xFF14B8A6).copy(alpha = 0.2f)
-                    )
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(onClick = onFilterClick),
-                shape = RoundedCornerShape(8.dp),
-                color = filterSurfaceColor,
-                border = BorderStroke(1.dp, filterBorderColor)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.FilterList,
-                        contentDescription = "فیلتر بازه زمانی",
-                        tint = headerTextColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-
-                    Text(
-                        text = currentFilterText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = headerTextColor
-                    )
-                }
             }
         }
     }
