@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import com.example.ui.screens.finance.model.TransactionCategory
 import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionType
@@ -83,7 +85,13 @@ fun FinancialReportScreen(
     categories: List<TransactionCategory>,
     onBackClick: () -> Unit
 ) {
-    val now = remember { System.currentTimeMillis() }
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            now = System.currentTimeMillis()
+        }
+    }
     val initialDate = remember { PersianCalendarHelper.fromEpochMillis(now) }
     var period by remember { mutableStateOf(ReportPeriod.MONTH) }
     var selectedYear by remember { mutableIntStateOf(initialDate.year) }
@@ -185,14 +193,14 @@ fun FinancialReportScreen(
     val allTrendLabels = if (period == ReportPeriod.YEAR) {
         listOf("فر", "ارد", "خرد", "تیر", "مرد", "شهر", "مهر", "آبا", "آذر", "دی", "بهم", "اسف")
     } else {
-        monthlyTrendRanges.map { range ->
-            "${MoneyFormatter.toPersianDigits(range.first.toString())}-${MoneyFormatter.toPersianDigits(range.last.toString())}"
+        monthlyTrendRanges.mapIndexed { index, range ->
+            val displayedLastDay = if (
+                isCurrentPeriod && index == visibleTrendBuckets - 1
+            ) minOf(range.last, currentJalaliDate.day) else range.last
+            "${MoneyFormatter.toPersianDigits(range.first.toString())}-${MoneyFormatter.toPersianDigits(displayedLastDay.toString())}"
         }
     }
     val trendLabels = allTrendLabels.take(visibleTrendBuckets)
-    if (trendAmounts.any { it == 0L } && hasAmountOverflow) {
-        // Keep the report in an explicit error state rather than displaying partial totals.
-    }
     val periodTitle = if (period == ReportPeriod.MONTH) "${monthNames[selectedMonth - 1]} ${MoneyFormatter.toPersianDigits(selectedYear.toString())}" else "سال ${MoneyFormatter.toPersianDigits(selectedYear.toString())}"
     val amountText = if (hasAmountOverflow) "—" else MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, AppCurrency.RIAL), includeUnit = false)
     val unitLabel = MoneyFormatter.getUnitLabel()
@@ -421,9 +429,15 @@ fun FinancialReportScreen(
                         if (hasAmountOverflow) {
                             Text("نمودار به دلیل خارج بودن مجموع مبالغ از محدوده محاسبه نمایش داده نمی‌شود.", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
                         } else {
-                            val trendSumResult = sumReportAmountsExact(trendAmounts)
+                            // Exclude the in-progress final bucket from the average.
+                            val averageBuckets = if (isCurrentPeriod && trendAmounts.size > 1) {
+                                trendAmounts.dropLast(1)
+                            } else {
+                                trendAmounts
+                            }
+                            val trendSumResult = sumReportAmountsExact(averageBuckets)
                             val trendSum = trendSumResult ?: 0L
-                            val averageTrend = if (trendAmounts.isNotEmpty()) trendSum / trendAmounts.size else 0L
+                            val averageTrend = if (averageBuckets.isNotEmpty()) trendSum / averageBuckets.size else 0L
                             val maxTrend = trendAmounts.maxOrNull() ?: 0L
                             val minTrend = trendAmounts.minOrNull() ?: 0L
                             val previousYear = when {
@@ -487,7 +501,12 @@ fun FinancialReportScreen(
                                 else -> MaterialTheme.colorScheme.error
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TrendMetricCard("میانگین هر بازه", MoneyFormatter.formatExact(MoneyAmount.of(averageTrend, AppCurrency.RIAL), includeUnit = false), Modifier.weight(1f), MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f))
+                                TrendMetricCard(
+                                    if (isCurrentPeriod) "میانگین بازه‌های کامل" else "میانگین هر بازه",
+                                    MoneyFormatter.formatExact(MoneyAmount.of(averageTrend, AppCurrency.RIAL), includeUnit = false),
+                                    Modifier.weight(1f),
+                                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
+                                )
                                 TrendMetricCard("بیشترین مقدار", MoneyFormatter.formatExact(MoneyAmount.of(maxTrend, AppCurrency.RIAL), includeUnit = false), Modifier.weight(1f), MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f))
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
