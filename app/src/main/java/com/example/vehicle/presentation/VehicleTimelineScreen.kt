@@ -40,8 +40,8 @@ fun VehicleTimelineScreen(
 ) {
     val today = remember { PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()) }
     var filterModeName by rememberSaveable { mutableStateOf(TimelineFilterMode.ALL.name) }
-    var selectedYear by rememberSaveable { mutableIntStateOf(today.year) }
-    var selectedMonth by rememberSaveable { mutableIntStateOf(today.month) }
+    var selectedYear by rememberSaveable { mutableStateOf(today.year) }
+    var selectedMonth by rememberSaveable { mutableStateOf(today.month) }
     val filterMode = TimelineFilterMode.values().firstOrNull { it.name == filterModeName }
         ?: TimelineFilterMode.ALL
 
