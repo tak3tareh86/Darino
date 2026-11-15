@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import java.util.Locale
 import com.example.ui.screens.finance.model.TransactionCategory
 import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionType
@@ -58,6 +59,14 @@ import com.example.ui.screens.settings.model.AppCurrency
 
 private enum class ReportPeriod { MONTH, YEAR }
 private data class ReportCategoryTotal(val category: TransactionCategory, val amount: Long)
+
+private fun formatReportSharePercentage(amount: Long, total: Long): String {
+    if (total <= 0L || amount <= 0L) return "۰٪"
+    val percentage = amount.toDouble() / total.toDouble() * 100.0
+    if (percentage < 0.1) return "<۰٫۱٪"
+    val formatted = String.format(Locale.US, "%.1f", percentage).replace('.', '٫')
+    return "${MoneyFormatter.toPersianDigits(formatted)}٪"
+}
 
 internal fun sumReportAmountsExact(values: Iterable<Long>): Long? = runCatching {
     values.fold(0L) { total, value -> Math.addExact(total, value) }
@@ -137,6 +146,27 @@ fun FinancialReportScreen(
     val calculatedTotal = sumReportAmountsExact(computedTotals.map { it.amount })
     if (calculatedTotal == null) hasAmountOverflow = true
     val totalAmount = calculatedTotal ?: 0L
+    // Give duplicate legacy category colors distinct, stable colors in the report.
+    val reportCategoryColors = buildMap<String, Color> {
+        val usedColors = mutableSetOf<Long>()
+        val distinctPalette = listOf(
+            Color(0xFFF97316), Color(0xFF3B82F6), Color(0xFF8B5CF6),
+            Color(0xFF10B981), Color(0xFFEC4899), Color(0xFF06B6D4),
+            Color(0xFFF59E0B), Color(0xFF14B8A6), Color(0xFFEF4444),
+            Color(0xFF0D9488), Color(0xFF64748B)
+        )
+        totals.forEach { total ->
+            val originalColor = total.category.accentColor
+            val displayColor = if (usedColors.add(originalColor.value.toLong())) {
+                originalColor
+            } else {
+                distinctPalette.firstOrNull { candidate ->
+                    usedColors.add(candidate.value.toLong())
+                } ?: originalColor
+            }
+            put(total.category.id, displayColor)
+        }
+    }
     val totals = if (hasAmountOverflow) emptyList() else computedTotals
     val monthNames = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
     val periodTitle = if (period == ReportPeriod.MONTH) "${monthNames[selectedMonth - 1]} ${MoneyFormatter.toPersianDigits(selectedYear.toString())}" else "سال ${MoneyFormatter.toPersianDigits(selectedYear.toString())}"
@@ -273,14 +303,14 @@ fun FinancialReportScreen(
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(12.dp),
-                                        color = item.category.accentColor.copy(alpha = 0.18f)
+                                        color = (reportCategoryColors[item.category.id] ?: item.category.accentColor).copy(alpha = 0.18f)
                                     ) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
-                                            Box(Modifier.size(8.dp).clip(CircleShape).background(item.category.accentColor))
+                                            Box(Modifier.size(8.dp).clip(CircleShape).background(reportCategoryColors[item.category.id] ?: item.category.accentColor))
                                             Text(
                                                 item.category.title,
                                                 modifier = Modifier.weight(1f),
@@ -298,7 +328,7 @@ fun FinancialReportScreen(
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
-                                                "${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪",
+                                                formatReportSharePercentage(item.amount, totalAmount),
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -385,7 +415,7 @@ fun FinancialReportScreen(
                                     totals.forEach { item ->
                                         val sweep = (item.amount.toDouble() / totalAmount.toDouble() * 360.0).toFloat()
                                         drawArc(
-                                            item.category.accentColor,
+                                            reportCategoryColors[item.category.id] ?: item.category.accentColor,
                                             startAngle,
                                             sweep,
                                             false,
