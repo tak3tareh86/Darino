@@ -116,11 +116,20 @@ fun FinancialReportScreen(
                 if (index == 11) 1 else index + 2, 1, 0, 0
             )
         } else {
-            val daysInMonth = ((rangeEnd - rangeStart) / 86_400_000L).toInt().coerceAtLeast(1)
+            val daysInMonth = when {
+                selectedMonth <= 6 -> 31
+                selectedMonth <= 11 -> 30
+                else -> kotlin.math.round(
+                    (PersianCalendarHelper.jalaliToEpochMillis(selectedYear + 1, 1, 1, 0, 0) -
+                        PersianCalendarHelper.jalaliToEpochMillis(selectedYear, 12, 1, 0, 0)) / 86_400_000.0
+                ).toInt().coerceIn(29, 30)
+            }
             val firstDay = 1 + (daysInMonth * index / trendBuckets)
             val lastDay = 1 + (daysInMonth * (index + 1) / trendBuckets)
-            bucketStart = rangeStart + (firstDay - 1) * 86_400_000L
-            bucketEnd = if (index == trendBuckets - 1) rangeEnd else rangeStart + (lastDay - 1) * 86_400_000L
+            bucketStart = PersianCalendarHelper.jalaliToEpochMillis(selectedYear, selectedMonth, firstDay, 0, 0)
+            bucketEnd = if (index == trendBuckets - 1) rangeEnd else {
+                PersianCalendarHelper.jalaliToEpochMillis(selectedYear, selectedMonth, lastDay, 0, 0)
+            }
         }
         periodTransactions.filter { it.dateMillis >= bucketStart && it.dateMillis < bucketEnd }
             .sumOf { MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact() }
