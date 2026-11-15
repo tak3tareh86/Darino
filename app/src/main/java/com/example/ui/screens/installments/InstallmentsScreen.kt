@@ -603,7 +603,9 @@ fun InstallmentsScreen(
                 val paidAmount = paymentHistoryList
                     .filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
                     .fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
-                val remainingAmount = Math.subtractExact(totalAmount, paidAmount).coerceAtLeast(0L)
+                val remainingAmount = paymentHistoryList
+                    .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                    .fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
                 val remainingInstallments = (totalInstallments - requestedPaidCount).coerceAtLeast(0)
                 val nextUnpaidPayment = paymentHistoryList
                     .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
