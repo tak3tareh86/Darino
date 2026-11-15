@@ -208,7 +208,6 @@ fun FinancialReportScreen(
                         }
                         ReportSegment("درآمدها", selectedType == TransactionType.INCOME, Modifier.weight(1f)) {
                             selectedType = TransactionType.INCOME
-                            selectedCategoryId = null
                         }
                     }
                 }
@@ -218,7 +217,6 @@ fun FinancialReportScreen(
                     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             ReportSegment("ماهانه", period == ReportPeriod.MONTH, Modifier.weight(1f)) { period = ReportPeriod.MONTH }
-                            ReportSegment("سالانه", period == ReportPeriod.YEAR, Modifier.weight(1f)) { period = ReportPeriod.YEAR; selectedCategoryId = null }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                             IconButton(onClick = {
@@ -231,7 +229,6 @@ fun FinancialReportScreen(
                                 if (period == ReportPeriod.MONTH) {
                                     if (selectedMonth == 12) { selectedMonth = 1; selectedYear++ } else selectedMonth++
                                 } else selectedYear++
-                                selectedCategoryId = null
                             }) { Icon(Icons.Default.ChevronLeft, contentDescription = "بازه بعد") }
                         }
                     }
