@@ -213,7 +213,7 @@ class LocalInstallmentRepository private constructor() {
                             BigDecimal.valueOf(entity.totalInstallments.toLong()),
                             0,
                             RoundingMode.HALF_UP
-                        ).longValueExact()
+                        ).longValueExact().coerceAtLeast(1L)
                     }
                     val estimatedMissingPaidAmount =
                         Math.multiplyExact(estimatedAveragePayment, missingPaidRows.toLong())
