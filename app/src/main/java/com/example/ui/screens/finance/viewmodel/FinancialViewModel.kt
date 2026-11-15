@@ -204,6 +204,7 @@ class FinancialViewModel(
             formattedBudgetRemaining = MoneyFormatter.formatExact(MoneyAmount.of(budgetSummary.remainingBudget, AppCurrency.RIAL), targetCurrency = currency),
             recentTransactions = filteredTransactions.take(4),
             allTransactions = filteredTransactions,
+            reportTransactions = transactions,
             activeBudgets = updatedBudgets,
             savingsGoals = savingsGoals,
             recurringTransactions = recurring,
