@@ -450,8 +450,8 @@ private fun TimelineItemRow(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                if (item.amount > 0) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    if (item.amount > 0) {
                         Text(
                             text = amountFormatted,
                             style = MaterialTheme.typography.bodyMedium.copy(
@@ -460,6 +460,8 @@ private fun TimelineItemRow(
                             color = MaterialTheme.colorScheme.primary,
                             maxLines = 1
                         )
+                    } else {
+                        Spacer(Modifier.height(18.dp))
                     }
                 }
             }
