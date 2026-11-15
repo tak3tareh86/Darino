@@ -174,10 +174,11 @@ class LocalInstallmentRepository private constructor() {
                     require(payments.all { it.amountUnit.name == entity.amountUnit }) { "Installment and payment currency units differ: ${entity.id}" }
                     val paidPayments = payments.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
                     val paidAmount = paidPayments.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
-                    require(paidAmount <= entity.amount) { "Paid amount exceeds contract amount in DB: ${entity.id}" }
+                    // Repayments may include interest/fees and legitimately exceed the loan principal.
+                    // Keep the principal as the contract amount and never expose a negative remaining balance.
                     val paidInstallmentsCount = paidPayments.map { it.installmentNumber }.toSet().size
                     val remainingInstallmentsCount = (entity.totalInstallments - paidInstallmentsCount).coerceAtLeast(0)
-                    val remainingAmount = Math.subtractExact(entity.amount, paidAmount)
+                    val remainingAmount = Math.subtractExact(entity.amount, paidAmount).coerceAtLeast(0L)
 
                     // Schedule/payment history is the source of truth for whether a contract is still active.
                     // Do not let a stale top-level PAID/COMPLETED flag hide unpaid scheduled payments.
@@ -583,9 +584,10 @@ class LocalInstallmentRepository private constructor() {
             }
             val paidCount = paidItems.size
             val paidSum = paidItems.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
-            // Adjust the contract total by the edited installment's delta, allowing both increases and decreases.
-            val totalSum = Math.addExact(Math.subtractExact(targetTotalAmount, previousScheduleAmount), targetAmount).coerceAtLeast(0L)
-            val remainingSum = (totalSum - paidSum).coerceAtLeast(0L)
+            // Editing a repayment row must not change the original loan principal.
+            // The schedule total may differ from the principal because it can include interest/fees.
+            val totalSum = targetTotalAmount
+            val remainingSum = Math.subtractExact(totalSum, paidSum).coerceAtLeast(0L)
             val remainingCount = (targetInstallment.totalInstallments - paidCount).coerceAtLeast(0)
             val nextPending = updatedHistory
                 .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
