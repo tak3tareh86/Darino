@@ -376,6 +376,7 @@ fun FinancialReportScreen(
                                 )
                             }
                         }
+                        Spacer(Modifier.height(8.dp))
                         Box(Modifier.size(210.dp), contentAlignment = Alignment.Center) {
                             Canvas(Modifier.fillMaxSize()) {
                                 val stroke = 28.dp.toPx()
