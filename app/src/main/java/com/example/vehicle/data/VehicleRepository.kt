@@ -954,8 +954,14 @@ class VehicleRepository {
                     android.util.Log.w("VehicleRepository", "Alarm scheduling failed for committed service batch.", e)
                     try {
                         db.smartReminderDao().updateStatus(userId = userId, id = primary.id, status = "DISABLED")
+                        val updatedNotes = encodeServiceNotes(
+                            primary.cost,
+                            primary.description,
+                            e.message ?: "ثبت هشدار سیستم ناموفق بود"
+                        )
+                        db.vehicleDao().updateServiceNotes(userId, primary.id, updatedNotes)
                     } catch (dbEx: Exception) {
-                        android.util.Log.e("VehicleRepository", "Failed to disable an unscheduled batch reminder.", dbEx)
+                        android.util.Log.e("VehicleRepository", "Failed to persist batch reminder failure state.", dbEx)
                     }
                     resultServices = createdServices.mapIndexed { index, service ->
                         if (index == 0) service.copy(
