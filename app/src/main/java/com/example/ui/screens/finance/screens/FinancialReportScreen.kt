@@ -130,6 +130,8 @@ fun FinancialReportScreen(
     val periodTitle = if (period == ReportPeriod.MONTH) "${monthNames[selectedMonth - 1]} ${MoneyFormatter.toPersianDigits(selectedYear.toString())}" else "سال ${MoneyFormatter.toPersianDigits(selectedYear.toString())}"
     val amountText = MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, AppCurrency.RIAL), includeUnit = false)
     val unitLabel = MoneyFormatter.getUnitLabel()
+    val chartPrimaryColor = MaterialTheme.colorScheme.primary
+    val chartTrackColor = MaterialTheme.colorScheme.surfaceVariant
 
     Column(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
@@ -206,7 +208,7 @@ fun FinancialReportScreen(
                                             startAngle += sweep
                                         }
                                     } else {
-                                        drawArc(MaterialTheme.colorScheme.surfaceVariant, -90f, 360f, false, style = Stroke(stroke))
+                                        drawArc(chartTrackColor, -90f, 360f, false, style = Stroke(stroke))
                                     }
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -250,10 +252,10 @@ fun FinancialReportScreen(
                                     moveTo(points.first().x, points.first().y)
                                     points.drop(1).forEach { lineTo(it.x, it.y) }
                                 }
-                                drawPath(path, MaterialTheme.colorScheme.primary, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
+                                drawPath(path, chartPrimaryColor, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
                             }
                             points.forEach { point ->
-                                drawCircle(MaterialTheme.colorScheme.primary, radius = 4.dp.toPx(), center = point)
+                                drawCircle(chartPrimaryColor, radius = 4.dp.toPx(), center = point)
                             }
                         }
                         Text(
