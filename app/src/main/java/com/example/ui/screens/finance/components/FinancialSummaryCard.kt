@@ -2,6 +2,7 @@ package com.example.ui.screens.finance.components
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,24 +35,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.ui.components.Layered3DCard
-import com.example.ui.theme.EmeraldPrimaryLight
-import com.example.ui.theme.ExpenseRoseLight
+import com.example.ui.screens.finance.model.FinanceFilterPeriod
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.SummaryCardGradientDark
 import com.example.ui.theme.SummaryCardGradientLight
-import com.example.util.MoneyFormatter
 
 @Composable
 fun FinancialSummaryCard(
-    title: String = "وضعیت مالی این ماه",
+    title: String,
     formattedIncome: String,
     formattedExpense: String,
     formattedBalance: String,
     savingsRate: Int,
+    selectedSummaryPeriod: FinanceFilterPeriod,
+    onSummaryPeriodChange: (FinanceFilterPeriod) -> Unit,
+    yearLabel: String,
     modifier: Modifier = Modifier,
-    balanceLabel: String = "مانده عملکرد مالی ماه",
-    cardTestTag: String = "monthly_financial_status_card",
+    balanceLabel: String,
+    cardTestTag: String = "financial_status_card",
     onCardClick: () -> Unit = {}
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
@@ -61,7 +63,8 @@ fun FinancialSummaryCard(
     val mutedTextColor = if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.8f) else Color(0xFF64748B)
     val translucentSurfaceColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFF0F766E).copy(alpha = 0.08f)
     val iconBackgroundColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF0D9488).copy(alpha = 0.12f)
-    val badgeSurfaceColor = if (isDark) Color.White.copy(alpha = 0.18f) else Color(0xFF0D9488).copy(alpha = 0.12f)
+    val selectedTabColor = if (isDark) Color(0xFF0D9488) else Color(0xFF0D9488).copy(alpha = 0.16f)
+    val unselectedTabColor = if (isDark) Color.White.copy(alpha = 0.07f) else Color.Transparent
 
     Layered3DCard(
         modifier = modifier.fillMaxWidth(),
@@ -80,21 +83,53 @@ fun FinancialSummaryCard(
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Card Header: "وضعیت مالی این ماه" + Savings Rate Pill
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(translucentSurfaceColor)
+                            .padding(3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SummaryPeriodOption(
+                            text = "این ماه",
+                            selected = selectedSummaryPeriod == FinanceFilterPeriod.THIS_MONTH,
+                            selectedColor = selectedTabColor,
+                            unselectedColor = unselectedTabColor,
+                            textColor = primaryTextColor,
+                            onClick = { onSummaryPeriodChange(FinanceFilterPeriod.THIS_MONTH) }
+                        )
+                        SummaryPeriodOption(
+                            text = "سال $yearLabel",
+                            selected = selectedSummaryPeriod == FinanceFilterPeriod.THIS_YEAR,
+                            selectedColor = selectedTabColor,
+                            unselectedColor = unselectedTabColor,
+                            textColor = primaryTextColor,
+                            onClick = { onSummaryPeriodChange(FinanceFilterPeriod.THIS_YEAR) }
+                        )
+                    }
+
+                    Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            ),
+                            color = primaryTextColor
+                        )
                         Box(
                             modifier = Modifier
-                                .size(28.dp)
+                                .size(38.dp)
                                 .clip(CircleShape)
                                 .background(iconBackgroundColor),
                             contentAlignment = Alignment.Center
@@ -102,160 +137,201 @@ fun FinancialSummaryCard(
                             Image(
                                 painter = painterResource(id = R.drawable.img_3d_wallet),
                                 contentDescription = null,
-                                modifier = Modifier.size(22.dp),
+                                modifier = Modifier.size(29.dp),
                                 contentScale = ContentScale.Crop
-                            )
-                        }
-
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            ),
-                            color = primaryTextColor
-                        )
-                    }
-
-                    // Savings Rate Badge
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = badgeSurfaceColor,
-                        contentColor = primaryTextColor
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "نرخ پس‌انداز: ${MoneyFormatter.toPersianDigits(savingsRate.toString())}٪",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
-                                ),
-                                color = primaryTextColor
                             )
                         }
                     }
                 }
 
-                // Balance Big Number
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 2.dp),
+                        .padding(vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Text(
                         text = balanceLabel,
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
                         color = secondaryTextColor
                     )
                     Text(
                         text = formattedBalance,
                         style = MaterialTheme.typography.displayMedium.copy(
                             fontWeight = FontWeight.Black,
-                            fontSize = 22.sp
+                            fontSize = 27.sp
                         ),
                         color = primaryTextColor
                     )
+                    Text(
+                        text = "تومان",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                        color = mutedTextColor
+                    )
                 }
 
-                // 2-Column Split: Income vs Expense
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Income Block
-                    Surface(
+                    SummaryAmountBlock(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(RadiusMD),
-                        color = translucentSurfaceColor
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF10B981).copy(alpha = 0.35f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.ArrowDownward,
-                                    contentDescription = "درآمد",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
+                        label = "هزینه",
+                        amount = formattedExpense,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Rounded.ArrowUpward,
+                                contentDescription = "هزینه",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        iconColor = Color(0xFFBE315C),
+                        surfaceColor = translucentSurfaceColor,
+                        textColor = primaryTextColor,
+                        labelColor = mutedTextColor
+                    )
+                    SummaryAmountBlock(
+                        modifier = Modifier.weight(1f),
+                        label = "درآمد",
+                        amount = formattedIncome,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Rounded.ArrowDownward,
+                                contentDescription = "درآمد",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        iconColor = Color(0xFF0D9B83),
+                        surfaceColor = translucentSurfaceColor,
+                        textColor = primaryTextColor,
+                        labelColor = mutedTextColor
+                    )
+                }
 
-                            Column {
-                                Text(
-                                    text = "درآمد",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = mutedTextColor
-                                )
-                                Text(
-                                    text = formattedIncome,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
-                                    ),
-                                    color = primaryTextColor
-                                )
-                            }
-                        }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(RadiusMD))
+                        .background(translucentSurfaceColor)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "نرخ پس‌انداز",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp
+                        ),
+                        color = secondaryTextColor
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(8.dp)
+                            .clip(CircleShape)
+                            .background(if (isDark) Color.White.copy(alpha = 0.13f) else Color(0xFF94A3B8).copy(alpha = 0.25f))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth((savingsRate.coerceIn(0, 100) / 100f))
+                                .height(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF0D9488))
+                        )
                     }
-
-                    // Expense Block
                     Surface(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(RadiusMD),
-                        color = translucentSurfaceColor
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFFF59E0B),
+                        contentColor = Color(0xFF111827)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFEF4444).copy(alpha = 0.35f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.ArrowUpward,
-                                    contentDescription = "هزینه",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-
-                            Column {
-                                Text(
-                                    text = "هزینه",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = mutedTextColor
-                                )
-                                Text(
-                                    text = formattedExpense,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
-                                    ),
-                                    color = primaryTextColor
-                                )
-                            }
-                        }
+                        Text(
+                            text = "${savingsRate}٪",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryPeriodOption(
+    text: String,
+    selected: Boolean,
+    selectedColor: Color,
+    unselectedColor: Color,
+    textColor: Color,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(50),
+        color = if (selected) selectedColor else unselectedColor
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+            color = textColor,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 11.sp
+            )
+        )
+    }
+}
+
+@Composable
+private fun SummaryAmountBlock(
+    modifier: Modifier,
+    label: String,
+    amount: String,
+    icon: @Composable () -> Unit,
+    iconColor: Color,
+    surfaceColor: Color,
+    textColor: Color,
+    labelColor: Color
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(RadiusMD),
+        color = surfaceColor
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(iconColor),
+                contentAlignment = Alignment.Center
+            ) {
+                icon()
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                    color = labelColor
+                )
+                Text(
+                    text = amount,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    ),
+                    color = textColor
+                )
             }
         }
     }
