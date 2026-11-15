@@ -158,7 +158,6 @@ fun AddServiceSheet(
                 serviceTitle.takeIf { it.isNotBlank() }?.let { option.type to it }
             }
     }
-    val selectedServiceTitle = selectedServiceEntries.joinToString("، ") { it.second }
     val hasValidServiceSelection = selectedTypes.isNotEmpty() &&
         (ServiceType.CUSTOM !in selectedTypes || customServiceTitle.isNotBlank())
     var showServiceTypeDialog by remember { mutableStateOf(false) }
