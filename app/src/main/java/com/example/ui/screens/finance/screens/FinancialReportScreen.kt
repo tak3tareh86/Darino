@@ -91,6 +91,10 @@ fun FinancialReportScreen(
         }
     }
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
+    var showAllCategories by remember { mutableStateOf(false) }
+    LaunchedEffect(selectedType, period, selectedYear, selectedMonth) {
+        showAllCategories = false
+    }
 
     val rangeStart = if (period == ReportPeriod.MONTH) {
         PersianCalendarHelper.jalaliToEpochMillis(selectedYear, selectedMonth, 1, 0, 0)
@@ -265,43 +269,54 @@ fun FinancialReportScreen(
                             } else if (totals.isEmpty()) {
                                 Text("در این بازه تراکنشی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             } else {
-                                totals.forEach { item ->
+                                totals.take(if (showAllCategories) totals.size else 5).forEach { item ->
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(12.dp),
                                         color = item.category.accentColor.copy(alpha = 0.12f)
                                     ) {
-                                        Column(
-                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-                                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Box(Modifier.size(9.dp).clip(CircleShape).background(item.category.accentColor))
-                                                Spacer(Modifier.width(7.dp))
-                                                Text(
-                                                    item.category.title,
-                                                    modifier = Modifier.weight(1f),
-                                                    maxLines = 1,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                                Text(
-                                                    "${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪",
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
+                                            Box(Modifier.size(8.dp).clip(CircleShape).background(item.category.accentColor))
+                                            Text(
+                                                item.category.title,
+                                                modifier = Modifier.weight(1f),
+                                                maxLines = 1,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
                                             Text(
                                                 MoneyFormatter.formatExact(MoneyAmount.of(item.amount, AppCurrency.RIAL), includeUnit = false),
-                                                modifier = Modifier.fillMaxWidth(),
+                                                modifier = Modifier.weight(1.2f),
+                                                maxLines = 1,
                                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                                fontSize = 14.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
+                                            Text(
+                                                "${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         }
                                     }
+                                }
+                                if (totals.size > 5) {
+                                    Text(
+                                        if (showAllCategories) "نمایش کمتر" else "دسته‌های بیشتر",
+                                        modifier = Modifier.fillMaxWidth().clickable {
+                                            showAllCategories = !showAllCategories
+                                        }.padding(vertical = 6.dp),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
                                 }
                             }
                         }
