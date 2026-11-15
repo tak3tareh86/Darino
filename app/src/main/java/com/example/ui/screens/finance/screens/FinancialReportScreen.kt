@@ -499,14 +499,17 @@ fun FinancialReportScreen(
                             }.getOrNull()
                             val changeText = when {
                                 currentComparableTotal == null || previousTotalResult == null -> "—"
-                                previousTotalResult == 0L && currentComparableTotal == 0L -> "—"
-                                previousTotalResult == 0L -> "جدید"
+                                previousTotalResult == 0L && currentComparableTotal == 0L -> "بدون تغییر"
+                                previousTotalResult == 0L -> "شروع از صفر"
                                 else -> {
                                     val change = (currentComparableTotal.toDouble() - previousTotalResult.toDouble()) /
                                         previousTotalResult.toDouble() * 100.0
                                     val rounded = kotlin.math.round(change).toLong()
-                                    val sign = if (rounded > 0) "+" else ""
-                                    "$sign${MoneyFormatter.toPersianDigits(rounded.toString())}٪"
+                                    when {
+                                        rounded > 0 -> "افزایش ${MoneyFormatter.toPersianDigits(rounded.toString())}٪"
+                                        rounded < 0 -> "کاهش ${MoneyFormatter.toPersianDigits(kotlin.math.abs(rounded).toString())}٪"
+                                        else -> "بدون تغییر"
+                                    }
                                 }
                             }
                             val changeColor = when {
