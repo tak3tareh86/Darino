@@ -13,12 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -43,7 +41,6 @@ import com.example.ui.screens.finance.components.AddSavingsGoalSheet
 import com.example.ui.screens.finance.components.AddTransactionSheet
 import com.example.ui.screens.finance.components.DepositGoalSheet
 import com.example.ui.screens.finance.components.FinanceQuickLinks
-import com.example.ui.screens.finance.components.FinancialFilterSheet
 import com.example.ui.screens.finance.components.FinancialHeader
 import com.example.ui.screens.finance.components.FinancialQuickActions
 import com.example.ui.screens.finance.components.FinancialSummaryCard
@@ -84,7 +81,6 @@ enum class FinanceSubScreen {
     REPORT
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FinancialScreen(
     currentNavTab: BottomNavItem = BottomNavItem.FINANCE,
@@ -94,7 +90,6 @@ fun FinancialScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
-    val selectedPeriod by viewModel.selectedPeriod.collectAsState()
     var selectedSummaryPeriod by remember { mutableStateOf(FinanceFilterPeriod.THIS_MONTH) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -141,7 +136,6 @@ fun FinancialScreen(
     BackHandler(enabled = subScreenBackStack.size > 1) { navigateBack() }
 
     // Bottom Sheets State
-    var showFilterSheet by remember { mutableStateOf(false) }
     var showAddTxSheet by remember { mutableStateOf(false) }
     var showTransferSheet by remember { mutableStateOf(false) }
     var addTxInitialType by remember { mutableStateOf(TransactionType.EXPENSE) }
@@ -158,7 +152,6 @@ fun FinancialScreen(
     var showAddRecurringSheet by remember { mutableStateOf(false) }
     var editingRecurring by remember { mutableStateOf<RecurringTransaction?>(null) }
 
-    val filterSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     Crossfade(
         targetState = currentSubScreen,
@@ -174,10 +167,7 @@ fun FinancialScreen(
                     contentWindowInsets = WindowInsets(0),
                     snackbarHost = { SnackbarHost(snackbarHostState) },
                     topBar = {
-                        FinancialHeader(
-                            currentFilterText = selectedPeriod.title,
-                            onFilterClick = { showFilterSheet = true }
-                        )
+                        FinancialHeader()
                     },
                     bottomBar = {
                         bottomBar?.invoke()
@@ -452,18 +442,6 @@ fun FinancialScreen(
     }
 
     // Modal Bottom Sheets
-    if (showFilterSheet) {
-        FinancialFilterSheet(
-            sheetState = filterSheetState,
-            selectedPeriod = selectedPeriod,
-            onPeriodSelected = { period ->
-                viewModel.setPeriod(period)
-                showFilterSheet = false
-            },
-            onDismiss = { showFilterSheet = false }
-        )
-    }
-
     if (showTransferSheet) {
         TransferSheet(
             accounts = state.accounts,
