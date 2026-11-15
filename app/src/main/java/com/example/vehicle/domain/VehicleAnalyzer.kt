@@ -112,6 +112,48 @@ object VehicleAnalyzer {
         return null
     }
 
+    private fun normalizeServiceSearchText(value: String): String =
+        value.replace('ي', 'ی')
+            .replace('ك', 'ک')
+            .replace(Regex("[\\s\\u200C\\u200D]+"), "")
+
+    /**
+     * Finds the newest record that represents a service, including records written by
+     * older app versions where several selected services were stored in one row.
+     * Exact typed records and legacy combined rows are compared together so a newer
+     * combined record is not hidden by an older exact-type record.
+     */
+    internal fun findLatestServiceForType(
+        services: List<VehicleServiceEntity>,
+        type: ServiceType
+    ): VehicleServiceEntity? {
+        val aliases = when (type) {
+            ServiceType.OIL_FILTER_CHANGE -> listOf(type.title, "فیلتر روغن")
+            ServiceType.AIR_FILTER_CHANGE -> listOf(type.title, "فیلتر هوا")
+            else -> listOf(type.title)
+        }.map(::normalizeServiceSearchText)
+
+        val candidates = services.filter { record ->
+            when {
+                record.serviceType == type -> true
+                type == ServiceType.OIL_FILTER_CHANGE || type == ServiceType.AIR_FILTER_CHANGE -> {
+                    record.serviceType == ServiceType.FILTERS ||
+                        aliases.any { alias ->
+                            val searchableText = normalizeServiceSearchText(
+                                record.title + " " + record.description
+                            )
+                            searchableText.contains(alias)
+                        }
+                }
+                else -> aliases.any { alias ->
+                    normalizeServiceSearchText(record.title + " " + record.description).contains(alias)
+                }
+            }
+        }.distinctBy { it.id }
+
+        return candidates.maxByOrNull { parseAndValidateJalaliDate(it.date) ?: "" }
+    }
+
     fun analyzeHealth(
         vehicle: VehicleEntity,
         services: List<VehicleServiceEntity>,
@@ -126,25 +168,8 @@ object VehicleAnalyzer {
         val today = parseAndValidateJalaliDate(currentPdt.toFormattedDate())
             ?: "%04d/%02d/%02d".format(currentPdt.year, currentPdt.month, currentPdt.day)
 
-        fun latestService(type: ServiceType): VehicleServiceEntity? {
-            val matching = carServices.filter { it.serviceType == type }
-            if (matching.isNotEmpty()) {
-                return matching.maxByOrNull { parseAndValidateJalaliDate(it.date) ?: "" }
-            }
-
-            // Backward compatibility: older multi-service entries were stored as one
-            // OIL_CHANGE/FILTERS row whose title contained every selected service.
-            val legacyCombined = carServices.filter { record ->
-                record.serviceType != type && record.title.contains(type.title)
-            }
-            val genericFilterRecords = when (type) {
-                ServiceType.OIL_FILTER_CHANGE, ServiceType.AIR_FILTER_CHANGE ->
-                    carServices.filter { it.serviceType == ServiceType.FILTERS }
-                else -> emptyList()
-            }
-            return (legacyCombined + genericFilterRecords)
-                .maxByOrNull { parseAndValidateJalaliDate(it.date) ?: "" }
-        }
+        fun latestService(type: ServiceType): VehicleServiceEntity? =
+            findLatestServiceForType(carServices, type)
 
         fun serviceStatus(
             title: String,
