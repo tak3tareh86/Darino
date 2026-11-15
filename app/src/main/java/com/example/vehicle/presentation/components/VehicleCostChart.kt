@@ -69,7 +69,13 @@ fun VehicleCostChart(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .pointerInput(barIndex) {
+                            detectTapGestures {
+                                selectedBarIndex = if (selectedBarIndex == barIndex) -1 else barIndex
+                            }
+                        }
                 ) {
                     // Keep the original label space so the chart geometry remains unchanged.
                     Spacer(modifier = Modifier.height(18.dp))
@@ -81,12 +87,7 @@ fun VehicleCostChart(
                             .width(14.dp)
                             .height(118.dp)
                             .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                            .pointerInput(barIndex) {
-                                detectTapGestures {
-                                    selectedBarIndex = if (selectedBarIndex == barIndex) -1 else barIndex
-                                }
-                            },
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
                         verticalArrangement = Arrangement.Bottom
                     ) {
                         if (insuranceRatio > 0f) {
