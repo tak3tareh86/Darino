@@ -87,9 +87,19 @@ fun FinancialReportScreen(
 ) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
+        var lastJalaliDate = PersianCalendarHelper.fromEpochMillis(now)
         while (true) {
             delay(60_000L)
-            now = System.currentTimeMillis()
+            val updatedNow = System.currentTimeMillis()
+            val updatedJalaliDate = PersianCalendarHelper.fromEpochMillis(updatedNow)
+            // Keep following the current period across month/year boundaries,
+            // but do not override a period the user navigated to manually.
+            if (selectedYear == lastJalaliDate.year && selectedMonth == lastJalaliDate.month) {
+                selectedYear = updatedJalaliDate.year
+                selectedMonth = updatedJalaliDate.month
+            }
+            now = updatedNow
+            lastJalaliDate = updatedJalaliDate
         }
     }
     val initialDate = remember { PersianCalendarHelper.fromEpochMillis(now) }
@@ -502,7 +512,7 @@ fun FinancialReportScreen(
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 TrendMetricCard(
-                                    if (isCurrentPeriod) "میانگین بازه‌های کامل" else "میانگین هر بازه",
+                                    if (isCurrentPeriod && trendAmounts.size == 1) "میانگین بازه جاری" else if (isCurrentPeriod) "میانگین بازه‌های کامل" else "میانگین هر بازه",
                                     MoneyFormatter.formatExact(MoneyAmount.of(averageTrend, AppCurrency.RIAL), includeUnit = false),
                                     Modifier.weight(1f),
                                     MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
