@@ -1,0 +1,65 @@
+package com.example.vehicle.presentation
+
+import com.example.R
+import com.example.vehicle.data.VehicleTimelineEvent
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class VehicleTimelineFilterTest {
+
+    private fun event(id: String, date: String) = VehicleTimelineEvent.ServiceEvent(
+        id = id,
+        date = date,
+        title = id,
+        amount = 100L,
+        subtitle = "test",
+        iconRes = R.drawable.img_3d_oil,
+        colorHex = 0xFF10B981,
+        mileage = 1000
+    )
+
+    @Test
+    fun monthFilterIncludesOnlyMatchingJalaliMonthAndAcceptsPersianDigits() {
+        val events = listOf(
+            event("first", "۱۴۰۵/۰۸/۰۱"),
+            event("last", "1405-08-30"),
+            event("previous", "1405/07/30"),
+            event("next", "1405/09/01")
+        )
+
+        val result = filterVehicleTimelineEvents(events, TimelineFilterMode.MONTH, 1405, 8)
+
+        assertEquals(listOf("first", "last"), result.map { it.id })
+    }
+
+    @Test
+    fun yearFilterIncludesEveryValidMonthInSelectedYearOnly() {
+        val events = listOf(
+            event("spring", "1405/01/01"),
+            event("winter", "1405/12/29"),
+            event("previous-year", "1404/12/29"),
+            event("next-year", "1406/01/01")
+        )
+
+        val result = filterVehicleTimelineEvents(events, TimelineFilterMode.YEAR, 1405, 1)
+
+        assertEquals(listOf("spring", "winter"), result.map { it.id })
+    }
+
+    @Test
+    fun allModeKeepsRecordsWithInvalidDatesButPeriodFiltersDoNotGuessTheirDate() {
+        val events = listOf(
+            event("valid", "1405/08/15"),
+            event("invalid", "تاریخ نامشخص")
+        )
+
+        assertEquals(
+            listOf("valid", "invalid"),
+            filterVehicleTimelineEvents(events, TimelineFilterMode.ALL, 1405, 8).map { it.id }
+        )
+        assertEquals(
+            listOf("valid"),
+            filterVehicleTimelineEvents(events, TimelineFilterMode.MONTH, 1405, 8).map { it.id }
+        )
+    }
+}
