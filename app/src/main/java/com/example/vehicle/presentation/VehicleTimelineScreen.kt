@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -139,8 +140,17 @@ fun VehicleTimelineScreen(
                     contentPadding = PaddingValues(bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
-                    itemsIndexed(filteredEvents, key = { _, item -> item.id }) { index, event ->
-                        TimelineItemRow(event = event, isLast = index == filteredEvents.size - 1)
+                    val timelineItems = buildTimelineDisplayItems(filteredEvents)
+                    val maxServiceRows = timelineItems.maxOfOrNull { item ->
+                        if (item.serviceTitles.isEmpty()) 0 else (item.serviceTitles.size + 1) / 2
+                    } ?: 0
+                    val cardHeight = (120 + maxServiceRows * 24).coerceAtLeast(148).dp
+                    itemsIndexed(timelineItems, key = { _, item -> item.primary.id }) { index, item ->
+                        TimelineItemRow(
+                            item = item,
+                            isLast = index == timelineItems.lastIndex,
+                            cardHeight = cardHeight
+                        )
                     }
                 }
             }
@@ -288,10 +298,56 @@ private fun TimelineFilterControls(
     }
 }
 
+private data class TimelineDisplayItem(
+    val events: List<VehicleTimelineEvent>
+) {
+    val primary: VehicleTimelineEvent get() = events.first()
+    val serviceEvents: List<VehicleTimelineEvent.ServiceEvent>
+        get() = events.filterIsInstance<VehicleTimelineEvent.ServiceEvent>()
+    val serviceTitles: List<String>
+        get() = serviceEvents.flatMap { service ->
+            service.title.split(Regex("\\s*[،,]\\s*"))
+                .map(String::trim)
+                .filter(String::isNotBlank)
+        }.distinct()
+    val amount: Long
+        get() = if (serviceEvents.isNotEmpty()) serviceEvents.sumOf { it.amount } else primary.amount
+}
+
+private fun buildTimelineDisplayItems(events: List<VehicleTimelineEvent>): List<TimelineDisplayItem> {
+    val grouped = mutableListOf<MutableList<VehicleTimelineEvent>>()
+    val serviceGroupIndexes = mutableMapOf<String, Int>()
+
+    events.forEach { event ->
+        if (event is VehicleTimelineEvent.ServiceEvent) {
+            // Batch-created service records share date, mileage and subtitle. Their
+            // total cost is stored on the first record only, so summing is safe.
+            val groupKey = "${event.date}|${event.mileage}|${event.subtitle}"
+            val existingIndex = serviceGroupIndexes[groupKey]
+            if (existingIndex == null) {
+                serviceGroupIndexes[groupKey] = grouped.size
+                grouped.add(mutableListOf(event))
+            } else {
+                grouped[existingIndex].add(event)
+            }
+        } else {
+            grouped.add(mutableListOf(event))
+        }
+    }
+
+    return grouped.map { TimelineDisplayItem(it) }
+}
+
 @Composable
-private fun TimelineItemRow(event: VehicleTimelineEvent, isLast: Boolean) {
-    val amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(event.amount, event.amountUnit))
+private fun TimelineItemRow(
+    item: TimelineDisplayItem,
+    isLast: Boolean,
+    cardHeight: androidx.compose.ui.unit.Dp
+) {
+    val event = item.primary
+    val amountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(item.amount, event.amountUnit))
     val eventColor = Color(event.colorHex)
+    val isServiceItem = item.serviceTitles.isNotEmpty()
 
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
@@ -313,59 +369,114 @@ private fun TimelineItemRow(event: VehicleTimelineEvent, isLast: Boolean) {
             }
             if (!isLast) {
                 Box(
-                    Modifier.width(2.dp).height(72.dp)
+                    Modifier.width(2.dp).height(cardHeight - 32.dp)
                         .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                 )
             }
         }
 
         Layered3DCard(
-            modifier = Modifier.weight(1f).padding(bottom = 12.dp),
+            modifier = Modifier.weight(1f).height(cardHeight).padding(bottom = 12.dp),
             elevation = 2.dp,
             borderColor = eventColor.copy(alpha = 0.2f)
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = event.title,
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Surface(shape = RoundedCornerShape(6.dp), color = eventColor.copy(alpha = 0.12f)) {
+                if (isServiceItem) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TimelineDateBadge(event.date, eventColor)
+                        }
+                        item.serviceTitles.chunked(2).forEach { rowTitles ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                rowTitles.forEach { title ->
+                                    Surface(
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(7.dp),
+                                        color = eventColor.copy(alpha = 0.09f)
+                                    ) {
+                                        Text(
+                                            text = title,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 4.dp),
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Medium
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                    }
+                                }
+                                if (rowTitles.size == 1) {
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
-                            text = IranianPhoneUtils.convertDigitsToPersian(event.date),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold, fontSize = 10.sp
-                            ),
-                            color = eventColor,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            text = event.title,
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
+                        TimelineDateBadge(event.date, eventColor)
                     }
                 }
+
                 Text(
                     text = event.subtitle,
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
-                if (event.amount > 0) {
+
+                if (item.amount > 0) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         Text(
                             text = amountFormatted,
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold, fontSize = 12.sp
                             ),
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1
                         )
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TimelineDateBadge(date: String, eventColor: Color) {
+    Surface(shape = RoundedCornerShape(6.dp), color = eventColor.copy(alpha = 0.12f)) {
+        Text(
+            text = IranianPhoneUtils.convertDigitsToPersian(date),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.Bold, fontSize = 10.sp
+            ),
+            color = eventColor,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
     }
 }
