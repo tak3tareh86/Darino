@@ -333,13 +333,15 @@ class LocalInstallmentRepository private constructor() {
         val targetContext = context?.applicationContext ?: appContext ?: return
         repositoryScope.launch {
             try {
+                val userId = SessionManager.userId
+                    ?: throw IllegalStateException("No authenticated user ID")
+                // Never build a replacement snapshot from the temporary empty state
+                // published while Room is loading or after a failed Room read.
+                ensureInstallmentDataAvailable(targetContext, userId)
                 val current = _installments.value.toMutableList()
                 current.add(0, item)
                 saveToRoom(targetContext, current)
-                val userId = SessionManager.userId
-                if (userId != null) {
-                    reloadForUser(targetContext, userId)
-                }
+                reloadForUser(targetContext, userId)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -350,12 +352,13 @@ class LocalInstallmentRepository private constructor() {
         val targetContext = context?.applicationContext ?: appContext ?: return
         repositoryScope.launch {
             try {
+                val userId = SessionManager.userId
+                    ?: throw IllegalStateException("No authenticated user ID")
+                // Do not persist a partial/empty in-memory snapshot after a failed read.
+                ensureInstallmentDataAvailable(targetContext, userId)
                 val current = _installments.value.map { if (it.id == updated.id) updated else it }
                 saveToRoom(targetContext, current)
-                val userId = SessionManager.userId
-                if (userId != null) {
-                    reloadForUser(targetContext, userId)
-                }
+                reloadForUser(targetContext, userId)
                 // Generic installment edits can change the payment history or
                 // due dates too, so keep reminder schedules in sync here as well.
                 refreshReminderForInstallment(targetContext, updated)
@@ -404,6 +407,7 @@ class LocalInstallmentRepository private constructor() {
                 val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
                 val effectivePaymentDate = paymentDate.ifBlank { todayJalali }
                 val userId = SessionManager.userId ?: return@withLock false
+                ensureInstallmentDataAvailable(targetContext, userId)
                 val db = AppDatabase.getDatabase(targetContext)
 
                 if (_installments.value.none { it.id == installmentId }) {
@@ -561,6 +565,7 @@ class LocalInstallmentRepository private constructor() {
 
         return saveMutex.withLock {
             val userId = SessionManager.userId ?: return@withLock false
+            ensureInstallmentDataAvailable(targetContext, userId)
             val currentItems = _installments.value
             val targetInstallment = currentItems.firstOrNull { it.id == installmentId }
                 ?: return@withLock false
@@ -685,10 +690,20 @@ class LocalInstallmentRepository private constructor() {
         }
     }
 
+    private suspend fun ensureInstallmentDataAvailable(context: Context, userId: String) {
+        if (!_installmentDataAvailable.value) {
+            reloadForUser(context, userId)
+        }
+        check(_installmentDataAvailable.value) {
+            "Installment data is not available; refusing to replace the Room snapshot."
+        }
+    }
+
     private suspend fun saveToRoom(context: Context, items: List<InstallmentItem>) = saveMutex.withLock {
+        val userId = SessionManager.userId ?: throw IllegalStateException("No authenticated user ID")
+        ensureInstallmentDataAvailable(context, userId)
         val db = AppDatabase.getDatabase(context)
         db.withTransaction {
-            val userId = SessionManager.userId ?: throw IllegalStateException("No authenticated user ID")
             persistInstallmentStateToRoom(db, userId, items)
         }
     }
