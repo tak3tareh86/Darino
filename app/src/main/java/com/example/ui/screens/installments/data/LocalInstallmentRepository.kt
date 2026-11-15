@@ -173,16 +173,60 @@ class LocalInstallmentRepository private constructor() {
                     require(duplicateNumbers.isEmpty()) { "Duplicate installment schedule rows in DB: ${entity.id}" }
                     require(payments.all { it.amountUnit.name == entity.amountUnit }) { "Installment and payment currency units differ: ${entity.id}" }
                     val paidPayments = payments.filter { it.status == InstallmentStatus.PAID || it.status == InstallmentStatus.COMPLETED }
-                    val paidAmount = paidPayments.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
-                    // The contract amount remains the original principal; the unpaid schedule rows
-                    // determine the actual outstanding repayment balance (including interest/fees).
+                    val knownPaidAmount = paidPayments.fold(0L) { total, payment -> Math.addExact(total, payment.amount) }
+                    // The contract amount remains the original principal; complete schedule rows
+                    // determine the exact outstanding repayment balance (including interest/fees).
                     val unpaidPayments = payments.filter {
                         it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
                     }
-                    val paidInstallmentsCount = paidPayments.map { it.installmentNumber }.toSet().size
-                    val remainingInstallmentsCount = (entity.totalInstallments - paidInstallmentsCount).coerceAtLeast(0)
-                    val remainingAmount = unpaidPayments.fold(0L) { total, payment ->
+                    val knownUnpaidAmount = unpaidPayments.fold(0L) { total, payment ->
                         Math.addExact(total, payment.amount)
+                    }
+                    val paidRowsCount = paidPayments.map { it.installmentNumber }.toSet().size
+                    val missingScheduleRows = (entity.totalInstallments - payments.size).coerceAtLeast(0)
+
+                    // Older or partially damaged records can have a loan row but fewer payment
+                    // rows than the contract requires. In that case, use the persisted paid count
+                    // and the average known installment (or principal/count when no rows exist)
+                    // to estimate missing rows instead of falsely reporting a zero balance.
+                    val effectivePaidRowsCount = if (missingScheduleRows > 0) {
+                        maxOf(paidRowsCount, entity.paidInstallments.coerceIn(0, entity.totalInstallments))
+                    } else {
+                        paidRowsCount
+                    }
+                    val remainingInstallmentsCount =
+                        (entity.totalInstallments - effectivePaidRowsCount).coerceAtLeast(0)
+                    val missingPaidRows = (effectivePaidRowsCount - paidRowsCount)
+                        .coerceIn(0, missingScheduleRows)
+                    val missingUnpaidRows = missingScheduleRows - missingPaidRows
+
+                    val estimatedAveragePayment = if (payments.isNotEmpty()) {
+                        payments.fold(BigDecimal.ZERO) { total, payment ->
+                            total.add(BigDecimal.valueOf(payment.amount))
+                        }.divide(
+                            BigDecimal.valueOf(payments.size.toLong()),
+                            0,
+                            RoundingMode.HALF_UP
+                        ).longValueExact()
+                    } else {
+                        BigDecimal.valueOf(entity.amount).divide(
+                            BigDecimal.valueOf(entity.totalInstallments.toLong()),
+                            0,
+                            RoundingMode.HALF_UP
+                        ).longValueExact()
+                    }
+                    val estimatedMissingPaidAmount =
+                        Math.multiplyExact(estimatedAveragePayment, missingPaidRows.toLong())
+                    val estimatedMissingUnpaidAmount =
+                        Math.multiplyExact(estimatedAveragePayment, missingUnpaidRows.toLong())
+                    val paidAmount = Math.addExact(knownPaidAmount, estimatedMissingPaidAmount)
+                    val remainingAmount = Math.addExact(knownUnpaidAmount, estimatedMissingUnpaidAmount)
+
+                    if (missingScheduleRows > 0) {
+                        android.util.Log.w(
+                            "LocalInstallmentRepository",
+                            "Installment ${entity.id} has ${missingScheduleRows} missing payment rows; outstanding balance is estimated."
+                        )
                     }
 
                     // Schedule/payment history is the source of truth for whether a contract is still active.
