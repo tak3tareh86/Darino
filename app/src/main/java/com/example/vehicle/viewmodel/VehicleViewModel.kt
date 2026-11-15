@@ -410,74 +410,44 @@ class VehicleViewModel(
         }
 
         viewModelScope.launch {
-            val createdServices = mutableListOf<com.example.vehicle.data.VehicleServiceEntity>()
-            var failure: Throwable? = null
-
-            for ((index, service) in distinctServices.withIndex()) {
-                val (type, serviceTitle) = service
-                val result = repository.addService(
-                    vehicleId = current.id,
-                    title = serviceTitle,
-                    serviceType = type,
-                    date = date,
-                    mileage = mileage,
-                    // A multi-service entry represents one visit and one invoice.
-                    // Keep its full cost on the first record only to avoid duplicate expenses.
-                    cost = if (index == 0) cost else 0L,
-                    description = description,
-                    // One reminder is attached to the first selected service only.
-                    // Duplicating the same reminder for every component would create repeated alerts.
-                    nextReminderDate = if (index == 0) nextReminderDate else null,
-                    nextReminderMileage = if (index == 0) nextReminderMileage else null,
-                    isReminderEnabled = index == 0 && isReminderEnabled,
-                    offsets = if (index == 0) offsets else emptyList(),
-                    time = if (index == 0) time else null
-                )
-                val created = result.getOrNull()
-                if (created != null) {
-                    createdServices.add(created)
-                } else {
-                    failure = result.exceptionOrNull()
-                    break
+            val result = repository.addServicesBatch(
+                vehicleId = current.id,
+                services = distinctServices,
+                date = date,
+                mileage = mileage,
+                cost = cost,
+                description = description,
+                nextReminderDate = nextReminderDate,
+                nextReminderMileage = nextReminderMileage,
+                isReminderEnabled = isReminderEnabled,
+                offsets = offsets,
+                time = time
+            )
+            result.onSuccess { createdServices ->
+                val primary = createdServices.first()
+                _uiState.update {
+                    if (primary.reminderAlarmFailed) {
+                        it.copy(
+                            showAddServiceSheet = false,
+                            lastAddedService = null,
+                            showReminderConfirmationDialog = false,
+                            snackBarMessage = "سوابق ${createdServices.size} سرویس ثبت شد، اما فعال‌سازی یادآور ناموفق بود (${primary.reminderAlarmErrorMessage ?: "خطای مجوز یا سیستم"})."
+                        )
+                    } else {
+                        it.copy(
+                            showAddServiceSheet = false,
+                            lastAddedService = primary,
+                            showReminderConfirmationDialog = isReminderEnabled,
+                            snackBarMessage = if (!isReminderEnabled) {
+                                "سوابق ${createdServices.size} سرویس با موفقیت در پرونده خودرو ثبت شد."
+                            } else null
+                        )
+                    }
                 }
-            }
-
-            if (failure != null) {
-                // Roll back already-created rows (including the single linked expense/reminder)
-                // so the user never ends up with a silently partial multi-service entry.
-                val rollbackFailures = createdServices.asReversed().mapNotNull { created ->
-                    repository.deleteService(created.id).exceptionOrNull()
-                }
-                val rollbackMessage = if (rollbackFailures.isEmpty()) {
-                    "سوابق ایجادشده بازگردانی شدند."
-                } else {
-                    "بازگردانی کامل سوابق ناموفق بود؛ پرونده خودرو را بررسی کنید."
-                }
+            }.onFailure { err ->
                 _uiState.update {
                     it.copy(
-                        snackBarMessage = "ثبت گروهی سرویس‌ها کامل نشد. $rollbackMessage ${failure?.localizedMessage ?: "خطای ذخیره‌سازی"}"
-                    )
-                }
-                return@launch
-            }
-
-            val primary = createdServices.first()
-            _uiState.update {
-                if (primary.reminderAlarmFailed) {
-                    it.copy(
-                        showAddServiceSheet = false,
-                        lastAddedService = null,
-                        showReminderConfirmationDialog = false,
-                        snackBarMessage = "سوابق ${distinctServices.size} سرویس ثبت شد، اما فعال‌سازی یادآور ناموفق بود (${primary.reminderAlarmErrorMessage ?: "خطای مجوز یا سیستم"})."
-                    )
-                } else {
-                    it.copy(
-                        showAddServiceSheet = false,
-                        lastAddedService = primary,
-                        showReminderConfirmationDialog = isReminderEnabled,
-                        snackBarMessage = if (!isReminderEnabled) {
-                            "سوابق ${distinctServices.size} سرویس با موفقیت در پرونده خودرو ثبت شد."
-                        } else null
+                        snackBarMessage = "ثبت گروهی سرویس‌ها انجام نشد و هیچ‌کدام ذخیره نشدند: ${err.localizedMessage ?: "خطای ذخیره‌سازی"}"
                     )
                 }
             }
