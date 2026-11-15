@@ -93,6 +93,7 @@ fun FinancialScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val selectedPeriod by viewModel.selectedPeriod.collectAsState()
+    var selectedSummaryPeriod by remember { mutableStateOf(FinanceFilterPeriod.THIS_MONTH) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // Refresh immediately when returning to the app and at each local midnight.
@@ -188,32 +189,20 @@ fun FinancialScreen(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // 1. Monthly Financial Status Card (Income, Expense, Balance, Savings Rate)
+                        // One unified financial summary card with an independent month/year selector.
+                        val isYearSummary = selectedSummaryPeriod == FinanceFilterPeriod.THIS_YEAR
                         FinancialSummaryCard(
-                            title = "وضعیت مالی ${state.currentMonthName}",
-                            formattedIncome = state.currentMonthFormattedIncome,
-                            formattedExpense = state.currentMonthFormattedExpense,
-                            formattedBalance = state.currentMonthFormattedBalance,
-                            savingsRate = state.currentMonthSavingsRate,
-                            balanceLabel = "مانده عملکرد مالی ماه",
-                            cardTestTag = "monthly_financial_status_card",
+                            title = if (isYearSummary) "وضعیت مالی سال ${state.currentYear}" else "وضعیت مالی ${state.currentMonthName}",
+                            formattedIncome = if (isYearSummary) state.currentYearFormattedIncome else state.currentMonthFormattedIncome,
+                            formattedExpense = if (isYearSummary) state.currentYearFormattedExpense else state.currentMonthFormattedExpense,
+                            formattedBalance = if (isYearSummary) state.currentYearFormattedBalance else state.currentMonthFormattedBalance,
+                            savingsRate = if (isYearSummary) state.currentYearSavingsRate else state.currentMonthSavingsRate,
+                            balanceLabel = if (isYearSummary) "مانده عملکرد مالی سال" else "مانده عملکرد مالی ماه",
+                            selectedSummaryPeriod = selectedSummaryPeriod,
+                            onSummaryPeriodChange = { selectedSummaryPeriod = it },
+                            cardTestTag = "unified_financial_status_card",
                             onCardClick = {
-                                viewModel.setPeriod(FinanceFilterPeriod.THIS_MONTH)
-                                navigateToSubScreen(FinanceSubScreen.ALL_TRANSACTIONS)
-                            }
-                        )
-
-                        // 2. Current Jalali Year Financial Status Card
-                        FinancialSummaryCard(
-                            title = "وضعیت مالی سال ${state.currentYear}",
-                            formattedIncome = state.currentYearFormattedIncome,
-                            formattedExpense = state.currentYearFormattedExpense,
-                            formattedBalance = state.currentYearFormattedBalance,
-                            savingsRate = state.currentYearSavingsRate,
-                            balanceLabel = "مانده عملکرد مالی سال",
-                            cardTestTag = "current_year_financial_status_card",
-                            onCardClick = {
-                                viewModel.setPeriod(FinanceFilterPeriod.THIS_YEAR)
+                                viewModel.setPeriod(selectedSummaryPeriod)
                                 navigateToSubScreen(FinanceSubScreen.ALL_TRANSACTIONS)
                             }
                         )
