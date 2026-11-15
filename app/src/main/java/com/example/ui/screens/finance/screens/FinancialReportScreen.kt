@@ -105,8 +105,15 @@ fun FinancialReportScreen(
         PersianCalendarHelper.jalaliToEpochMillis(selectedYear + 1, 1, 1, 0, 0)
     }
 
+    val currentJalaliDate = PersianCalendarHelper.fromEpochMillis(now)
+    val isCurrentPeriod = if (period == ReportPeriod.MONTH) {
+        selectedYear == currentJalaliDate.year && selectedMonth == currentJalaliDate.month
+    } else {
+        selectedYear == currentJalaliDate.year
+    }
+    val effectiveRangeEnd = if (isCurrentPeriod) minOf(rangeEnd, now + 1L) else rangeEnd
     val periodTransactions = transactions.filter {
-        it.dateMillis >= rangeStart && it.dateMillis < rangeEnd && it.type == selectedType
+        it.dateMillis >= rangeStart && it.dateMillis < effectiveRangeEnd && it.type == selectedType
     }
     var hasAmountOverflow = false
     val computedTotals = periodTransactions.groupBy { it.categoryId }.mapNotNull { (categoryId, items) ->
@@ -128,7 +135,18 @@ fun FinancialReportScreen(
     val totalAmount = calculatedTotal ?: 0L
     val totals = if (hasAmountOverflow) emptyList() else computedTotals
     val trendBuckets = if (period == ReportPeriod.YEAR) 12 else 6
-    val trendAmounts = (0 until trendBuckets).map { index ->
+    val monthlyTrendRanges = if (period == ReportPeriod.MONTH) {
+        reportTrendDayRanges(PersianCalendarHelper.getDaysInMonth(selectedYear, selectedMonth), trendBuckets)
+    } else {
+        emptyList()
+    }
+    val visibleTrendBuckets = when {
+        isCurrentPeriod && period == ReportPeriod.YEAR -> currentJalaliDate.month
+        isCurrentPeriod && period == ReportPeriod.MONTH ->
+            monthlyTrendRanges.count { it.first <= currentJalaliDate.day }.coerceAtLeast(1)
+        else -> trendBuckets
+    }
+    val trendAmounts = (0 until visibleTrendBuckets).map { index ->
         val bucketStart: Long
         val bucketEnd: Long
         if (period == ReportPeriod.YEAR) {
@@ -138,17 +156,24 @@ fun FinancialReportScreen(
                 if (index == 11) 1 else index + 2, 1, 0, 0
             )
         } else {
-            val daysInMonth = PersianCalendarHelper.getDaysInMonth(selectedYear, selectedMonth)
-            val firstDay = 1 + (daysInMonth * index / trendBuckets)
-            val lastDay = 1 + (daysInMonth * (index + 1) / trendBuckets)
-            bucketStart = PersianCalendarHelper.jalaliToEpochMillis(selectedYear, selectedMonth, firstDay, 0, 0)
+            val bucketDays = monthlyTrendRanges[index]
+            bucketStart = PersianCalendarHelper.jalaliToEpochMillis(
+                selectedYear, selectedMonth, bucketDays.first, 0, 0
+            )
             bucketEnd = if (index == trendBuckets - 1) rangeEnd else {
-                PersianCalendarHelper.jalaliToEpochMillis(selectedYear, selectedMonth, lastDay, 0, 0)
+                PersianCalendarHelper.jalaliToEpochMillis(
+                    selectedYear, selectedMonth, bucketDays.last + 1, 0, 0
+                )
             }
         }
-        val bucketTransactions = periodTransactions.filter { it.dateMillis >= bucketStart && it.dateMillis < bucketEnd }
+        val boundedBucketEnd = minOf(bucketEnd, effectiveRangeEnd)
+        val bucketTransactions = periodTransactions.filter {
+            it.dateMillis >= bucketStart && it.dateMillis < boundedBucketEnd
+        }
         val bucketTotal = runCatching {
-            sumReportAmountsExact(bucketTransactions.map { MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact() })
+            sumReportAmountsExact(bucketTransactions.map {
+                MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
+            })
         }.getOrNull()
         if (bucketTotal == null) {
             hasAmountOverflow = true
@@ -157,14 +182,14 @@ fun FinancialReportScreen(
     }
 
     val monthNames = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
-    val trendLabels = if (period == ReportPeriod.YEAR) {
+    val allTrendLabels = if (period == ReportPeriod.YEAR) {
         listOf("فر", "ارد", "خرد", "تیر", "مرد", "شهر", "مهر", "آبا", "آذر", "دی", "بهم", "اسف")
     } else {
-        val daysInMonth = PersianCalendarHelper.getDaysInMonth(selectedYear, selectedMonth)
-        reportTrendDayRanges(daysInMonth, trendBuckets).map { range ->
+        monthlyTrendRanges.map { range ->
             "${MoneyFormatter.toPersianDigits(range.first.toString())}-${MoneyFormatter.toPersianDigits(range.last.toString())}"
         }
     }
+    val trendLabels = allTrendLabels.take(visibleTrendBuckets)
     if (trendAmounts.any { it == 0L } && hasAmountOverflow) {
         // Keep the report in an explicit error state rather than displaying partial totals.
     }
@@ -401,22 +426,9 @@ fun FinancialReportScreen(
                             val averageTrend = if (trendAmounts.isNotEmpty()) trendSum / trendAmounts.size else 0L
                             val maxTrend = trendAmounts.maxOrNull() ?: 0L
                             val minTrend = trendAmounts.minOrNull() ?: 0L
-                            val currentJalaliDate = PersianCalendarHelper.fromEpochMillis(now)
-                            val isCurrentPeriod = if (period == ReportPeriod.MONTH) {
-                                selectedYear == currentJalaliDate.year && selectedMonth == currentJalaliDate.month
-                            } else {
-                                selectedYear == currentJalaliDate.year
-                            }
-                            val currentJalaliDate = PersianCalendarHelper.fromEpochMillis(now)
-                            val isCurrentPeriod = if (period == ReportPeriod.MONTH) {
-                                selectedYear == currentJalaliDate.year && selectedMonth == currentJalaliDate.month
-                            } else {
-                                selectedYear == currentJalaliDate.year
-                            }
-                            val previousYear = if (period == ReportPeriod.MONTH && selectedMonth == 1) {
-                                selectedYear - 1
-                            } else {
-                                selectedYear - 1
+                            val previousYear = when {
+                                period == ReportPeriod.MONTH && selectedMonth > 1 -> selectedYear
+                                else -> selectedYear - 1
                             }
                             val previousMonth = if (period == ReportPeriod.MONTH) {
                                 if (selectedMonth == 1) 12 else selectedMonth - 1
@@ -428,7 +440,6 @@ fun FinancialReportScreen(
                             } else {
                                 PersianCalendarHelper.jalaliToEpochMillis(selectedYear - 1, 1, 1, 0, 0)
                             }
-                            val currentComparableEnd = if (isCurrentPeriod) minOf(rangeEnd, now + 1L) else rangeEnd
                             val previousComparableEnd = if (isCurrentPeriod) {
                                 val previousDay = currentJalaliDate.day.coerceAtMost(
                                     PersianCalendarHelper.getDaysInMonth(previousYear, previousMonth)
@@ -443,13 +454,9 @@ fun FinancialReportScreen(
                             } else {
                                 rangeStart
                             }
-                            val currentComparableTotal = runCatching {
-                                sumReportAmountsExact(periodTransactions.filter {
-                                    it.dateMillis < currentComparableEnd
-                                }.map {
-                                    MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
-                                })
-                            }.getOrNull()
+                            val currentComparableTotal = sumReportAmountsExact(periodTransactions.map {
+                                MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
+                            })
                             val previousTotalResult = runCatching {
                                 sumReportAmountsExact(transactions.filter {
                                     it.dateMillis >= previousRangeStart &&
