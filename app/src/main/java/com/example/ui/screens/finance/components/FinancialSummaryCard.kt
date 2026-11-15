@@ -22,10 +22,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -38,8 +41,6 @@ import com.example.ui.components.Layered3DCard
 import com.example.ui.screens.finance.model.FinanceFilterPeriod
 import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
-import com.example.ui.theme.SummaryCardGradientDark
-import com.example.ui.theme.SummaryCardGradientLight
 import com.example.util.MoneyFormatter
 
 @Composable
@@ -60,13 +61,51 @@ fun FinancialSummaryCard(
     onCardClick: () -> Unit = {}
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-    val cardGradient = if (isDark) SummaryCardGradientDark else SummaryCardGradientLight
+    val isYearSelected = selectedSummaryPeriod == FinanceFilterPeriod.THIS_YEAR
+    val gradientStart by animateColorAsState(
+        targetValue = when {
+            isDark && isYearSelected -> Color(0xFF211A38)
+            isDark -> Color(0xFF111F38)
+            isYearSelected -> Color(0xFFF2EAFE)
+            else -> Color(0xFFEAF4FF)
+        },
+        animationSpec = tween(durationMillis = 450),
+        label = "summary_gradient_start"
+    )
+    val gradientMiddle by animateColorAsState(
+        targetValue = when {
+            isDark && isYearSelected -> Color(0xFF3A285C)
+            isDark -> Color(0xFF193B63)
+            isYearSelected -> Color(0xFFE9DDFB)
+            else -> Color(0xFFD9EBFF)
+        },
+        animationSpec = tween(durationMillis = 450),
+        label = "summary_gradient_middle"
+    )
+    val gradientEnd by animateColorAsState(
+        targetValue = when {
+            isDark && isYearSelected -> Color(0xFF593B70)
+            isDark -> Color(0xFF164B66)
+            isYearSelected -> Color(0xFFDCCAF4)
+            else -> Color(0xFFC7E3FA)
+        },
+        animationSpec = tween(durationMillis = 450),
+        label = "summary_gradient_end"
+    )
+    val periodAccent by animateColorAsState(
+        targetValue = if (isYearSelected) Color(0xFF8B5CC7) else Color(0xFF2879B8),
+        animationSpec = tween(durationMillis = 450),
+        label = "summary_period_accent"
+    )
+    val cardGradient = Brush.linearGradient(
+        colors = listOf(gradientStart, gradientMiddle, gradientEnd)
+    )
     val primaryTextColor = if (isDark) Color.White else Color(0xFF0F172A)
     val secondaryTextColor = if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.85f) else Color(0xFF475569)
     val mutedTextColor = if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.8f) else Color(0xFF64748B)
-    val translucentSurfaceColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFF0F766E).copy(alpha = 0.08f)
-    val iconBackgroundColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF0D9488).copy(alpha = 0.12f)
-    val selectedTabColor = if (isDark) Color(0xFF0D9488) else Color(0xFF0D9488).copy(alpha = 0.16f)
+    val translucentSurfaceColor = if (isDark) Color.White.copy(alpha = 0.12f) else periodAccent.copy(alpha = 0.08f)
+    val iconBackgroundColor = if (isDark) Color.White.copy(alpha = 0.15f) else periodAccent.copy(alpha = 0.12f)
+    val selectedTabColor = if (isDark) periodAccent.copy(alpha = 0.82f) else periodAccent.copy(alpha = 0.16f)
     val unselectedTabColor = if (isDark) Color.White.copy(alpha = 0.07f) else Color.Transparent
 
     Layered3DCard(
@@ -243,7 +282,7 @@ fun FinancialSummaryCard(
                                 .fillMaxWidth((savingsRate.coerceIn(0, 100) / 100f))
                                 .height(8.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF0D9488))
+                                .background(periodAccent)
                         )
                     }
                     Surface(
