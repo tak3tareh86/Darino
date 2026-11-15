@@ -438,12 +438,13 @@ class VehicleViewModel(
                     offsets = if (index == 0) offsets else emptyList(),
                     time = if (index == 0) time else null
                 )
-                result.onSuccess { createdServices.add(it) }
-                    .onFailure {
-                        failure = it
-                        break
-                    }
-                if (failure != null) break
+                val created = result.getOrNull()
+                if (created != null) {
+                    createdServices.add(created)
+                } else {
+                    failure = result.exceptionOrNull()
+                    break
+                }
             }
 
             if (failure != null) {
