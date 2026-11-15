@@ -40,6 +40,7 @@ import com.example.ui.theme.RadiusLG
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.SummaryCardGradientDark
 import com.example.ui.theme.SummaryCardGradientLight
+import com.example.util.MoneyFormatter
 
 @Composable
 fun FinancialSummaryCard(
@@ -91,31 +92,6 @@ fun FinancialSummaryCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(translucentSurfaceColor)
-                            .padding(3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        SummaryPeriodOption(
-                            text = "این ماه",
-                            selected = selectedSummaryPeriod == FinanceFilterPeriod.THIS_MONTH,
-                            selectedColor = selectedTabColor,
-                            unselectedColor = unselectedTabColor,
-                            textColor = primaryTextColor,
-                            onClick = { onSummaryPeriodChange(FinanceFilterPeriod.THIS_MONTH) }
-                        )
-                        SummaryPeriodOption(
-                            text = "سال $yearLabel",
-                            selected = selectedSummaryPeriod == FinanceFilterPeriod.THIS_YEAR,
-                            selectedColor = selectedTabColor,
-                            unselectedColor = unselectedTabColor,
-                            textColor = primaryTextColor,
-                            onClick = { onSummaryPeriodChange(FinanceFilterPeriod.THIS_YEAR) }
-                        )
-                    }
-
-                    Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -141,6 +117,31 @@ fun FinancialSummaryCard(
                                 contentScale = ContentScale.Crop
                             )
                         }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(translucentSurfaceColor)
+                            .padding(3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SummaryPeriodOption(
+                            text = "این ماه",
+                            selected = selectedSummaryPeriod == FinanceFilterPeriod.THIS_MONTH,
+                            selectedColor = selectedTabColor,
+                            unselectedColor = unselectedTabColor,
+                            textColor = primaryTextColor,
+                            onClick = { onSummaryPeriodChange(FinanceFilterPeriod.THIS_MONTH) }
+                        )
+                        SummaryPeriodOption(
+                            text = "سال $yearLabel",
+                            selected = selectedSummaryPeriod == FinanceFilterPeriod.THIS_YEAR,
+                            selectedColor = selectedTabColor,
+                            unselectedColor = unselectedTabColor,
+                            textColor = primaryTextColor,
+                            onClick = { onSummaryPeriodChange(FinanceFilterPeriod.THIS_YEAR) }
+                        )
                     }
                 }
 
@@ -177,23 +178,6 @@ fun FinancialSummaryCard(
                 ) {
                     SummaryAmountBlock(
                         modifier = Modifier.weight(1f),
-                        label = "هزینه",
-                        amount = formattedExpense,
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Rounded.ArrowUpward,
-                                contentDescription = "هزینه",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        iconColor = Color(0xFFBE315C),
-                        surfaceColor = translucentSurfaceColor,
-                        textColor = primaryTextColor,
-                        labelColor = mutedTextColor
-                    )
-                    SummaryAmountBlock(
-                        modifier = Modifier.weight(1f),
                         label = "درآمد",
                         amount = formattedIncome,
                         icon = {
@@ -205,6 +189,23 @@ fun FinancialSummaryCard(
                             )
                         },
                         iconColor = Color(0xFF0D9B83),
+                        surfaceColor = translucentSurfaceColor,
+                        textColor = primaryTextColor,
+                        labelColor = mutedTextColor
+                    )
+                    SummaryAmountBlock(
+                        modifier = Modifier.weight(1f),
+                        label = "هزینه",
+                        amount = formattedExpense,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Rounded.ArrowUpward,
+                                contentDescription = "هزینه",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        iconColor = Color(0xFFBE315C),
                         surfaceColor = translucentSurfaceColor,
                         textColor = primaryTextColor,
                         labelColor = mutedTextColor
@@ -249,7 +250,7 @@ fun FinancialSummaryCard(
                         contentColor = Color(0xFF111827)
                     ) {
                         Text(
-                            text = "${savingsRate}٪",
+                            text = "${MoneyFormatter.toPersianDigits(savingsRate.toString())}٪",
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                         )
