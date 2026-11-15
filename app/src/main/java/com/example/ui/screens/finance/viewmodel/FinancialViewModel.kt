@@ -29,7 +29,7 @@ private fun formatSummarySignedAmount(amountRials: Long, currency: AppCurrency, 
     val formatted = MoneyFormatter.formatExact(
         MoneyAmount.of(amountRials, AppCurrency.RIAL),
         targetCurrency = currency,
-        includeUnit = true
+        includeUnit = false
     )
     if (formatted.startsWith("••••") || formatted.startsWith("−") || amountRials == 0L) return formatted
     return if (isExpense) "−$formatted" else "+$formatted"
@@ -46,7 +46,7 @@ private fun formatSummaryBalance(amountRials: Long, currency: AppCurrency): Stri
 }
 
 private fun getSavingsStatus(income: Long, expense: Long): String? = when {
-    income <= 0L && expense > 0L -> "هزینه ثبت شده اما درآمدی در این بازه ثبت نشده است."
+    income <= 0L && expense > 0L -> null
     income <= 0L -> "در این بازه درآمدی ثبت نشده؛ نرخ پس‌انداز قابل محاسبه نیست."
     expense > income -> "هزینه‌ها از درآمد بیشتر بوده‌اند."
     expense == income -> "تمام درآمد صرف هزینه شده است."
