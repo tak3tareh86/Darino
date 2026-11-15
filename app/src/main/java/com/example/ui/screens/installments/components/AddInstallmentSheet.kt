@@ -74,7 +74,7 @@ import kotlinx.coroutines.launch
 fun AddInstallmentSheet(
     sheetState: SheetState,
     onDismiss: () -> Unit,
-    onAddConfirm: (
+    onAddConfirm: suspend (
         category: InstallmentCategory,
         title: String,
         totalAmountStr: String,
