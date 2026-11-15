@@ -380,6 +380,18 @@ class LocalInstallmentRepository private constructor() {
                         db.installmentDao().deleteInstallmentById(userId, numericId, id)
                         db.installmentDao().deletePaymentsForInstallment(userId, numericId, id)
                     }
+                    // Remove only this installment's linked reminder and its own alarms.
+                    // Reminder cleanup is isolated so a reminder error cannot hide the committed loan deletion.
+                    runCatching {
+                        com.example.reminder.domain.ReminderManager(targetContext)
+                            .deleteInstallmentReminder(id)
+                    }.onFailure { error ->
+                        android.util.Log.e(
+                            "LocalInstallmentRepository",
+                            "Installment $id was deleted, but its linked reminder cleanup failed.",
+                            error
+                        )
+                    }
                     reloadForUser(targetContext, userId)
                 } catch (e: Exception) {
                     e.printStackTrace()
