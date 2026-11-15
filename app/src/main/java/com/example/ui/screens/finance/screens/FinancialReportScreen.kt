@@ -168,10 +168,10 @@ fun FinancialReportScreen(
             item {
                 Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)) {
                     Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ReportSegment("هزینه‌ها", selectedType == TransactionType.EXPENSE, Modifier.weight(1f), icon = Icons.Default.TrendingDown, selectedColor = MaterialTheme.colorScheme.error, selectedContentColor = MaterialTheme.colorScheme.onError) {
+                        ReportSegment("هزینه‌ها", selectedType == TransactionType.EXPENSE, Modifier.weight(1f), icon = Icons.Default.TrendingDown, selectedColor = MaterialTheme.colorScheme.errorContainer, selectedContentColor = MaterialTheme.colorScheme.onErrorContainer) {
                             selectedType = TransactionType.EXPENSE
                         }
-                        ReportSegment("درآمدها", selectedType == TransactionType.INCOME, Modifier.weight(1f), icon = Icons.Default.TrendingUp, selectedColor = MaterialTheme.colorScheme.tertiary, selectedContentColor = MaterialTheme.colorScheme.onTertiary) {
+                        ReportSegment("درآمدها", selectedType == TransactionType.INCOME, Modifier.weight(1f), icon = Icons.Default.TrendingUp, selectedColor = MaterialTheme.colorScheme.primaryContainer, selectedContentColor = MaterialTheme.colorScheme.onPrimaryContainer) {
                             selectedType = TransactionType.INCOME
                         }
                     }
