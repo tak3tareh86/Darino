@@ -894,6 +894,104 @@ class VehicleRepository {
         }
     }
 
+    // Save every service from one visit in a single Room transaction.
+    // Only the first service carries the invoice amount and the user's single reminder.
+    suspend fun addServicesBatch(
+        vehicleId: String,
+        services: List<Pair<ServiceType, String>>,
+        date: String,
+        mileage: Int,
+        cost: Long,
+        description: String,
+        nextReminderDate: String?,
+        nextReminderMileage: Int?,
+        isReminderEnabled: Boolean,
+        offsets: List<com.example.reminder.domain.PredefinedOffset> = emptyList(),
+        time: String? = null
+    ): Result<List<VehicleServiceEntity>> = withContext(Dispatchers.IO) {
+        val context = dbContext
+            ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
+        val userId = SessionManager.userId
+            ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
+        val distinctServices = services.distinctBy { it.first }
+        if (distinctServices.isEmpty()) {
+            return@withContext Result.failure(IllegalArgumentException("حداقل یک نوع سرویس انتخاب کنید."))
+        }
+
+        try {
+            val db = AppDatabase.getDatabase(context)
+            val createdServices = db.withTransaction {
+                distinctServices.mapIndexed { index, (type, title) ->
+                    addService(
+                        vehicleId = vehicleId,
+                        title = title,
+                        serviceType = type,
+                        date = date,
+                        mileage = mileage,
+                        cost = if (index == 0) cost else 0L,
+                        description = description,
+                        nextReminderDate = if (index == 0) nextReminderDate else null,
+                        nextReminderMileage = if (index == 0) nextReminderMileage else null,
+                        isReminderEnabled = index == 0 && isReminderEnabled,
+                        offsets = if (index == 0) offsets else emptyList(),
+                        time = if (index == 0) time else null,
+                        deferExternalEffects = true
+                    ).getOrElse { throw it }
+                }
+            }
+
+            // The database commit has succeeded. Only now schedule external alarms
+            // and evaluate mileage thresholds, so a failed batch cannot leave ghost alerts.
+            var resultServices = createdServices
+            val primary = createdServices.first()
+            if (primary.isReminderEnabled &&
+                !primary.nextReminderDate.isNullOrBlank() &&
+                offsets.isNotEmpty()
+            ) {
+                try {
+                    com.example.reminder.domain.ReminderManager(context).enableReminder(primary.id)
+                } catch (e: Exception) {
+                    android.util.Log.w("VehicleRepository", "Alarm scheduling failed for committed service batch.", e)
+                    try {
+                        db.smartReminderDao().updateStatus(userId = userId, id = primary.id, status = "DISABLED")
+                    } catch (dbEx: Exception) {
+                        android.util.Log.e("VehicleRepository", "Failed to disable an unscheduled batch reminder.", dbEx)
+                    }
+                    resultServices = createdServices.mapIndexed { index, service ->
+                        if (index == 0) service.copy(
+                            reminderAlarmFailed = true,
+                            reminderAlarmErrorMessage = e.message ?: "ثبت هشدار سیستم ناموفق بود"
+                        ) else service
+                    }
+                }
+            }
+
+            val leadKilometers = com.example.data.preferences.AppPreferencesRepository
+                .getInstance(context).vehicleReminderKilometers.value
+            val dueServices = db.vehicleDao().getAllServices(userId).first().filter { service ->
+                service.vehicleId == vehicleId &&
+                    service.status != "COMPLETED" &&
+                    com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
+                        currentMileage = mileage,
+                        targetMileage = service.dueMileage,
+                        leadKilometers = leadKilometers
+                    )
+            }
+            if (dueServices.isNotEmpty()) {
+                dispatchMileageThresholdNotifications(
+                    context = context,
+                    userId = userId,
+                    crossedServices = dueServices,
+                    currentMileage = mileage
+                )
+            }
+
+            Result.success(resultServices)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     // 5. Add Service (Atomic Service + Expense transaction)
     suspend fun addService(
         vehicleId: String,
@@ -907,7 +1005,8 @@ class VehicleRepository {
         nextReminderMileage: Int?,
         isReminderEnabled: Boolean,
         time: String? = null,
-        offsets: List<com.example.reminder.domain.PredefinedOffset> = emptyList()
+        offsets: List<com.example.reminder.domain.PredefinedOffset> = emptyList(),
+        deferExternalEffects: Boolean = false
     ): Result<VehicleServiceEntity> = withContext(Dispatchers.IO) {
         val context = dbContext ?: return@withContext Result.failure(IllegalStateException("دسترسی به پایگاه داده مقداردهی نشده است."))
         val userId = SessionManager.userId ?: return@withContext Result.failure(IllegalStateException("کاربر احراز هویت نشده است."))
@@ -1057,11 +1156,13 @@ class VehicleRepository {
             var alarmFailed = false
             var alarmErrorMsg: String? = null
 
-            // This switch only opts the vehicle reminder into its schedules.
-            // The delivery type is always controlled by the app-wide notification settings.
+            // External alarms and notifications are deferred until a batch transaction commits.
+            if (!deferExternalEffects) {
+                // This switch only opts the vehicle reminder into its schedules.
+                // The delivery type is always controlled by the app-wide notification settings.
 
-            // Register a calendar alarm only when a date and future offsets exist.
-            if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
+                // Register a calendar alarm only when a date and future offsets exist.
+                if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
                 try {
                     val reminderManager = com.example.reminder.domain.ReminderManager(context)
                     reminderManager.enableReminder(serviceId)
@@ -1106,12 +1207,13 @@ class VehicleRepository {
                 }
             }
 
-            if (alarmFailed) {
-                try {
-                    val updatedNotes = encodeServiceNotes(cost, description, alarmErrorMsg)
-                    db.vehicleDao().updateServiceNotes(userId, serviceId, updatedNotes)
-                } catch (notesEx: Exception) {
-                    android.util.Log.e("VehicleRepository", "Failed to persist alarm error in service notes", notesEx)
+                if (alarmFailed) {
+                    try {
+                        val updatedNotes = encodeServiceNotes(cost, description, alarmErrorMsg)
+                        db.vehicleDao().updateServiceNotes(userId, serviceId, updatedNotes)
+                    } catch (notesEx: Exception) {
+                        android.util.Log.e("VehicleRepository", "Failed to persist alarm error in service notes", notesEx)
+                    }
                 }
             }
 
