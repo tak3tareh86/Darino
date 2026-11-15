@@ -390,6 +390,97 @@ class VehicleViewModel(
         }
     }
 
+    fun addServiceRecords(
+        combinedTitle: String,
+        serviceTypes: List<ServiceType>,
+        date: String,
+        mileage: Int,
+        cost: Long,
+        description: String,
+        nextReminderDate: String?,
+        nextReminderMileage: Int?,
+        isReminderEnabled: Boolean,
+        offsets: List<com.example.reminder.domain.PredefinedOffset> = emptyList(),
+        time: String? = null
+    ) {
+        val current = _uiState.value.selectedVehicle ?: return
+        val distinctTypes = serviceTypes.distinct()
+        if (distinctTypes.isEmpty()) {
+            _uiState.update { it.copy(snackBarMessage = "حداقل یک نوع سرویس انتخاب کنید.") }
+            return
+        }
+
+        viewModelScope.launch {
+            val createdServices = mutableListOf<com.example.vehicle.data.VehicleServiceEntity>()
+            var failure: Throwable? = null
+
+            for ((index, type) in distinctTypes.withIndex()) {
+                val serviceTitle = if (type == ServiceType.CUSTOM) {
+                    combinedTitle.trim()
+                } else {
+                    type.title
+                }
+                val result = repository.addService(
+                    vehicleId = current.id,
+                    title = serviceTitle,
+                    serviceType = type,
+                    date = date,
+                    mileage = mileage,
+                    // A multi-service entry represents one visit and one invoice.
+                    // Keep its full cost on the first record only to avoid duplicate expenses.
+                    cost = if (index == 0) cost else 0L,
+                    description = description,
+                    // One reminder is attached to the first selected service only.
+                    // Duplicating the same reminder for every component would create repeated alerts.
+                    nextReminderDate = if (index == 0) nextReminderDate else null,
+                    nextReminderMileage = if (index == 0) nextReminderMileage else null,
+                    isReminderEnabled = index == 0 && isReminderEnabled,
+                    offsets = if (index == 0) offsets else emptyList(),
+                    time = if (index == 0) time else null
+                )
+                result.onSuccess { createdServices.add(it) }
+                    .onFailure {
+                        failure = it
+                        break
+                    }
+                if (failure != null) break
+            }
+
+            if (failure != null) {
+                // Roll back already-created rows (including the single linked expense/reminder)
+                // so the user never ends up with a silently partial multi-service entry.
+                createdServices.asReversed().forEach { repository.deleteService(it.id) }
+                _uiState.update {
+                    it.copy(
+                        snackBarMessage = "ثبت گروهی سرویس‌ها کامل نشد و سوابق ایجادشده بازگردانی شدند: ${failure?.localizedMessage ?: "خطای ذخیره‌سازی"}"
+                    )
+                }
+                return@launch
+            }
+
+            val primary = createdServices.first()
+            _uiState.update {
+                if (primary.reminderAlarmFailed) {
+                    it.copy(
+                        showAddServiceSheet = false,
+                        lastAddedService = null,
+                        showReminderConfirmationDialog = false,
+                        snackBarMessage = "سوابق ${distinctTypes.size} سرویس ثبت شد، اما فعال‌سازی یادآور ناموفق بود (${primary.reminderAlarmErrorMessage ?: "خطای مجوز یا سیستم"})."
+                    )
+                } else {
+                    it.copy(
+                        showAddServiceSheet = false,
+                        lastAddedService = primary,
+                        showReminderConfirmationDialog = isReminderEnabled,
+                        snackBarMessage = if (!isReminderEnabled) {
+                            "سوابق ${distinctTypes.size} سرویس با موفقیت در پرونده خودرو ثبت شد."
+                        } else null
+                    )
+                }
+            }
+        }
+    }
+
     fun updateServiceRecord(
         serviceId: String,
         title: String,
