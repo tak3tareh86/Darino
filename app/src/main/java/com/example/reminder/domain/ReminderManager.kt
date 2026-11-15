@@ -198,6 +198,16 @@ class ReminderManager(
     }
 
     /**
+     * Deletes only the reminder linked to the specified installment.
+     * Uses the standard deletion path so its exact PendingIntents and notifications are cancelled.
+     */
+    suspend fun deleteInstallmentReminder(installmentId: String) = withContext(Dispatchers.IO) {
+        val reminder = repository.getReminderBySource("INSTALLMENT", installmentId)
+            ?: return@withContext
+        deleteReminder(reminder.id)
+    }
+
+    /**
      * Deletes a reminder and cancels its scheduled alarms.
      */
     suspend fun deleteReminder(reminderId: String) = withContext(Dispatchers.IO) {
