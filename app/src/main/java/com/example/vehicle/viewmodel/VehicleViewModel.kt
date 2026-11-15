@@ -445,10 +445,17 @@ class VehicleViewModel(
             if (failure != null) {
                 // Roll back already-created rows (including the single linked expense/reminder)
                 // so the user never ends up with a silently partial multi-service entry.
-                createdServices.asReversed().forEach { repository.deleteService(it.id) }
+                val rollbackFailures = createdServices.asReversed().mapNotNull { created ->
+                    repository.deleteService(created.id).exceptionOrNull()
+                }
+                val rollbackMessage = if (rollbackFailures.isEmpty()) {
+                    "سوابق ایجادشده بازگردانی شدند."
+                } else {
+                    "بازگردانی کامل سوابق ناموفق بود؛ پرونده خودرو را بررسی کنید."
+                }
                 _uiState.update {
                     it.copy(
-                        snackBarMessage = "ثبت گروهی سرویس‌ها کامل نشد و سوابق ایجادشده بازگردانی شدند: ${failure?.localizedMessage ?: "خطای ذخیره‌سازی"}"
+                        snackBarMessage = "ثبت گروهی سرویس‌ها کامل نشد. $rollbackMessage ${failure?.localizedMessage ?: "خطای ذخیره‌سازی"}"
                     )
                 }
                 return@launch
