@@ -28,8 +28,6 @@ import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
 import com.example.util.PersianCalendarHelper
 
-private enum class TimelineFilterMode { ALL, MONTH, YEAR }
-
 /**
  * Screen 11: Vehicle History Timeline (تایم‌لاین تاریخچه و رویدادهای خودرو)
  */
@@ -55,17 +53,7 @@ fun VehicleTimelineScreen(
             .sortedDescending()
     }
     val filteredEvents = remember(events, filterMode, selectedYear, selectedMonth) {
-        when (filterMode) {
-            TimelineFilterMode.ALL -> events
-            TimelineFilterMode.MONTH -> events.filter { event ->
-                val normalizedDate = VehicleAnalyzer.parseAndValidateJalaliDate(event.date)
-                normalizedDate?.startsWith("%04d/%02d".format(selectedYear, selectedMonth)) == true
-            }
-            TimelineFilterMode.YEAR -> events.filter { event ->
-                val normalizedDate = VehicleAnalyzer.parseAndValidateJalaliDate(event.date)
-                normalizedDate?.startsWith("%04d/".format(selectedYear)) == true
-            }
-        }
+        filterVehicleTimelineEvents(events, filterMode, selectedYear, selectedMonth)
     }
     val invalidDateCount = remember(events) {
         events.count { VehicleAnalyzer.parseAndValidateJalaliDate(it.date) == null }
