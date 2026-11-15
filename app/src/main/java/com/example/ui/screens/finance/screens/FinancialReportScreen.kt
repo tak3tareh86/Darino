@@ -273,7 +273,11 @@ fun FinancialReportScreen(
                                         Text("${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
-                                if (totals.isEmpty()) Text("در این بازه تراکنشی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                if (hasAmountOverflow) {
+                                    Text("جمع دسته‌بندی‌ها قابل محاسبه نیست.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                                } else if (totals.isEmpty()) {
+                                    Text("در این بازه تراکنشی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                }
                             }
                         }
                         if (hasAmountOverflow) {
