@@ -56,7 +56,6 @@ private data class ServiceOption(val title: String, val type: ServiceType)
 fun AddServiceSheet(
     vehicle: VehicleEntity,
     onAddService: (
-        title: String,
         services: List<Pair<ServiceType, String>>,
         date: String,
         mileage: Int,
@@ -698,7 +697,7 @@ fun AddServiceSheet(
                             val cost = parsedCostRials ?: 0L
                             val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onAddService(
-                                selectedServiceTitle, selectedServiceEntries, date, mileage, cost, description,
+                                selectedServiceEntries, date, mileage, cost, description,
                                 if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
                                 if (calcKm > 0) calcKm else null,
                                 isReminderEnabled, selectedOffsets, nextServiceTimeText
@@ -743,7 +742,7 @@ fun AddServiceSheet(
                     val cost = parsedCostRials ?: 0L
                     val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                     onAddService(
-                        selectedServiceTitle, selectedServiceEntries, date, mileage, cost, description,
+                        selectedServiceEntries, date, mileage, cost, description,
                         if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
                         if (calcKm > 0) calcKm else null,
                         false, emptyList(), nextServiceTimeText
