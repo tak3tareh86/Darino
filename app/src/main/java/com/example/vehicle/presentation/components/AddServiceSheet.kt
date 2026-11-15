@@ -151,12 +151,13 @@ fun AddServiceSheet(
         )
     }
     val selectedServiceEntries = remember(selectedTypes, customServiceTitle, serviceTypeOptions) {
-        serviceTypeOptions
-            .filter { it.type in selectedTypes }
-            .mapNotNull { option ->
-                val serviceTitle = if (option.type == ServiceType.CUSTOM) customServiceTitle.trim() else option.title
-                serviceTitle.takeIf { it.isNotBlank() }?.let { option.type to it }
-            }
+        // Preserve selection order so the reminder settings (based on selectedType)
+        // stay attached to the same first service when the batch is persisted.
+        selectedTypes.mapNotNull { selectedType ->
+            val option = serviceTypeOptions.firstOrNull { it.type == selectedType } ?: return@mapNotNull null
+            val serviceTitle = if (option.type == ServiceType.CUSTOM) customServiceTitle.trim() else option.title
+            serviceTitle.takeIf { it.isNotBlank() }?.let { option.type to it }
+        }
     }
     val hasValidServiceSelection = selectedTypes.isNotEmpty() &&
         (ServiceType.CUSTOM !in selectedTypes || customServiceTitle.isNotBlank())
