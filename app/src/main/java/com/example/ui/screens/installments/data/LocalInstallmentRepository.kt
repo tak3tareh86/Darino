@@ -410,11 +410,12 @@ class LocalInstallmentRepository private constructor() {
         }
     }
 
-    fun markOverdueAsPaid(installmentId: String, paymentDate: String, context: Context? = null, scheduleItemId: String? = null) {
-        repositoryScope.launch {
-            payInstallment(installmentId, paymentDate, context, scheduleItemId)
-        }
-    }
+    suspend fun markOverdueAsPaid(
+        installmentId: String,
+        paymentDate: String,
+        context: Context? = null,
+        scheduleItemId: String? = null
+    ): Boolean = payInstallment(installmentId, paymentDate, context, scheduleItemId)
 
     suspend fun payInstallment(
         installmentId: String,
@@ -505,11 +506,19 @@ class LocalInstallmentRepository private constructor() {
                         if (!confirmedInstallment) {
                             return@withLock false
                         }
-                        // Publish the committed Room snapshot to every installment StateFlow so
-                        // the schedule and parent loan summaries update without leaving the screen.
-                        reloadForUser(targetContext, userId)
+                        // The Room transaction and verification above establish success.
+                        // Refreshing in-memory/finance metadata is best-effort and must not
+                        // turn an already committed payment into a reported failure.
+                        runCatching { reloadForUser(targetContext, userId) }
+                            .onFailure { error ->
+                                android.util.Log.e("LocalInstallmentRepository", "Payment recovery committed, but state refresh failed.", error)
+                            }
                         if (financialTransaction != null) {
-                            com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                            runCatching {
+                                com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                            }.onFailure { error ->
+                                android.util.Log.e("LocalInstallmentRepository", "Payment recovery committed, but finance metadata refresh failed.", error)
+                            }
                         }
                         return@withLock true
                     } catch (e: Exception) {
@@ -558,10 +567,19 @@ class LocalInstallmentRepository private constructor() {
                 current[index] = updatedItem
                 saveToRoomInternal(targetContext, current, financialTransaction)
                 _installments.value = current
-                reloadForUser(targetContext, userId)
+                // saveToRoomInternal has committed the payment transaction. A later
+                // snapshot refresh failure must not misreport that committed payment.
+                runCatching { reloadForUser(targetContext, userId) }
+                    .onFailure { error ->
+                        android.util.Log.e("LocalInstallmentRepository", "Payment committed, but state refresh failed.", error)
+                    }
                 refreshReminderForInstallment(targetContext, updatedItem)
                 if (financialTransaction != null) {
-                    com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                    runCatching {
+                        com.example.ui.screens.finance.data.LocalFinanceRepository.instance.refreshMetadataForCurrentUser()
+                    }.onFailure { error ->
+                        android.util.Log.e("LocalInstallmentRepository", "Payment committed, but finance metadata refresh failed.", error)
+                    }
                 }
                 true
             } catch (e: Exception) {
