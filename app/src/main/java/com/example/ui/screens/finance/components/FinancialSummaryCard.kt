@@ -82,11 +82,11 @@ fun FinancialSummaryCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(cardGradient)
-                .padding(14.dp)
+                .padding(8.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -95,7 +95,7 @@ fun FinancialSummaryCard(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
                             text = title,
@@ -107,7 +107,7 @@ fun FinancialSummaryCard(
                         )
                         Box(
                             modifier = Modifier
-                                .size(38.dp)
+                                .size(30.dp)
                                 .clip(CircleShape)
                                 .background(iconBackgroundColor),
                             contentAlignment = Alignment.Center
@@ -115,7 +115,7 @@ fun FinancialSummaryCard(
                             Image(
                                 painter = painterResource(id = R.drawable.img_3d_wallet),
                                 contentDescription = null,
-                                modifier = Modifier.size(29.dp),
+                                modifier = Modifier.size(23.dp),
                                 contentScale = ContentScale.Crop
                             )
                         }
@@ -150,9 +150,9 @@ fun FinancialSummaryCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
+                        .padding(vertical = 1.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                    verticalArrangement = Arrangement.spacedBy(1.dp)
                 ) {
                     Text(
                         text = balanceLabel,
@@ -160,15 +160,10 @@ fun FinancialSummaryCard(
                         color = secondaryTextColor
                     )
                     Text(
-                        text = "درآمد منهای هزینه؛ موجودی حساب‌ها نیست",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = mutedTextColor
-                    )
-                    Text(
                         text = formattedBalance,
                         style = MaterialTheme.typography.displayMedium.copy(
                             fontWeight = FontWeight.Black,
-                            fontSize = 27.sp
+                            fontSize = 22.sp
                         ),
                         color = primaryTextColor
                     )
@@ -185,7 +180,7 @@ fun FinancialSummaryCard(
                 ) {
                     SummaryAmountBlock(
                         modifier = Modifier.weight(1f),
-                        label = "درآمد",
+                        label = "درآمد (${MoneyFormatter.getUnitLabel()})",
                         amount = formattedIncome,
                         icon = {
                             Icon(
@@ -202,7 +197,7 @@ fun FinancialSummaryCard(
                     )
                     SummaryAmountBlock(
                         modifier = Modifier.weight(1f),
-                        label = "هزینه",
+                        label = "هزینه (${MoneyFormatter.getUnitLabel()})",
                         amount = formattedExpense,
                         icon = {
                             Icon(
@@ -224,7 +219,7 @@ fun FinancialSummaryCard(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(RadiusMD))
                         .background(translucentSurfaceColor)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = 9.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -258,7 +253,7 @@ fun FinancialSummaryCard(
                     ) {
                         Text(
                             text = if (hasIncome) "${MoneyFormatter.toPersianDigits(savingsRate.toString())}٪" else "—",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                         )
                     }
@@ -295,7 +290,7 @@ private fun SummaryPeriodOption(
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
             color = textColor,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
@@ -322,13 +317,13 @@ private fun SummaryAmountBlock(
         color = surfaceColor
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 11.dp),
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(30.dp)
+                    .size(25.dp)
                     .clip(CircleShape)
                     .background(iconColor),
                 contentAlignment = Alignment.Center
