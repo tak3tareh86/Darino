@@ -57,7 +57,7 @@ fun AddServiceSheet(
     vehicle: VehicleEntity,
     onAddService: (
         title: String,
-        serviceType: ServiceType,
+        serviceTypes: List<ServiceType>,
         date: String,
         mileage: Int,
         cost: Long,
@@ -698,7 +698,7 @@ fun AddServiceSheet(
                             val cost = parsedCostRials ?: 0L
                             val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                             onAddService(
-                                selectedServiceTitle, selectedType, date, mileage, cost, description,
+                                selectedServiceTitle, selectedTypes.toList(), date, mileage, cost, description,
                                 if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
                                 if (calcKm > 0) calcKm else null,
                                 isReminderEnabled, selectedOffsets, nextServiceTimeText
@@ -743,7 +743,7 @@ fun AddServiceSheet(
                     val cost = parsedCostRials ?: 0L
                     val mileage = IranianPhoneUtils.convertDigitsToEnglish(mileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
                     onAddService(
-                        selectedServiceTitle, selectedType, date, mileage, cost, description,
+                        selectedServiceTitle, selectedTypes.toList(), date, mileage, cost, description,
                         if (nextServiceDateText.isNotBlank()) nextServiceDateText else null,
                         if (calcKm > 0) calcKm else null,
                         false, emptyList(), nextServiceTimeText
