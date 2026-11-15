@@ -266,17 +266,16 @@ object InstallmentMockDataSource {
             .sortedBy { it.remainingInstallments }
             .take(3)
 
-    fun addInstallment(item: InstallmentItem, context: Context? = null) {
-        repository.addInstallment(item, context)
+    suspend fun addInstallment(item: InstallmentItem, context: Context? = null): Boolean {
+        return repository.addInstallment(item, context)
     }
 
     fun clearAllInstallments(context: Context? = null) {
         repository.clearAllInstallments(context)
     }
 
-    fun markOverdueAsPaid(installmentId: String, paymentDate: String, context: Context? = null): Boolean {
-        repository.markOverdueAsPaid(installmentId, paymentDate, context)
-        return true
+    suspend fun markOverdueAsPaid(installmentId: String, paymentDate: String, context: Context? = null): Boolean {
+        return repository.markOverdueAsPaid(installmentId, paymentDate, context)
     }
 
     suspend fun updateScheduleItem(
