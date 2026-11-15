@@ -190,7 +190,11 @@ class LocalInstallmentRepository private constructor() {
                     // and the average known installment (or principal/count when no rows exist)
                     // to estimate missing rows instead of falsely reporting a zero balance.
                     val effectivePaidRowsCount = if (missingScheduleRows > 0) {
-                        maxOf(paidRowsCount, entity.paidInstallments.coerceIn(0, entity.totalInstallments))
+                        // Never let a stale parent paid-count override payment rows that are
+                        // explicitly still unpaid.
+                        val maxPossiblePaidRows = (entity.totalInstallments - unpaidPayments.size)
+                            .coerceAtLeast(paidRowsCount)
+                        entity.paidInstallments.coerceIn(paidRowsCount, maxPossiblePaidRows)
                     } else {
                         paidRowsCount
                     }
