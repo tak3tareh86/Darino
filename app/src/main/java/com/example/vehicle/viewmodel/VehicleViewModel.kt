@@ -391,8 +391,7 @@ class VehicleViewModel(
     }
 
     fun addServiceRecords(
-        combinedTitle: String,
-        serviceTypes: List<ServiceType>,
+        services: List<Pair<ServiceType, String>>,
         date: String,
         mileage: Int,
         cost: Long,
@@ -404,8 +403,8 @@ class VehicleViewModel(
         time: String? = null
     ) {
         val current = _uiState.value.selectedVehicle ?: return
-        val distinctTypes = serviceTypes.distinct()
-        if (distinctTypes.isEmpty()) {
+        val distinctServices = services.distinctBy { it.first }
+        if (distinctServices.isEmpty()) {
             _uiState.update { it.copy(snackBarMessage = "حداقل یک نوع سرویس انتخاب کنید.") }
             return
         }
@@ -414,12 +413,8 @@ class VehicleViewModel(
             val createdServices = mutableListOf<com.example.vehicle.data.VehicleServiceEntity>()
             var failure: Throwable? = null
 
-            for ((index, type) in distinctTypes.withIndex()) {
-                val serviceTitle = if (type == ServiceType.CUSTOM) {
-                    combinedTitle.trim()
-                } else {
-                    type.title
-                }
+            for ((index, service) in distinctServices.withIndex()) {
+                val (type, serviceTitle) = service
                 val result = repository.addService(
                     vehicleId = current.id,
                     title = serviceTitle,
@@ -466,7 +461,7 @@ class VehicleViewModel(
                         showAddServiceSheet = false,
                         lastAddedService = null,
                         showReminderConfirmationDialog = false,
-                        snackBarMessage = "سوابق ${distinctTypes.size} سرویس ثبت شد، اما فعال‌سازی یادآور ناموفق بود (${primary.reminderAlarmErrorMessage ?: "خطای مجوز یا سیستم"})."
+                        snackBarMessage = "سوابق ${distinctServices.size} سرویس ثبت شد، اما فعال‌سازی یادآور ناموفق بود (${primary.reminderAlarmErrorMessage ?: "خطای مجوز یا سیستم"})."
                     )
                 } else {
                     it.copy(
@@ -474,7 +469,7 @@ class VehicleViewModel(
                         lastAddedService = primary,
                         showReminderConfirmationDialog = isReminderEnabled,
                         snackBarMessage = if (!isReminderEnabled) {
-                            "سوابق ${distinctTypes.size} سرویس با موفقیت در پرونده خودرو ثبت شد."
+                            "سوابق ${distinctServices.size} سرویس با موفقیت در پرونده خودرو ثبت شد."
                         } else null
                     )
                 }
