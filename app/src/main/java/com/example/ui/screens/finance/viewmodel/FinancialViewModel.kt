@@ -25,6 +25,33 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+private fun formatSummarySignedAmount(amountRials: Long, currency: AppCurrency, isExpense: Boolean): String {
+    val formatted = MoneyFormatter.formatExact(
+        MoneyAmount.of(amountRials, AppCurrency.RIAL),
+        targetCurrency = currency,
+        includeUnit = true
+    )
+    if (formatted.startsWith("−")) return formatted
+    return if (isExpense) "−$formatted" else "+$formatted"
+}
+
+private fun formatSummaryBalance(amountRials: Long, currency: AppCurrency): String {
+    val formatted = MoneyFormatter.formatExact(
+        MoneyAmount.of(amountRials, AppCurrency.RIAL),
+        targetCurrency = currency,
+        includeUnit = false
+    )
+    if (formatted == "••••" || formatted.startsWith("−") || amountRials <= 0L) return formatted
+    return "+$formatted"
+}
+
+private fun getSavingsStatus(income: Long, expense: Long): String? = when {
+    income <= 0L -> "در این بازه درآمدی ثبت نشده؛ نرخ پس‌انداز قابل محاسبه نیست."
+    expense > income -> "هزینه‌ها از درآمد بیشتر بوده‌اند."
+    expense == income -> "تمام درآمد صرف هزینه شده است."
+    else -> null
+}
+
 class FinancialViewModel(
     private val repository: FinanceRepository = LocalFinanceRepository.instance
 ) : ViewModel() {
@@ -153,27 +180,19 @@ class FinancialViewModel(
             formattedExpense = MoneyFormatter.formatExact(MoneyAmount.of(expense, AppCurrency.RIAL), targetCurrency = currency).let { if (it.startsWith("−")) it else "−$it" },
             formattedBalance = MoneyFormatter.formatExact(MoneyAmount.of(totalRealBalance, AppCurrency.RIAL), targetCurrency = currency),
             currentMonthName = currentMonthName,
-            currentMonthFormattedIncome = MoneyFormatter.formatExact(
-                MoneyAmount.of(currentMonthIncome, AppCurrency.RIAL), targetCurrency = currency
-            ).let { if (it.startsWith("−")) it else "+$it" },
-            currentMonthFormattedExpense = MoneyFormatter.formatExact(
-                MoneyAmount.of(currentMonthExpense, AppCurrency.RIAL), targetCurrency = currency
-            ).let { if (it.startsWith("−")) it else "−$it" },
-            currentMonthFormattedBalance = MoneyFormatter.formatExact(
-                MoneyAmount.of(currentMonthBalance, AppCurrency.RIAL), targetCurrency = currency
-            ).let { if (currentMonthBalance > 0L && !it.startsWith("+")) "+$it" else it },
+            currentMonthFormattedIncome = formatSummarySignedAmount(currentMonthIncome, currency, isExpense = false),
+            currentMonthFormattedExpense = formatSummarySignedAmount(currentMonthExpense, currency, isExpense = true),
+            currentMonthFormattedBalance = formatSummaryBalance(currentMonthBalance, currency),
             currentMonthSavingsRate = currentMonthSavingsRate,
+            currentMonthHasIncome = currentMonthIncome > 0L,
+            currentMonthSavingsStatus = getSavingsStatus(currentMonthIncome, currentMonthExpense),
             currentYear = currentYearName,
-            currentYearFormattedIncome = MoneyFormatter.formatExact(
-                MoneyAmount.of(currentYearIncome, AppCurrency.RIAL), targetCurrency = currency
-            ).let { if (it.startsWith("−")) it else "+$it" },
-            currentYearFormattedExpense = MoneyFormatter.formatExact(
-                MoneyAmount.of(currentYearExpense, AppCurrency.RIAL), targetCurrency = currency
-            ).let { if (it.startsWith("−")) it else "−$it" },
-            currentYearFormattedBalance = MoneyFormatter.formatExact(
-                MoneyAmount.of(currentYearBalance, AppCurrency.RIAL), targetCurrency = currency
-            ).let { if (currentYearBalance > 0L && !it.startsWith("+")) "+$it" else it },
+            currentYearFormattedIncome = formatSummarySignedAmount(currentYearIncome, currency, isExpense = false),
+            currentYearFormattedExpense = formatSummarySignedAmount(currentYearExpense, currency, isExpense = true),
+            currentYearFormattedBalance = formatSummaryBalance(currentYearBalance, currency),
             currentYearSavingsRate = currentYearSavingsRate,
+            currentYearHasIncome = currentYearIncome > 0L,
+            currentYearSavingsStatus = getSavingsStatus(currentYearIncome, currentYearExpense),
             monthlyBudget = budgetSummary.totalBudget,
             budgetUsed = budgetSummary.totalSpent,
             budgetRemaining = budgetSummary.remainingBudget,
