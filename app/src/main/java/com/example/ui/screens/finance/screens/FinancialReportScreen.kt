@@ -407,172 +407,75 @@ fun FinancialReportScreen(
                             } else {
                                 selectedYear == currentJalaliDate.year
                             }
-                            val previousRangeStart: Long
-                            val previousRangeEnd: Long
-                            val comparisonCurrentEnd: Long
-                            if (period == ReportPeriod.MONTH) {
-                                val previousMonth = if (selectedMonth == 1) 12 else selectedMonth - 1
-                                val previousYear = if (selectedMonth == 1) selectedYear - 1 else selectedYear
-                                previousRangeStart = PersianCalendarHelper.jalaliToEpochMillis(previousYear, previousMonth, 1, 0, 0)
-                                previousRangeEnd = rangeStart
-                                comparisonCurrentEnd = if (isCurrentPeriod) minOf(rangeEnd, now + 1L) else rangeEnd
-                                val comparisonDay = if (isCurrentPeriod) {
-                                    currentJalaliDate.day.coerceAtMost(PersianCalendarHelper.getDaysInMonth(previousYear, previousMonth))
-                                } else {
-                                    PersianCalendarHelper.getDaysInMonth(previousYear, previousMonth)
-                                }
-                                val sameElapsedPreviousEnd = if (isCurrentPeriod) {
-                                    PersianCalendarHelper.jalaliToEpochMillis(
-                                        previousYear, previousMonth, comparisonDay,
-                                        currentJalaliDate.hour, currentJalaliDate.minute
-                                    ) + 60_000L
-                                } else previousRangeEnd
-                                val previousComparableEnd = minOf(previousRangeEnd, sameElapsedPreviousEnd)
-                                val previousTransactions = transactions.filter {
-                                    it.dateMillis >= previousRangeStart && it.dateMillis < previousComparableEnd &&
-                                        it.type == selectedType
-                                }
-                                val currentComparableTransactions = periodTransactions.filter {
-                                    it.dateMillis < comparisonCurrentEnd
-                                }
-                                val currentComparableTotal = runCatching {
-                                    sumReportAmountsExact(currentComparableTransactions.map {
-                                        MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
-                                    })
-                                }.getOrNull()
-                                val previousTotalResult = runCatching {
-                                    sumReportAmountsExact(previousTransactions.map {
-                                        MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
-                                    })
-                                }.getOrNull()
-                                val changeText = when {
-                                    currentComparableTotal == null || previousTotalResult == null -> "—"
-                                    previousTotalResult == 0L && currentComparableTotal == 0L -> "—"
-                                    previousTotalResult == 0L -> "جدید"
-                                    else -> {
-                                        val change = (currentComparableTotal.toDouble() - previousTotalResult.toDouble()) /
-                                            previousTotalResult.toDouble() * 100.0
-                                        val rounded = kotlin.math.round(change).toLong()
-                                        val sign = if (rounded > 0) "+" else ""
-                                        "$sign${MoneyFormatter.toPersianDigits(rounded.toString())}٪"
-                                    }
-                                }
-                                val changeColor = when {
-                                    currentComparableTotal == null || previousTotalResult == null -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    currentComparableTotal == previousTotalResult -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    (currentComparableTotal > previousTotalResult) == (selectedType == TransactionType.INCOME) -> MaterialTheme.colorScheme.tertiary
-                                    else -> MaterialTheme.colorScheme.error
-                                }
-                                // The comparison card is calculated from equally long elapsed periods.
-                                Triple(changeText, changeColor, currentComparableTotal)
+                            val currentJalaliDate = PersianCalendarHelper.fromEpochMillis(now)
+                            val isCurrentPeriod = if (period == ReportPeriod.MONTH) {
+                                selectedYear == currentJalaliDate.year && selectedMonth == currentJalaliDate.month
                             } else {
-                                previousRangeStart = PersianCalendarHelper.jalaliToEpochMillis(selectedYear - 1, 1, 1, 0, 0)
-                                previousRangeEnd = rangeStart
-                                comparisonCurrentEnd = if (isCurrentPeriod) minOf(rangeEnd, now + 1L) else rangeEnd
-                                val sameElapsedPreviousEnd = if (isCurrentPeriod) {
-                                    val previousYear = selectedYear - 1
-                                    val comparisonDay = currentJalaliDate.day.coerceAtMost(
-                                        PersianCalendarHelper.getDaysInMonth(previousYear, currentJalaliDate.month)
-                                    )
-                                    PersianCalendarHelper.jalaliToEpochMillis(
-                                        previousYear, currentJalaliDate.month, comparisonDay,
-                                        currentJalaliDate.hour, currentJalaliDate.minute
-                                    ) + 60_000L
-                                } else previousRangeEnd
-                                val previousComparableEnd = minOf(previousRangeEnd, sameElapsedPreviousEnd)
-                                val previousTransactions = transactions.filter {
-                                    it.dateMillis >= previousRangeStart && it.dateMillis < previousComparableEnd &&
-                                        it.type == selectedType
-                                }
-                                val currentComparableTransactions = periodTransactions.filter {
-                                    it.dateMillis < comparisonCurrentEnd
-                                }
-                                val currentComparableTotal = runCatching {
-                                    sumReportAmountsExact(currentComparableTransactions.map {
-                                        MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
-                                    })
-                                }.getOrNull()
-                                val previousTotalResult = runCatching {
-                                    sumReportAmountsExact(previousTransactions.map {
-                                        MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
-                                    })
-                                }.getOrNull()
-                                val changeText = when {
-                                    currentComparableTotal == null || previousTotalResult == null -> "—"
-                                    previousTotalResult == 0L && currentComparableTotal == 0L -> "—"
-                                    previousTotalResult == 0L -> "جدید"
-                                    else -> {
-                                        val change = (currentComparableTotal.toDouble() - previousTotalResult.toDouble()) /
-                                            previousTotalResult.toDouble() * 100.0
-                                        val rounded = kotlin.math.round(change).toLong()
-                                        val sign = if (rounded > 0) "+" else ""
-                                        "$sign${MoneyFormatter.toPersianDigits(rounded.toString())}٪"
-                                    }
-                                }
-                                val changeColor = when {
-                                    currentComparableTotal == null || previousTotalResult == null -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    currentComparableTotal == previousTotalResult -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    (currentComparableTotal > previousTotalResult) == (selectedType == TransactionType.INCOME) -> MaterialTheme.colorScheme.tertiary
-                                    else -> MaterialTheme.colorScheme.error
-                                }
-                                Triple(changeText, changeColor, currentComparableTotal)
+                                selectedYear == currentJalaliDate.year
                             }
-                            val (changeText, changeColor, _) = if (period == ReportPeriod.MONTH) {
-                                val previousMonth = if (selectedMonth == 1) 12 else selectedMonth - 1
-                                val previousYear = if (selectedMonth == 1) selectedYear - 1 else selectedYear
-                                val previousStart = PersianCalendarHelper.jalaliToEpochMillis(previousYear, previousMonth, 1, 0, 0)
-                                val previousEnd = rangeStart
-                                val currentEnd = if (isCurrentPeriod) minOf(rangeEnd, now + 1L) else rangeEnd
-                                val previousDay = if (isCurrentPeriod) currentJalaliDate.day.coerceAtMost(
+                            val previousYear = if (period == ReportPeriod.MONTH && selectedMonth == 1) {
+                                selectedYear - 1
+                            } else {
+                                selectedYear - 1
+                            }
+                            val previousMonth = if (period == ReportPeriod.MONTH) {
+                                if (selectedMonth == 1) 12 else selectedMonth - 1
+                            } else {
+                                currentJalaliDate.month
+                            }
+                            val previousRangeStart = if (period == ReportPeriod.MONTH) {
+                                PersianCalendarHelper.jalaliToEpochMillis(previousYear, previousMonth, 1, 0, 0)
+                            } else {
+                                PersianCalendarHelper.jalaliToEpochMillis(selectedYear - 1, 1, 1, 0, 0)
+                            }
+                            val currentComparableEnd = if (isCurrentPeriod) minOf(rangeEnd, now + 1L) else rangeEnd
+                            val previousComparableEnd = if (isCurrentPeriod) {
+                                val previousDay = currentJalaliDate.day.coerceAtMost(
                                     PersianCalendarHelper.getDaysInMonth(previousYear, previousMonth)
-                                ) else PersianCalendarHelper.getDaysInMonth(previousYear, previousMonth)
-                                val previousComparableEnd = if (isCurrentPeriod) minOf(
-                                    previousEnd,
+                                )
+                                minOf(
+                                    rangeStart,
                                     PersianCalendarHelper.jalaliToEpochMillis(
                                         previousYear, previousMonth, previousDay,
                                         currentJalaliDate.hour, currentJalaliDate.minute
                                     ) + 60_000L
-                                ) else previousEnd
-                                val currentTotal = runCatching {
-                                    sumReportAmountsExact(periodTransactions.filter { it.dateMillis < currentEnd }.map {
-                                        MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
-                                    })
-                                }.getOrNull()
-                                val previousTotal = runCatching {
-                                    sumReportAmountsExact(transactions.filter {
-                                        it.dateMillis >= previousStart && it.dateMillis < previousComparableEnd && it.type == selectedType
-                                    }.map { MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact() })
-                                }.getOrNull()
-                                val text = calculateTrendChangeText(currentTotal, previousTotal)
-                                val color = calculateTrendChangeColor(currentTotal, previousTotal, selectedType)
-                                text to color
+                                )
                             } else {
-                                val previousStart = PersianCalendarHelper.jalaliToEpochMillis(selectedYear - 1, 1, 1, 0, 0)
-                                val previousEnd = rangeStart
-                                val currentEnd = if (isCurrentPeriod) minOf(rangeEnd, now + 1L) else rangeEnd
-                                val previousComparableEnd = if (isCurrentPeriod) {
-                                    val previousYear = selectedYear - 1
-                                    val previousDay = currentJalaliDate.day.coerceAtMost(
-                                        PersianCalendarHelper.getDaysInMonth(previousYear, currentJalaliDate.month)
-                                    )
-                                    PersianCalendarHelper.jalaliToEpochMillis(
-                                        previousYear, currentJalaliDate.month, previousDay,
-                                        currentJalaliDate.hour, currentJalaliDate.minute
-                                    ) + 60_000L
-                                } else previousEnd
-                                val currentTotal = runCatching {
-                                    sumReportAmountsExact(periodTransactions.filter { it.dateMillis < currentEnd }.map {
-                                        MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
-                                    })
-                                }.getOrNull()
-                                val previousTotal = runCatching {
-                                    sumReportAmountsExact(transactions.filter {
-                                        it.dateMillis >= previousStart && it.dateMillis < previousComparableEnd && it.type == selectedType
-                                    }.map { MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact() })
-                                }.getOrNull()
-                                val text = calculateTrendChangeText(currentTotal, previousTotal)
-                                val color = calculateTrendChangeColor(currentTotal, previousTotal, selectedType)
-                                text to color
+                                rangeStart
+                            }
+                            val currentComparableTotal = runCatching {
+                                sumReportAmountsExact(periodTransactions.filter {
+                                    it.dateMillis < currentComparableEnd
+                                }.map {
+                                    MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
+                                })
+                            }.getOrNull()
+                            val previousTotalResult = runCatching {
+                                sumReportAmountsExact(transactions.filter {
+                                    it.dateMillis >= previousRangeStart &&
+                                        it.dateMillis < previousComparableEnd &&
+                                        it.type == selectedType
+                                }.map {
+                                    MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
+                                })
+                            }.getOrNull()
+                            val changeText = when {
+                                currentComparableTotal == null || previousTotalResult == null -> "—"
+                                previousTotalResult == 0L && currentComparableTotal == 0L -> "—"
+                                previousTotalResult == 0L -> "جدید"
+                                else -> {
+                                    val change = (currentComparableTotal.toDouble() - previousTotalResult.toDouble()) /
+                                        previousTotalResult.toDouble() * 100.0
+                                    val rounded = kotlin.math.round(change).toLong()
+                                    val sign = if (rounded > 0) "+" else ""
+                                    "$sign${MoneyFormatter.toPersianDigits(rounded.toString())}٪"
+                                }
+                            }
+                            val changeColor = when {
+                                currentComparableTotal == null || previousTotalResult == null -> MaterialTheme.colorScheme.onSurfaceVariant
+                                currentComparableTotal == previousTotalResult -> MaterialTheme.colorScheme.onSurfaceVariant
+                                (currentComparableTotal > previousTotalResult) == (selectedType == TransactionType.INCOME) -> MaterialTheme.colorScheme.tertiary
+                                else -> MaterialTheme.colorScheme.error
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 TrendMetricCard("میانگین هر بازه", MoneyFormatter.formatExact(MoneyAmount.of(averageTrend, AppCurrency.RIAL), includeUnit = false), Modifier.weight(1f), MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f))
