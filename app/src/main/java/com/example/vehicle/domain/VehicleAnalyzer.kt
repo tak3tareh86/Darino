@@ -128,12 +128,22 @@ object VehicleAnalyzer {
 
         fun latestService(type: ServiceType): VehicleServiceEntity? {
             val matching = carServices.filter { it.serviceType == type }
-            val compatible = if (matching.isNotEmpty()) matching else when (type) {
+            if (matching.isNotEmpty()) {
+                return matching.maxByOrNull { parseAndValidateJalaliDate(it.date) ?: "" }
+            }
+
+            // Backward compatibility: older multi-service entries were stored as one
+            // OIL_CHANGE/FILTERS row whose title contained every selected service.
+            val legacyCombined = carServices.filter { record ->
+                record.serviceType != type && record.title.contains(type.title)
+            }
+            val genericFilterRecords = when (type) {
                 ServiceType.OIL_FILTER_CHANGE, ServiceType.AIR_FILTER_CHANGE ->
                     carServices.filter { it.serviceType == ServiceType.FILTERS }
                 else -> emptyList()
             }
-            return compatible.maxByOrNull { parseAndValidateJalaliDate(it.date) ?: "" }
+            return (legacyCombined + genericFilterRecords)
+                .maxByOrNull { parseAndValidateJalaliDate(it.date) ?: "" }
         }
 
         fun serviceStatus(
@@ -155,7 +165,10 @@ object VehicleAnalyzer {
 
             var dueSoon = false
             for ((type, record) in records) {
-                val nextKm = record.nextReminderMileage
+                // Reminder values on legacy combined/generic rows belong to their primary
+                // service only; do not incorrectly apply them to every service named in title.
+                val hasTypeSpecificRecord = record.serviceType == type
+                val nextKm = (if (hasTypeSpecificRecord) record.nextReminderMileage else null)
                     ?: if (type == ServiceType.OIL_CHANGE && defaultIntervalKm > 0) record.mileage + defaultIntervalKm else null
                 if (nextKm != null) {
                     val remaining = nextKm - vehicle.currentMileage
@@ -165,7 +178,7 @@ object VehicleAnalyzer {
                     if (remaining <= 500) dueSoon = true
                 }
 
-                val nextDate = record.nextReminderDate
+                val nextDate = if (hasTypeSpecificRecord) record.nextReminderDate else null
                 if (!nextDate.isNullOrBlank()) {
                     val cleanDueDate = parseAndValidateJalaliDate(nextDate)
                     if (cleanDueDate == null) {
