@@ -567,11 +567,11 @@ fun AddEditCategorySheet(
                             contentAlignment = Alignment.Center
                         ) {
                             if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Close,
-                                    contentDescription = "رنگ انتخاب‌شده",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(17.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White)
                                 )
                             }
                         }
