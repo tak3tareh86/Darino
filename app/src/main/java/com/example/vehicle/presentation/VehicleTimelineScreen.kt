@@ -35,13 +35,14 @@ private enum class TimelineFilterMode { ALL, MONTH, YEAR }
  */
 @Composable
 fun VehicleTimelineScreen(
+    vehicleId: String,
     events: List<VehicleTimelineEvent>,
     modifier: Modifier = Modifier
 ) {
-    val today = remember { PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()) }
-    var filterModeName by rememberSaveable { mutableStateOf(TimelineFilterMode.ALL.name) }
-    var selectedYear by rememberSaveable { mutableStateOf(today.year) }
-    var selectedMonth by rememberSaveable { mutableStateOf(today.month) }
+    val today = remember(vehicleId) { PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()) }
+    var filterModeName by rememberSaveable(vehicleId) { mutableStateOf(TimelineFilterMode.ALL.name) }
+    var selectedYear by rememberSaveable(vehicleId) { mutableStateOf(today.year) }
+    var selectedMonth by rememberSaveable(vehicleId) { mutableStateOf(today.month) }
     val filterMode = TimelineFilterMode.values().firstOrNull { it.name == filterModeName }
         ?: TimelineFilterMode.ALL
 
