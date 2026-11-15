@@ -379,10 +379,16 @@ fun InstallmentsScreen(
                         navigateTo(InstallmentNavigationState.DetailView(item))
                     },
                     onMarkAsPaid = { installmentId, paymentDate ->
-                        LocalInstallmentRepository.instance.markOverdueAsPaid(installmentId, paymentDate, context)
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("قسط با موفقیت در تاریخ $paymentDate به عنوان پرداخت شده ثبت شد.")
-                        }
+                        val paymentSaved = LocalInstallmentRepository.instance
+                            .markOverdueAsPaid(installmentId, paymentDate, context)
+                        snackbarHostState.showSnackbar(
+                            if (paymentSaved) {
+                                "قسط با موفقیت در تاریخ $paymentDate به عنوان پرداخت شده ثبت شد."
+                            } else {
+                                "ثبت پرداخت انجام نشد. اطلاعات قسط تغییر نکرده است؛ دوباره تلاش کنید."
+                            }
+                        )
+                        paymentSaved
                     }
                 )
             }
