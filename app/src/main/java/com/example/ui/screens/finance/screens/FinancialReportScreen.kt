@@ -23,7 +23,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,7 +31,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -44,6 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -55,7 +55,6 @@ import com.example.util.MoneyAmount
 import com.example.util.MoneyFormatter
 import com.example.util.PersianCalendarHelper
 import com.example.ui.screens.settings.model.AppCurrency
-import java.util.Calendar
 
 private enum class ReportPeriod { MONTH, YEAR }
 private data class ReportCategoryTotal(val category: TransactionCategory, val amount: Long, val count: Int)
@@ -106,10 +105,31 @@ fun FinancialReportScreen(
     val visibleTransactions = if (selectedCategoryId == null) periodTransactions else {
         periodTransactions.filter { it.categoryId == selectedCategoryId }
     }.sortedByDescending { it.dateMillis }
+    val trendBuckets = if (period == ReportPeriod.YEAR) 12 else 6
+    val trendAmounts = (0 until trendBuckets).map { index ->
+        val bucketStart: Long
+        val bucketEnd: Long
+        if (period == ReportPeriod.YEAR) {
+            bucketStart = PersianCalendarHelper.jalaliToEpochMillis(selectedYear, index + 1, 1, 0, 0)
+            bucketEnd = PersianCalendarHelper.jalaliToEpochMillis(
+                if (index == 11) selectedYear + 1 else selectedYear,
+                if (index == 11) 1 else index + 2, 1, 0, 0
+            )
+        } else {
+            val daysInMonth = ((rangeEnd - rangeStart) / 86_400_000L).toInt().coerceAtLeast(1)
+            val firstDay = 1 + (daysInMonth * index / trendBuckets)
+            val lastDay = 1 + (daysInMonth * (index + 1) / trendBuckets)
+            bucketStart = rangeStart + (firstDay - 1) * 86_400_000L
+            bucketEnd = if (index == trendBuckets - 1) rangeEnd else rangeStart + (lastDay - 1) * 86_400_000L
+        }
+        periodTransactions.filter { it.dateMillis >= bucketStart && it.dateMillis < bucketEnd }
+            .sumOf { MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact() }
+    }
 
     val monthNames = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
     val periodTitle = if (period == ReportPeriod.MONTH) "${monthNames[selectedMonth - 1]} ${MoneyFormatter.toPersianDigits(selectedYear.toString())}" else "سال ${MoneyFormatter.toPersianDigits(selectedYear.toString())}"
     val amountText = MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, AppCurrency.RIAL), includeUnit = false)
+    val unitLabel = MoneyFormatter.getUnitLabel()
 
     Column(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
@@ -192,7 +212,7 @@ fun FinancialReportScreen(
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("جمع کل", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(amountText, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                    Text("تومان", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(unitLabel, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -210,8 +230,37 @@ fun FinancialReportScreen(
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.09f)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("جمع کل ${if (selectedType == TransactionType.EXPENSE) "هزینه‌ها" else "درآمدها"}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.weight(1f))
-                            Text("$amountText تومان", fontWeight = FontWeight.Bold)
+                            Text("$amountText $unitLabel", fontWeight = FontWeight.Bold)
                         }
+                    }
+                }
+            }
+            item {
+                Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("روند تغییرات", fontWeight = FontWeight.Bold)
+                        Canvas(Modifier.fillMaxWidth().height(112.dp)) {
+                            val maxValue = (trendAmounts.maxOrNull() ?: 0L).coerceAtLeast(1L).toFloat()
+                            val stepX = if (trendAmounts.size > 1) size.width / (trendAmounts.size - 1) else size.width
+                            val points = trendAmounts.mapIndexed { index, value ->
+                                Offset(index * stepX, size.height - (value.toFloat() / maxValue * (size.height - 12.dp.toPx())) - 6.dp.toPx())
+                            }
+                            if (points.size > 1) {
+                                val path = Path().apply {
+                                    moveTo(points.first().x, points.first().y)
+                                    points.drop(1).forEach { lineTo(it.x, it.y) }
+                                }
+                                drawPath(path, MaterialTheme.colorScheme.primary, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
+                            }
+                            points.forEach { point ->
+                                drawCircle(MaterialTheme.colorScheme.primary, radius = 4.dp.toPx(), center = point)
+                            }
+                        }
+                        Text(
+                            if (period == ReportPeriod.YEAR) "مقایسه ماه‌های سال" else "تقسیم‌بندی روند در طول ماه",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp
+                        )
                     }
                 }
             }
