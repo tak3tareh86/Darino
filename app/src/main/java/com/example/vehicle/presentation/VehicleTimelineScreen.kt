@@ -91,7 +91,6 @@ fun VehicleTimelineScreen(
                     selectedYear = year
                     selectedMonth = month
                 },
-                onShowAll = { filterModeName = TimelineFilterMode.ALL.name }
             )
         }
 
@@ -169,8 +168,7 @@ private fun TimelineFilterControls(
     invalidDateCount: Int,
     onYearChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit,
-    onMoveMonth: (Int) -> Unit,
-    onShowAll: () -> Unit
+    onMoveMonth: (Int) -> Unit
 ) {
     var yearMenuExpanded by remember { mutableStateOf(false) }
     var monthMenuExpanded by remember { mutableStateOf(false) }
