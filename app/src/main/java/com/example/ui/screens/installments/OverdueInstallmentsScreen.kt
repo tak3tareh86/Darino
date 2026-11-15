@@ -58,6 +58,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,6 +89,7 @@ import com.example.util.IranianAmountUtils
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
+import kotlinx.coroutines.launch
 import com.example.util.PersianCalendarHelper
 
 @Composable
@@ -95,7 +97,7 @@ fun OverdueInstallmentsScreen(
     overdueItems: List<InstallmentItem>,
     onBackClick: () -> Unit,
     onItemClick: (InstallmentItem) -> Unit,
-    onMarkAsPaid: (installmentId: String, paymentDate: String) -> Unit,
+    onMarkAsPaid: suspend (installmentId: String, paymentDate: String) -> Boolean,
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
@@ -297,10 +299,11 @@ fun OverdueInstallmentsScreen(
             item = item,
             onDismiss = { selectedItemForPayment = null },
             onConfirmPayment = { paymentDate ->
-                val idToPay = item.id
-                currentOverdueList = currentOverdueList.filter { it.id != idToPay }
-                onMarkAsPaid(idToPay, paymentDate)
-                selectedItemForPayment = null
+                val paymentSaved = onMarkAsPaid(item.id, paymentDate)
+                if (paymentSaved) {
+                    currentOverdueList = currentOverdueList.filter { it.id != item.id }
+                }
+                paymentSaved
             }
         )
     }
@@ -507,7 +510,7 @@ private fun OverdueInstallmentCard(
 private fun ManualPaymentDateDialog(
     item: InstallmentItem,
     onDismiss: () -> Unit,
-    onConfirmPayment: (paymentDate: String) -> Unit
+    onConfirmPayment: suspend (paymentDate: String) -> Boolean
 ) {
     val todayPersian = remember {
         PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
@@ -515,6 +518,8 @@ private fun ManualPaymentDateDialog(
     var paymentDate by remember { mutableStateOf(todayPersian) }
     var penaltyInput by remember { mutableStateOf("") }
     var showCalendarDialog by remember { mutableStateOf(false) }
+    val paymentScope = rememberCoroutineScope()
+    var isSubmittingPayment by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val scrollState = rememberScrollState()
     val numberMode by AppNumberFormatter.modeFlow.collectAsState()
@@ -819,9 +824,22 @@ private fun ManualPaymentDateDialog(
 
                         Button(
                             onClick = {
-                                val trimmed = paymentDate.trim().ifEmpty { todayPersian }
-                                onConfirmPayment(trimmed)
+                                if (!isSubmittingPayment) {
+                                    isSubmittingPayment = true
+                                    val trimmed = paymentDate.trim().ifEmpty { todayPersian }
+                                    paymentScope.launch {
+                                        val saved = try {
+                                            onConfirmPayment(trimmed)
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("OverdueInstallmentsScreen", "Overdue payment failed.", e)
+                                            false
+                                        }
+                                        isSubmittingPayment = false
+                                        if (saved) onDismiss()
+                                    }
+                                }
                             },
+                            enabled = !isSubmittingPayment,
                             modifier = Modifier.weight(1.3f),
                             shape = RoundedCornerShape(RadiusSM),
                             colors = ButtonDefaults.buttonColors(
@@ -830,7 +848,7 @@ private fun ManualPaymentDateDialog(
                             )
                         ) {
                             Text(
-                                text = "ثبت پرداخت",
+                                text = if (isSubmittingPayment) "در حال ثبت..." else "ثبت پرداخت",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp
