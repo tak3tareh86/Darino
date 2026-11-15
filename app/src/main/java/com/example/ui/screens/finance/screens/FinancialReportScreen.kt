@@ -515,18 +515,51 @@ fun FinancialReportScreen(
                                 (currentComparableTotal > previousTotalResult) == (selectedType == TransactionType.INCOME) -> MaterialTheme.colorScheme.tertiary
                                 else -> MaterialTheme.colorScheme.error
                             }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TrendMetricCard(
-                                    if (isCurrentPeriod && trendAmounts.size == 1) "میانگین بازه جاری" else if (isCurrentPeriod) "میانگین بازه‌های کامل" else "میانگین هر بازه",
-                                    MoneyFormatter.formatExact(MoneyAmount.of(averageTrend, AppCurrency.RIAL), includeUnit = false),
-                                    Modifier.weight(1f),
-                                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
-                                )
-                                TrendMetricCard("بیشترین مقدار", MoneyFormatter.formatExact(MoneyAmount.of(maxTrend, AppCurrency.RIAL), includeUnit = false), Modifier.weight(1f), MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f))
+                            val averageLabel = if (period == ReportPeriod.YEAR) "میانگین ماه‌ها" else "میانگین بازه‌ها"
+                            val averageDescription = when {
+                                isCurrentPeriod && averageBuckets.size == 1 -> "تا این زمان"
+                                isCurrentPeriod -> if (period == ReportPeriod.YEAR) "فقط ماه‌های کامل" else "فقط بازه‌های کامل"
+                                else -> if (period == ReportPeriod.YEAR) "در ماه‌های این سال" else "در بازه‌های این ماه"
+                            }
+                            val maxMinDescription = if (period == ReportPeriod.YEAR) "در یک ماه" else "در یک بازه"
+                            val comparisonDescription = when {
+                                isCurrentPeriod && period == ReportPeriod.YEAR -> "از ابتدای سال تا امروز، با همین مدت پارسال"
+                                isCurrentPeriod -> "تا امروز، با همین مدت ماه قبل"
+                                period == ReportPeriod.YEAR -> "در مقایسه با سال قبل"
+                                else -> "در مقایسه با ماه قبل"
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TrendMetricCard("کمترین مقدار", MoneyFormatter.formatExact(MoneyAmount.of(minTrend, AppCurrency.RIAL), includeUnit = false), Modifier.weight(1f), MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
-                                TrendMetricCard(if (isCurrentPeriod) "تغییر تا امروز" else "تغییر نسبت به قبل", changeText, Modifier.weight(1f), MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f), valueColor = changeColor)
+                                TrendMetricCard(
+                                    averageLabel,
+                                    MoneyFormatter.formatExact(MoneyAmount.of(averageTrend, AppCurrency.RIAL), includeUnit = false),
+                                    Modifier.weight(1f),
+                                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
+                                    description = averageDescription
+                                )
+                                TrendMetricCard(
+                                    "بیشترین مبلغ",
+                                    MoneyFormatter.formatExact(MoneyAmount.of(maxTrend, AppCurrency.RIAL), includeUnit = false),
+                                    Modifier.weight(1f),
+                                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f),
+                                    description = maxMinDescription
+                                )
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TrendMetricCard(
+                                    "کمترین مبلغ",
+                                    MoneyFormatter.formatExact(MoneyAmount.of(minTrend, AppCurrency.RIAL), includeUnit = false),
+                                    Modifier.weight(1f),
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                                    description = maxMinDescription
+                                )
+                                TrendMetricCard(
+                                    "مقایسه با دوره قبل",
+                                    changeText,
+                                    Modifier.weight(1f),
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                                    valueColor = changeColor,
+                                    description = comparisonDescription
+                                )
                             }
                             Canvas(
                                 Modifier.fillMaxWidth().height(148.dp).pointerInput(trendAmounts) {
@@ -772,12 +805,14 @@ private fun TrendMetricCard(
     value: String,
     modifier: Modifier,
     containerColor: Color,
-    valueColor: Color = MaterialTheme.colorScheme.onSurface
+    valueColor: Color = MaterialTheme.colorScheme.onSurface,
+    description: String
 ) {
     Surface(modifier = modifier, shape = RoundedCornerShape(12.dp), color = containerColor) {
         Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, maxLines = 1)
             Text(value, color = valueColor, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
+            Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, maxLines = 2)
         }
     }
 }
