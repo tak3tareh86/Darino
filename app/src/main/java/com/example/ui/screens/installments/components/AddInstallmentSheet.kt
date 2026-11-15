@@ -60,6 +60,7 @@ import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
+import kotlinx.coroutines.launch
 
 /**
  * World-Class, Ultra-Modern Two-Step Add Installment Flow with Centered Mini Pop-up Dialog for Reminders.
@@ -89,7 +90,7 @@ fun AddInstallmentSheet(
         selectedOffsets: List<PredefinedOffset>,
         customScheduleItems: List<com.example.ui.screens.installments.model.PaymentHistoryItem>?,
         insuranceType: com.example.ui.screens.installments.model.VehicleInsuranceType?
-    ) -> Unit,
+    ) -> Boolean,
     initialCategory: InstallmentCategory = InstallmentCategory.BANK_LOANS,
     initialTitle: String = "",
     initialTotalAmount: String = "",
@@ -143,6 +144,8 @@ fun AddInstallmentSheet(
     var showTimePicker by remember { mutableStateOf(false) }
 
     var customScheduleItems by remember { mutableStateOf<List<com.example.ui.screens.installments.model.PaymentHistoryItem>?>(null) }
+    val submitScope = rememberCoroutineScope()
+    var isSubmitting by remember { mutableStateOf(false) }
 
     fun submitInstallment(
         reminderActive: Boolean,
@@ -150,24 +153,34 @@ fun AddInstallmentSheet(
         daysSummary: String,
         scheduleItems: List<com.example.ui.screens.installments.model.PaymentHistoryItem>?
     ) {
-        onAddConfirm(
-            selectedCategory,
-            title.ifBlank { selectedCategory.title },
-            totalAmount,
-            installmentAmount,
-            installmentsCount,
-            paidInstallmentsCount,
-            dueDate,
-            providerOrPerson,
-            notes,
-            reminderActive,
-            daysSummary,
-            reminderTime,
-            offsets,
-            scheduleItems,
-            insuranceType.takeIf { selectedCategory == InstallmentCategory.CAR_INSURANCE }
-        )
-        onDismiss()
+        if (isSubmitting) return
+        isSubmitting = true
+        submitScope.launch {
+            val saved = try {
+                onAddConfirm(
+                    selectedCategory,
+                    title.ifBlank { selectedCategory.title },
+                    totalAmount,
+                    installmentAmount,
+                    installmentsCount,
+                    paidInstallmentsCount,
+                    dueDate,
+                    providerOrPerson,
+                    notes,
+                    reminderActive,
+                    daysSummary,
+                    reminderTime,
+                    offsets,
+                    scheduleItems,
+                    insuranceType.takeIf { selectedCategory == InstallmentCategory.CAR_INSURANCE }
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("AddInstallmentSheet", "Installment submission failed.", e)
+                false
+            }
+            isSubmitting = false
+            if (saved) onDismiss()
+        }
     }
     var showCustomScheduleDialog by remember { mutableStateOf(false) }
 
