@@ -42,12 +42,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -158,10 +158,10 @@ fun FinancialReportScreen(
     } else {
         emptyList()
     }
-    val visibleTrendBuckets = when {
-        isCurrentPeriod && period == ReportPeriod.YEAR -> currentJalaliDate.month
-        isCurrentPeriod && period == ReportPeriod.MONTH ->
-            monthlyTrendRanges.count { it.first <= currentJalaliDate.day }.coerceAtLeast(1)
+    // The annual chart always keeps all twelve Jalali months visible.
+    // Months after the current month naturally contain zero until transactions exist.
+    val visibleTrendBuckets = if (period == ReportPeriod.YEAR) 12 else when {
+        isCurrentPeriod -> monthlyTrendRanges.count { it.first <= currentJalaliDate.day }.coerceAtLeast(1)
         else -> trendBuckets
     }
     val trendAmounts = (0 until visibleTrendBuckets).map { index ->
@@ -201,7 +201,7 @@ fun FinancialReportScreen(
 
     val monthNames = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
     val allTrendLabels = if (period == ReportPeriod.YEAR) {
-        listOf("فر", "ارد", "خرد", "تیر", "مرد", "شهر", "مهر", "آبا", "آذر", "دی", "بهم", "اسف")
+        monthNames
     } else {
         monthlyTrendRanges.mapIndexed { index, range ->
             val displayedLastDay = if (
@@ -440,16 +440,21 @@ fun FinancialReportScreen(
                             Text("نمودار به دلیل خارج بودن مجموع مبالغ از محدوده محاسبه نمایش داده نمی‌شود.", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
                         } else {
                             // Exclude the in-progress final bucket from the average.
-                            val averageBuckets = if (isCurrentPeriod && trendAmounts.size > 1) {
-                                trendAmounts.dropLast(1)
+                            val elapsedTrendAmounts = if (isCurrentPeriod && period == ReportPeriod.YEAR) {
+                                trendAmounts.take(currentJalaliDate.month)
                             } else {
                                 trendAmounts
+                            }
+                            val averageBuckets = if (isCurrentPeriod && elapsedTrendAmounts.size > 1) {
+                                elapsedTrendAmounts.dropLast(1)
+                            } else {
+                                elapsedTrendAmounts
                             }
                             val trendSumResult = sumReportAmountsExact(averageBuckets)
                             val trendSum = trendSumResult ?: 0L
                             val averageTrend = if (averageBuckets.isNotEmpty()) trendSum / averageBuckets.size else 0L
-                            val maxTrend = trendAmounts.maxOrNull() ?: 0L
-                            val minTrend = trendAmounts.minOrNull() ?: 0L
+                            val maxTrend = elapsedTrendAmounts.maxOrNull() ?: 0L
+                            val minTrend = elapsedTrendAmounts.minOrNull() ?: 0L
                             val previousYear = when {
                                 period == ReportPeriod.MONTH && selectedMonth > 1 -> selectedYear
                                 else -> selectedYear - 1
@@ -573,14 +578,34 @@ fun FinancialReportScreen(
                                     return path
                                 }
                                 if (points.size > 1) {
-                                    drawPath(
-                                        smoothPath(true),
-                                        brush = Brush.verticalGradient(
-                                            colors = listOf(chartPrimaryColor.copy(alpha = 0.28f), chartPrimaryColor.copy(alpha = 0.015f)),
-                                            startY = topInset,
-                                            endY = size.height - bottomInset
-                                        )
+                                    val monthAreaColors = listOf(
+                                        Color(0xFF4285F4), Color(0xFF26A69A), Color(0xFF66BB6A),
+                                        Color(0xFF9CCC65), Color(0xFFFFCA28), Color(0xFFFFA726),
+                                        Color(0xFFFF7043), Color(0xFFEC407A), Color(0xFFAB47BC),
+                                        Color(0xFF7E57C2), Color(0xFF5C6BC0), Color(0xFF29B6F6)
                                     )
+                                    val areaPath = smoothPath(true)
+                                    points.indices.forEach { index ->
+                                        val leftBoundary = if (index == points.lastIndex) {
+                                            horizontalInset
+                                        } else {
+                                            (points[index].x + points[index + 1].x) / 2f
+                                        }
+                                        val rightBoundary = if (index == 0) {
+                                            size.width - horizontalInset
+                                        } else {
+                                            (points[index - 1].x + points[index].x) / 2f
+                                        }
+                                        drawContext.canvas.save()
+                                        drawContext.canvas.clipRect(
+                                            leftBoundary, topInset, rightBoundary, size.height - bottomInset
+                                        )
+                                        drawPath(
+                                            areaPath,
+                                            color = monthAreaColors[index % monthAreaColors.size].copy(alpha = 0.24f)
+                                        )
+                                        drawContext.canvas.restore()
+                                    }
                                     drawPath(
                                         smoothPath(false),
                                         color = chartPrimaryColor,
@@ -618,15 +643,38 @@ fun FinancialReportScreen(
                                     )
                                 }
                             }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                trendLabels.forEachIndexed { index, label ->
-                                    Text(
-                                        label,
-                                        color = if (index == selectedTrendIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = if (index == selectedTrendIndex) FontWeight.Bold else FontWeight.Normal,
-                                        fontSize = if (period == ReportPeriod.YEAR) 8.sp else 9.sp,
-                                        maxLines = 1
-                                    )
+                            if (period == ReportPeriod.YEAR) {
+                                Row(Modifier.fillMaxWidth().height(76.dp)) {
+                                    trendLabels.forEachIndexed { index, label ->
+                                        Box(
+                                            Modifier.weight(1f).height(76.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                label,
+                                                modifier = Modifier.width(68.dp).height(18.dp)
+                                                    .then(Modifier.graphicsLayer { rotationZ = -90f }),
+                                                color = if (index == selectedTrendIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontWeight = if (index == selectedTrendIndex) FontWeight.Bold else FontWeight.Normal,
+                                                fontSize = 9.sp,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    trendLabels.forEachIndexed { index, label ->
+                                        Text(
+                                            label,
+                                            color = if (index == selectedTrendIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = if (index == selectedTrendIndex) FontWeight.Bold else FontWeight.Normal,
+                                            fontSize = 9.sp,
+                                            maxLines = 1
+                                        )
+                                    }
                                 }
                             }
                             if (selectedTrendIndex in trendAmounts.indices) {
@@ -663,7 +711,7 @@ fun FinancialReportScreen(
                             }
                         }
                         Text(
-                            if (period == ReportPeriod.YEAR) "برچسب‌ها به‌ترتیب ماه‌های سال هستند" else "بازه‌های روزانه ماه",
+                            if (period == ReportPeriod.YEAR) "۱۲ ماه سال شمسی؛ هر ماه با رنگ مستقل" else "بازه‌های روزانه ماه",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
                         )
