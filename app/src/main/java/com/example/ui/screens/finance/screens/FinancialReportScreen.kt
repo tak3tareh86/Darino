@@ -42,18 +42,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import com.example.ui.screens.finance.model.TransactionCategory
 import com.example.ui.screens.finance.model.TransactionItemData
@@ -107,8 +100,6 @@ fun FinancialReportScreen(
         }
     }
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
-    var showAllCategories by remember { mutableStateOf(false) }
-    var selectedTrendIndex by remember(period, selectedYear, selectedMonth, selectedType) { mutableIntStateOf(-1) }
 
     val rangeStart = if (period == ReportPeriod.MONTH) {
         PersianCalendarHelper.jalaliToEpochMillis(selectedYear, selectedMonth, 1, 0, 0)
@@ -152,72 +143,11 @@ fun FinancialReportScreen(
     if (calculatedTotal == null) hasAmountOverflow = true
     val totalAmount = calculatedTotal ?: 0L
     val totals = if (hasAmountOverflow) emptyList() else computedTotals
-    val trendBuckets = if (period == ReportPeriod.YEAR) 12 else 6
-    val monthlyTrendRanges = if (period == ReportPeriod.MONTH) {
-        reportTrendDayRanges(PersianCalendarHelper.getDaysInMonth(selectedYear, selectedMonth), trendBuckets)
-    } else {
-        emptyList()
-    }
-    // The annual chart always keeps all twelve Jalali months visible.
-    // Months after the current month naturally contain zero until transactions exist.
-    val visibleTrendBuckets = if (period == ReportPeriod.YEAR) 12 else when {
-        isCurrentPeriod -> monthlyTrendRanges.count { it.first <= currentJalaliDate.day }.coerceAtLeast(1)
-        else -> trendBuckets
-    }
-    val trendAmounts = (0 until visibleTrendBuckets).map { index ->
-        val bucketStart: Long
-        val bucketEnd: Long
-        if (period == ReportPeriod.YEAR) {
-            bucketStart = PersianCalendarHelper.jalaliToEpochMillis(selectedYear, index + 1, 1, 0, 0)
-            bucketEnd = PersianCalendarHelper.jalaliToEpochMillis(
-                if (index == 11) selectedYear + 1 else selectedYear,
-                if (index == 11) 1 else index + 2, 1, 0, 0
-            )
-        } else {
-            val bucketDays = monthlyTrendRanges[index]
-            bucketStart = PersianCalendarHelper.jalaliToEpochMillis(
-                selectedYear, selectedMonth, bucketDays.first, 0, 0
-            )
-            bucketEnd = if (index == trendBuckets - 1) rangeEnd else {
-                PersianCalendarHelper.jalaliToEpochMillis(
-                    selectedYear, selectedMonth, bucketDays.last + 1, 0, 0
-                )
-            }
-        }
-        val boundedBucketEnd = minOf(bucketEnd, effectiveRangeEnd)
-        val bucketTransactions = periodTransactions.filter {
-            it.dateMillis >= bucketStart && it.dateMillis < boundedBucketEnd
-        }
-        val bucketTotal = runCatching {
-            sumReportAmountsExact(bucketTransactions.map {
-                MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
-            })
-        }.getOrNull()
-        if (bucketTotal == null) {
-            hasAmountOverflow = true
-            0L
-        } else bucketTotal
-    }
-
-    val monthNames = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
-    val allTrendLabels = if (period == ReportPeriod.YEAR) {
-        monthNames
-    } else {
-        monthlyTrendRanges.mapIndexed { index, range ->
-            val displayedLastDay = if (
-                isCurrentPeriod && index == visibleTrendBuckets - 1
-            ) minOf(range.last, currentJalaliDate.day) else range.last
-            "${MoneyFormatter.toPersianDigits(range.first.toString())}-${MoneyFormatter.toPersianDigits(displayedLastDay.toString())}"
-        }
-    }
-    val trendLabels = allTrendLabels.take(visibleTrendBuckets)
     val periodTitle = if (period == ReportPeriod.MONTH) "${monthNames[selectedMonth - 1]} ${MoneyFormatter.toPersianDigits(selectedYear.toString())}" else "سال ${MoneyFormatter.toPersianDigits(selectedYear.toString())}"
     val amountText = if (hasAmountOverflow) "—" else MoneyFormatter.formatExact(MoneyAmount.of(totalAmount, AppCurrency.RIAL), includeUnit = false)
     val unitLabel = MoneyFormatter.getUnitLabel()
     val chartPrimaryColor = MaterialTheme.colorScheme.primary
     val chartTrackColor = MaterialTheme.colorScheme.surfaceVariant
-    val trendAverageColor = MaterialTheme.colorScheme.tertiary
-    val trendPointSurfaceColor = MaterialTheme.colorScheme.surface
 
     Column(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
@@ -337,53 +267,49 @@ fun FinancialReportScreen(
                                 }
                             }
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                totals.take(5).forEach { item ->
+                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                            if (hasAmountOverflow) {
+                                Text("جمع دسته‌بندی‌ها قابل محاسبه نیست.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                            } else if (totals.isEmpty()) {
+                                Text("در این بازه تراکنشی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                            } else {
+                                totals.forEach { item ->
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = item.category.accentColor.copy(alpha = 0.13f)
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = item.category.accentColor.copy(alpha = 0.12f)
                                     ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalArrangement = Arrangement.spacedBy(5.dp)
                                         ) {
-                                            Box(Modifier.size(10.dp).clip(CircleShape).background(item.category.accentColor))
-                                            Spacer(Modifier.width(6.dp))
-                                            Text(item.category.title, modifier = Modifier.weight(1f), maxLines = 1, fontSize = 11.sp)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Box(Modifier.size(9.dp).clip(CircleShape).background(item.category.accentColor))
+                                                Spacer(Modifier.width(7.dp))
+                                                Text(
+                                                    item.category.title,
+                                                    modifier = Modifier.weight(1f),
+                                                    maxLines = 1,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                Text(
+                                                    "${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                             Text(
-                                                "${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold
+                                                MoneyFormatter.formatExact(MoneyAmount.of(item.amount, AppCurrency.RIAL), includeUnit = false),
+                                                modifier = Modifier.fillMaxWidth(),
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
                                             )
                                         }
                                     }
-                                }
-                                if (hasAmountOverflow) {
-                                    Text("جمع دسته‌بندی‌ها قابل محاسبه نیست.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-                                } else if (totals.isEmpty()) {
-                                    Text("در این بازه تراکنشی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                                }
-                            }
-                            Box(Modifier.size(142.dp), contentAlignment = Alignment.Center) {
-                                Canvas(Modifier.fillMaxSize()) {
-                                    val stroke = 22.dp.toPx()
-                                    var startAngle = -90f
-                                    if (!hasAmountOverflow && totalAmount > 0L) {
-                                        totals.forEach { item ->
-                                            val sweep = (item.amount.toDouble() / totalAmount.toDouble() * 360.0).toFloat()
-                                            drawArc(item.category.accentColor, startAngle, sweep, false, style = Stroke(stroke, cap = StrokeCap.Butt))
-                                            startAngle += sweep
-                                        }
-                                    } else {
-                                        drawArc(chartTrackColor, -90f, 360f, false, style = Stroke(stroke))
-                                    }
-                                }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("جمع کل", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(amountText, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                    Text(unitLabel, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -404,8 +330,15 @@ fun FinancialReportScreen(
                 }
             }
             item {
-                Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
@@ -429,393 +362,56 @@ fun FinancialReportScreen(
                                     )
                                 }
                                 Text(
-                                    "روند تغییرات",
+                                    "نمودار توزیع",
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary,
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }
                         }
-                        if (hasAmountOverflow) {
-                            Text("نمودار به دلیل خارج بودن مجموع مبالغ از محدوده محاسبه نمایش داده نمی‌شود.", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
-                        } else {
-                            // Exclude the in-progress final bucket from the average.
-                            val elapsedTrendAmounts = if (isCurrentPeriod && period == ReportPeriod.YEAR) {
-                                trendAmounts.take(currentJalaliDate.month)
-                            } else {
-                                trendAmounts
-                            }
-                            val averageBuckets = if (isCurrentPeriod && elapsedTrendAmounts.size > 1) {
-                                elapsedTrendAmounts.dropLast(1)
-                            } else {
-                                elapsedTrendAmounts
-                            }
-                            val trendSumResult = sumReportAmountsExact(averageBuckets)
-                            val trendSum = trendSumResult ?: 0L
-                            val averageTrend = if (averageBuckets.isNotEmpty()) trendSum / averageBuckets.size else 0L
-                            val maxTrend = elapsedTrendAmounts.maxOrNull() ?: 0L
-                            val minTrend = elapsedTrendAmounts.minOrNull() ?: 0L
-                            val previousYear = when {
-                                period == ReportPeriod.MONTH && selectedMonth > 1 -> selectedYear
-                                else -> selectedYear - 1
-                            }
-                            val previousMonth = if (period == ReportPeriod.MONTH) {
-                                if (selectedMonth == 1) 12 else selectedMonth - 1
-                            } else {
-                                currentJalaliDate.month
-                            }
-                            val previousRangeStart = if (period == ReportPeriod.MONTH) {
-                                PersianCalendarHelper.jalaliToEpochMillis(previousYear, previousMonth, 1, 0, 0)
-                            } else {
-                                PersianCalendarHelper.jalaliToEpochMillis(selectedYear - 1, 1, 1, 0, 0)
-                            }
-                            val previousComparableEnd = if (isCurrentPeriod) {
-                                val previousDay = currentJalaliDate.day.coerceAtMost(
-                                    PersianCalendarHelper.getDaysInMonth(previousYear, previousMonth)
-                                )
-                                minOf(
-                                    rangeStart,
-                                    PersianCalendarHelper.jalaliToEpochMillis(
-                                        previousYear, previousMonth, previousDay,
-                                        currentJalaliDate.hour, currentJalaliDate.minute
-                                    ) + 60_000L
-                                )
-                            } else {
-                                rangeStart
-                            }
-                            val currentComparableTotal = runCatching {
-                                sumReportAmountsExact(periodTransactions.map {
-                                    MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
-                                })
-                            }.getOrNull()
-                            val previousTotalResult = runCatching {
-                                sumReportAmountsExact(transactions.filter {
-                                    it.dateMillis >= previousRangeStart &&
-                                        it.dateMillis < previousComparableEnd &&
-                                        it.type == selectedType
-                                }.map {
-                                    MoneyAmount.of(it.amount, it.amountUnit).asRialsLongExact()
-                                })
-                            }.getOrNull()
-                            val changeText = when {
-                                currentComparableTotal == null || previousTotalResult == null -> "—"
-                                previousTotalResult == 0L && currentComparableTotal == 0L -> "بدون تغییر"
-                                previousTotalResult == 0L -> "شروع از صفر"
-                                else -> {
-                                    val change = (currentComparableTotal.toDouble() - previousTotalResult.toDouble()) /
-                                        previousTotalResult.toDouble() * 100.0
-                                    val rounded = kotlin.math.round(change).toLong()
-                                    when {
-                                        rounded > 0 -> "افزایش ${MoneyFormatter.toPersianDigits(rounded.toString())}٪"
-                                        rounded < 0 -> "کاهش ${MoneyFormatter.toPersianDigits(kotlin.math.abs(rounded).toString())}٪"
-                                        else -> "بدون تغییر"
-                                    }
-                                }
-                            }
-                            val changeColor = when {
-                                currentComparableTotal == null || previousTotalResult == null -> MaterialTheme.colorScheme.onSurfaceVariant
-                                currentComparableTotal == previousTotalResult -> MaterialTheme.colorScheme.onSurfaceVariant
-                                (currentComparableTotal > previousTotalResult) == (selectedType == TransactionType.INCOME) -> MaterialTheme.colorScheme.tertiary
-                                else -> MaterialTheme.colorScheme.error
-                            }
-                            val averageLabel = if (period == ReportPeriod.YEAR) "میانگین ماه‌ها" else "میانگین بازه‌ها"
-                            val averageDescription = when {
-                                isCurrentPeriod && averageBuckets.size == 1 -> "تا این زمان"
-                                isCurrentPeriod -> if (period == ReportPeriod.YEAR) "فقط ماه‌های کامل" else "فقط بازه‌های کامل"
-                                else -> if (period == ReportPeriod.YEAR) "در ماه‌های این سال" else "در بازه‌های این ماه"
-                            }
-                            val maxMinDescription = if (period == ReportPeriod.YEAR) "در یک ماه" else "در یک بازه"
-                            val comparisonDescription = when {
-                                isCurrentPeriod && period == ReportPeriod.YEAR -> "از ابتدای سال تا امروز، با همین مدت پارسال"
-                                isCurrentPeriod -> "تا امروز، با همین مدت ماه قبل"
-                                period == ReportPeriod.YEAR -> "در مقایسه با سال قبل"
-                                else -> "در مقایسه با ماه قبل"
-                            }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TrendMetricCard(
-                                    averageLabel,
-                                    MoneyFormatter.formatExact(MoneyAmount.of(averageTrend, AppCurrency.RIAL), includeUnit = false),
-                                    Modifier.weight(1f),
-                                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
-                                    description = averageDescription
-                                )
-                                TrendMetricCard(
-                                    "بیشترین مبلغ",
-                                    MoneyFormatter.formatExact(MoneyAmount.of(maxTrend, AppCurrency.RIAL), includeUnit = false),
-                                    Modifier.weight(1f),
-                                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f),
-                                    description = maxMinDescription
-                                )
-                            }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TrendMetricCard(
-                                    "کمترین مبلغ",
-                                    MoneyFormatter.formatExact(MoneyAmount.of(minTrend, AppCurrency.RIAL), includeUnit = false),
-                                    Modifier.weight(1f),
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-                                    description = maxMinDescription
-                                )
-                                TrendMetricCard(
-                                    "مقایسه با دوره قبل",
-                                    changeText,
-                                    Modifier.weight(1f),
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                                    valueColor = changeColor,
-                                    description = comparisonDescription
-                                )
-                            }
-                            Canvas(
-                                Modifier.fillMaxWidth().height(148.dp).pointerInput(trendAmounts) {
-                                    detectTapGestures { tap ->
-                                        val horizontalInset = 5.dp.toPx()
-                                        val usableWidth = (size.width - horizontalInset * 2).coerceAtLeast(1f)
-                                        val visualIndex = (((tap.x - horizontalInset) / usableWidth) * trendAmounts.lastIndex)
-                                            .roundToInt().coerceIn(0, trendAmounts.lastIndex)
-                                        selectedTrendIndex = trendAmounts.lastIndex - visualIndex
-                                    }
-                                }
-                            ) {
-                                val maxValue = (trendAmounts.maxOrNull() ?: 0L).coerceAtLeast(1L).toDouble()
-                                val horizontalInset = 5.dp.toPx()
-                                val topInset = 12.dp.toPx()
-                                val bottomInset = 12.dp.toPx()
-                                val usableWidth = (size.width - horizontalInset * 2).coerceAtLeast(1f)
-                                val usableHeight = (size.height - topInset - bottomInset).coerceAtLeast(1f)
-                                val points = trendAmounts.mapIndexed { index, value ->
-                                    Offset(
-                                        horizontalInset + if (trendAmounts.size > 1) usableWidth * (trendAmounts.lastIndex - index) / trendAmounts.lastIndex else usableWidth / 2f,
-                                        topInset + usableHeight * (1.0 - value.toDouble() / maxValue).toFloat()
-                                    )
-                                }
-                                repeat(4) { index ->
-                                    val y = topInset + usableHeight * index / 3f
-                                    drawLine(
-                                        color = chartTrackColor.copy(alpha = 0.65f),
-                                        start = Offset(horizontalInset, y),
-                                        end = Offset(size.width - horizontalInset, y),
-                                        strokeWidth = 1.dp.toPx()
-                                    )
-                                }
-                                fun smoothPath(closeAtBottom: Boolean): Path {
-                                    val path = Path()
-                                    if (points.isEmpty()) return path
-                                    path.moveTo(points.first().x, points.first().y)
-                                    for (index in 0 until points.lastIndex) {
-                                        val first = points[index]
-                                        val second = points[index + 1]
-                                        val middleX = (first.x + second.x) / 2f
-                                        path.cubicTo(middleX, first.y, middleX, second.y, second.x, second.y)
-                                    }
-                                    if (closeAtBottom) {
-                                        path.lineTo(points.last().x, size.height - bottomInset)
-                                        path.lineTo(points.first().x, size.height - bottomInset)
-                                        path.close()
-                                    }
-                                    return path
-                                }
-                                if (points.size > 1) {
-                                    val monthAreaColors = listOf(
-                                        Color(0xFF4285F4), Color(0xFF26A69A), Color(0xFF66BB6A),
-                                        Color(0xFF9CCC65), Color(0xFFFFCA28), Color(0xFFFFA726),
-                                        Color(0xFFFF7043), Color(0xFFEC407A), Color(0xFFAB47BC),
-                                        Color(0xFF7E57C2), Color(0xFF5C6BC0), Color(0xFF29B6F6)
-                                    )
-                                    val areaPath = smoothPath(true)
-                                    points.indices.forEach { index ->
-                                        val leftBoundary = if (index == points.lastIndex) {
-                                            horizontalInset
-                                        } else {
-                                            (points[index].x + points[index + 1].x) / 2f
-                                        }
-                                        val rightBoundary = if (index == 0) {
-                                            size.width - horizontalInset
-                                        } else {
-                                            (points[index - 1].x + points[index].x) / 2f
-                                        }
-                                        drawContext.canvas.save()
-                                        drawContext.canvas.clipRect(
-                                            leftBoundary, topInset, rightBoundary, size.height - bottomInset
+                        Box(Modifier.size(210.dp), contentAlignment = Alignment.Center) {
+                            Canvas(Modifier.fillMaxSize()) {
+                                val stroke = 28.dp.toPx()
+                                var startAngle = -90f
+                                if (!hasAmountOverflow && totalAmount > 0L) {
+                                    totals.forEach { item ->
+                                        val sweep = (item.amount.toDouble() / totalAmount.toDouble() * 360.0).toFloat()
+                                        drawArc(
+                                            item.category.accentColor,
+                                            startAngle,
+                                            sweep,
+                                            false,
+                                            style = Stroke(stroke, cap = StrokeCap.Butt)
                                         )
-                                        drawPath(
-                                            areaPath,
-                                            color = monthAreaColors[index % monthAreaColors.size].copy(alpha = 0.24f)
-                                        )
-                                        drawContext.canvas.restore()
+                                        startAngle += sweep
                                     }
-                                    drawPath(
-                                        smoothPath(false),
-                                        color = chartPrimaryColor,
-                                        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-                                    )
-                                }
-                                val averageY = topInset + usableHeight * (1.0 - averageTrend.toDouble() / maxValue).toFloat()
-                                drawLine(
-                                    color = trendAverageColor,
-                                    start = Offset(horizontalInset, averageY),
-                                    end = Offset(size.width - horizontalInset, averageY),
-                                    strokeWidth = 1.6.dp.toPx(),
-                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(), 5.dp.toPx()))
-                                )
-                                if (selectedTrendIndex in points.indices) {
-                                    val selectedPoint = points[selectedTrendIndex]
-                                    drawLine(
-                                        color = trendAverageColor.copy(alpha = 0.65f),
-                                        start = Offset(selectedPoint.x, topInset),
-                                        end = Offset(selectedPoint.x, size.height - bottomInset),
-                                        strokeWidth = 1.dp.toPx(),
-                                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()))
-                                    )
-                                }
-                                points.forEachIndexed { index, point ->
-                                    drawCircle(
-                                        color = trendPointSurfaceColor,
-                                        radius = if (index == selectedTrendIndex) 7.dp.toPx() else 5.dp.toPx(),
-                                        center = point
-                                    )
-                                    drawCircle(
-                                        color = chartPrimaryColor,
-                                        radius = if (index == selectedTrendIndex) 5.dp.toPx() else 3.dp.toPx(),
-                                        center = point
-                                    )
+                                } else {
+                                    drawArc(chartTrackColor, -90f, 360f, false, style = Stroke(stroke))
                                 }
                             }
-                            if (period == ReportPeriod.YEAR) {
-                                Row(Modifier.fillMaxWidth().height(76.dp)) {
-                                    trendLabels.forEachIndexed { index, label ->
-                                        Box(
-                                            Modifier.weight(1f).height(76.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                label,
-                                                modifier = Modifier.width(68.dp).height(18.dp)
-                                                    .then(Modifier.graphicsLayer { rotationZ = -90f }),
-                                                color = if (index == selectedTrendIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontWeight = if (index == selectedTrendIndex) FontWeight.Bold else FontWeight.Normal,
-                                                fontSize = 9.sp,
-                                                maxLines = 1,
-                                                softWrap = false,
-                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                            )
-                                        }
-                                    }
-                                }
-                            } else {
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    trendLabels.forEachIndexed { index, label ->
-                                        Text(
-                                            label,
-                                            color = if (index == selectedTrendIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontWeight = if (index == selectedTrendIndex) FontWeight.Bold else FontWeight.Normal,
-                                            fontSize = 9.sp,
-                                            maxLines = 1
-                                        )
-                                    }
-                                }
-                            }
-                            if (selectedTrendIndex in trendAmounts.indices) {
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                                ) {
-                                    Row(
-                                        Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            trendLabels[selectedTrendIndex],
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 12.sp
-                                        )
-                                        Spacer(Modifier.weight(1f))
-                                        Text(
-                                            MoneyFormatter.formatExact(MoneyAmount.of(trendAmounts[selectedTrendIndex], AppCurrency.RIAL), includeUnit = false) + " " + unitLabel,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-                                }
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Box(Modifier.size(7.dp).clip(CircleShape).background(chartPrimaryColor))
-                                Text("مقدار هر بازه", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
-                                Spacer(Modifier.width(8.dp))
-                                Box(Modifier.width(15.dp).height(2.dp).background(trendAverageColor))
-                                Text("میانگین", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("جمع کل", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(amountText, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                                Text(unitLabel, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                        Text(
-                            if (period == ReportPeriod.YEAR) "۱۲ ماه سال شمسی؛ هر ماه با رنگ مستقل" else "بازه‌های روزانه ماه",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-            }
-            item {
-                Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("دسته‌بندی‌ها", fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.weight(1f))
-                            Text("${MoneyFormatter.toPersianDigits(totals.size.toString())} دسته", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                        }
                         if (hasAmountOverflow) {
-                            Text("به‌دلیل محدودیت محاسبات عددی، جزئیات جمع‌بندی این بازه نمایش داده نمی‌شود.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                            Text(
+                                "به‌دلیل محدودیت محاسبات عددی، نمودار این بازه نمایش داده نمی‌شود.",
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 12.sp
+                            )
                         } else if (totals.isEmpty()) {
-                            Text("داده‌ای برای نمایش وجود ندارد.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                        } else {
-                            val displayedCategories = if (showAllCategories) totals else totals.take(5)
-                            displayedCategories.forEach { item ->
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(item.category.iconEmoji, fontSize = 16.sp)
-                                        Spacer(Modifier.width(7.dp))
-                                        Text(item.category.title, Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 12.sp, maxLines = 1)
-                                        Text(MoneyFormatter.formatExact(MoneyAmount.of(item.amount, AppCurrency.RIAL), includeUnit = false), fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
-                                        Spacer(Modifier.width(7.dp))
-                                        Text("${if (totalAmount > 0) (item.amount.toDouble() / totalAmount.toDouble() * 100.0).toInt() else 0}٪", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                                    }
-                                    Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)) {
-                                        Box(Modifier.fillMaxWidth(if (totalAmount > 0) (item.amount.toFloat() / totalAmount).coerceIn(0f, 1f) else 0f).height(4.dp).clip(CircleShape).background(item.category.accentColor))
-                                    }
-                                }
-                            }
-                            if (totals.size > 5) {
-                                Text(
-                                    if (showAllCategories) "نمایش کمتر" else "مشاهده همه دسته‌ها (${MoneyFormatter.toPersianDigits((totals.size - 5).toString())} مورد دیگر)",
-                                    modifier = Modifier.fillMaxWidth().clickable { showAllCategories = !showAllCategories }.padding(vertical = 5.dp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                )
-                            }
+                            Text(
+                                "در این بازه تراکنشی ثبت نشده است.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp
+                            )
                         }
                     }
                 }
             }
 
-        }
-    }
-}
-
-@Composable
-private fun TrendMetricCard(
-    label: String,
-    value: String,
-    modifier: Modifier,
-    containerColor: Color,
-    valueColor: Color = MaterialTheme.colorScheme.onSurface,
-    description: String
-) {
-    Surface(modifier = modifier, shape = RoundedCornerShape(12.dp), color = containerColor) {
-        Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, maxLines = 1)
-            Text(value, color = valueColor, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
-            Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, maxLines = 2)
         }
     }
 }
