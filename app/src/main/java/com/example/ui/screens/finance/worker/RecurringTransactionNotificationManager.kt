@@ -87,7 +87,6 @@ object RecurringTransactionNotificationManager {
     }
 
     @Synchronized
-    @Synchronized
     fun removePending(context: Context, userId: String, occurrenceId: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val current = JSONArray(prefs.getString(storageKey(userId), "[]") ?: "[]")
