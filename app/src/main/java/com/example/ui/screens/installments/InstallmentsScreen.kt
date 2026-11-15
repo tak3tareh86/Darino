@@ -464,9 +464,9 @@ fun InstallmentsScreen(
                 val parsedTotal = rawTotalRials
                 val parsedMonthly = rawMonthlyRials
 
-                val totalAmount = if (!customScheduleItems.isNullOrEmpty()) {
-                    customScheduleItems.fold(0L) { total, item -> Math.addExact(total, item.amount) }
-                } else parsedTotal
+                // Keep the entered loan principal as the contract total.
+                // A custom repayment schedule may legitimately exceed it (e.g. interest/fees).
+                val totalAmount = parsedTotal
                 val totalInstallments = if (!customScheduleItems.isNullOrEmpty()) customScheduleItems.size else parsedCount
 
                 if (!customScheduleItems.isNullOrEmpty()) {
@@ -474,12 +474,12 @@ fun InstallmentsScreen(
                     val expectedNumbers = if (parsedCount > 0) (1..parsedCount).toList() else emptyList()
                     val customTotal = customScheduleItems.fold(0L) { total, item -> Math.addExact(total, item.amount) }
                     if (parsedTotal <= 0L || customScheduleItems.size != parsedCount ||
-                        sortedNumbers != expectedNumbers || customTotal != parsedTotal
+                        sortedNumbers != expectedNumbers || customTotal < parsedTotal
                     ) {
                         coroutineScope.launch {
-                            val difference = Math.subtractExact(parsedTotal, customTotal).let { if (it < 0L) it.absoluteValue else it }
+                            val difference = Math.subtractExact(parsedTotal, customTotal).let { if (it > 0L) it else 0L }
                             snackbarHostState.showSnackbar(
-                                "برنامه اقساط قابل ثبت نیست. تعداد و شماره اقساط باید کامل و بدون تکرار باشند و جمع اقساط دقیقاً برابر مبلغ وام باشد. اختلاف: ${MoneyFormatter.formatExact(MoneyAmount.of(difference, AppCurrency.RIAL))}"
+                                "برنامه اقساط قابل ثبت نیست. تعداد و شماره اقساط باید کامل و بدون تکرار باشند و جمع اقساط نباید کمتر از مبلغ وام باشد. کسری: ${MoneyFormatter.formatExact(MoneyAmount.of(difference, AppCurrency.RIAL))}"
                             )
                         }
                         return@AddInstallmentSheet
