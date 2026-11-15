@@ -22,6 +22,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.TrendingDown
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -203,10 +205,10 @@ fun FinancialReportScreen(
             item {
                 Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)) {
                     Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ReportSegment("هزینه‌ها", selectedType == TransactionType.EXPENSE, Modifier.weight(1f)) {
+                        ReportSegment("هزینه‌ها", selectedType == TransactionType.EXPENSE, Modifier.weight(1f), icon = Icons.Default.TrendingDown) {
                             selectedType = TransactionType.EXPENSE
                         }
-                        ReportSegment("درآمدها", selectedType == TransactionType.INCOME, Modifier.weight(1f)) {
+                        ReportSegment("درآمدها", selectedType == TransactionType.INCOME, Modifier.weight(1f), icon = Icons.Default.TrendingUp) {
                             selectedType = TransactionType.INCOME
                         }
                     }
@@ -396,14 +398,25 @@ fun FinancialReportScreen(
 }
 
 @Composable
-private fun ReportSegment(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun ReportSegment(label: String, selected: Boolean, modifier: Modifier = Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
     Surface(
         modifier = modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
         color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
         shape = RoundedCornerShape(12.dp)
     ) {
-        Text(label, modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, fontSize = 13.sp)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (icon != null) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(17.dp),
+                    tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(label, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, fontSize = 13.sp)
+        }
     }
 }
