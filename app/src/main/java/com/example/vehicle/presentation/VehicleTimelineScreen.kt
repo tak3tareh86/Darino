@@ -324,11 +324,14 @@ private fun buildTimelineDisplayItems(events: List<VehicleTimelineEvent>): List<
             // total cost is stored on the first record only, so summing is safe.
             val groupKey = "${event.date}|${event.mileage}|${event.subtitle}"
             val existingIndex = serviceGroupIndexes[groupKey]
-            if (existingIndex == null) {
+            // In a saved batch, only the first service carries the visit cost;
+            // following services carry zero. Do not merge two independently
+            // recorded, same-day services when both have their own amount.
+            if (event.amount == 0L && existingIndex != null) {
+                grouped[existingIndex].add(event)
+            } else {
                 serviceGroupIndexes[groupKey] = grouped.size
                 grouped.add(mutableListOf(event))
-            } else {
-                grouped[existingIndex].add(event)
             }
         } else {
             grouped.add(mutableListOf(event))
