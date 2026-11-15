@@ -41,6 +41,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.geometry.Offset
@@ -85,6 +89,7 @@ fun FinancialReportScreen(
     var selectedMonth by remember { mutableIntStateOf(initialDate.month) }
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
     var showAllCategories by remember { mutableStateOf(false) }
+    var selectedTrendIndex by remember(period, selectedYear, selectedMonth, selectedType) { mutableIntStateOf(-1) }
 
     val rangeStart = if (period == ReportPeriod.MONTH) {
         PersianCalendarHelper.jalaliToEpochMillis(selectedYear, selectedMonth, 1, 0, 0)
@@ -402,31 +407,180 @@ fun FinancialReportScreen(
                         if (hasAmountOverflow) {
                             Text("نمودار به دلیل خارج بودن مجموع مبالغ از محدوده محاسبه نمایش داده نمی‌شود.", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
                         } else {
-                        Canvas(Modifier.fillMaxWidth().height(112.dp)) {
-                            val maxValue = (trendAmounts.maxOrNull() ?: 0L).coerceAtLeast(1L).toFloat()
-                            val stepX = if (trendAmounts.size > 1) size.width / (trendAmounts.size - 1) else size.width
-                            val points = trendAmounts.mapIndexed { index, value ->
-                                Offset(index * stepX, size.height - (value.toFloat() / maxValue * (size.height - 12.dp.toPx())) - 6.dp.toPx())
-                            }
-                            if (points.size > 1) {
-                                val path = Path().apply {
-                                    moveTo(points.first().x, points.first().y)
-                                    points.drop(1).forEach { lineTo(it.x, it.y) }
+                            val trendSum = sumReportAmountsExact(trendAmounts) ?: 0L
+                            val averageTrend = if (trendAmounts.isNotEmpty()) trendSum / trendAmounts.size else 0L
+                            val maxTrend = trendAmounts.maxOrNull() ?: 0L
+                            val maxTrendIndex = trendAmounts.indexOfFirst { it == maxTrend }.coerceAtLeast(0)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
+                                ) {
+                                    Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text("میانگین هر بازه", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                                        Text(
+                                            MoneyFormatter.formatExact(MoneyAmount.of(averageTrend, AppCurrency.RIAL), includeUnit = false),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            maxLines = 1
+                                        )
+                                    }
                                 }
-                                drawPath(path, chartPrimaryColor, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f)
+                                ) {
+                                    Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text("بیشترین مقدار", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                                        Text(
+                                            MoneyFormatter.formatExact(MoneyAmount.of(maxTrend, AppCurrency.RIAL), includeUnit = false),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
                             }
-                            points.forEach { point ->
-                                drawCircle(chartPrimaryColor, radius = 4.dp.toPx(), center = point)
-                            }
-                        }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            trendLabels.forEach { label ->
-                                Text(
-                                    label,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = if (period == ReportPeriod.YEAR) 8.sp else 9.sp,
-                                    maxLines = 1
+                            Canvas(
+                                Modifier.fillMaxWidth().height(148.dp).pointerInput(trendAmounts) {
+                                    detectTapGestures { tap ->
+                                        val index = ((tap.x / size.width) * trendAmounts.size)
+                                            .toInt().coerceIn(0, trendAmounts.lastIndex)
+                                        selectedTrendIndex = index
+                                    }
+                                }
+                            ) {
+                                val maxValue = (trendAmounts.maxOrNull() ?: 0L).coerceAtLeast(1L).toDouble()
+                                val horizontalInset = 5.dp.toPx()
+                                val topInset = 12.dp.toPx()
+                                val bottomInset = 12.dp.toPx()
+                                val usableWidth = (size.width - horizontalInset * 2).coerceAtLeast(1f)
+                                val usableHeight = (size.height - topInset - bottomInset).coerceAtLeast(1f)
+                                val points = trendAmounts.mapIndexed { index, value ->
+                                    Offset(
+                                        horizontalInset + if (trendAmounts.size > 1) usableWidth * index / (trendAmounts.size - 1) else usableWidth / 2f,
+                                        topInset + usableHeight * (1.0 - value.toDouble() / maxValue).toFloat()
+                                    )
+                                }
+                                repeat(4) { index ->
+                                    val y = topInset + usableHeight * index / 3f
+                                    drawLine(
+                                        color = chartTrackColor.copy(alpha = 0.65f),
+                                        start = Offset(horizontalInset, y),
+                                        end = Offset(size.width - horizontalInset, y),
+                                        strokeWidth = 1.dp.toPx()
+                                    )
+                                }
+                                fun smoothPath(closeAtBottom: Boolean): Path {
+                                    val path = Path()
+                                    if (points.isEmpty()) return path
+                                    path.moveTo(points.first().x, points.first().y)
+                                    for (index in 0 until points.lastIndex) {
+                                        val first = points[index]
+                                        val second = points[index + 1]
+                                        val middleX = (first.x + second.x) / 2f
+                                        path.cubicTo(middleX, first.y, middleX, second.y, second.x, second.y)
+                                    }
+                                    if (closeAtBottom) {
+                                        path.lineTo(points.last().x, size.height - bottomInset)
+                                        path.lineTo(points.first().x, size.height - bottomInset)
+                                        path.close()
+                                    }
+                                    return path
+                                }
+                                if (points.size > 1) {
+                                    drawPath(
+                                        smoothPath(true),
+                                        brush = Brush.verticalGradient(
+                                            colors = listOf(chartPrimaryColor.copy(alpha = 0.28f), chartPrimaryColor.copy(alpha = 0.015f)),
+                                            startY = topInset,
+                                            endY = size.height - bottomInset
+                                        )
+                                    )
+                                    drawPath(
+                                        smoothPath(false),
+                                        color = chartPrimaryColor,
+                                        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                                    )
+                                }
+                                val averageY = topInset + usableHeight * (1.0 - averageTrend.toDouble() / maxValue).toFloat()
+                                drawLine(
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    start = Offset(horizontalInset, averageY),
+                                    end = Offset(size.width - horizontalInset, averageY),
+                                    strokeWidth = 1.6.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(), 5.dp.toPx()))
                                 )
+                                if (selectedTrendIndex in points.indices) {
+                                    val selectedPoint = points[selectedTrendIndex]
+                                    drawLine(
+                                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.65f),
+                                        start = Offset(selectedPoint.x, topInset),
+                                        end = Offset(selectedPoint.x, size.height - bottomInset),
+                                        strokeWidth = 1.dp.toPx(),
+                                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()))
+                                    )
+                                }
+                                points.forEachIndexed { index, point ->
+                                    drawCircle(
+                                        color = MaterialTheme.colorScheme.surface,
+                                        radius = if (index == selectedTrendIndex) 7.dp.toPx() else 5.dp.toPx(),
+                                        center = point
+                                    )
+                                    drawCircle(
+                                        color = chartPrimaryColor,
+                                        radius = if (index == selectedTrendIndex) 5.dp.toPx() else 3.dp.toPx(),
+                                        center = point
+                                    )
+                                }
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                trendLabels.forEachIndexed { index, label ->
+                                    Text(
+                                        label,
+                                        color = if (index == selectedTrendIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = if (index == selectedTrendIndex) FontWeight.Bold else FontWeight.Normal,
+                                        fontSize = if (period == ReportPeriod.YEAR) 8.sp else 9.sp,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                            if (selectedTrendIndex in trendAmounts.indices) {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                ) {
+                                    Row(
+                                        Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            trendLabels[selectedTrendIndex],
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 12.sp
+                                        )
+                                        Spacer(Modifier.weight(1f))
+                                        Text(
+                                            MoneyFormatter.formatExact(MoneyAmount.of(trendAmounts[selectedTrendIndex], AppCurrency.RIAL), includeUnit = false) + " " + unitLabel,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Box(Modifier.size(7.dp).clip(CircleShape).background(chartPrimaryColor))
+                                Text("مقدار هر بازه", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Box(Modifier.width(15.dp).height(2.dp).background(MaterialTheme.colorScheme.tertiary))
+                                Text("میانگین", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
                             }
                         }
                         Text(
@@ -434,7 +588,6 @@ fun FinancialReportScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
                         )
-                        }
                     }
                 }
             }
