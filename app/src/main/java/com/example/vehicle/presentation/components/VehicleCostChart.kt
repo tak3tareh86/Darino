@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.util.MoneyAmount
@@ -123,7 +124,8 @@ fun VehicleCostChart(
                     }
                     DropdownMenu(
                         expanded = selectedBarIndex == barIndex,
-                        onDismissRequest = { selectedBarIndex = -1 }
+                        onDismissRequest = { selectedBarIndex = -1 },
+                        offset = DpOffset(x = 0.dp, y = (-100).dp)
                     ) {
                         Surface(
                             shape = RoundedCornerShape(10.dp),
