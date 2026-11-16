@@ -240,7 +240,7 @@ object VehicleAnalyzer {
             }
         }
 
-        val checklist = listOf(
+        val fixedChecklist = listOf(
             insuranceStatus("بیمه‌نامه شخص ثالث", R.drawable.sales) { it.contains("ثالث") },
             insuranceStatus("بیمه‌نامه بدنه", R.drawable.badaneh) { it.contains("بدنه") },
             run {
@@ -256,38 +256,36 @@ object VehicleAnalyzer {
                     }
                 }
             },
-            serviceStatus(
-                "روغن موتور",
-                listOf(ServiceType.OIL_CHANGE),
-                R.drawable.motor,
-                defaultIntervalKm = 5000
-            ),
-            serviceStatus(
-                "فیلتر روغن",
-                listOf(ServiceType.OIL_FILTER_CHANGE),
-                R.drawable.filter
-            ),
-            serviceStatus(
-                "فیلتر هوا",
-                listOf(ServiceType.AIR_FILTER_CHANGE),
-                R.drawable.filter
-            ),
-            serviceStatus(
-                "روغن گیربکس",
-                listOf(ServiceType.TRANSMISSION_OIL_CHANGE),
-                R.drawable.girbox
-            ),
-            serviceStatus(
-                "تسمه دینام",
-                listOf(ServiceType.ALTERNATOR_BELT_CHANGE),
-                R.drawable.dinam
-            ),
-            serviceStatus(
-                "تسمه تایم",
-                listOf(ServiceType.TIMING_BELT_CHANGE),
-                R.drawable.time
-            )
+            serviceStatus("روغن موتور", listOf(ServiceType.OIL_CHANGE), R.drawable.motor, defaultIntervalKm = 5000),
+            serviceStatus("فیلتر روغن", listOf(ServiceType.OIL_FILTER_CHANGE), R.drawable.filter),
+            serviceStatus("فیلتر هوا", listOf(ServiceType.AIR_FILTER_CHANGE), R.drawable.filter),
+            serviceStatus("روغن گیربکس", listOf(ServiceType.TRANSMISSION_OIL_CHANGE), R.drawable.girbox),
+            serviceStatus("تسمه دینام", listOf(ServiceType.ALTERNATOR_BELT_CHANGE), R.drawable.dinam),
+            serviceStatus("تسمه تایم", listOf(ServiceType.TIMING_BELT_CHANGE), R.drawable.time)
         )
+
+        // Keep the established baseline checks, then add every other service type
+        // that actually has a record for this vehicle. This prevents batch-selected
+        // services (battery, brakes, tires, coolant, etc.) from being invisible to
+        // the health score without penalizing owners for service types never recorded.
+        val alreadyTrackedTypes = setOf(
+            ServiceType.OIL_CHANGE,
+            ServiceType.OIL_FILTER_CHANGE,
+            ServiceType.AIR_FILTER_CHANGE,
+            ServiceType.TRANSMISSION_OIL_CHANGE,
+            ServiceType.ALTERNATOR_BELT_CHANGE,
+            ServiceType.TIMING_BELT_CHANGE
+        )
+        val additionalServiceChecks = ServiceType.values()
+            .filter { type -> type !in alreadyTrackedTypes && latestService(type) != null }
+            .map { type ->
+                serviceStatus(
+                    title = type.title,
+                    types = listOf(type),
+                    iconRes = type.iconRes
+                )
+            }
+        val checklist = fixedChecklist + additionalServiceChecks
 
         val penalties = checklist.sumOf { item ->
             when {
