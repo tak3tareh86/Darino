@@ -358,12 +358,65 @@ class FinanceStage2Test {
         val outMonthTx = TransactionItemData(id = "2", title = "Inside Mordad", amount = 3_000_000, type = TransactionType.EXPENSE, category = catFood, datePersian = "", timePersian = "", dateMillis = PersianCalendarHelper.jalaliToEpochMillis(1403, 5, 10, 12, 0))
 
         val allTxs = listOf(inMonthTx, outMonthTx)
-        val filtered = allTxs.filter { it.dateMillis >= range.startMillis && it.dateMillis < range.endMillis }
 
         val budget = Budget(id = "b_food", title = "Food Budget", amount = 5_000_000, categoryId = "food")
-        val updated = BudgetEngine.calculateBudgetUsage(budget, filtered)
+        val updated = BudgetEngine.calculateBudgetUsage(budget, allTxs, fixedNow)
 
         assertEquals(1_000_000L, updated.spentAmount)
+    }
+
+    @Test
+    fun `budget engine filters current Jalali month internally and excludes income and transfers`() {
+        val food = FinanceDefaultCategories.defaultExpenseCategories.find { it.id == "food" }!!
+        val fixedNow = PersianCalendarHelper.jalaliToEpochMillis(1403, 7, 15, 12, 0)
+        val current = TransactionItemData(id = "current", title = "Current", amount = 1_000_000,
+            type = TransactionType.EXPENSE, category = food, datePersian = "", timePersian = "", dateMillis = fixedNow)
+        val previous = current.copy(id = "previous", amount = 3_000_000,
+            dateMillis = PersianCalendarHelper.jalaliToEpochMillis(1403, 6, 20, 12, 0))
+        val income = current.copy(id = "income", amount = 9_000_000, type = TransactionType.INCOME)
+        val transfer = current.copy(id = "transfer", amount = 8_000_000, type = TransactionType.TRANSFER)
+        val budget = Budget(id = "monthly_food", title = "Food", amount = 5_000_000, categoryId = "food")
+        val result = BudgetEngine.calculateBudgetUsage(budget, listOf(current, previous, income, transfer), fixedNow)
+        assertEquals(1_000_000L, result.spentAmount)
+        assertEquals(4_000_000L, result.remainingAmount)
+    }
+
+    @Test
+    fun `global budget summary uses one cap and counts all expenses once`() {
+        val food = FinanceDefaultCategories.defaultExpenseCategories.find { it.id == "food" }!!
+        val transport = FinanceDefaultCategories.defaultExpenseCategories.find { it.id == "transport" }!!
+        val budgets = listOf(
+            Budget(id = "global", title = "All expenses", amount = 20_000_000, categoryId = null),
+            Budget(id = "food", title = "Food", amount = 5_000_000, categoryId = "food"),
+            Budget(id = "transport", title = "Transport", amount = 3_000_000, categoryId = "transport")
+        )
+        val txs = listOf(
+            TransactionItemData(id = "f", title = "Food", amount = 2_000_000, type = TransactionType.EXPENSE, category = food, datePersian = "", timePersian = ""),
+            TransactionItemData(id = "t", title = "Taxi", amount = 1_000_000, type = TransactionType.EXPENSE, category = transport, datePersian = "", timePersian = "")
+        )
+        val summary = BudgetEngine.calculateTotalMonthlyBudgetUsage(budgets, txs)
+        assertEquals(20_000_000L, summary.totalBudget)
+        assertEquals(3_000_000L, summary.totalSpent)
+        assertEquals(17_000_000L, summary.remainingBudget)
+    }
+
+    @Test
+    fun `category budget summary counts duplicate category expenses once`() {
+        val food = FinanceDefaultCategories.defaultExpenseCategories.find { it.id == "food" }!!
+        val transport = FinanceDefaultCategories.defaultExpenseCategories.find { it.id == "transport" }!!
+        val budgets = listOf(
+            Budget(id = "food1", title = "Food 1", amount = 5_000_000, categoryId = "food"),
+            Budget(id = "food2", title = "Food 2", amount = 2_000_000, categoryId = "food"),
+            Budget(id = "transport", title = "Transport", amount = 3_000_000, categoryId = "transport")
+        )
+        val txs = listOf(
+            TransactionItemData(id = "f", title = "Food", amount = 2_000_000, type = TransactionType.EXPENSE, category = food, datePersian = "", timePersian = ""),
+            TransactionItemData(id = "t", title = "Taxi", amount = 1_000_000, type = TransactionType.EXPENSE, category = transport, datePersian = "", timePersian = "")
+        )
+        val summary = BudgetEngine.calculateTotalMonthlyBudgetUsage(budgets, txs)
+        assertEquals(10_000_000L, summary.totalBudget)
+        assertEquals(3_000_000L, summary.totalSpent)
+        assertEquals(7_000_000L, summary.remainingBudget)
     }
 
     // 15: Deleted transaction does not increase budget usage
