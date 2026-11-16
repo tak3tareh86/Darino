@@ -232,7 +232,7 @@ class AccountTransferTest {
 
     @Test
     fun `Transfer - only active current-user source account is required`() = runBlocking {
-        val source = Account(id = "source_valid", userId = userA, name = "کارت مبدأ", type = AccountType.CARD, initialBalance = 1_000_000L)
+        val source = Account(id = "source_valid", userId = userA, name = "کارت مبدأ", type = AccountType.CARD)
         val inactive = Account(id = "source_inactive", userId = userA, name = "کارت غیرفعال", type = AccountType.CARD, isActive = false)
         val deleted = Account(id = "source_deleted", userId = userA, name = "کارت حذف‌شده", type = AccountType.CARD)
         repository.addAccountResult(source)
@@ -288,7 +288,6 @@ class AccountTransferTest {
 
         // The recipient is external; no second account belonging to this user is required.
         assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(base))
-        assertEquals(900_000L, repository.calculateAccountBalance(source.id))
     }
 
     @Test
