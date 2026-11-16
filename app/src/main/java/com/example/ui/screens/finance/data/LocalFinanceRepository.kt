@@ -958,10 +958,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         return try {
             val existing = db.transactionDao().getTransactionIncludingDeleted(userId, occurrenceId)
             if (existing != null) {
-                if (existing.deletedAt != null) return false
                 RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
-                RecurringTransactionNotificationManager.cancel(context, occurrenceId)
-                return true
+                return existing.deletedAt == null
             }
 
             val accountId = payload.optString("accountId").takeIf { it.isNotBlank() }
