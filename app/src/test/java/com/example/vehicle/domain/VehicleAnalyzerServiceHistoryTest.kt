@@ -73,6 +73,41 @@ class VehicleAnalyzerServiceHistoryTest {
     }
 
     @Test
+    fun healthAnalysisIncludesEveryAdditionalRecordedServiceType() {
+        val vehicle = com.example.vehicle.data.VehicleEntity(
+            id = "vehicle-1",
+            brand = "Test",
+            model = "Car",
+            year = "1400",
+            color = "",
+            plate = "",
+            currentMileage = 50000
+        )
+        val battery = service(
+            id = "battery",
+            type = ServiceType.BATTERY,
+            title = ServiceType.BATTERY.title,
+            date = "۱۴۰۵/۰۸/۱۰"
+        ).copy(nextReminderDate = "۱۴۹۹/۱۲/۲۹", isReminderEnabled = true)
+        val brakes = service(
+            id = "brakes",
+            type = ServiceType.BRAKE_PADS,
+            title = ServiceType.BRAKE_PADS.title,
+            date = "۱۴۰۵/۰۸/۱۰"
+        ).copy(nextReminderDate = "۱۴۹۹/۱۲/۲۹", isReminderEnabled = true)
+
+        val report = VehicleAnalyzer.analyzeHealth(
+            vehicle = vehicle,
+            services = listOf(battery, brakes),
+            insurances = emptyList(),
+            inspections = emptyList()
+        )
+
+        assertNotNull(report.checklist.firstOrNull { it.title == ServiceType.BATTERY.title })
+        assertNotNull(report.checklist.firstOrNull { it.title == ServiceType.BRAKE_PADS.title })
+    }
+
+    @Test
     fun genericFilterRecordDoesNotConfirmEitherSpecificFilter() {
         val generic = service(
             id = "filters",
