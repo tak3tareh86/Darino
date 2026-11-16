@@ -633,6 +633,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             (recurring.type != TransactionType.INCOME && recurring.type != TransactionType.EXPENSE)
         ) return false
 
+        val matchingCategory = (_categories.value + FinanceDefaultCategories.allDefaultCategories)
+            .firstOrNull {
+                it.id == recurring.categoryId && it.type == recurring.type && it.isActive
+            } ?: return false
+
         if (!CalendarDateUtils.isValidJalaliDate(recurring.startDate) ||
             !CalendarDateUtils.isValidJalaliDate(recurring.nextExecutionDate)
         ) return false
@@ -791,12 +796,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 val endParts = CalendarDateUtils.parseJalali(item.endDate) ?: continue
                 val endEpochDay = PersianCalendarHelper.getJalaliEpochDay(endParts.first, endParts.second, endParts.third)
                 if (nextEpochDay > endEpochDay) {
-                    val idx = updatedList.indexOfFirst { it.id == item.id }
-                    if (idx != -1) {
-                        updatedList[idx] = updatedList[idx].copy(enabled = false)
-                        hasChanges = true
-                    }
-                    RecurringTransactionNotificationManager.removePendingForRecurring(context, currentUserId, item.id)
+                    // The recurrence has reached its end. Keep any already-created,
+                    // in-range pending occurrence available for the user's confirmation.
                     continue
                 }
             }
