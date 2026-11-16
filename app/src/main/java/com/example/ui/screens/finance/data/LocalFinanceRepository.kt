@@ -633,9 +633,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             (recurring.type != TransactionType.INCOME && recurring.type != TransactionType.EXPENSE)
         ) return false
 
-        if ((_categories.value + FinanceDefaultCategories.allDefaultCategories).none {
-                it.id == recurring.categoryId && it.type == recurring.type && it.isActive
-            }) return false
+        val matchingCategory = _categories.value.firstOrNull { it.id == recurring.categoryId }
+            ?: FinanceDefaultCategories.allDefaultCategories.firstOrNull { it.id == recurring.categoryId }
+        if (matchingCategory == null || matchingCategory.type != recurring.type || !matchingCategory.isActive) {
+            return false
+        }
 
         if (!CalendarDateUtils.isValidJalaliDate(recurring.startDate) ||
             !CalendarDateUtils.isValidJalaliDate(recurring.nextExecutionDate)
