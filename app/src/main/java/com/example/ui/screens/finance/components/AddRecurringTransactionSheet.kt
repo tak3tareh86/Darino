@@ -160,7 +160,7 @@ fun AddRecurringTransactionSheet(
                         .clip(RoundedCornerShape(10.dp))
                         .clickable {
                             selectedType = TransactionType.EXPENSE
-                            categories.find { it.type == TransactionType.EXPENSE }?.let { selectedCategory = it }
+                            categories.firstOrNull { it.type == TransactionType.EXPENSE && it.isActive }?.let { selectedCategory = it }
                         },
                     shape = RoundedCornerShape(10.dp),
                     color = if (selectedType == TransactionType.EXPENSE) ExpenseRoseLight else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
@@ -183,7 +183,7 @@ fun AddRecurringTransactionSheet(
                         .clip(RoundedCornerShape(10.dp))
                         .clickable {
                             selectedType = TransactionType.INCOME
-                            categories.find { it.type == TransactionType.INCOME }?.let { selectedCategory = it }
+                            categories.firstOrNull { it.type == TransactionType.INCOME && it.isActive }?.let { selectedCategory = it }
                         },
                     shape = RoundedCornerShape(10.dp),
                     color = if (selectedType == TransactionType.INCOME) EmeraldPrimaryLight else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
@@ -329,6 +329,10 @@ fun AddRecurringTransactionSheet(
                     }
                     if (parsedAmountRials == null || parsedAmountRials <= 0L) {
                         errorMessage = "مبلغ باید بیشتر از صفر باشد."
+                        return@Button
+                    }
+                    if (availableCategories.isEmpty()) {
+                        errorMessage = "برای این نوع تراکنش، دسته‌بندی فعالی وجود ندارد."
                         return@Button
                     }
                     if (selectedAccount == null) {
