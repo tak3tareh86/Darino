@@ -93,13 +93,26 @@ fun BudgetScreen(
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     var budgetToDelete by remember { mutableStateOf<Budget?>(null) }
 
-    // Aggregate values
-    val activeBudgets = budgets.filter { it.enabled }
-    val totalBudgetValue = activeBudgets.fold(0L) { total, budget -> Math.addExact(total, MoneyAmount.of(budget.amount, budget.amountUnit).asRialsLongExact()) }
-    val totalSpentValue = activeBudgets.fold(0L) { total, budget -> Math.addExact(total, MoneyAmount.of(budget.spentAmount, budget.spentAmountUnit).asRialsLongExact()) }
+    // Avoid adding category caps on top of a global cap, and avoid counting
+    // the same category's expenses more than once in the dashboard summary.
+    val activeBudgets = budgets.filter { it.isEnabled }
+    val globalBudgets = activeBudgets.filter { it.categoryId == null }
+    val categoryBudgets = activeBudgets.filter { it.categoryId != null }
+    val budgetsForTotal = if (globalBudgets.isNotEmpty()) globalBudgets else categoryBudgets
+    val totalBudgetValue = budgetsForTotal.fold(0L) { total, budget ->
+        Math.addExact(total, MoneyAmount.of(budget.amount, budget.amountUnit).asRialsLongExact())
+    }
+    val totalSpentValue = if (globalBudgets.isNotEmpty()) {
+        globalBudgets.first().let { MoneyAmount.of(it.spentAmount, it.spentAmountUnit).asRialsLongExact() }
+    } else {
+        categoryBudgets.distinctBy { it.categoryId }.fold(0L) { total, budget ->
+            Math.addExact(total, MoneyAmount.of(budget.spentAmount, budget.spentAmountUnit).asRialsLongExact())
+        }
+    }
     val totalRemainingValue = Math.subtractExact(totalBudgetValue, totalSpentValue)
 
-    val overallProgress = if (totalBudgetValue <= 0L) 0f else (totalSpentValue.toFloat() / totalBudgetValue).coerceIn(0f, 1f)
+    val overallProgress = if (totalBudgetValue <= 0L) 0f else
+        (totalSpentValue.toDouble() / totalBudgetValue.toDouble()).toFloat().coerceIn(0f, 1f)
     val warningBudgets = activeBudgets.filter { it.status == BudgetStatus.WARNING || it.status == BudgetStatus.EXCEEDED }
 
     Scaffold(
@@ -296,7 +309,7 @@ fun BudgetScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "${MoneyFormatter.toPersianDigits(warningBudgets.size.toString())} دسته بودجه از حد مجاز خود عبور کرده‌اند!",
+                            text = "${MoneyFormatter.toPersianDigits(warningBudgets.size.toString())} بودجه به محدوده هشدار رسیده یا از سقف خود عبور کرده است.",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = Color(0xFF991B1B)
                         )
