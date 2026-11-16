@@ -45,12 +45,15 @@ fun VehicleCostChart(
         progress.animateTo(1f, animationSpec = tween(700))
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .testTag("vehicle_cost_chart"),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .testTag("vehicle_cost_chart")
     ) {
+      Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+      ) {
         // Chart Area
         Row(
             modifier = Modifier
@@ -81,8 +84,7 @@ fun VehicleCostChart(
                     // Keep the original label space so the chart geometry remains unchanged.
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    // Stacked Bar. The tooltip is a popup and does not participate in layout.
-                    Box {
+                    // Stacked Bar.
                     Column(
                         modifier = Modifier
                             .width(14.dp)
@@ -122,42 +124,7 @@ fun VehicleCostChart(
                             Box(Modifier.fillMaxWidth().height((118 * otherRatio).dp).background(Color(0xFFA78BFA)))
                         }
                     }
-                    DropdownMenu(
-                        expanded = selectedBarIndex == barIndex,
-                        onDismissRequest = { selectedBarIndex = -1 },
-                        offset = DpOffset(x = 0.dp, y = (-100).dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            tonalElevation = 6.dp,
-                            shadowElevation = 6.dp,
-                            modifier = Modifier.widthIn(min = 132.dp, max = 220.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = bar.monthName,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Text(
-                                    text = MoneyFormatter.formatExact(
-                                        MoneyAmount.of(bar.totalAmount, AppCurrency.RIAL)
-                                    ),
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
-                    }
+
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -198,6 +165,54 @@ fun VehicleCostChart(
             ChartLegendItem(title = "بیمه", color = Color(0xFFFBBF24))
             ChartLegendItem(title = "سایر", color = Color(0xFFA78BFA))
         }
+      }
+
+      // A single tooltip is anchored to this chart's top-center, not to an individual bar.
+      val selectedBar = bars.getOrNull(selectedBarIndex)
+      Box(
+          modifier = Modifier
+              .align(Alignment.TopCenter)
+              .wrapContentSize()
+      ) {
+          DropdownMenu(
+              expanded = selectedBar != null,
+              onDismissRequest = { selectedBarIndex = -1 },
+              offset = DpOffset(x = 0.dp, y = 0.dp)
+          ) {
+              selectedBar?.let { bar ->
+                  Surface(
+                      shape = RoundedCornerShape(10.dp),
+                      color = MaterialTheme.colorScheme.surface,
+                      tonalElevation = 6.dp,
+                      shadowElevation = 6.dp,
+                      modifier = Modifier.widthIn(min = 132.dp, max = 220.dp)
+                  ) {
+                      Column(
+                          modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                          horizontalAlignment = Alignment.CenterHorizontally,
+                          verticalArrangement = Arrangement.spacedBy(4.dp)
+                      ) {
+                          Text(
+                              text = bar.monthName,
+                              style = MaterialTheme.typography.labelMedium,
+                              color = MaterialTheme.colorScheme.onSurface,
+                              textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                              modifier = Modifier.fillMaxWidth()
+                          )
+                          Text(
+                              text = MoneyFormatter.formatExact(
+                                  MoneyAmount.of(bar.totalAmount, AppCurrency.RIAL)
+                              ),
+                              style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                              color = MaterialTheme.colorScheme.primary,
+                              textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                              modifier = Modifier.fillMaxWidth()
+                          )
+                      }
+                  }
+              }
+          }
+      }
     }
 }
 
