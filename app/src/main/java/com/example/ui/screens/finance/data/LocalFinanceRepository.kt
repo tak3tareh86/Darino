@@ -526,6 +526,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val currentRials = MoneyAmount.of(goal.currentAmount, goal.amountUnit).asRialsLongExact()
         val progress = FinanceEngine.calculateSavingsGoalProgress(currentRials, targetRials)
         val normalized = goal.copy(
+            title = goal.title.trim(),
             targetAmount = targetRials,
             currentAmount = currentRials,
             amountUnit = AppCurrency.RIAL,
