@@ -225,7 +225,14 @@ fun TransactionDetailScreen(
 
                     DetailRow(label = "تاریخ", value = transaction.datePersian)
                     DetailRow(label = "ساعت", value = transaction.timePersian)
-                    DetailRow(label = "روش پرداخت / حساب", value = "${transaction.paymentMethod.iconEmoji} ${transaction.paymentMethod.title}")
+                    if (transaction.type == TransactionType.TRANSFER) {
+                        DetailRow(label = "حساب مبدأ", value = transaction.accountName)
+                        transaction.transferRecipientName?.takeIf { it.isNotBlank() }?.let { recipient ->
+                            DetailRow(label = "دریافت‌کننده", value = recipient)
+                        }
+                    } else {
+                        DetailRow(label = "روش پرداخت / حساب", value = "${transaction.paymentMethod.iconEmoji} ${transaction.paymentMethod.title}")
+                    }
 
                     if (transaction.isRecurring) {
                         DetailRow(
