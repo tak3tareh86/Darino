@@ -175,19 +175,17 @@ object BackupFolderStorage {
             if (resolver.openInputStream(recovered)?.use { it.readBytes().isNotEmpty() } != true) {
                 throw IOException("نسخه قبلی پشتیبان پس از بازیابی قابل خواندن نیست.")
             }
-        } else if (currentDocument != null) {
-            // The new file was promoted only after its temporary contents were verified.
-            // A leftover rollback is therefore safe to discard on the next run.
-            rollbackDocuments.forEach { document ->
-                runCatching { DocumentsContract.deleteDocument(resolver, document.uri) }
-            }
         }
+        // If a stable file and rollback copies both exist, retain the rollback copies.
+        // A previous process may have stopped after promotion but before verifying the
+        // renamed document. They are removed only after this run verifies its replacement.
 
         val temporaryName = ".$filename.tmp-${System.currentTimeMillis()}"
         val temporaryUri = DocumentsContract.createDocument(
             resolver, parentDocumentUri, "application/octet-stream", temporaryName
         ) ?: throw IOException("ساخت فایل موقت در پوشه پشتیبان ناموفق بود.")
         var rollbackUri: Uri? = null
+        var promotedUri: Uri? = null
         try {
             val descriptor = resolver.openFileDescriptor(temporaryUri, "w")
                 ?: throw IOException("باز کردن فایل موقت برای نوشتن ناموفق بود.")
@@ -213,6 +211,7 @@ object BackupFolderStorage {
 
             val finalUri = DocumentsContract.renameDocument(resolver, temporaryUri, filename)
                 ?: throw IOException("پوشه انتخاب‌شده امکان نهایی‌کردن نام فایل پشتیبان را ندارد.")
+            promotedUri = finalUri
             val finalBytes = resolver.openInputStream(finalUri)?.use { it.readBytes() }
                 ?: throw IOException("خواندن فایل پشتیبان پس از جایگزینی ناموفق بود.")
             check(finalBytes.contentEquals(payload)) {
@@ -260,6 +259,12 @@ object BackupFolderStorage {
                 }.onFailure { restoreError ->
                     error.addSuppressed(restoreError)
                     android.util.Log.e("BackupFolderStorage", "Failed to restore the previous automatic backup.", restoreError)
+                }
+            } else {
+                // On the first save there is no previous file to restore. Never leave
+                // an unverified promoted document under the stable automatic-backup name.
+                promotedUri?.let { uri ->
+                    runCatching { DocumentsContract.deleteDocument(resolver, uri) }
                 }
             }
             throw error
