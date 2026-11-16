@@ -113,7 +113,9 @@ class SubscriptionValidatorTest {
             trialEndAt = trialEnd,
             subscriptionStartAt = now,
             subscriptionEndAt = subEnd,
-            lastSyncAt = now
+            marketAccountState = "MARKET_ACTIVE",
+            lastSyncAt = now,
+            lastMarketVerificationAt = now
         )
 
         val status = SubscriptionValidator.evaluateStatus(info, now)
