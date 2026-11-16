@@ -386,4 +386,26 @@ class RecurringTransactionWorkerTest {
         assertEquals("۱۴۰۵/۰۱/۲۲", next)
     }
 
+
+    @Test
+    fun remindLaterKeepsPendingOccurrenceHiddenUntilDeferredTime() = runBlocking {
+        val date = dueDate()
+        val item = recurring(id = "rec_defer_pending", accountId = defaultAccountId())
+        repository.addRecurringTransaction(item)
+        repository.processDueRecurringTransactions(context)
+
+        val id = occurrenceId(item.id, date)
+        assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+
+        RecurringTransactionNotificationManager.deferPending(
+            context,
+            testUserId,
+            id,
+            System.currentTimeMillis() + 24L * 60L * 60L * 1000L
+        )
+
+        assertFalse(RecurringTransactionNotificationManager.showPendingIfDue(context, testUserId, id))
+        assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+    }
+
 }
