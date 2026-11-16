@@ -328,11 +328,13 @@ class RecurringTransactionWorkerTest {
         val id = occurrenceId(item.id, date)
         assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
 
-        repository.updateRecurringTransaction(item.copy(amount = item.amount + 100_000L))
+        val edited = item.copy(amount = item.amount + 100_000L)
+        repository.updateRecurringTransaction(edited)
 
-        assertFalse(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
-        assertFalse(repository.confirmPendingRecurringTransaction(context, id))
-        assertTrue(db.transactionDao().getAllTransactionsList(testUserId).none { it.stringId == id })
+        assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertTrue(repository.confirmPendingRecurringTransaction(context, id))
+        val created = db.transactionDao().getAllTransactionsList(testUserId).single { it.stringId == id }
+        assertEquals(edited.amount, created.amount)
     }
 
     @Test
